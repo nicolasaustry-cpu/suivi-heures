@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Entreprise</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <h1>Entreprise</h1>
+  <div id="licence-status"></div>
+</header>
+
+<div class="nav">
+  <a href="index.html" class="active">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<section>
+  <h2>Informations de l’entreprise</h2>
+  <div class="flex" style="flex-direction:column;align-items:flex-start;background:#e0f2fe;padding:1rem;border-radius:8px;gap:1rem;">
+    <div>
+      <label>Nom de l’entreprise :</label><br>
+      <input id="nom-entreprise" placeholder="Ex : Dupont Bâtiment" style="width:300px;">
+    </div>
+    <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
+  </div>
+</section>
+
+<section>
+  <h2>Licence</h2>
+  <div class="flex" style="align-items:flex-end;gap:1rem;">
+    <div>
+      <label>Code client :</label><br>
+      <input id="code-client" placeholder="XXXX-YYYY-ZZZZ" style="width:220px;">
+    </div>
+    <button class="btn btn-primary" onclick="activerLicence()">Activer la licence</button>
+  </div>
+</section>
+
+<script src="assets/script.js"></script>
+<script>
+// Vérification de la licence et chargement de l’entreprise
+licenceOK();
+initEntreprise();
+
+// Sauvegarde du nom d’entreprise dans le stockage local
+function sauverEntreprise() {
+  const nom = document.getElementById('nom-entreprise').value.trim();
+  if (!nom) return alert('Veuillez saisir un nom d’entreprise.');
+  entreprise.nom = nom;
+  localStorage.setItem('entreprise_data', JSON.stringify(entreprise));
+  alert('Informations enregistrées.');
+}
+</script>
+</body>
+</html>

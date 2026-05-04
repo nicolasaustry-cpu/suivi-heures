@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapports</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header>
+  <h1>Rapports</h1>
+  <div id="licence-status"></div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html" class="active">Rapports</a>
+</div>
+
+<section>
+  <div class="flex">
+    <!-- Salariés -->
+    <div style="position:relative;">
+      <label>Salarié(s) :</label><br>
+      <input type="text" id="salarieSearch" placeholder="Rechercher ou choisir"
+             onfocus="ouvrirListeSalaries()" oninput="filtrerListeSalaries(this.value)"
+             style="width:220px;">
+      <div id="salarieList"
+           style="position:absolute;z-index:10;background:#fff;border:1px solid #ccc;
+                  max-height:160px;overflow:auto;width:220px;display:none;"></div>
+    </div>
+
+    <!-- Chantiers -->
+    <div style="position:relative;">
+      <label>Chantier(s) :</label><br>
+      <input type="text" id="chantierSearch" placeholder="Rechercher ou choisir"
+             onfocus="ouvrirListeChantiers()" oninput="filtrerListeChantiers(this.value)"
+             style="width:220px;">
+      <div id="chantierList"
+           style="position:absolute;z-index:10;background:#fff;border:1px solid #ccc;
+                  max-height:200px;overflow:auto;width:260px;display:none;"></div>
+      <button class="btn btn-warning" style="margin-top:4px;width:100%;"
+              onclick="actualiserListeChantiers()">🔄 Actualiser la liste</button>
+    </div>
+
+    <!-- Années -->
+    <div style="position:relative;">
+      <label>Année(s) :</label><br>
+      <input type="text" id="anneeSearch" placeholder="Rechercher ou choisir"
+             onfocus="ouvrirListeAnnees()" oninput="filtrerListeAnnees(this.value)"
+             style="width:120px;">
+      <div id="anneeList"
+           style="position:absolute;z-index:10;background:#fff;border:1px solid #ccc;
+                  max-height:160px;overflow:auto;width:120px;display:none;"></div>
+    </div>
+
+    <!-- Bouton -->
+    <div style="align-self:end;">
+      <button class="btn btn-primary" onclick="genererRapport()">Afficher</button>
+    </div>
+  </div>
+
+  <!-- Synthèse -->
+  <div id="zone-synthese"
+       style="margin:1.5rem 0;background:#f0f9ff;padding:1rem;border-radius:8px;border:1px solid #ccc;display:none;">
+    <div style="font-size:1.1rem;font-weight:bold;margin-bottom:0.5rem;">Synthèse par salarié</div>
+    <div style="display:flex;justify-content:space-around;gap:1rem;margin-bottom:1rem;">
+      <div><span style="color:#666;">Total heures :</span> <strong id="total-heures-affiche">0 h</strong></div>
+      <div><span style="color:#666;">Nombre d'entrées :</span> <strong id="nb-entrees">0</strong></div>
+    </div>
+    <table id="table-synthese" style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+      <thead>
+        <tr style="background:#e8edf3;">
+          <th style="border:1px solid #ccc;padding:6px;">Salarié</th>
+          <th style="border:1px solid #ccc;padding:6px;">Total heures</th>
+          <th style="border:1px solid #ccc;padding:6px;">Nb interventions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Rapport -->
+  <table id="table-rapport">
+    <thead>
+      <tr><th>Date</th><th>Salarié</th><th>Chantier</th><th>Heures</th></tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr><td colspan="3" style="text-align:right;font-weight:bold;">Total heures&nbsp;</td>
+          <td id="total-heures" style="font-weight:bold;">0</td></tr>
+    </tfoot>
+  </table>
+</section>
+
+<script src="assets/script.js"></script>
+<script>
+// === Initialisation ===
+if (typeof licenceOK === 'function') licenceOK();
+
+// --- Nettoyage automatique : supprime les entrées vides / 0h / absence / dimanches ---
+function nettoyerHeuresData() {
+  let changed = false;
+  const data = JSON.parse(localStorage.getItem('heures_data') || '{}');
+  const cleaned = {};
+
+  for (const k in data) {
+    const item = data[k];
+    if (!item) continue;
+    const chantier = (item.chantier || '').trim();
+    const heuresVal = parseFloat(item.heures) || 0;
+    const [, dateStr] = k.split('_');
+    const d = new Date(dateStr);
+    if (d.getDay() === 0) { changed = true; continue; } // dimanche supprimé
+    if (chantier && chantier.toLowerCase() !== 'absence' && heuresVal > 0) {
+      cleaned[k] = { chantier, heures: heuresVal };
+    } else changed = true;
+  }
+  if (changed) {
+    localStorage.setItem('heures_data', JSON.stringify(cleaned));
+    console.log('[Nettoyage] Données invalides supprimées.');
+  }
+  return cleaned;
+}
+heures = nettoyerHeuresData();
+salaries = JSON.parse(localStorage.getItem('salaries_data') || '[]');
+
+// --- Multi-salariés ---
+let salariesSelectionnes = [];
+function getListeSalaries() {
+  return salaries.map(s => ({ id: s.id, nom: `${s.prenom} ${s.nom}` }))
+                 .sort((a, b) => a.nom.localeCompare(b.nom));
+}
+function ouvrirListeSalaries() {
+  const liste = getListeSalaries();
+  const zone = document.getElementById('salarieList');
+  zone.innerHTML = liste.length ?
+    liste.map(s => `<label style="display:block;padding:2px 4px;">
+      <input type="checkbox" value="${s.id}" onchange="majSelectionSalaries()"> ${s.nom}
+    </label>`).join('') :
+    '<em style="padding:4px;">Aucun salarié</em>';
+  zone.style.display = 'block';
+}
+function filtrerListeSalaries(t) {
+  const liste = getListeSalaries().filter(s => s.nom.toLowerCase().includes((t||'').toLowerCase()));
+  const zone = document.getElementById('salarieList');
+  zone.innerHTML = liste.map(s => `<label style="display:block;padding:2px 4px;">
+      <input type="checkbox" value="${s.id}" onchange="majSelectionSalaries()"> ${s.nom}
+    </label>`).join('');
+  zone.style.display = 'block';
+}
+function majSelectionSalaries() {
+  const boxes = document.querySelectorAll('#salarieList input[type=checkbox]');
+  salariesSelectionnes = Array.from(boxes).filter(b => b.checked).map(b => b.value);
+}
+
+// --- Multi-chantiers ---
+let chantiersSelectionnes = [];
+function getListeChantiers() {
+  const data = JSON.parse(localStorage.getItem('heures_data') || '{}');
+  const ch = {};
+  for (const k in data) {
+    const h = data[k];
+    if (!h) continue;
+    const nom = (h.chantier||'').trim();
+    if (!nom || nom.toLowerCase()==='absence') continue;
+    const [,date] = k.split('_');
+    const d = new Date(date);
+    if (!ch[nom] || d>ch[nom]) ch[nom]=d;
+  }
+  return Object.entries(ch)
+    .map(([nom,date])=>({nom,date}))
+    .sort((a,b)=>a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'}));
+}
+function ouvrirListeChantiers(){afficherListeChantiers('');}
+function filtrerListeChantiers(t){
+  afficherListeChantiers(t);
+}
+function afficherListeChantiers(t){
+  const liste = getListeChantiers().filter(c=>c.nom.toLowerCase().includes((t||'').toLowerCase()));
+  const zone = document.getElementById('chantierList');
+  zone.innerHTML = liste.length ? liste.map(c=>`
+    <label style="display:block;padding:3px 6px;border-bottom:1px solid #eee;">
+      <input type="checkbox" value="${c.nom}" onchange="majSelectionChantiers()">
+      <strong>${c.nom}</strong><br>
+      <span style="font-size:0.75rem;color:#666;">Dernière date : ${c.date.toLocaleDateString('fr-FR')}</span>
+    </label>`).join('')
+    : '<em style="padding:4px;">Aucun chantier</em>';
+  zone.style.display='block';
+}
+function majSelectionChantiers(){
+  chantiersSelectionnes = Array.from(document.querySelectorAll('#chantierList input:checked')).map(b=>b.value);
+}
+function actualiserListeChantiers(){
+  heures = nettoyerHeuresData();
+  ouvrirListeChantiers();
+  alert('Liste des chantiers actualisée.');
+}
+
+// --- Multi-années (mode “chantier”) ---
+let anneesSelectionnees = [];
+function getListeAnnees(){
+  const now = new Date().getFullYear();
+  const arr=[];
+  for(let y=now;y>=now-5;y--)arr.push(y);
+  return arr;
+}
+function ouvrirListeAnnees(){
+  const l=getListeAnnees(),z=document.getElementById('anneeList');
+  z.innerHTML=l.map(a=>`<label style="display:block;padding:2px 4px;"><input type="checkbox" value="${a}" onchange="majSelectionAnnees()"> ${a}</label>`).join('');
+  // sélectionner année courante par défaut
+  const current=new Date().getFullYear().toString();
+  z.querySelectorAll('input').forEach(cb=>{
+    if(cb.value===current&&!anneesSelectionnees.includes(cb.value))cb.checked=true;
+  });
+  majSelectionAnnees(); z.style.display='block';
+}
+function filtrerListeAnnees(t){
+  const l=getListeAnnees().filter(a=>a.toString().includes((t||'')));
+  const z=document.getElementById('anneeList');
+  z.innerHTML=l.length?l.map(a=>`<label style="display:block;padding:2px 4px;"><input type="checkbox" value="${a}" onchange="majSelectionAnnees()"> ${a}</label>`).join(''):'<em style="padding:4px;">Aucune correspondance</em>';
+  z.style.display='block';
+}
+function majSelectionAnnees(){
+  const boxes=document.querySelectorAll('#anneeList input[type=checkbox]');
+  anneesSelectionnees=Array.from(boxes).filter(b=>b.checked).map(b=>parseInt(b.value));
+  if(anneesSelectionnees.length===0)anneesSelectionnees=[new Date().getFullYear()];
+}
+
+// --- Fermer les listes au clic extérieur ---
+document.addEventListener('click',e=>{
+  ['salarieList','chantierList','anneeList'].forEach(id=>{
+    const z=document.getElementById(id),f=id.replace('List','Search');
+    if(z&&!z.contains(e.target)&&e.target.id!==f)z.style.display='none';
+  });
+});
+
+// --- Rapport ---
+function genererRapport(){
+  const tb=document.querySelector('#table-rapport tbody');
+  tb.innerHTML=''; let lignes=[],totR=0;
+  heures=JSON.parse(localStorage.getItem('heures_data')||'{}');
+  for(const k in heures){
+    const [id,date]=k.split('_'),h=heures[k]; if(!h||!h.chantier)continue;
+    const d=new Date(date); if(d.getDay()===0)continue;
+    const y=d.getFullYear(); if(anneesSelectionnees.length&&!anneesSelectionnees.includes(y))continue;
+    if(h.chantier.toLowerCase()==='absence')continue;
+    const val=parseFloat(h.heures)||0; if(val<=0)continue;
+    const s=salaries.find(x=>x.id==id); if(!s)continue;
+    if(salariesSelectionnes.length&&!salariesSelectionnes.includes(id))continue;
+    if(chantiersSelectionnes.length&&!chantiersSelectionnes.some(sel=>sel.toLowerCase()===h.chantier.trim().toLowerCase()))continue;
+    lignes.push({date:d,salarie:`${s.prenom} ${s.nom}`,chantier:h.chantier.trim(),heures:val,salarieId:id});
+  }
+  lignes.sort((a,b)=>a.salarie.localeCompare(b.salarie,'fr',{sensitivity:'base'}));
+  lignes.forEach(L=>{
+    tb.innerHTML+=`<tr><td>${L.date.toLocaleDateString('fr-FR')}</td><td>${L.salarie}</td><td>${L.chantier}</td><td>${L.heures.toFixed(2)}</td></tr>`;
+    totR+=L.heures;
+  });
+  document.getElementById('total-heures').textContent=totR.toFixed(2);
+  document.getElementById('total-heures-affiche').textContent=`${totR.toFixed(2)} h`;
+  document.getElementById('nb-entrees').textContent=lignes.length;
+  if(lignes.length>0){afficherSyntheseParSalarie(lignes);document.getElementById('zone-synthese').style.display='block';}
+  else document.getElementById('zone-synthese').style.display='none';
+}
+
+// --- Synthèse par salarié ---
+function afficherSyntheseParSalarie(lignes){
+  const s={};
+  lignes.forEach(L=>{
+    if(!s[L.salarieId])s[L.salarieId]={nom:L.salarie,totalHeures:0,nb:0};
+    s[L.salarieId].totalHeures+=L.heures;s[L.salarieId].nb++;
+  });
+  const tb=document.querySelector('#table-synthese tbody');tb.innerHTML='';
+  Object.values(s).sort((a,b)=>b.totalHeures-a.totalHeures)
+    .forEach(x=>{
+      tb.innerHTML+=`<tr><td style="border:1px solid #ccc;padding:6px;">${x.nom}</td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center;"><strong>${x.totalHeures.toFixed(2)} h</strong></td>
+      <td style="border:1px solid #ccc;padding:6px;text-align:center;">${x.nb}</td></tr>`;
+    });
+}
+</script>
+</body>
+</html>
+
