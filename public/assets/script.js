@@ -5,7 +5,7 @@ let licence = JSON.parse(localStorage.getItem("licence_data") || "null");
 let entreprise = JSON.parse(localStorage.getItem("entreprise_data") || "{}");
 
 /* --- URL du serveur Render --- */
-const API_BASE = "[suivi-heures-v2.onrender.com](https://suivi-heures-v2.onrender.com)";
+const API_BASE ="https://suivi-heures-v2.onrender.com";
 
 /* ---------- Fonctions réseau ---------- */
 
@@ -145,10 +145,15 @@ function saveHeure(key, chantier, h) { heures[key] = { chantier, heures: parseFl
 window.addEventListener("DOMContentLoaded", () => {
   const header = document.querySelector("header");
   if (!header) return;
+
   document.getElementById("volitis-link")?.remove();
   const wrapper = document.createElement("div");
   wrapper.id = "volitis-link";
-  wrapper.style.display = "flex"; wrapper.style.alignItems = "center"; wrapper.style.gap = "0.5rem"; wrapper.style.marginLeft = "1rem";
+  wrapper.style.display = "flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "0.5rem";
+  wrapper.style.marginLeft = "1rem";
+
   const logoContainer = document.createElement("div");
   logoContainer.style.background = "white";
   logoContainer.style.borderRadius = "50%";
@@ -157,16 +162,41 @@ window.addEventListener("DOMContentLoaded", () => {
   logoContainer.style.display = "flex";
   logoContainer.style.alignItems = "center";
   logoContainer.style.justifyContent = "center";
+
   const img = document.createElement("img");
   img.src = "assets/volitis-logo.png";
   img.alt = "Logo Volitis";
-  img.style.height = "30px"; img.style.width = "auto";
+  img.style.height = "30px";
+  img.style.width = "auto";
   logoContainer.appendChild(img);
+
   const text = document.createElement("span");
   text.textContent = "Outil créé par Volitis";
-  text.style.fontSize = "0.8rem"; text.style.color = "white"; text.style.whiteSpace = "nowrap";
+  text.style.fontSize = "0.8rem";
+  text.style.color = "white";
+  text.style.whiteSpace = "nowrap";
+
   wrapper.append(logoContainer, text);
+
+  // 🔗 lien cliquable vers Volitis (corrigé)
   wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+
   const status = document.getElementById("licence-status");
   (status || header).insertAdjacentElement("afterend", wrapper);
+}); // ✅ <-- on ferme bien ici le premier listener
+
+
+/* --- Ajuster automatiquement la marge sous le bandeau --- */
+window.addEventListener("load", () => {
+  const topFixed = document.getElementById("top-fixed");
+  const planningContainer = document.querySelector("#planning-wrapper")?.parentElement;
+
+  if (topFixed && planningContainer) {
+    // attendre le calcul réel de la hauteur une fois le rendu complet
+    const h = topFixed.getBoundingClientRect().height;
+    planningContainer.style.marginTop = (h + 20) + "px";
+    console.log("Décalage planning appliqué :", h + 20, "px");
+  }
 });
+
+
