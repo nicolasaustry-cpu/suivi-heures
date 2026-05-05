@@ -117,3 +117,11 @@ th{background:#e8edf3;}
   background-color: #ffffff;  /* blanc */
 }
 
+/* Permet la saisie du code licence même en mode readonly */
+body.readonly #code-client,
+body.readonly button[onclick="activerLicence()"] {
+  pointer-events: auto !important;
+  background-color: white !important;
+  color: black !important;
+  opacity: 1 !important;
+}
