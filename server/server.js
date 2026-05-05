@@ -18,8 +18,15 @@ app.use(express.json());
 app.use(express.static("public"));
 
 // --- Route de test ---
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ✅ Sert automatiquement index.html à la racine
 app.get("/", (req, res) => {
-  res.send("✅ Le serveur fonctionne et MongoDB est connecté !");
+  res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
 // --- Routes principales ---
