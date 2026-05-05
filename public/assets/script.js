@@ -179,7 +179,7 @@ window.addEventListener("DOMContentLoaded", () => {
   wrapper.append(logoContainer, text);
 
   // 🔗 lien cliquable vers Volitis (corrigé)
-  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
 
   const status = document.getElementById("licence-status");
   (status || header).insertAdjacentElement("afterend", wrapper);
