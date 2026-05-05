@@ -6,8 +6,6 @@ import authRoutes from "./routes/auth.js";
 import dataRoutes from "./routes/data.js";
 import adminRoutes from "./routes/admin.js";
 
- // routes d’authentification
-
 dotenv.config(); // charge le fichier .env
 
 const app = express();
@@ -15,6 +13,9 @@ const app = express();
 // --- Middlewares ---
 app.use(cors());
 app.use(express.json());
+
+// ✅ Ajoute cette ligne : rend le dossier public accessible
+app.use(express.static("public"));
 
 // --- Route de test ---
 app.get("/", (req, res) => {
@@ -34,3 +35,4 @@ mongoose.connect(process.env.MONGO_URI)
 // --- Lancement du serveur ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
+
