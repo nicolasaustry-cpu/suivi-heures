@@ -39,23 +39,62 @@ async function chargerEntrepriseServeur() {
 }
 
 /* ---------- Licence ---------- */
-function activerLicence() {
+async function activerLicence() {
   const code = document.getElementById("code-client").value.trim();
   if (!code) return alert("Saisir un code client");
-  const now = new Date();
-  const exp = new Date(now);
-  exp.setMonth(now.getMonth() + 6);
-  licence = { code, activation: now.toISOString(), expiration: exp.toISOString() };
-  localStorage.setItem("licence_data", JSON.stringify(licence));
-  alert("Licence activée jusqu’au " + exp.toLocaleDateString("fr-FR"));
-  location.reload();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/data/verifyLicence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+
+    if (!data.valid) {
+      alert(data.message);
+      return;
+    }
+
+    const now = new Date();
+    const exp = new Date(now);
+    exp.setMonth(now.getMonth() + 6); // optionnel, côté client
+    licence = { code, activation: now.toISOString(), expiration: exp.toISOString() };
+    localStorage.setItem("licence_data", JSON.stringify(licence));
+    alert(data.message);
+    location.reload();
+  } catch (err) {
+    alert("Erreur de communication avec le serveur de licences.");
+    console.error(err);
+  }
 }
+
 
 function licenceOK() {
   const msg = document.getElementById("licence-status");
   if (!licence) {
     msg.textContent = "Licence non activée";
     document.body.classList.add("readonly");
+    
+    // ✅ Force l'activation du champ licence même en mode readonly
+    setTimeout(() => {
+      const codeField = document.getElementById("code-client");
+      const btnLicence = document.querySelector('button[onclick="activerLicence()"]');
+      
+      if (codeField) {
+        codeField.style.pointerEvents = "auto";
+        codeField.style.backgroundColor = "white";
+        codeField.style.opacity = "1";
+        codeField.disabled = false;
+      }
+      
+      if (btnLicence) {
+        btnLicence.style.pointerEvents = "auto";
+        btnLicence.style.opacity = "1";
+        btnLicence.disabled = false;
+      }
+    }, 100);
+    
     return false;
   }
   const exp = new Date(licence.expiration);
@@ -65,7 +104,7 @@ function licenceOK() {
     document.body.classList.add("readonly");
     return false;
   }
-  msg.textContent = "Active jusqu’au " + exp.toLocaleDateString("fr-FR");
+  msg.textContent = "Active jusqu'au " + exp.toLocaleDateString("fr-FR");
   document.body.classList.remove("readonly");
   return true;
 }
