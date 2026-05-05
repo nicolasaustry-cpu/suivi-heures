@@ -179,7 +179,7 @@ window.addEventListener("DOMContentLoaded", () => {
   wrapper.append(logoContainer, text);
 
   // 🔗 lien cliquable vers Volitis (corrigé)
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
+  wrapper.addEventListener("click", () => window.open"https://volitis.net/", "_blank");
 
   const status = document.getElementById("licence-status");
   (status || header).insertAdjacentElement("afterend", wrapper);
@@ -197,6 +197,15 @@ window.addEventListener("load", () => {
     planningContainer.style.marginTop = (h + 20) + "px";
     console.log("Décalage planning appliqué :", h + 20, "px");
   }
+/* --- URL du serveur Render --- */
+const API_BASE = "https://suivi-heures-v2.onrender.com";
+
+/* --- Lancement automatique à l’ouverture de la page --- */
+window.addEventListener("DOMContentLoaded", () => {
+  licenceOK();
 });
+
+});
+
 
 
