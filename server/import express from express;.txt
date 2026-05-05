@@ -1,0 +1,26 @@
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import cors from "cors";
+
+dotenv.config(); // Lis le fichier .env
+
+const app = express();
+
+// Middleware : pour que le serveur comprenne le JSON et accepte les requêtes du front
+app.use(cors());
+app.use(express.json());
+
+// Route de test
+app.get("/", (req, res) => {
+  res.send("✅ Le serveur fonctionne !");
+});
+
+// Connexion à MongoDB (on configurera l'adresse plus tard)
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ Connecté à MongoDB"))
+  .catch((err) => console.error("Erreur de connexion MongoDB :", err));
+
+// Lancement du serveur
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
