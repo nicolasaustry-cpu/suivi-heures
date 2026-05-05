@@ -5,7 +5,7 @@ let licence = JSON.parse(localStorage.getItem("licence_data") || "null");
 let entreprise = JSON.parse(localStorage.getItem("entreprise_data") || "{}");
 
 /* --- URL du serveur Render --- */
-const API_BASE ="https://suivi-heures-v2.onrender.com";
+const API_BASE = "[suivi-heures-v2.onrender.com](https://suivi-heures-v2.onrender.com)";
 
 /* ---------- Fonctions réseau ---------- */
 
@@ -50,6 +50,7 @@ function activerLicence() {
   alert("Licence activée jusqu’au " + exp.toLocaleDateString("fr-FR"));
   location.reload();
 }
+
 function licenceOK() {
   const msg = document.getElementById("licence-status");
   if (!licence) {
@@ -57,8 +58,8 @@ function licenceOK() {
     document.body.classList.add("readonly");
     return false;
   }
-  const exp = new Date(licence.expiration),
-    now = new Date();
+  const exp = new Date(licence.expiration);
+  const now = new Date();
   if (now > exp) {
     msg.textContent = "Licence expirée";
     document.body.classList.add("readonly");
@@ -73,7 +74,8 @@ function licenceOK() {
 function initEntreprise() {
   if (entreprise.nom) {
     document.getElementById("nom-entreprise").value = entreprise.nom;
-    document.getElementById("entreprise-nom").textContent = entreprise.nom;
+    const titre = document.getElementById("entreprise-nom");
+    if (titre) titre.textContent = entreprise.nom;
   }
 }
 
@@ -105,7 +107,7 @@ function ajouterSalarie() {
     else el.value = "";
   });
 
-  // 🔄 Enregistrer sur le serveur
+  // 🔄 Synchronisation serveur
   fetch(`${API_BASE}/api/data/saveSalaries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -115,6 +117,7 @@ function ajouterSalarie() {
 
 function afficherSalaries() {
   const tb = document.querySelector("#table-salaries tbody");
+  if (!tb) return;
   tb.innerHTML = "";
   salaries.forEach((s, index) => {
     const h = s.heuresParJour || {};
@@ -135,13 +138,28 @@ function afficherSalaries() {
   });
 }
 
-/* --- Autres fonctions locales (inchangées) --- */
-function majSalarie(index, champ, valeur) { salaries[index][champ] = valeur; localStorage.setItem("salaries_data", JSON.stringify(salaries)); }
-function supprimerSalarie(id) { if (!confirm("Supprimer ce salarié ?")) return; salaries = salaries.filter(s => s.id != id); localStorage.setItem("salaries_data", JSON.stringify(salaries)); afficherSalaries(); }
-function majHeuresJour(index, jour, valeur) { if (!salaries[index].heuresParJour) salaries[index].heuresParJour = {}; salaries[index].heuresParJour[jour] = parseFloat(valeur) || 0; localStorage.setItem("salaries_data", JSON.stringify(salaries)); }
-function saveHeure(key, chantier, h) { heures[key] = { chantier, heures: parseFloat(h) || 0 }; localStorage.setItem("heures_data", JSON.stringify(heures)); }
+/* --- Fonctions locales --- */
+function majSalarie(index, champ, valeur) {
+  salaries[index][champ] = valeur;
+  localStorage.setItem("salaries_data", JSON.stringify(salaries));
+}
+function supprimerSalarie(id) {
+  if (!confirm("Supprimer ce salarié ?")) return;
+  salaries = salaries.filter(s => s.id != id);
+  localStorage.setItem("salaries_data", JSON.stringify(salaries));
+  afficherSalaries();
+}
+function majHeuresJour(index, jour, valeur) {
+  if (!salaries[index].heuresParJour) salaries[index].heuresParJour = {};
+  salaries[index].heuresParJour[jour] = parseFloat(valeur) || 0;
+  localStorage.setItem("salaries_data", JSON.stringify(salaries));
+}
+function saveHeure(key, chantier, h) {
+  heures[key] = { chantier, heures: parseFloat(h) || 0 };
+  localStorage.setItem("heures_data", JSON.stringify(heures));
+}
 
-/* --- Logo Volitis --- */
+/* --- Logo Volitis + vérification licence au chargement --- */
 window.addEventListener("DOMContentLoaded", () => {
   const header = document.querySelector("header");
   if (!header) return;
@@ -177,14 +195,13 @@ window.addEventListener("DOMContentLoaded", () => {
   text.style.whiteSpace = "nowrap";
 
   wrapper.append(logoContainer, text);
-
-  // 🔗 lien cliquable vers Volitis (corrigé)
-  wrapper.addEventListener("click", () => window.open"https://volitis.net/", "_blank");
-
+  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
   const status = document.getElementById("licence-status");
   (status || header).insertAdjacentElement("afterend", wrapper);
-}); // ✅ <-- on ferme bien ici le premier listener
 
+  // 🔸 Vérification automatique de la licence après chargement
+  licenceOK();
+});
 
 /* --- Ajuster automatiquement la marge sous le bandeau --- */
 window.addEventListener("load", () => {
@@ -192,20 +209,12 @@ window.addEventListener("load", () => {
   const planningContainer = document.querySelector("#planning-wrapper")?.parentElement;
 
   if (topFixed && planningContainer) {
-    // attendre le calcul réel de la hauteur une fois le rendu complet
     const h = topFixed.getBoundingClientRect().height;
     planningContainer.style.marginTop = (h + 20) + "px";
     console.log("Décalage planning appliqué :", h + 20, "px");
   }
-/* --- URL du serveur Render --- */
-const API_BASE = "https://suivi-heures-v2.onrender.com";
-
-/* --- Lancement automatique à l’ouverture de la page --- */
-window.addEventListener("DOMContentLoaded", () => {
-  licenceOK();
 });
 
-});
 
 
 
