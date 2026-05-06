@@ -197,3 +197,25 @@ body.readonly main {
   text-align: center;
   flex: 1;
 }
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #2563eb;
+  color: #fff;
+  padding: 0.8rem 1rem;
+  position: relative;
+}
+
+.main-header .entreprise-nom {
+  font-weight: bold;
+  font-size: 1rem;
+  min-width: 180px;
+}
+
+.main-header .page-title {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 1.4rem;
+}
