@@ -217,6 +217,3 @@ window.addEventListener("load", () => {
   }
 });
 
-
-
-
