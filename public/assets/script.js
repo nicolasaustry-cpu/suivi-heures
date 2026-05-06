@@ -72,31 +72,29 @@ async function activerLicence() {
 
 function licenceOK() {
   const msg = document.getElementById("licence-status");
+  const codeInput = document.getElementById("code-client");
+  const btnLicence = document.querySelector('button[onclick="activerLicence()"]');
+  const nomEntreprise = document.getElementById("nom-entreprise");
+
+  // --- si aucune licence : on dégrise la page d'accueil pour saisir le code et le nom ---
   if (!licence) {
     msg.textContent = "Licence non activée";
     document.body.classList.add("readonly");
-    
-    // ✅ Force l'activation du champ licence même en mode readonly
-    setTimeout(() => {
-      const codeField = document.getElementById("code-client");
-      const btnLicence = document.querySelector('button[onclick="activerLicence()"]');
-      
-      if (codeField) {
-        codeField.style.pointerEvents = "auto";
-        codeField.style.backgroundColor = "white";
-        codeField.style.opacity = "1";
-        codeField.disabled = false;
+
+    // permettre la saisie du code et du nom d'entreprise
+    [codeInput, btnLicence, nomEntreprise].forEach(el => {
+      if (el) {
+        el.disabled = false;
+        el.style.pointerEvents = "auto";
+        el.style.backgroundColor = "white";
+        el.style.opacity = "1";
       }
-      
-      if (btnLicence) {
-        btnLicence.style.pointerEvents = "auto";
-        btnLicence.style.opacity = "1";
-        btnLicence.disabled = false;
-      }
-    }, 100);
-    
+    });
+
     return false;
   }
+
+  // --- licence expirée ---
   const exp = new Date(licence.expiration);
   const now = new Date();
   if (now > exp) {
@@ -104,7 +102,9 @@ function licenceOK() {
     document.body.classList.add("readonly");
     return false;
   }
-  msg.textContent = "Active jusqu'au " + exp.toLocaleDateString("fr-FR");
+
+  // --- licence encore valide ---
+  msg.textContent = "Active jusqu’au " + exp.toLocaleDateString("fr-FR");
   document.body.classList.remove("readonly");
   return true;
 }
