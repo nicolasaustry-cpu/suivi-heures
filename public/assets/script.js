@@ -7,97 +7,66 @@ let entreprise = JSON.parse(localStorage.getItem("entreprise_data") || "{}");
 /* --- URL du serveur Render --- */
 const API_BASE = "[suivi-heures-v2.onrender.com](https://suivi-heures-v2.onrender.com)";
 
-/* ---------- Fonctions réseau ---------- */
-
-// Enregistrer les données de l’entreprise sur MongoDB
-async function sauvegarderEntrepriseServeur(data) {
-  try {
-    const res = await fetch(`${API_BASE}/api/data/saveEntreprise`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error("Erreur sauvegarde entreprise");
-  } catch (err) {
-    console.error("Erreur de communication serveur :", err);
-  }
-}
-
-// Récupérer les données de l’entreprise à la connexion
-async function chargerEntrepriseServeur() {
-  try {
-    const res = await fetch(`${API_BASE}/api/data/getEntreprise`);
-    if (!res.ok) throw new Error("Réponse invalide");
-    const data = await res.json();
-    if (data && data.nom) {
-      entreprise = data;
-      localStorage.setItem("entreprise_data", JSON.stringify(data));
-    }
-  } catch (err) {
-    console.error("Erreur de chargement entreprise :", err);
-  }
-}
-
 /* ---------- Licence ---------- */
-async function activerLicence() {
-  const code = document.getElementById("code-client").value.trim();
-  if (!code) return alert("Saisir un code client");
+function licenceOK() {
+  const msg = document.getElementById("licence-status");
 
-  try {
-    const res = await fetch(`${API_BASE}/api/data/verifyLicence`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code })
-    });
-    const data = await res.json();
-
-    if (!data.valid) {
-      alert(data.message);
-      return;
-    }
-
-    const now = new Date();
-    const exp = new Date(now);
-    exp.setMonth(now.getMonth() + 6); // optionnel, côté client
-    licence = { code, activation: now.toISOString(), expiration: exp.toISOString() };
-    localStorage.setItem("licence_data", JSON.stringify(licence));
-    alert(data.message);
-    location.reload();
-  } catch (err) {
-    alert("Erreur de communication avec le serveur de licences.");
-    console.error(err);
+  // --- si aucune licence anciennement enregistrée ---
+  if (!licence) {
+    if (msg) msg.textContent = "Licence non activée";
+    document.body.classList.add("readonly");
+    return false;
   }
-}
 
+  // --- licence expirée ---
+  const exp = new Date(licence.expiration);
+  const now = new Date();
+  if (now > exp) {
+    if (msg) msg.textContent = "Licence expirée";
+    document.body.classList.add("readonly");
+    return false;
+  }
 
-if (!licence) {
-  msg.textContent = "Licence non activée";
-  document.body.classList.add("readonly");
+  // --- licence encore valide ---
+  if (msg) {
+    msg.textContent = "✔️ Active jusqu’au " + exp.toLocaleDateString("fr-FR");
+  }
+  document.body.classList.remove("readonly");
 
-  // ✅ Autoriser la saisie du code + nom d’entreprise
-  const champs = [
-    document.getElementById("code-client"),
-    document.querySelector('button[onclick="activerLicence()"]'),
-    document.getElementById("nom-entreprise")
-  ];
-  champs.forEach(el => {
-    if (el) {
-      el.disabled = false;
-      el.style.pointerEvents = "auto";
-      el.style.backgroundColor = "white";
-      el.style.opacity = "1";
-      el.style.color = "black";
-    }
+  // Optionnel : remet le pointeur normal sur les champs
+  document.querySelectorAll("input, button, select, textarea").forEach(el => {
+    el.disabled = false;
+    el.style.pointerEvents = "auto";
+    el.style.opacity = "1";
   });
 
-  // ✅ Supprime le filtre gris sur la section visible
-  document.querySelectorAll("section, header, main").forEach(e => {
-    e.style.filter = "none";
-    e.style.opacity = "1";
-  });
-
-  return false;
+  return true;
 }
+
+    // ✅ Autoriser la saisie du code + nom d'entreprise
+    const champs = [
+      document.getElementById("code-client"),
+      document.querySelector('button[onclick="activerLicence()"]'),
+      document.getElementById("nom-entreprise")
+    ];
+    champs.forEach(el => {
+      if (el) {
+        el.disabled = false;
+        el.style.pointerEvents = "auto";
+        el.style.backgroundColor = "white";
+        el.style.opacity = "1";
+        el.style.color = "black";
+      }
+    });
+
+    // ✅ Supprime le filtre gris sur la section visible
+    document.querySelectorAll("section, header, main").forEach(e => {
+      e.style.filter = "none";
+      e.style.opacity = "1";
+    });
+
+    return false;
+  }
 
   // --- licence expirée ---
   const exp = new Date(licence.expiration);
@@ -109,7 +78,7 @@ if (!licence) {
   }
 
   // --- licence encore valide ---
-  msg.textContent = "Active jusqu’au " + exp.toLocaleDateString("fr-FR");
+  msg.textContent = "Active jusqu'au " + exp.toLocaleDateString("fr-FR");
   document.body.classList.remove("readonly");
   return true;
 }
@@ -206,95 +175,58 @@ function saveHeure(key, chantier, h) {
   localStorage.setItem("heures_data", JSON.stringify(heures));
 }
 
-/* --- Logo Volitis + vérification licence au chargement --- */
+/* --- Logo Volitis + affichage du nom d’entreprise + vérification licence au chargement --- */
 window.addEventListener("DOMContentLoaded", () => {
-  const header = document.querySelector("header");
-  if (!header) return;
-
-  document.getElementById("volitis-link")?.remove();
-  const wrapper = document.createElement("div");
-  wrapper.id = "volitis-link";
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "0.5rem";
-  wrapper.style.marginLeft = "1rem";
-
-  const logoContainer = document.createElement("div");
-  logoContainer.style.background = "white";
-  logoContainer.style.borderRadius = "50%";
-  logoContainer.style.width = "42px";
-  logoContainer.style.height = "42px";
-  logoContainer.style.display = "flex";
-  logoContainer.style.alignItems = "center";
-  logoContainer.style.justifyContent = "center";
-
-  const img = document.createElement("img");
-  img.src = "assets/volitis-logo.png";
-  img.alt = "Logo Volitis";
-  img.style.height = "30px";
-  img.style.width = "auto";
-  logoContainer.appendChild(img);
-
-  const text = document.createElement("span");
-  text.textContent = "Outil créé par Volitis";
-  text.style.fontSize = "0.8rem";
-  text.style.color = "white";
-  text.style.whiteSpace = "nowrap";
-
-  wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
-  const status = document.getElementById("licence-status");
-  (status || header).insertAdjacentElement("afterend", wrapper);
-/* --- Logo Volitis + vérification licence au chargement --- */
-window.addEventListener("DOMContentLoaded", () => {
-  const header = document.querySelector("header");
-  if (!header) return;
-
-  document.getElementById("volitis-link")?.remove();
-  const wrapper = document.createElement("div");
-  wrapper.id = "volitis-link";
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "0.5rem";
-  wrapper.style.marginLeft = "1rem";
-
-  const logoContainer = document.createElement("div");
-  logoContainer.style.background = "white";
-  logoContainer.style.borderRadius = "50%";
-  logoContainer.style.width = "42px";
-  logoContainer.style.height = "42px";
-  logoContainer.style.display = "flex";
-  logoContainer.style.alignItems = "center";
-  logoContainer.style.justifyContent = "center";
-
-  const img = document.createElement("img");
-  img.src = "assets/volitis-logo.png";
-  img.alt = "Logo Volitis";
-  img.style.height = "30px";
-  img.style.width = "auto";
-  logoContainer.appendChild(img);
-
-  const text = document.createElement("span");
-  text.textContent = "Outil créé par Volitis";
-  text.style.fontSize = "0.8rem";
-  text.style.color = "white";
-  text.style.whiteSpace = "nowrap";
-
-  wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
-  const status = document.getElementById("licence-status");
-  (status || header).insertAdjacentElement("afterend", wrapper);
-
-  // ✅ Ajoute ces lignes pour afficher le nom d'entreprise dans le header
+  // ✅ Affiche le nom de l’entreprise à gauche dans le header
   const headerNom = document.getElementById("entreprise-nom");
   if (headerNom && entreprise.nom) {
     headerNom.textContent = entreprise.nom;
   }
 
-  // 🔸 Vérification automatique de la licence après chargement
+  // ✅ Construit le bloc Volitis à droite
+  const header = document.querySelector("header");
+  if (!header) return;
+
+  document.getElementById("volitis-link")?.remove();
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "volitis-link";
+  wrapper.style.display = "flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "0.5rem";
+  wrapper.style.marginLeft = "1rem";
+
+  const logoContainer = document.createElement("div");
+  logoContainer.style.background = "white";
+  logoContainer.style.borderRadius = "50%";
+  logoContainer.style.width = "42px";
+  logoContainer.style.height = "42px";
+  logoContainer.style.display = "flex";
+  logoContainer.style.alignItems = "center";
+  logoContainer.style.justifyContent = "center";
+
+  const img = document.createElement("img");
+  img.src = "assets/volitis-logo.png";
+  img.alt = "Logo Volitis";
+  img.style.height = "30px";
+  img.style.width = "auto";
+  logoContainer.appendChild(img);
+
+  const text = document.createElement("span");
+  text.textContent = "Outil créé par Volitis";
+  text.style.fontSize = "0.8rem";
+  text.style.color = "white";
+  text.style.whiteSpace = "nowrap";
+
+  wrapper.append(logoContainer, text);
+  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+
+  const status = document.getElementById("licence-status");
+  (status || header).insertAdjacentElement("afterend", wrapper);
+
+  // ✅ Vérifie la licence automatiquement au chargement
   licenceOK();
 });
-
 
 /* --- Ajuster automatiquement la marge sous le bandeau --- */
 window.addEventListener("load", () => {
