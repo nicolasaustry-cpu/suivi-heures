@@ -9,7 +9,10 @@
 <header class="main-header">
   <div class="entreprise-nom" id="entreprise-nom"></div>
   <h1 class="page-title">Entreprise</h1>
-  <div id="volitis-link"></div>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <div id="licence-status"></div> <!-- ✅ ce bloc est indispensable -->
+    <div id="volitis-link"></div>
+  </div>
 </header>
 
 <div class="nav">
@@ -109,5 +112,15 @@ window.addEventListener("DOMContentLoaded", () => {
   if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
 });
 </script>
+<!-- Autres scripts éventuels -->
+
+<script src="assets/script.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  licenceOK();  // met à jour #licence-status
+});
+</script>
+
 </body>
 </html>
+

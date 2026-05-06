@@ -7,8 +7,11 @@
 <body>
 <header class="main-header">
   <div class="entreprise-nom" id="entreprise-nom"></div>
-  <h1 class="page-title">Salariés</h1>
-  <div id="volitis-link"></div>
+  <h1 class="page-title">Entreprise</h1>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <div id="licence-status"></div> <!-- ✅ ce bloc est indispensable -->
+    <div id="volitis-link"></div>
+  </div>
 </header>
 
 <div class="nav">
@@ -63,7 +66,10 @@
 </section>
 
 <script src="assets/script.js"></script>
-<script>licenceOK();afficherSalaries();</script>
+<script>
+licenceOK();
+afficherSalaries();
+</script>
 
 <script>
 window.addEventListener("DOMContentLoaded", () => {
@@ -104,7 +110,7 @@ window.addEventListener("DOMContentLoaded", () => {
   text.style.whiteSpace = "nowrap";
 
   wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
+  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
   header.appendChild(wrapper);
 
   // Affiche le nom d’entreprise à gauche
@@ -112,5 +118,15 @@ window.addEventListener("DOMContentLoaded", () => {
   if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
 });
 </script>
+<!-- Autres scripts éventuels -->
+
+<script src="assets/script.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  licenceOK();  // met à jour #licence-status
+});
+</script>
+
 </body>
 </html>
+

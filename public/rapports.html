@@ -280,15 +280,17 @@ function afficherSyntheseParSalarie(lignes){
       <td style="border:1px solid #ccc;padding:6px;text-align:center;">${x.nb}</td></tr>`;
     });
 }
-</script>
 <script src="assets/script.js"></script>
-<script>licenceOK();afficherSalaries();</script>
+<script>
+licenceOK(); // vérifie la licence sur la page Rapports
+</script>
 
 <script>
 window.addEventListener("DOMContentLoaded", () => {
-  // Création du logo Volitis à droite du header
+  // 🔹 Création du logo Volitis à droite du header
   const header = document.querySelector("header");
   if (!header) return;
+
   document.getElementById("volitis-link")?.remove();
 
   const wrapper = document.createElement("div");
@@ -323,16 +325,22 @@ window.addEventListener("DOMContentLoaded", () => {
   text.style.whiteSpace = "nowrap";
 
   wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
+  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
   header.appendChild(wrapper);
 
-  // Affiche le nom d’entreprise à gauche
+  // 🔹 Affiche le nom d’entreprise à gauche
   const nomElt = document.getElementById("entreprise-nom");
   if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
 });
 </script>
-</body>
-</html>
+<!-- Autres scripts éventuels -->
+
+<script src="assets/script.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  licenceOK();  // met à jour #licence-status
+});
+</script>
 
 </body>
 </html>
