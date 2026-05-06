@@ -132,7 +132,6 @@ function ajouterSalarie() {
 
   alert("Salarié ajouté !");
 }
-});
 
   // 🔄 Synchronisation serveur
   fetch(`${API_BASE}/api/data/saveSalaries`, {
