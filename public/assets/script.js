@@ -100,13 +100,12 @@ function ajouterSalarie() {
   alert("Salarié ajouté !");
 }
 
-  // 🔄 Synchronisation serveur
-  fetch(`${API_BASE}/api/data/saveSalaries`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(salaries)
-  }).catch(console.error);
-}
+// 🔄 Synchronisation serveur
+fetch(`${API_BASE}/api/data/saveSalaries`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(salaries)
+}).catch(console.error);
 
 function afficherSalaries() {
   const tb = document.querySelector("#table-salaries tbody");
