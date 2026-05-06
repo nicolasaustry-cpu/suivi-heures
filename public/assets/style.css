@@ -173,3 +173,27 @@ body.readonly main {
   background-color: #fff !important;
   color: #000 !important;
 }
+/* ---- En-tête harmonisé ---- */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: #2563eb;
+  color: #fff;
+  padding: 0.8rem 1rem;
+}
+
+.page-header .entreprise-nom {
+  position: absolute;
+  left: 1rem;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.page-header .page-title {
+  margin: 0;
+  font-size: 1.4rem;
+  text-align: center;
+  flex: 1;
+}

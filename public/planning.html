@@ -16,6 +16,10 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}#top-fixed{display:none!important;}body{background:white;color:black;margin-top:0!important;}}
+/* --- Décaler le contenu sous le bandeau fixe --- */
+body {
+  padding-top: 20px; /* ajuste si besoin : entre 100 et 150 px */
+}
 <style>
 /* --- Alignement strict des colonnes du tableau planning --- */
 #planning-main th:nth-child(1),
