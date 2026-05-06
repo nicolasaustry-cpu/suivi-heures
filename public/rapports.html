@@ -6,9 +6,10 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<header class="page-header">
+<header class="main-header">
   <div class="entreprise-nom" id="entreprise-nom"></div>
-  <h1 class="page-title">Titre de la page</h1>
+  <h1 class="page-title">Rapports</h1>
+  <div id="volitis-link"></div>
 </header>
 
 <div class="nav">
@@ -280,6 +281,59 @@ function afficherSyntheseParSalarie(lignes){
     });
 }
 </script>
+<script src="assets/script.js"></script>
+<script>licenceOK();afficherSalaries();</script>
+
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  // Création du logo Volitis à droite du header
+  const header = document.querySelector("header");
+  if (!header) return;
+  document.getElementById("volitis-link")?.remove();
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "volitis-link";
+  wrapper.style.display = "flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "0.5rem";
+  wrapper.style.marginLeft = "1rem";
+  wrapper.style.cursor = "pointer";
+  wrapper.style.userSelect = "none";
+
+  const logoContainer = document.createElement("div");
+  logoContainer.style.background = "white";
+  logoContainer.style.borderRadius = "50%";
+  logoContainer.style.width = "42px";
+  logoContainer.style.height = "42px";
+  logoContainer.style.display = "flex";
+  logoContainer.style.alignItems = "center";
+  logoContainer.style.justifyContent = "center";
+
+  const img = document.createElement("img");
+  img.src = "assets/volitis-logo.png";
+  img.alt = "Logo Volitis";
+  img.style.height = "30px";
+  img.style.width = "auto";
+  logoContainer.appendChild(img);
+
+  const text = document.createElement("span");
+  text.textContent = "Outil créé par Volitis";
+  text.style.fontSize = "0.8rem";
+  text.style.color = "white";
+  text.style.whiteSpace = "nowrap";
+
+  wrapper.append(logoContainer, text);
+  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
+  header.appendChild(wrapper);
+
+  // Affiche le nom d’entreprise à gauche
+  const nomElt = document.getElementById("entreprise-nom");
+  if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
+});
+</script>
+</body>
+</html>
+
 </body>
 </html>
 
