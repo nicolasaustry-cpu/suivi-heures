@@ -7,7 +7,6 @@
 
 <style>
 body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222;}
-header{background:#2563eb;color:#fff;padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;}
 h1{margin:0;font-size:1.4rem;}
 button{border:none;border-radius:4px;padding:0.5rem 1rem;font-weight:bold;cursor:pointer;color:#fff;}
 .btn-primary{background:#2563eb;}
@@ -17,47 +16,35 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav{background:#e8edf3;display:flex;justify-content:center;gap:1rem;padding:0.6rem;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
-@media print{.no-print{display:none!important;}#top-fixed{display:none!important;}body{background:white;color:black;margin-top:0!important;}}
+@media print{.no-print{display:none!important;}body{background:white;color:black;margin-top:0!important;}}
+
+/* Réduction du chevauchement du header fixe */
+body{padding-top:110px;}
 
 /* Alignement strict des colonnes du tableau */
-#planning-main th:nth-child(1),
-#planning-main td:nth-child(1){width:150px;}
-#planning-main th:nth-child(2),
-#planning-main td:nth-child(2),
-#planning-main th:nth-child(3),
-#planning-main td:nth-child(3),
-#planning-main th:nth-child(4),
-#planning-main td:nth-child(4),
-#planning-main th:nth-child(5),
-#planning-main td:nth-child(5),
-#planning-main th:nth-child(6),
-#planning-main td:nth-child(6){width:182px;}
-#planning-main th:nth-child(7),
-#planning-main td:nth-child(7),
-#planning-main th:nth-child(8),
-#planning-main td:nth-child(8),
-#planning-main th:nth-child(9),
-#planning-main td:nth-child(9),
-#planning-main th:nth-child(10),
-#planning-main td:nth-child(10){width:80px;}
-#planning-main th:nth-child(n+7),
-#planning-main td:nth-child(n+7){text-align:center;vertical-align:middle;}
-#planning-main td:nth-child(n+7) input,
-#planning-main td:nth-child(n+7) select{text-align:center;margin:auto;display:block;}
+#planning-main th, #planning-main td {border:1px solid #ccc;padding:4px;}
+#planning-main th:nth-child(1),#planning-main td:nth-child(1){width:150px;}
+#planning-main th:nth-child(2),#planning-main td:nth-child(2),
+#planning-main th:nth-child(3),#planning-main td:nth-child(3),
+#planning-main th:nth-child(4),#planning-main td:nth-child(4),
+#planning-main th:nth-child(5),#planning-main td:nth-child(5),
+#planning-main th:nth-child(6),#planning-main td:nth-child(6){width:182px;}
+#planning-main th:nth-child(7),#planning-main td:nth-child(7),
+#planning-main th:nth-child(8),#planning-main td:nth-child(8),
+#planning-main th:nth-child(9),#planning-main td:nth-child(9),
+#planning-main th:nth-child(10),#planning-main td:nth-child(10){width:80px;text-align:center;}
 </style>
 </head>
 
 <body>
-<div id="top-fixed" class="no-print"
-     style="position:fixed;top:0;left:0;right:0;background:#fff;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-
-<header class="main-header">
+<!-- Header principal -->
+<header class="main-header" style="position:fixed;top:0;left:0;right:0;z-index:1000;">
   <div class="entreprise-nom" id="entreprise-nom"></div>
   <h1 class="page-title">Planning du mois</h1>
   <div style="display:flex;align-items:center;gap:1rem;">
     <div id="licence-status">✔️ Active</div>
     <div id="volitis-link"
-         style="display:flex;align-items:center;gap:0.5rem;margin-left:1rem;cursor:pointer;user-select:none;">
+         style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;user-select:none;">
       <div style="background:white;border-radius:50%;width:42px;height:42px;
                   display:flex;align-items:center;justify-content:center;flex-shrink:0;">
         <img src="assets/volitis-logo.png" alt="Logo Volitis" style="height:30px;width:auto;">
@@ -68,17 +55,17 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
     </div>
   </div>
 </header>
-</div>
 
-<div class="nav">
+<!-- Barre de navigation -->
+<div class="nav no-print">
   <a href="index.html">Entreprise</a>
   <a href="salaries.html">Salariés</a>
   <a href="planning.html" class="active">Planning</a>
   <a href="rapports.html">Rapports</a>
 </div>
 
-<!-- === Zone de filtres et tableau principal === -->
-<div style="background:#f8fafc;padding:0.8rem;">
+<!-- Zone filtres + paramètres de jauge -->
+<section style="background:#f8fafc;padding:0.8rem;">
   <div class="flex">
     <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
     <div style="position:relative;">
@@ -92,74 +79,59 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
     <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
   </div>
 
-  <!-- Tableau d’en-tête -->
-  <table id="planning-main" style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem;">
-    <thead>
-      <tr style="background:#e8edf3;">
-        <th>Salarié</th>
-        <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
-        <th>Total</th><th>Absences</th><th>Prévu</th><th>Écart</th>
-      </tr>
-    </thead>
-  </table>
+  <!-- Paramétrage jauge -->
+  <div class="no-print" style="background:#fff3cd;border:1px solid #ccc;margin-top:1rem;padding:0.5rem;display:flex;align-items:center;gap:8px;font-size:0.8rem;justify-content:flex-end;">
+    <span>Rouge :</span>
+    <input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;padding:2px;" onchange="sauvegarderParametresJauge()"><span>%</span>
+    <span>Orange :</span>
+    <input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;padding:2px;" onchange="sauvegarderParametresJauge()"><span>%</span>
+    <input type="checkbox" id="figerSeuils" onchange="gererFigement()"><label for="figerSeuils">Figer</label>
+  </div>
+
+  <!-- Jauge -->
+  <div class="no-print" style="margin-top:0.5rem;display:flex;justify-content:flex-end;align-items:center;gap:10px;">
+    <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
+    <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
+      <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+      <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+      <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+      <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Section planning générée -->
+<div style="background:#fff;margin:1rem;box-shadow:0 2px 5px rgba(0,0,0,0.1);border-radius:6px;padding:1rem;">
+  <div id="planning-wrapper"></div>
 </div>
 
-<div style="margin-top:290px;"><div id="planning-wrapper"></div></div>
-
-<!-- Script principal partagé -->
+<!-- Scripts -->
 <script src="assets/script.js"></script>
-
-<!-- Nom entreprise + logo Volitis -->
 <script>
-window.addEventListener("DOMContentLoaded", () => {
-  const v = document.getElementById("volitis-link");
-  if (v) v.addEventListener("click", () => window.open("https://volitis.net/", "_blank", "noopener"));
-  const headerNom = document.getElementById("entreprise-nom");
-  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
+window.addEventListener("DOMContentLoaded",()=>{  
+  const v=document.getElementById("volitis-link");
+  if(v)v.addEventListener("click",() => window.open("[volitis.net](https://volitis.net/)","_blank","noopener"));
+  const headerNom=document.getElementById("entreprise-nom");
+  if(headerNom && entreprise.nom) headerNom.textContent=entreprise.nom;
 });
 </script>
 
-<!-- === Code JS du planning === -->
+<!-- Script de gestion du planning (inchangé) -->
 <script>
-function chargerParametresJauge(){
-  const p=JSON.parse(localStorage.getItem('parametres_jauge')||'{"rouge":33,"orange":66,"fige":false}');
-  document.getElementById('limiteRouge').value=p.rouge;
-  document.getElementById('limiteOrange').value=p.orange;
-  document.getElementById('figerSeuils').checked=p.fige;
-  gererFigement();majCouleursJauge();
-}
-function sauvegarderParametresJauge(){
-  const p={rouge:parseInt(document.getElementById('limiteRouge').value)||33,
-           orange:parseInt(document.getElementById('limiteOrange').value)||66,
-           fige:document.getElementById('figerSeuils').checked};
-  localStorage.setItem('parametres_jauge',JSON.stringify(p));
-  majCouleursJauge();
-}
-function gererFigement(){
-  const f=document.getElementById('figerSeuils').checked;
-  document.getElementById('limiteRouge').disabled=f;
-  document.getElementById('limiteOrange').disabled=f;
-  document.getElementById('limiteRouge').style.opacity=f?'0.5':'1';
-  document.getElementById('limiteOrange').style.opacity=f?'0.5':'1';
-  sauvegarderParametresJauge();
-}
-function majCouleursJauge(){
-  const r=parseInt(document.getElementById('limiteRouge').value)||33;
-  const o=parseInt(document.getElementById('limiteOrange').value)||66;
-  if(r>=o){alert('Rouge < Orange');return;}
-  document.getElementById('zone-rouge').style.width=r+'%';
-  document.getElementById('zone-orange').style.width=(o-r)+'%';
-  document.getElementById('zone-orange').style.left=r+'%';
-  document.getElementById('zone-verte').style.width=(100-o)+'%';
-  document.getElementById('zone-verte').style.left=o+'%';
-}
+/* === Jauge === */
+function chargerParametresJauge(){const p=JSON.parse(localStorage.getItem('parametres_jauge')||'{"rouge":33,"orange":66,"fige":false}');
+document.getElementById('limiteRouge').value=p.rouge;document.getElementById('limiteOrange').value=p.orange;
+document.getElementById('figerSeuils').checked=p.fige;gererFigement();majCouleursJauge();}
+function sauvegarderParametresJauge(){const p={rouge:parseInt(document.getElementById('limiteRouge').value)||33,orange:parseInt(document.getElementById('limiteOrange').value)||66,fige:document.getElementById('figerSeuils').checked};localStorage.setItem('parametres_jauge',JSON.stringify(p));majCouleursJauge();}
+function gererFigement(){const f=document.getElementById('figerSeuils').checked;document.getElementById('limiteRouge').disabled=f;document.getElementById('limiteOrange').disabled=f;document.getElementById('limiteRouge').style.opacity=f?'0.5':'1';document.getElementById('limiteOrange').style.opacity=f?'0.5':'1';sauvegarderParametresJauge();}
+function majCouleursJauge(){const r=parseInt(document.getElementById('limiteRouge').value)||33;const o=parseInt(document.getElementById('limiteOrange').value)||66;if(r>=o){alert('Rouge < Orange');return;}document.getElementById('zone-rouge').style.width=r+'%';document.getElementById('zone-orange').style.width=(o-r)+'%';document.getElementById('zone-orange').style.left=r+'%';document.getElementById('zone-verte').style.width=(100-o)+'%';document.getElementById('zone-verte').style.left=o+'%';}
 
-/* --- Données locales --- */
+/* === Données === */
 let salaries=JSON.parse(localStorage.getItem('salaries_data')||'[]');
 let heures=JSON.parse(localStorage.getItem('heures_data')||'{}');
 let salariesSelectionnes=[];
 
-/* --- Fonctions principales --- */
+/* === Fonctions === */
 function genOptionsHeures(v){let opt='';for(let i=0;i<=10;i+=0.25){const l=i.toFixed(2).replace('.00','');opt+=`<option value="${i}" ${Math.abs(i-parseFloat(v||0))<0.001?'selected':''}>${l}</option>`;}return opt;}
 function ouvrirListeSalaries(){const z=document.getElementById('salarieList');z.innerHTML=salaries.length?salaries.map(s=>`<label style="display:block;padding:2px 4px;"><input type="checkbox" value="${s.id}" onchange="majSelectionSalaries()"> ${s.prenom} ${s.nom}</label>`).join(''):'<em style="padding:4px;">Aucun</em>';z.style.display='block';}
 function filtrerListeSalaries(t){const l=salaries.filter(s=>`${s.prenom} ${s.nom}`.toLowerCase().includes((t||'').toLowerCase())),z=document.getElementById('salarieList');z.innerHTML=l.length?l.map(s=>`<label style="display:block;padding:2px 4px;"><input type="checkbox" value="${s.id}" onchange="majSelectionSalaries()"> ${s.prenom} ${s.nom}</label>`).join(''):'<em style="padding:4px;">Aucun résultat</em>';z.style.display='block';}
@@ -172,11 +144,10 @@ function genererPlanning(){const v=document.getElementById('moisPlanning').value
 function genererBlocJour(d,cont,jn){const ds=d.toISOString().split('T')[0],f=d.getDate()%2===0?'#fff':'#f8fafc',nj=jn[d.getDay()],kj=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'],ji=d.getDay(),auj=new Date().toISOString().split('T')[0];let totalJourneeComplete=0;salaries.forEach(s=>{for(let k=1;k<=5;k++){const h=heures[`${s.id}_${ds}_ch${k}`]?.heures||0;totalJourneeComplete+=parseFloat(h)||0;}});let html=`<h3 style="background:${f};padding:0.3rem;margin:0.1rem 0;">${nj} ${d.toLocaleDateString('fr-FR')}</h3><table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;"><tbody>`;salaries.forEach(s=>{if(salariesSelectionnes.length>0&&!salariesSelectionnes.includes(s.id.toString()))return;const ent=new Date(s.dateEntree),sor=s.dateSortie?new Date(s.dateSortie):null;if(d<ent||(sor&&d>sor))return;let tr=0,line=`<tr><td style="font-weight:bold;width:150px;border:1px solid #ccc;padding:3px;">${s.prenom} ${s.nom}</td>`;for(let k=1;k<=5;k++){const key=`${s.id}_${ds}_ch${k}`,ch=heures[key]?.chantier||'',h=heures[key]?.heures||0;tr+=parseFloat(h)||0;const fut=ds>auj,st=fut?'width:120px;font-size:0.9rem;background:#ffe5e5;':'width:120px;font-size:0.9rem;';line+=`<td style="border:1px solid #ccc;padding:2px;width:182px;"><input id="${key}_chant" value="${ch}" placeholder="Chantier" style="${st}" oninput="saveHeure('${key}',this.value,document.getElementById('${key}_h').value)"><select id="${key}_h" style="width:60px;font-size:0.9rem;" class="no-print" onchange="saveHeure('${key}',document.getElementById('${key}_chant').value,this.value)">${genOptionsHeures(h)}</select></td>`;}const ka=`${s.id}_${ds}_abs`,ab=heures[ka]?.heures||0;const prevuBase=totalJourneeComplete===0?0:((s.heuresParJour||{})[kj[ji]]||0);const pc=Math.max(prevuBase-ab,0),ec=(tr-pc).toFixed(2);line+=`<td id="t_${s.id}_${ds}" style="border:1px solid #ccc;padding:3px;width:80px;" class="no-print">${tr.toFixed(2)}</td><td style="border:1px solid #ccc;padding:3px;width:80px;" class="no-print"><select id="${ka}_h" style="width:60px;font-size:0.9rem;" onchange="saveHeure('${ka}','absence',this.value)">${genOptionsHeures(ab)}</select></td><td id="p_${s.id}_${ds}" style="border:1px solid #ccc;padding:3px;width:80px;" class="no-print">${pc.toFixed(2)}</td><td id="e_${s.id}_${ds}" style="border:1px solid #ccc;padding:3px;width:80px;color:${ec<0?'red':'green'};" class="no-print">${ec}</td></tr>`;html+=line;});html+='</tbody></table>';cont.innerHTML+=html;}
 function saveHeure(key,chantier,h){heures[key]={chantier,heures:parseFloat(h)||0};localStorage.setItem('heures_data',JSON.stringify(heures));const[,date]=key.split('_');recalculerTousLesSalariesDuJour(date);calculerTotaux();}
 function recalculerTousLesSalariesDuJour(date){let totalJourneeComplete=0;salaries.forEach(s=>{for(let k=1;k<=5;k++){const cell=document.getElementById(`${s.id}_${date}_ch${k}_h`);if(cell)totalJourneeComplete+=parseFloat(cell.value)||0;}});const kj=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];const d=new Date(date);salaries.forEach(s=>{const tc=document.getElementById(`t_${s.id}_${date}`),pc=document.getElementById(`p_${s.id}_${date}`),ec=document.getElementById(`e_${s.id}_${date}`);if(!tc||!pc||!ec)return;let totSal=0;for(let k=1;k<=5;k++){const cell=document.getElementById(`${s.id}_${date}_ch${k}_h`);if(cell)totSal+=parseFloat(cell.value)||0;}tc.textContent=totSal.toFixed(2);const ab=parseFloat(document.getElementById(`${s.id}_${date}_abs_h`)?.value)||0;const prevuBase=totalJourneeComplete===0?0:((s.heuresParJour||{})[kj[d.getDay()]]||0);const pcr=Math.max(prevuBase-ab,0);pc.textContent=pcr.toFixed(2);const ecr=(totSal-pcr).toFixed(2);ec.textContent=ecr;ec.style.color=ecr<0?'red':'green';});}
-function calculerTotaux(){let tt=0,ta=0,tp=0;document.querySelectorAll('[id^="t_"]').forEach(c=>tt+=parseFloat(c.textContent)||0);document.querySelectorAll('[id^="p_"]').forEach(c=>tp+=parseFloat(c.textContent)||0);document.querySelectorAll('select[id$="_abs_h"]').forEach(s=>ta+=parseFloat(s.value)||0);const te=tt-tp,pct=tp>0?(tt/tp)*100:0;if(document.getElementById('tot-total')){document.getElementById('tot-total').textContent=tt.toFixed(2);document.getElementById('tot-abs').textContent=ta.toFixed(2);document.getElementById('tot-prev').textContent=tp.toFixed(2);document.getElementById('tot-ecart').textContent=te.toFixed(2);document.getElementById('tot-ecart').style.color=te<0?'red':'green';}const cur=document.getElementById('curseur'),pour=document.getElementById('pourcentage');if(cur&&pour){const l=cur.parentElement.offsetWidth;cur.style.left=(pct/100)*l-4+'px';pour.textContent=pct.toFixed(0)+'%';}}
-function imprimerSemaine(){const idx=document.getElementById('semaineSelect').value;if(idx==='')return alert('Sélectionnez une semaine.');const mv=document.getElementById('moisPlanning').value;if(!mv)return alert('Choisissez un mois.');const[a,m]=mv.split('-'),s=semainesDuMois(+a,+m-1)[idx],fen=window.open('','_blank');fen.document.write(`<html><head><title>Planning</title><style>body{font-family:Arial;margin:1rem;}table{border-collapse:collapse;width:100%;margin-bottom:1rem;}th,td{border:1px solid #000;padding:4px;text-align:left;}th{background:#f0f0f0;}h1{text-align:center;}h3{margin:0.5rem 0 0.2rem 0;}</style></head><body>`);fen.document.write(`<h1>Planning du ${s.lundi.toLocaleDateString('fr-FR')} au ${s.samedi.toLocaleDateString('fr-FR')}</h1>`);for(let i=0;i<6;i++){const d=new Date(s.lundi);d.setDate(s.lundi.getDate()+i),ds=d.toISOString().split('T')[0],nj=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];fen.document.write(`<h3>${nj} ${d.toLocaleDateString('fr-FR')}</h3><table><tr><th>Salarié</th><th>Chantier 1</th><th>Chantier 2</th><th>Chantier 3</th><th>Chantier 4</th><th>Chantier 5</th></tr>`);salaries.forEach(sal=>{if(salariesSelectionnes.length>0&&!salariesSelectionnes.includes(sal.id.toString()))return;const ent=new Date(sal.dateEntree),sor=sal.dateSortie?new Date(sal.dateSortie):null;if(d<ent||(sor&&d>sor))return;let row=`<tr><td>${sal.prenom} ${sal.nom}</td>`;for(let k=1;k<=5;k++){const key=`${sal.id}_${ds}_ch${k}`,ch=heures[key]?.chantier||'',h=heures[key]?.heures||0;row+=`<td>${ch}${h>0?' ('+h+'h)':''}</td>`;}fen.document.write(row+'</tr>');});fen.document.write('</table>');}fen.document.write('</body></html>');fen.document.close();fen.print();}
+function calculerTotaux(){let tt=0,ta=0,tp=0;document.querySelectorAll('[id^="t_"]').forEach(c=>tt+=parseFloat(c.textContent)||0);document.querySelectorAll('[id^="p_"]').forEach(c=>tp+=parseFloat(c.textContent)||0);document.querySelectorAll('select[id$="_abs_h"]').forEach(s=>ta+=parseFloat(s.value)||0);const te=tt-tp,pct=tp>0?(tt/tp)*100:0;if(document.getElementById('pourcentage')){const cur=document.getElementById('curseur'),pour=document.getElementById('pourcentage');if(cur&&pour){const l=cur.parentElement.offsetWidth;cur.style.left=(pct/100)*l-4+'px';pour.textContent=pct.toFixed(0)+'%';}}}
+function imprimerSemaine(){const idx=document.getElementById('semaineSelect').value;if(idx==='')return alert('Sélectionnez une semaine.');const mv=document.getElementById('moisPlanning').value;if(!mv)return alert('Choisissez un mois.');const[a,m]=mv.split('-'),s=semainesDuMois(+a,+m-1)[idx],fen=window.open('','_blank');fen.document.write(`<html><head><title>Planning</title><style>body{font-family:Arial;margin:1rem;}table{border-collapse:collapse;width:100%;margin-bottom:1rem;}th,td{border:1px solid #000;padding:4px;text-align:left;}th{background:#f0f0f0;}h1{text-align:center;}h3{margin:0.5rem 0 0.2rem 0;}</style></head><body>`);fen.document.write(`<h1>Planning du ${s.lundi.toLocaleDateString('fr-FR')} au ${s.samedi.toLocaleDateString('fr-FR')}</h1>`);for(let i=0;i<6;i++){const d=new Date(s.lundi);d.setDate(s.lundi.getDate()+i),ds=d.toISOString().split('T')[0],nj=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];fen.document.write(`<h3>${nj} ${d.toLocaleDateString('fr-FR')}</h3><table><tr><th>Salarié</th><th>Chantier 1</th><th>Chantier 2</th><th>Chantier 3</th><th>Chantier 4</th><th>Chantier 5</th></tr>`);salaries.forEach(sal=>{if(salariesSelectionnes.length>0&&!salariesSelectionnes.includes(sal.id.toString()))return;const ent=new Date(sal.dateEntree),sor=sal.dateSortie?new Date(sal.dateSortie):null;if(d<ent||(sor&&d>sor))return;let row=`<tr><td>${sal.prenom} ${sal.nom}</td>`;for(let k=1;k<=5;k++){const key=`${sal.id}_${ds}_ch${k}`,ch=heures[key]?.chantier||'',h=heures[key]?.heures||0;row+=`<td>${ch}${h>0?' ('+h+'h)':''}</td>`;}fen.document.write(row+'</tr>');});fen.document.write('</table>');}fen.document.close();fen.print();}
 const now=new Date();document.getElementById('moisPlanning').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;chargerParametresJauge();chargerSemaines();document.getElementById('moisPlanning').addEventListener('change',chargerSemaines);document.getElementById('semaineSelect').addEventListener('change',genererPlanning);setTimeout(()=>calculerTotaux(),100);
 </script>
-
 </body>
 </html>
 
