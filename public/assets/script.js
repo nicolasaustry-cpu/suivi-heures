@@ -5,7 +5,7 @@ let licence = JSON.parse(localStorage.getItem("licence_data") || "null");
 let entreprise = JSON.parse(localStorage.getItem("entreprise_data") || "{}");
 
 /* --- URL du serveur Render --- */
-const API_BASE = ("https://suivi-heures-v2.onrender.com)";
+const API_BASE = "https://suivi-heures-v2.onrender.com";
 
 /* ---------- Licence ---------- */
 function licenceOK() {
