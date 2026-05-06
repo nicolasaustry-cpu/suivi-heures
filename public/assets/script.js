@@ -5,7 +5,7 @@ let licence = JSON.parse(localStorage.getItem("licence_data") || "null");
 let entreprise = JSON.parse(localStorage.getItem("entreprise_data") || "{}");
 
 /* --- URL du serveur Render --- */
-const API_BASE = "[suivi-heures-v2.onrender.com](https://suivi-heures-v2.onrender.com)";
+const API_BASE = ("https://suivi-heures-v2.onrender.com)";
 
 /* ---------- Licence ---------- */
 function licenceOK() {
@@ -224,7 +224,7 @@ window.addEventListener("DOMContentLoaded", () => {
   text.style.whiteSpace = "nowrap";
 
   wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+  wrapper.addEventListener("click", () => window.open("https://volitis.net/)", "_blank"));
 
   const status = document.getElementById("licence-status");
   (status || header).insertAdjacentElement("afterend", wrapper);
