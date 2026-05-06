@@ -19,7 +19,7 @@ function licenceOK() {
   }
 
   // --- licence expirée ---
-  const exp = new Date(licence.expiration);
+const exp = new Date(licence.expiration || licence.dateExpiration);
   const now = new Date();
   if (now > exp) {
     if (msg) msg.textContent = "Licence expirée";
