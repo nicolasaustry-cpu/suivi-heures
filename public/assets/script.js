@@ -78,9 +78,16 @@ function ajouterSalarie() {
   const nouvelId = Date.now();
   const salarie = { id: nouvelId, prenom, nom, dateEntree, heuresParJour };
 
-  // Ajout à la liste et sauvegarde
+  // Ajout à la liste et sauvegarde locale
   salaries.push(salarie);
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
+
+  // 🔄 Synchronisation serveur (optionnelle)
+  fetch(`${API_BASE}/api/data/saveSalaries`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(salaries)
+  }).catch(console.error);
 
   // Réinitialise le formulaire
   document.getElementById("prenomEl").value = "";
