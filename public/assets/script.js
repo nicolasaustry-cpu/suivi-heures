@@ -99,29 +99,40 @@ function initEntreprise() {
 function ajouterSalarie() {
   const prenom = document.getElementById("prenomEl").value.trim();
   const nom = document.getElementById("nomEl").value.trim();
-  const date = document.getElementById("dateEntreeEl").value;
-  if (!prenom || !nom || !date) return alert("Tous les champs sont requis.");
+  const dateEntree = document.getElementById("dateEntreeEl").value.trim();
+
+  if (!prenom || !nom) {
+    alert("Veuillez saisir un prénom et un nom.");
+    return;
+  }
 
   const heuresParJour = {
-    lundi: parseFloat(document.getElementById("hLun").value) || 0,
-    mardi: parseFloat(document.getElementById("hMar").value) || 0,
-    mercredi: parseFloat(document.getElementById("hMer").value) || 0,
-    jeudi: parseFloat(document.getElementById("hJeu").value) || 0,
-    vendredi: parseFloat(document.getElementById("hVen").value) || 0,
-    samedi: parseFloat(document.getElementById("hSam").value) || 0
+    lun: parseFloat(document.getElementById("hLun").value) || 0,
+    mar: parseFloat(document.getElementById("hMar").value) || 0,
+    mer: parseFloat(document.getElementById("hMer").value) || 0,
+    jeu: parseFloat(document.getElementById("hJeu").value) || 0,
+    ven: parseFloat(document.getElementById("hVen").value) || 0,
+    sam: parseFloat(document.getElementById("hSam").value) || 0
   };
 
-  salaries.push({ id: Date.now(), prenom, nom, dateEntree: date, heuresParJour });
-  localStorage.setItem("salaries_data", JSON.stringify(salaries));
-  afficherSalaries();
+  const nouvelId = Date.now();
+  const salarie = { id: nouvelId, prenom, nom, dateEntree, heuresParJour };
+
+  // Ajout à la liste et sauvegarde
+  salaries.push(salarie);
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
 
   // Réinitialise le formulaire
-  ["prenomEl", "nomEl", "dateEntreeEl", "hLun", "hMar", "hMer", "hJeu", "hVen", "hSam"].forEach(id => {
-    const el = document.getElementById(id);
-    if (["hLun", "hMar", "hMer", "hJeu", "hVen"].includes(id)) el.value = 8;
-    else if (id === "hSam") el.value = 0;
-    else el.value = "";
-  });
+  document.getElementById("prenomEl").value = "";
+  document.getElementById("nomEl").value = "";
+  document.getElementById("dateEntreeEl").value = "";
+
+  // Recharge la liste
+  if (typeof afficherSalaries === "function") afficherSalaries();
+
+  alert("Salarié ajouté !");
+}
+});
 
   // 🔄 Synchronisation serveur
   fetch(`${API_BASE}/api/data/saveSalaries`, {
