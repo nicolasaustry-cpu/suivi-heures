@@ -42,7 +42,36 @@ const exp = new Date(licence.expiration || licence.dateExpiration);
 
   return true;
 }
-
+// ---------- Activation de la licence ----------
+async function activerLicence() {
+  const code = document.getElementById("code-client").value.trim();
+  const nomEntreprise = document.getElementById("nom-entreprise").value.trim();
+  if (!code || !nomEntreprise) {
+    alert("Veuillez saisir le code client et le nom de l'entreprise.");
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/api/licence/${code}`);
+    if (!res.ok) throw new Error("Réponse du serveur invalide");
+    const data = await res.json();
+    if (data.actif) {
+      const licence = {
+        codeClient: code,
+        entreprise: nomEntreprise,
+        actif: true,
+        dateExpiration: data.dateExpiration
+      };
+      localStorage.setItem("licencedata", JSON.stringify(licence));
+      alert("Licence activée avec succès !");
+      window.location.reload();
+    } else {
+      alert("Licence inactive ou expirée.");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de la vérification de la licence.");
+  }
+}
 /* ---------- Entreprise ---------- */
 function initEntreprise() {
   if (entreprise.nom) {
