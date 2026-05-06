@@ -118,8 +118,11 @@ if (!licence) {
 function initEntreprise() {
   if (entreprise.nom) {
     document.getElementById("nom-entreprise").value = entreprise.nom;
-    const titre = document.getElementById("entreprise-nom");
-    if (titre) titre.textContent = entreprise.nom;
+    // ✅ Ajoute cette ligne pour afficher le nom dans le header
+    const headerNom = document.getElementById("entreprise-nom");
+    if (headerNom) {
+      headerNom.textContent = entreprise.nom;
+    }
   }
 }
 
@@ -242,10 +245,56 @@ window.addEventListener("DOMContentLoaded", () => {
   wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
   const status = document.getElementById("licence-status");
   (status || header).insertAdjacentElement("afterend", wrapper);
+/* --- Logo Volitis + vérification licence au chargement --- */
+window.addEventListener("DOMContentLoaded", () => {
+  const header = document.querySelector("header");
+  if (!header) return;
+
+  document.getElementById("volitis-link")?.remove();
+  const wrapper = document.createElement("div");
+  wrapper.id = "volitis-link";
+  wrapper.style.display = "flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "0.5rem";
+  wrapper.style.marginLeft = "1rem";
+
+  const logoContainer = document.createElement("div");
+  logoContainer.style.background = "white";
+  logoContainer.style.borderRadius = "50%";
+  logoContainer.style.width = "42px";
+  logoContainer.style.height = "42px";
+  logoContainer.style.display = "flex";
+  logoContainer.style.alignItems = "center";
+  logoContainer.style.justifyContent = "center";
+
+  const img = document.createElement("img");
+  img.src = "assets/volitis-logo.png";
+  img.alt = "Logo Volitis";
+  img.style.height = "30px";
+  img.style.width = "auto";
+  logoContainer.appendChild(img);
+
+  const text = document.createElement("span");
+  text.textContent = "Outil créé par Volitis";
+  text.style.fontSize = "0.8rem";
+  text.style.color = "white";
+  text.style.whiteSpace = "nowrap";
+
+  wrapper.append(logoContainer, text);
+  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+  const status = document.getElementById("licence-status");
+  (status || header).insertAdjacentElement("afterend", wrapper);
+
+  // ✅ Ajoute ces lignes pour afficher le nom d'entreprise dans le header
+  const headerNom = document.getElementById("entreprise-nom");
+  if (headerNom && entreprise.nom) {
+    headerNom.textContent = entreprise.nom;
+  }
 
   // 🔸 Vérification automatique de la licence après chargement
   licenceOK();
 });
+
 
 /* --- Ajuster automatiquement la marge sous le bandeau --- */
 window.addEventListener("load", () => {
