@@ -70,29 +70,34 @@ async function activerLicence() {
 }
 
 
-function licenceOK() {
-  const msg = document.getElementById("licence-status");
-  const codeInput = document.getElementById("code-client");
-  const btnLicence = document.querySelector('button[onclick="activerLicence()"]');
-  const nomEntreprise = document.getElementById("nom-entreprise");
+if (!licence) {
+  msg.textContent = "Licence non activée";
+  document.body.classList.add("readonly");
 
-  // --- si aucune licence : on dégrise la page d'accueil pour saisir le code et le nom ---
-  if (!licence) {
-    msg.textContent = "Licence non activée";
-    document.body.classList.add("readonly");
+  // ✅ Autoriser la saisie du code + nom d’entreprise
+  const champs = [
+    document.getElementById("code-client"),
+    document.querySelector('button[onclick="activerLicence()"]'),
+    document.getElementById("nom-entreprise")
+  ];
+  champs.forEach(el => {
+    if (el) {
+      el.disabled = false;
+      el.style.pointerEvents = "auto";
+      el.style.backgroundColor = "white";
+      el.style.opacity = "1";
+      el.style.color = "black";
+    }
+  });
 
-    // permettre la saisie du code et du nom d'entreprise
-    [codeInput, btnLicence, nomEntreprise].forEach(el => {
-      if (el) {
-        el.disabled = false;
-        el.style.pointerEvents = "auto";
-        el.style.backgroundColor = "white";
-        el.style.opacity = "1";
-      }
-    });
+  // ✅ Supprime le filtre gris sur la section visible
+  document.querySelectorAll("section, header, main").forEach(e => {
+    e.style.filter = "none";
+    e.style.opacity = "1";
+  });
 
-    return false;
-  }
+  return false;
+}
 
   // --- licence expirée ---
   const exp = new Date(licence.expiration);

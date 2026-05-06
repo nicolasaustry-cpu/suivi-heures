@@ -146,4 +146,16 @@ body.readonly button[onclick="activerLicence()"] {
   cursor: text !important;
   filter: none !important;
 }
-
+/* Corrige complètement le grisage en mode licence non activée */
+body.readonly input#code-client,
+body.readonly input#nom-entreprise,
+body.readonly button[onclick="activerLicence()"],
+body.readonly section,
+body.readonly header,
+body.readonly main {
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: auto !important;
+  background-color: #fff !important;
+  color: #000 !important;
+}
