@@ -135,4 +135,15 @@ body.readonly button[onclick="activerLicence()"] {
   pointer-events: auto !important;
   cursor: text !important;
 }
+/* === Corrige le rendu visuel des champs en mode licence === */
+body.readonly input#code-client,
+body.readonly input#nom-entreprise,
+body.readonly button[onclick="activerLicence()"] {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: text !important;
+  filter: none !important;
+}
 
