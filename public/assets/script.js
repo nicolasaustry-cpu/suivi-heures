@@ -43,46 +43,6 @@ const exp = new Date(licence.expiration || licence.dateExpiration);
   return true;
 }
 
-    // ✅ Autoriser la saisie du code + nom d'entreprise
-    const champs = [
-      document.getElementById("code-client"),
-      document.querySelector('button[onclick="activerLicence()"]'),
-      document.getElementById("nom-entreprise")
-    ];
-    champs.forEach(el => {
-      if (el) {
-        el.disabled = false;
-        el.style.pointerEvents = "auto";
-        el.style.backgroundColor = "white";
-        el.style.opacity = "1";
-        el.style.color = "black";
-      }
-    });
-
-    // ✅ Supprime le filtre gris sur la section visible
-    document.querySelectorAll("section, header, main").forEach(e => {
-      e.style.filter = "none";
-      e.style.opacity = "1";
-    });
-
-    return false;
-  }
-
-  // --- licence expirée ---
-  const exp = new Date(licence.expiration);
-  const now = new Date();
-  if (now > exp) {
-    msg.textContent = "Licence expirée";
-    document.body.classList.add("readonly");
-    return false;
-  }
-
-  // --- licence encore valide ---
-  msg.textContent = "Active jusqu'au " + exp.toLocaleDateString("fr-FR");
-  document.body.classList.remove("readonly");
-  return true;
-}
-
 /* ---------- Entreprise ---------- */
 function initEntreprise() {
   if (entreprise.nom) {
