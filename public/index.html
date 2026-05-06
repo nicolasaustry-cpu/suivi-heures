@@ -56,15 +56,17 @@ function sauverEntreprise() {
   localStorage.setItem('entreprisedata', JSON.stringify(entreprise));
   alert('Informations enregistrées.');
 }
-</script>
 <script src="assets/script.js"></script>
-<script>licenceOK();afficherSalaries();</script>
+<script>
+licenceOK(); // vérifie la licence sur la page Entreprise
+</script>
 
 <script>
 window.addEventListener("DOMContentLoaded", () => {
-  // Création du logo Volitis à droite du header
+  // 🔹 Création du logo Volitis à droite du header
   const header = document.querySelector("header");
   if (!header) return;
+
   document.getElementById("volitis-link")?.remove();
 
   const wrapper = document.createElement("div");
@@ -99,16 +101,13 @@ window.addEventListener("DOMContentLoaded", () => {
   text.style.whiteSpace = "nowrap";
 
   wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
+  wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
   header.appendChild(wrapper);
 
-  // Affiche le nom d’entreprise à gauche
+  // 🔹 Affiche le nom d’entreprise à gauche
   const nomElt = document.getElementById("entreprise-nom");
   if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
 });
 </script>
-</body>
-</html>
-
 </body>
 </html>
