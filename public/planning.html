@@ -41,6 +41,11 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
 }
 #totaux th { padding: 6px; color: #111827; }
 #totaux tr { background: #c7d2fe; }
+/* Supprime l’espace entre le titre bleu et la barre de navigation */
+header + .nav {
+  margin-top: 0;
+}
+
 </style>
 </head>
 
@@ -61,7 +66,7 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
 </div>
 
 <!-- === Zone filtres + jauge + totaux === -->
-<section style="background:#f8fafc;padding:0.8rem;">
+<section style="background:#f8fafc;padding:0.4rem 0.8rem 0.8rem 0.8rem;margin-top:0;">
   <div class="flex">
     <div><label>Mois :</label><br><input type="month" id="moisPlanning" /></div>
     <div style="position:relative;">
