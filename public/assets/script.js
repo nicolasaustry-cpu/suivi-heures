@@ -313,6 +313,27 @@ function calculerTotaux() {
     curseur.style.left = (l * pourc / 100 - 4) + "px";
     texte.textContent = Math.round(pourc) + "%";
   }
+function majZonesJauge() {
+  const sOrange = parseFloat(document.getElementById("seuil-orange")?.value) || 80;
+  const sVert   = parseFloat(document.getElementById("seuil-vert")?.value)   || 100;
+
+  const rouge  = document.getElementById("zone-rouge");
+  const orange = document.getElementById("zone-orange");
+  const vert   = document.getElementById("zone-verte");
+
+  if (!rouge || !orange || !vert) return;
+
+  // largeur des zones selon les seuils
+  const total = Math.max(sVert, 1); // éviter 0
+  rouge.style.width  = (sOrange / total * 100) + "%";
+  orange.style.left  = (sOrange / total * 100) + "%";
+  orange.style.width = ((sVert - sOrange) / total * 100) + "%";
+  vert.style.left    = (sVert / total * 100) + "%";
+  vert.style.width   = (100 - (sVert / total * 100)) + "%";
+
+  // sauvegarde locale des nouveaux seuils
+  localStorage.setItem("configJauge", JSON.stringify({ sOrange, sVert }));
+}
 function majEtatFiger() {
   const chk = document.getElementById("figer-param");
   const inputs = [document.getElementById("seuil-orange"), document.getElementById("seuil-vert")];
