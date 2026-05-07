@@ -126,7 +126,7 @@ window.addEventListener("DOMContentLoaded", () => {
     text.style.color = "white";
     text.style.whiteSpace = "nowrap";
     wrapper.append(logoContainer, text);
-    wrapper.addEventListener("click", () => window.open"https://volitis.net/", "_blank"));
+    wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
     header.appendChild(wrapper);
   }
 
