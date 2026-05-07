@@ -201,9 +201,55 @@ function genOptionsHeures(v) {
 }
 
 function saveHeure(key, chantier, h) {
+  // sauvegarde locale
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-  setTimeout(() => calculerTotaux(), 100);
+
+  // recalcul immédiat de la ligne salarié + totaux/mois
+  setTimeout(() => {
+    majTotalLigne(key);
+    calculerTotaux();
+  }, 100);
+}
+function majTotalLigne(key) {
+  // clé type : 1715000000000-2026-05-07ch1
+  const m = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!m) return;
+  const idSal = m[1];
+  const dateStr = m[2];
+
+  // somme des 5 chantiers du jour
+  let totalJour = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${idSal}${dateStr}ch${i}`;
+    totalJour += parseFloat(heures[k]?.heures || 0);
+  }
+
+  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
+  if (totalCell) totalCell.textContent = totalJour.toFixed(1);
+
+  // absences
+  const absKey = `${idSal}${dateStr}abs`;
+  const abs = parseFloat(heures[absKey]?.heures || 0);
+
+  // heures prévues selon la fiche salarié
+  const jour = new Date(dateStr);
+  const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
+  const salarie = salaries.find(s => String(s.id) === String(idSal));
+  const prevuFiche = salarie?.heuresParJour?.[jourNom.slice(0,3)] || 0;
+
+  // si aucun chantier => prévu=0 ; sinon heures contrats - absences
+  const prevuAjuste = totalJour === 0 ? 0 : Math.max(prevuFiche - abs, 0);
+  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
+  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
+
+  // écart
+  const ecart = totalJour - prevuAjuste;
+  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
+  }
 }
 
 function calculerTotaux() {
