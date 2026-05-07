@@ -335,22 +335,24 @@ function majEtatFiger() {
    AU CHARGEMENT
    =========================================== */
 window.addEventListener("DOMContentLoaded", () => {
+    // --- restauration et écoute des paramètres de jauge ---
   const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
 
-  if (conf.sOrange) document.getElementById("seuil-orange").value = conf.sOrange;
-  if (conf.sVert)   document.getElementById("seuil-vert").value   = conf.sVert;
-  majZonesJauge();
+  if (document.getElementById("seuil-orange")) {
+    if (conf.sOrange) document.getElementById("seuil-orange").value = conf.sOrange;
+    if (conf.sVert)   document.getElementById("seuil-vert").value   = conf.sVert;
+    majZonesJauge();
 
-  // restaure état de figer
-  if (conf.figer) {
-    document.getElementById("figer-param").checked = true;
-    document.getElementById("seuil-orange").disabled = true;
-    document.getElementById("seuil-vert").disabled = true;
+    if (conf.figer) {
+      document.getElementById("figer-param").checked = true;
+      document.getElementById("seuil-orange").disabled = true;
+      document.getElementById("seuil-vert").disabled = true;
+    }
+
+    document.getElementById("seuil-orange").addEventListener("change", majZonesJauge);
+    document.getElementById("seuil-vert").addEventListener("change", majZonesJauge);
+    document.getElementById("figer-param").addEventListener("change", majEtatFiger);
   }
 
-  // écoute modifications
-  document.getElementById("seuil-orange").addEventListener("change", majZonesJauge);
-  document.getElementById("seuil-vert").addEventListener("change", majZonesJauge);
-  document.getElementById("figer-param").addEventListener("change", majEtatFiger);
 });
 
