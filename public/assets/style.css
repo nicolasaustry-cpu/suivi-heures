@@ -246,3 +246,15 @@ body {
 #planning-wrapper {
   padding-bottom: 120px; /* espace sous le calendrier pour bien voir la ligne */
 }
+#totaux {
+  position: relative;
+  z-index: 20;
+  background: #e0e7ff;
+  border-top: 2px solid #2563eb;
+  font-weight: bold;
+}
+
+#totaux th {
+  padding: 6px;
+  color: #111827;
+}
