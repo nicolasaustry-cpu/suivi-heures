@@ -1,91 +1,27 @@
-/* ------------------- Données partagées ------------------- */
-let salaries = JSON.parse(localStorage.getItem("salaries_data") || "[]");
-let heures = JSON.parse(localStorage.getItem("heures_data") || "{}");
-let licence = JSON.parse(localStorage.getItem("licence_data") || "null");
-let entreprise = JSON.parse(localStorage.getItem("entreprise_data") || "{}");
+/* ------------------- Données locales ------------------- */
+// données sauvegardées dans le navigateur
+let entreprise = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
+let salaries = JSON.parse(localStorage.getItem("salariesdata") || "[]");
+let heures = JSON.parse(localStorage.getItem("heuresdata") || "{}");
 
-/* --- URL du serveur Render --- */
-const API_BASE = "https://suivi-heures-v2.onrender.com";
-
-/* ---------- Licence ---------- */
-function licenceOK() {
-  const msg = document.getElementById("licence-status");
-
-  // --- si aucune licence anciennement enregistrée ---
-  if (!licence) {
-    if (msg) msg.textContent = "Licence non activée";
-    document.body.classList.add("readonly");
-    return false;
-  }
-
-  // --- licence expirée ---
-const exp = new Date(licence.expiration || licence.dateExpiration);
-  const now = new Date();
-  if (now > exp) {
-    if (msg) msg.textContent = "Licence expirée";
-    document.body.classList.add("readonly");
-    return false;
-  }
-
-  // --- licence encore valide ---
-  if (msg) {
-    msg.textContent = "✔️ Active jusqu’au " + exp.toLocaleDateString("fr-FR");
-  }
-  document.body.classList.remove("readonly");
-
-  // Optionnel : remet le pointeur normal sur les champs
-  document.querySelectorAll("input, button, select, textarea").forEach(el => {
-    el.disabled = false;
-    el.style.pointerEvents = "auto";
-    el.style.opacity = "1";
-  });
-
-  return true;
-}
-// ---------- Activation de la licence ----------
-async function activerLicence() {
-  const code = document.getElementById("code-client").value.trim();
-  const nomEntreprise = document.getElementById("nom-entreprise").value.trim();
-  if (!code || !nomEntreprise) {
-    alert("Veuillez saisir le code client et le nom de l'entreprise.");
-    return;
-  }
-  try {
-    const res = await fetch(`${API_BASE}/api/data/verifyLicence`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ code })
-});
-    if (!res.ok) throw new Error("Réponse du serveur invalide");
-    const data = await res.json();
-    if (data.actif) {
-      const licence = {
-        codeClient: code,
-        entreprise: nomEntreprise,
-        actif: true,
-        dateExpiration: data.dateExpiration
-      };
-      localStorage.setItem("licencedata", JSON.stringify(licence));
-      alert("Licence activée avec succès !");
-      window.location.reload();
-    } else {
-      alert("Licence inactive ou expirée.");
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Erreur lors de la vérification de la licence.");
-  }
-}
 /* ---------- Entreprise ---------- */
 function initEntreprise() {
-  if (entreprise.nom) {
-    document.getElementById("nom-entreprise").value = entreprise.nom;
-    // ✅ Ajoute cette ligne pour afficher le nom dans le header
+  const nomInput = document.getElementById("nom-entreprise");
+  if (entreprise.nom && nomInput) {
+    nomInput.value = entreprise.nom;
     const headerNom = document.getElementById("entreprise-nom");
-    if (headerNom) {
-      headerNom.textContent = entreprise.nom;
-    }
+    if (headerNom) headerNom.textContent = entreprise.nom;
   }
+}
+
+function sauverEntreprise() {
+  const nom = document.getElementById("nom-entreprise").value.trim();
+  if (!nom) return alert("Veuillez saisir un nom d’entreprise.");
+  entreprise.nom = nom;
+  localStorage.setItem("entreprisedata", JSON.stringify(entreprise));
+  alert("Informations enregistrées.");
+  const headerNom = document.getElementById("entreprise-nom");
+  if (headerNom) headerNom.textContent = entreprise.nom;
 }
 
 /* ---------- Salariés ---------- */
@@ -111,141 +47,90 @@ function ajouterSalarie() {
   const nouvelId = Date.now();
   const salarie = { id: nouvelId, prenom, nom, dateEntree, heuresParJour };
 
-  // Ajout à la liste et sauvegarde locale
   salaries.push(salarie);
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
 
-  // 🔄 Synchronisation serveur (optionnelle)
-  fetch(`${API_BASE}/api/data/saveSalaries`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(salaries)
-  }).catch(console.error);
-
-  // Réinitialise le formulaire
   document.getElementById("prenomEl").value = "";
   document.getElementById("nomEl").value = "";
   document.getElementById("dateEntreeEl").value = "";
 
-  // Recharge la liste
-  if (typeof afficherSalaries === "function") afficherSalaries();
-
+  afficherSalaries();
   alert("Salarié ajouté !");
 }
-
-// 🔄 Synchronisation serveur
-fetch(`${API_BASE}/api/data/saveSalaries`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(salaries)
-}).catch(console.error);
 
 function afficherSalaries() {
   const tb = document.querySelector("#table-salaries tbody");
   if (!tb) return;
   tb.innerHTML = "";
-  salaries.forEach((s, index) => {
+  salaries.forEach((s, i) => {
     const h = s.heuresParJour || {};
     tb.innerHTML += `
       <tr>
-        <td><input value="${s.prenom}" onchange="majSalarie(${index}, 'prenom', this.value)"></td>
-        <td><input value="${s.nom}" onchange="majSalarie(${index}, 'nom', this.value)"></td>
-        <td><input type="date" value="${s.dateEntree || ''}" onchange="majSalarie(${index}, 'dateEntree', this.value)"></td>
-        <td><input type="date" value="${s.dateSortie || ''}" onchange="majSalarie(${index}, 'dateSortie', this.value)"></td>
-        <td><input type="number" step="0.1" value="${h.lundi ?? 0}" onchange="majHeuresJour(${index}, 'lundi', this.value)"></td>
-        <td><input type="number" step="0.1" value="${h.mardi ?? 0}" onchange="majHeuresJour(${index}, 'mardi', this.value)"></td>
-        <td><input type="number" step="0.1" value="${h.mercredi ?? 0}" onchange="majHeuresJour(${index}, 'mercredi', this.value)"></td>
-        <td><input type="number" step="0.1" value="${h.jeudi ?? 0}" onchange="majHeuresJour(${index}, 'jeudi', this.value)"></td>
-        <td><input type="number" step="0.1" value="${h.vendredi ?? 0}" onchange="majHeuresJour(${index}, 'vendredi', this.value)"></td>
-        <td><input type="number" step="0.1" value="${h.samedi ?? 0}" onchange="majHeuresJour(${index}, 'samedi', this.value)"></td>
-        <td><button class="btn btn-danger" onclick="supprimerSalarie(${s.id})">Suppr.</button></td>
+        <td>${s.prenom}</td>
+        <td>${s.nom}</td>
+        <td>${s.dateEntree || ""}</td>
+        <td>${s.dateSortie || ""}</td>
+        <td>${h.lun ?? 0}</td>
+        <td>${h.mar ?? 0}</td>
+        <td>${h.mer ?? 0}</td>
+        <td>${h.jeu ?? 0}</td>
+        <td>${h.ven ?? 0}</td>
+        <td>${h.sam ?? 0}</td>
+        <td><button class="btn btn-danger" onclick="supprimerSalarie(${i})">✖</button></td>
       </tr>`;
   });
 }
 
-/* --- Fonctions locales --- */
-function majSalarie(index, champ, valeur) {
-  salaries[index][champ] = valeur;
-  localStorage.setItem("salaries_data", JSON.stringify(salaries));
-}
-function supprimerSalarie(id) {
+function supprimerSalarie(index) {
   if (!confirm("Supprimer ce salarié ?")) return;
-  salaries = salaries.filter(s => s.id != id);
-  localStorage.setItem("salaries_data", JSON.stringify(salaries));
+  salaries.splice(index, 1);
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
 }
-function majHeuresJour(index, jour, valeur) {
-  if (!salaries[index].heuresParJour) salaries[index].heuresParJour = {};
-  salaries[index].heuresParJour[jour] = parseFloat(valeur) || 0;
-  localStorage.setItem("salaries_data", JSON.stringify(salaries));
-}
+
+/* ---------- Heures / planification ---------- */
 function saveHeure(key, chantier, h) {
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
-  localStorage.setItem("heures_data", JSON.stringify(heures));
+  localStorage.setItem("heuresdata", JSON.stringify(heures));
 }
 
-/* --- Logo Volitis + affichage du nom d’entreprise + vérification licence au chargement --- */
+/* ---------- Header Volitis + chargement ---------- */
 window.addEventListener("DOMContentLoaded", () => {
-  // ✅ Affiche le nom de l’entreprise à gauche dans le header
   const headerNom = document.getElementById("entreprise-nom");
-  if (headerNom && entreprise.nom) {
-    headerNom.textContent = entreprise.nom;
-  }
+  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
 
-  // ✅ Construit le bloc Volitis à droite
   const header = document.querySelector("header");
-  if (!header) return;
-
-  document.getElementById("volitis-link")?.remove();
-
-  const wrapper = document.createElement("div");
-  wrapper.id = "volitis-link";
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "0.5rem";
-  wrapper.style.marginLeft = "1rem";
-
-  const logoContainer = document.createElement("div");
-  logoContainer.style.background = "white";
-  logoContainer.style.borderRadius = "50%";
-  logoContainer.style.width = "42px";
-  logoContainer.style.height = "42px";
-  logoContainer.style.display = "flex";
-  logoContainer.style.alignItems = "center";
-  logoContainer.style.justifyContent = "center";
-
-  const img = document.createElement("img");
-  img.src = "assets/volitis-logo.png";
-  img.alt = "Logo Volitis";
-  img.style.height = "30px";
-  img.style.width = "auto";
-  logoContainer.appendChild(img);
-
-  const text = document.createElement("span");
-  text.textContent = "Outil créé par Volitis";
-  text.style.fontSize = "0.8rem";
-  text.style.color = "white";
-  text.style.whiteSpace = "nowrap";
-
-  wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/)", "_blank"));
-
-  const status = document.getElementById("licence-status");
-  (status || header).insertAdjacentElement("afterend", wrapper);
-
-  // ✅ Vérifie la licence automatiquement au chargement
-  licenceOK();
-});
-
-/* --- Ajuster automatiquement la marge sous le bandeau --- */
-window.addEventListener("load", () => {
-  const topFixed = document.getElementById("top-fixed");
-  const planningContainer = document.querySelector("#planning-wrapper")?.parentElement;
-
-  if (topFixed && planningContainer) {
-    const h = topFixed.getBoundingClientRect().height;
-    planningContainer.style.marginTop = (h + 20) + "px";
-    console.log("Décalage planning appliqué :", h + 20, "px");
+  if (header) {
+    const wrapper = document.createElement("div");
+    wrapper.id = "volitis-link";
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "0.5rem";
+    wrapper.style.marginLeft = "1rem";
+    const logoContainer = document.createElement("div");
+    logoContainer.style.background = "white";
+    logoContainer.style.borderRadius = "50%";
+    logoContainer.style.width = "42px";
+    logoContainer.style.height = "42px";
+    logoContainer.style.display = "flex";
+    logoContainer.style.alignItems = "center";
+    logoContainer.style.justifyContent = "center";
+    const img = document.createElement("img");
+    img.src = "assets/volitis-logo.png";
+    img.alt = "Logo Volitis";
+    img.style.height = "30px";
+    logoContainer.appendChild(img);
+    const text = document.createElement("span");
+    text.textContent = "Outil créé par Volitis";
+    text.style.fontSize = "0.8rem";
+    text.style.color = "white";
+    text.style.whiteSpace = "nowrap";
+    wrapper.append(logoContainer, text);
+    wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+    header.appendChild(wrapper);
   }
+
+  // affiche les salariés existants
+  afficherSalaries();
 });
 
