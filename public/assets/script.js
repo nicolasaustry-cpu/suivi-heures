@@ -205,14 +205,54 @@ function genOptionsHeures(v) {
 }
 
 function saveHeure(key, chantier, h) {
-  // sauvegarde immédiate
+  // sauvegarde
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
 
-  // laisse le DOM appliquer la modification avant de recalculer
+  // 💡 mise à jour du total et écart de la ligne concernée
   setTimeout(() => {
-    calculerTotaux();
+    majTotalLigne(key);
+    calculerTotaux(); // met à jour la ligne "Totaux du mois"
   }, 100);
+}
+function majTotalLigne(key) {
+  // Exemple de clé : 1715000000123-2026-05-07ch2
+  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!match) return;
+  const idSal = match[1];
+  const dateStr = match[2];
+
+  // Calcule la somme des 5 chantiers pour ce salarié/jour
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${idSal}${dateStr}ch${i}`;
+    total += parseFloat(heures[k]?.heures || 0);
+  }
+
+  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
+  if (totalCell) totalCell.textContent = total.toFixed(1);
+
+  // Absences
+  const absKey = `${idSal}${dateStr}abs`;
+  const abs = parseFloat(heures[absKey]?.heures || 0);
+
+  // Heures prévues (depuis fiche salarié)
+  const jour = new Date(dateStr);
+  const jourNomComplet = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][jour.getDay()];
+  const salarie = salaries.find(s => String(s.id) === String(idSal));
+  const prevuFiche = salarie?.heuresParJour?.[jourNomComplet.slice(0,3)] || 0;
+  const prevuAjuste = Math.max(prevuFiche - abs, 0);
+
+  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
+  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
+
+  // Écart
+  const ecart = total - prevuAjuste;
+  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
+  }
 }
 
 function calculerTotaux() {
