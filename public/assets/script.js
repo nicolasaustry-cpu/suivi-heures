@@ -313,20 +313,44 @@ function calculerTotaux() {
     curseur.style.left = (l * pourc / 100 - 4) + "px";
     texte.textContent = Math.round(pourc) + "%";
   }
+function majEtatFiger() {
+  const chk = document.getElementById("figer-param");
+  const inputs = [document.getElementById("seuil-orange"), document.getElementById("seuil-vert")];
+
+  if (chk.checked) {
+    // désactivation des champs
+    inputs.forEach(inp => inp.disabled = true);
+  } else {
+    inputs.forEach(inp => inp.disabled = false);
+  }
+
+  // stocke l'état dans le localStorage
+  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
+  conf.figer = chk.checked;
+  localStorage.setItem("configJauge", JSON.stringify(conf));
 }
+
 
 /* ===========================================
    AU CHARGEMENT
    =========================================== */
 window.addEventListener("DOMContentLoaded", () => {
-  const headerNom = document.getElementById("entreprise-nom");
-  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
-  afficherSalaries();
-  const now = new Date();
-  const mp = document.getElementById("moisPlanning");
-  if (mp) {
-    mp.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-    mp.addEventListener("change",genererPlanning);
-    genererPlanning();
+  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
+
+  if (conf.sOrange) document.getElementById("seuil-orange").value = conf.sOrange;
+  if (conf.sVert)   document.getElementById("seuil-vert").value   = conf.sVert;
+  majZonesJauge();
+
+  // restaure état de figer
+  if (conf.figer) {
+    document.getElementById("figer-param").checked = true;
+    document.getElementById("seuil-orange").disabled = true;
+    document.getElementById("seuil-vert").disabled = true;
   }
+
+  // écoute modifications
+  document.getElementById("seuil-orange").addEventListener("change", majZonesJauge);
+  document.getElementById("seuil-vert").addEventListener("change", majZonesJauge);
+  document.getElementById("figer-param").addEventListener("change", majEtatFiger);
 });
+
