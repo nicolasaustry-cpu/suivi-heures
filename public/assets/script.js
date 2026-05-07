@@ -139,36 +139,41 @@ function genererBlocJour(date, container, nomsJours) {
         </tr>
       </thead><tbody>`;
 
-  salaries.forEach(s => {
-    const entree = new Date(s.dateEntree);
-    const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
-    if (date < entree || (sortie && date > sortie)) return;
+salaries.forEach(s => {
+  const entree = new Date(s.dateEntree);
+  const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
+  if (date < entree || (sortie && date > sortie)) return;
 
-    html += `<tr>
-      <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
+  html += `
+  <tr>
+    <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
 
-    let tot = 0;
-    for (let i = 1; i <= 5; i++) {
-      const k = `${s.id}${dateStr}ch${i}`;
-      const data = heures[k] || { chantier:"", heures:0 };
-      tot += parseFloat(data.heures) || 0;
-      html += `<td style="border:1px solid #ccc;padding:2px;">
+  let tot = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${s.id}${dateStr}ch${i}`;
+    const data = heures[k] || { chantier:"", heures:0 };
+    tot += parseFloat(data.heures) || 0;
+
+    html += `
+      <td style="border:1px solid #ccc;padding:2px;">
         <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
                style="width:100px;margin-bottom:2px;"
-               onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+               onchange="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
         <select id="${k}h" style="width:60px;"
-                onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
+                onchange="saveHeure('${k}', document.getElementById('${k}chant').value, this.value)">
           ${genOptionsHeures(data.heures)}
-        </select></td>`;
-    }
+        </select>
+      </td>`;
+  }
 
-    const keyAbs = `${s.id}${dateStr}abs`;
-    const abs = heures[keyAbs]?.heures || 0;
-    const prevu = (s.heuresParJour?.[[,'Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][date.getDay()].toLowerCase()] || 0);
-    const prevuAdj = Math.max(prevu - abs, 0);
-    const ecart = tot - prevuAdj;
+  const keyAbs = `${s.id}${dateStr}abs`;
+  const abs = heures[keyAbs]?.heures || 0;
+  const prevu = s.heuresParJour?.[['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][date.getDay()].toLowerCase()] || 0;
+  const prevuAdj = Math.max(prevu - abs, 0);
+  const ecart = tot - prevuAdj;
 
-    html += `<td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
+  html += `
+      <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
       <td style="border:1px solid #ccc;text-align:center;">
         <select id="${keyAbs}h" style="width:60px;"
                 onchange="saveHeure('${keyAbs}','absence',this.value)">
@@ -176,10 +181,11 @@ function genererBlocJour(date, container, nomsJours) {
         </select>
       </td>
       <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
-      <td id="ecart${s.id}_${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
+      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
         ${(ecart>=0?'+':'')+ecart.toFixed(1)}
-      </td></tr>`;
-  });
+      </td>
+    </tr>`;
+});
 
   html += "</tbody></table>";
   container.innerHTML += html;
