@@ -1,5 +1,5 @@
 /* ===========================================
-   Données locales partagées
+   DONNÉES LOCALES
    =========================================== */
 let entreprise = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
 let salaries   = JSON.parse(localStorage.getItem("salariesdata")   || "[]");
@@ -91,19 +91,6 @@ function supprimerSalarie(i) {
 /* ===========================================
    PLANNING
    =========================================== */
-function semainesDuMois(a, m) {
-  const sem = [], p1 = new Date(a, m, 1), pf = new Date(a, m + 1, 0);
-  let l = new Date(p1);
-  while (l.getDay() !== 1) l.setDate(l.getDate() - 1);
-  while (l <= pf) {
-    const s = new Date(l);
-    s.setDate(l.getDate() + 5);
-    if (s >= p1 && l <= pf) sem.push({ lundi: new Date(l), samedi: s });
-    l.setDate(l.getDate() + 7);
-  }
-  return sem;
-}
-
 function genererPlanning() {
   const v = document.getElementById("moisPlanning").value;
   if (!v) return;
@@ -113,7 +100,7 @@ function genererPlanning() {
 
   const premierJour = new Date(+a, +m - 1, 1);
   const dernierJour = new Date(+a, +m, 0);
-  const nomsJours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const nomsJours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 
   for (let d = new Date(premierJour); d <= dernierJour; d.setDate(d.getDate() + 1)) {
     if (d.getDay() !== 0) genererBlocJour(new Date(d), container, nomsJours);
@@ -124,97 +111,84 @@ function genererPlanning() {
 
 function genererBlocJour(date, container, nomsJours) {
   const dateStr = date.toISOString().split("T")[0];
-  const couleurFond = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
+  const couleur = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
   const nomJour = nomsJours[date.getDay()];
 
-let html = `
-  <h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
-    ${nomJour} ${date.toLocaleDateString("fr-FR")}
-  </h3>
-  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
-    <thead>
-      <tr style="background:#e8edf3;">
-        <th class="col-salarie" style="border:1px solid #ccc;padding:4px;">Salarié</th>
-        <th class="col-ch" style="border:1px solid #ccc;">Ch1</th>
-        <th class="col-ch" style="border:1px solid #ccc;">Ch2</th>
-        <th class="col-ch" style="border:1px solid #ccc;">Ch3</th>
-        <th class="col-ch" style="border:1px solid #ccc;">Ch4</th>
-        <th class="col-ch" style="border:1px solid #ccc;">Ch5</th>
-        <th class="col-total" style="border:1px solid #ccc;">Total</th>
-        <th class="col-abs" style="border:1px solid #ccc;">Abs.</th>
-        <th class="col-prevu" style="border:1px solid #ccc;">Prévu</th>
-        <th class="col-ecart" style="border:1px solid #ccc;">Écart</th>
-      </tr>
-    </thead>
-    <tbody>`;
+  let html = `
+    <h3 style="background:${couleur};padding:0.3rem;margin:0.5rem 0;">
+      ${nomJour} ${date.toLocaleDateString("fr-FR")}
+    </h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+      <thead>
+        <tr style="background:#e8edf3;">
+          <th class="col-salarie" style="border:1px solid #ccc;padding:4px;">Salarié</th>
+          <th class="col-ch">Ch1</th>
+          <th class="col-ch">Ch2</th>
+          <th class="col-ch">Ch3</th>
+          <th class="col-ch">Ch4</th>
+          <th class="col-ch">Ch5</th>
+          <th class="col-total">Total</th>
+          <th class="col-abs">Abs.</th>
+          <th class="col-prevu">Prévu</th>
+          <th class="col-ecart">Écart</th>
+        </tr>
+      </thead><tbody>`;
 
-salaries.forEach(s => {
-  const entree = new Date(s.dateEntree);
-  const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
-  if (date < entree || (sortie && date > sortie)) return;
+  salaries.forEach(s => {
+    const entree = new Date(s.dateEntree);
+    const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
+    if (date < entree || (sortie && date > sortie)) return;
 
-  html += `
-  <tr>
-    <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
+    let tot = 0;
+    html += `<tr>
+      <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
 
-  let tot = 0;
-  for (let i = 1; i <= 5; i++) {
-    const k = `${s.id}${dateStr}ch${i}`;
-    const data = heures[k] || { chantier:"", heures:0 };
-    tot += parseFloat(data.heures) || 0;
+    for (let i = 1; i <= 5; i++) {
+      const k = `${s.id}${dateStr}ch${i}`;
+      const data = heures[k] || { chantier: "", heures: 0 };
+      tot += parseFloat(data.heures) || 0;
+
+      html += `
+        <td style="border:1px solid #ccc;padding:2px;">
+          <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
+                 style="width:100px;margin-bottom:2px;"
+                 onchange="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
+          <select id="${k}h" style="width:60px;"
+                  onchange="saveHeure('${k}', document.getElementById('${k}chant').value, this.value)">
+            ${genOptionsHeures(data.heures)}
+          </select>
+        </td>`;
+    }
+
+    const keyAbs = `${s.id}${dateStr}abs`;
+    const abs = heures[keyAbs]?.heures || 0;
+
+    const jourNom = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"][date.getDay()];
+    const heuresPrevues = s.heuresParJour?.[jourNom.slice(0, 3)] || 0;
+    const prevuAdj = tot > 0 ? Math.max(heuresPrevues - abs, 0) : 0;
+    const ecart = tot - prevuAdj;
 
     html += `
-      <td style="border:1px solid #ccc;padding:2px;">
-        <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
-               style="width:100px;margin-bottom:2px;"
-               onchange="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
-        <select id="${k}h" style="width:60px;"
-                onchange="saveHeure('${k}', document.getElementById('${k}chant').value, this.value)">
-          ${genOptionsHeures(data.heures)}
-        </select>
-      </td>`;
-  }
-
-const keyAbs = `${s.id}${dateStr}abs`;
-const abs = heures[keyAbs]?.heures || 0;
-
-// 🔧 heures prévues = contrat sauf si aucun chantier saisi ce jour
-const jourNomComplet = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][date.getDay()];
-const heuresContrat = s.heuresParJour?.[jourNomComplet.slice(0,3)] || 0;
-
-// calcule la somme des chantiers du jour
-let sommeChantiers = 0;
-for (let i = 1; i <= 5; i++) {
-  const k = `${s.id}${dateStr}ch${i}`;
-  sommeChantiers += parseFloat(heures[k]?.heures || 0);
-}
-
-// règle : si aucun chantier, alors prévu = 0, sinon = heuresContrat - abs
-const prevuAdj = sommeChantiers === 0 ? 0 : Math.max(heuresContrat - abs, 0);
-
-  const ecart = tot - prevuAdj;
-
-  html += `
-      <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
-      <td style="border:1px solid #ccc;text-align:center;">
+      <td id="total${s.id}${dateStr}" class="col-total" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
+      <td class="col-abs" style="border:1px solid #ccc;text-align:center;">
         <select id="${keyAbs}h" style="width:60px;"
                 onchange="saveHeure('${keyAbs}','absence',this.value)">
           ${genOptionsHeures(abs)}
         </select>
       </td>
-      <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
-      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
-        ${(ecart>=0?'+':'')+ecart.toFixed(1)}
+      <td id="prevu${s.id}${dateStr}" class="col-prevu" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
+      <td id="ecart${s.id}${dateStr}" class="col-ecart" style="border:1px solid #ccc;text-align:center;color:${ecart < 0 ? "red" : "green"}">
+        ${(ecart >= 0 ? "+" : "") + ecart.toFixed(1)}
       </td>
     </tr>`;
-});
+  });
 
   html += "</tbody></table>";
   container.innerHTML += html;
 }
 
 /* ===========================================
-   Outils Planning
+   OUTILS
    =========================================== */
 function genOptionsHeures(v) {
   let opt = "";
@@ -227,152 +201,55 @@ function genOptionsHeures(v) {
 }
 
 function saveHeure(key, chantier, h) {
-  // sauvegarde
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-
-  // 💡 mise à jour du total et écart de la ligne concernée
-  setTimeout(() => {
-    majTotalLigne(key);
-    calculerTotaux(); // met à jour la ligne "Totaux du mois"
-  }, 100);
-}
-function majTotalLigne(key) {
-  // Exemple de clé : 1715000000123-2026-05-07ch2
-  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!match) return;
-  const idSal = match[1];
-  const dateStr = match[2];
-
-  // Calcule la somme des 5 chantiers pour ce salarié/jour
-  let total = 0;
-  for (let i = 1; i <= 5; i++) {
-    const k = `${idSal}${dateStr}ch${i}`;
-    total += parseFloat(heures[k]?.heures || 0);
-  }
-
-  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
-  if (totalCell) totalCell.textContent = total.toFixed(1);
-
-  // Absences
-  const absKey = `${idSal}${dateStr}abs`;
-  const abs = parseFloat(heures[absKey]?.heures || 0);
-
-  // Heures prévues (depuis fiche salarié)
-  const jour = new Date(dateStr);
-  const jourNomComplet = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][jour.getDay()];
-  const salarie = salaries.find(s => String(s.id) === String(idSal));
-  const prevuFiche = salarie?.heuresParJour?.[jourNomComplet.slice(0,3)] || 0;
-  const prevuAjuste = Math.max(prevuFiche - abs, 0);
-
-  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
-  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
-
-  // Écart
-  const ecart = total - prevuAjuste;
-  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
-  if (ecartCell) {
-    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
-    ecartCell.style.color = ecart < 0 ? "red" : "green";
-  }
+  setTimeout(() => calculerTotaux(), 100);
 }
 
 function calculerTotaux() {
-  let totalHeures = 0;
-  let totalAbsences = 0;
-  let totalPrevus = 0;
-
-  // total des heures saisies dans tous les <select> chantier
+  let totalHeures = 0, totalAbsences = 0, totalPrevus = 0;
   document.querySelectorAll('select[id$="h"]').forEach(sel => {
     const val = parseFloat(sel.value) || 0;
     if (sel.id.includes("abs")) totalAbsences += val;
     else totalHeures += val;
   });
-
-  // total des "prévu" visibles dans chaque cellule
-  document.querySelectorAll('[id^="prevu"]').forEach(td => {
-    totalPrevus += parseFloat(td.textContent) || 0;
-  });
+  document.querySelectorAll('[id^="prevu"]').forEach(td =>
+    totalPrevus += parseFloat(td.textContent) || 0);
 
   const totalEcart = totalHeures - totalPrevus;
-
-  // affichage dans la ligne Totaux
   const fix = v => v.toFixed(1);
+
   document.getElementById("tot-total").textContent = fix(totalHeures);
   document.getElementById("tot-abs").textContent   = fix(totalAbsences);
   document.getElementById("tot-prev").textContent  = fix(totalPrevus);
   document.getElementById("tot-ecart").textContent = fix(totalEcart);
   document.getElementById("tot-ecart").style.color = totalEcart < 0 ? "red" : "green";
 
-  // mise à jour jauge
+  // mise à jour de la jauge
   const pourc = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
   const curseur = document.getElementById("curseur");
-  const texte = document.getElementById("pourcentage");
+  const texte   = document.getElementById("pourcentage");
   if (curseur && texte) {
     const l = curseur.parentElement.offsetWidth;
     curseur.style.left = (l * pourc / 100 - 4) + "px";
     texte.textContent = Math.round(pourc) + "%";
   }
-function majZonesJauge() {
-  const sOrange = parseFloat(document.getElementById("seuil-orange")?.value) || 80;
-  const sVert   = parseFloat(document.getElementById("seuil-vert")?.value)   || 100;
-
-  const rouge  = document.getElementById("zone-rouge");
-  const orange = document.getElementById("zone-orange");
-  const vert   = document.getElementById("zone-verte");
-
-  if (!rouge || !orange || !vert) return;
-
-  // largeur des zones selon les seuils
-  const total = Math.max(sVert, 1); // éviter 0
-  rouge.style.width  = (sOrange / total * 100) + "%";
-  orange.style.left  = (sOrange / total * 100) + "%";
-  orange.style.width = ((sVert - sOrange) / total * 100) + "%";
-  vert.style.left    = (sVert / total * 100) + "%";
-  vert.style.width   = (100 - (sVert / total * 100)) + "%";
-
-  // sauvegarde locale des nouveaux seuils
-  localStorage.setItem("configJauge", JSON.stringify({ sOrange, sVert }));
 }
-function majEtatFiger() {
-  const chk = document.getElementById("figer-param");
-  const inputs = [document.getElementById("seuil-orange"), document.getElementById("seuil-vert")];
-
-  if (chk.checked) {
-    // désactivation des champs
-    inputs.forEach(inp => inp.disabled = true);
-  } else {
-    inputs.forEach(inp => inp.disabled = false);
-  }
-
-  // stocke l'état dans le localStorage
-  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
-  conf.figer = chk.checked;
-  localStorage.setItem("configJauge", JSON.stringify(conf));
-}
-
 
 /* ===========================================
    AU CHARGEMENT
    =========================================== */
 window.addEventListener("DOMContentLoaded", () => {
-  // --- restauration et écoute des paramètres de jauge ---
-  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
+  const headerNom = document.getElementById("entreprise-nom");
+  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
+  afficherSalaries();
 
-  if (document.getElementById("seuil-orange")) {
-    if (conf.sOrange) document.getElementById("seuil-orange").value = conf.sOrange;
-    if (conf.sVert)   document.getElementById("seuil-vert").value   = conf.sVert;
-    majZonesJauge();
-
-    if (conf.figer) {
-      document.getElementById("figer-param").checked = true;
-      document.getElementById("seuil-orange").disabled = true;
-      document.getElementById("seuil-vert").disabled = true;
-    }
-
-    document.getElementById("seuil-orange").addEventListener("change", majZonesJauge);
-    document.getElementById("seuil-vert").addEventListener("change", majZonesJauge);
-    document.getElementById("figer-param").addEventListener("change", majEtatFiger);
+  const now = new Date();
+  const mp = document.getElementById("moisPlanning");
+  if (mp) {
+    mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    mp.addEventListener("change", genererPlanning);
+    genererPlanning();
   }
+});
 
-}); // ✅ CETTE LIGNE EST ESSENTIELLE : elle ferme window.addEventListener("DOMContentLoaded", ...)
