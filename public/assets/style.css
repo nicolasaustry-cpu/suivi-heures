@@ -219,3 +219,30 @@ body.readonly main {
   margin: 0;
   font-size: 1.4rem;
 }
+/* --- Correction affichage page Planning --- */
+body {
+  padding-top: 140px !important; /* espace suffisant sous le header fixe */
+}
+
+.main-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+#planning-wrapper {
+  margin-top: 1rem;
+}
+/* --- Correction affichage ligne Totaux du mois --- */
+#totaux {
+  position: relative;
+  z-index: 2000;         /* passe au-dessus des blocs */
+  background: #e0e7ff;   /* bleu clair */
+  border-top: 2px solid #2563eb;
+}
+
+#planning-wrapper {
+  padding-bottom: 120px; /* espace sous le calendrier pour bien voir la ligne */
+}
