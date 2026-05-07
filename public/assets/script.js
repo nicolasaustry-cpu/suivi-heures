@@ -166,14 +166,23 @@ salaries.forEach(s => {
       </td>`;
   }
 
-  const keyAbs = `${s.id}${dateStr}abs`;
-  const abs = heures[keyAbs]?.heures || 0;
-// récupère le nom du jour (lun, mar, …) pour aller chercher dans la fiche salarié
-const jourNomComplet = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][date.getDay()];
-const heuresPrevues = s.heuresParJour?.[jourNomComplet.slice(0,3)] || 0;
+const keyAbs = `${s.id}${dateStr}abs`;
+const abs = heures[keyAbs]?.heures || 0;
 
-// règle : par défaut = heures contrat, sauf si absence
-const prevuAdj = Math.max(heuresPrevues - abs, 0);
+// 🔧 heures prévues = contrat sauf si aucun chantier saisi ce jour
+const jourNomComplet = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][date.getDay()];
+const heuresContrat = s.heuresParJour?.[jourNomComplet.slice(0,3)] || 0;
+
+// calcule la somme des chantiers du jour
+let sommeChantiers = 0;
+for (let i = 1; i <= 5; i++) {
+  const k = `${s.id}${dateStr}ch${i}`;
+  sommeChantiers += parseFloat(heures[k]?.heures || 0);
+}
+
+// règle : si aucun chantier, alors prévu = 0, sinon = heuresContrat - abs
+const prevuAdj = sommeChantiers === 0 ? 0 : Math.max(heuresContrat - abs, 0);
+
   const ecart = tot - prevuAdj;
 
   html += `
