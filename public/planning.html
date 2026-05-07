@@ -114,6 +114,13 @@ header::after {
   position: relative;
   top: -8px; /* remonte la barre grise sans agrandir le header */
 }
+/* Colle visuellement la barre grise au bandeau bleu */
+.main-header {
+  display: block;
+}
+.main-header + .nav {
+  margin-top: -1px; /* supprime la ligne claire entre les deux */
+}
 
 </style>
 </head>
@@ -125,8 +132,7 @@ header::after {
   <div style="display:flex;align-items:center;gap:1rem;">
     <div id="licence-status">✔️ Active</div>
   </div>
-</header>
-<div class="nav">
+</header><div class="nav">
   <a href="index.html">Entreprise</a>
   <a href="salaries.html">Salariés</a>
   <a href="planning.html" class="active">Planning</a>
