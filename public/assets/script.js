@@ -335,7 +335,7 @@ function majEtatFiger() {
    AU CHARGEMENT
    =========================================== */
 window.addEventListener("DOMContentLoaded", () => {
-    // --- restauration et écoute des paramètres de jauge ---
+  // --- restauration et écoute des paramètres de jauge ---
   const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
 
   if (document.getElementById("seuil-orange")) {
@@ -354,5 +354,4 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("figer-param").addEventListener("change", majEtatFiger);
   }
 
-});
-
+}); // ✅ CETTE LIGNE EST ESSENTIELLE : elle ferme window.addEventListener("DOMContentLoaded", ...)
