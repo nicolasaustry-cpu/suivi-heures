@@ -53,6 +53,27 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
 header + .nav {
   margin-top: 0;
 }
+/* Coller la nav grise au bandeau bleu */
+body {
+  background: #f4f6f8;
+}
+
+.main-header {
+  margin: 0;
+  padding-bottom: 0.4rem;   /* réduit l'épaisseur du bandeau bleu */
+  background: #2563eb;
+}
+
+.nav {
+  margin-top: 0;
+  background: #e8edf3;
+  border-top: none;
+}
+
+header + .nav {
+  position: relative;
+  top: -4px;                /* tire la nav légèrement vers le haut */
+}
 
 </style>
 </head>
