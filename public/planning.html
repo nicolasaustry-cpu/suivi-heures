@@ -74,6 +74,25 @@ header + .nav {
   position: relative;
   top: -4px;                /* tire la nav légèrement vers le haut */
 }
+/* === Suppression complète de tout espace entre le header bleu et la nav === */
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+.main-header {
+  margin: 0;
+  padding: 0.6rem 1rem; /* garde la hauteur du header, mais sans marge */
+  background: #2563eb;
+}
+
+.nav {
+  margin: 0;
+  padding-top: 0; 
+  border: none;
+  position: relative;
+  top: -4px; /* colle la nav contre le bleu */
+}
 
 </style>
 </head>
