@@ -51,7 +51,11 @@ async function activerLicence() {
     return;
   }
   try {
-    const res = await fetch(`${API_BASE}/api/licence/${code}`);
+    const res = await fetch(`${API_BASE}/api/data/verifyLicence`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ code })
+});
     if (!res.ok) throw new Error("Réponse du serveur invalide");
     const data = await res.json();
     if (data.actif) {
