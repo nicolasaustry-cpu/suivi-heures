@@ -72,43 +72,50 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
     <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
   </div>
 
-<!-- Zone de paramétrage -->
-<div style="display:flex;align-items:center;gap:10px;font-size:0.85rem;color:#111;">
-  <label>Rouge → Orange à </label>
-  <input id="seuil-orange" type="number" min="0" max="200" step="1" value="80"
-         style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
+  <!-- Zone de paramétrage -->
+  <div style="display:flex;align-items:center;gap:10px;font-size:0.85rem;color:#111;margin-top:0.8rem;">
+    <label>Rouge → Orange à </label>
+    <input id="seuil-orange" type="number" min="0" max="200" step="1" value="80"
+           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
 
-  <label>Orange → Vert à </label>
-  <input id="seuil-vert" type="number" min="0" max="200" step="1" value="100"
-         style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
+    <label>Orange → Vert à </label>
+    <input id="seuil-vert" type="number" min="0" max="200" step="1" value="100"
+           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
 
-  <label style="margin-left:1rem;display:flex;align-items:center;gap:4px;">
-    <input type="checkbox" id="figer-param" />
-    Figer
-  </label>
-</div>
+    <label style="margin-left:1rem;display:flex;align-items:center;gap:4px;">
+      <input type="checkbox" id="figer-param" />
+      Figer
+    </label>
+  </div>
 
+  <!-- === Jauge === -->
+  <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:0.6rem;">
+    <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
+    <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
+      <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+      <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+      <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+      <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
+    </div>
+  </div>
 
-<!-- Ligne Totaux du mois parfaitement alignée avec les colonnes du planning -->
-<table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
-  <thead>
-    <tr style="background:#c7d2fe;">
-      <th style="padding:6px;text-align:left;width:150px;">Totaux du mois</th>
-      <!-- 5 colonnes Chantiers -->
-      <th style="width:182px;"></th>
-      <th style="width:182px;"></th>
-      <th style="width:182px;"></th>
-      <th style="width:182px;"></th>
-      <th style="width:182px;"></th>
-      <!-- Colonnes Total / Abs / Prévu / Écart -->
-      <th id="tot-total" style="width:80px;text-align:center;">0</th>
-      <th id="tot-abs"   style="width:80px;text-align:center;">0</th>
-      <th id="tot-prev"  style="width:80px;text-align:center;">0</th>
-      <th id="tot-ecart" style="width:80px;text-align:center;">0</th>
-    </tr>
-  </thead>
-</table>
-
+  <!-- Ligne Totaux du mois -->
+  <table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
+    <thead>
+      <tr style="background:#c7d2fe;">
+        <th style="padding:6px;text-align:left;width:150px;">Totaux du mois</th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th id="tot-total" style="width:80px;text-align:center;">0</th>
+        <th id="tot-abs"   style="width:80px;text-align:center;">0</th>
+        <th id="tot-prev"  style="width:80px;text-align:center;">0</th>
+        <th id="tot-ecart" style="width:80px;text-align:center;">0</th>
+      </tr>
+    </thead>
+  </table>
 </section>
 
 <!-- === Contenu principal === -->
@@ -119,4 +126,5 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
 <script src="assets/script.js"></script>
 </body>
 </html>
+
 
