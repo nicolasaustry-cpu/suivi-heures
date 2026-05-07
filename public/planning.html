@@ -12,30 +12,77 @@ body {
   background: #f4f6f8;
   color: #222;
 }
+
+/* Titre */
 h1 {
-  margin: 0; 
+  margin: 0;
   font-size: 1.4rem;
-  line-height: 1.2;        /* réduit la hauteur verticale */
+  line-height: 1.2;
 }
 header h1 {
-  margin-bottom: 0;        /* supprime la marge inférieure du titre */
+  margin-bottom: 0;
 }
 
-.nav { background: #e8edf3; display: flex; justify-content: center; gap: 1rem; padding: 0.6rem; }
-.nav a { text-decoration: none; color: #2563eb; font-weight: bold; }
-.nav a.active { text-decoration: underline; }
+/* Navigation */
+.nav {
+  background: #e8edf3;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem;
+  margin: 0;               /* ✅ enlève toute marge en haut */
+  border-top: none;
+  position: relative;
+  top: -1px;               /* ✅ colle la barre grise au bandeau bleu */
+}
+.nav a {
+  text-decoration: none;
+  color: #2563eb;
+  font-weight: bold;
+}
+.nav a.active {
+  text-decoration: underline;
+}
 
-button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bold; cursor: pointer; color: #fff; }
-.btn-warning { background: #f59e0b; color: #000; }
+/* Boutons et disposition */
+button {
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: #fff;
+}
+.btn-warning {
+  background: #f59e0b;
+  color: #000;
+}
 
-.flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
 
+/* Impression */
 @media print {
   .no-print { display: none !important; }
   body { background: white; color: black; margin-top: 0 !important; }
 }
 
-/* Ligne totaux */
+/* Entête bleu (bandeau principal) */
+.main-header {
+  display: block;          /* ✅ annule le flex “invisible” résiduel */
+  margin: 0;
+  padding: 0.8rem 1rem;    /* conserve la hauteur actuelle */
+  background: #2563eb;
+  color: #fff;
+  line-height: 1;
+  border-bottom: none;
+}
+
+/* Ligne des totaux */
 #totaux {
   position: relative;
   z-index: 20;
@@ -49,80 +96,8 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
 }
 #totaux th { padding: 6px; color: #111827; }
 #totaux tr { background: #c7d2fe; }
-/* Supprime l’espace entre le titre bleu et la barre de navigation */
-header + .nav {
-  margin-top: 0;
-}
-/* Coller la nav grise au bandeau bleu */
-body {
-  background: #f4f6f8;
-}
-
-.main-header {
-  margin: 0;
-  padding-bottom: 0.4rem;   /* réduit l'épaisseur du bandeau bleu */
-  background: #2563eb;
-}
-
-.nav {
-  margin-top: 0;
-  background: #e8edf3;
-  border-top: none;
-}
-
-header + .nav {
-  position: relative;
-  top: -4px;                /* tire la nav légèrement vers le haut */
-}
-/* === Suppression complète de tout espace entre le header bleu et la nav === */
-html, body {
-  margin: 0;
-  padding: 0;
-}
-
-.main-header {
-  margin: 0;
-  padding: 0.6rem 1rem; /* garde la hauteur du header, mais sans marge */
-  background: #2563eb;
-}
-
-.nav {
-  margin: 0;
-  padding-top: 0; 
-  border: none;
-  position: relative;
-  top: -4px; /* colle la nav contre le bleu */
-}
-/* === Supprime la bande grise entre le titre bleu et la barre de navigation === */
-body {
-  background: #f4f6f8;
-}
-.main-header {
-  margin: 0;
-  padding: 0.8rem 1rem; /* ta hauteur actuelle */
-}
-header::after {
-  content: "";
-  display: block;
-  height: 0;
-  background: none;
-}
-.nav {
-  margin-top: 0;
-  border-top: none;
-  background: #e8edf3;
-  position: relative;
-  top: -8px; /* remonte la barre grise sans agrandir le header */
-}
-/* Colle visuellement la barre grise au bandeau bleu */
-.main-header {
-  display: block;
-}
-.main-header + .nav {
-  margin-top: -1px; /* supprime la ligne claire entre les deux */
-}
-
 </style>
+
 </head>
 
 <body>
