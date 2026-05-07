@@ -210,25 +210,40 @@ function saveHeure(key, chantier, h) {
 }
 
 function calculerTotaux() {
-  let totalH = 0, totalA = 0, totalP = 0;
-  document.querySelectorAll('[id^="total"]').forEach(el => totalH += parseFloat(el.textContent)||0);
-  document.querySelectorAll('select[id$="absh"]').forEach(el => totalA += parseFloat(el.value)||0);
-  document.querySelectorAll('[id^="prevu"]').forEach(el => totalP += parseFloat(el.textContent)||0);
+  let totalHeures = 0;
+  let totalAbsences = 0;
+  let totalPrevus = 0;
 
-  const ecart = totalH - totalP;
-  const fix = v=>v.toFixed(1);
-  document.getElementById("tot-total").textContent = fix(totalH);
-  document.getElementById("tot-abs").textContent   = fix(totalA);
-  document.getElementById("tot-prev").textContent  = fix(totalP);
-  document.getElementById("tot-ecart").textContent = fix(ecart);
-  document.getElementById("tot-ecart").style.color = ecart<0?"red":"green";
+  // total des heures saisies dans tous les <select> chantier
+  document.querySelectorAll('select[id$="h"]').forEach(sel => {
+    const val = parseFloat(sel.value) || 0;
+    if (sel.id.includes("abs")) totalAbsences += val;
+    else totalHeures += val;
+  });
 
-  const pourc = totalP>0?(totalH/totalP)*100:0;
-  document.getElementById("pourcentage").textContent=Math.round(pourc)+"%";
-  const curseur=document.getElementById("curseur");
-  if(curseur){
-    const l=curseur.parentElement.offsetWidth;
-    curseur.style.left=(l*pourc/100-4)+"px";
+  // total des "prévu" visibles dans chaque cellule
+  document.querySelectorAll('[id^="prevu"]').forEach(td => {
+    totalPrevus += parseFloat(td.textContent) || 0;
+  });
+
+  const totalEcart = totalHeures - totalPrevus;
+
+  // affichage dans la ligne Totaux
+  const fix = v => v.toFixed(1);
+  document.getElementById("tot-total").textContent = fix(totalHeures);
+  document.getElementById("tot-abs").textContent   = fix(totalAbsences);
+  document.getElementById("tot-prev").textContent  = fix(totalPrevus);
+  document.getElementById("tot-ecart").textContent = fix(totalEcart);
+  document.getElementById("tot-ecart").style.color = totalEcart < 0 ? "red" : "green";
+
+  // mise à jour jauge
+  const pourc = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
+  const curseur = document.getElementById("curseur");
+  const texte = document.getElementById("pourcentage");
+  if (curseur && texte) {
+    const l = curseur.parentElement.offsetWidth;
+    curseur.style.left = (l * pourc / 100 - 4) + "px";
+    texte.textContent = Math.round(pourc) + "%";
   }
 }
 
