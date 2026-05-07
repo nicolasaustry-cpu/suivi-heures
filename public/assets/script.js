@@ -1,10 +1,14 @@
-/* ------------------- Données locales ------------------- */
-// données sauvegardées dans le navigateur
-let entreprise = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
-let salaries = JSON.parse(localStorage.getItem("salariesdata") || "[]");
-let heures = JSON.parse(localStorage.getItem("heuresdata") || "{}");
+/* =========================================================
+   Données locales partagées
+   ========================================================= */
 
-/* ---------- Entreprise ---------- */
+let entreprise = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
+let salaries   = JSON.parse(localStorage.getItem("salariesdata")   || "[]");
+let heures     = JSON.parse(localStorage.getItem("heuresdata")     || "{}");
+
+/* =========================================================
+   ENTREPRISE
+   ========================================================= */
 function initEntreprise() {
   const nomInput = document.getElementById("nom-entreprise");
   if (entreprise.nom && nomInput) {
@@ -24,24 +28,23 @@ function sauverEntreprise() {
   if (headerNom) headerNom.textContent = entreprise.nom;
 }
 
-/* ---------- Salariés ---------- */
+/* =========================================================
+   SALARIÉS
+   ========================================================= */
 function ajouterSalarie() {
   const prenom = document.getElementById("prenomEl").value.trim();
   const nom = document.getElementById("nomEl").value.trim();
   const dateEntree = document.getElementById("dateEntreeEl").value.trim();
-
-  if (!prenom || !nom) {
-    alert("Veuillez saisir un prénom et un nom.");
-    return;
-  }
+  if (!prenom || !nom) return alert("Veuillez saisir un prénom et un nom.");
 
   const heuresParJour = {
-    lun: parseFloat(document.getElementById("hLun").value) || 0,
-    mar: parseFloat(document.getElementById("hMar").value) || 0,
-    mer: parseFloat(document.getElementById("hMer").value) || 0,
-    jeu: parseFloat(document.getElementById("hJeu").value) || 0,
-    ven: parseFloat(document.getElementById("hVen").value) || 0,
-    sam: parseFloat(document.getElementById("hSam").value) || 0
+    lundi: parseFloat(document.getElementById("hLun").value) || 0,
+    mardi: parseFloat(document.getElementById("hMar").value) || 0,
+    mercredi: parseFloat(document.getElementById("hMer").value) || 0,
+    jeudi: parseFloat(document.getElementById("hJeu").value) || 0,
+    vendredi: parseFloat(document.getElementById("hVen").value) || 0,
+    samedi: parseFloat(document.getElementById("hSam").value) || 0,
+    dimanche: 0
   };
 
   const nouvelId = Date.now();
@@ -70,12 +73,12 @@ function afficherSalaries() {
         <td>${s.nom}</td>
         <td>${s.dateEntree || ""}</td>
         <td>${s.dateSortie || ""}</td>
-        <td>${h.lun ?? 0}</td>
-        <td>${h.mar ?? 0}</td>
-        <td>${h.mer ?? 0}</td>
-        <td>${h.jeu ?? 0}</td>
-        <td>${h.ven ?? 0}</td>
-        <td>${h.sam ?? 0}</td>
+        <td>${h.lundi ?? 0}</td>
+        <td>${h.mardi ?? 0}</td>
+        <td>${h.mercredi ?? 0}</td>
+        <td>${h.jeudi ?? 0}</td>
+        <td>${h.vendredi ?? 0}</td>
+        <td>${h.samedi ?? 0}</td>
         <td><button class="btn btn-danger" onclick="supprimerSalarie(${i})">✖</button></td>
       </tr>`;
   });
@@ -88,103 +91,17 @@ function supprimerSalarie(index) {
   afficherSalaries();
 }
 
-/* ---------- Heures / planification ---------- */
-function saveHeure(key, chantier, h) {
-  // met à jour les données locales
-  heures[key] = { chantier, heures: parseFloat(h) || 0 };
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
-
-  // met à jour instantanément les cellules concernées
-  majCelluleDuSalarié(key);
-  calculerTotaux(); // rafraîchit la ligne des totaux et la jauge
-}
-
-function majCelluleDuSalarié(key) {
-  // key exemple : 1715000000000-2026-05-07ch1
-  const parts = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!parts) return;
-  const idSal = parts[1];
-  const dateStr = parts[2];
-
-  const jour = new Date(dateStr);
-  const jourNom = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][jour.getDay()];
-  const salarie = salaries.find(s => String(s.id) === String(idSal));
-  if (!salarie) return;
-
-  // total chantiers
-  let totalJour = 0;
-  for (let i = 1; i <= 5; i++) {
-    const k = `${idSal}${dateStr}ch${i}`;
-    totalJour += parseFloat(heures[k]?.heures || 0);
-  }
-  document.getElementById(`total${idSal}${dateStr}`)?.textContent = totalJour.toFixed(1);
-
-  // absences
-  const keyAbs = `${idSal}${dateStr}abs`;
-  const abs = parseFloat(heures[keyAbs]?.heures || 0);
-
-  // heures prévues selon fiche salarié
-  const prevuFiche = salarie.heuresParJour?.[jourNom] || 0;
-  const prevuAjuste = totalJour > 0 ? Math.max(prevuFiche - abs, 0) : 0;
-  document.getElementById(`prevu${idSal}${dateStr}`)?.textContent = prevuAjuste.toFixed(1);
-
-  // écart
-  const ecart = totalJour - prevuAjuste;
-  const ecartCell = document.getElementById(`ecart${idSal}_${dateStr}`);
-  if (ecartCell) {
-    ecartCell.textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
-    ecartCell.style.color = ecart < 0 ? 'red' : 'green';
-  }
-}
-
-/* ---------- Header Volitis + chargement ---------- */
-window.addEventListener("DOMContentLoaded", () => {
-  const headerNom = document.getElementById("entreprise-nom");
-  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
-
-  const header = document.querySelector("header");
-  if (header) {
-    const wrapper = document.createElement("div");
-    wrapper.id = "volitis-link";
-    wrapper.style.display = "flex";
-    wrapper.style.alignItems = "center";
-    wrapper.style.gap = "0.5rem";
-    wrapper.style.marginLeft = "1rem";
-    const logoContainer = document.createElement("div");
-    logoContainer.style.background = "white";
-    logoContainer.style.borderRadius = "50%";
-    logoContainer.style.width = "42px";
-    logoContainer.style.height = "42px";
-    logoContainer.style.display = "flex";
-    logoContainer.style.alignItems = "center";
-    logoContainer.style.justifyContent = "center";
-    const img = document.createElement("img");
-    img.src = "assets/volitis-logo.png";
-    img.alt = "Logo Volitis";
-    img.style.height = "30px";
-    logoContainer.appendChild(img);
-    const text = document.createElement("span");
-    text.textContent = "Outil créé par Volitis";
-    text.style.fontSize = "0.8rem";
-    text.style.color = "white";
-    text.style.whiteSpace = "nowrap";
-    wrapper.append(logoContainer, text);
-    wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
-    header.appendChild(wrapper);
-  }
-
-  // affiche les salariés existants
-  afficherSalaries();
-});
-/* ---------- Planning ---------- */
+/* =========================================================
+   PLANNING
+   ========================================================= */
 function semainesDuMois(a, m) {
-  const sem = [], p1 = new Date(a, m, 1), pf = new Date(a, m + 1, 0);
-  let l = new Date(p1);
+  const sem = [], debut = new Date(a, m, 1), fin = new Date(a, m + 1, 0);
+  let l = new Date(debut);
   while (l.getDay() !== 1) l.setDate(l.getDate() - 1);
-  while (l <= pf) {
+  while (l <= fin) {
     const s = new Date(l);
     s.setDate(l.getDate() + 5);
-    if (s >= p1 && l <= pf) sem.push({ lundi: new Date(l), samedi: s });
+    if (s >= debut && l <= fin) sem.push({ lundi: new Date(l), samedi: s });
     l.setDate(l.getDate() + 7);
   }
   return sem;
@@ -196,164 +113,183 @@ function genererPlanning() {
   const [a, m] = v.split("-");
   const container = document.getElementById("planning-wrapper");
   container.innerHTML = "";
-  
+
   const premierJour = new Date(+a, +m - 1, 1);
   const dernierJour = new Date(+a, +m, 0);
-  const nomsJours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-  
+  const nomsJours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
   for (let d = new Date(premierJour); d <= dernierJour; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0) { // skip dimanche
-      genererBlocJour(new Date(d), container, nomsJours);
-    }
+    if (d.getDay() !== 0) genererBlocJour(new Date(d), container, nomsJours);
   }
 
-  // ✅ une fois tous les jours générés, calcule les totaux et met à jour la jauge
   calculerTotaux();
 }
 
 function genererBlocJour(date, container, nomsJours) {
-  const dateStr = date.toISOString().split('T')[0];
-  const couleurFond = date.getDate() % 2 === 0 ? '#fff' : '#f8fafc';
+  const dateStr = date.toISOString().split("T")[0];
+  const couleurFond = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
   const nomJour = nomsJours[date.getDay()];
-  const jourSemaine = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][date.getDay()];
-  
-  let html = `<h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
-    ${nomJour} ${date.toLocaleDateString('fr-FR')}
-  </h3>`;
-  
-  html += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
-    <thead>
-      <tr style="background:#e8edf3;">
-        <th style="border:1px solid #ccc;padding:4px;width:150px;">Salarié</th>
-        <th style="border:1px solid #ccc;padding:4px;">Chantier 1</th>
-        <th style="border:1px solid #ccc;padding:4px;">Chantier 2</th>
-        <th style="border:1px solid #ccc;padding:4px;">Chantier 3</th>
-        <th style="border:1px solid #ccc;padding:4px;">Chantier 4</th>
-        <th style="border:1px solid #ccc;padding:4px;">Chantier 5</th>
-        <th style="border:1px solid #ccc;padding:4px;width:80px;">Total</th>
-        <th style="border:1px solid #ccc;padding:4px;width:80px;">Absences</th>
-        <th style="border:1px solid #ccc;padding:4px;width:80px;">Prévu</th>
-        <th style="border:1px solid #ccc;padding:4px;width:80px;">Écart</th>
-      </tr>
-    </thead>
-    <tbody>`;
+  const jourNom = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][date.getDay()];
 
-  // Pour chaque salarié
+  let html = `<h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
+      ${nomJour} ${date.toLocaleDateString("fr-FR")}
+    </h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+      <thead>
+        <tr style="background:#e8edf3;">
+          <th style="border:1px solid #ccc;padding:4px;width:150px;">Salarié</th>
+          <th style="border:1px solid #ccc;padding:4px;">Ch1</th>
+          <th style="border:1px solid #ccc;padding:4px;">Ch2</th>
+          <th style="border:1px solid #ccc;padding:4px;">Ch3</th>
+          <th style="border:1px solid #ccc;padding:4px;">Ch4</th>
+          <th style="border:1px solid #ccc;padding:4px;">Ch5</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;">Total</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;">Absences</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;">Prévu</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;">Écart</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
   salaries.forEach(salarie => {
     const entree = new Date(salarie.dateEntree);
     const sortie = salarie.dateSortie ? new Date(salarie.dateSortie) : null;
-    
-    // Vérifie si le salarié travaillait ce jour-là
     if (date < entree || (sortie && date > sortie)) return;
 
     html += `<tr>
-      <td style="border:1px solid #ccc;padding:3px;font-weight:bold;">${salarie.prenom} ${salarie.nom}</td>`;
-    
+      <td style="font-weight:bold;border:1px solid #ccc;padding:3px;">${salarie.prenom} ${salarie.nom}</td>`;
+
     let totalJour = 0;
     for (let ch = 1; ch <= 5; ch++) {
-      const key = `${salarie.id}_${dateStr}_ch${ch}`;
-      const donnees = heures[key] || { chantier: '', heures: 0 };
+      const key = `${salarie.id}${dateStr}ch${ch}`;
+      const donnees = heures[key] || { chantier:"", heures:0 };
       totalJour += parseFloat(donnees.heures) || 0;
-      
+
       html += `<td style="border:1px solid #ccc;padding:2px;">
-        <input id="${key}_ch" placeholder="Chantier" value="${donnees.chantier}" 
+        <input id="${key}ch" placeholder="Chantier" value="${donnees.chantier}"
                style="width:100px;margin-bottom:2px;"
-               onchange="saveHeure('${key}', this.value, document.getElementById('${key}_h').value)">
-        <select id="${key}_h" style="width:60px;" 
-                onchange="saveHeure('${key}', document.getElementById('${key}_ch').value, this.value)">
+               onchange="saveHeure('${key}', this.value, document.getElementById('${key}h').value)">
+        <select id="${key}h" style="width:60px;"
+                onchange="saveHeure('${key}', document.getElementById('${key}ch').value, this.value)">
           ${genOptionsHeures(donnees.heures)}
         </select>
       </td>`;
     }
-    
-    // Colonne Total
-    html += `<td id="total_${salarie.id}_${dateStr}" style="border:1px solid #ccc;padding:3px;text-align:center;">
-      ${totalJour.toFixed(1)}h
-    </td>`;
-    
-    // Colonne Absences
-    const keyAbs = `${salarie.id}_${dateStr}_abs`;
-    const absences = heures[keyAbs]?.heures || 0;
-    html += `<td style="border:1px solid #ccc;padding:3px;text-align:center;">
-      <select id="${keyAbs}_h" style="width:60px;" 
-              onchange="saveHeure('${keyAbs}', 'absence', this.value)">
-        ${genOptionsHeures(absences)}
-      </select>
-    </td>`;
-    
-    // Colonne Prévu (heures prévues ce jour-là)
-    const heuresParJour = salarie.heuresParJour || {};
-    const prevu = heuresParJour[jourSemaine] || 0;
-    const prevuAjuste = Math.max(prevu - absences, 0);
-    html += `<td id="prevu_${salarie.id}_${dateStr}" style="border:1px solid #ccc;padding:3px;text-align:center;">
-      ${prevuAjuste.toFixed(1)}h
-    </td>`;
-    
-    // Colonne Écart
-    const ecart = totalJour - prevuAjuste;
-    const couleurEcart = ecart < 0 ? 'red' : 'green';
-    html += `<td id="ecart_${salarie.id}_${dateStr}" style="border:1px solid #ccc;padding:3px;text-align:center;color:${couleurEcart};">
-      ${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}h
-    </td></tr>`;
+
+    const keyAbs = `${salarie.id}${dateStr}abs`;
+    const absVal = heures[keyAbs]?.heures || 0;
+
+    const heuresPrevues = salarie.heuresParJour?.[jourNom] || 0;
+    const prevuAjuste = totalJour > 0 ? Math.max(heuresPrevues - absVal, 0) : 0;
+    const ecartVal = totalJour - prevuAjuste;
+
+    html += `
+      <td id="total${salarie.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${totalJour.toFixed(1)}</td>
+      <td style="border:1px solid #ccc;text-align:center;">
+        <select id="${keyAbs}h" style="width:60px;"
+                onchange="saveHeure('${keyAbs}','absence',this.value)">
+          ${genOptionsHeures(absVal)}
+        </select>
+      </td>
+      <td id="prevu${salarie.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAjuste.toFixed(1)}</td>
+      <td id="ecart${salarie.id}_${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecartVal < 0 ? "red" : "green"}">
+        ${(ecartVal >= 0 ? "+" : "") + ecartVal.toFixed(1)}
+      </td>
+    </tr>`;
   });
 
-  html += '</tbody></table>';
+  html += "</tbody></table>";
   container.innerHTML += html;
 }
 
+/* =========================================================
+   OUTILS PLANNING : calculs totaux, jauge, options heures
+   ========================================================= */
 
 function genOptionsHeures(valeur) {
-  let options = '';
+  let opt = "";
   for (let i = 0; i <= 10; i += 0.25) {
-    const label = i.toFixed(2).replace('.00', '');
-    const selected = Math.abs(i - parseFloat(valeur || 0)) < 0.001 ? 'selected' : '';
-    options += `<option value="${i}" ${selected}>${label}</option>`;
+    const lbl = i.toFixed(2).replace(".00", "");
+    const sel = Math.abs(i - parseFloat(valeur || 0)) < 0.001 ? "selected" : "";
+    opt += `<option value="${i}" ${sel}>${lbl}</option>`;
   }
-  return options;
+  return opt;
 }
+
+function saveHeure(key, chantier, h) {
+  heures[key] = { chantier, heures: parseFloat(h) || 0 };
+  localStorage.setItem("heuresdata", JSON.stringify(heures));
+  majCelluleDuSalarié(key);
+  calculerTotaux();
+}
+
+function majCelluleDuSalarié(key) {
+  const parts = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!parts) return;
+  const idSal = parts[1];
+  const dateStr = parts[2];
+  const jour = new Date(dateStr);
+  const jourNom = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][jour.getDay()];
+  const salarie = salaries.find(s => String(s.id) === String(idSal));
+  if (!salarie) return;
+
+  let totalJour = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${idSal}${dateStr}ch${i}`;
+    totalJour += parseFloat(heures[k]?.heures || 0);
+  }
+  document.getElementById(`total${idSal}${dateStr}`)?.textContent = totalJour.toFixed(1);
+
+  const keyAbs = `${idSal}${dateStr}abs`;
+  const abs = parseFloat(heures[keyAbs]?.heures || 0);
+  const prevuFiche = salarie.heuresParJour?.[jourNom] || 0;
+  const prevuAjuste = totalJour > 0 ? Math.max(prevuFiche - abs, 0) : 0;
+  document.getElementById(`prevu${idSal}${dateStr}`)?.textContent = prevuAjuste.toFixed(1);
+
+  const ecart = totalJour - prevuAjuste;
+  const cel = document.getElementById(`ecart${idSal}_${dateStr}`);
+  if (cel) {
+    cel.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
+    cel.style.color = ecart < 0 ? "red" : "green";
+  }
+}
+
 function calculerTotaux() {
-  let totalHeures = 0,
-      totalAbsences = 0,
-      totalPrevus = 0;
+  let totalHeures = 0, totalAbs = 0, totalPrev = 0;
 
-  // ---------------- Somme des heures chantiers ----------------
-  document.querySelectorAll('[id^="total"]').forEach(td => {
-    totalHeures += parseFloat(td.textContent) || 0;
-  });
+  document.querySelectorAll('[id^="total"]').forEach(td => totalHeures += parseFloat(td.textContent) || 0);
+  document.querySelectorAll('select[id$="absh"]').forEach(sel => totalAbs += parseFloat(sel.value) || 0);
+  document.querySelectorAll('[id^="prevu"]').forEach(td => totalPrev += parseFloat(td.textContent) || 0);
 
-  // ---------------- Somme des absences ----------------
-  document.querySelectorAll('select[id$="absh"]').forEach(sel => {
-    totalAbsences += parseFloat(sel.value) || 0;
-  });
+  const totalEcart = totalHeures - totalPrev;
 
-  // ---------------- Somme des heures prévues ----------------
-  document.querySelectorAll('[id^="prevu"]').forEach(td => {
-    totalPrevus += parseFloat(td.textContent) || 0;
-  });
+  const toTxt = v => v.toFixed(1);
+  document.getElementById("tot-total")?.textContent = toTxt(totalHeures);
+  document.getElementById("tot-abs")?.textContent = toTxt(totalAbs);
+  document.getElementById("tot-prev")?.textContent = toTxt(totalPrev);
+  document.getElementById("tot-ecart")?.textContent = toTxt(totalEcart);
+  const col = document.getElementById("tot-ecart");
+  if (col) col.style.color = totalEcart < 0 ? "red" : "green";
 
-  const totalEcart = totalHeures - totalPrevus;
-
-  // ---------------- Mise à jour du tableau ----------------
-  const fix = v => v.toFixed(1);
-  document.getElementById("tot-total").textContent = fix(totalHeures);
-  document.getElementById("tot-abs").textContent   = fix(totalAbsences);
-  document.getElementById("tot-prev").textContent   = fix(totalPrevus);
-  document.getElementById("tot-ecart").textContent  = fix(totalEcart);
-  document.getElementById("tot-ecart").style.color  = totalEcart < 0 ? "red" : "green";
-
-  // ---------------- Mise à jour instantanée de la jauge ----------------
-  const pourcentage = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
+  // jauge
+  const percent = totalPrev > 0 ? (totalHeures / totalPrev) * 100 : 0;
   const curseur = document.getElementById("curseur");
-  const pourcent = document.getElementById("pourcentage");
-  if (curseur && pourcent) {
+  const texte = document.getElementById("pourcentage");
+  if (curseur && texte) {
     const largeur = curseur.parentElement.offsetWidth;
-    curseur.style.left = (largeur * pourcentage / 100 - 4) + "px";
-    pourcent.textContent = Math.round(pourcentage) + "%";
+    curseur.style.left = (largeur * percent / 100 - 4) + "px";
+    texte.textContent = Math.round(percent) + "%";
   }
 }
 
-
+/* =========================================================
+   Lancement au chargement
+   ========================================================= */
 window.addEventListener("DOMContentLoaded", () => {
+  const headerNom = document.getElementById("entreprise-nom");
+  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
+  afficherSalaries();
+
   const now = new Date();
   const mp = document.getElementById("moisPlanning");
   if (mp) {
@@ -362,3 +298,4 @@ window.addEventListener("DOMContentLoaded", () => {
     genererPlanning();
   }
 });
+
