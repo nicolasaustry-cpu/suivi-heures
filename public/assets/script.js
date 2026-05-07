@@ -90,22 +90,53 @@ function supprimerSalarie(index) {
 
 /* ---------- Heures / planification ---------- */
 function saveHeure(key, chantier, h) {
+  // met à jour les données locales
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
-  localStorage.setItem("heuresdata", JSON.stringify(heures));
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
 
-  // recalcul des totaux et prévu instantané
-  majPrevus(); 
-  calculerTotaux();
+  // met à jour instantanément les cellules concernées
+  majCelluleDuSalarié(key);
+  calculerTotaux(); // rafraîchit la ligne des totaux et la jauge
 }
-function majPrevus() {
-  // met à jour chaque cellule "prévu" pour que celles sans saisie soient à zéro
-  document.querySelectorAll('[id^="prevu"]').forEach(td => {
-    const id = td.id.replace("prevu", "");
-    const jourHasData = document.querySelectorAll(`[id*="${id}ch"]`)
-      .length && [...document.querySelectorAll(`[id*="${id}h"]`)].some(sel => parseFloat(sel.value) > 0);
-    td.textContent = jourHasData ? td.textContent : "0.0";
-  });
+
+function majCelluleDuSalarié(key) {
+  // key exemple : 1715000000000-2026-05-07ch1
+  const parts = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!parts) return;
+  const idSal = parts[1];
+  const dateStr = parts[2];
+
+  const jour = new Date(dateStr);
+  const jourNom = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][jour.getDay()];
+  const salarie = salaries.find(s => String(s.id) === String(idSal));
+  if (!salarie) return;
+
+  // total chantiers
+  let totalJour = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${idSal}${dateStr}ch${i}`;
+    totalJour += parseFloat(heures[k]?.heures || 0);
+  }
+  document.getElementById(`total${idSal}${dateStr}`)?.textContent = totalJour.toFixed(1);
+
+  // absences
+  const keyAbs = `${idSal}${dateStr}abs`;
+  const abs = parseFloat(heures[keyAbs]?.heures || 0);
+
+  // heures prévues selon fiche salarié
+  const prevuFiche = salarie.heuresParJour?.[jourNom] || 0;
+  const prevuAjuste = totalJour > 0 ? Math.max(prevuFiche - abs, 0) : 0;
+  document.getElementById(`prevu${idSal}${dateStr}`)?.textContent = prevuAjuste.toFixed(1);
+
+  // écart
+  const ecart = totalJour - prevuAjuste;
+  const ecartCell = document.getElementById(`ecart${idSal}_${dateStr}`);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
+    ecartCell.style.color = ecart < 0 ? 'red' : 'green';
+  }
 }
+
 /* ---------- Header Volitis + chargement ---------- */
 window.addEventListener("DOMContentLoaded", () => {
   const headerNom = document.getElementById("entreprise-nom");
