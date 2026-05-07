@@ -258,3 +258,10 @@ body {
   padding: 6px;
   color: #111827;
 }
+/* === Largeurs fixes communes planning / totaux === */
+.col-salarie  { width:150px; }
+.col-ch       { width:160px; }      /* Ch1 → Ch5 */
+.col-total    { width:80px;  text-align:center; }
+.col-abs      { width:80px;  text-align:center; }
+.col-prevu    { width:80px;  text-align:center; }
+.col-ecart    { width:80px;  text-align:center; }

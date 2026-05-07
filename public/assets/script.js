@@ -127,17 +127,26 @@ function genererBlocJour(date, container, nomsJours) {
   const couleurFond = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
   const nomJour = nomsJours[date.getDay()];
 
-  let html = `<h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
-      ${nomJour} ${date.toLocaleDateString("fr-FR")}
-    </h3>
-    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
-      <thead>
-        <tr style="background:#e8edf3;">
-          <th style="border:1px solid #ccc;padding:4px;width:150px;">Salarié</th>
-          <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
-          <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
-        </tr>
-      </thead><tbody>`;
+let html = `
+  <h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
+    ${nomJour} ${date.toLocaleDateString("fr-FR")}
+  </h3>
+  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+    <thead>
+      <tr style="background:#e8edf3;">
+        <th class="col-salarie" style="border:1px solid #ccc;padding:4px;">Salarié</th>
+        <th class="col-ch" style="border:1px solid #ccc;">Ch1</th>
+        <th class="col-ch" style="border:1px solid #ccc;">Ch2</th>
+        <th class="col-ch" style="border:1px solid #ccc;">Ch3</th>
+        <th class="col-ch" style="border:1px solid #ccc;">Ch4</th>
+        <th class="col-ch" style="border:1px solid #ccc;">Ch5</th>
+        <th class="col-total" style="border:1px solid #ccc;">Total</th>
+        <th class="col-abs" style="border:1px solid #ccc;">Abs.</th>
+        <th class="col-prevu" style="border:1px solid #ccc;">Prévu</th>
+        <th class="col-ecart" style="border:1px solid #ccc;">Écart</th>
+      </tr>
+    </thead>
+    <tbody>`;
 
 salaries.forEach(s => {
   const entree = new Date(s.dateEntree);
