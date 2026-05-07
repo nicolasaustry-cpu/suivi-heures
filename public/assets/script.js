@@ -92,8 +92,20 @@ function supprimerSalarie(index) {
 function saveHeure(key, chantier, h) {
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-}
 
+  // recalcul des totaux et prévu instantané
+  majPrevus(); 
+  calculerTotaux();
+}
+function majPrevus() {
+  // met à jour chaque cellule "prévu" pour que celles sans saisie soient à zéro
+  document.querySelectorAll('[id^="prevu"]').forEach(td => {
+    const id = td.id.replace("prevu", "");
+    const jourHasData = document.querySelectorAll(`[id*="${id}ch"]`)
+      .length && [...document.querySelectorAll(`[id*="${id}h"]`)].some(sel => parseFloat(sel.value) > 0);
+    td.textContent = jourHasData ? td.textContent : "0.0";
+  });
+}
 /* ---------- Header Volitis + chargement ---------- */
 window.addEventListener("DOMContentLoaded", () => {
   const headerNom = document.getElementById("entreprise-nom");
@@ -273,28 +285,32 @@ function calculerTotaux() {
       totalAbsences = 0,
       totalPrevus = 0;
 
-  // additionne toutes les valeurs visibles dans les colonnes
+  // ---------------- Somme des heures chantiers ----------------
   document.querySelectorAll('[id^="total"]').forEach(td => {
     totalHeures += parseFloat(td.textContent) || 0;
   });
+
+  // ---------------- Somme des absences ----------------
   document.querySelectorAll('select[id$="absh"]').forEach(sel => {
     totalAbsences += parseFloat(sel.value) || 0;
   });
+
+  // ---------------- Somme des heures prévues ----------------
   document.querySelectorAll('[id^="prevu"]').forEach(td => {
     totalPrevus += parseFloat(td.textContent) || 0;
   });
 
   const totalEcart = totalHeures - totalPrevus;
 
-  // affiche les totaux
-  const format = v => v.toFixed(1);
-  document.getElementById("tot-total").textContent = format(totalHeures);
-  document.getElementById("tot-abs").textContent = format(totalAbsences);
-  document.getElementById("tot-prev").textContent = format(totalPrevus);
-  document.getElementById("tot-ecart").textContent = format(totalEcart);
-  document.getElementById("tot-ecart").style.color = totalEcart < 0 ? "red" : "green";
+  // ---------------- Mise à jour du tableau ----------------
+  const fix = v => v.toFixed(1);
+  document.getElementById("tot-total").textContent = fix(totalHeures);
+  document.getElementById("tot-abs").textContent   = fix(totalAbsences);
+  document.getElementById("tot-prev").textContent   = fix(totalPrevus);
+  document.getElementById("tot-ecart").textContent  = fix(totalEcart);
+  document.getElementById("tot-ecart").style.color  = totalEcart < 0 ? "red" : "green";
 
-  // met à jour la jauge
+  // ---------------- Mise à jour instantanée de la jauge ----------------
   const pourcentage = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
   const curseur = document.getElementById("curseur");
   const pourcent = document.getElementById("pourcentage");
@@ -304,6 +320,7 @@ function calculerTotaux() {
     pourcent.textContent = Math.round(pourcentage) + "%";
   }
 }
+
 
 window.addEventListener("DOMContentLoaded", () => {
   const now = new Date();
