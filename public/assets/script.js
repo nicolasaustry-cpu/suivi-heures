@@ -168,8 +168,12 @@ salaries.forEach(s => {
 
   const keyAbs = `${s.id}${dateStr}abs`;
   const abs = heures[keyAbs]?.heures || 0;
-  const prevu = s.heuresParJour?.[['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][date.getDay()].toLowerCase()] || 0;
-  const prevuAdj = Math.max(prevu - abs, 0);
+// récupère le nom du jour (lun, mar, …) pour aller chercher dans la fiche salarié
+const jourNomComplet = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][date.getDay()];
+const heuresPrevues = s.heuresParJour?.[jourNomComplet.slice(0,3)] || 0;
+
+// règle : par défaut = heures contrat, sauf si absence
+const prevuAdj = Math.max(heuresPrevues - abs, 0);
   const ecart = tot - prevuAdj;
 
   html += `
