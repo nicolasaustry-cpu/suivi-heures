@@ -169,6 +169,7 @@ function genererBlocJour(date, container, nomsJours) {
   const dateStr = date.toISOString().split('T')[0];
   const couleurFond = date.getDate() % 2 === 0 ? '#fff' : '#f8fafc';
   const nomJour = nomsJours[date.getDay()];
+  const jourSemaine = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][date.getDay()];
   
   let html = `<h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
     ${nomJour} ${date.toLocaleDateString('fr-FR')}
@@ -184,6 +185,9 @@ function genererBlocJour(date, container, nomsJours) {
         <th style="border:1px solid #ccc;padding:4px;">Chantier 4</th>
         <th style="border:1px solid #ccc;padding:4px;">Chantier 5</th>
         <th style="border:1px solid #ccc;padding:4px;width:80px;">Total</th>
+        <th style="border:1px solid #ccc;padding:4px;width:80px;">Absences</th>
+        <th style="border:1px solid #ccc;padding:4px;width:80px;">Prévu</th>
+        <th style="border:1px solid #ccc;padding:4px;width:80px;">Écart</th>
       </tr>
     </thead>
     <tbody>`;
@@ -216,14 +220,41 @@ function genererBlocJour(date, container, nomsJours) {
       </td>`;
     }
     
-    html += `<td style="border:1px solid #ccc;padding:3px;text-align:center;">
+    // Colonne Total
+    html += `<td id="total_${salarie.id}_${dateStr}" style="border:1px solid #ccc;padding:3px;text-align:center;">
       ${totalJour.toFixed(1)}h
+    </td>`;
+    
+    // Colonne Absences
+    const keyAbs = `${salarie.id}_${dateStr}_abs`;
+    const absences = heures[keyAbs]?.heures || 0;
+    html += `<td style="border:1px solid #ccc;padding:3px;text-align:center;">
+      <select id="${keyAbs}_h" style="width:60px;" 
+              onchange="saveHeure('${keyAbs}', 'absence', this.value)">
+        ${genOptionsHeures(absences)}
+      </select>
+    </td>`;
+    
+    // Colonne Prévu (heures prévues ce jour-là)
+    const heuresParJour = salarie.heuresParJour || {};
+    const prevu = heuresParJour[jourSemaine] || 0;
+    const prevuAjuste = Math.max(prevu - absences, 0);
+    html += `<td id="prevu_${salarie.id}_${dateStr}" style="border:1px solid #ccc;padding:3px;text-align:center;">
+      ${prevuAjuste.toFixed(1)}h
+    </td>`;
+    
+    // Colonne Écart
+    const ecart = totalJour - prevuAjuste;
+    const couleurEcart = ecart < 0 ? 'red' : 'green';
+    html += `<td id="ecart_${salarie.id}_${dateStr}" style="border:1px solid #ccc;padding:3px;text-align:center;color:${couleurEcart};">
+      ${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}h
     </td></tr>`;
   });
 
   html += '</tbody></table>';
   container.innerHTML += html;
 }
+
 
 function genOptionsHeures(valeur) {
   let options = '';
