@@ -150,16 +150,89 @@ function semainesDuMois(a, m) {
 function genererPlanning() {
   const v = document.getElementById("moisPlanning").value;
   if (!v) return;
-  const [a, m] = v.split("-"),
-    sem = semainesDuMois(+a, +m - 1),
-    cont = document.getElementById("planning-wrapper");
-  cont.innerHTML = "";
-  sem.forEach((s, i) => {
-    const d = new Date(s.lundi);
-    cont.innerHTML += `<h3 style="margin-top:0.6rem;">Semaine ${i + 1} : ${d.toLocaleDateString(
-      "fr-FR"
-    )}</h3>`;
+  const [a, m] = v.split("-");
+  const container = document.getElementById("planning-wrapper");
+  container.innerHTML = "";
+  
+  const premierJour = new Date(+a, +m - 1, 1);
+  const dernierJour = new Date(+a, +m, 0);
+  const nomsJours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  
+  for (let d = new Date(premierJour); d <= dernierJour; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0) { // Skip dimanche
+      genererBlocJour(new Date(d), container, nomsJours);
+    }
+  }
+}
+
+function genererBlocJour(date, container, nomsJours) {
+  const dateStr = date.toISOString().split('T')[0];
+  const couleurFond = date.getDate() % 2 === 0 ? '#fff' : '#f8fafc';
+  const nomJour = nomsJours[date.getDay()];
+  
+  let html = `<h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
+    ${nomJour} ${date.toLocaleDateString('fr-FR')}
+  </h3>`;
+  
+  html += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+    <thead>
+      <tr style="background:#e8edf3;">
+        <th style="border:1px solid #ccc;padding:4px;width:150px;">Salarié</th>
+        <th style="border:1px solid #ccc;padding:4px;">Chantier 1</th>
+        <th style="border:1px solid #ccc;padding:4px;">Chantier 2</th>
+        <th style="border:1px solid #ccc;padding:4px;">Chantier 3</th>
+        <th style="border:1px solid #ccc;padding:4px;">Chantier 4</th>
+        <th style="border:1px solid #ccc;padding:4px;">Chantier 5</th>
+        <th style="border:1px solid #ccc;padding:4px;width:80px;">Total</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  // Pour chaque salarié
+  salaries.forEach(salarie => {
+    const entree = new Date(salarie.dateEntree);
+    const sortie = salarie.dateSortie ? new Date(salarie.dateSortie) : null;
+    
+    // Vérifie si le salarié travaillait ce jour-là
+    if (date < entree || (sortie && date > sortie)) return;
+
+    html += `<tr>
+      <td style="border:1px solid #ccc;padding:3px;font-weight:bold;">${salarie.prenom} ${salarie.nom}</td>`;
+    
+    let totalJour = 0;
+    for (let ch = 1; ch <= 5; ch++) {
+      const key = `${salarie.id}_${dateStr}_ch${ch}`;
+      const donnees = heures[key] || { chantier: '', heures: 0 };
+      totalJour += parseFloat(donnees.heures) || 0;
+      
+      html += `<td style="border:1px solid #ccc;padding:2px;">
+        <input id="${key}_ch" placeholder="Chantier" value="${donnees.chantier}" 
+               style="width:100px;margin-bottom:2px;"
+               onchange="saveHeure('${key}', this.value, document.getElementById('${key}_h').value)">
+        <select id="${key}_h" style="width:60px;" 
+                onchange="saveHeure('${key}', document.getElementById('${key}_ch').value, this.value)">
+          ${genOptionsHeures(donnees.heures)}
+        </select>
+      </td>`;
+    }
+    
+    html += `<td style="border:1px solid #ccc;padding:3px;text-align:center;">
+      ${totalJour.toFixed(1)}h
+    </td></tr>`;
   });
+
+  html += '</tbody></table>';
+  container.innerHTML += html;
+}
+
+function genOptionsHeures(valeur) {
+  let options = '';
+  for (let i = 0; i <= 10; i += 0.25) {
+    const label = i.toFixed(2).replace('.00', '');
+    const selected = Math.abs(i - parseFloat(valeur || 0)) < 0.001 ? 'selected' : '';
+    options += `<option value="${i}" ${selected}>${label}</option>`;
+  }
+  return options;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -171,4 +244,3 @@ window.addEventListener("DOMContentLoaded", () => {
     genererPlanning();
   }
 });
-
