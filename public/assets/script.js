@@ -159,10 +159,13 @@ function genererPlanning() {
   const nomsJours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   
   for (let d = new Date(premierJour); d <= dernierJour; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0) { // Skip dimanche
+    if (d.getDay() !== 0) { // skip dimanche
       genererBlocJour(new Date(d), container, nomsJours);
     }
   }
+
+  // ✅ une fois tous les jours générés, calcule les totaux et met à jour la jauge
+  calculerTotaux();
 }
 
 function genererBlocJour(date, container, nomsJours) {
@@ -264,6 +267,42 @@ function genOptionsHeures(valeur) {
     options += `<option value="${i}" ${selected}>${label}</option>`;
   }
   return options;
+}
+function calculerTotaux() {
+  let totalHeures = 0,
+      totalAbsences = 0,
+      totalPrevus = 0;
+
+  // additionne toutes les valeurs visibles dans les colonnes
+  document.querySelectorAll('[id^="total"]').forEach(td => {
+    totalHeures += parseFloat(td.textContent) || 0;
+  });
+  document.querySelectorAll('select[id$="absh"]').forEach(sel => {
+    totalAbsences += parseFloat(sel.value) || 0;
+  });
+  document.querySelectorAll('[id^="prevu"]').forEach(td => {
+    totalPrevus += parseFloat(td.textContent) || 0;
+  });
+
+  const totalEcart = totalHeures - totalPrevus;
+
+  // affiche les totaux
+  const format = v => v.toFixed(1);
+  document.getElementById("tot-total").textContent = format(totalHeures);
+  document.getElementById("tot-abs").textContent = format(totalAbsences);
+  document.getElementById("tot-prev").textContent = format(totalPrevus);
+  document.getElementById("tot-ecart").textContent = format(totalEcart);
+  document.getElementById("tot-ecart").style.color = totalEcart < 0 ? "red" : "green";
+
+  // met à jour la jauge
+  const pourcentage = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
+  const curseur = document.getElementById("curseur");
+  const pourcent = document.getElementById("pourcentage");
+  if (curseur && pourcent) {
+    const largeur = curseur.parentElement.offsetWidth;
+    curseur.style.left = (largeur * pourcentage / 100 - 4) + "px";
+    pourcent.textContent = Math.round(pourcentage) + "%";
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
