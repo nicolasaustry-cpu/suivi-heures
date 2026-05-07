@@ -126,11 +126,49 @@ window.addEventListener("DOMContentLoaded", () => {
     text.style.color = "white";
     text.style.whiteSpace = "nowrap";
     wrapper.append(logoContainer, text);
-    wrapper.addEventListener("click", () => window.open("[volitis.net](https://volitis.net/)", "_blank"));
+    wrapper.addEventListener("click", () => window.open"https://volitis.net/", "_blank"));
     header.appendChild(wrapper);
   }
 
   // affiche les salariés existants
   afficherSalaries();
+});
+/* ---------- Planning ---------- */
+function semainesDuMois(a, m) {
+  const sem = [], p1 = new Date(a, m, 1), pf = new Date(a, m + 1, 0);
+  let l = new Date(p1);
+  while (l.getDay() !== 1) l.setDate(l.getDate() - 1);
+  while (l <= pf) {
+    const s = new Date(l);
+    s.setDate(l.getDate() + 5);
+    if (s >= p1 && l <= pf) sem.push({ lundi: new Date(l), samedi: s });
+    l.setDate(l.getDate() + 7);
+  }
+  return sem;
+}
+
+function genererPlanning() {
+  const v = document.getElementById("moisPlanning").value;
+  if (!v) return;
+  const [a, m] = v.split("-"),
+    sem = semainesDuMois(+a, +m - 1),
+    cont = document.getElementById("planning-wrapper");
+  cont.innerHTML = "";
+  sem.forEach((s, i) => {
+    const d = new Date(s.lundi);
+    cont.innerHTML += `<h3 style="margin-top:0.6rem;">Semaine ${i + 1} : ${d.toLocaleDateString(
+      "fr-FR"
+    )}</h3>`;
+  });
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const now = new Date();
+  const mp = document.getElementById("moisPlanning");
+  if (mp) {
+    mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    mp.addEventListener("change", genererPlanning);
+    genererPlanning();
+  }
 });
 
