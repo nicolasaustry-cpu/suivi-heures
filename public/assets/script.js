@@ -152,16 +152,18 @@ function genererBlocJour(date, container, nomsJours) {
       const k = `${s.id}${dateStr}ch${i}`;
       const data = heures[k] || { chantier:"", heures:0 };
       tot += parseFloat(data.heures) || 0;
-      html += `<td style="border:1px solid #ccc;padding:2px;">
-        <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
-               style="width:100px;margin-bottom:2px;"
-               onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
-        <select id="${k}h" style="width:60px;"
-                onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
-          ${genOptionsHeures(data.heures)}
-        </select></td>`;
+      html += `
+  <input id="${k}chant" 
+         value="${data.chantier}" 
+         placeholder="Chantier"
+         style="width:100px;margin-bottom:2px;"
+         onchange="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
+  <select id="${k}h" style="width:60px;"
+          onchange="saveHeure('${k}', document.getElementById('${k}chant').value, this.value)">
+    ${genOptionsHeures(data.heures)}
+  </select>
+</td>`;
     }
-
 const keyAbs = `${s.id}${dateStr}abs`;
 const abs = heures[keyAbs]?.heures || 0;
 
