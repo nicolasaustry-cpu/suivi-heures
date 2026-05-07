@@ -93,6 +93,27 @@ html, body {
   position: relative;
   top: -4px; /* colle la nav contre le bleu */
 }
+/* === Supprime la bande grise entre le titre bleu et la barre de navigation === */
+body {
+  background: #f4f6f8;
+}
+.main-header {
+  margin: 0;
+  padding: 0.8rem 1rem; /* ta hauteur actuelle */
+}
+header::after {
+  content: "";
+  display: block;
+  height: 0;
+  background: none;
+}
+.nav {
+  margin-top: 0;
+  border-top: none;
+  background: #e8edf3;
+  position: relative;
+  top: -8px; /* remonte la barre grise sans agrandir le header */
+}
 
 </style>
 </head>
