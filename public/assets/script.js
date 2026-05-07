@@ -152,29 +152,21 @@ function genererBlocJour(date, container, nomsJours) {
       const k = `${s.id}${dateStr}ch${i}`;
       const data = heures[k] || { chantier:"", heures:0 };
       tot += parseFloat(data.heures) || 0;
-      html += `
-  <input id="${k}chant" 
-         value="${data.chantier}" 
-         placeholder="Chantier"
-         style="width:100px;margin-bottom:2px;"
-         onchange="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
-  <select id="${k}h" style="width:60px;"
-          onchange="saveHeure('${k}', document.getElementById('${k}chant').value, this.value)">
-    ${genOptionsHeures(data.heures)}
-  </select>
-</td>`;
+      html += `<td style="border:1px solid #ccc;padding:2px;">
+        <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
+               style="width:100px;margin-bottom:2px;"
+               onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+        <select id="${k}h" style="width:60px;"
+                onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
+          ${genOptionsHeures(data.heures)}
+        </select></td>`;
     }
-const keyAbs = `${s.id}${dateStr}abs`;
-const abs = heures[keyAbs]?.heures || 0;
 
-// 🔧 Correction : calcule les heures prévues à partir des 3 premières lettres du jour
-const jourNom = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][date.getDay()];
-const heuresPrevues = s.heuresParJour?.[jourNom.slice(0,3)] || 0;
-const prevuAdj = Math.max(heuresPrevues - abs, 0);
-
-// Calcul de l’écart
-const ecart = tot - prevuAdj;
-
+    const keyAbs = `${s.id}${dateStr}abs`;
+    const abs = heures[keyAbs]?.heures || 0;
+    const prevu = (s.heuresParJour?.[[,'Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][date.getDay()].toLowerCase()] || 0);
+    const prevuAdj = Math.max(prevu - abs, 0);
+    const ecart = tot - prevuAdj;
 
     html += `<td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
       <td style="border:1px solid #ccc;text-align:center;">
@@ -209,47 +201,8 @@ function genOptionsHeures(v) {
 function saveHeure(key, chantier, h) {
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-
-  // maj locale
-  majCelluleDuSalarié(key);
-  calculerTotaux();
 }
-function majCelluleDuSalarié(key) {
-  const parts = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!parts) return;
-  const idSal = parts[1];
-  const dateStr = parts[2];
 
-  const jour = new Date(dateStr);
-  const jourNom = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][jour.getDay()];
-  const salarie = salaries.find(s => String(s.id) === String(idSal));
-  if (!salarie) return;
-
-  // total des chantiers
-  let totalJour = 0;
-  for (let i = 1; i <= 5; i++) {
-    const k = `${idSal}${dateStr}ch${i}`;
-    totalJour += parseFloat(heures[k]?.heures || 0);
-  }
-  document.getElementById(`total${idSal}${dateStr}`)?.textContent = totalJour.toFixed(1);
-
-  // absences
-  const keyAbs = `${idSal}${dateStr}abs`;
-  const abs = parseFloat(heures[keyAbs]?.heures || 0);
-
-  // prévu selon fiche
-  const prevuFiche = salarie.heuresParJour?.[jourNom.slice(0,3)] || 0;
-  const prevuAjuste = totalJour > 0 ? Math.max(prevuFiche - abs, 0) : 0;
-  document.getElementById(`prevu${idSal}${dateStr}`)?.textContent = prevuAjuste.toFixed(1);
-
-  // écart
-  const ecart = totalJour - prevuAjuste;
-  const ecartCell = document.getElementById(`ecart${idSal}_${dateStr}`);
-  if (ecartCell) {
-    ecartCell.textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
-    ecartCell.style.color = ecart < 0 ? 'red' : 'green';
-  }
-}
 function calculerTotaux() {
   let totalH = 0, totalA = 0, totalP = 0;
   document.querySelectorAll('[id^="total"]').forEach(el => totalH += parseFloat(el.textContent)||0);
