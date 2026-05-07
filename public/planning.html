@@ -83,20 +83,22 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
     </div>
   </div>
 
-  <!-- Ligne Totaux du mois -->
+<!-- Ligne Totaux du mois parfaitement alignée avec les colonnes du planning -->
 <table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
   <thead>
     <tr style="background:#c7d2fe;">
       <th style="padding:6px;text-align:left;width:150px;">Totaux du mois</th>
+      <!-- 5 colonnes Chantiers -->
       <th style="width:182px;"></th>
       <th style="width:182px;"></th>
       <th style="width:182px;"></th>
       <th style="width:182px;"></th>
       <th style="width:182px;"></th>
-      <th id="tot-total" style="text-align:center;width:80px;">0</th>
-      <th id="tot-abs" style="text-align:center;width:80px;">0</th>
-      <th id="tot-prev" style="text-align:center;width:80px;">0</th>
-      <th id="tot-ecart" style="text-align:center;width:80px;">0</th>
+      <!-- Colonnes Total / Abs / Prévu / Écart -->
+      <th id="tot-total" style="width:80px;text-align:center;">0</th>
+      <th id="tot-abs"   style="width:80px;text-align:center;">0</th>
+      <th id="tot-prev"  style="width:80px;text-align:center;">0</th>
+      <th id="tot-ecart" style="width:80px;text-align:center;">0</th>
     </tr>
   </thead>
 </table>
