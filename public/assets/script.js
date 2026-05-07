@@ -199,12 +199,14 @@ function genOptionsHeures(v) {
 }
 
 function saveHeure(key, chantier, h) {
-  // sauvegarde
+  // sauvegarde immédiate
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
 
-  // recalcul immédiat des totaux et de la jauge
-  calculerTotaux();
+  // laisse le DOM appliquer la modification avant de recalculer
+  setTimeout(() => {
+    calculerTotaux();
+  }, 100);
 }
 
 function calculerTotaux() {
