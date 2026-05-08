@@ -215,38 +215,37 @@ function saveHeure(key, chantier, h) {
   }, 100);
 }
 function majTotalLigne(key) {
-  // clé type : 1715000000000-2026-05-07ch1
-  const m = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!m) return;
-  const idSal = m[1];
-  const dateStr = m[2];
+  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!match) return;
+  const idSal = match[1];
+  const dateStr = match[2];
 
-  // somme des 5 chantiers du jour
+  // Somme des 5 chantiers pour ce salarié et ce jour
   let totalJour = 0;
   for (let i = 1; i <= 5; i++) {
     const k = `${idSal}${dateStr}ch${i}`;
     totalJour += parseFloat(heures[k]?.heures || 0);
   }
-
   const totalCell = document.getElementById(`total${idSal}${dateStr}`);
   if (totalCell) totalCell.textContent = totalJour.toFixed(1);
 
-  // absences
+  // Absences
   const absKey = `${idSal}${dateStr}abs`;
   const abs = parseFloat(heures[absKey]?.heures || 0);
 
-  // heures prévues selon la fiche salarié
+  // 🔧 récupère les heures prévues correctes selon le jour (lun, mar, mer, jeu, ven, sam)
   const jour = new Date(dateStr);
-  const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
+  const jourComplet = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
+  const cleJour = jourComplet.slice(0, 3);  // Ex. "samedi" → "sam"
   const salarie = salaries.find(s => String(s.id) === String(idSal));
-  const prevuFiche = salarie?.heuresParJour?.[jourNom.slice(0,3)] || 0;
+  const heuresContrat = salarie?.heuresParJour?.[cleJour] || 0;
 
-  // si aucun chantier => prévu=0 ; sinon heures contrats - absences
-  const prevuAjuste = totalJour === 0 ? 0 : Math.max(prevuFiche - abs, 0);
+  // Si aucun chantier saisi, prévus = 0, sinon heures contrat - absences
+  const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresContrat - abs, 0);
   const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
   if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
 
-  // écart
+  // Écart
   const ecart = totalJour - prevuAjuste;
   const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
   if (ecartCell) {
