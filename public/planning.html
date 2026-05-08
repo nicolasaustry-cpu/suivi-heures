@@ -12,58 +12,14 @@ body {
   background: #f4f6f8;
   color: #222;
 }
-
-/* --- Bandeau bleu --- */
-.main-header {
-  background: #2563eb;
-  color: #fff;
-  padding: 0.8rem 1rem;      /* hauteur du header */
-  margin: 0;                 /* aucun espace externe */
-  line-height: 1.2;
-  border: none;
-}
-
-/* --- Titre --- */
-h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  line-height: 1.2;
-}
-
-/* --- Barre grise de navigation --- */
-.nav {
-  background: #e8edf3;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 0.6rem;
-  margin: 0;                 /* supprime tout l’espace au-dessus */
-  border-top: none;
-  position: relative;
-  top: 0;                    /* parfaitement collée */
-}
-.nav a {
-  text-decoration: none;
-  color: #2563eb;
-  font-weight: bold;
-}
+h1 { margin: 0; font-size: 1.4rem; }
+.nav { background: #e8edf3; display: flex; justify-content: center; gap: 1rem; padding: 0.6rem; }
+.nav a { text-decoration: none; color: #2563eb; font-weight: bold; }
 .nav a.active { text-decoration: underline; }
 
-/* --- Boutons --- */
-button {
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  color: #fff;
-}
-.btn-warning {
-  background: #f59e0b;
-  color: #000;
-}
+button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bold; cursor: pointer; color: #fff; }
+.btn-warning { background: #f59e0b; color: #000; }
 
-/* --- Mise en forme globale --- */
 .flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
 
 @media print {
@@ -71,7 +27,7 @@ button {
   body { background: white; color: black; margin-top: 0 !important; }
 }
 
-/* --- Ligne Totaux --- */
+/* Ligne totaux */
 #totaux {
   position: relative;
   z-index: 20;
@@ -86,7 +42,6 @@ button {
 #totaux th { padding: 6px; color: #111827; }
 #totaux tr { background: #c7d2fe; }
 </style>
-
 
 </head>
 
