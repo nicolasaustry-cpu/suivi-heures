@@ -17,10 +17,9 @@ body {
 .main-header {
   background: #2563eb;
   color: #fff;
-  padding: 0.8rem 1rem;      /* hauteur du header */
-  margin: 0;                 /* aucun espace externe */
-  line-height: 1.2;
-  border: none;
+  padding: 0.8rem 1rem;
+  margin: 0;
+  border-bottom: none;
 }
 
 /* --- Titre --- */
@@ -30,24 +29,26 @@ h1 {
   line-height: 1.2;
 }
 
-/* --- Barre grise de navigation --- */
+/* --- Barre grise collée juste sous le bandeau bleu --- */
 .nav {
   background: #e8edf3;
   display: flex;
   justify-content: center;
   gap: 1rem;
   padding: 0.6rem;
-  margin: 0;                 /* supprime tout l’espace au-dessus */
+  margin: 0;
   border-top: none;
   position: relative;
-  top: 0;                    /* parfaitement collée */
+  top: -4px; /* ✅ fait remonter la nav pour qu’elle colle au bleu */
 }
 .nav a {
   text-decoration: none;
   color: #2563eb;
   font-weight: bold;
 }
-.nav a.active { text-decoration: underline; }
+.nav a.active {
+  text-decoration: underline;
+}
 
 /* --- Boutons --- */
 button {
@@ -63,9 +64,14 @@ button {
   color: #000;
 }
 
-/* --- Mise en forme globale --- */
-.flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
 
+/* Impression */
 @media print {
   .no-print { display: none !important; }
   body { background: white; color: black; margin-top: 0 !important; }
@@ -87,11 +93,10 @@ button {
 #totaux tr { background: #c7d2fe; }
 </style>
 
-
 </head>
 
 <body>
-<header class="main-header" style="background:#2563eb;color:#fff;padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;">
+<header class="main-header" style="display:flex;justify-content:space-between;align-items:center;">
   <div class="entreprise-nom" id="entreprise-nom"></div>
   <h1 class="page-title">Planning du mois</h1>
   <div style="display:flex;align-items:center;gap:1rem;">
@@ -99,7 +104,6 @@ button {
   </div>
 </header>
 
-</header>
 <div class="nav">
   <a href="index.html">Entreprise</a>
   <a href="salaries.html">Salariés</a>
@@ -107,17 +111,6 @@ button {
   <a href="rapports.html">Rapports</a>
 </div>
 
-<!-- === Zone filtres + jauge + totaux === -->
-<section style="background:#f8fafc;padding:0 0.8rem 0.8rem 0.8rem;margin-top:0;">
-  <div class="flex">
-    <div><label>Mois :</label><br><input type="month" id="moisPlanning" /></div>
-    <div style="position:relative;">
-      <label>Filtrer salariés :</label><br>
-      <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" />
-    </div>
-    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-    <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
-  </div>
 
 <!-- === Zone paramètres + jauge alignés à droite === -->
 <div style="display:flex;flex-direction:column;align-items:flex-end;margin-top:0.8rem;">
