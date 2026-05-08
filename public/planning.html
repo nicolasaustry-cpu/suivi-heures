@@ -17,30 +17,26 @@ body {
 .main-header {
   background: #2563eb;
   color: #fff;
-  padding: 0.8rem 1rem;
   margin: 0;
+  padding: 0.6rem 1rem;        /* hauteur normale */
+  border-bottom: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  line-height: 1;              /* ✅ supprime toute hauteur de ligne grise */
 }
 
-/* --- Titre --- */
-h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  line-height: 1.2;
-}
-
-/* Supprime tout espace entre le bandeau bleu et la barre grise */
-.main-header {
-  margin: 0;
-  padding-bottom: 0.8rem;
-  background: #2563eb;
-}
-
+/* --- Barre grise collée --- */
 .nav {
-  margin: 0;
-  border-top: none;
   background: #e8edf3;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem;
+  margin: 0;
   position: relative;
-  top: -4px;   /* ✅ remonte légèrement la barre grise pour coller au bleu */
+  top: 0;                      /* collée directement sous le bleu */
+  border-top: none;
 }
 
 /* Boutons */
@@ -79,8 +75,8 @@ button {
 </head>
 
 <body>
-<header class="main-header" style="display:flex;justify-content:space-between;align-items:center;">
-  <div class="entreprise-nom" id="entreprise-nom"></div>
+<header class="main-header">
+  <div class="entreprise-nom" id="entreprise-nom">Volitis</div>
   <h1 class="page-title">Planning du mois</h1>
   <div style="display:flex;align-items:center;gap:1rem;">
     <div id="licence-status">✔️ Active</div>
