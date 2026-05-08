@@ -19,7 +19,6 @@ body {
   color: #fff;
   padding: 0.8rem 1rem;
   margin: 0;
-  border-bottom: none;
 }
 
 /* --- Titre --- */
@@ -39,18 +38,16 @@ h1 {
   margin: 0;
   border-top: none;
   position: relative;
-  top: -4px; /* ✅ fait remonter la nav pour qu’elle colle au bleu */
+  top: -4px; /* colle la nav à la barre bleue */
 }
 .nav a {
   text-decoration: none;
   color: #2563eb;
   font-weight: bold;
 }
-.nav a.active {
-  text-decoration: underline;
-}
+.nav a.active { text-decoration: underline; }
 
-/* --- Boutons --- */
+/* Boutons */
 button {
   border: none;
   border-radius: 4px;
@@ -59,25 +56,16 @@ button {
   cursor: pointer;
   color: #fff;
 }
-.btn-warning {
-  background: #f59e0b;
-  color: #000;
-}
+.btn-warning { background: #f59e0b; color: #000; }
 
-.flex {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
-}
+.flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
 
-/* Impression */
 @media print {
   .no-print { display: none !important; }
   body { background: white; color: black; margin-top: 0 !important; }
 }
 
-/* --- Ligne Totaux --- */
+/* Ligne totaux */
 #totaux {
   position: relative;
   z-index: 20;
@@ -92,7 +80,6 @@ button {
 #totaux th { padding: 6px; color: #111827; }
 #totaux tr { background: #c7d2fe; }
 </style>
-
 </head>
 
 <body>
@@ -111,28 +98,20 @@ button {
   <a href="rapports.html">Rapports</a>
 </div>
 
-
-<!-- === Zone paramètres + jauge alignés à droite === -->
-<div style="display:flex;flex-direction:column;align-items:flex-end;margin-top:0.8rem;">
-  
-  <!-- Paramétrage -->
-  <div style="display:flex;align-items:center;gap:10px;font-size:0.85rem;color:#111;margin-bottom:0.3rem;">
-    <label>Rouge → Orange à </label>
-    <input id="seuil-orange" type="number" min="0" max="200" step="1" value="80"
-           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
-
-    <label>Orange → Vert à </label>
-    <input id="seuil-vert" type="number" min="0" max="200" step="1" value="100"
-           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
-
-    <label style="display:flex;align-items:center;gap:4px;">
-      <input type="checkbox" id="figer-param" />
-      Figer
-    </label>
+<!-- === Zone filtres + jauge + totaux === -->
+<section style="background:#f8fafc;padding:0 0.8rem 0.8rem 0.8rem;margin-top:0;">
+  <div class="flex">
+    <div><label>Mois :</label><br><input type="month" id="moisPlanning" /></div>
+    <div style="position:relative;">
+      <label>Filtrer salariés :</label><br>
+      <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" />
+    </div>
+    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+    <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
   </div>
 
-  <!-- Jauge -->
-  <div style="display:flex;align-items:center;gap:10px;">
+  <!-- Jauge + Totaux -->
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:0.6rem;">
     <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
     <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
       <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
@@ -142,18 +121,11 @@ button {
     </div>
   </div>
 
-</div>
-
-  <!-- Ligne Totaux du mois -->
   <table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
     <thead>
       <tr style="background:#c7d2fe;">
         <th style="padding:6px;text-align:left;width:150px;">Totaux du mois</th>
-        <th style="width:182px;"></th>
-        <th style="width:182px;"></th>
-        <th style="width:182px;"></th>
-        <th style="width:182px;"></th>
-        <th style="width:182px;"></th>
+        <th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th>
         <th id="tot-total" style="width:80px;text-align:center;">0</th>
         <th id="tot-abs"   style="width:80px;text-align:center;">0</th>
         <th id="tot-prev"  style="width:80px;text-align:center;">0</th>
