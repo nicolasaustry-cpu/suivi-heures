@@ -94,28 +94,35 @@ button {
   <a href="rapports.html">Rapports</a>
 </div>
 
-<!-- === Zone filtres + jauge + totaux === -->
-<section style="background:#f8fafc;padding:0 0.8rem 0.8rem 0.8rem;margin-top:0;">
-  <div class="flex">
-    <div><label>Mois :</label><br><input type="month" id="moisPlanning" /></div>
-    <div style="position:relative;">
-      <label>Filtrer salariés :</label><br>
-      <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" />
-    </div>
-    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-    <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+<!-- === Paramétrage + Jauge alignés à droite === -->
+<div style="display:flex;flex-direction:column;align-items:flex-end;margin-top:0.8rem;gap:6px;">
+
+  <!-- Paramétrage -->
+  <div id="param-jauge" style="display:flex;align-items:center;gap:10px;font-size:0.85rem;color:#111;">
+    <label>Rouge → Orange à </label>
+    <input id="seuil-orange" type="number" min="0" max="200" step="1" value="80"
+           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
+    <label>Orange → Vert à </label>
+    <input id="seuil-vert" type="number" min="0" max="200" step="1" value="100"
+           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
+    <label style="display:flex;align-items:center;gap:4px;">
+      <input type="checkbox" id="figer-param"> Figer
+    </label>
   </div>
 
-  <!-- Jauge + Totaux -->
-  <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:0.6rem;">
+  <!-- Jauge -->
+  <div style="display:flex;align-items:center;gap:10px;">
     <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
-    <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
+    <div id="barre-jauge" style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
       <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
       <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
       <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-      <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
+      <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;
+                              border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
     </div>
   </div>
+
+</div>
 
   <table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
     <thead>

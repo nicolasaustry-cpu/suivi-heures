@@ -276,7 +276,38 @@ function calculerTotaux() {
     texte.textContent = Math.round(pourc) + "%";
   }
 }
+/* ===========================================
+   PARAMÉTRAGE DE LA JAUGE
+   =========================================== */
+function majZonesJauge() {
+  const sOrange = parseFloat(document.getElementById("seuil-orange")?.value) || 80;
+  const sVert   = parseFloat(document.getElementById("seuil-vert")?.value)   || 100;
 
+  const rouge  = document.getElementById("zone-rouge");
+  const orange = document.getElementById("zone-orange");
+  const vert   = document.getElementById("zone-verte");
+  if (!rouge || !orange || !vert) return;
+
+  const total = Math.max(sVert, 1);
+  rouge.style.width  = (sOrange / total) * 100 + "%";
+  orange.style.left  = (sOrange / total) * 100 + "%";
+  orange.style.width = ((sVert - sOrange) / total) * 100 + "%";
+  vert.style.left    = (sVert / total) * 100 + "%";
+  vert.style.width   = (100 - (sVert / total) * 100) + "%";
+
+  localStorage.setItem("configJauge", JSON.stringify({ sOrange, sVert, figer: document.getElementById("figer-param")?.checked }));
+}
+
+function majEtatFiger() {
+  const chk = document.getElementById("figer-param");
+  const inputs = [document.getElementById("seuil-orange"), document.getElementById("seuil-vert")];
+  const disabled = chk?.checked;
+  inputs.forEach(inp => { if (inp) inp.disabled = disabled; });
+
+  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
+  conf.figer = !!disabled;
+  localStorage.setItem("configJauge", JSON.stringify(conf));
+}
 /* ===========================================
    AU CHARGEMENT
    =========================================== */
@@ -291,5 +322,21 @@ window.addEventListener("DOMContentLoaded", () => {
     mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}`;
     mp.addEventListener("change", genererPlanning);
     genererPlanning();
+  }
+  // --- Restauration et écoute des paramètres de jauge ---
+  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
+  if (document.getElementById("seuil-orange")) {
+    if (conf.sOrange) document.getElementById("seuil-orange").value = conf.sOrange;
+    if (conf.sVert)   document.getElementById("seuil-vert").value   = conf.sVert;
+    if (conf.figer) {
+      document.getElementById("figer-param").checked = true;
+      document.getElementById("seuil-orange").disabled = true;
+      document.getElementById("seuil-vert").disabled = true;
+    }
+    majZonesJauge();
+
+    document.getElementById("seuil-orange").addEventListener("change", majZonesJauge);
+    document.getElementById("seuil-vert").addEventListener("change", majZonesJauge);
+    document.getElementById("figer-param").addEventListener("change", majEtatFiger);
   }
 });
