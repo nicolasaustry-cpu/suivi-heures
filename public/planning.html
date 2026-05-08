@@ -18,15 +18,16 @@ h1 {
   font-size: 1.4rem;
 }
 
-/* Bandeau bleu (header principal) */
+/* Bandeau bleu */
 .main-header {
   background: #2563eb;
   color: #fff;
   padding: 0.8rem 1rem;
   margin: 0;
+  padding-bottom: 0.8rem; /* ✅ supprime l’espace sous le bleu */
 }
 
-/* Barre grise des menus (collée sous le bandeau bleu) */
+/* Barre grise de navigation (collée sous le bleu) */
 .nav {
   background: #e8edf3;
   display: flex;
@@ -36,7 +37,7 @@ h1 {
   margin: 0;
   border-top: none;
   position: relative;
-  top: -4px;  /* ✅ colle la barre grise au bandeau bleu */
+  top: -4px;  /* ✅ remonte la barre grise pour coller au bandeau bleu */
 }
 
 .nav a {
@@ -49,7 +50,6 @@ h1 {
   text-decoration: underline;
 }
 
-/* Boutons */
 button {
   border: none;
   border-radius: 4px;
@@ -63,7 +63,6 @@ button {
   color: #000;
 }
 
-/* Mise en page générale */
 .flex {
   display: flex;
   flex-wrap: wrap;
@@ -71,17 +70,12 @@ button {
   align-items: center;
 }
 
-/* Impression */
 @media print {
   .no-print { display: none !important; }
-  body {
-    background: white;
-    color: black;
-    margin-top: 0 !important;
-  }
+  body { background: white; color: black; margin-top: 0 !important; }
 }
 
-/* Tableau de totaux mensuels */
+/* Ligne Totaux */
 #totaux {
   position: relative;
   z-index: 20;
@@ -96,6 +90,7 @@ button {
 #totaux th { padding: 6px; color: #111827; }
 #totaux tr { background: #c7d2fe; }
 </style>
+
 
 
 </head>
