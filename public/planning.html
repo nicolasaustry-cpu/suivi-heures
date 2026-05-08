@@ -28,33 +28,20 @@ h1 {
   line-height: 1.2;
 }
 
-/* --- Bandeau bleu --- */
+/* Supprime tout espace entre le bandeau bleu et la barre grise */
 .main-header {
   margin: 0;
   padding-bottom: 0.8rem;
   background: #2563eb;
-  color: #fff;
 }
 
-/* --- Barre grise collée juste sous le bandeau bleu --- */
 .nav {
-  background: #e8edf3;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 0.6rem;
   margin: 0;
   border-top: none;
+  background: #e8edf3;
   position: relative;
-  top: -4px;   /* ✅fait remonter la barre grise pour qu’elle colle au bleu */
+  top: -4px;   /* ✅ remonte légèrement la barre grise pour coller au bleu */
 }
-
-.nav a {
-  text-decoration: none;
-  color: #2563eb;
-  font-weight: bold;
-}
-.nav a.active { text-decoration: underline; }
 
 /* Boutons */
 button {
