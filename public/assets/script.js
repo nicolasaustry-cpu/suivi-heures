@@ -163,8 +163,11 @@ function genererBlocJour(date, container, nomsJours) {
     const keyAbs = `${s.id}${dateStr}abs`;
     const abs = heures[keyAbs]?.heures || 0;
 
-    const jourNom = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"][date.getDay()];
-    const heuresPrevues = s.heuresParJour?.[jourNom.slice(0, 3)] || 0;
+// Nom complet du jour
+const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][date.getDay()];
+// Transforme en 3 premières lettres (lun, mar, mer, jeu, ven, sam)
+const cleJour = jourNom.slice(0,3);
+const heuresPrevues = s.heuresParJour?.[cleJour] || 0;
     const prevuAdj = tot > 0 ? Math.max(heuresPrevues - abs, 0) : 0;
     const ecart = tot - prevuAdj;
 
