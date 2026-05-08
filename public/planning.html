@@ -20,12 +20,14 @@ body {
   background: #2563eb;
   color: #fff;
   margin: 0;
-  padding: 0.4rem 1rem;          /* ✅ réduit la hauteur réelle du header */
+  padding: 0.8rem 1rem;
   border-bottom: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  line-height: 1;                /* ✅ empêche l’espacement interne du H1 */
+  line-height: 1;
+  position: relative; /* ✅ replace le header dans le flux du document */
+  z-index: 1;         /* mais reste au-dessus des autres fonds */
 }
 
 /* --- Barre grise collée sous le bleu --- */
@@ -36,9 +38,9 @@ body {
   gap: 1rem;
   padding: 0.6rem;
   margin: 0;
-  position: relative;
-  top: 0;                        /* ✅ parfaitement collée */
   border-top: none;
+  position: relative; /* ✅ s'affiche au même plan que le header */
+  z-index: 2;         /* 🔹 au-dessus du contenu (planning, jauge, etc.) */
 }
 
 /* Boutons */
