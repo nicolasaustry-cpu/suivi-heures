@@ -1,202 +1,13 @@
-body {
-  margin:0;
-  font-family:Arial,Helvetica,sans-serif;
-  background:#f4f6f8;
-  color:#222;
-}
-header {
-  background:#2563eb;
-  color:#fff;
-  padding:0.8rem 1rem;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-h1 {margin:0;font-size:1.4rem;}
-section {background:#fff;margin:1rem;padding:1rem;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
-button {
-  border:none;border-radius:4px;padding:0.5rem 1rem;
-  font-weight:bold;cursor:pointer;color:#fff;
-}
-.btn-primary{background:#2563eb;}
-.btn-success{background:#16a34a;}
-.btn-danger{background:#dc2626;}
-.btn-warning{background:#f59e0b;color:#000;}
-input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
-table{border-collapse:collapse;width:100%;margin-top:1rem;font-size:0.9rem;}
-th,td{border:1px solid #ccc;padding:4px;text-align:center;}
-th{background:#e8edf3;}
-.flex{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;}
-.hidden{display:none;}
-/* Nouvelle version : rend tout inactif sauf la section licence */
-.readonly * {
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-/* exceptions : autoriser code client et nom entreprise */
-body.readonly #code-client,
-body.readonly #nom-entreprise,
-body.readonly button[onclick="activerLicence()"] {
-  pointer-events: auto !important;
-  opacity: 1 !important;
-  background-color: white !important;
-  color: black !important;
-}
-/* navigation */
-.nav{background:#e8edf3;display:flex;justify-content:center;gap:1rem;padding:0.6rem;}
-.nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
-.nav a.active{text-decoration:underline;}
-/* jauge horizontale */
-.gauge-bar-wrapper{width:80%;max-width:600px;margin:1rem auto;text-align:center;}
-.gauge-bar{position:relative;display:flex;width:100%;height:30px;border-radius:15px;overflow:hidden;}
-.bar-segment{height:100%;}
-.bar-segment.red{background:red;}
-.bar-segment.orange{background:orange;}
-.bar-segment.green{background:green;}
-#gauge-cursor{
- position:absolute;top:-8px;width:0;height:0;
- border-left:8px solid transparent;border-right:8px solid transparent;
- border-bottom:10px solid #111;transition:left 0.4s ease;
-}
-.gauge-value{margin-top:0.4rem;font-weight:bold;}
-/* impression */
-@media print{
- header,.btn,.nav{display:none!important;}
- body{background:white;color:black;}
- section{box-shadow:none;border:none;margin:0;padding:0;}
-}
-#table-salaries th, #table-salaries td { padding:6px 4px; font-size:0.85rem; }
-#table-salaries th:nth-child(n+4) { width:60px; }
-#planning-table input {
-  font-size: 0.8rem;
-  padding: 2px 3px;
-}
-#planning-table th, #planning-table td {
-  padding:4px;
-  text-align:center;
-}
-#planning-table td div {
-  margin-top:2px;
-}
-#table-salaries input {
-  width: 80px;
-  padding: 3px 5px;
-  font-size: 0.85rem;
-}
-#table-salaries th {
-  background:#e8edf3;
-}
-#table-heures-ajout th {
-  background:#bbf7d0;
-}
-#table-heures-ajout input {
-  text-align:center;
-}
-/* --- ajustement tableau salariés --- */
-#table-salaries td:nth-child(3),
-#table-salaries td:nth-child(4),
-#table-salaries th:nth-child(3),
-#table-salaries th:nth-child(4) {
-  width: 160px;          /* mêmes dimensions pour les colonnes de dates */
-}
-
-#table-salaries input[type="date"] {
-  width: 100%;
-  padding: 4px 6px;
-  box-sizing: border-box;
-}
-
-#table-salaries input[type="text"] {
-  width: 240px;        /* ≈30 caractères */
-  padding: 4px 6px;
-  box-sizing: border-box;
-}
-
-#table-salaries th,
-#table-salaries td {
-  text-align: center;
-  vertical-align: middle;
-}
-
-#table-salaries input[type="number"] {
-  width: 70px;
-  text-align: center;
-}
-/* alternance de couleur entre salariés */
-.tab-jour tbody tr:nth-child(even) {
-  background-color: #f9fafb;  /* gris très clair */
-}
-.tab-jour tbody tr:nth-child(odd) {
-  background-color: #ffffff;  /* blanc */
-}
-
-/* Permet la saisie du code licence même en mode readonly */
-body.readonly #code-client,
-body.readonly button[onclick="activerLicence()"] {
-  pointer-events: auto !important;
-  background-color: white !important;
-  color: black !important;
-  opacity: 1 !important;
-}
-/* Autoriser visuellement la saisie du code client et du nom d'entreprise même en mode readonly */
-body.readonly input#code-client,
-body.readonly input#nom-entreprise,
-body.readonly button[onclick="activerLicence()"] {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  cursor: text !important;
-}
-/* === Corrige le rendu visuel des champs en mode licence === */
-body.readonly input#code-client,
-body.readonly input#nom-entreprise,
-body.readonly button[onclick="activerLicence()"] {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  cursor: text !important;
-  filter: none !important;
-}
-/* Corrige complètement le grisage en mode licence non activée */
-body.readonly input#code-client,
-body.readonly input#nom-entreprise,
-body.readonly button[onclick="activerLicence()"],
-body.readonly section,
-body.readonly header,
-body.readonly main {
-  opacity: 1 !important;
-  filter: none !important;
-  pointer-events: auto !important;
-  background-color: #fff !important;
-  color: #000 !important;
-}
-/* ---- En-tête harmonisé ---- */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  background: #2563eb;
-  color: #fff;
-  padding: 0.8rem 1rem;
-}
-
-.page-header .entreprise-nom {
-  position: absolute;
-  left: 1rem;
-  font-weight: bold;
-  font-size: 1rem;
-}
-
-.page-header .page-title {
+/* ===== PARAMÈTRES GÉNÉRAUX ===== */
+html, body {
   margin: 0;
-  font-size: 1.4rem;
-  text-align: center;
-  flex: 1;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f6f8;
+  color: #222;
 }
+
+/* ===== EN-TÊTE BLEU (bandeau principal) ===== */
 .main-header {
   display: flex;
   align-items: center;
@@ -204,7 +15,11 @@ body.readonly main {
   background: #2563eb;
   color: #fff;
   padding: 0.8rem 1rem;
-  position: relative;
+  margin: 0;
+  border-bottom: none;
+  line-height: 1;
+  position: relative;   /* header dans le flux, pas fixe */
+  z-index: 10;
 }
 
 .main-header .entreprise-nom {
@@ -219,49 +34,194 @@ body.readonly main {
   margin: 0;
   font-size: 1.4rem;
 }
-/* --- Correction affichage page Planning --- */
-body {
-  padding-top: 140px !important; /* espace suffisant sous le header fixe */
-}
 
-.main-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-}
-
-#planning-wrapper {
-  margin-top: 1rem;
-}
-/* --- Correction affichage ligne Totaux du mois --- */
-#totaux {
+/* ===== BARRE DE NAVIGATION GRIS CLAIR ===== */
+.nav {
+  background: #e8edf3;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem;
+  margin: 0;
+  border-top: none;
   position: relative;
-  z-index: 2000;         /* passe au-dessus des blocs */
-  background: #e0e7ff;   /* bleu clair */
-  border-top: 2px solid #2563eb;
+  top: -4px;           /* colle visuellement la barre grise sous la bleue */
+  z-index: 5;
 }
 
-#planning-wrapper {
-  padding-bottom: 120px; /* espace sous le calendrier pour bien voir la ligne */
+.nav a {
+  text-decoration: none;
+  color: #2563eb;
+  font-weight: bold;
 }
+
+.nav a.active {
+  text-decoration: underline;
+}
+
+/* ===== ZONES PRINCIPALES ===== */
+section {
+  background: #fff;
+  margin: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+button {
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: #fff;
+}
+.btn-primary { background: #2563eb; }
+.btn-success { background: #16a34a; }
+.btn-danger  { background: #dc2626; }
+.btn-warning { background: #f59e0b; color: #000; }
+
+input, select {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+
+.flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.hidden { display: none; }
+
+/* ===== JAUGE HORIZONTALE ===== */
+.gauge-bar-wrapper {
+  width: 80%;
+  max-width: 600px;
+  margin: 1rem auto;
+  text-align: center;
+}
+
+.gauge-bar {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 30px;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.bar-segment { height: 100%; }
+.bar-segment.red    { background: red; }
+.bar-segment.orange { background: orange; }
+.bar-segment.green  { background: green; }
+
+#gauge-cursor {
+  position: absolute;
+  top: -8px;
+  width: 0; height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 10px solid #111;
+  transition: left 0.4s ease;
+}
+
+.gauge-value {
+  margin-top: 0.4rem;
+  font-weight: bold;
+}
+
+/* ===== TABLEAUX ===== */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 4px;
+  text-align: center;
+}
+th { background: #e8edf3; }
+
+#table-salaries th, #table-salaries td { padding: 6px 4px; font-size: 0.85rem; }
+#table-salaries th:nth-child(n+4) { width: 60px; }
+#table-salaries input { width: 80px; padding: 3px 5px; font-size: 0.85rem; }
+#table-salaries th { background: #e8edf3; }
+#table-heures-ajout th { background: #bbf7d0; }
+#table-heures-ajout input { text-align: center; }
+
+/* largeurs uniformes des tableaux */
+#table-salaries td:nth-child(3),
+#table-salaries td:nth-child(4),
+#table-salaries th:nth-child(3),
+#table-salaries th:nth-child(4) {
+  width: 160px;
+}
+#table-salaries input[type="date"],
+#table-salaries input[type="text"],
+#table-salaries input[type="number"] {
+  width: 100%;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#planning-table input { font-size: 0.8rem; padding: 2px 3px; }
+#planning-table th, #planning-table td { padding: 4px; text-align: center; }
+#planning-table td div { margin-top: 2px; }
+
+/* alternance de lignes */
+.tab-jour tbody tr:nth-child(even) { background-color: #f9fafb; }
+.tab-jour tbody tr:nth-child(odd)  { background-color: #ffffff; }
+
+/* ===== TOTAUX DU MOIS ===== */
 #totaux {
   position: relative;
   z-index: 20;
   background: #e0e7ff;
   border-top: 2px solid #2563eb;
   font-weight: bold;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+}
+#totaux th { padding: 6px; color: #111827; }
+
+/* Largeurs fixes communes Planning / Totaux */
+.col-salarie { width:150px; }
+.col-ch      { width:160px; }
+.col-total,
+.col-abs,
+.col-prevu,
+.col-ecart   { width:80px; text-align:center; }
+
+/* ===== MODE LECTURE SEULE (LICENCE) ===== */
+.readonly * {
+  pointer-events: none;
+  opacity: 0.6;
+}
+body.readonly #code-client,
+body.readonly #nom-entreprise,
+body.readonly button[onclick="activerLicence()"] {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  background-color: #fff !important;
+  color: #000 !important;
 }
 
-#totaux th {
-  padding: 6px;
-  color: #111827;
+/* Correction affichage licence */
+body.readonly section,
+body.readonly header,
+body.readonly main {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  background-color: #fff !important;
+  color: #000 !important;
+  filter: none !important;
 }
-/* === Largeurs fixes communes planning / totaux === */
-.col-salarie  { width:150px; }
-.col-ch       { width:160px; }      /* Ch1 → Ch5 */
-.col-total    { width:80px;  text-align:center; }
-.col-abs      { width:80px;  text-align:center; }
-.col-prevu    { width:80px;  text-align:center; }
-.col-ecart    { width:80px;  text-align:center; }
+
+/* ===== IMPRESSION ===== */
+@media print {
+  header, .btn, .nav { display: none !important; }
+  body { background: white; color: black; }
+  section { box-shadow: none; border: none; margin: 0; padding: 0; }
+}
