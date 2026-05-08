@@ -12,22 +12,76 @@ body {
   background: #f4f6f8;
   color: #222;
 }
-h1 { margin: 0; font-size: 1.4rem; }
-.nav { background: #e8edf3; display: flex; justify-content: center; gap: 1rem; padding: 0.6rem; }
-.nav a { text-decoration: none; color: #2563eb; font-weight: bold; }
-.nav a.active { text-decoration: underline; }
 
-button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bold; cursor: pointer; color: #fff; }
-.btn-warning { background: #f59e0b; color: #000; }
-
-.flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
-
-@media print {
-  .no-print { display: none !important; }
-  body { background: white; color: black; margin-top: 0 !important; }
+h1 {
+  margin: 0;
+  font-size: 1.4rem;
 }
 
-/* Ligne totaux */
+/* Bandeau bleu (header principal) */
+.main-header {
+  background: #2563eb;
+  color: #fff;
+  padding: 0.8rem 1rem;
+  margin: 0;
+}
+
+/* Barre grise des menus (collée sous le bandeau bleu) */
+.nav {
+  background: #e8edf3;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem;
+  margin: 0;
+  border-top: none;
+  position: relative;
+  top: -4px;  /* ✅ colle la barre grise au bandeau bleu */
+}
+
+.nav a {
+  text-decoration: none;
+  color: #2563eb;
+  font-weight: bold;
+}
+
+.nav a.active {
+  text-decoration: underline;
+}
+
+/* Boutons */
+button {
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: #fff;
+}
+.btn-warning {
+  background: #f59e0b;
+  color: #000;
+}
+
+/* Mise en page générale */
+.flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+/* Impression */
+@media print {
+  .no-print { display: none !important; }
+  body {
+    background: white;
+    color: black;
+    margin-top: 0 !important;
+  }
+}
+
+/* Tableau de totaux mensuels */
 #totaux {
   position: relative;
   z-index: 20;
@@ -41,36 +95,8 @@ button { border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: bo
 }
 #totaux th { padding: 6px; color: #111827; }
 #totaux tr { background: #c7d2fe; }
-/* Supprime tout espace entre le bandeau bleu et la barre grise */
-.main-header {
-  margin: 0;
-  padding-bottom: 0.8rem;
-  background: #2563eb;
-}
-
-.nav {
-  margin: 0;
-  border-top: none;
-  background: #e8edf3;
-  position: relative;
-  top: -4px;   
-
-/* === Remontée de la barre grise sous le bandeau bleu === */
-.main-header {
-  margin: 0;
-  padding-bottom: 0.8rem;
-  background: #2563eb;
-}
-
-.nav {
-  margin: 0;
-  border-top: none;
-  background: #e8edf3;
-  position: relative;
-  top: -4px;   /* colle parfaitement la nav au bandeau bleu */
-}
-
 </style>
+
 
 </head>
 
