@@ -1,119 +1,19 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<title>Planning du mois</title>
-<link rel="stylesheet" href="assets/style.css" />
-
-<style>
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background: #f4f6f8;
-  font-family: Arial, sans-serif;
-  color: #222;
-}
-
-/* --- Bandeau bleu --- */
-.main-header {
-  background: #2563eb;
-  color: #fff;
-  margin: 0;
-  padding: 0.8rem 1rem;
-  border-bottom: none;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  line-height: 1;
-  position: relative; /* ✅ replace le header dans le flux du document */
-  z-index: 1;         /* mais reste au-dessus des autres fonds */
-}
-
-/* --- Barre grise collée sous le bleu --- */
-.nav {
-  background: #e8edf3;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 0.6rem;
-  margin: 0;
-  border-top: none;
-  position: relative; /* ✅ s'affiche au même plan que le header */
-  z-index: 2;         /* 🔹 au-dessus du contenu (planning, jauge, etc.) */
-}
-
-/* Boutons */
-button {
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  color: #fff;
-}
-.btn-warning { background: #f59e0b; color: #000; }
-
-.flex { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
-
-@media print {
-  .no-print { display: none !important; }
-  body { background: white; color: black; margin-top: 0 !important; }
-}
-
-/* Ligne totaux */
-#totaux {
-  position: relative;
-  z-index: 20;
-  background: #e0e7ff;
-  border-top: 2px solid #2563eb;
-  font-weight: bold;
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0.8rem;
-  font-size: 0.9rem;
-}
-#totaux th { padding: 6px; color: #111827; }
-#totaux tr { background: #c7d2fe; }
-</style>
-</head>
-
-<body>
-<header class="main-header">
-  <div class="entreprise-nom" id="entreprise-nom">Volitis</div>
-  <h1 class="page-title">Planning du mois</h1>
-  <div style="display:flex;align-items:center;gap:1rem;">
-    <div id="licence-status">✔️ Active</div>
-  </div>
-</header>
-
-<div class="nav">
-  <a href="index.html">Entreprise</a>
-  <a href="salaries.html">Salariés</a>
-  <a href="planning.html" class="active">Planning</a>
-  <a href="rapports.html">Rapports</a>
-</div>
-
-<!-- === Paramétrage + Jauge alignés à droite === -->
-<div style="display:flex;flex-direction:column;align-items:flex-end;margin-top:0.8rem;gap:6px;">
-
-  <!-- Paramétrage -->
-  <div id="param-jauge" style="display:flex;align-items:center;gap:10px;font-size:0.85rem;color:#111;">
-    <label>Rouge → Orange à </label>
-    <input id="seuil-orange" type="number" min="0" max="200" step="1" value="80"
-           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
-    <label>Orange → Vert à </label>
-    <input id="seuil-vert" type="number" min="0" max="200" step="1" value="100"
-           style="width:60px;text-align:center;border:1px solid #999;border-radius:4px;"> %
-    <label style="display:flex;align-items:center;gap:4px;">
-      <input type="checkbox" id="figer-param"> Figer
-    </label>
+<!-- === Zone filtres + jauge + totaux === -->
+<section style="background:#f8fafc;padding:0.8rem;">
+  <div class="flex">
+    <div><label>Mois :</label><br><input type="month" id="moisPlanning" /></div>
+    <div style="position:relative;">
+      <label>Filtrer salariés :</label><br>
+      <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" />
+    </div>
+    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+    <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
   </div>
 
   <!-- Jauge -->
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:0.6rem;">
     <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
-    <div id="barre-jauge" style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
+    <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
       <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
       <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
       <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
@@ -122,9 +22,7 @@ button {
     </div>
   </div>
 
-</div> <!-- ✅ ce </div> ferme le conteneur du paramétrage -->
-
-
+  <!-- Totaux du mois -->
   <table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
     <thead>
       <tr style="background:#c7d2fe;">
@@ -143,9 +41,3 @@ button {
 <div style="background:#fff;margin:1rem;box-shadow:0 2px 5px rgba(0,0,0,0.1);border-radius:6px;padding:1rem;">
   <div id="planning-wrapper"></div>
 </div>
-
-<script src="assets/script.js"></script>
-</body>
-</html>
-
-

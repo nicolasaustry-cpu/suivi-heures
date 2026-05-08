@@ -140,7 +140,6 @@ function genererBlocJour(date, container, nomsJours) {
       const k = `${s.id}${dateStr}ch${i}`;
       const data = heures[k] || { chantier:"", heures:0 };
       tot += parseFloat(data.heures) || 0;
-
       html += `
         <td style="border:1px solid #ccc;padding:2px;">
           <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
@@ -170,8 +169,8 @@ function genererBlocJour(date, container, nomsJours) {
         </select>
       </td>
       <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
-      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart < 0 ? 'red' : 'green'}">
-        ${(ecart >= 0 ? '+' : '') + ecart.toFixed(1)}
+      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
+        ${(ecart>=0?'+':'')+ecart.toFixed(1)}
       </td>
     </tr>`;
   });
@@ -181,7 +180,7 @@ function genererBlocJour(date, container, nomsJours) {
 }
 
 /* ===========================================
-   OUTILS
+   OUTILS / RECALCUL
    =========================================== */
 function genOptionsHeures(v) {
   let opt = "";
@@ -193,14 +192,10 @@ function genOptionsHeures(v) {
   return opt;
 }
 
-/* ===========================================
-   MISE À JOUR DES HEURES
-   =========================================== */
 function saveHeure(key, chantier, h) {
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
 
-  // Recalcul instantané de la ligne + totaux du mois
   setTimeout(() => {
     majTotalLigne(key);
     calculerTotaux();
@@ -208,135 +203,62 @@ function saveHeure(key, chantier, h) {
 }
 
 function majTotalLigne(key) {
-  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!match) return;
-  const idSal = match[1];
-  const dateStr = match[2];
+  const m = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!m) return;
+  const idSal = m[1], dateStr = m[2];
 
-  // Total des 5 chantiers
-  let totalJour = 0;
+  let tot = 0;
   for (let i = 1; i <= 5; i++) {
     const k = `${idSal}${dateStr}ch${i}`;
-    totalJour += parseFloat(heures[k]?.heures || 0);
+    tot += parseFloat(heures[k]?.heures || 0);
   }
+  const abs = parseFloat(heures[`${idSal}${dateStr}abs`]?.heures || 0);
+  const cellT = document.getElementById(`total${idSal}${dateStr}`);
+  if (cellT) cellT.textContent = tot.toFixed(1);
 
-  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
-  if (totalCell) totalCell.textContent = totalJour.toFixed(1);
-
-  // Absences et heures prévues
-  const absKey = `${idSal}${dateStr}abs`;
-  const abs = parseFloat(heures[absKey]?.heures || 0);
   const jour = new Date(dateStr);
-  const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
-  const cleJour = jourNom.slice(0,3);
-  const salarie = salaries.find(s => String(s.id) === String(idSal));
-  const heuresContrat = salarie?.heuresParJour?.[cleJour] || 0;
-
-  const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresContrat - abs, 0);
-  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
-  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
-
-  const ecart = totalJour - prevuAjuste;
-  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
-  if (ecartCell) {
-    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
-    ecartCell.style.color = ecart < 0 ? "red" : "green";
+  const jNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()].slice(0,3);
+  const s = salaries.find(x => String(x.id) === idSal);
+  const prev = s?.heuresParJour?.[jNom] || 0;
+  const prevu = tot === 0 ? 0 : Math.max(prev - abs, 0);
+  const cellP = document.getElementById(`prevu${idSal}${dateStr}`);
+  if (cellP) cellP.textContent = prevu.toFixed(1);
+  const diff = tot - prevu;
+  const cellE = document.getElementById(`ecart${idSal}${dateStr}`);
+  if (cellE) {
+    cellE.textContent = `${diff>=0?'+':''}${diff.toFixed(1)}`;
+    cellE.style.color = diff < 0 ? "red" : "green";
   }
 }
 
-/* ===========================================
-   TOTAUX DU MOIS ET JAUGE
-   =========================================== */
 function calculerTotaux() {
-  let totalHeures = 0, totalAbsences = 0, totalPrevus = 0;
-  document.querySelectorAll('select[id$="h"]').forEach(sel => {
-    const val = parseFloat(sel.value) || 0;
-    if (sel.id.includes("abs")) totalAbsences += val;
-    else totalHeures += val;
+  let tH=0,tA=0,tP=0;
+  document.querySelectorAll('select[id$="h"]').forEach(sel=>{
+    const v=parseFloat(sel.value)||0;
+    if(sel.id.includes("abs"))tA+=v;else tH+=v;
   });
-  document.querySelectorAll('[id^="prevu"]').forEach(td =>
-    totalPrevus += parseFloat(td.textContent) || 0
-  );
-
-  const totalEcart = totalHeures - totalPrevus;
-  const fix = v => v.toFixed(1);
-
-  document.getElementById("tot-total").textContent = fix(totalHeures);
-  document.getElementById("tot-abs").textContent   = fix(totalAbsences);
-  document.getElementById("tot-prev").textContent  = fix(totalPrevus);
-  document.getElementById("tot-ecart").textContent = fix(totalEcart);
-  document.getElementById("tot-ecart").style.color = totalEcart < 0 ? "red" : "green";
-
-  const pourc = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
-  const curseur = document.getElementById("curseur");
-  const texte   = document.getElementById("pourcentage");
-  if (curseur && texte) {
-    const l = curseur.parentElement.offsetWidth;
-    curseur.style.left = (l * pourc / 100 - 4) + "px";
-    texte.textContent = Math.round(pourc) + "%";
-  }
+  document.querySelectorAll('[id^="prevu"]').forEach(td=>tP+=parseFloat(td.textContent)||0);
+  const tE=tH-tP,fix=v=>v.toFixed(1);
+  document.getElementById("tot-total").textContent=fix(tH);
+  document.getElementById("tot-abs").textContent=fix(tA);
+  document.getElementById("tot-prev").textContent=fix(tP);
+  document.getElementById("tot-ecart").textContent=fix(tE);
+  document.getElementById("tot-ecart").style.color=tE<0?"red":"green";
+  const p=tP>0?(tH/tP)*100:0;
+  const c=document.getElementById("curseur"),tx=document.getElementById("pourcentage");
+  if(c&&tx){const L=c.parentElement.offsetWidth;c.style.left=(L*p/100-4)+"px";tx.textContent=Math.round(p)+"%";}
 }
+
 /* ===========================================
-   PARAMÉTRAGE DE LA JAUGE
+   CHARGEMENT
    =========================================== */
-function majZonesJauge() {
-  const sOrange = parseFloat(document.getElementById("seuil-orange")?.value) || 80;
-  const sVert   = parseFloat(document.getElementById("seuil-vert")?.value)   || 100;
-
-  const rouge  = document.getElementById("zone-rouge");
-  const orange = document.getElementById("zone-orange");
-  const vert   = document.getElementById("zone-verte");
-  if (!rouge || !orange || !vert) return;
-
-  const total = Math.max(sVert, 1);
-  rouge.style.width  = (sOrange / total) * 100 + "%";
-  orange.style.left  = (sOrange / total) * 100 + "%";
-  orange.style.width = ((sVert - sOrange) / total) * 100 + "%";
-  vert.style.left    = (sVert / total) * 100 + "%";
-  vert.style.width   = (100 - (sVert / total) * 100) + "%";
-
-  localStorage.setItem("configJauge", JSON.stringify({ sOrange, sVert, figer: document.getElementById("figer-param")?.checked }));
-}
-
-function majEtatFiger() {
-  const chk = document.getElementById("figer-param");
-  const inputs = [document.getElementById("seuil-orange"), document.getElementById("seuil-vert")];
-  const disabled = chk?.checked;
-  inputs.forEach(inp => { if (inp) inp.disabled = disabled; });
-
-  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
-  conf.figer = !!disabled;
-  localStorage.setItem("configJauge", JSON.stringify(conf));
-}
-/* ===========================================
-   AU CHARGEMENT
-   =========================================== */
-window.addEventListener("DOMContentLoaded", () => {
-  const headerNom = document.getElementById("entreprise-nom");
-  if (headerNom && entreprise.nom) headerNom.textContent = entreprise.nom;
+window.addEventListener("DOMContentLoaded",()=>{
+  const headerNom=document.getElementById("entreprise-nom");
+  if(headerNom&&entreprise.nom)headerNom.textContent=entreprise.nom;
   afficherSalaries();
-
-  const now = new Date();
-  const mp = document.getElementById("moisPlanning");
-  if (mp) {
-    mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}`;
-    mp.addEventListener("change", genererPlanning);
-    genererPlanning();
-  }
-  // --- Restauration et écoute des paramètres de jauge ---
-  const conf = JSON.parse(localStorage.getItem("configJauge") || "{}");
-  if (document.getElementById("seuil-orange")) {
-    if (conf.sOrange) document.getElementById("seuil-orange").value = conf.sOrange;
-    if (conf.sVert)   document.getElementById("seuil-vert").value   = conf.sVert;
-    if (conf.figer) {
-      document.getElementById("figer-param").checked = true;
-      document.getElementById("seuil-orange").disabled = true;
-      document.getElementById("seuil-vert").disabled = true;
-    }
-    majZonesJauge();
-
-    document.getElementById("seuil-orange").addEventListener("change", majZonesJauge);
-    document.getElementById("seuil-vert").addEventListener("change", majZonesJauge);
-    document.getElementById("figer-param").addEventListener("change", majEtatFiger);
-  }
+  const now=new Date(),mp=document.getElementById("moisPlanning");
+  if(mp){mp.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  mp.addEventListener("change",genererPlanning);
+  genererPlanning();}
 });
+
