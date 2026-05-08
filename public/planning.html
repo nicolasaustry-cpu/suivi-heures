@@ -28,6 +28,14 @@ h1 {
   line-height: 1.2;
 }
 
+/* --- Bandeau bleu --- */
+.main-header {
+  margin: 0;
+  padding-bottom: 0.8rem;
+  background: #2563eb;
+  color: #fff;
+}
+
 /* --- Barre grise collée juste sous le bandeau bleu --- */
 .nav {
   background: #e8edf3;
@@ -38,8 +46,9 @@ h1 {
   margin: 0;
   border-top: none;
   position: relative;
-  top: -4px; /* colle la nav à la barre bleue */
+  top: -4px;   /* ✅fait remonter la barre grise pour qu’elle colle au bleu */
 }
+
 .nav a {
   text-decoration: none;
   color: #2563eb;
