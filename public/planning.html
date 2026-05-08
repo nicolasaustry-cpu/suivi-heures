@@ -1,16 +1,53 @@
-<!-- === Zone filtres + jauge + totaux === -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Planning du mois</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+
+<body>
+<!-- ===== En-tête ===== -->
+<header class="main-header">
+  <div class="entreprise-nom" id="entreprise-nom"></div>
+  <h1 class="page-title">Planning du mois</h1>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <div id="licence-status">✔️ Active</div>
+  </div>
+</header>
+
+<!-- ===== Barre de navigation ===== -->
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html" class="active">Planning</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<!-- ===== Zone filtres + jauge + totaux ===== -->
 <section style="background:#f8fafc;padding:0.8rem;">
   <div class="flex">
-    <div><label>Mois :</label><br><input type="month" id="moisPlanning" /></div>
+    <div>
+      <label>Mois :</label><br>
+      <input type="month" id="moisPlanning" />
+    </div>
+
     <div style="position:relative;">
       <label>Filtrer salariés :</label><br>
       <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" />
     </div>
-    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-    <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+
+    <div>
+      <label>Semaine à imprimer :</label><br>
+      <select id="semaineSelect"></select>
+    </div>
+
+    <div>
+      <button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button>
+    </div>
   </div>
 
-  <!-- Jauge -->
+  <!-- === Jauge === -->
   <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:0.6rem;">
     <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
     <div style="position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;width:360px;">
@@ -22,12 +59,18 @@
     </div>
   </div>
 
-  <!-- Totaux du mois -->
-  <table id="totaux" style="width:100%;border-collapse:collapse;margin-top:0.8rem;font-size:0.9rem;background:#eef2ff;">
+  <!-- === Totaux du mois === -->
+  <table id="totaux"
+         style="width:100%;border-collapse:collapse;margin-top:0.8rem;
+                font-size:0.9rem;background:#eef2ff;">
     <thead>
       <tr style="background:#c7d2fe;">
         <th style="padding:6px;text-align:left;width:150px;">Totaux du mois</th>
-        <th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
+        <th style="width:182px;"></th>
         <th id="tot-total" style="width:80px;text-align:center;">0</th>
         <th id="tot-abs"   style="width:80px;text-align:center;">0</th>
         <th id="tot-prev"  style="width:80px;text-align:center;">0</th>
@@ -37,7 +80,14 @@
   </table>
 </section>
 
-<!-- === Contenu principal === -->
-<div style="background:#fff;margin:1rem;box-shadow:0 2px 5px rgba(0,0,0,0.1);border-radius:6px;padding:1rem;">
+<!-- ===== Contenu principal : tableau planning ===== -->
+<div style="background:#fff;margin:1rem;
+            box-shadow:0 2px 5px rgba(0,0,0,0.1);
+            border-radius:6px;padding:1rem;">
   <div id="planning-wrapper"></div>
 </div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>
+
