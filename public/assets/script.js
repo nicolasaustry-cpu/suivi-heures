@@ -1,5 +1,5 @@
 /* ===========================================
-   DONNÉES LOCALES
+   Données locales
    =========================================== */
 let entreprise = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
 let salaries   = JSON.parse(localStorage.getItem("salariesdata")   || "[]");
@@ -100,7 +100,7 @@ function genererPlanning() {
 
   const premierJour = new Date(+a, +m - 1, 1);
   const dernierJour = new Date(+a, +m, 0);
-  const nomsJours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const nomsJours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 
   for (let d = new Date(premierJour); d <= dernierJour; d.setDate(d.getDate() + 1)) {
     if (d.getDay() !== 0) genererBlocJour(new Date(d), container, nomsJours);
@@ -111,26 +111,19 @@ function genererPlanning() {
 
 function genererBlocJour(date, container, nomsJours) {
   const dateStr = date.toISOString().split("T")[0];
-  const couleur = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
+  const couleurFond = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
   const nomJour = nomsJours[date.getDay()];
 
   let html = `
-    <h3 style="background:${couleur};padding:0.3rem;margin:0.5rem 0;">
+    <h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
       ${nomJour} ${date.toLocaleDateString("fr-FR")}
     </h3>
     <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead>
         <tr style="background:#e8edf3;">
-          <th class="col-salarie" style="border:1px solid #ccc;padding:4px;">Salarié</th>
-          <th class="col-ch">Ch1</th>
-          <th class="col-ch">Ch2</th>
-          <th class="col-ch">Ch3</th>
-          <th class="col-ch">Ch4</th>
-          <th class="col-ch">Ch5</th>
-          <th class="col-total">Total</th>
-          <th class="col-abs">Abs.</th>
-          <th class="col-prevu">Prévu</th>
-          <th class="col-ecart">Écart</th>
+          <th style="border:1px solid #ccc;padding:4px;width:150px;">Salarié</th>
+          <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
+          <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
         </tr>
       </thead><tbody>`;
 
@@ -145,7 +138,7 @@ function genererBlocJour(date, container, nomsJours) {
 
     for (let i = 1; i <= 5; i++) {
       const k = `${s.id}${dateStr}ch${i}`;
-      const data = heures[k] || { chantier: "", heures: 0 };
+      const data = heures[k] || { chantier:"", heures:0 };
       tot += parseFloat(data.heures) || 0;
 
       html += `
@@ -163,25 +156,22 @@ function genererBlocJour(date, container, nomsJours) {
     const keyAbs = `${s.id}${dateStr}abs`;
     const abs = heures[keyAbs]?.heures || 0;
 
-// Nom complet du jour
-const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][date.getDay()];
-// Transforme en 3 premières lettres (lun, mar, mer, jeu, ven, sam)
-const cleJour = jourNom.slice(0,3);
-const heuresPrevues = s.heuresParJour?.[cleJour] || 0;
+    const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][date.getDay()];
+    const heuresPrevues = s.heuresParJour?.[jourNom.slice(0,3)] || 0;  // lit lun, mar, mer, jeu, ven, sam
     const prevuAdj = tot > 0 ? Math.max(heuresPrevues - abs, 0) : 0;
     const ecart = tot - prevuAdj;
 
     html += `
-      <td id="total${s.id}${dateStr}" class="col-total" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
-      <td class="col-abs" style="border:1px solid #ccc;text-align:center;">
+      <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
+      <td style="border:1px solid #ccc;text-align:center;">
         <select id="${keyAbs}h" style="width:60px;"
                 onchange="saveHeure('${keyAbs}','absence',this.value)">
           ${genOptionsHeures(abs)}
         </select>
       </td>
-      <td id="prevu${s.id}${dateStr}" class="col-prevu" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
-      <td id="ecart${s.id}${dateStr}" class="col-ecart" style="border:1px solid #ccc;text-align:center;color:${ecart < 0 ? "red" : "green"}">
-        ${(ecart >= 0 ? "+" : "") + ecart.toFixed(1)}
+      <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
+      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
+        ${(ecart>=0?'+':'')+ecart.toFixed(1)}
       </td>
     </tr>`;
   });
@@ -204,54 +194,9 @@ function genOptionsHeures(v) {
 }
 
 function saveHeure(key, chantier, h) {
-  // sauvegarde locale
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-
-  // recalcul immédiat de la ligne salarié + totaux/mois
-  setTimeout(() => {
-    majTotalLigne(key);
-    calculerTotaux();
-  }, 100);
-}
-function majTotalLigne(key) {
-  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!match) return;
-  const idSal = match[1];
-  const dateStr = match[2];
-
-  // Somme des 5 chantiers pour ce salarié et ce jour
-  let totalJour = 0;
-  for (let i = 1; i <= 5; i++) {
-    const k = `${idSal}${dateStr}ch${i}`;
-    totalJour += parseFloat(heures[k]?.heures || 0);
-  }
-  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
-  if (totalCell) totalCell.textContent = totalJour.toFixed(1);
-
-  // Absences
-  const absKey = `${idSal}${dateStr}abs`;
-  const abs = parseFloat(heures[absKey]?.heures || 0);
-
-  // 🔧 récupère les heures prévues correctes selon le jour (lun, mar, mer, jeu, ven, sam)
-  const jour = new Date(dateStr);
-  const jourComplet = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
-  const cleJour = jourComplet.slice(0, 3);  // Ex. "samedi" → "sam"
-  const salarie = salaries.find(s => String(s.id) === String(idSal));
-  const heuresContrat = salarie?.heuresParJour?.[cleJour] || 0;
-
-  // Si aucun chantier saisi, prévus = 0, sinon heures contrat - absences
-  const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresContrat - abs, 0);
-  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
-  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
-
-  // Écart
-  const ecart = totalJour - prevuAjuste;
-  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
-  if (ecartCell) {
-    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
-    ecartCell.style.color = ecart < 0 ? "red" : "green";
-  }
+  setTimeout(() => calculerTotaux(), 100);
 }
 
 function calculerTotaux() {
@@ -273,7 +218,6 @@ function calculerTotaux() {
   document.getElementById("tot-ecart").textContent = fix(totalEcart);
   document.getElementById("tot-ecart").style.color = totalEcart < 0 ? "red" : "green";
 
-  // mise à jour de la jauge
   const pourc = totalPrevus > 0 ? (totalHeures / totalPrevus) * 100 : 0;
   const curseur = document.getElementById("curseur");
   const texte   = document.getElementById("pourcentage");
@@ -295,9 +239,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const now = new Date();
   const mp = document.getElementById("moisPlanning");
   if (mp) {
-    mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}`;
     mp.addEventListener("change", genererPlanning);
     genererPlanning();
   }
 });
+
 
