@@ -1,5 +1,5 @@
 /* ===========================================
-   Données locales
+   DONNÉES LOCALES
    =========================================== */
 let entreprise = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
 let salaries   = JSON.parse(localStorage.getItem("salariesdata")   || "[]");
@@ -157,7 +157,7 @@ function genererBlocJour(date, container, nomsJours) {
     const abs = heures[keyAbs]?.heures || 0;
 
     const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][date.getDay()];
-    const heuresPrevues = s.heuresParJour?.[jourNom.slice(0,3)] || 0;  // lit lun, mar, mer, jeu, ven, sam
+    const heuresPrevues = s.heuresParJour?.[jourNom.slice(0,3)] || 0;
     const prevuAdj = tot > 0 ? Math.max(heuresPrevues - abs, 0) : 0;
     const ecart = tot - prevuAdj;
 
@@ -170,8 +170,8 @@ function genererBlocJour(date, container, nomsJours) {
         </select>
       </td>
       <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
-      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
-        ${(ecart>=0?'+':'')+ecart.toFixed(1)}
+      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart < 0 ? 'red' : 'green'}">
+        ${(ecart >= 0 ? '+' : '') + ecart.toFixed(1)}
       </td>
     </tr>`;
   });
@@ -193,12 +193,60 @@ function genOptionsHeures(v) {
   return opt;
 }
 
+/* ===========================================
+   MISE À JOUR DES HEURES
+   =========================================== */
 function saveHeure(key, chantier, h) {
   heures[key] = { chantier, heures: parseFloat(h) || 0 };
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-  setTimeout(() => calculerTotaux(), 100);
+
+  // Recalcul instantané de la ligne + totaux du mois
+  setTimeout(() => {
+    majTotalLigne(key);
+    calculerTotaux();
+  }, 100);
 }
 
+function majTotalLigne(key) {
+  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!match) return;
+  const idSal = match[1];
+  const dateStr = match[2];
+
+  // Total des 5 chantiers
+  let totalJour = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${idSal}${dateStr}ch${i}`;
+    totalJour += parseFloat(heures[k]?.heures || 0);
+  }
+
+  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
+  if (totalCell) totalCell.textContent = totalJour.toFixed(1);
+
+  // Absences et heures prévues
+  const absKey = `${idSal}${dateStr}abs`;
+  const abs = parseFloat(heures[absKey]?.heures || 0);
+  const jour = new Date(dateStr);
+  const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
+  const cleJour = jourNom.slice(0,3);
+  const salarie = salaries.find(s => String(s.id) === String(idSal));
+  const heuresContrat = salarie?.heuresParJour?.[cleJour] || 0;
+
+  const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresContrat - abs, 0);
+  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
+  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
+
+  const ecart = totalJour - prevuAjuste;
+  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
+  }
+}
+
+/* ===========================================
+   TOTAUX DU MOIS ET JAUGE
+   =========================================== */
 function calculerTotaux() {
   let totalHeures = 0, totalAbsences = 0, totalPrevus = 0;
   document.querySelectorAll('select[id$="h"]').forEach(sel => {
@@ -207,7 +255,8 @@ function calculerTotaux() {
     else totalHeures += val;
   });
   document.querySelectorAll('[id^="prevu"]').forEach(td =>
-    totalPrevus += parseFloat(td.textContent) || 0);
+    totalPrevus += parseFloat(td.textContent) || 0
+  );
 
   const totalEcart = totalHeures - totalPrevus;
   const fix = v => v.toFixed(1);
@@ -244,5 +293,3 @@ window.addEventListener("DOMContentLoaded", () => {
     genererPlanning();
   }
 });
-
-
