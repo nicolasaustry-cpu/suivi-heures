@@ -295,52 +295,59 @@ function imprimerSemaine() {
 function chargerSemaines() {
   const champMois = document.getElementById("moisPlanning");
   const select = document.getElementById("semaineSelect");
-  if (!champMois || !select) return;
 
-  const valeur = champMois.value;
-  if (!valeur) {
-    select.innerHTML = '<option value="">— Mois complet —</option>';
-    return;
-  }
+  // Réinitialise toujours la liste
+  select.innerHTML = '<option value="">— Mois complet —</option>';
+  if (!champMois || !champMois.value) return;
 
-  const [annee, mois] = valeur.split('-').map(Number);
+  // Récupère le mois/année en direct
+  const [annee, mois] = champMois.value.split('-').map(Number);
   const premierJour = new Date(annee, mois - 1, 1);
   const dernierJour = new Date(annee, mois, 0);
 
-  // Supprime toutes les options existantes
-  select.innerHTML = '<option value="">— Mois complet —</option>';
-
-  // Positionne sur le premier lundi du mois
-  let courant = new Date(premierJour);
-  while (courant.getDay() !== 1) { // 1 = lundi
-    courant.setDate(courant.getDate() + 1);
-  }
+  // Trouve le premier lundi du mois
+  let lundi = new Date(premierJour);
+  while (lundi.getDay() !== 1) lundi.setDate(lundi.getDate() + 1);
 
   let compteur = 1;
-  while (courant <= dernierJour) {
-    const lundi = new Date(courant);
+  while (lundi <= dernierJour) {
     const samedi = new Date(lundi);
     samedi.setDate(lundi.getDate() + 5);
 
-    // Ajoute dans la liste déroulante
-    const texte = `Semaine ${compteur}: ${lundi.toLocaleDateString("fr-FR")} → ${samedi.toLocaleDateString("fr-FR")}`;
     const option = document.createElement("option");
     option.value = compteur;
-    option.textContent = texte;
+    option.textContent = `Semaine ${compteur} : ${lundi.toLocaleDateString("fr-FR")} → ${samedi.toLocaleDateString("fr-FR")}`;
     select.appendChild(option);
 
-    courant.setDate(courant.getDate() + 7);
+    lundi.setDate(lundi.getDate() + 7);
     compteur++;
   }
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
-  const now=new Date();
-  document.getElementById("moisPlanning").value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+document.addEventListener("DOMContentLoaded", () => {
+  const moisEl = document.getElementById("moisPlanning");
+  const semaineEl = document.getElementById("semaineSelect");
+
+  // Met la valeur initiale au mois courant
+  const now = new Date();
+  moisEl.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}`;
+
+  // Charge immédiatement la liste du mois courant
   chargerSemaines();
-  chargerJauge();
+
+  // Actualise dès qu’on change de mois
+  moisEl.addEventListener("input", () => {
+    chargerSemaines();
+    genererPlanning();
+  });
+
+  // Recharge la planification quand la semaine change (facultatif)
+  semaineEl.addEventListener("change", genererPlanning);
+
+  // Charge ton planning initial
   genererPlanning();
 });
+
 window.addEventListener("storage",(e)=>{if(e.key==="majPlanning")genererPlanning();});
 </script>
 </body>
