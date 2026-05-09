@@ -66,14 +66,9 @@ function ajouterSalarie() {
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
 
-  // 🔄 Met à jour automatiquement les listes, filtres et planning
+  // 🔄 Met à jour automatiquement le planning si ouvert
   window.actualiserFiltreSalaries?.();
-  if (typeof genererPlanning === "function") genererPlanning();
-
-  // Réinitialisation du formulaire
-  document.getElementById("prenomEl").value = "";
-  document.getElementById("nomEl").value = "";
-  document.getElementById("dateEntreeEl").value = "";
+  localStorage.setItem("majPlanning", Date.now().toString());
 
   alert("Salarié ajouté et intégré au planning !");
 }
@@ -83,7 +78,6 @@ function supprimerSalarie(index) {
   const supprime = salaries.splice(index, 1)[0];
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
-  window.actualiserFiltreSalaries?.();
 
   // Supprime aussi ses heures associées
   const id = supprime.id;
@@ -91,173 +85,7 @@ function supprimerSalarie(index) {
     if (k.startsWith(id.toString())) delete heures[k];
   }
   localStorage.setItem("heuresdata", JSON.stringify(heures));
-
-  // 🔄 Mise à jour dynamique du planning
-  if (typeof genererPlanning === "function") genererPlanning();
-}
-
-/* ===========================================
-   PLANNING
-   =========================================== */
-function genererPlanning() {
-  const champMois = document.getElementById("moisPlanning");
-  if (!champMois) return;
-  const v = champMois.value;
-  if (!v) return;
-  const [a, m] = v.split("-");
-  const conteneur = document.getElementById("planning-wrapper");
-  if (!conteneur) return;
-  conteneur.innerHTML = "";
-  const debut = new Date(+a, +m - 1, 1);
-  const fin = new Date(+a, +m, 0);
-  const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-
-  for (let d = new Date(debut); d <= fin; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0) genererBlocJour(new Date(d), conteneur, jours);
-  }
-  calculerTotaux();
-}
-
-function genererBlocJour(date, c, jours) {
-  const dateStr = date.toISOString().split("T")[0];
-  const coul = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
-  const nom = jours[date.getDay()];
-  let html = `
-    <h3 style="background:${coul};padding:0.3rem;margin:0.5rem 0;">${nom} ${date.toLocaleDateString("fr-FR")}</h3>
-    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
-      <thead><tr style="background:#e8edf3;">
-        <th style="border:1px solid #ccc;width:150px;">Salarié</th>
-        <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
-        <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
-      </tr></thead><tbody>`;
-
-  salaries.forEach((s) => {
-    const e = new Date(s.dateEntree);
-    const srt = s.dateSortie ? new Date(s.dateSortie) : null;
-    if (date < e || (srt && date > srt)) return;
-
-    let tot = 0;
-    html += `<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
-    for (let i = 1; i <= 5; i++) {
-      const k = `${s.id}${dateStr}ch${i}`;
-      const dta = heures[k] || { chantier: "", heures: 0 };
-      tot += parseFloat(dta.heures) || 0;
-      html += `
-        <td style="border:1px solid #ccc;padding:2px;">
-          <input id="${k}chant" value="${dta.chantier}" placeholder="Chantier"
-                 style="width:100px;margin-bottom:2px;"
-                 onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
-          <select id="${k}h" style="width:60px;"
-                  onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
-            ${genOptionsHeures(dta.heures)}
-          </select>
-        </td>`;
-    }
-
-    const absK = `${s.id}${dateStr}abs`;
-    const abs = heures[absK]?.heures || 0;
-    const cleJour = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"][date.getDay()];
-    const hPrev = s.heuresParJour?.[cleJour] || 0;
-    const prevu = tot > 0 ? Math.max(hPrev - abs, 0) : 0;
-    const ec = tot - prevu;
-
-    html += `
-      <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
-      <td style="border:1px solid #ccc;text-align:center;">
-        <select id="${absK}h" style="width:60px;"
-                onchange="saveHeure('${absK}','absence',this.value)">
-          ${genOptionsHeures(abs)}
-        </select>
-      </td>
-      <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
-      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ec<0 ? "red" : "green"}">
-        ${(ec >= 0 ? "+" : "") + ec.toFixed(1)}
-      </td></tr>`;
-  });
-
-  html += "</tbody></table>";
-  c.innerHTML += html;
-}
-
-/* ===========================================
-   OUTILS / CALCULS
-   =========================================== */
-function genOptionsHeures(v) {
-  let o = "";
-  for (let i = 0; i <= 10; i += 0.25) {
-    const lbl = i.toFixed(2).replace(".00", "");
-    const sel = Math.abs(i - parseFloat(v || 0)) < 0.001 ? "selected" : "";
-    o += `<option value="${i}" ${sel}>${lbl}</option>`;
-  }
-  return o;
-}
-
-function saveHeure(k, ch, h) {
-  heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
-  localStorage.setItem("heuresdata", JSON.stringify(heures));
-  setTimeout(() => {
-    majTotalLigne(k);
-    calculerTotaux();
-  }, 100);
-}
-
-/* ===========================================
-   CALCULS TOTEAUX
-   =========================================== */
-function majTotalLigne(key) {
-  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!match) return;
-  const idSal = match[1];
-  const dateStr = match[2];
-
-  let totalJour = 0;
-  for (let i = 1; i <= 5; i++) {
-    const k = `${idSal}${dateStr}ch${i}`;
-    totalJour += parseFloat(heures[k]?.heures || 0);
-  }
-
-  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
-  if (totalCell) totalCell.textContent = totalJour.toFixed(1);
-
-  const absKey = `${idSal}${dateStr}abs`;
-  const abs = parseFloat(heures[absKey]?.heures || 0);
-  const jour = new Date(dateStr);
-  const cleJour = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"][jour.getDay()];
-  const salarie = salaries.find((s) => String(s.id) === String(idSal));
-  const heuresPrevues = salarie?.heuresParJour?.[cleJour] || 0;
-  const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresPrevues - abs, 0);
-
-  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
-  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
-
-  const ecart = totalJour - prevuAjuste;
-  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
-  if (ecartCell) {
-    ecartCell.textContent = `${ecart >= 0 ? "+" : ""}${ecart.toFixed(1)}`;
-    ecartCell.style.color = ecart < 0 ? "red" : "green";
-  }
-}
-
-function calculerTotaux() {
-  let h = 0,
-    a = 0,
-    p = 0;
-  document.querySelectorAll('select[id$="h"]').forEach((sel) => {
-    const v = parseFloat(sel.value) || 0;
-    if (sel.id.includes("abs")) a += v;
-    else h += v;
-  });
-  document.querySelectorAll('[id^="prevu"]').forEach((td) => (p += parseFloat(td.textContent) || 0));
-
-  const e = h - p,
-    fix = (v) => v.toFixed(1);
-  if (document.getElementById("tot-total")) {
-    document.getElementById("tot-total").textContent = fix(h);
-    document.getElementById("tot-abs").textContent = fix(a);
-    document.getElementById("tot-prev").textContent = fix(p);
-    document.getElementById("tot-ecart").textContent = fix(e);
-    document.getElementById("tot-ecart").style.color = e < 0 ? "red" : "green";
-  }
+  localStorage.setItem("majPlanning", Date.now().toString());
 }
 
 /* ===========================================
@@ -267,12 +95,14 @@ window.addEventListener("DOMContentLoaded", () => {
   const nomE = document.getElementById("entreprise-nom");
   if (nomE && entreprise.nom) nomE.textContent = entreprise.nom;
   afficherSalaries();
+});
 
-  const now = new Date();
-  const mp = document.getElementById("moisPlanning");
-  if (mp) {
-    mp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    mp.addEventListener("change", genererPlanning);
-    genererPlanning();
+/* ===========================================
+   SYNCHRONISATION ENTRE PAGES
+   =========================================== */
+window.addEventListener("storage", (e) => {
+  if (e.key === "majPlanning") {
+    // Actualisation automatique si le planning est ouvert dans un autre onglet
+    if (typeof genererPlanning === "function") genererPlanning();
   }
 });
