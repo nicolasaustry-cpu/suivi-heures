@@ -117,21 +117,45 @@ function saveHeure(k,ch,h){
   setTimeout(()=>{majTotalLigne(k);calculerTotaux();},100);
 }
 
-function majTotalLigne(k){
-  const m=k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if(!m)return;
-  const id=m[1],dS=m[2];
-  let tot=0;
-  for(let i=1;i<=5;i++){const kc=`${id}${dS}ch${i}`;tot+=parseFloat(heures[kc]?.heures||0);}
-  const abs=parseFloat(heures[`${id}${dS}abs`]?.heures||0);
-  const cT=document.getElementById(`total${id}${dS}`); if(cT) cT.textContent=tot.toFixed(1);
-  const j=new Date(dS); const jn=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][j.getDay()].slice(0,3);
-  const s=salaries.find(x=>String(x.id)===id);
-  const hP=s?.heuresParJour?.[jn]||0;
-  const prev=tot===0?0:Math.max(hP-abs,0);
-  const cP=document.getElementById(`prevu${id}${dS}`); if(cP) cP.textContent=prev.toFixed(1);
-  const ec=tot-prev; const cE=document.getElementById(`ecart${id}${dS}`);
-  if(cE){cE.textContent=`${ec>=0?"+":""}${ec.toFixed(1)}`; cE.style.color=ec<0?"red":"green";}
+function majTotalLigne(key) {
+  const match = key.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (!match) return;
+  const idSal = match[1];
+  const dateStr = match[2];
+
+  // --- total des chantiers saisis ---
+  let totalJour = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${idSal}${dateStr}ch${i}`;
+    totalJour += parseFloat(heures[k]?.heures || 0);
+  }
+
+  // --- met à jour la cellule TOTAL ---
+  const totalCell = document.getElementById(`total${idSal}${dateStr}`);
+  if (totalCell) totalCell.textContent = totalJour.toFixed(1);
+
+  // --- récupération infos salarié + absences ---
+  const absKey = `${idSal}${dateStr}abs`;
+  const abs = parseFloat(heures[absKey]?.heures || 0);
+  const jour = new Date(dateStr);
+  const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
+  const cleJour = jourNom.slice(0,3);
+  const salarie = salaries.find(s => String(s.id) === String(idSal));
+  const heuresPrevues = salarie?.heuresParJour?.[cleJour] || 0;
+
+  // --- heures prévues réelles pour ce jour ---
+  // si aucun chantier saisi -> 0, sinon heures contrat - abs
+  const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresPrevues - abs, 0);
+  const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
+  if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
+
+  // --- met à jour l'écart ---
+  const ecart = totalJour - prevuAjuste;
+  const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
+  if (ecartCell) {
+    ecartCell.textContent = `${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}`;
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
+  }
 }
 
 function calculerTotaux(){
