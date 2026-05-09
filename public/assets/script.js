@@ -93,7 +93,75 @@ function genererBlocJour(date,c,jours){
   html+="</tbody></table>";
   c.innerHTML+=html;
 }
+function genererBlocJourFiltre(date, container, nomsJours, salariesFiltres) {
+  const dateStr = date.toISOString().split("T")[0];
+  const couleurFond = date.getDate() % 2 === 0 ? "#fff" : "#f8fafc";
+  const nomJour = nomsJours[date.getDay()];
 
+  let html = 
+    <h3 style="background:${couleurFond};padding:0.3rem;margin:0.5rem 0;">
+      ${nomJour} ${date.toLocaleDateString("fr-FR")}
+    </h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+      <thead>
+        <tr style="background:#e8edf3;">
+          <th style="border:1px solid #ccc;padding:4px;width:150px;">SalariÃ©</th>
+          <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
+          <th>Total</th><th>Abs.</th><th>PrÃ©vu</th><th>Ã‰cart</th>
+        </tr>
+      </thead><tbody>;
+
+  salariesFiltres.forEach(s => {
+    const entree = new Date(s.dateEntree);
+    const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
+    if (date < entree || (sortie && date > sortie)) return;
+
+    let tot = 0;
+    html += <tr>
+      <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>;
+
+    for (let i = 1; i <= 5; i++) {
+      const k = ${s.id}${dateStr}ch${i};
+      const data = heures[k] || { chantier:"", heures:0 };
+      tot += parseFloat(data.heures) || 0;
+
+      html += 
+        <td style="border:1px solid #ccc;padding:2px;">
+          <input id="${k}chant" value="${data.chantier}" placeholder="Chantier"
+                 style="width:100px;margin-bottom:2px;"
+                 onchange="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
+          <select id="${k}h" style="width:60px;"
+                  onchange="saveHeure('${k}', document.getElementById('${k}chant').value, this.value)">
+            ${genOptionsHeures(data.heures)}
+          </select>
+        </td>;
+    }
+
+    const keyAbs = ${s.id}${dateStr}abs;
+    const abs = heures[keyAbs]?.heures || 0;
+    const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][date.getDay()];
+    const heuresPrevues = s.heuresParJour?.[jourNom.slice(0,3)] || 0;
+    const prevuAdj = tot > 0 ? Math.max(heuresPrevues - abs, 0) : 0;
+    const ecart = tot - prevuAdj;
+
+    html += 
+      <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
+      <td style="border:1px solid #ccc;text-align:center;">
+        <select id="${keyAbs}h" style="width:60px;"
+                onchange="saveHeure('${keyAbs}','absence',this.value)">
+          ${genOptionsHeures(abs)}
+        </select>
+      </td>
+      <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevuAdj.toFixed(1)}</td>
+      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ecart<0?'red':'green'}">
+        ${(ecart>=0?'+':'')+ecart.toFixed(1)}
+      </td>
+    </tr>;
+  });
+
+  html += "</tbody></table>";
+  container.innerHTML += html;
+    }
 /* ===========================================
    OUTILS / TOTAUX
    =========================================== */
@@ -222,4 +290,54 @@ window.addEventListener("DOMContentLoaded",()=>{
     document.getElementById("seuil-vert").addEventListener("change",majZonesJauge);
     document.getElementById("figer-param").addEventListener("change",majEtatFiger);
   }
+  // --- Initialisation du menu multi-sélection salariés ---
+  const menuSal = document.getElementById("salarieSearch");
+  if (menuSal) {
+    // remplit la liste selon les salariés enregistrés
+    const remplirListe = () => {
+      menuSal.innerHTML = '<option value="all" selected>Tous</option>';
+      salaries.forEach(s => {
+        const val = `${s.prenom} ${s.nom}`;
+        const opt = document.createElement("option");
+        opt.value = val.toLowerCase();
+        opt.textContent = val;
+        menuSal.appendChild(opt);
+      });
+    };
+
+    remplirListe();
+
+    // écoute de sélection
+    menuSal.addEventListener("change", () => {
+      const selected = Array.from(menuSal.selectedOptions).map(o => o.value);
+      const container = document.getElementById("planning-wrapper");
+      container.innerHTML = "";
+
+      // si "Tous" sélectionné ou aucune sélection : tout afficher
+      if (selected.includes("all") || selected.length === 0) {
+        genererPlanning();
+        return;
+      }
+
+      // filtrer les salariés
+      const filtres = salaries.filter(s => {
+        const nomComplet = `${s.prenom} ${s.nom}`.toLowerCase();
+        return selected.includes(nomComplet);
+      });
+
+      // génération planning filtré
+      const v = document.getElementById("moisPlanning").value;
+      const [a, m] = v.split("-");
+      const premierJour = new Date(+a, +m - 1, 1);
+      const dernierJour = new Date(+a, +m, 0);
+      const nomsJours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+
+      for (let d = new Date(premierJour); d <= dernierJour; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 0)
+          genererBlocJourFiltre(new Date(d), container, nomsJours, filtres);
+      }
+      calculerTotaux();
+    });
+  }
+
 });
