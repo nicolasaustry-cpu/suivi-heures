@@ -206,33 +206,38 @@ function genererPlanning(){
 
 // ✳️ Fonction saveHeure mise à jour (ajout du recalcul automatique)
 function saveHeure(k, ch, h) {
-  // --- sauvegarde dans le localStorage ---
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   localStorage.setItem('heuresdata', JSON.stringify(heures));
 
-  // --- recalcul du total sur la ligne courante ---
-  const cell = event.target.closest('td');
-  if (!cell) return;
-  const ligne = cell.parentNode;
-  const selects = ligne.querySelectorAll('select[id$="h"]');
+  // ➜ Calcule automatiquement le total sur la ligne en cours
+  const select = event.target;                     // le <select> modifié
+  const ligne = select.closest("tr");              // toute la ligne salarié
+  if (!ligne) return;
+
+  // Somme des heures des 5 chantiers dans cette ligne
   let total = 0;
-  selects.forEach(sel => total += parseFloat(sel.value) || 0);
+  ligne.querySelectorAll('select[id$="h"]').forEach(s => {
+    total += parseFloat(s.value) || 0;
+  });
 
-  // maj de la cellule Total (7ᵉ colonne : index 6)
-  const tds = ligne.querySelectorAll('td');
-  if (tds.length >= 10) {
-    tds[6].textContent = total.toFixed(1);
+  // Récupère les cellules du tableau (7ᵉ = total, 9ᵉ = prévu, 10ᵉ = écart)
+  const td = ligne.querySelectorAll("td");
+  const totalCell = td[6];
+  const prevCell  = td[8];
+  const ecartCell = td[9];
 
-    // heures prévues et absences
-    const absSel = ligne.querySelector('td:nth-child(8) select');
-    const abs = absSel ? parseFloat(absSel.value) || 0 : 0;
-    const prevu = parseFloat(tds[9 - 1].textContent) || 0;
-    const ec = total - prevu + abs;
+  const prevu = parseFloat(prevCell?.textContent) || 0;
+  const absSel = td[7].querySelector("select");
+  const abs = absSel ? parseFloat(absSel.value) || 0 : 0;
+  const ecart = total - prevu + abs;
 
-    // maj de la cellule Écart (10ᵉ colonne : index 9)
-    tds[9].textContent = (ec >= 0 ? '+' : '') + ec.toFixed(1);
-    tds[9].style.color = ec < 0 ? 'red' : 'green';
+  // Mise à jour directe des valeurs
+  if (totalCell) totalCell.textContent = total.toFixed(1);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(1);
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
   }
+}
 
   // --- recalcul global des totaux + jauge ---
   let tot = 0, abs = 0, prev = 0;
