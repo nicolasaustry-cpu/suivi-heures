@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Planning</title>
+<title>Planning du mois</title>
 <style>
 body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222;}
 header{background:#2563eb;color:#fff;padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;}
@@ -24,16 +24,54 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
     <a href="index.html">Entreprise</a>
     <a href="salaries.html">Salariés</a>
     <a href="planning.html" class="active">Planning</a>
+    <a href="rapports.html">Rapports</a>
   </div>
   <div style="background:#f8fafc;padding:0.8rem;">
     <div class="flex">
       <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
-      <div><button class="btn-warning" onclick="genererPlanning()">🗓 Recharger</button></div>
+      <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+      <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+      <div><button class="btn-warning" onclick="genererPlanning()">🔄 Recharger</button></div>
     </div>
+
+    <!-- Jauge -->
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
+      <thead>
+        <tr style="background:#fff3cd;">
+          <td colspan="5" style="border:1px solid #ccc;padding:4px;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+              <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+              <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+              <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()"> <label for="figerSeuils">Figer</label>
+            </div>
+          </td>
+        </tr>
+        <tr style="background:#f0f9ff;">
+          <td colspan="5" style="border:1px solid #ccc;padding:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
+              <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+                <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+                <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+                <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+                <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr style="background:#d1fae5;font-weight:bold;">
+          <td style="border:1px solid #ccc;padding:4px;">TOTAUX</td>
+          <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
+          <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
+          <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
+          <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
+        </tr>
+      </thead>
+    </table>
   </div>
 </div>
 
-<div style="margin-top:140px;">
+<div style="margin-top:330px;">
   <div id="planning-wrapper"></div>
 </div>
 
@@ -41,14 +79,40 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
 
+// ========== Jauge paramétrage ==========
+function majZonesJauge(){
+  const r=parseFloat(document.getElementById('limiteRouge').value)||33;
+  const o=parseFloat(document.getElementById('limiteOrange').value)||66;
+  const rouge=document.getElementById('zone-rouge');
+  const orange=document.getElementById('zone-orange');
+  const vert=document.getElementById('zone-verte');
+  rouge.style.width=r+'%'; 
+  orange.style.left=r+'%'; orange.style.width=(o-r)+'%';
+  vert.style.left=o+'%'; vert.style.width=(100-o)+'%';
+  localStorage.setItem('parametresJauge',JSON.stringify({rouge:r,orange:o,fige:document.getElementById('figerSeuils').checked}));
+}
+function majEtatFiger(){
+  const f=document.getElementById('figerSeuils').checked;
+  document.getElementById('limiteRouge').disabled=f; 
+  document.getElementById('limiteOrange').disabled=f;
+  majZonesJauge();
+}
+function chargerJauge(){
+  const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
+  document.getElementById('limiteRouge').value=conf.rouge;
+  document.getElementById('limiteOrange').value=conf.orange;
+  document.getElementById('figerSeuils').checked=conf.fige;
+  majEtatFiger();
+}
+
+// ========== Planning ==========
 function genOptionsHeures(v){
-  let o='';for(let i=0;i<=10;i+=0.25){const l=i.toFixed(2).replace('.00','');o+=`<option value="${i}" ${Math.abs(i-(+v||0))<0.001?'selected':''}>${l}</option>`;}
-  return o;
+  let o='';for(let i=0;i<=10;i+=0.25){const lbl=i===Math.floor(i)?i:i.toFixed(2);const s=Math.abs(i-(+v||0))<0.001?'selected':'';o+=`<option value="${i}" ${s}>${lbl}</option>`;}return o;
 }
 
 function genererPlanning(){
-  salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-  heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
+  heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const container=document.getElementById("planning-wrapper");
   const moisSel=document.getElementById("moisPlanning").value;
   if(!moisSel){container.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
@@ -58,45 +122,42 @@ function genererPlanning(){
   const jours=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   container.innerHTML="";
 
+  let totalGlobal=0,absGlobal=0,prevGlobal=0;
   for(let d=new Date(debut);d<=fin;d.setDate(d.getDate()+1)){
-    if(d.getDay()===0)continue; // pas dimanche
+    if(d.getDay()===0)continue;
     const jourNom=jours[d.getDay()];
     const dateStr=d.toISOString().split("T")[0];
-    let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
-      <thead><tr style="background:#e5e7eb">
-        <th style="width:140px;border:1px solid #ccc;">Salarié</th>
+    let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
+    html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+      <thead><tr style="background:#e2e8f0">
+        <th style="border:1px solid #ccc;width:150px;">Salarié</th>
         <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
 
     salaries.forEach(s=>{
-      const entree=new Date(s.dateEntree);
-      const sortie=s.dateSortie?new Date(s.dateSortie):null;
-      if(d<entree || (sortie && d>sortie))return;
-
-      const hJ=s.heuresParJour || {};
-      const cleJour=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
-      let total=0;
-      let row=`<tr><td style="font-weight:bold;border:1px solid #ccc;padding:3px;">${s.prenom} ${s.nom}</td>`;
+      const e=new Date(s.dateEntree);
+      const srt=s.dateSortie?new Date(s.dateSortie):null;
+      if(d<e||(srt&&d>srt))return;
+      const hp=s.heuresParJour||{};
+      const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
+      let total=0,row=`<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
       for(let i=1;i<=5;i++){
         const k=`${s.id}${dateStr}ch${i}`;
         const data=heures[k]||{chantier:"",heures:0};
         total+=parseFloat(data.heures)||0;
         row+=`<td style="border:1px solid #ccc;padding:2px;">
-          <input value="${data.chantier}" placeholder="Chantier" style="width:90px;"
+          <input value="${data.chantier}" placeholder="Chantier" style="width:100px;"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:60px;" onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value)">
             ${genOptionsHeures(data.heures)}
           </select>
         </td>`;
       }
-
       const absK=`${s.id}${dateStr}abs`;
       const abs=heures[absK]?.heures||0;
-      const prevu=hJ[cleJour]||0;
+      const prevu=hp[cle]||0;
       const ec=total - prevu + abs;
-
       row+=`<td style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
              <td style="border:1px solid #ccc;text-align:center;">
                <select id="${absK}h" style="width:60px;" onchange="saveHeure('${absK}','absence',this.value)">
@@ -104,30 +165,68 @@ function genererPlanning(){
                </select>
              </td>
              <td style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
-             <td style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'}">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
+             <td style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
       html+=row;
+      totalGlobal+=total; absGlobal+=abs; prevGlobal+=prevu;
     });
-
     html+="</tbody></table>";
     container.innerHTML+=html;
+  }
+
+  const ecart=totalGlobal-prevGlobal;
+  document.getElementById('tot-total').textContent=totalGlobal.toFixed(1);
+  document.getElementById('tot-abs').textContent=absGlobal.toFixed(1);
+  document.getElementById('tot-prev').textContent=prevGlobal.toFixed(1);
+  document.getElementById('tot-ecart').textContent=ecart.toFixed(1);
+  document.getElementById('tot-ecart').style.color=ecart<0?'red':'green';
+
+  const pct= prevGlobal>0?(totalGlobal/prevGlobal)*100:0;
+  const curseur=document.getElementById('curseur');
+  const pour=document.getElementById('pourcentage');
+  if(curseur&&pour){
+    const largeur=curseur.parentElement.offsetWidth;
+    curseur.style.left=(pct/100)*largeur-4+'px';
+    pour.textContent=pct.toFixed(0)+'%';
   }
 }
 
 function saveHeure(k,ch,h){
   heures[k]={chantier:ch,heures:parseFloat(h)||0};
-  localStorage.setItem("heuresdata",JSON.stringify(heures));
+  localStorage.setItem('heuresdata',JSON.stringify(heures));
+}
+
+function imprimerSemaine(){
+  const val=document.getElementById('semaineSelect').value;
+  if(!val) return alert('Sélectionnez une semaine à imprimer.');
+  window.print();
+}
+
+function chargerSemaines(){
+  const mv=document.getElementById('moisPlanning').value;
+  if(!mv)return;
+  const [a,m]=mv.split('-');
+  const premier=new Date(a,m-1,1);
+  const dernier=new Date(a,m,0);
+  const select=document.getElementById('semaineSelect');
+  select.innerHTML='<option value="">— Mois complet —</option>';
+  let c=1,jour=new Date(premier);
+  while(jour<=dernier){
+    const lun=new Date(jour);
+    lun.setDate(lun.getDate()+(1-lun.getDay()+(lun.getDay()==0?1:0)));
+    const sam=new Date(lun); sam.setDate(lun.getDate()+5);
+    select.innerHTML+=`<option value="${c++}">Semaine ${c-1}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}</option>`;
+    jour.setDate(jour.getDate()+7);
+  }
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
   const now=new Date();
   document.getElementById("moisPlanning").value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  chargerSemaines();
+  chargerJauge();
   genererPlanning();
 });
-
-/* 🔄 Mise à jour automatique quand des salariés sont ajoutés dans l'autre page */
-window.addEventListener("storage",(e)=>{
-  if(e.key==="majPlanning") genererPlanning();
-});
+window.addEventListener("storage",(e)=>{if(e.key==="majPlanning")genererPlanning();});
 </script>
 </body>
 </html>
