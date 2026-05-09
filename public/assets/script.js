@@ -6,51 +6,12 @@ let salaries   = JSON.parse(localStorage.getItem("salariesdata")   || "[]");
 let heures     = JSON.parse(localStorage.getItem("heuresdata")     || "{}");
 
 /* ===========================================
-   ENTREPRISE
+   SALARIÉS / ENTREPRISE
    =========================================== */
-function initEntreprise() {
-  const input = document.getElementById("nom-entreprise");
-  if (entreprise.nom && input) {
-    input.value = entreprise.nom;
-    const headerNom = document.getElementById("entreprise-nom");
-    if (headerNom) headerNom.textContent = entreprise.nom;
-  }
-}
-
-/* ===========================================
-   SALARIÉS
-   =========================================== */
-function ajouterSalarie() {
-  const prenom = document.getElementById("prenomEl").value.trim();
-  const nom = document.getElementById("nomEl").value.trim();
-  const dateEntree = document.getElementById("dateEntreeEl").value.trim();
-  if (!prenom || !nom) return alert("Veuillez saisir un prénom et un nom.");
-
-  const heuresParJour = {
-    lun: parseFloat(document.getElementById("hLun").value) || 0,
-    mar: parseFloat(document.getElementById("hMar").value) || 0,
-    mer: parseFloat(document.getElementById("hMer").value) || 0,
-    jeu: parseFloat(document.getElementById("hJeu").value) || 0,
-    ven: parseFloat(document.getElementById("hVen").value) || 0,
-    sam: parseFloat(document.getElementById("hSam").value) || 0
-  };
-
-  const id = Date.now();
-  const salarie = { id, prenom, nom, dateEntree, heuresParJour };
-  salaries.push(salarie);
-  localStorage.setItem("salariesdata", JSON.stringify(salaries));
-
-  document.getElementById("prenomEl").value = "";
-  document.getElementById("nomEl").value = "";
-  document.getElementById("dateEntreeEl").value = "";
-
-  afficherSalaries();
-}
-
-function afficherSalaries() {
-  const tb = document.querySelector("#table-salaries tbody");
-  if (!tb) return;
-  tb.innerHTML = "";
+function afficherSalaries(){
+  const tb=document.querySelector("#table-salaries tbody");
+  if(!tb)return;
+  tb.innerHTML="";
   salaries.forEach((s,i)=>{
     const h=s.heuresParJour||{};
     tb.innerHTML+=`
@@ -184,6 +145,37 @@ function calculerTotaux(){
 }
 
 /* ===========================================
+   PARAMÉTRAGE DE LA JAUGE
+   =========================================== */
+function majZonesJauge(){
+  const sOrange=parseFloat(document.getElementById("seuil-orange")?.value)||80;
+  const sVert=parseFloat(document.getElementById("seuil-vert")?.value)||100;
+  const rouge=document.getElementById("zone-rouge");
+  const orange=document.getElementById("zone-orange");
+  const vert=document.getElementById("zone-verte");
+  if(!rouge||!orange||!vert)return;
+  const total=Math.max(sVert,1);
+  rouge.style.width=(sOrange/total)*100+"%";
+  orange.style.left=(sOrange/total)*100+"%";
+  orange.style.width=((sVert-sOrange)/total)*100+"%";
+  vert.style.left=(sVert/total)*100+"%";
+  vert.style.width=(100-(sVert/total)*100)+"%";
+  localStorage.setItem("configJauge",JSON.stringify({
+    sOrange,sVert,figer:document.getElementById("figer-param")?.checked
+  }));
+}
+
+function majEtatFiger(){
+  const chk=document.getElementById("figer-param");
+  const inputs=[document.getElementById("seuil-orange"),document.getElementById("seuil-vert")];
+  const disabled=chk?.checked;
+  inputs.forEach(inp=>{if(inp)inp.disabled=disabled;});
+  const conf=JSON.parse(localStorage.getItem("configJauge")||"{}");
+  conf.figer=!!disabled;
+  localStorage.setItem("configJauge",JSON.stringify(conf));
+}
+
+/* ===========================================
    AU CHARGEMENT
    =========================================== */
 window.addEventListener("DOMContentLoaded",()=>{
@@ -196,5 +188,20 @@ window.addEventListener("DOMContentLoaded",()=>{
     mp.addEventListener("change",genererPlanning);
     genererPlanning();
   }
-});
 
+  // --- Restauration des paramètres de jauge ---
+  const conf=JSON.parse(localStorage.getItem("configJauge")||"{}");
+  if(document.getElementById("seuil-orange")){
+    if(conf.sOrange)document.getElementById("seuil-orange").value=conf.sOrange;
+    if(conf.sVert)document.getElementById("seuil-vert").value=conf.sVert;
+    if(conf.figer){
+      document.getElementById("figer-param").checked=true;
+      document.getElementById("seuil-orange").disabled=true;
+      document.getElementById("seuil-vert").disabled=true;
+    }
+    majZonesJauge();
+    document.getElementById("seuil-orange").addEventListener("change",majZonesJauge);
+    document.getElementById("seuil-vert").addEventListener("change",majZonesJauge);
+    document.getElementById("figer-param").addEventListener("change",majEtatFiger);
+  }
+});
