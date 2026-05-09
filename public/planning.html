@@ -89,18 +89,40 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
 
-// ====== Jauge =======
 function majZonesJauge(){
-  const r=parseFloat(document.getElementById('limiteRouge').value)||33;
-  const o=parseFloat(document.getElementById('limiteOrange').value)||66;
-  const rouge=document.getElementById('zone-rouge');
-  const orange=document.getElementById('zone-orange');
-  const vert=document.getElementById('zone-verte');
-  rouge.style.width=r+'%';
-  orange.style.left=r+'%'; orange.style.width=(o-r)+'%';
-  vert.style.left=o+'%'; vert.style.width=(100-o)+'%';
-  localStorage.setItem('parametresJauge',JSON.stringify({rouge:r,orange:o,fige:document.getElementById('figerSeuils').checked}));
+  // récupération des saisies
+  const sRouge = parseFloat(document.getElementById('limiteRouge').value) || 0;
+  const sOrange = parseFloat(document.getElementById('limiteOrange').value) || 0;
+
+  // bornage et sécurisation
+  const rouge = Math.max(0, Math.min(sRouge, 100));
+  const orange = Math.max(rouge, Math.min(sOrange, 100));
+
+  // sélection des zones
+  const zR = document.getElementById('zone-rouge');
+  const zO = document.getElementById('zone-orange');
+  const zV = document.getElementById('zone-verte');
+
+  if (!zR || !zO || !zV) return;
+
+  // application des largeurs en pourcentage
+  zR.style.left = '0%';
+  zR.style.width = rouge + '%';
+
+  zO.style.left = rouge + '%';
+  zO.style.width = (orange - rouge) + '%';
+
+  zV.style.left = orange + '%';
+  zV.style.width = (100 - orange) + '%';
+
+  // sauvegarde dans localStorage
+  localStorage.setItem('parametresJauge', JSON.stringify({
+    rouge: rouge,
+    orange: orange,
+    fige: document.getElementById('figerSeuils').checked
+  }));
 }
+
 function majEtatFiger(){
   const f=document.getElementById('figerSeuils').checked;
   document.getElementById('limiteRouge').disabled=f;
