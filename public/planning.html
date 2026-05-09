@@ -18,82 +18,83 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 </style>
 </head>
 <body>
-<div id="top" class="no-print">
-  <header><h1>Planning du mois</h1><div>✔️ Active</div></header>
-  <div class="nav">
-    <a href="index.html">Entreprise</a>
-    <a href="salaries.html">Salariés</a>
-    <a href="planning.html" class="active">Planning</a>
-    <a href="rapports.html">Rapports</a>
-  </div>
-  <div style="background:#f8fafc;padding:0.8rem;">
-    <div class="flex">
-      <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
-      <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-      <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
-      <div><button class="btn-warning" onclick="genererPlanning()">🔄 Recharger</button></div>
-    </div>
+<header><h1>Planning du mois</h1><div>✔️ Active</div></header>
 
-    <!-- Jauge -->
-    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
-      <thead>
-        <tr style="background:#fff3cd;">
-          <td colspan="5" style="border:1px solid #ccc;padding:4px;">
-            <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
-              <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-              <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-              <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()"> <label for="figerSeuils">Figer</label>
-            </div>
-          </td>
-        </tr>
-        <tr style="background:#f0f9ff;">
-          <td colspan="5" style="border:1px solid #ccc;padding:8px;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
-              <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
-                <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-                <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-                <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-                <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
-              </div>
-            </div>
-          </td>
-        </tr>
-        <tr style="background:#d1fae5;font-weight:bold;">
-          <td style="border:1px solid #ccc;padding:4px;">TOTAUX</td>
-          <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
-          <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
-          <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
-          <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
-        </tr>
-      </thead>
-    </table>
-  </div>
+<div class="nav no-print">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html" class="active">Planning</a>
+  <a href="rapports.html">Rapports</a>
 </div>
 
-<div style="margin-top:330px;">
-  <div id="planning-wrapper"></div>
+<!-- 🔹 Bandeau de commandes + jauge + totaux -->
+<div style="background:#f8fafc;padding:0.8rem;" class="no-print">
+  <div class="flex">
+    <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
+    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+    <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+    <div><button class="btn-warning" onclick="genererPlanning()">🔄 Recharger</button></div>
+  </div>
+
+  <!-- Jauge et totaux -->
+  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
+    <thead>
+      <tr style="background:#fff3cd;">
+        <td colspan="5" style="border:1px solid #ccc;padding:4px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+            <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+            <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+            <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()">
+            <label for="figerSeuils">Figer</label>
+          </div>
+        </td>
+      </tr>
+      <tr style="background:#f0f9ff;">
+        <td colspan="5" style="border:1px solid #ccc;padding:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
+            <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+              <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+              <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+              <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+              <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+            </div>
+          </div>
+        </td>
+      </tr>
+      <tr style="background:#d1fae5;font-weight:bold;">
+        <td style="border:1px solid #ccc;padding:4px;">TOTAUX</td>
+        <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
+        <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
+        <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
+        <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
+      </tr>
+    </thead>
+  </table>
 </div>
+
+<!-- 🔹 Planning directement en dessous -->
+<div id="planning-wrapper" style="padding:0.8rem;"></div>
 
 <script>
 let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
 
-// ========== Jauge paramétrage ==========
+// ====== Jauge =======
 function majZonesJauge(){
   const r=parseFloat(document.getElementById('limiteRouge').value)||33;
   const o=parseFloat(document.getElementById('limiteOrange').value)||66;
   const rouge=document.getElementById('zone-rouge');
   const orange=document.getElementById('zone-orange');
   const vert=document.getElementById('zone-verte');
-  rouge.style.width=r+'%'; 
+  rouge.style.width=r+'%';
   orange.style.left=r+'%'; orange.style.width=(o-r)+'%';
   vert.style.left=o+'%'; vert.style.width=(100-o)+'%';
   localStorage.setItem('parametresJauge',JSON.stringify({rouge:r,orange:o,fige:document.getElementById('figerSeuils').checked}));
 }
 function majEtatFiger(){
   const f=document.getElementById('figerSeuils').checked;
-  document.getElementById('limiteRouge').disabled=f; 
+  document.getElementById('limiteRouge').disabled=f;
   document.getElementById('limiteOrange').disabled=f;
   majZonesJauge();
 }
@@ -105,11 +106,10 @@ function chargerJauge(){
   majEtatFiger();
 }
 
-// ========== Planning ==========
+// ====== Planning =======
 function genOptionsHeures(v){
   let o='';for(let i=0;i<=10;i+=0.25){const lbl=i===Math.floor(i)?i:i.toFixed(2);const s=Math.abs(i-(+v||0))<0.001?'selected':'';o+=`<option value="${i}" ${s}>${lbl}</option>`;}return o;
 }
-
 function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
   heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
@@ -141,7 +141,8 @@ function genererPlanning(){
       if(d<e||(srt&&d>srt))return;
       const hp=s.heuresParJour||{};
       const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
-      let total=0,row=`<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
+      let total=0;
+      let row=`<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
       for(let i=1;i<=5;i++){
         const k=`${s.id}${dateStr}ch${i}`;
         const data=heures[k]||{chantier:"",heures:0};
