@@ -124,15 +124,38 @@ function calculerTotauxGlobaux() {
   document.getElementById('tot-ecart').textContent=ec.toFixed(1);
   document.getElementById('tot-ecart').style.color=ec<0?'red':'green';
 
-  // jauge
-  const pct=prev>0?(tot/prev)*100:0;
-  const cur=document.getElementById('curseur');
-  const ptxt=document.getElementById('pourcentage');
-  if(cur&&ptxt){
-    const L=cur.parentElement.offsetWidth;
-    cur.style.left=(L*pct/100-4)+'px';
-    ptxt.textContent=Math.round(pct)+'%';
-  }
+// ====== Jauge =======
+function majZonesJauge(){
+  const rougeVal = parseFloat(document.getElementById('limiteRouge').value)||33;
+  const orangeVal = parseFloat(document.getElementById('limiteOrange').value)||66;
+  const rouge = Math.max(0, Math.min(rougeVal, 100));
+  const orange = Math.max(rouge, Math.min(orangeVal, 100));
+
+  const zR=document.getElementById('zone-rouge');
+  const zO=document.getElementById('zone-orange');
+  const zV=document.getElementById('zone-verte');
+  if(!zR||!zO||!zV)return;
+  zR.style.left='0%'; zR.style.width=rouge+'%';
+  zO.style.left=rouge+'%'; zO.style.width=(orange-rouge)+'%';
+  zV.style.left=orange+'%'; zV.style.width=(100-orange)+'%';
+  localStorage.setItem('parametresJauge',JSON.stringify({
+    rouge,orange,fige:document.getElementById('figerSeuils').checked
+  }));
+}
+function majEtatFiger(){
+  const chk=document.getElementById('figerSeuils').checked;
+  document.getElementById('limiteRouge').disabled=chk;
+  document.getElementById('limiteOrange').disabled=chk;
+  majZonesJauge();
+}
+function chargerJauge(){
+  const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
+  document.getElementById('limiteRouge').value=conf.rouge;
+  document.getElementById('limiteOrange').value=conf.orange;
+  document.getElementById('figerSeuils').checked=conf.fige;
+  majEtatFiger();
+}
+
 }
 
 // 🔹 sauvegarde + recalcul
