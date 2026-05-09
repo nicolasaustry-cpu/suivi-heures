@@ -147,23 +147,41 @@ function calculerTotaux(){
 /* ===========================================
    PARAMÉTRAGE DE LA JAUGE
    =========================================== */
-function majZonesJauge(){
-  const sOrange=parseFloat(document.getElementById("seuil-orange")?.value)||80;
-  const sVert=parseFloat(document.getElementById("seuil-vert")?.value)||100;
-  const rouge=document.getElementById("zone-rouge");
-  const orange=document.getElementById("zone-orange");
-  const vert=document.getElementById("zone-verte");
-  if(!rouge||!orange||!vert)return;
-  const total=Math.max(sVert,1);
-  rouge.style.width=(sOrange/total)*100+"%";
-  orange.style.left=(sOrange/total)*100+"%";
-  orange.style.width=((sVert-sOrange)/total)*100+"%";
-  vert.style.left=(sVert/total)*100+"%";
-  vert.style.width=(100-(sVert/total)*100)+"%";
-  localStorage.setItem("configJauge",JSON.stringify({
-    sOrange,sVert,figer:document.getElementById("figer-param")?.checked
-  }));
+function majZonesJauge() {
+  const sOrange = parseFloat(document.getElementById("seuil-orange")?.value) || 80;
+  const sVert   = parseFloat(document.getElementById("seuil-vert")?.value)   || 100;
+
+  const rouge  = document.getElementById("zone-rouge");
+  const orange = document.getElementById("zone-orange");
+  const vert   = document.getElementById("zone-verte");
+  if (!rouge || !orange || !vert) return;
+
+  // --- Calcul proportionnel au total 100 % ---
+  const wRouge  = Math.min(sOrange, 100);
+  const wOrange = Math.max(Math.min(sVert - sOrange, 100 - wRouge), 0);
+  const wVert   = Math.max(100 - (wRouge + wOrange), 0);
+
+  // --- Application sur la jauge ---
+  rouge.style.left  = "0%";
+  rouge.style.width = wRouge + "%";
+
+  orange.style.left  = wRouge + "%";
+  orange.style.width = wOrange + "%";
+
+  vert.style.left  = (wRouge + wOrange) + "%";
+  vert.style.width = wVert + "%";
+
+  // --- Sauvegarde ---
+  localStorage.setItem(
+    "configJauge",
+    JSON.stringify({
+      sOrange,
+      sVert,
+      figer: document.getElementById("figer-param")?.checked
+    })
+  );
 }
+
 
 function majEtatFiger(){
   const chk=document.getElementById("figer-param");
