@@ -1,116 +1,292 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<title>Planning du mois</title>
-<link rel="stylesheet" href="assets/style.css" />
+<meta charset="UTF-8">
+<title>Planning</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222;}
+header{background:#2563eb;color:#fff;padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;}
+h1{margin:0;font-size:1.4rem;}
+button{border:none;border-radius:4px;padding:0.5rem 1rem;font-weight:bold;cursor:pointer;color:#fff;}
+.btn-primary{background:#2563eb;}
+.btn-warning{background:#f59e0b;color:#000;}
+input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
+.flex{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;}
+.nav{background:#e8edf3;display:flex;justify-content:center;gap:1rem;padding:0.6rem;}
+.nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
+.nav a.active{text-decoration:underline;}
+@media print{.no-print{display:none!important;}#top-fixed{display:none!important;}body{background:white;color:black;margin-top:0!important;}}
+</style>
 </head>
-
 <body>
-<header class="main-header">
-  <div class="entreprise-nom" id="entreprise-nom"></div>
-  <h1 class="page-title">Planning du mois</h1>
-  <div style="display:flex;align-items:center;gap:1rem;">
-    <div id="licence-status">✔️ Active</div>
+<div id="top-fixed" class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;z-index:1000;box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+  <header><h1>Planning du mois</h1><div id="licence-status">✔️ Active</div></header>
+  <div class="nav">
+    <a href="index.html">Entreprise</a><a href="salaries.html">Salariés</a>
+    <a href="planning.html" class="active">Planning</a><a href="rapports.html">Rapports</a>
   </div>
-</header>
-
-<div class="nav">
-  <a href="index.html">Entreprise</a>
-  <a href="salaries.html">Salariés</a>
-  <a href="planning.html" class="active">Planning</a>
-  <a href="rapports.html">Rapports</a>
-</div>
-
-<!-- === Zone filtres + jauge + totaux === -->
-<section style="background:#f8fafc;padding:0.8rem;">
-  <div class="flex">
-    <div>
-      <label>Mois :</label><br>
-      <input type="month" id="moisPlanning" />
-    </div>
-
-    <div style="position:relative;">
-      <label>Filtrer salariés :</label><br>
-      <div id="filtre-salaries" class="dropdown-filter"
-           style="position:relative;display:inline-block;">
-        <button id="btn-filtre" class="btn btn-light" type="button"
-                style="width:200px;">Sélectionner ▾</button>
-        <div id="liste-salaries"
-             style="display:none;position:absolute;background:#fff;border:1px solid #ccc;
-                    box-shadow:0 2px 4px rgba(0,0,0,0.2);max-height:180px;overflow:auto;
-                    width:200px;z-index:100;">
-        </div>
+  <div style="background:#f8fafc;padding:0.8rem;">
+    <div class="flex">
+      <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
+      <div style="position:relative;"><label>Filtrer salariés :</label><br>
+        <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" onfocus="ouvrirListeSalaries()" oninput="filtrerListeSalaries(this.value)">
+        <div id="salarieList" style="position:absolute;z-index:1001;background:#fff;border:1px solid #ccc;max-height:160px;overflow:auto;width:200px;display:none;"></div>
       </div>
+      <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+      <div><button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
     </div>
-
-    <div>
-      <label>Semaine à imprimer :</label><br>
-      <select id="semaineSelect"></select>
-    </div>
-
-    <div>
-      <button class="btn btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button>
-    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem;">
+      <thead>
+        <tr style="background:#e8edf3;">
+          <th style="border:1px solid #ccc;padding:4px;width:150px;">Salarié</th>
+          <th style="border:1px solid #ccc;padding:4px;width:182px;">Ch1</th><th style="border:1px solid #ccc;padding:4px;width:182px;">Ch2</th>
+          <th style="border:1px solid #ccc;padding:4px;width:182px;">Ch3</th><th style="border:1px solid #ccc;padding:4px;width:182px;">Ch4</th>
+          <th style="border:1px solid #ccc;padding:4px;width:182px;">Ch5</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;" class="no-print">Total</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;" class="no-print">Absences</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;" class="no-print">Prévu</th>
+          <th style="border:1px solid #ccc;padding:4px;width:80px;" class="no-print">Écart</th>
+        </tr>
+        <tr style="background:#fff3cd;" class="no-print">
+          <td colspan="6" style="border:1px solid #ccc;padding:4px;"></td>
+          <td colspan="4" style="border:1px solid #ccc;padding:6px;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+              <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;padding:2px;font-size:0.7rem;" onchange="sauvegarderParametresJauge()"><span>%</span>
+              <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;padding:2px;font-size:0.7rem;" onchange="sauvegarderParametresJauge()"><span>%</span>
+              <input type="checkbox" id="figerSeuils" onchange="gererFigement()"><label for="figerSeuils" style="font-size:0.7rem;">Figer</label>
+            </div>
+          </td>
+        </tr>
+        <tr style="background:#f0f9ff;" class="no-print">
+          <td colspan="6" style="border:1px solid #ccc;padding:4px;"></td>
+          <td colspan="4" style="border:1px solid #ccc;padding:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
+              <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+                <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+                <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+                <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+                <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr style="background:#d1fae5;font-weight:bold;" class="no-print">
+          <td style="border:1px solid #ccc;padding:4px;">TOTAUX</td><td colspan="5" style="border:1px solid #ccc;padding:4px;">—</td>
+          <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td><td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
+          <td id="tot-prev" style="border:1px solid #ccc;padding:4px;" class="no-print">0</td><td id="tot-ecart" style="border:1px solid #ccc;padding:4px;" class="no-print">0</td>
+        </tr>
+      </thead>
+    </table>
   </div>
-
-  <!-- === Paramétrage + Jauge alignés à droite === -->
-  <div style="display:flex;flex-direction:column;align-items:flex-end;margin-top:0.8rem;gap:6px;">
-    <!-- Paramétrage -->
-    <div id="param-jauge"
-         style="display:flex;align-items:center;gap:8px;font-size:0.75rem;color:#111;">
-      <label>Rouge → Orange à </label>
-      <input id="seuil-orange" type="number" min="0" max="200" step="1" value="80"
-             style="width:30px;text-align:center;border:1px solid #999;border-radius:4px;"> %
-      <label>Orange → Vert à </label>
-      <input id="seuil-vert" type="number" min="0" max="200" step="1" value="100"
-             style="width:30px;text-align:center;border:1px solid #999;border-radius:4px;"> %
-      <label style="display:flex;align-items:center;gap:4px;">
-        <input type="checkbox" id="figer-param"> Figer
-      </label>
-    </div>
-
-    <!-- Jauge -->
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div id="pourcentage"
-           style="font-weight:bold;font-size:1rem;min-width:40px;text-align:right;">0%</div>
-      <div id="barre-jauge"
-           style="position:relative;height:20px;border-radius:10px;overflow:hidden;
-                  border:1px solid #333;width:360px;">
-        <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-        <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-        <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-        <div id="curseur"
-             style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;
-                    border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- === Totaux du mois === -->
-  <table id="totaux"
-         style="width:100%;border-collapse:collapse;margin-top:0.8rem;
-                font-size:0.9rem;background:#eef2ff;">
-    <thead>
-      <tr style="background:#c7d2fe;">
-        <th style="padding:6px;text-align:left;width:150px;">Totaux du mois</th>
-        <th style="width:182px;"></th><th style="width:182px;"></th>
-        <th style="width:182px;"></th><th style="width:182px;"></th><th style="width:182px;"></th>
-        <th id="tot-total" style="width:80px;text-align:center;">0</th>
-        <th id="tot-abs"   style="width:80px;text-align:center;">0</th>
-        <th id="tot-prev"  style="width:80px;text-align:center;">0</th>
-        <th id="tot-ecart" style="width:80px;text-align:center;">0</th>
-      </tr>
-    </thead>
-  </table>
-</section>
-
-<!-- === Contenu principal === -->
-<div style="background:#fff;margin:1rem;box-shadow:0 2px 5px rgba(0,0,0,0.1);
-            border-radius:6px;padding:1rem;">
-  <div id="planning-wrapper"></div>
 </div>
+<div style="margin-top:290px;"><div id="planning-wrapper"></div></div>
 
-<script src="assets/script.js"></script>
+<script>
+let salaries=JSON.parse(localStorage.getItem('salaries_data')||'[]');
+let heures=JSON.parse(localStorage.getItem('heures_data')||'{}');
+let salariesSelectionnes=[];
+
+function chargerParametresJauge(){
+  const p=JSON.parse(localStorage.getItem('parametres_jauge')||'{"rouge":33,"orange":66,"fige":false}');
+  document.getElementById('limiteRouge').value=p.rouge;document.getElementById('limiteOrange').value=p.orange;
+  document.getElementById('figerSeuils').checked=p.fige;gererFigement();majCouleursJauge();
+}
+function sauvegarderParametresJauge(){
+  const p={rouge:parseInt(document.getElementById('limiteRouge').value)||33,orange:parseInt(document.getElementById('limiteOrange').value)||66,fige:document.getElementById('figerSeuils').checked};
+  localStorage.setItem('parametres_jauge',JSON.stringify(p));majCouleursJauge();
+}
+function gererFigement(){
+  const f=document.getElementById('figerSeuils').checked;
+  document.getElementById('limiteRouge').disabled=f;document.getElementById('limiteOrange').disabled=f;
+  document.getElementById('limiteRouge').style.opacity=f?'0.5':'1';document.getElementById('limiteOrange').style.opacity=f?'0.5':'1';
+  sauvegarderParametresJauge();
+}
+function genOptionsHeures(v){let opt='';for(let i=0;i<=10;i+=0.25){const l=i.toFixed(2).replace('.00','');opt+=`<option value="${i}" ${Math.abs(i-parseFloat(v||0))<0.001?'selected':''}>${l}</option>`;}return opt;}
+
+function ouvrirListeSalaries(){
+  const z=document.getElementById('salarieList');
+  z.innerHTML=salaries.length?salaries.map(s=>`<label style="display:block;padding:2px 4px;"><input type="checkbox" value="${s.id}" onchange="majSelectionSalaries()"> ${s.prenom} ${s.nom}</label>`).join(''):'<em style="padding:4px;">Aucun</em>';
+  z.style.display='block';
+}
+function filtrerListeSalaries(t){
+  const l=salaries.filter(s=>`${s.prenom} ${s.nom}`.toLowerCase().includes((t||'').toLowerCase())),z=document.getElementById('salarieList');
+  z.innerHTML=l.length?l.map(s=>`<label style="display:block;padding:2px 4px;"><input type="checkbox" value="${s.id}" onchange="majSelectionSalaries()"> ${s.prenom} ${s.nom}</label>`).join(''):'<em style="padding:4px;">Aucun résultat</em>';
+  z.style.display='block';
+}
+function majSelectionSalaries(){
+  const b=document.querySelectorAll('#salarieList input[type=checkbox]');
+  salariesSelectionnes=Array.from(b).filter(x=>x.checked).map(x=>x.value);genererPlanning();
+}
+document.addEventListener('click',e=>{const z=document.getElementById('salarieList');if(z&&!z.contains(e.target)&&e.target.id!=='salarieSearch')z.style.display='none';});
+
+function majCouleursJauge(){
+  const r=parseInt(document.getElementById('limiteRouge').value)||33,o=parseInt(document.getElementById('limiteOrange').value)||66;
+  if(r>=o){alert('Rouge < Orange');return;}
+  document.getElementById('zone-rouge').style.width=r+'%';document.getElementById('zone-orange').style.width=(o-r)+'%';
+  document.getElementById('zone-orange').style.left=r+'%';document.getElementById('zone-verte').style.width=(100-o)+'%';
+  document.getElementById('zone-verte').style.left=o+'%';
+}
+
+function semainesDuMois(a,m){
+  const sem=[],p1=new Date(a,m,1),pf=new Date(a,m+1,0);let l=new Date(p1);
+  while(l.getDay()!==1)l.setDate(l.getDate()-1);
+  while(l<=pf){const s=new Date(l);s.setDate(l.getDate()+5);if(s>=p1&&l<=pf)sem.push({lundi:new Date(l),samedi:s});l.setDate(l.getDate()+7);}
+  return sem;
+}
+
+function chargerSemaines(){
+  const mv=document.getElementById('moisPlanning').value;if(!mv)return;
+  const [a,m]=mv.split('-'),sem=semainesDuMois(+a,+m-1),sel=document.getElementById('semaineSelect');
+  sel.innerHTML='<option value="">— Mois complet —</option>';
+  sem.forEach((s,i)=>sel.innerHTML+=`<option value="${i}">Semaine ${i+1} : ${s.lundi.toLocaleDateString('fr-FR')} → ${s.samedi.toLocaleDateString('fr-FR')}</option>`);
+  genererPlanning();
+}
+
+function genererPlanning(){
+  const v=document.getElementById('moisPlanning').value;if(!v)return;
+  const [a,m]=v.split('-'),sem=semainesDuMois(+a,+m-1),idx=document.getElementById('semaineSelect').value,cont=document.getElementById('planning-wrapper');
+  cont.innerHTML='';
+  if(idx===""){const p1=new Date(+a,+m-1,1),pf=new Date(+a,+m,0),jn=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    for(let d=new Date(p1);d<=pf;d.setDate(d.getDate()+1))if(d.getDay()!==0)genererBlocJour(new Date(d),cont,jn);
+  }else{const s=sem[idx];for(let i=0;i<6;i++){const d=new Date(s.lundi);d.setDate(s.lundi.getDate()+i);genererBlocJour(d,cont,['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']);}}
+  calculerTotaux();
+}
+
+function genererBlocJour(d,cont,jn){
+  const ds=d.toISOString().split('T')[0],f=d.getDate()%2===0?'#fff':'#f8fafc',nj=jn[d.getDay()];
+  const kj=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'],ji=d.getDay(),auj=new Date().toISOString().split('T')[0];
+  
+  // Calculer d'abord le total de la journée pour TOUS les salariés
+  let totalJourneeComplete=0;
+  salaries.forEach(s=>{
+    for(let k=1;k<=5;k++){
+      const h=heures[`${s.id}_${ds}_ch${k}`]?.heures||0;
+      totalJourneeComplete+=parseFloat(h)||0;
+    }
+  });
+  
+  let html=`<h3 style="background:${f};padding:0.3rem;margin:0.1rem 0;">${nj} ${d.toLocaleDateString('fr-FR')}</h3><table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;"><tbody>`;
+  
+  salaries.forEach(s=>{
+    if(salariesSelectionnes.length>0&&!salariesSelectionnes.includes(s.id.toString()))return;
+    const ent=new Date(s.dateEntree),sor=s.dateSortie?new Date(s.dateSortie):null;
+    if(d<ent||(sor&&d>sor))return;
+    
+    let tr=0,line=`<tr><td style="font-weight:bold;width:150px;border:1px solid #ccc;padding:3px;">${s.prenom} ${s.nom}</td>`;
+    
+    for(let k=1;k<=5;k++){
+      const key=`${s.id}_${ds}_ch${k}`,ch=heures[key]?.chantier||'',h=heures[key]?.heures||0;tr+=parseFloat(h)||0;
+      const fut=ds>auj,st=fut?'width:120px;font-size:0.9rem;background:#ffe5e5;':'width:120px;font-size:0.9rem;';
+      line+=`<td style="border:1px solid #ccc;padding:2px;width:182px;">
+        <input id="${key}_chant" value="${ch}" placeholder="Chantier" style="${st}" oninput="saveHeure('${key}',this.value,document.getElementById('${key}_h').value)">
+        <select id="${key}_h" style="width:60px;font-size:0.9rem;" class="no-print" onchange="saveHeure('${key}',document.getElementById('${key}_chant').value,this.value)">${genOptionsHeures(h)}</select>
+      </td>`;
+    }
+    
+    const ka=`${s.id}_${ds}_abs`,ab=heures[ka]?.heures||0;
+    
+    // LOGIQUE COLLECTIVE : si total journée = 0 → prévu = 0 pour TOUS, sinon prévu normal
+    const prevuBase = totalJourneeComplete === 0 ? 0 : ((s.heuresParJour||{})[kj[ji]]||0);
+    const pc=Math.max(prevuBase-ab,0),ec=(tr-pc).toFixed(2);
+    
+    line+=`<td id="t_${s.id}_${ds}" style="border:1px solid #ccc;padding:3px;width:80px;" class="no-print">${tr.toFixed(2)}</td>
+           <td style="border:1px solid #ccc;padding:3px;width:80px;" class="no-print">
+             <select id="${ka}_h" style="width:60px;font-size:0.9rem;" onchange="saveHeure('${ka}','absence',this.value)">${genOptionsHeures(ab)}</select>
+           </td>
+           <td id="p_${s.id}_${ds}" style="border:1px solid #ccc;padding:3px;width:80px;" class="no-print">${pc.toFixed(2)}</td>
+           <td id="e_${s.id}_${ds}" style="border:1px solid #ccc;padding:3px;width:80px;color:${ec<0?'red':'green'};" class="no-print">${ec}</td></tr>`;
+    html+=line;
+  });
+  html+='</tbody></table>';cont.innerHTML+=html;
+}
+
+function saveHeure(key,chantier,h){
+  heures[key]={chantier,heures:parseFloat(h)||0};localStorage.setItem('heures_data',JSON.stringify(heures));
+  const [id,date]=key.split('_');
+  // Recalculer TOUS les salariés de cette date (logique collective)
+  recalculerTousLesSalariesDuJour(date);
+  calculerTotaux();
+}
+
+function recalculerTousLesSalariesDuJour(date){
+  // 1. Calculer le total de TOUTE la journée (tous salariés)
+  let totalJourneeComplete=0;
+  salaries.forEach(s=>{
+    for(let k=1;k<=5;k++){
+      const cell=document.getElementById(`${s.id}_${date}_ch${k}_h`);
+      if(cell)totalJourneeComplete+=parseFloat(cell.value)||0;
+    }
+  });
+  
+  // 2. Recalculer chaque salarié avec la logique collective
+  salaries.forEach(s=>{
+    const tc=document.getElementById(`t_${s.id}_${date}`);
+    const pc=document.getElementById(`p_${s.id}_${date}`);
+    const ec=document.getElementById(`e_${s.id}_${date}`);
+    if(!tc||!pc||!ec)return;
+    
+    // Total individuel
+    let totSal=0;
+    for(let k=1;k<=5;k++){
+      const cell=document.getElementById(`${s.id}_${date}_ch${k}_h`);
+      if(cell)totSal+=parseFloat(cell.value)||0;
+    }
+    tc.textContent=totSal.toFixed(2);
+    
+    const d=new Date(date),kj=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    
+    // LOGIQUE COLLECTIVE : si total journée = 0 → TOUS ont prévu=0, sinon prévu normal
+    const prevuBase = totalJourneeComplete === 0 ? 0 : ((s.heuresParJour||{})[kj[d.getDay()]]||0);
+    const ab=parseFloat(document.getElementById(`${s.id}_${date}_abs_h`)?.value)||0;
+    const pcr=Math.max(prevuBase-ab,0);pc.textContent=pcr.toFixed(2);
+    
+    const ecr=(totSal-pcr).toFixed(2);ec.textContent=ecr;ec.style.color=ecr<0?'red':'green';
+  });
+}
+
+function calculerTotaux(){
+  let tt=0,ta=0,tp=0;
+  document.querySelectorAll('[id^="t_"]').forEach(c=>tt+=parseFloat(c.textContent)||0);
+  document.querySelectorAll('[id^="p_"]').forEach(c=>tp+=parseFloat(c.textContent)||0);
+  document.querySelectorAll('select[id$="_abs_h"]').forEach(s=>ta+=parseFloat(s.value)||0);
+  const te=tt-tp,pct=tp>0?(tt/tp)*100:0;
+  if(document.getElementById('tot-total')){
+    document.getElementById('tot-total').textContent=tt.toFixed(2);document.getElementById('tot-abs').textContent=ta.toFixed(2);
+    document.getElementById('tot-prev').textContent=tp.toFixed(2);document.getElementById('tot-ecart').textContent=te.toFixed(2);
+    document.getElementById('tot-ecart').style.color=te<0?'red':'green';
+  }
+  const cur=document.getElementById('curseur'),pour=document.getElementById('pourcentage');
+  if(cur&&pour){const l=cur.parentElement.offsetWidth;cur.style.left=(pct/100)*l-4+'px';pour.textContent=pct.toFixed(0)+'%';}
+}
+
+function imprimerSemaine(){
+  const idx=document.getElementById('semaineSelect').value;if(idx==='')return alert('Sélectionnez une semaine.');
+  const mv=document.getElementById('moisPlanning').value;if(!mv)return alert('Choisissez un mois.');
+  const [a,m]=mv.split('-'),s=semainesDuMois(+a,+m-1)[idx],fen=window.open('','_blank');
+  fen.document.write(`<html><head><title>Planning</title><style>body{font-family:Arial;margin:1rem;}table{border-collapse:collapse;width:100%;margin-bottom:1rem;}th,td{border:1px solid #000;padding:4px;text-align:left;}th{background:#f0f0f0;}h1{text-align:center;}h3{margin:0.5rem 0 0.2rem 0;}</style></head><body>`);
+  fen.document.write(`<h1>Planning du ${s.lundi.toLocaleDateString('fr-FR')} au ${s.samedi.toLocaleDateString('fr-FR')}</h1>`);
+  for(let i=0;i<6;i++){
+    const d=new Date(s.lundi);d.setDate(s.lundi.getDate()+i),ds=d.toISOString().split('T')[0],nj=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()];
+    fen.document.write(`<h3>${nj} ${d.toLocaleDateString('fr-FR')}</h3><table><tr><th>Salarié</th><th>Chantier 1</th><th>Chantier 2</th><th>Chantier 3</th><th>Chantier 4</th><th>Chantier 5</th></tr>`);
+    salaries.forEach(sal=>{
+      if(salariesSelectionnes.length>0&&!salariesSelectionnes.includes(sal.id.toString()))return;
+      const ent=new Date(sal.dateEntree),sor=sal.dateSortie?new Date(sal.dateSortie):null;if(d<ent||(sor&&d>sor))return;
+      let row=`<tr><td>${sal.prenom} ${sal.nom}</td>`;
+      for(let k=1;k<=5;k++){const key=`${sal.id}_${ds}_ch${k}`,ch=heures[key]?.chantier||'',h=heures[key]?.heures||0;row+=`<td>${ch}${h>0?' ('+h+'h)':''}</td>`;}
+      fen.document.write(row+'</tr>');
+    });
+    fen.document.write('</table>');
+  }
+  fen.document.write('</body></html>');fen.document.close();fen.print();
+}
+
+const now=new Date();document.getElementById('moisPlanning').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+chargerParametresJauge();chargerSemaines();
+document.getElementById('moisPlanning').addEventListener('change',chargerSemaines);
+document.getElementById('semaineSelect').addEventListener('change',genererPlanning);
+setTimeout(()=>calculerTotaux(),100);
+</script>
 </body>
 </html>
+
