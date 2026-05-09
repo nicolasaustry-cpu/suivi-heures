@@ -30,10 +30,18 @@
       <input type="month" id="moisPlanning" />
     </div>
     <div style="position:relative;">
-      <label>Filtrer salariés :</label><br>
-      <input type="text" id="salarieSearch" placeholder="Rechercher" style="width:200px;" />
-    </div>
-    <div>
+<label>Filtrer salariés :</label><br>
+<div id="filtre-salaries" class="dropdown-filter">
+  <button id="btn-filtre" class="btn btn-light" type="button" style="width:200px;">
+    Sélectionner ▾
+  </button>
+  <div id="liste-salaries" class="dropdown-list"
+       style="display:none;position:absolute;background:#fff;border:1px solid #ccc;
+              box-shadow:0 2px 4px rgba(0,0,0,0.2);max-height:180px;overflow:auto;
+              width:200px;z-index:100;">
+  </div>
+</div>
+
       <label>Semaine à imprimer :</label><br>
       <select id="semaineSelect"></select>
     </div>
