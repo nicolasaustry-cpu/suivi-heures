@@ -36,41 +36,45 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
     <div><button class="btn-warning" onclick="genererPlanning()">🔄 Recharger</button></div>
   </div>
 
-  <!-- Jauge et totaux -->
-  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
-    <thead>
-      <tr style="background:#fff3cd;">
-        <td colspan="5" style="border:1px solid #ccc;padding:4px;">
-          <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
-            <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-            <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-            <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()">
-            <label for="figerSeuils">Figer</label>
+<!-- Jauge et totaux -->
+<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
+  <thead>
+    <!-- paramètres jauge -->
+    <tr style="background:#fff3cd;">
+      <td colspan="10" style="border:1px solid #ccc;padding:4px;">
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+          <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+          <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+          <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()">
+          <label for="figerSeuils">Figer</label>
+        </div>
+      </td>
+    </tr>
+    <!-- jauge visuelle -->
+    <tr style="background:#f0f9ff;">
+      <td colspan="10" style="border:1px solid #ccc;padding:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
+          <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+            <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+            <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+            <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+            <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
           </div>
-        </td>
-      </tr>
-      <tr style="background:#f0f9ff;">
-        <td colspan="5" style="border:1px solid #ccc;padding:8px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
-            <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
-              <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-              <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-              <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-              <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
-            </div>
-          </div>
-        </td>
-      </tr>
-      <tr style="background:#d1fae5;font-weight:bold;">
-        <td style="border:1px solid #ccc;padding:4px;">TOTAUX</td>
-        <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
-        <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
-        <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
-        <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
-      </tr>
-    </thead>
-  </table>
+        </div>
+      </td>
+    </tr>
+    <!-- totaux alignés aux colonnes -->
+    <tr style="background:#d1fae5;font-weight:bold;">
+      <td colspan="6" style="border:1px solid #ccc;padding:4px;text-align:right;">TOTAUX</td>
+      <td id="tot-total" style="border:1px solid #ccc;padding:4px;text-align:center;">0</td>
+      <td id="tot-abs" style="border:1px solid #ccc;padding:4px;text-align:center;">0</td>
+      <td id="tot-prev" style="border:1px solid #ccc;padding:4px;text-align:center;">0</td>
+      <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;text-align:center;">0</td>
+    </tr>
+  </thead>
+</table>
+
 </div>
 
 <!-- 🔹 Planning directement en dessous -->
