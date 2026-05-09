@@ -179,7 +179,7 @@ function genererPlanning(){
         const data=heures[k]||{chantier:"",heures:0};
         total+=parseFloat(data.heures)||0;
         row+=`<td style="border:1px solid #ccc;padding:2px;">
-          <input value="${data.chantier}" placeholder="Chantier" style="width:100px;"
+          <input value="${data.chantier}" placeholder="Chantier" style="width:150px;"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:60px;" onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value)">
             ${genOptionsHeures(data.heures)}
