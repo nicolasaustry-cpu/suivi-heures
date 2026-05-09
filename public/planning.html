@@ -293,17 +293,24 @@ function imprimerSemaine() {
 }
 
 function chargerSemaines() {
-  const mv = document.getElementById('moisPlanning').value;
-  if (!mv) return;
+  const champMois = document.getElementById("moisPlanning");
+  const select = document.getElementById("semaineSelect");
+  if (!champMois || !select) return;
 
-  const [annee, mois] = mv.split('-').map(Number);
+  const valeur = champMois.value;
+  if (!valeur) {
+    select.innerHTML = '<option value="">— Mois complet —</option>';
+    return;
+  }
+
+  const [annee, mois] = valeur.split('-').map(Number);
   const premierJour = new Date(annee, mois - 1, 1);
   const dernierJour = new Date(annee, mois, 0);
 
-  const select = document.getElementById('semaineSelect');
+  // Supprime toutes les options existantes
   select.innerHTML = '<option value="">— Mois complet —</option>';
 
-  // On part du premier lundi du mois
+  // Positionne sur le premier lundi du mois
   let courant = new Date(premierJour);
   while (courant.getDay() !== 1) { // 1 = lundi
     courant.setDate(courant.getDate() + 1);
@@ -312,11 +319,15 @@ function chargerSemaines() {
   let compteur = 1;
   while (courant <= dernierJour) {
     const lundi = new Date(courant);
-    const samedi = new Date(courant);
-    samedi.setDate(lundi.getDate() + 5); // samedi (lundi + 5 jours)
+    const samedi = new Date(lundi);
+    samedi.setDate(lundi.getDate() + 5);
 
-    const texte = `Semaine ${compteur} : ${lundi.toLocaleDateString("fr-FR")} → ${samedi.toLocaleDateString("fr-FR")}`;
-    select.innerHTML += `<option value="${compteur}">${texte}</option>`;
+    // Ajoute dans la liste déroulante
+    const texte = `Semaine ${compteur}: ${lundi.toLocaleDateString("fr-FR")} → ${samedi.toLocaleDateString("fr-FR")}`;
+    const option = document.createElement("option");
+    option.value = compteur;
+    option.textContent = texte;
+    select.appendChild(option);
 
     courant.setDate(courant.getDate() + 7);
     compteur++;
