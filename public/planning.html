@@ -231,27 +231,95 @@ function saveHeure(k,ch,h){
   localStorage.setItem('heuresdata',JSON.stringify(heures));
 }
 
-function imprimerSemaine(){
-  const val=document.getElementById('semaineSelect').value;
-  if(!val) return alert('Sélectionnez une semaine à imprimer.');
-  window.print();
+function imprimerSemaine() {
+  const idx = document.getElementById('semaineSelect').selectedIndex;
+  if (idx <= 0) return alert("Sélectionnez une semaine à imprimer.");
+  const mv = document.getElementById('moisPlanning').value;
+  if (!mv) return alert("Choisissez un mois.");
+
+  const [annee, mois] = mv.split('-').map(Number);
+  const premierJour = new Date(annee, mois - 1, 1);
+  const dernierJour = new Date(annee, mois, 0);
+
+  // Recalcule les semaines lundi-samedi comme dans chargerSemaines
+  const semaines = [];
+  let courant = new Date(premierJour);
+  while (courant.getDay() !== 1) courant.setDate(courant.getDate() + 1);
+  while (courant <= dernierJour) {
+    const lundi = new Date(courant);
+    const samedi = new Date(lundi); samedi.setDate(lundi.getDate() + 5);
+    semaines.push({ lundi, samedi });
+    courant.setDate(courant.getDate() + 7);
+  }
+
+  const semaine = semaines[idx - 1];
+  if (!semaine) return;
+
+  // impression
+  const fen = window.open('', '_blank');
+  fen.document.write('<html><head><title>Planning</title><style>body{font-family:Arial;margin:1rem;}table{border-collapse:collapse;width:100%;margin-bottom:1rem;}th,td{border:1px solid #000;padding:4px;text-align:left;}th{background:#f0f0f0;}h1{text-align:center;}h3{margin:0.5rem 0 0.2rem 0;}</style></head><body>');
+  fen.document.write(`<h1>Planning du ${semaine.lundi.toLocaleDateString('fr-FR')} au ${semaine.samedi.toLocaleDateString('fr-FR')}</h1>`);
+
+  for (let i = 0; i < 6; i++) {
+    const jour = new Date(semaine.lundi);
+    jour.setDate(semaine.lundi.getDate() + i);
+
+    const jourNom = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"][i];
+    const dateStr = jour.toISOString().split("T")[0];
+    fen.document.write(`<h3>${jourNom} ${jour.toLocaleDateString("fr-FR")}</h3><table><tr><th>Salarié</th><th>Chantier 1</th><th>Chantier 2</th><th>Chantier 3</th><th>Chantier 4</th><th>Chantier 5</th></tr>`);
+
+    salaries.forEach(s => {
+      const entree = new Date(s.dateEntree);
+      const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
+      if (jour < entree || (sortie && jour > sortie)) return;
+
+      let row = `<tr><td>${s.prenom} ${s.nom}</td>`;
+      for (let k = 1; k <= 5; k++) {
+        const key = `${s.id}${dateStr}ch${k}`;
+        const ch = heures[key]?.chantier || '';
+        const h = heures[key]?.heures || 0;
+        row += `<td>${ch}${h > 0 ? ' (' + h + 'h)' : ''}</td>`;
+      }
+      row += '</tr>';
+      fen.document.write(row);
+    });
+
+    fen.document.write('</table>');
+  }
+
+  fen.document.write('</body></html>');
+  fen.document.close();
+  fen.print();
 }
 
-function chargerSemaines(){
-  const mv=document.getElementById('moisPlanning').value;
-  if(!mv)return;
-  const [a,m]=mv.split('-');
-  const premier=new Date(a,m-1,1);
-  const dernier=new Date(a,m,0);
-  const select=document.getElementById('semaineSelect');
-  select.innerHTML='<option value="">— Mois complet —</option>';
-  let c=1,jour=new Date(premier);
-  while(jour<=dernier){
-    const lun=new Date(jour);
-    lun.setDate(lun.getDate()+(1-lun.getDay()+(lun.getDay()==0?1:0)));
-    const sam=new Date(lun); sam.setDate(lun.getDate()+5);
-    select.innerHTML+=`<option value="${c++}">Semaine ${c-1}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}</option>`;
-    jour.setDate(jour.getDate()+7);
+function chargerSemaines() {
+  const mv = document.getElementById('moisPlanning').value;
+  if (!mv) return;
+
+  const [annee, mois] = mv.split('-').map(Number);
+  const premierJour = new Date(annee, mois - 1, 1);
+  const dernierJour = new Date(annee, mois, 0);
+
+  const select = document.getElementById('semaineSelect');
+  select.innerHTML = '<option value="">— Mois complet —</option>';
+
+  // On part du premier lundi du mois
+  let courant = new Date(premierJour);
+  while (courant.getDay() !== 1) { // 1 = lundi
+    courant.setDate(courant.getDate() + 1);
+  }
+
+  let compteur = 1;
+  while (courant <= dernierJour) {
+    const lundi = new Date(courant);
+    const samedi = new Date(courant);
+    samedi.setDate(lundi.getDate() + 5); // samedi (lundi + 5 jours)
+
+    const texte = `Semaine ${compteur} : ${lundi.toLocaleDateString("fr-FR")} → ${samedi.toLocaleDateString("fr-FR")}`;
+    select.innerHTML += `<option value="${compteur}">${texte}</option>`;
+
+    courant.setDate(courant.getDate() + 7);
+    compteur++;
   }
 }
 
