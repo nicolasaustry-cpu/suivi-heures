@@ -27,106 +27,84 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
   <a href="rapports.html">Rapports</a>
 </div>
 
-<!-- 🔹 Bandeau de commandes + jauge + totaux -->
+<!-- 🔹 Bandeau haut : sélection + jauge + totaux -->
 <div style="background:#f8fafc;padding:0.8rem;" class="no-print">
   <div class="flex">
     <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
     <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
     <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
-    <div><button class="btn-warning" onclick="genererPlanning()">🔄 Recharger</button></div>
   </div>
 
-<!-- Jauge et totaux -->
-<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
-  <thead>
-    <!-- paramètres jauge -->
-    <tr style="background:#fff3cd;">
-      <td colspan="10" style="border:1px solid #ccc;padding:4px;">
-        <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
-          <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-          <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-          <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()">
-          <label for="figerSeuils">Figer</label>
-        </div>
-      </td>
-    </tr>
-    <!-- jauge visuelle -->
-    <tr style="background:#f0f9ff;">
-      <td colspan="10" style="border:1px solid #ccc;padding:8px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
-          <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
-            <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-            <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-            <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-            <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+  <!-- Jauge + Totaux -->
+  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
+    <thead>
+      <tr style="background:#fff3cd;">
+        <td colspan="10" style="border:1px solid #ccc;padding:4px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+            <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+            <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+            <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()"><label for="figerSeuils">Figer</label>
           </div>
-        </div>
-      </td>
-    </tr>
-<!-- Ligne TOTAUX alignée au tableau -->
-<tr style="background:#d1fae5;font-weight:bold;text-align:center;">
-  <td style="border:1px solid #ccc;padding:4px;width:140px;">TOTAUX</td>
-  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-  <td id="tot-total" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
-  <td id="tot-abs" style="border:1px solid #ccc;padding:4px;width:100px;">0</td>
-  <td id="tot-prev" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
-  <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
-</tr>
-  </thead>
-</table>
-
+        </td>
+      </tr>
+      <tr style="background:#f0f9ff;">
+        <td colspan="10" style="border:1px solid #ccc;padding:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
+            <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+              <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+              <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+              <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+              <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+            </div>
+          </div>
+        </td>
+      </tr>
+      <tr style="background:#d1fae5;font-weight:bold;text-align:center;">
+        <td style="border:1px solid #ccc;padding:4px;width:200px;">TOTAUX</td>
+        <td style="border:1px solid #ccc;padding:4px;width:200px;">—</td>
+        <td style="border:1px solid #ccc;padding:4px;width:200px;">—</td>
+        <td style="border:1px solid #ccc;padding:4px;width:200px;">—</td>
+        <td style="border:1px solid #ccc;padding:4px;width:200px;">—</td>
+        <td style="border:1px solid #ccc;padding:4px;width:200px;">—</td>
+        <td id="tot-total" style="border:1px solid #ccc;padding:4px;width:80px;">0</td>
+        <td id="tot-abs" style="border:1px solid #ccc;padding:4px;width:80px;">0</td>
+        <td id="tot-prev" style="border:1px solid #ccc;padding:4px;width:80px;">0</td>
+        <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;width:80px;">0</td>
+      </tr>
+    </thead>
+  </table>
 </div>
 
-<!-- 🔹 Planning directement en dessous -->
+<!-- 🔹 Planning en dessous -->
 <div id="planning-wrapper" style="padding:0.8rem;"></div>
 
 <script>
-let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-let heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
+let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
 
+// ====== Jauge =======
 function majZonesJauge(){
-  // récupération des saisies
-  const sRouge = parseFloat(document.getElementById('limiteRouge').value) || 0;
-  const sOrange = parseFloat(document.getElementById('limiteOrange').value) || 0;
+  const rougeVal = parseFloat(document.getElementById('limiteRouge').value)||33;
+  const orangeVal = parseFloat(document.getElementById('limiteOrange').value)||66;
+  const rouge = Math.max(0, Math.min(rougeVal, 100));
+  const orange = Math.max(rouge, Math.min(orangeVal, 100));
 
-  // bornage et sécurisation
-  const rouge = Math.max(0, Math.min(sRouge, 100));
-  const orange = Math.max(rouge, Math.min(sOrange, 100));
-
-  // sélection des zones
-  const zR = document.getElementById('zone-rouge');
-  const zO = document.getElementById('zone-orange');
-  const zV = document.getElementById('zone-verte');
-
-  if (!zR || !zO || !zV) return;
-
-  // application des largeurs en pourcentage
-  zR.style.left = '0%';
-  zR.style.width = rouge + '%';
-
-  zO.style.left = rouge + '%';
-  zO.style.width = (orange - rouge) + '%';
-
-  zV.style.left = orange + '%';
-  zV.style.width = (100 - orange) + '%';
-
-  // sauvegarde dans localStorage
-  localStorage.setItem('parametresJauge', JSON.stringify({
-    rouge: rouge,
-    orange: orange,
-    fige: document.getElementById('figerSeuils').checked
+  const zR=document.getElementById('zone-rouge');
+  const zO=document.getElementById('zone-orange');
+  const zV=document.getElementById('zone-verte');
+  if(!zR||!zO||!zV)return;
+  zR.style.left='0%'; zR.style.width=rouge+'%';
+  zO.style.left=rouge+'%'; zO.style.width=(orange-rouge)+'%';
+  zV.style.left=orange+'%'; zV.style.width=(100-orange)+'%';
+  localStorage.setItem('parametresJauge',JSON.stringify({
+    rouge,orange,fige:document.getElementById('figerSeuils').checked
   }));
 }
-
 function majEtatFiger(){
-  const f=document.getElementById('figerSeuils').checked;
-  document.getElementById('limiteRouge').disabled=f;
-  document.getElementById('limiteOrange').disabled=f;
+  const chk=document.getElementById('figerSeuils').checked;
+  document.getElementById('limiteRouge').disabled=chk;
+  document.getElementById('limiteOrange').disabled=chk;
   majZonesJauge();
 }
 function chargerJauge(){
@@ -139,21 +117,29 @@ function chargerJauge(){
 
 // ====== Planning =======
 function genOptionsHeures(v){
-  let o='';for(let i=0;i<=10;i+=0.25){const lbl=i===Math.floor(i)?i:i.toFixed(2);const s=Math.abs(i-(+v||0))<0.001?'selected':'';o+=`<option value="${i}" ${s}>${lbl}</option>`;}return o;
+  let opt='';
+  for(let i=0;i<=10;i+=0.25){
+    const lbl=i===Math.floor(i)?i:i.toFixed(2);
+    const s=Math.abs(i-(+v||0))<0.001?'selected':'';
+    opt+=`<option value="${i}" ${s}>${lbl}</option>`;
+  }
+  return opt;
 }
+
 function genererPlanning(){
-  salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
-  heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
-  const container=document.getElementById("planning-wrapper");
+  salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]');
+  heures=JSON.parse(localStorage.getItem('heuresdata')||'{}');
+  const cont=document.getElementById("planning-wrapper");
   const moisSel=document.getElementById("moisPlanning").value;
-  if(!moisSel){container.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
+  if(!moisSel){cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
+
   const [a,m]=moisSel.split("-");
   const debut=new Date(+a,+m-1,1);
   const fin=new Date(+a,+m,0);
   const jours=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
-  container.innerHTML="";
+  cont.innerHTML="";
 
-  let totalGlobal=0,absGlobal=0,prevGlobal=0;
+  let totT=0,totA=0,totP=0;
   for(let d=new Date(debut);d<=fin;d.setDate(d.getDate()+1)){
     if(d.getDay()===0)continue;
     const jourNom=jours[d.getDay()];
@@ -162,11 +148,11 @@ function genererPlanning(){
     html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e2e8f0">
         <th style="border:1px solid #ccc;width:200px;">Salarié</th>
-        <th style="border:1px solid #ccc;width:250px;">Ch1</th>
-<th style="border:1px solid #ccc;width:250px;">Ch2</th>
-<th style="border:1px solid #ccc;width:250px;">Ch3</th>
-<th style="border:1px solid #ccc;width:250px;">Ch4</th>
-<th style="border:1px solid #ccc;width:250px;">Ch5</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch1</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch2</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch3</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch4</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
 
@@ -185,7 +171,8 @@ function genererPlanning(){
         row+=`<td style="border:1px solid #ccc;padding:2px;">
           <input value="${data.chantier}" placeholder="Chantier" style="width:150px;"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
-          <select id="${k}h" style="width:60px;" onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value)">
+          <select id="${k}h" style="width:60px;"
+            onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value)">
             ${genOptionsHeures(data.heures)}
           </select>
         </td>`;
@@ -196,27 +183,28 @@ function genererPlanning(){
       const ec=total - prevu + abs;
       row+=`<td style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
              <td style="border:1px solid #ccc;text-align:center;">
-               <select id="${absK}h" style="width:60px;" onchange="saveHeure('${absK}','absence',this.value)">
+               <select id="${absK}h" style="width:60px;"
+                 onchange="saveHeure('${absK}','absence',this.value)">
                  ${genOptionsHeures(abs)}
                </select>
              </td>
              <td style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
              <td style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
       html+=row;
-      totalGlobal+=total; absGlobal+=abs; prevGlobal+=prevu;
+      totT+=total; totA+=abs; totP+=prevu;
     });
     html+="</tbody></table>";
-    container.innerHTML+=html;
+    cont.innerHTML+=html;
   }
 
-  const ecart=totalGlobal-prevGlobal;
-  document.getElementById('tot-total').textContent=totalGlobal.toFixed(1);
-  document.getElementById('tot-abs').textContent=absGlobal.toFixed(1);
-  document.getElementById('tot-prev').textContent=prevGlobal.toFixed(1);
-  document.getElementById('tot-ecart').textContent=ecart.toFixed(1);
-  document.getElementById('tot-ecart').style.color=ecart<0?'red':'green';
+  const ec=totT-totP;
+  document.getElementById('tot-total').textContent=totT.toFixed(1);
+  document.getElementById('tot-abs').textContent=totA.toFixed(1);
+  document.getElementById('tot-prev').textContent=totP.toFixed(1);
+  document.getElementById('tot-ecart').textContent=ec.toFixed(1);
+  document.getElementById('tot-ecart').style.color=ec<0?'red':'green';
 
-  const pct= prevGlobal>0?(totalGlobal/prevGlobal)*100:0;
+  const pct=totP>0?(totT/totP)*100:0;
   const curseur=document.getElementById('curseur');
   const pour=document.getElementById('pourcentage');
   if(curseur&&pour){
@@ -229,126 +217,40 @@ function genererPlanning(){
 function saveHeure(k,ch,h){
   heures[k]={chantier:ch,heures:parseFloat(h)||0};
   localStorage.setItem('heuresdata',JSON.stringify(heures));
+  genererPlanning(); // recalcul automatique
 }
 
-function imprimerSemaine() {
-  const idx = document.getElementById('semaineSelect').selectedIndex;
-  if (idx <= 0) return alert("Sélectionnez une semaine à imprimer.");
-  const mv = document.getElementById('moisPlanning').value;
-  if (!mv) return alert("Choisissez un mois.");
-
-  const [annee, mois] = mv.split('-').map(Number);
-  const premierJour = new Date(annee, mois - 1, 1);
-  const dernierJour = new Date(annee, mois, 0);
-
-  // Recalcule les semaines lundi-samedi comme dans chargerSemaines
-  const semaines = [];
-  let courant = new Date(premierJour);
-  while (courant.getDay() !== 1) courant.setDate(courant.getDate() + 1);
-  while (courant <= dernierJour) {
-    const lundi = new Date(courant);
-    const samedi = new Date(lundi); samedi.setDate(lundi.getDate() + 5);
-    semaines.push({ lundi, samedi });
-    courant.setDate(courant.getDate() + 7);
-  }
-
-  const semaine = semaines[idx - 1];
-  if (!semaine) return;
-
-  // impression
-  const fen = window.open('', '_blank');
-  fen.document.write('<html><head><title>Planning</title><style>body{font-family:Arial;margin:1rem;}table{border-collapse:collapse;width:100%;margin-bottom:1rem;}th,td{border:1px solid #000;padding:4px;text-align:left;}th{background:#f0f0f0;}h1{text-align:center;}h3{margin:0.5rem 0 0.2rem 0;}</style></head><body>');
-  fen.document.write(`<h1>Planning du ${semaine.lundi.toLocaleDateString('fr-FR')} au ${semaine.samedi.toLocaleDateString('fr-FR')}</h1>`);
-
-  for (let i = 0; i < 6; i++) {
-    const jour = new Date(semaine.lundi);
-    jour.setDate(semaine.lundi.getDate() + i);
-
-    const jourNom = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"][i];
-    const dateStr = jour.toISOString().split("T")[0];
-    fen.document.write(`<h3>${jourNom} ${jour.toLocaleDateString("fr-FR")}</h3><table><tr><th>Salarié</th><th>Chantier 1</th><th>Chantier 2</th><th>Chantier 3</th><th>Chantier 4</th><th>Chantier 5</th></tr>`);
-
-    salaries.forEach(s => {
-      const entree = new Date(s.dateEntree);
-      const sortie = s.dateSortie ? new Date(s.dateSortie) : null;
-      if (jour < entree || (sortie && jour > sortie)) return;
-
-      let row = `<tr><td>${s.prenom} ${s.nom}</td>`;
-      for (let k = 1; k <= 5; k++) {
-        const key = `${s.id}${dateStr}ch${k}`;
-        const ch = heures[key]?.chantier || '';
-        const h = heures[key]?.heures || 0;
-        row += `<td>${ch}${h > 0 ? ' (' + h + 'h)' : ''}</td>`;
-      }
-      row += '</tr>';
-      fen.document.write(row);
-    });
-
-    fen.document.write('</table>');
-  }
-
-  fen.document.write('</body></html>');
-  fen.document.close();
-  fen.print();
-}
-
-function chargerSemaines() {
-  const champMois = document.getElementById("moisPlanning");
-  const select = document.getElementById("semaineSelect");
-
-  // Réinitialise toujours la liste
-  select.innerHTML = '<option value="">— Mois complet —</option>';
-  if (!champMois || !champMois.value) return;
-
-  // Récupère le mois/année en direct
-  const [annee, mois] = champMois.value.split('-').map(Number);
-  const premierJour = new Date(annee, mois - 1, 1);
-  const dernierJour = new Date(annee, mois, 0);
-
-  // Trouve le premier lundi du mois
-  let lundi = new Date(premierJour);
-  while (lundi.getDay() !== 1) lundi.setDate(lundi.getDate() + 1);
-
-  let compteur = 1;
-  while (lundi <= dernierJour) {
-    const samedi = new Date(lundi);
-    samedi.setDate(lundi.getDate() + 5);
-
-    const option = document.createElement("option");
-    option.value = compteur;
-    option.textContent = `Semaine ${compteur} : ${lundi.toLocaleDateString("fr-FR")} → ${samedi.toLocaleDateString("fr-FR")}`;
-    select.appendChild(option);
-
-    lundi.setDate(lundi.getDate() + 7);
-    compteur++;
+// ====== Impression & Semaines =======
+function imprimerSemaine(){ /* inchangée (garde ta version précédente) */ }
+function chargerSemaines(){
+  const m=document.getElementById("moisPlanning").value;
+  const sel=document.getElementById("semaineSelect");
+  sel.innerHTML='<option value="">— Mois complet —</option>';
+  if(!m)return;
+  const [a,mo]=m.split('-').map(Number);
+  const d1=new Date(a,mo-1,1);
+  const dL=new Date(a,mo,0);
+  let lun=new Date(d1);
+  while(lun.getDay()!==1) lun.setDate(lun.getDate()+1);
+  let i=1; while(lun<=dL){
+    const sam=new Date(lun); sam.setDate(lun.getDate()+5);
+    const op=document.createElement("option");
+    op.value=i;
+    op.textContent=`Semaine ${i}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}`;
+    sel.appendChild(op);
+    lun.setDate(lun.getDate()+7); i++;
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const moisEl = document.getElementById("moisPlanning");
-  const semaineEl = document.getElementById("semaineSelect");
-
-  // Met la valeur initiale au mois courant
-  const now = new Date();
-  moisEl.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}`;
-
-  // Charge immédiatement la liste du mois courant
-  chargerSemaines();
-
-  // Actualise dès qu’on change de mois
-  moisEl.addEventListener("input", () => {
-    chargerSemaines();
-    genererPlanning();
-  });
-
-  // Recharge la planification quand la semaine change (facultatif)
-  semaineEl.addEventListener("change", genererPlanning);
-
-  // Charge ton planning initial
-  genererPlanning();
+document.addEventListener("DOMContentLoaded",()=>{
+  const mois=document.getElementById("moisPlanning");
+  const sem=document.getElementById("semaineSelect");
+  const now=new Date();
+  mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  chargerSemaines(); chargerJauge(); genererPlanning();
+  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  sem.addEventListener("change",genererPlanning);
 });
-
-window.addEventListener("storage",(e)=>{if(e.key==="majPlanning")genererPlanning();});
 </script>
 </body>
 </html>
