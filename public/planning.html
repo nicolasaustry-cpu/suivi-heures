@@ -115,6 +115,38 @@ function chargerJauge(){
   document.getElementById('figerSeuils').checked=conf.fige;
   majEtatFiger();
 }
+// --- Calcul automatique du total par salarié ---
+function majTotalLigne(idSal, dateStr) {
+  const s = salaries.find(x => String(x.id) === String(idSal));
+  if (!s) return;
+
+  // somme des 5 chantiers
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const sel = document.getElementById(`${idSal}${dateStr}ch${i}h`);
+    if (sel) total += parseFloat(sel.value) || 0;
+  }
+
+  // absence et prévu
+  const absKey = `${idSal}${dateStr}abs`;
+  const absSel = document.getElementById(`${absKey}h`);
+  const abs = absSel ? parseFloat(absSel.value) || 0 : 0;
+  const jour = new Date(dateStr);
+  const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour.getDay()];
+  const prevu = s.heuresParJour?.[cle] || 0;
+  const ec = total - prevu + abs;
+
+  // mise à jour directe de la ligne
+  const ligne = document.querySelector(`#planning-wrapper tr[id='${idSal}-${dateStr}']`);
+  if (ligne) {
+    const cellules = ligne.querySelectorAll("td");
+    cellules[cellules.length - 4].textContent = total.toFixed(1); // colonne total
+    cellules[cellules.length - 1].textContent = (ec>=0?"+":"") + ec.toFixed(1); // colonne écart
+    cellules[cellules.length - 1].style.color = ec < 0 ? "red" : "green";
+  }
+
+  recalculTotauxGlobaux();
+}
 
 // ====== Planning =======
 function genOptionsHeures(v){
@@ -214,11 +246,51 @@ function genererPlanning(){
     pour.textContent=pct.toFixed(0)+'%';
   }
 }
+// --- Calcul automatique du total de la ligne (à ajouter avant saveHeure)
+function majTotalLigne(idSal, dateStr) {
+  const s = salaries.find(x => String(x.id) === String(idSal));
+  if (!s) return;
+
+  // Somme des heures sur les 5 chantiers
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const sel = document.getElementById(`${idSal}${dateStr}ch${i}h`);
+    if (sel) total += parseFloat(sel.value) || 0;
+  }
+
+  // Lecture des absences et heures prévues
+  const absKey = `${idSal}${dateStr}abs`;
+  const absSel = document.getElementById(`${absKey}h`);
+  const abs = absSel ? parseFloat(absSel.value) || 0 : 0;
+  const jour = new Date(dateStr);
+  const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour.getDay()];
+  const prevu = s.heuresParJour?.[cle] || 0;
+  const ecart = total - prevu + abs;
+
+  // Trouve les cellules existantes de la ligne
+  const tds = document.querySelectorAll(
+    `#planning-wrapper td[id*='${idSal}${dateStr}']`
+  );
+  const totalCell = Array.from(tds).find(td => td.textContent && td.textContent.match(/^\d/));
+  // Si ton HTML ne contient pas d'ID spécifique sur les td → active le recalcul global à défaut
+  if (!totalCell) { genererPlanning(); return; }
+
+  // Recalcul de la ligne : remplace le contenu affiché du total
+  totalCell.textContent = total.toFixed(1);
+  // Recalcul complet ensuite (totaux et jauge)
+  recalculTotauxGlobaux();
+}
 
 function saveHeure(k,ch,h){
   heures[k]={chantier:ch,heures:parseFloat(h)||0};
   localStorage.setItem('heuresdata',JSON.stringify(heures));
-  genererPlanning(); // recalcul automatique
+
+  const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    majTotalLigne(match[1], match[2]);
+  } else {
+    genererPlanning();
+  }
 }
 
 // ====== Impression & Semaines =======
@@ -252,6 +324,34 @@ document.addEventListener("DOMContentLoaded",()=>{
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
+function recalculTotauxGlobaux() {
+  let tot=0,abs=0,prev=0;
+  document.querySelectorAll("#planning-wrapper table tbody tr").forEach(tr=>{
+    const tds=tr.querySelectorAll("td");
+    if(tds.length>=10){
+      const v=parseFloat(tds[6].textContent)||0; tot+=v;
+      const absSel=tr.querySelector("td:nth-child(8) select");
+      if(absSel) abs+=parseFloat(absSel.value)||0;
+      const p=parseFloat(tds[9-1].textContent)||0; prev+=p;
+    }
+  });
+  const ec=tot-prev;
+  document.getElementById("tot-total").textContent=tot.toFixed(1);
+  document.getElementById("tot-abs").textContent=abs.toFixed(1);
+  document.getElementById("tot-prev").textContent=prev.toFixed(1);
+  document.getElementById("tot-ecart").textContent=ec.toFixed(1);
+  document.getElementById("tot-ecart").style.color=ec<0?"red":"green";
+
+  // jauge
+  const pct = prev>0 ? (tot/prev)*100 : 0;
+  const curseur=document.getElementById("curseur");
+  const pour=document.getElementById("pourcentage");
+  if(curseur&&pour){
+    const L=curseur.parentElement.offsetWidth;
+    curseur.style.left=(L*pct/100-4)+"px";
+    pour.textContent=pct.toFixed(0)+"%";
+  }
+}
 </script>
 </body>
 </html>
