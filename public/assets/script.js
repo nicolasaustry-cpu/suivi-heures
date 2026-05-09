@@ -48,9 +48,7 @@ function genererBlocJour(date,c,jours){
   const coul=date.getDate()%2===0?"#fff":"#f8fafc";
   const nom=jours[date.getDay()];
   let html=`
-    <h3 style="background:${coul};padding:0.3rem;margin:0.5rem 0;">
-      ${nom} ${date.toLocaleDateString("fr-FR")}
-    </h3>
+    <h3 style="background:${coul};padding:0.3rem;margin:0.5rem 0;">${nom} ${date.toLocaleDateString("fr-FR")}</h3>
     <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e8edf3;">
         <th style="border:1px solid #ccc;width:150px;">Salarié</th>
@@ -62,6 +60,7 @@ function genererBlocJour(date,c,jours){
     const e=new Date(s.dateEntree);
     const srt=s.dateSortie?new Date(s.dateSortie):null;
     if(date<e||(srt&&date>srt))return;
+
     let tot=0;
     html+=`<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
     for(let i=1;i<=5;i++){
@@ -69,27 +68,105 @@ function genererBlocJour(date,c,jours){
       const dta=heures[k]||{chantier:"",heures:0};
       tot+=parseFloat(dta.heures)||0;
       html+=`
-      <td style="border:1px solid #ccc;padding:2px;">
-        <input id="${k}chant" value="${dta.chantier}" placeholder="Chantier"
-               style="width:100px;margin-bottom:2px;"
-               onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
-        <select id="${k}h" style="width:60px;"
-                onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
-          ${genOptionsHeures(dta.heures)}
-        </select>
-      </td>`;
+        <td style="border:1px solid #ccc;padding:2px;">
+          <input id="${k}chant" value="${dta.chantier}" placeholder="Chantier"
+                 style="width:100px;margin-bottom:2px;"
+                 onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+          <select id="${k}h" style="width:60px;"
+                  onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
+            ${genOptionsHeures(dta.heures)}
+          </select>
+        </td>`;
     }
+
     const absK=`${s.id}${dateStr}abs`;
     const abs=heures[absK]?.heures||0;
-    const jN=["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][date.getDay()];
-    const hPrev=s.heuresParJour?.[jN.slice(0,3)]||0;
+    const cleJour=["dim","lun","mar","mer","jeu","ven","sam"][date.getDay()];
+    const hPrev=s.heuresParJour?.[cleJour]||0;
     const prevu=tot>0?Math.max(hPrev-abs,0):0;
     const ec=tot-prevu;
     html+=`
       <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
       <td style="border:1px solid #ccc;text-align:center;">
-        <select id="${absK}h" style="width:60px;" onchange="saveHeure('${absK}','absence',this.value)">
-          ${genOptionsHeures(abs)}</select></td>
+        <select id="${absK}h" style="width:60px;"
+                onchange="saveHeure('${absK}','absence',this.value)">
+          ${genOptionsHeures(abs)}
+        </select>
+      </td>
+      <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
+      <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ec<0?"red":"green"}">
+        ${(ec>=0?"+":"")+ec.toFixed(1)}
+      </td></tr>`;
+  });
+  html+="</tbody></table>";
+  c.innerHTML+=html;
+}
+
+function genererPlanningFiltres(salariesFiltres){
+  const v=document.getElementById("moisPlanning").value;
+  if(!v)return;
+  const [a,m]=v.split("-");
+  const c=document.getElementById("planning-wrapper");
+  c.innerHTML="";
+  const p=new Date(+a,+m-1,1);
+  const dL=new Date(+a,+m,0);
+  const jours=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  for(let d=new Date(p);d<=dL;d.setDate(d.getDate()+1)){
+    if(d.getDay()!==0) genererBlocJourFiltre(new Date(d),c,jours,salariesFiltres);
+  }
+  calculerTotaux();
+}
+
+function genererBlocJourFiltre(date, c, jours, salariesFiltres){
+  const dateStr=date.toISOString().split("T")[0];
+  const coul=date.getDate()%2===0?"#fff":"#f8fafc";
+  const nom=jours[date.getDay()];
+  let html=`
+    <h3 style="background:${coul};padding:0.3rem;margin:0.5rem 0;">${nom} ${date.toLocaleDateString("fr-FR")}</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+      <thead><tr style="background:#e8edf3;">
+        <th style="border:1px solid #ccc;width:150px;">Salarié</th>
+        <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
+        <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
+      </tr></thead><tbody>`;
+
+  salariesFiltres.forEach(s=>{
+    const e=new Date(s.dateEntree);
+    const srt=s.dateSortie?new Date(s.dateSortie):null;
+    if(date<e||(srt&&date>srt))return;
+
+    let tot=0;
+    html+=`<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
+    for(let i=1;i<=5;i++){
+      const k=`${s.id}${dateStr}ch${i}`;
+      const dta=heures[k]||{chantier:"",heures:0};
+      tot+=parseFloat(dta.heures)||0;
+      html+=`
+        <td style="border:1px solid #ccc;padding:2px;">
+          <input id="${k}chant" value="${dta.chantier}" placeholder="Chantier"
+                 style="width:100px;margin-bottom:2px;"
+                 onchange="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+          <select id="${k}h" style="width:60px;"
+                  onchange="saveHeure('${k}',document.getElementById('${k}chant').value,this.value)">
+            ${genOptionsHeures(dta.heures)}
+          </select>
+        </td>`;
+    }
+
+    const absK=`${s.id}${dateStr}abs`;
+    const abs=heures[absK]?.heures||0;
+    const cleJour=["dim","lun","mar","mer","jeu","ven","sam"][date.getDay()];
+    const hPrev=s.heuresParJour?.[cleJour]||0;
+    const prevu=tot>0?Math.max(hPrev-abs,0):0;
+    const ec=tot-prevu;
+    html+=`
+      <td id="total${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${tot.toFixed(1)}</td>
+      <td style="border:1px solid #ccc;text-align:center;">
+        <select id="${absK}h" style="width:60px;"
+                onchange="saveHeure('${absK}','absence',this.value)">
+          ${genOptionsHeures(abs)}
+        </select>
+      </td>
       <td id="prevu${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
       <td id="ecart${s.id}${dateStr}" style="border:1px solid #ccc;text-align:center;color:${ec<0?"red":"green"}">
         ${(ec>=0?"+":"")+ec.toFixed(1)}</td></tr>`;
@@ -123,33 +200,28 @@ function majTotalLigne(key) {
   const idSal = match[1];
   const dateStr = match[2];
 
-  // --- total des chantiers saisis ---
+  // total des chantiers
   let totalJour = 0;
   for (let i = 1; i <= 5; i++) {
     const k = `${idSal}${dateStr}ch${i}`;
     totalJour += parseFloat(heures[k]?.heures || 0);
   }
 
-  // --- met à jour la cellule TOTAL ---
   const totalCell = document.getElementById(`total${idSal}${dateStr}`);
   if (totalCell) totalCell.textContent = totalJour.toFixed(1);
 
-  // --- récupération infos salarié + absences ---
+  // récupération infos salarié
   const absKey = `${idSal}${dateStr}abs`;
   const abs = parseFloat(heures[absKey]?.heures || 0);
   const jour = new Date(dateStr);
-  const jourNom = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][jour.getDay()];
-  const cleJour = jourNom.slice(0,3);
+  const cleJour = ["dim","lun","mar","mer","jeu","ven","sam"][jour.getDay()];
   const salarie = salaries.find(s => String(s.id) === String(idSal));
   const heuresPrevues = salarie?.heuresParJour?.[cleJour] || 0;
 
-  // --- heures prévues réelles pour ce jour ---
-  // si aucun chantier saisi -> 0, sinon heures contrat - abs
   const prevuAjuste = totalJour === 0 ? 0 : Math.max(heuresPrevues - abs, 0);
   const prevuCell = document.getElementById(`prevu${idSal}${dateStr}`);
   if (prevuCell) prevuCell.textContent = prevuAjuste.toFixed(1);
 
-  // --- met à jour l'écart ---
   const ecart = totalJour - prevuAjuste;
   const ecartCell = document.getElementById(`ecart${idSal}${dateStr}`);
   if (ecartCell) {
@@ -162,7 +234,7 @@ function calculerTotaux(){
   let h=0,a=0,p=0;
   document.querySelectorAll('select[id$="h"]').forEach(sel=>{
     const v=parseFloat(sel.value)||0;
-    if(sel.id.includes("abs")) a+=v; else h+=v;
+    if(sel.id.includes("abs"))a+=v;else h+=v;
   });
   document.querySelectorAll('[id^="prevu"]').forEach(td=>p+=parseFloat(td.textContent)||0);
   const e=h-p,fix=v=>v.toFixed(1);
@@ -173,7 +245,7 @@ function calculerTotaux(){
   document.getElementById("tot-ecart").style.color=e<0?"red":"green";
   const pour=p>0?(h/p)*100:0;
   const c=document.getElementById("curseur"),t=document.getElementById("pourcentage");
-  if(c&&t){const L=c.parentElement.offsetWidth; c.style.left=(L*pour/100-4)+"px"; t.textContent=Math.round(pour)+"%";}
+  if(c&&t){const L=c.parentElement.offsetWidth;c.style.left=(L*pour/100-4)+"px";t.textContent=Math.round(pour)+"%";}
 }
 
 /* ===========================================
@@ -207,11 +279,11 @@ function majEtatFiger(){
 }
 
 /* ===========================================
-   AU CHARGEMENT
+   CHARGEMENT
    =========================================== */
 window.addEventListener("DOMContentLoaded",()=>{
   const nomE=document.getElementById("entreprise-nom");
-  if(nomE&&entreprise.nom) nomE.textContent=entreprise.nom;
+  if(nomE&&entreprise.nom)nomE.textContent=entreprise.nom;
   afficherSalaries();
 
   const now=new Date(); const mp=document.getElementById("moisPlanning");
@@ -237,11 +309,10 @@ window.addEventListener("DOMContentLoaded",()=>{
     document.getElementById("figer-param").addEventListener("change",majEtatFiger);
   }
 
-  // --- Filtre salariés déroulant ---
+  // --- Filtre salariés ---
   const zone=document.getElementById("filtre-salaries");
   const btn=document.getElementById("btn-filtre");
   const liste=document.getElementById("liste-salaries");
-
   if(zone&&btn&&liste){
     const remplirListe=()=>{
       liste.innerHTML="";
@@ -265,9 +336,7 @@ window.addEventListener("DOMContentLoaded",()=>{
       e.stopPropagation();
       liste.style.display=(liste.style.display==="none"||!liste.style.display)?"block":"none";
     });
-    document.addEventListener("click",e=>{
-      if(!zone.contains(e.target))liste.style.display="none";
-    });
+    document.addEventListener("click",e=>{if(!zone.contains(e.target))liste.style.display="none";});
 
     liste.addEventListener("change",e=>{
       const chkAll=document.getElementById("chk-all");
@@ -276,9 +345,8 @@ window.addEventListener("DOMContentLoaded",()=>{
       if(e.target.id==="chk-all"){chks.forEach(c=>c.checked=chkAll.checked);genererPlanning();return;}
       chkAll.checked=selectedIds.length===chks.length;
       const actifs=salaries.filter(s=>selectedIds.includes(String(s.id)));
-      if(chkAll.checked||actifs.length===0)genererPlanning(); else genererPlanningFiltres(actifs);
+      if(chkAll.checked||actifs.length===0)genererPlanning();else genererPlanningFiltres(actifs);
     });
     window.actualiserFiltreSalaries=function(){remplirListe();};
   }
 });
-
