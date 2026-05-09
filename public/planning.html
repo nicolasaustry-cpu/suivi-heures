@@ -206,62 +206,64 @@ function genererPlanning(){
 
 // ✳️ Fonction saveHeure mise à jour (ajout du recalcul automatique)
 function saveHeure(k, ch, h) {
+  // --- sauvegarde dans le localStorage ---
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   localStorage.setItem('heuresdata', JSON.stringify(heures));
 
-  const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!match) { genererPlanning(); return; }
-
-  const idSal = match[1];
-  const dateStr = match[2];
-
-  // Recalcule seulement la ligne du salarié
-  const allSelects = document.querySelectorAll(`select[id^="${idSal}${dateStr}ch"][id$="h"]`);
+  // --- recalcul du total sur la ligne courante ---
+  const cell = event.target.closest('td');
+  if (!cell) return;
+  const ligne = cell.parentNode;
+  const selects = ligne.querySelectorAll('select[id$="h"]');
   let total = 0;
-  allSelects.forEach(sel => total += parseFloat(sel.value) || 0);
+  selects.forEach(sel => total += parseFloat(sel.value) || 0);
 
-  const row = allSelects[0]?.closest("tr");
-  if (row) {
-    const tds = row.querySelectorAll("td");
-    const hp = salaries.find(s => String(s.id)===String(idSal))?.heuresParJour||{};
-    const cle=["dim","lun","mar","mer","jeu","ven","sam"][new Date(dateStr).getDay()];
-    const prevu=hp[cle]||0;
-    const absSel=row.querySelector(`select[id="${idSal}${dateStr}absh"],select[id="${idSal}${dateStr}abs_h"],select[id="${idSal}${dateStr}abs h"]`);
-    const abs=parseFloat(absSel?.value)||0;
-    const ec=total - prevu + abs;
-    if(tds.length>6){
-      tds[6].textContent=total.toFixed(1);
-      tds[9].textContent=(ec>=0?'+':'')+ec.toFixed(1);
-      tds[9].style.color=ec<0?'red':'green';
-    }
+  // maj de la cellule Total (7ᵉ colonne : index 6)
+  const tds = ligne.querySelectorAll('td');
+  if (tds.length >= 10) {
+    tds[6].textContent = total.toFixed(1);
+
+    // heures prévues et absences
+    const absSel = ligne.querySelector('td:nth-child(8) select');
+    const abs = absSel ? parseFloat(absSel.value) || 0 : 0;
+    const prevu = parseFloat(tds[9 - 1].textContent) || 0;
+    const ec = total - prevu + abs;
+
+    // maj de la cellule Écart (10ᵉ colonne : index 9)
+    tds[9].textContent = (ec >= 0 ? '+' : '') + ec.toFixed(1);
+    tds[9].style.color = ec < 0 ? 'red' : 'green';
   }
 
-  // Met à jour les totaux globaux et la jauge
-  let tot=0,absTot=0,prevTot=0;
-  document.querySelectorAll("#planning-wrapper table tbody tr").forEach(tr=>{
-    const cells=tr.querySelectorAll("td");
-    if(cells.length>=10){
-      const v=parseFloat(cells[6].textContent)||0; tot+=v;
-      const absSel=tr.querySelector("td:nth-child(8) select");
-      if(absSel) absTot+=parseFloat(absSel.value)||0;
-      const p=parseFloat(cells[8].textContent)||0; prevTot+=p;
+  // --- recalcul global des totaux + jauge ---
+  let tot = 0, abs = 0, prev = 0;
+  document.querySelectorAll("#planning-wrapper table tbody tr").forEach(tr => {
+    const cells = tr.querySelectorAll("td");
+    if (cells.length >= 10) {
+      const v = parseFloat(cells[6].textContent) || 0; tot += v;
+      const absSel = tr.querySelector("td:nth-child(8) select");
+      if (absSel) abs += parseFloat(absSel.value) || 0;
+      const p = parseFloat(cells[8].textContent) || 0; prev += p;
     }
   });
-  const ec=tot-prevTot;
-  document.getElementById("tot-total").textContent=tot.toFixed(1);
-  document.getElementById("tot-abs").textContent=absTot.toFixed(1);
-  document.getElementById("tot-prev").textContent=prevTot.toFixed(1);
-  document.getElementById("tot-ecart").textContent=ec.toFixed(1);
-  document.getElementById("tot-ecart").style.color=ec<0?"red":"green";
-  const pct=prevTot>0?(tot/prevTot)*100:0;
-  const curseur=document.getElementById("curseur");
-  const pour=document.getElementById("pourcentage");
-  if(curseur&&pour){
-    const L=curseur.parentElement.offsetWidth;
-    curseur.style.left=(L*pct/100-4)+"px";
-    pour.textContent=pct.toFixed(0)+"%";
+
+  const ec = tot - prev;
+  document.getElementById("tot-total").textContent = tot.toFixed(1);
+  document.getElementById("tot-abs").textContent = abs.toFixed(1);
+  document.getElementById("tot-prev").textContent = prev.toFixed(1);
+  document.getElementById("tot-ecart").textContent = ec.toFixed(1);
+  document.getElementById("tot-ecart").style.color = ec < 0 ? "red" : "green";
+
+  // jauge
+  const pct = prev > 0 ? (tot / prev) * 100 : 0;
+  const curseur = document.getElementById("curseur");
+  const pour = document.getElementById("pourcentage");
+  if (curseur && pour) {
+    const L = curseur.parentElement.offsetWidth;
+    curseur.style.left = (L * pct / 100 - 4) + "px";
+    pour.textContent = pct.toFixed(0) + "%";
   }
 }
+
 
 // ====== Impression & semaines =======
 function imprimerSemaine() { /* inchangée */ }
