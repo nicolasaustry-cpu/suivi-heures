@@ -199,12 +199,15 @@ function genererPlanning(){
 function saveHeure(k, ch, h) {
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   localStorage.setItem('heuresdata', JSON.stringify(heures));
+
+  // Identifier salarié/date à partir de la clé
   const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
   if (match) {
     const salarieId = match[1];
     const dateStr = match[2];
-    majTotalLigne(salarieId, dateStr);
+    majTotalLigneLive(salarieId, dateStr); // 🔹 version en direct
   }
+
   majTotauxGlobaux();
 }
 
