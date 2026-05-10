@@ -161,7 +161,8 @@ function genererPlanning(){
       let row=`<tr data-salarie="${s.id}" data-date="${dateStr}">
         <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
 for (let i = 1; i <= 5; i++) {
-  const k = `${s.id}${dateStr}ch${i}`;
+const safeDate = dateStr.replace(/-/g, "_");
+const k = `${s.id}${safeDate}ch${i}`;
   const data = heures[k] || { chantier: "", heures: 0 };
   total += parseFloat(data.heures) || 0;
   row += `
@@ -175,7 +176,7 @@ for (let i = 1; i <= 5; i++) {
       </select>
     </td>`;
 }
-      const absK=`${s.id}${dateStr}abs`;
+      const absK = `${s.id}${safeDate}abs`;
       const abs=heures[absK]?.heures||0;
       const prevu=hp[cle]||0;
       const ec=total - prevu + abs;
@@ -218,9 +219,11 @@ function majTotalLigneLive(salarieId, dateStr) {
 
   // Somme directe des valeurs visibles dans la ligne
   let total = 0;
-  for (let i = 1; i <= 5; i++) {
-    const inputHeure = tr.querySelector(`#${salarieId}${dateStr}ch${i}h`);
-    if (inputHeure) total += parseFloat(inputHeure.value || 0);
+for (let i = 1; i <= 5; i++) {
+  const safeDate = dateStr.replace(/-/g, "_");
+  const inputHeure = tr.querySelector(`#${salarieId}${safeDate}ch${i}h`);
+  if (inputHeure) total += parseFloat(inputHeure.value || 0);
+}
   }
 
   // Lecture absence
