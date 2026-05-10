@@ -15,16 +15,26 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
+/* === Bloc supérieur fixe complètement collé === */
+header,
+.nav,
+.no-print {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
 /* --- Bandeau bleu --- */
 header {
   top: 0;
-  height: 70px;            /* augmente légèrement pour englober le contenu réel */
-  line-height: 70px;
+  height: 60px;            /* augmente légèrement pour englober le contenu réel */
+  line-height: 60px;
 }
 
 /* --- Barre de navigation juste sous le header --- */
 .nav {
-  top: 70px;               /* ajuste pour coller sous le bandeau bleu */
+  top: 60px;               /* ajuste pour coller sous le bandeau bleu */
   background: #e8edf3;
   height: 42px;
   display: flex;
