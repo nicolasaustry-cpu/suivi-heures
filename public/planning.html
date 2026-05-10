@@ -1,115 +1,49 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Planning du mois</title>
-<style>
-body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222;}
-header{background:#2563eb;color:#fff;padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;}
-h1{margin:0;font-size:1.4rem;}
-button{border:none;border-radius:4px;padding:0.5rem 1rem;font-weight:bold;cursor:pointer;color:#fff;}
-.btn-warning{background:#f59e0b;color:#000;}
-input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
-.flex{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;}
-.nav{background:#e8edf3;display:flex;justify-content:center;gap:1rem;padding:0.6rem;}
-.nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
-.nav a.active{text-decoration:underline;}
-@media print{.no-print{display:none!important;}}
-</style>
-</head>
-<body>
-<header><h1>Planning du mois</h1><div>✔️ Active</div></header>
-
-<div class="nav no-print">
-  <a href="index.html">Entreprise</a>
-  <a href="salaries.html">Salariés</a>
-  <a href="planning.html" class="active">Planning</a>
-  <a href="rapports.html">Rapports</a>
-</div>
-
-<!-- Bandeau haut : sélection + jauge + totaux -->
-<div style="background:#f8fafc;padding:0.8rem;" class="no-print">
-  <div class="flex">
-    <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
-    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-    <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
-  </div>
-
-  <!-- Jauge + Totaux -->
-  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
-    <thead>
-      <tr style="background:#fff3cd;">
-        <td colspan="10" style="border:1px solid #ccc;padding:4px;">
-          <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
-            <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-            <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-            <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()"><label for="figerSeuils">Figer</label>
-          </div>
-        </td>
-      </tr>
-      <tr style="background:#f0f9ff;">
-        <td colspan="10" style="border:1px solid #ccc;padding:8px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
-            <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
-              <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-              <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-              <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-              <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
-            </div>
-          </div>
-        </td>
-      </tr>
-      <tr style="background:#d1fae5;font-weight:bold;text-align:center;">
-         <td style="border:1px solid #ccc;padding:4px;width:140px;">TOTAUX</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
-         <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
-         <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
-         <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
-      </tr>
-    </thead>
-  </table>
-</div>
-
-<!-- Planning -->
-<div id="planning-wrapper" style="padding:0.8rem;"></div>
-
 <script>
-// ===========================================
-// Données locales
-// ===========================================
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
 
-// ===========================================
-// Jauge
-// ===========================================
+// ====== Jauge =======
 function majZonesJauge(){
   const rougeVal = parseFloat(document.getElementById('limiteRouge').value)||33;
   const orangeVal = parseFloat(document.getElementById('limiteOrange').value)||66;
   const rouge = Math.max(0, Math.min(rougeVal, 100));
   const orange = Math.max(rouge, Math.min(orangeVal, 100));
-  document.getElementById('zone-rouge').style.width  = rouge + '%';
-  document.getElementById('zone-orange').style.left   = rouge + '%';
-  document.getElementById('zone-orange').style.width  = (orange - rouge) + '%';
-  document.getElementById('zone-verte').style.left    = orange + '%';
-  document.getElementById('zone-verte').style.width   = (100 - orange) + '%';
+  const zR=document.getElementById('zone-rouge');
+  const zO=document.getElementById('zone-orange');
+  const zV=document.getElementById('zone-verte');
+  if(!zR||!zO||!zV) return;
+  zR.style.left='0%'; zR.style.width=rouge+'%';
+  zO.style.left=rouge+'%'; zO.style.width=(orange-rouge)+'%';
+  zV.style.left=orange+'%'; zV.style.width=(100-orange)+'%';
+  localStorage.setItem('parametresJauge',JSON.stringify({
+    rouge,orange,fige:document.getElementById('figerSeuils').checked
+  }));
 }
 
-// ===========================================
-// Génération du planning
-// ===========================================
+function majEtatFiger(){
+  const chk=document.getElementById('figerSeuils').checked;
+  document.getElementById('limiteRouge').disabled=chk;
+  document.getElementById('limiteOrange').disabled=chk;
+  majZonesJauge();
+}
+
+function chargerJauge(){
+  const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
+  document.getElementById('limiteRouge').value=conf.rouge;
+  document.getElementById('limiteOrange').value=conf.orange;
+  document.getElementById('figerSeuils').checked=conf.fige;
+  majEtatFiger();
+}
+
+// ====== Planning =======
 function genOptionsHeures(v){
-  let opt=''; for(let i=0;i<=10;i+=0.25){
+  let opt=''; 
+  for(let i=0;i<=10;i+=0.25){
     const lbl=i===Math.floor(i)?i:i.toFixed(2);
     const s=Math.abs(i-(+v||0))<0.001?'selected':'';
     opt+=`<option value="${i}" ${s}>${lbl}</option>`;
-  } return opt;
+  }
+  return opt;
 }
 
 function genererPlanning(){
@@ -117,84 +51,78 @@ function genererPlanning(){
   heures=JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const cont=document.getElementById("planning-wrapper");
   const moisSel=document.getElementById("moisPlanning").value;
-  if(!moisSel){ cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>"; return; }
+  if(!moisSel){cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
 
-  const [a,m] = moisSel.split("-");
-  const debut = new Date(+a,+m-1,1);
-  const fin   = new Date(+a,+m,0);
-  const jours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  const [a,m]=moisSel.split("-");
+  const debut=new Date(+a,+m-1,1);
+  const fin=new Date(+a,+m,0);
+  const jours=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
   cont.innerHTML="";
 
   let totT=0,totA=0,totP=0;
 
-  for(let d=new Date(debut); d<=fin; d.setDate(d.getDate()+1)){
-    if(d.getDay()===0) continue;
-    const jourNom = jours[d.getDay()];
-    const dateStr = d.toISOString().split("T")[0];
-    const safeDate = dateStr.replace(/-/g,"_");
-
-    let html = `<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
-    html += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+  for(let d=new Date(debut);d<=fin;d.setDate(d.getDate()+1)){
+    if(d.getDay()===0) continue; // dimanche
+    const jourNom=jours[d.getDay()];
+    const dateStr=d.toISOString().split("T")[0];
+    const safeDate=dateStr.replace(/-/g,"_");
+    let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
+    html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e2e8f0">
         <th>Salarié</th><th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
-        <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th></tr></thead><tbody>`;
+        <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
+      </tr></thead><tbody>`;
 
     salaries.forEach(s=>{
       const e=new Date(s.dateEntree);
       const srt=s.dateSortie?new Date(s.dateSortie):null;
       if(d<e||(srt&&d>srt))return;
-
-      const hp = s.heuresParJour || {}; 
-      const cle = ["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
+      const hp=s.heuresParJour||{};
+      const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
       let total=0;
-
       let row=`<tr data-salarie="${s.id}" data-date="${dateStr}">
         <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
 
       for(let i=1;i<=5;i++){
-        const k = `${s.id}${safeDate}ch${i}`;
-        const data = heures[k] || {chantier:"",heures:0};
-        total += parseFloat(data.heures)||0;
-        row += `<td style="border:1px solid #ccc;">
-          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
-            oninput="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
-          <select id="${k}h" style="width:60px;"
-            oninput="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)">
-            ${genOptionsHeures(data.heures)}</select></td>`;
+        const k=`${s.id}${safeDate}ch${i}`;
+        const data=heures[k]||{chantier:"",heures:0};
+        total+=parseFloat(data.heures)||0;
+        row+=`<td style="border:1px solid #ccc;padding:2px;">
+            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
+              oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+            <select id="${k}h" style="width:60px;"
+              oninput="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
+              ${genOptionsHeures(data.heures)}</select></td>`;
       }
 
-      const absK = `${s.id}${safeDate}abs`;
-      const abs  = heures[absK]?.heures || 0;
-      const prevu = hp[cle] || 0;
-      const ec = total - prevu + abs;
+      const absK=`${s.id}${safeDate}abs`;
+      const abs=heures[absK]?.heures||0;
+      const prevu=hp[cle]||0;
+      const ec=total-prevu+abs;
 
-      row += `<td class="cell-total">${total.toFixed(1)}</td>
-        <td><select data-type="abs" id="${absK}h" style="width:60px;"
-          oninput="saveHeure('${absK}', 'absence', this.value)">
-          ${genOptionsHeures(abs)}</select></td>
-        <td class="cell-prevu">${prevu.toFixed(1)}</td>
-        <td class="cell-ecart" style="color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
-
-      html += row;
+      row+=`<td class="cell-total">${total.toFixed(1)}</td>
+            <td><select data-type="abs" id="${absK}h" style="width:60px;"
+              oninput="saveHeure('${absK}','absence',this.value)">
+              ${genOptionsHeures(abs)}</select></td>
+            <td class="cell-prevu">${prevu.toFixed(1)}</td>
+            <td class="cell-ecart" style="color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
+      html+=row;
       totT+=total; totA+=abs; totP+=prevu;
     });
 
-    html += "</tbody></table>";
+    html+="</tbody></table>";
     cont.innerHTML+=html;
   }
+
   majTotauxGlobaux();
 }
 
-// ===========================================
-// Calcul instantané
-// ===========================================
 function saveHeure(k,ch,h){
   heures[k]={chantier:ch,heures:parseFloat(h)||0};
   localStorage.setItem("heuresdata",JSON.stringify(heures));
-
-  const match = k.match(/^(\d+)(\d{4}_.+)/); // correspond au format encodé
+  const match=k.match(/^(\d+)(\d{4}_.+)/);
   if(!match) return;
-  majTotalLigneLive(match[1], match[2].replace(/_/g,"-"));
+  majTotalLigneLive(match[1],match[2].replace(/_/g,"-"));
 }
 
 function majTotalLigneLive(salarieId,dateStr){
@@ -208,15 +136,16 @@ function majTotalLigneLive(salarieId,dateStr){
   }
   const abs=parseFloat(tr.querySelector("select[data-type='abs']")?.value||0);
   const s=salaries.find(x=>x.id==salarieId);
+  if(!s) return;
   const jour=new Date(dateStr).getDay();
   const cle=["dim","lun","mar","mer","jeu","ven","sam"][jour];
   const prevu=s?.heuresParJour?.[cle]||0;
   const ec=total-prevu+abs;
-  tr.querySelector(".cell-total").textContent=total.toFixed(2);
-  tr.querySelector(".cell-prevu").textContent=prevu.toFixed(2);
-  const cellEc=tr.querySelector(".cell-ecart");
-  cellEc.textContent=(ec>=0?"+":"")+ec.toFixed(2);
-  cellEc.style.color=ec<0?"red":"green";
+  tr.querySelector(".cell-total").textContent=total.toFixed(1);
+  tr.querySelector(".cell-prevu").textContent=prevu.toFixed(1);
+  const ecCell=tr.querySelector(".cell-ecart");
+  ecCell.textContent=(ec>=0?"+":"")+ec.toFixed(1);
+  ecCell.style.color=ec<0?"red":"green";
   majTotauxGlobaux();
 }
 
@@ -233,16 +162,8 @@ function majTotauxGlobaux(){
   document.getElementById("tot-prev").textContent=totP.toFixed(1);
   document.getElementById("tot-ecart").textContent=ec.toFixed(1);
   document.getElementById("tot-ecart").style.color=ec<0?"red":"green";
-  const pct=totP>0?(totT/totP)*100:0;
-  const curseur=document.getElementById("curseur");
-  const pour=document.getElementById("pourcentage");
-  if(curseur&&pour){
-    const largeur=curseur.parentElement.offsetWidth;
-    curseur.style.left=(pct/100)*largeur-4+"px";
-    pour.textContent=pct.toFixed(0)+"%";
-  }
 }
-// ====== Impression & Semaines =======
+
 function chargerSemaines(){
   const m=document.getElementById("moisPlanning").value;
   const sel=document.getElementById("semaineSelect");
@@ -251,11 +172,8 @@ function chargerSemaines(){
   const [a,mo]=m.split('-').map(Number);
   const d1=new Date(a,mo-1,1);
   const dL=new Date(a,mo,0);
-
-  // trouve le premier lundi du mois
   let lun=new Date(d1);
   while(lun.getDay()!==1) lun.setDate(lun.getDate()+1);
-
   let i=1;
   while(lun<=dL){
     const sam=new Date(lun); sam.setDate(lun.getDate()+5);
@@ -263,34 +181,29 @@ function chargerSemaines(){
     op.value=i;
     op.textContent=`Semaine ${i}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}`;
     sel.appendChild(op);
-    lun.setDate(lun.getDate()+7);
-    i++;
+    lun.setDate(lun.getDate()+7); i++;
   }
 }
 
-// ===========================================
-// Initialisation
-// ===========================================
+// ====== Initialisation =======
 document.addEventListener("DOMContentLoaded",()=>{
   const mois=document.getElementById("moisPlanning");
   const sem=document.getElementById("semaineSelect");
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-  chargerSemaines(); chargerJauge(); genererPlanning();
+  chargerSemaines();
+  chargerJauge();
+  genererPlanning();
 
-  // Écouteur live pour recalcul immédiat
-  document.getElementById("planning-wrapper")
-          .addEventListener("input",e=>{
-            if(e.target.matches("input,select")){
-              const tr=e.target.closest("tr[data-salarie]");
-              if(!tr)return;
-              majTotalLigneLive(tr.dataset.salarie,tr.dataset.date);
-            }
-          });
+  const wrapper=document.getElementById("planning-wrapper");
+  wrapper.addEventListener("input",e=>{
+    if(e.target.matches("input,select")){
+      const tr=e.target.closest("tr[data-salarie]");
+      if(tr) majTotalLigneLive(tr.dataset.salarie,tr.dataset.date);
+    }
+  });
 
-  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  mois.addEventListener("input",()=>{chargerSemaines();genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
 </script>
-</body>
-</html>
