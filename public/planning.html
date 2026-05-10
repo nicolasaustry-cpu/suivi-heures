@@ -4,81 +4,125 @@
 <meta charset="UTF-8">
 <title>Planning du mois</title>
 <style>
-body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#222;}
-header{background:#2563eb;color:#fff;padding:0.8rem 1rem;display:flex;justify-content:space-between;align-items:center;}
+body {
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f4f6f8;
+  color:#222;
+}
+/* ========= BLOC SUPÉRIEUR FIXE ========= */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+/* --- Bandeau bleu --- */
+header {
+  background:#2563eb;
+  color:#fff;
+  padding:0.8rem 1rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+/* --- Barre de navigation --- */
+.nav {
+  background:#e8edf3;
+  display:flex;
+  justify-content:center;
+  gap:1rem;
+  padding:0.6rem;
+}
+/* --- Zone filtres + jauge + totaux --- */
+.fixed-tools {
+  background:#f8fafc;
+  padding:0.8rem;
+  border-top:1px solid #ddd;
+  border-bottom:1px solid #ccc;
+}
+/* --- Le planning commence sous le bloc fixe --- */
+#planning-wrapper {
+  margin-top: 320px; /* hauteur totale du bloc supérieur */
+  padding:0.8rem;
+}
+/* Autres styles existants ---- */
 h1{margin:0;font-size:1.4rem;}
 button{border:none;border-radius:4px;padding:0.5rem 1rem;font-weight:bold;cursor:pointer;color:#fff;}
 .btn-warning{background:#f59e0b;color:#000;}
 input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .flex{display:flex;flex-wrap:wrap;gap:1rem;align-items:center;}
-.nav{background:#e8edf3;display:flex;justify-content:center;gap:1rem;padding:0.6rem;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
 </style>
 </head>
 <body>
-<header><h1>Planning du mois</h1><div>✔️ Active</div></header>
-
-<div class="nav no-print">
-  <a href="index.html">Entreprise</a>
-  <a href="salaries.html">Salariés</a>
-  <a href="planning.html" class="active">Planning</a>
-  <a href="rapports.html">Rapports</a>
-</div>
-
-<!-- Bandeau haut : sélection + jauge + totaux -->
-<div style="background:#f8fafc;padding:0.8rem;" class="no-print">
-  <div class="flex">
-    <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
-    <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-    <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+<!-- ===== Bloc complet fixe collé en haut ===== -->
+<div class="top-bar">
+  <header><h1>Planning du mois</h1><div>✔️ Active</div></header>
+  <div class="nav no-print">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="planning.html" class="active">Planning</a>
+    <a href="rapports.html">Rapports</a>
   </div>
-
-  <!-- Jauge + Totaux -->
-  <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
-    <thead>
-      <tr style="background:#fff3cd;">
-        <td colspan="10" style="border:1px solid #ccc;padding:4px;">
-          <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
-            <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-            <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
-            <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()"><label for="figerSeuils">Figer</label>
-          </div>
-        </td>
-      </tr>
-      <tr style="background:#f0f9ff;">
-        <td colspan="10" style="border:1px solid #ccc;padding:8px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
-            <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
-              <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-              <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-              <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-              <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+  <!-- Zone filtres + jauge + totaux -->
+  <div class="fixed-tools no-print">
+    <div class="flex">
+      <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
+      <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+      <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+    </div>
+    <!-- Jauge + Totaux : ton code existant -->
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
+      <thead>
+        <tr style="background:#fff3cd;">
+          <td colspan="10" style="border:1px solid #ccc;padding:4px;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+              <span>Rouge:</span><input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+              <span>Orange:</span><input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:50px;" onchange="majZonesJauge()"><span>%</span>
+              <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()"><label for="figerSeuils">Figer</label>
             </div>
-          </div>
-        </td>
-      </tr>
-      <tr style="background:#d1fae5;font-weight:bold;text-align:center;">
-         <td style="border:1px solid #ccc;padding:4px;width:140px;">TOTAUX</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;">—</td>
-         <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
-         <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
-         <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
-         <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
-      </tr>
-    </thead>
-  </table>
+          </td>
+        </tr>
+        <tr style="background:#f0f9ff;">
+          <td colspan="10" style="border:1px solid #ccc;padding:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="pourcentage" style="font-weight:bold;font-size:1rem;min-width:40px;">0%</div>
+              <div style="flex:1;position:relative;height:20px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+                <div id="zone-rouge" style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+                <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+                <div id="zone-verte" style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+                <div id="curseur" style="position:absolute;top:-2px;left:0;width:8px;height:24px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s ease;"></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr style="background:#d1fae5;font-weight:bold;text-align:center;">
+           <td style="border:1px solid #ccc;padding:4px;width:140px;">TOTAUX</td>
+           <td style="border:1px solid #ccc;padding:4px;">—</td>
+           <td style="border:1px solid #ccc;padding:4px;">—</td>
+           <td style="border:1px solid #ccc;padding:4px;">—</td>
+           <td style="border:1px solid #ccc;padding:4px;">—</td>
+           <td style="border:1px solid #ccc;padding:4px;">—</td>
+           <td id="tot-total" style="border:1px solid #ccc;padding:4px;">0</td>
+           <td id="tot-abs" style="border:1px solid #ccc;padding:4px;">0</td>
+           <td id="tot-prev" style="border:1px solid #ccc;padding:4px;">0</td>
+           <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;">0</td>
+        </tr>
+      </thead>
+    </table>
+  </div>
 </div>
-
 <!-- Planning -->
-<div id="planning-wrapper" style="padding:0.8rem;"></div>
-
+<div id="planning-wrapper"></div>
+<!-- Tout ton script inchangé -->
 <script>
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
