@@ -15,39 +15,25 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
-/* ==== Haut de page entièrement fixe ==== */
-header,
-.nav,
-.no-print {
-  position: fixed;
-  left: 0;
-  right: 0;
+/* === Bandeau supérieur fixe lors du défilement === */
+header, .nav, .no-print {
+  position: sticky;
+  top: 0;
   z-index: 1000;
 }
 
-/* Bandeau bleu tout en haut */
 header {
   top: 0;
 }
 
-/* Barre de navigation collée juste dessous */
 .nav {
-  top: 100px; /* hauteur approximative du header */
+  top: 50px; /* hauteur approximative de l’en-tête */
 }
 
-/* Zone filtres + jauge + totaux juste sous la nav */
 .no-print {
-  top: 90px; /* ajuste selon la hauteur réelle de ta barre bleue + nav */
+  top: 100px; /* colle sous la barre de navigation */
   background: #f8fafc;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
-
-/* Pour compenser la hauteur fixe et ne pas masquer le planning */
-#planning-wrapper {
-  margin-top: 250px; /* espace équivalent à la hauteur du bloc fixe */
-}
-
-
 </style>
 </head>
 <body>
