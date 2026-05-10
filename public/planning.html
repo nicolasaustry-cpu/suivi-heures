@@ -100,6 +100,38 @@ td[data-type="abs"],
   overflow: hidden;
   white-space: nowrap;
 }
+/* ==========================================
+   Largeurs fixes des 4 colonnes de résultats
+   ========================================== */
+.cell-total,
+.cell-prevu,
+.cell-ecart,
+td[data-type="abs"],
+th:nth-last-child(-n+4) {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ==========================================
+   Colonnes chantiers : flexibles et responsives
+   ========================================== */
+td:not(.cell-total):not(.cell-prevu):not(.cell-ecart):not([data-type="abs"]):not(:first-child),
+th:not(:first-child):not(:nth-last-child(-n+4)) {
+  width: auto;
+  min-width: 150px;      /* largeur mini des colonnes chantier */
+  max-width: 250px;      /* largeur max souhaitée */
+  white-space: nowrap;
+}
+
+/* Ajustement pour éviter la déformation du tableau complet */
+table {
+  table-layout: fixed;
+  width: 100%;
+}
 
 </style>
 </head>
