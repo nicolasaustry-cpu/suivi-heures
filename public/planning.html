@@ -125,29 +125,46 @@ function saveHeure(k,ch,h){
   majTotalLigneLive(match[1],match[2].replace(/_/g,"-"));
 }
 
-function majTotalLigneLive(salarieId,dateStr){
-  const tr=document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
-  if(!tr) return;
-  let total=0;
-  const safeDate=dateStr.replace(/-/g,"_");
-  for(let i=1;i<=5;i++){
-    const el=tr.querySelector(`#${salarieId}${safeDate}ch${i}h`);
-    if(el) total+=parseFloat(el.value)||0;
+function majTotalLigneLive(salarieId, dateStr) {
+  const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
+  if (!tr) return;
+
+  // Somme directe des valeurs visibles dans la ligne
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const safeDate = dateStr.replace(/-/g, "_");
+    const inputHeure = tr.querySelector(`#${salarieId}${safeDate}ch${i}h`);
+    if (inputHeure) total += parseFloat(inputHeure.value || 0);
   }
-  const abs=parseFloat(tr.querySelector("select[data-type='abs']")?.value||0);
-  const s=salaries.find(x=>x.id==salarieId);
-  if(!s) return;
-  const jour=new Date(dateStr).getDay();
-  const cle=["dim","lun","mar","mer","jeu","ven","sam"][jour];
-  const prevu=s?.heuresParJour?.[cle]||0;
-  const ec=total-prevu+abs;
-  tr.querySelector(".cell-total").textContent=total.toFixed(1);
-  tr.querySelector(".cell-prevu").textContent=prevu.toFixed(1);
-  const ecCell=tr.querySelector(".cell-ecart");
-  ecCell.textContent=(ec>=0?"+":"")+ec.toFixed(1);
-  ecCell.style.color=ec<0?"red":"green";
+
+  // Lecture absence
+  const absSelect = tr.querySelector("select[data-type='abs']");
+  const abs = absSelect ? parseFloat(absSelect.value || 0) : 0;
+
+  // Heure prévue
+  const salarie = salaries.find(s => s.id == salarieId);
+  if (!salarie) return;
+  const jour = new Date(dateStr).getDay();
+  const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
+  const prevu = parseFloat(salarie.heuresParJour?.[cle] || 0);
+
+  const ecart = total - prevu + abs;
+
+  // Mise à jour visuelle
+  const totCell   = tr.querySelector(".cell-total");
+  const prevuCell = tr.querySelector(".cell-prevu");
+  const ecartCell = tr.querySelector(".cell-ecart");
+  if (totCell)   totCell.textContent   = total.toFixed(2);
+  if (prevuCell) prevuCell.textContent = prevu.toFixed(2);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(2);
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
+  }
+
+  // Mise à jour des totaux globaux
   majTotauxGlobaux();
 }
+
 
 function majTotauxGlobaux(){
   let totT=0,totA=0,totP=0;
