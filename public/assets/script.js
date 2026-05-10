@@ -19,7 +19,11 @@ function afficherSalaries() {
         <td>${s.prenom}</td>
         <td>${s.nom}</td>
         <td>${s.dateEntree || ""}</td>
-        <td>${s.dateSortie || ""}</td>
+        <td>
+          <input type="date" value="${s.dateSortie || ""}"
+                 onchange="majDateSortie(${s.id}, this.value)"
+                 style="width:130px;">
+        </td>
         <td>${h.lun ?? 0}</td>
         <td>${h.mar ?? 0}</td>
         <td>${h.mer ?? 0}</td>
@@ -32,6 +36,19 @@ function afficherSalaries() {
       </tr>`;
   });
 }
+function majDateSortie(id, nouvelleDate) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  sal.dateSortie = nouvelleDate || "";
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
+
+  // 🔄 actualise l'affichage
+  afficherSalaries();
+
+  // 🔁 signale la maj du planning (pour actualiser les jours actifs)
+  localStorage.setItem("majPlanning", Date.now().toString());
+}
+
 
 /* ===========================================
    AJOUT / SUPPRESSION DE SALARIÉ
