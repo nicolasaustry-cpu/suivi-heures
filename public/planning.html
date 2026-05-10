@@ -143,6 +143,7 @@ function genererPlanning(){
     if(d.getDay()===0)continue;
     const jourNom=jours[d.getDay()];
     const dateStr=d.toISOString().split("T")[0];
+    const safeDate=dateStr.replace(/-/g,"_");     // ← ID sans tiret
     let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
     html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e2e8f0">
@@ -160,21 +161,21 @@ function genererPlanning(){
       let total=0;
       let row=`<tr data-salarie="${s.id}" data-date="${dateStr}">
         <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
-for (let i = 1; i <= 5; i++) {
-  const k = `${s.id}${dateStr}ch${i}`;
-  const data = heures[k] || { chantier: "", heures: 0 };
-  total += parseFloat(data.heures) || 0;
-  row += `
-    <td style="border:1px solid #ccc;padding:2px;">
-      <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
-        oninput="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
-      <select id="${k}h" style="width:60px;"
-        onchange="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)">
-        ${genOptionsHeures(data.heures)}
-      </select>
-    </td>`;
-}
-      const absK=`${s.id}${dateStr}abs`;
+      for (let i = 1; i <= 5; i++) {
+        const k = `${s.id}${safeDate}ch${i}`;
+        const data = heures[k] || { chantier: "", heures: 0 };
+        total += parseFloat(data.heures) || 0;
+        row += `
+          <td style="border:1px solid #ccc;padding:2px;">
+            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
+              oninput="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
+            <select id="${k}h" style="width:60px;"
+              onchange="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)">
+              ${genOptionsHeures(data.heures)}
+            </select>
+          </td>`;
+      }
+      const absK=`${s.id}${safeDate}abs`;
       const abs=heures[absK]?.heures||0;
       const prevu=hp[cle]||0;
       const ec=total - prevu + abs;
@@ -196,30 +197,30 @@ for (let i = 1; i <= 5; i++) {
   majTotauxGlobaux();
 }
 
-// ====== Calculs dynamiques =======
+// ===== Calcul et mise à jour instantanée =====
 function saveHeure(k, ch, h) {
-  // Sauvegarde locale
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   localStorage.setItem('heuresdata', JSON.stringify(heures));
 
-  // Identification salarié + date
-  const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
+  // adapter à l'ID sûr
+  const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
   if (!match) return;
-
   const salarieId = match[1];
-  const dateStr = match[2];
-
-  // Mise à jour immédiate de la ligne
-  majTotalLigneLive(salarieId, dateStr, true); // recalcul instantané
+  const safeDate  = match[2];
+  const dateStr   = safeDate.replace(/_/g, "-");
+  majTotalLigne(salarieId, dateStr);
 }
 
 function majTotalLigne(salarieId, dateStr) {
+  const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
+  if (!tr) return;
+  const safeDate=dateStr.replace(/-/g,"_");   // adapte aux nouveaux IDs
   let total = 0;
   for (let i = 1; i <= 5; i++) {
-    const k = `${salarieId}${dateStr}ch${i}`;
+    const k = `${salarieId}${safeDate}ch${i}`;
     total += parseFloat(heures[k]?.heures || 0);
   }
-  const absK = `${salarieId}${dateStr}abs`;
+  const absK = `${salarieId}${safeDate}abs`;
   const abs = parseFloat(heures[absK]?.heures || 0);
   const salarie = salaries.find(s => s.id == salarieId);
   if (!salarie) return;
@@ -227,13 +228,12 @@ function majTotalLigne(salarieId, dateStr) {
   const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
   const prevu = salarie.heuresParJour?.[cle] || 0;
   const ecart = total - prevu + abs;
-  const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
-  if (!tr) return;
+  const ecCell = tr.querySelector(".cell-ecart");
   tr.querySelector(".cell-total").textContent = total.toFixed(1);
   tr.querySelector(".cell-prevu").textContent = prevu.toFixed(1);
-  const ecCell = tr.querySelector(".cell-ecart");
   ecCell.textContent = `${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}`;
   ecCell.style.color = ecart < 0 ? 'red' : 'green';
+  majTotauxGlobaux();
 }
 
 function majTotauxGlobaux() {
@@ -282,7 +282,7 @@ function chargerSemaines(){
 }
 
 // Initialisation
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded",()=>{ 
   const mois=document.getElementById("moisPlanning");
   const sem=document.getElementById("semaineSelect");
   const now=new Date();
