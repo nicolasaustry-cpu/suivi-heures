@@ -196,85 +196,87 @@ for (let i = 1; i <= 5; i++) {
   majTotauxGlobaux();
 }
 
-// ====== Calculs dynamiques =======
-// ----------- Sauvegarde et recalcul instantané -----------
+// ===== Calcul et mise à jour instantanée =====
 function saveHeure(k, ch, h) {
-  // Met à jour uniquement en mémoire
+  // Sauvegarde immédiate dans la mémoire et le stockage
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
-  // Ne recharge pas depuis le localStorage, on garde l'état actuel
+  localStorage.setItem("heuresdata", JSON.stringify(heures));
 
+  // Identifier le salarié et la date (clé = id + date)
   const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
   if (!match) return;
-
   const salarieId = match[1];
-  const dateStr = match[2];
+  const dateStr   = match[2];
 
+  // Calcul direct
   majTotalLigneLive(salarieId, dateStr);
 }
 
-// ----------- Recalcul dynamique d'une ligne -----------
 function majTotalLigneLive(salarieId, dateStr) {
   const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
   if (!tr) return;
 
-  // ⚙️ Nouveau calcul direct : lit les <select> affichés
+  // Somme directe des valeurs visibles dans la ligne
   let total = 0;
   for (let i = 1; i <= 5; i++) {
-    const sel = tr.querySelector(`#${salarieId}${dateStr}ch${i}h`);
-    if (!sel) continue;
-    total += parseFloat(sel.value || 0);
+    const inputHeure = tr.querySelector(`#${salarieId}${dateStr}ch${i}h`);
+    if (inputHeure) total += parseFloat(inputHeure.value || 0);
   }
 
-  // Absence
-  const absSel = tr.querySelector("select[data-type='abs']");
-  const abs = parseFloat(absSel?.value || 0);
+  // Lecture absence
+  const absSelect = tr.querySelector("select[data-type='abs']");
+  const abs = absSelect ? parseFloat(absSelect.value || 0) : 0;
 
-  // Heures prévues selon le salarié
+  // Heure prévue
   const salarie = salaries.find(s => s.id == salarieId);
   if (!salarie) return;
   const jour = new Date(dateStr).getDay();
-  const cle = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"][jour];
-  const prevu = salarie.heuresParJour?.[cle] || 0;
+  const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
+  const prevu = parseFloat(salarie.heuresParJour?.[cle] || 0);
+
   const ecart = total - prevu + abs;
 
-  // Écriture instantanée dans la ligne
-  const cellTot  = tr.querySelector(".cell-total");
-  const cellPrev = tr.querySelector(".cell-prevu");
-  const cellEcart= tr.querySelector(".cell-ecart");
-
-  if (cellTot)  cellTot.textContent  = total.toFixed(2);
-  if (cellPrev) cellPrev.textContent = prevu.toFixed(2);
-  if (cellEcart){
-    cellEcart.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(2);
-    cellEcart.style.color = ecart < 0 ? "red" : "green";
+  // Mise à jour visuelle
+  const totCell   = tr.querySelector(".cell-total");
+  const prevuCell = tr.querySelector(".cell-prevu");
+  const ecartCell = tr.querySelector(".cell-ecart");
+  if (totCell)   totCell.textContent   = total.toFixed(2);
+  if (prevuCell) prevuCell.textContent = prevu.toFixed(2);
+  if (ecartCell) {
+    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(2);
+    ecartCell.style.color = ecart < 0 ? "red" : "green";
   }
 
-  // 🔁 Met à jour les totaux globaux et la jauge immédiatement
+  // Mise à jour des totaux globaux
   majTotauxGlobaux();
 }
 
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0;
-  document.querySelectorAll("tr[data-salarie]").forEach(tr => {
-    totT += parseFloat(tr.querySelector(".cell-total")?.textContent) || 0;
-    totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
-    totP += parseFloat(tr.querySelector(".cell-prevu")?.textContent) || 0;
+  const lignes = document.querySelectorAll("tr[data-salarie]");
+  lignes.forEach(tr => {
+    totT += parseFloat(tr.querySelector(".cell-total")?.textContent || 0);
+    totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value || 0);
+    totP += parseFloat(tr.querySelector(".cell-prevu")?.textContent || 0);
   });
+
   const ec = totT - totP;
-  document.getElementById('tot-total').textContent = totT.toFixed(1);
-  document.getElementById('tot-abs').textContent = totA.toFixed(1);
-  document.getElementById('tot-prev').textContent = totP.toFixed(1);
-  document.getElementById('tot-ecart').textContent = ec.toFixed(1);
-  document.getElementById('tot-ecart').style.color = ec < 0 ? 'red' : 'green';
+  document.getElementById("tot-total").textContent = totT.toFixed(1);
+  document.getElementById("tot-abs").textContent   = totA.toFixed(1);
+  document.getElementById("tot-prev").textContent  = totP.toFixed(1);
+  document.getElementById("tot-ecart").textContent = ec.toFixed(1);
+  document.getElementById("tot-ecart").style.color = ec < 0 ? "red" : "green";
+
   const pct = totP > 0 ? (totT / totP) * 100 : 0;
-  const curseur = document.getElementById('curseur');
-  const pour = document.getElementById('pourcentage');
+  const curseur = document.getElementById("curseur");
+  const pour    = document.getElementById("pourcentage");
   if (curseur && pour) {
     const largeur = curseur.parentElement.offsetWidth;
-    curseur.style.left = (pct / 100) * largeur - 4 + 'px';
-    pour.textContent = pct.toFixed(0) + '%';
+    curseur.style.left = (pct / 100) * largeur - 4 + "px";
+    pour.textContent = pct.toFixed(0) + "%";
   }
 }
+
 
 // ====== Impression & Semaines =======
 function imprimerSemaine(){ /* inchangée */ }
