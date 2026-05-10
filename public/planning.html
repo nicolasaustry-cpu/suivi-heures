@@ -151,6 +151,8 @@ function genererPlanning(){
         <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
+let totalJour = 0;
+
 
     salaries.forEach(s=>{
       const e=new Date(s.dateEntree);
@@ -202,8 +204,19 @@ row += `</tr>`;
 
       html+=row;
       totT+=total; totA+=abs; totP+=prevu;
+totalJour += total;
     });
     html+="</tbody></table>";
+// Si totalJour == 0, on efface tous les "Prévu" du jour
+if (totalJour === 0) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  doc.querySelectorAll(".cell-prevu").forEach(td => td.textContent = "");
+  doc.querySelectorAll(".cell-ecart").forEach(td => td.textContent = "");
+  html = doc.body.innerHTML;
+}
+cont.innerHTML += html;
+
     cont.innerHTML+=html;
   }
   majTotauxGlobaux();
