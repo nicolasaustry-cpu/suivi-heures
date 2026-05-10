@@ -15,25 +15,38 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
-/* === Bandeau supérieur fixe et collé sous le header === */
-header {
-  position: sticky;
-  top: 0;
+/* ==== Haut de page entièrement fixe ==== */
+header,
+.nav,
+.no-print {
+  position: fixed;
+  left: 0;
+  right: 0;
   z-index: 1000;
 }
 
-.nav {
-  position: sticky;
-  top: 48px; /* colle la navigation juste sous le header bleu */
-  z-index: 999;
+/* Bandeau bleu tout en haut */
+header {
+  top: 0;
 }
 
-.no-print {
-  position: sticky;
-  top: 60px; /* colle la partie haute (mois + jauge) sous la barre navigation */
-  z-index: 998;
-  background: #f8fafc;
+/* Barre de navigation collée juste dessous */
+.nav {
+  top: 48px; /* hauteur approximative du header */
 }
+
+/* Zone filtres + jauge + totaux juste sous la nav */
+.no-print {
+  top: 90px; /* ajuste selon la hauteur réelle de ta barre bleue + nav */
+  background: #f8fafc;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Pour compenser la hauteur fixe et ne pas masquer le planning */
+#planning-wrapper {
+  margin-top: 250px; /* espace équivalent à la hauteur du bloc fixe */
+}
+
 
 </style>
 </head>
