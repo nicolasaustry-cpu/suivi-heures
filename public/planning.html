@@ -239,12 +239,14 @@ function saveHeure(k, ch, h) {
 function majTotalLigne(salarieId, dateStr) {
   const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
   if (!tr) return;
-  const safeDate=dateStr.replace(/-/g,"_");   // adapte aux nouveaux IDs
+
+  const safeDate = dateStr.replace(/-/g, "_");
   let total = 0;
   for (let i = 1; i <= 5; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     total += parseFloat(heures[k]?.heures || 0);
   }
+
   const absK = `${salarieId}${safeDate}abs`;
   const abs = parseFloat(heures[absK]?.heures || 0);
   const salarie = salaries.find(s => s.id == salarieId);
@@ -253,11 +255,45 @@ function majTotalLigne(salarieId, dateStr) {
   const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
   const prevu = salarie.heuresParJour?.[cle] || 0;
   const ecart = total - prevu + abs;
-  const ecCell = tr.querySelector(".cell-ecart");
+
+  // Mise à jour de la ligne
   tr.querySelector(".cell-total").textContent = total.toFixed(1);
-  tr.querySelector(".cell-prevu").textContent = prevu.toFixed(1);
-  ecCell.textContent = `${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}`;
+  const prevuCell = tr.querySelector(".cell-prevu");
+  const ecCell = tr.querySelector(".cell-ecart");
+  prevuCell.textContent = prevu.toFixed(1);
+  ecCell.textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
   ecCell.style.color = ecart < 0 ? 'red' : 'green';
+
+  // === 🔹 Vérifie si au moins un salarié du jour a >0 heures ===
+  const rowsJour = document.querySelectorAll(`tr[data-date="${dateStr}"]`);
+  let jourAHeures = false;
+  rowsJour.forEach(r => {
+    const tot = parseFloat(r.querySelector(".cell-total")?.textContent) || 0;
+    if (tot > 0) jourAHeures = true;
+  });
+
+  // === 🔹 Actualise affichage Prévu/Écart pour tous les salariés du jour ===
+  rowsJour.forEach(r => {
+    const p = r.querySelector(".cell-prevu");
+    const e = r.querySelector(".cell-ecart");
+    if (!jourAHeures) {
+      p.textContent = "";
+      e.textContent = "";
+    } else {
+      const idSalarie = r.dataset.salarie;
+      const sal = salaries.find(s => s.id == idSalarie);
+      const jourNum = new Date(dateStr).getDay();
+      const cleSal = ["dim","lun","mar","mer","jeu","ven","sam"][jourNum];
+      const prevuSal = sal?.heuresParJour?.[cleSal] || 0;
+      const totalSal = parseFloat(r.querySelector(".cell-total")?.textContent) || 0;
+      const absVal = parseFloat(r.querySelector("select[data-type='abs']")?.value) || 0;
+      const ec = totalSal - prevuSal + absVal;
+      p.textContent = prevuSal.toFixed(1);
+      e.textContent = (ec >= 0 ? "+" : "") + ec.toFixed(1);
+      e.style.color = ec < 0 ? "red" : "green";
+    }
+  });
+
   majTotauxGlobaux();
 }
 
