@@ -168,7 +168,7 @@ function genererPlanning(){
           <input value="${data.chantier}" placeholder="Chantier" style="width:150px;"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:60px;"
-            onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value)">
+            onchange="saveHeure('${k}',document.querySelector(\`input[oninput*='${k}']\`).value,this.value)">
             ${genOptionsHeures(data.heures)}
           </select>
         </td>`;
