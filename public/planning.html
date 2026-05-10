@@ -60,19 +60,15 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
-/* Fixe la largeur des colonnes Totaux, Abs, Prévu, Écart */
-td.cell-total,
-td.cell-prevu,
-td.cell-ecart,
-td[data-type="abs"],
-th:nth-last-child(-n+4) {
+/* Barre TOTAUX simplifiée : 4 colonnes finales alignées */
+#totaux-barre td {
   width: 50px;
-  max-width: 50px;
-  min-width: 50px;
   text-align: center;
-  overflow: hidden;
+  border: 1px solid #ccc;
+  padding: 4px;
   white-space: nowrap;
 }
+
 /* Réduction et alignement de la barre TOTAUX */
 #totaux-barre td {
   width: 50px;
@@ -137,13 +133,12 @@ th:nth-last-child(-n+4) {
             </div>
           </td>
         </tr>
-        <tr id="totaux-barre" style="background:#d1fae5;font-weight:bold;text-align:center;">
-  <td colspan="5"></td> <!-- colonnes chantier cachées -->
-  <td style="border:1px solid #ccc;padding:4px;">TOTAUX</td>
-  <td id="tot-total" style="border:1px solid #ccc;">0</td>
-  <td id="tot-abs" style="border:1px solid #ccc;">0</td>
-  <td id="tot-prev" style="border:1px solid #ccc;">0</td>
-  <td id="tot-ecart" style="border:1px solid #ccc;">0</td>
+<tr id="totaux-barre" style="background:#d1fae5;font-weight:bold;text-align:center;">
+  <td colspan="6"></td> <!-- colonnes chantier masquées -->
+  <td id="tot-total" style="border:1px solid #ccc;">Total : 0</td>
+  <td id="tot-abs" style="border:1px solid #ccc;">Abs. : 0</td>
+  <td id="tot-prev" style="border:1px solid #ccc;">Prévu : 0</td>
+  <td id="tot-ecart" style="border:1px solid #ccc;">Écart : 0</td>
 </tr>
 
       </thead>
@@ -384,10 +379,11 @@ function majTotauxGlobaux() {
     totP += parseFloat(tr.querySelector(".cell-prevu")?.textContent) || 0;
   });
   const ec = totT - totP;
-  document.getElementById('tot-total').textContent = totT.toFixed(1);
-  document.getElementById('tot-abs').textContent = totA.toFixed(1);
-  document.getElementById('tot-prev').textContent = totP.toFixed(1);
-  document.getElementById('tot-ecart').textContent = ec.toFixed(1);
+ document.getElementById('tot-total').textContent = "Total : " + totT.toFixed(1);
+document.getElementById('tot-abs').textContent   = "Abs. : " + totA.toFixed(1);
+document.getElementById('tot-prev').textContent  = "Prévu : " + totP.toFixed(1);
+document.getElementById('tot-ecart').textContent = "Écart : " + ec.toFixed(1);
+
   document.getElementById('tot-ecart').style.color = ec < 0 ? 'red' : 'green';
   const pct = totP > 0 ? (totT / totP) * 100 : 0;
   const curseur = document.getElementById('curseur');
