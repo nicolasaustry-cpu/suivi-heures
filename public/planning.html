@@ -79,7 +79,7 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 
 /* Ajuste le bloc "TOTAUX" (le libellé) un peu plus large */
 #totaux-barre td:nth-child(6) {
-  width: 80px;
+  width: 100px;
   font-weight: bold;
 }
 
@@ -87,7 +87,19 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 #totaux-barre {
   table-layout: fixed;
 }
-
+/* Largeur fixe de 50 px pour les colonnes Total / Abs. / Prévu / Écart */
+.cell-total,
+.cell-prevu,
+.cell-ecart,
+td[data-type="abs"],
+#totaux-barre td {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
 
 </style>
 </head>
