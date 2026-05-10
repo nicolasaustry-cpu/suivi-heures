@@ -151,9 +151,10 @@ table {
   <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
   <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
   <div><label>Salarié :</label><br>
-    <select id="filtreSalarie" onchange="genererPlanning()" style="min-width:180px;">
-      <option value="">— Tous —</option>
-    </select>
+<select id="filtreSalarie" multiple size="4" onchange="genererPlanning()" style="min-width:180px;">
+  <option value="">— Tous —</option>
+</select>
+
   </div>
   <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
 </div>
@@ -246,12 +247,19 @@ function genOptionsHeures(v){
 
 function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
-// Filtrer selon le salarié choisi
+// Filtrer selon les salariés sélectionnés (plusieurs possibles)
 const filtre = document.getElementById("filtreSalarie");
-const idFiltre = filtre ? filtre.value : "";
-if (idFiltre) {
-  salaries = salaries.filter(s => s.id.toString() === idFiltre);
+let idsFiltres = [];
+if (filtre) {
+  idsFiltres = Array.from(filtre.selectedOptions)
+    .map(opt => opt.value)
+    .filter(v => v !== ""); // exclut “— Tous —”
 }
+
+if (idsFiltres.length > 0) {
+  salaries = salaries.filter(s => idsFiltres.includes(s.id.toString()));
+}
+
 
   heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const cont = document.getElementById("planning-wrapper");
