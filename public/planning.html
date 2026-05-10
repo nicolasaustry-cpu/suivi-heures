@@ -151,8 +151,6 @@ function genererPlanning(){
         <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
-let totalJour = 0;
-
 
     salaries.forEach(s=>{
       const e=new Date(s.dateEntree);
@@ -180,43 +178,20 @@ let totalJour = 0;
       const absK=`${s.id}${safeDate}abs`;
       const abs=heures[absK]?.heures||0;
       const prevu=hp[cle]||0;
-const ec = total - prevu + abs;
-row += `<td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
-         <td style="border:1px solid #ccc;text-align:center;">
-           <select data-type="abs" id="${absK}h" style="width:60px;"
-             onchange="saveHeure('${absK}','absence',this.value)">
-             ${genOptionsHeures(abs)}
-           </select>
-         </td>`;
-
-if (total > 0) {
-  row += `<td class="cell-prevu" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
-          <td class="cell-ecart" style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">
-            ${ec>=0?'+':''}${ec.toFixed(1)}
-          </td>`;
-} else {
-  // Lignes vides si aucune heure saisie
-  row += `<td class="cell-prevu" style="border:1px solid #ccc;text-align:center;"></td>
-          <td class="cell-ecart" style="border:1px solid #ccc;text-align:center;"></td>`;
-}
-
-row += `</tr>`;
-
+      const ec=total - prevu + abs;
+      row+=`<td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
+             <td style="border:1px solid #ccc;text-align:center;">
+               <select data-type="abs" id="${absK}h" style="width:60px;"
+                 onchange="saveHeure('${absK}','absence',this.value)">
+                 ${genOptionsHeures(abs)}
+               </select>
+             </td>
+             <td class="cell-prevu" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
+             <td class="cell-ecart" style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
       html+=row;
       totT+=total; totA+=abs; totP+=prevu;
-totalJour += total;
     });
     html+="</tbody></table>";
-// Si totalJour == 0, on efface tous les "Prévu" du jour
-if (totalJour === 0) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  doc.querySelectorAll(".cell-prevu").forEach(td => td.textContent = "");
-  doc.querySelectorAll(".cell-ecart").forEach(td => td.textContent = "");
-  html = doc.body.innerHTML;
-}
-cont.innerHTML += html;
-
     cont.innerHTML+=html;
   }
   majTotauxGlobaux();
@@ -253,19 +228,11 @@ function majTotalLigne(salarieId, dateStr) {
   const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
   const prevu = salarie.heuresParJour?.[cle] || 0;
   const ecart = total - prevu + abs;
-tr.querySelector(".cell-total").textContent = total.toFixed(1);
-const prevuCell = tr.querySelector(".cell-prevu");
-const ecCell = tr.querySelector(".cell-ecart");
-
-if (total > 0) {
-  prevuCell.textContent = prevu.toFixed(1);
-  ecCell.textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
+  const ecCell = tr.querySelector(".cell-ecart");
+  tr.querySelector(".cell-total").textContent = total.toFixed(1);
+  tr.querySelector(".cell-prevu").textContent = prevu.toFixed(1);
+  ecCell.textContent = `${ecart >= 0 ? '+' : ''}${ecart.toFixed(1)}`;
   ecCell.style.color = ecart < 0 ? 'red' : 'green';
-} else {
-  prevuCell.textContent = '';
-  ecCell.textContent = '';
-}
-
   majTotauxGlobaux();
 }
 
