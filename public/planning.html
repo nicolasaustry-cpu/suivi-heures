@@ -197,58 +197,60 @@ for (let i = 1; i <= 5; i++) {
 }
 
 // ====== Calculs dynamiques =======
+// ----------- Sauvegarde et recalcul instantané -----------
 function saveHeure(k, ch, h) {
-  // Sauvegarde locale
+  // Met à jour uniquement en mémoire
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  // Ne recharge pas depuis le localStorage, on garde l'état actuel
 
-  // Identification salarié + date
   const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
   if (!match) return;
 
   const salarieId = match[1];
   const dateStr = match[2];
 
-  // Mise à jour immédiate de la ligne
-  majTotalLigneLive(salarieId, dateStr, true); // recalcul instantané
+  majTotalLigneLive(salarieId, dateStr);
 }
 
-function majTotalLigneLive(salarieId, dateStr, majGlobaux = false) {
+// ----------- Recalcul dynamique d'une ligne -----------
+function majTotalLigneLive(salarieId, dateStr) {
   const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
   if (!tr) return;
 
-  // Lecture en direct des 5 selects
+  // ⚙️ Nouveau calcul direct : lit les <select> affichés
   let total = 0;
   for (let i = 1; i <= 5; i++) {
     const sel = tr.querySelector(`#${salarieId}${dateStr}ch${i}h`);
-    total += parseFloat(sel?.value || 0);
+    if (!sel) continue;
+    total += parseFloat(sel.value || 0);
   }
 
-  // Lecture absence
-  const absSel = tr.querySelector(`select[data-type='abs']`);
+  // Absence
+  const absSel = tr.querySelector("select[data-type='abs']");
   const abs = parseFloat(absSel?.value || 0);
 
-  // Données prévues
+  // Heures prévues selon le salarié
   const salarie = salaries.find(s => s.id == salarieId);
   if (!salarie) return;
-
   const jour = new Date(dateStr).getDay();
   const cle = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"][jour];
   const prevu = salarie.heuresParJour?.[cle] || 0;
   const ecart = total - prevu + abs;
 
-  // Mise à jour DOM instantanée
-  const cellTot = tr.querySelector(".cell-total");
+  // Écriture instantanée dans la ligne
+  const cellTot  = tr.querySelector(".cell-total");
   const cellPrev = tr.querySelector(".cell-prevu");
-  const cellEcart = tr.querySelector(".cell-ecart");
+  const cellEcart= tr.querySelector(".cell-ecart");
 
-  cellTot.textContent = total.toFixed(2);
-  cellPrev.textContent = prevu.toFixed(2);
-  cellEcart.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(2);
-  cellEcart.style.color = ecart < 0 ? "red" : "green";
+  if (cellTot)  cellTot.textContent  = total.toFixed(2);
+  if (cellPrev) cellPrev.textContent = prevu.toFixed(2);
+  if (cellEcart){
+    cellEcart.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(2);
+    cellEcart.style.color = ecart < 0 ? "red" : "green";
+  }
 
-  // Recalcul des totaux globaux sans régénérer
-  if (majGlobaux || true) majTotauxGlobaux();
+  // 🔁 Met à jour les totaux globaux et la jauge immédiatement
+  majTotauxGlobaux();
 }
 
 function majTotauxGlobaux() {
