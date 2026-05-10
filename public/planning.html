@@ -147,11 +147,17 @@ table {
   </div>
   <!-- Zone filtres + jauge + totaux -->
   <div class="fixed-tools no-print">
-    <div class="flex">
-      <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
-      <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-      <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
-    </div>
+<div class="flex">
+  <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
+  <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
+  <div><label>Salarié :</label><br>
+    <select id="filtreSalarie" onchange="genererPlanning()" style="min-width:180px;">
+      <option value="">— Tous —</option>
+    </select>
+  </div>
+  <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
+</div>
+
     <!-- Jauge + Totaux : ton code existant -->
     <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
       <thead>
@@ -240,6 +246,13 @@ function genOptionsHeures(v){
 
 function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
+// Filtrer selon le salarié choisi
+const filtre = document.getElementById("filtreSalarie");
+const idFiltre = filtre ? filtre.value : "";
+if (idFiltre) {
+  salaries = salaries.filter(s => s.id.toString() === idFiltre);
+}
+
   heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const cont = document.getElementById("planning-wrapper");
   const moisSel = document.getElementById("moisPlanning").value;
@@ -468,6 +481,19 @@ document.addEventListener("DOMContentLoaded",()=>{
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   chargerSemaines(); chargerJauge(); genererPlanning();
+// Remplit le filtre salariés
+const filtre = document.getElementById("filtreSalarie");
+if (filtre) {
+  const data = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  filtre.innerHTML = '<option value="">— Tous —</option>';
+  data.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.prenom + " " + s.nom;
+    filtre.appendChild(opt);
+  });
+}
+
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
