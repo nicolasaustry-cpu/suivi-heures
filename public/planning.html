@@ -15,55 +15,54 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
-/* ================================
-   BLOC SUPÉRIEUR FIXE ET COLLÉ
-   ================================ */
-
-/* on bloque tout le haut */
-header,
-.nav,
-.no-print {
+/* === BLOC SUPÉRIEUR FIXE COLLÉ === */
+#top-bar {
   position: fixed;
+  top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
+  background: #fff; /* couleur neutre pour éviter superposition transparente */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* On garde l’empilement vertical normal à l’intérieur */
+#top-bar > * {
+  position: static;
   margin: 0;
   padding: 0;
 }
 
-/* --- Bandeau bleu --- */
+/* Bandeau bleu */
 header {
-  top: 0;
-  height: 60px;               /* hauteur réelle du bandeau bleu */
-  line-height: 60px;
+  background: #2563eb;
+  color: #fff;
+  padding: 0.8rem 1rem;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-}
-
-/* --- Barre de navigation --- */
-.nav {
-  top: 60px;                  /* colle juste sous le header */
-  background: #e8edf3;
-  height: 45px;
-  display: flex;
   align-items: center;
+}
+
+/* Navigation */
+.nav {
+  background: #e8edf3;
+  display: flex;
   justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem;
 }
 
-/* --- Zone filtres + jauge + totaux --- */
-.no-print {
-  top: 105px;                 /* 60 + 45 = 105 — sans espace */
+/* Bloc filtres + jauge + totaux */
+#filters-zone {
   background: #f8fafc;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
   padding: 0.8rem;
 }
 
-/* --- Ajustement du contenu principal --- */
+/* Le planning commence après la hauteur du bloc fixe */
 #planning-wrapper {
-  margin-top: 270px;          /* compense la hauteur du bloc fixe */
+  margin-top: 290px; /* hauteur approximative du bloc supérieur */
   padding: 0.8rem;
-  overflow-y: auto;
+  background: #f4f6f8;
 }
 
 </style>
