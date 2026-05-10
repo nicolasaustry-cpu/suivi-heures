@@ -215,10 +215,75 @@ function genererPlanning(){
   }
 }
 
-function saveHeure(k,ch,h){
-  heures[k]={chantier:ch,heures:parseFloat(h)||0};
-  localStorage.setItem('heuresdata',JSON.stringify(heures));
-  genererPlanning(); // recalcul automatique
+function saveHeure(k, ch, h) {
+  heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+
+  // Récupérer l'identifiant salarié et la date à partir de la clé
+  const match = k.match(/^(\d{1,})(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    const salarieId = match[1];
+    const dateStr = match[2];
+    majTotalLigne(salarieId, dateStr);
+  }
+
+  majTotauxGlobaux();
+}
+function majTotalLigne(salarieId, dateStr) {
+  let total = 0;
+  for (let i = 1; i <= 5; i++) {
+    const k = `${salarieId}${dateStr}ch${i}`;
+    total += parseFloat(heures[k]?.heures || 0);
+  }
+  const absK = `${salarieId}${dateStr}abs`;
+  const abs = parseFloat(heures[absK]?.heures || 0);
+
+  // Heures prévues (récupérées depuis salarié)
+  const salarie = salaries.find(s => s.id == salarieId);
+  if (!salarie) return;
+  const jour = new Date(dateStr).getDay();
+  const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
+  const prevu = salarie.heuresParJour?.[cle] || 0;
+  const ecart = total - prevu + abs;
+
+  // Mise à jour du total et de l’écart dans le DOM
+  const cellules = document.querySelectorAll(`tr td:first-child`);
+  cellules.forEach(td => {
+    if (td.textContent.includes(`${salarie.prenom} ${salarie.nom}`)) {
+      const tr = td.parentElement;
+      tr.children[6].textContent = total.toFixed(1); // total
+      tr.children[8].textContent = prevu.toFixed(1); // prévu
+      tr.children[9].textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
+      tr.children[9].style.color = ecart < 0 ? 'red' : 'green';
+    }
+  });
+}
+
+function majTotauxGlobaux() {
+  let totT = 0, totA = 0, totP = 0;
+  document.querySelectorAll("tbody tr").forEach(tr => {
+    const cells = tr.children;
+    if (cells.length >= 10) {
+      totT += parseFloat(cells[6].textContent) || 0;
+      totA += parseFloat(cells[7]?.querySelector("select")?.value || 0);
+      totP += parseFloat(cells[8].textContent) || 0;
+    }
+  });
+  const ec = totT - totP;
+  document.getElementById('tot-total').textContent = totT.toFixed(1);
+  document.getElementById('tot-abs').textContent = totA.toFixed(1);
+  document.getElementById('tot-prev').textContent = totP.toFixed(1);
+  document.getElementById('tot-ecart').textContent = ec.toFixed(1);
+  document.getElementById('tot-ecart').style.color = ec < 0 ? 'red' : 'green';
+
+  const pct = totP > 0 ? (totT / totP) * 100 : 0;
+  const curseur = document.getElementById('curseur');
+  const pour = document.getElementById('pourcentage');
+  if (curseur && pour) {
+    const largeur = curseur.parentElement.offsetWidth;
+    curseur.style.left = (pct / 100) * largeur - 4 + 'px';
+    pour.textContent = pct.toFixed(0) + '%';
+  }
 }
 
 // ====== Impression & Semaines =======
