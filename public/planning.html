@@ -274,15 +274,23 @@ function majFiltreSalarie() {
   const boxes = document.querySelectorAll("#menuFiltreSalarie input[type=checkbox]");
   const toutes = boxes[0];
   const autres = Array.from(boxes).slice(1);
+
+  // Gestion de la case "Tous"
   if (toutes.checked) {
-    autres.forEach(b => b.checked = true);
+    autres.forEach(b => (b.checked = true));
   } else if (autres.every(b => b.checked)) {
     toutes.checked = true;
   } else {
     toutes.checked = false;
   }
-  genererPlanning();
+
+  // 💡 Attendre la fin de l’action (petit délai)
+  clearTimeout(window._filtreTimer);
+  window._filtreTimer = setTimeout(() => {
+    genererPlanning();
+  }, 200); // on relance le planning 200 ms après le dernier clic
 }
+
 
 function getSalariesFiltres() {
   const boxes = document.querySelectorAll("#menuFiltreSalarie input[type=checkbox]:checked");
