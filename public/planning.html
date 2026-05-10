@@ -15,48 +15,35 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
-/* === Bloc supérieur fixe complètement collé === */
-header,
-.nav,
-.no-print {
-  position: fixed;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  margin: 0;
-  padding: 0;
-}
-
 /* --- Bandeau bleu --- */
 header {
   top: 0;
-  height: 60px;            /* hauteur réelle du header */
-  line-height: 60px;       /* équilibre texte/icon verticaux */
+  height: 70px;            /* augmente légèrement pour englober le contenu réel */
+  line-height: 70px;
 }
 
-/* --- Barre de navigation : collée juste sous le header --- */
+/* --- Barre de navigation juste sous le header --- */
 .nav {
-  top: 60px;               /* pile après la hauteur du header */
+  top: 70px;               /* ajuste pour coller sous le bandeau bleu */
   background: #e8edf3;
-  height: 45px;            /* adapte selon ton design */
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 999;
 }
 
 /* --- Bloc filtres + jauge + totaux --- */
 .no-print {
-  top: 105px;              /* 60 + 45 = 105, suit sans espace */
+  top: 112px;              /* 70 + 42 = 112 => pile collé sous la nav */
   background: #f8fafc;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-/* --- Décalage du planning pour ne rien masquer --- */
+/* --- Planning : espace sous le bloc fixe --- */
 #planning-wrapper {
-  margin-top: 260px;       /* correspond à la hauteur totale du bloc fixe */
+  margin-top: 270px;       /* correspond à la hauteur totale du haut fixe */
 }
-
-
 </style>
 </head>
 <body>
