@@ -150,12 +150,21 @@ table {
 <div class="flex">
   <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
   <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
-  <div><label>Salarié :</label><br>
-<select id="filtreSalarie" multiple size="4" onchange="genererPlanning()" style="min-width:180px;">
-  <option value="">— Tous —</option>
-</select>
+<div id="filtre-salaries" style="position:relative;">
+  <label>Salarié :</label><br>
+  <button type="button" id="btnFiltreSalarie"
+          onclick="toggleFiltreSalarie()"
+          style="min-width:180px;border:1px solid #ccc;background:#fff;color:#222;text-align:left;padding:5px 8px;cursor:pointer;">
+    Tous les salariés ▾
+  </button>
 
+  <!-- Menu de checkboxes masqué -->
+  <div id="menuFiltreSalarie" style="display:none;position:absolute;top:45px;left:0;background:white;border:1px solid #ccc;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,0.15);padding:6px;max-height:250px;overflow:auto;z-index:5000;">
+    <label><input type="checkbox" value="" checked onchange="majFiltreSalarie()"> Tous</label><br>
+    <!-- Les lignes salariés seront injectées ici -->
   </div>
+</div>
+
   <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
 </div>
 
@@ -244,22 +253,58 @@ function genOptionsHeures(v){
   }
   return opt;
 }
+// === Gestion du menu "filtre Excel" ===
+function toggleFiltreSalarie() {
+  const menu = document.getElementById("menuFiltreSalarie");
+  menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+
+// Remplit la liste de checkboxes au chargement
+function remplirFiltreSalarie() {
+  const data = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const menu = document.getElementById("menuFiltreSalarie");
+  if (!menu) return;
+
+  let html = `<label><input type="checkbox" value="" checked onchange="majFiltreSalarie()"> Tous</label><br>`;
+  data.forEach(s => {
+    html += `<label><input type="checkbox" value="${s.id}" checked onchange="majFiltreSalarie()"> ${s.prenom} ${s.nom}</label><br>`;
+  });
+  menu.innerHTML = html;
+}
+
+// Calcule la liste sélectionnée et actualise le planning
+function majFiltreSalarie() {
+  const boxes = document.querySelectorAll("#menuFiltreSalarie input[type=checkbox]");
+  const toutes = boxes[0]; // la case "Tous"
+  const autres = Array.from(boxes).slice(1);
+  
+  if (toutes.checked) {
+    // Coche toutes si "Tous" est activé
+    autres.forEach(b => b.checked = true);
+  } else if (autres.every(b => b.checked)) {
+    // Si toutes les cases individuelles sont cochées => coche "Tous"
+    toutes.checked = true;
+  } else {
+    toutes.checked = false;
+  }
+
+  genererPlanning();
+}
+
+// Retourne les IDs cochés (utilisé dans genererPlanning)
+function getSalariesFiltres() {
+  const boxes = document.querySelectorAll("#menuFiltreSalarie input[type=checkbox]:checked");
+  const values = Array.from(boxes).map(b => b.value).filter(v => v !== "");
+  return values; // Liste d'IDs (chaînes)
+}
 
 function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
-// Filtrer selon les salariés sélectionnés (plusieurs possibles)
-const filtre = document.getElementById("filtreSalarie");
-let idsFiltres = [];
-if (filtre) {
-  idsFiltres = Array.from(filtre.selectedOptions)
-    .map(opt => opt.value)
-    .filter(v => v !== ""); // exclut “— Tous —”
-}
-
+// Filtrer selon les salariés cochés
+const idsFiltres = getSalariesFiltres();
 if (idsFiltres.length > 0) {
   salaries = salaries.filter(s => idsFiltres.includes(s.id.toString()));
 }
-
 
   heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const cont = document.getElementById("planning-wrapper");
@@ -489,18 +534,13 @@ document.addEventListener("DOMContentLoaded",()=>{
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   chargerSemaines(); chargerJauge(); genererPlanning();
-// Remplit le filtre salariés
-const filtre = document.getElementById("filtreSalarie");
-if (filtre) {
-  const data = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-  filtre.innerHTML = '<option value="">— Tous —</option>';
-  data.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.prenom + " " + s.nom;
-    filtre.appendChild(opt);
-  });
-}
+  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  sem.addEventListener("change",genererPlanning);
+
+  // Remplit le filtre salariés (nouveau menu à cocher)
+  remplirFiltreSalarie();
+});
+
 
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
