@@ -242,6 +242,31 @@ function majTotauxGlobaux(){
     pour.textContent=pct.toFixed(0)+"%";
   }
 }
+// ====== Impression & Semaines =======
+function chargerSemaines(){
+  const m=document.getElementById("moisPlanning").value;
+  const sel=document.getElementById("semaineSelect");
+  sel.innerHTML='<option value="">— Mois complet —</option>';
+  if(!m) return;
+  const [a,mo]=m.split('-').map(Number);
+  const d1=new Date(a,mo-1,1);
+  const dL=new Date(a,mo,0);
+
+  // trouve le premier lundi du mois
+  let lun=new Date(d1);
+  while(lun.getDay()!==1) lun.setDate(lun.getDate()+1);
+
+  let i=1;
+  while(lun<=dL){
+    const sam=new Date(lun); sam.setDate(lun.getDate()+5);
+    const op=document.createElement("option");
+    op.value=i;
+    op.textContent=`Semaine ${i}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}`;
+    sel.appendChild(op);
+    lun.setDate(lun.getDate()+7);
+    i++;
+  }
+}
 
 // ===========================================
 // Initialisation
