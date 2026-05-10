@@ -469,7 +469,7 @@ function majTotalLigne(salarieId, dateStr) {
       e.style.color = ec < 0 ? "red" : "green";
     }
   });
-
+}   // ← ferme la fonction majTotalLigne
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0;
   document.querySelectorAll("tr[data-salarie]").forEach(tr => {
