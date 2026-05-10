@@ -226,7 +226,7 @@ function genererPlanning(){
         const data = heures[k]||{chantier:"",heures:0};
         total += parseFloat(data.heures)||0;
         row += `<td style="border:1px solid #ccc;padding:2px;">
-          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:130px;"
+          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:110px;"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:60px;"
             onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
