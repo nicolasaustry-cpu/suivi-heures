@@ -222,8 +222,6 @@ function genererPlanning(){
   majTotauxGlobaux();
 }
 
-}
-
 // ===== Calcul et mise à jour instantanée =====
 function saveHeure(k, ch, h) {
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
@@ -298,7 +296,6 @@ function majTotalLigne(salarieId, dateStr) {
 
   majTotauxGlobaux();
 }
-
 
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0;
