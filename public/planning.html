@@ -532,12 +532,9 @@ document.addEventListener("DOMContentLoaded",()=>{
   const sem=document.getElementById("semaineSelect");
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  chargerSemaines(); chargerJauge(); genererPlanning();
   // Remplit le filtre salariés (nouveau menu à cocher)
   remplirFiltreSalarie();
-  chargerSemaines(); chargerJauge(); genererPlanning();
-  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
-  sem.addEventListener("change",genererPlanning);
-
 });
 
 </script>
