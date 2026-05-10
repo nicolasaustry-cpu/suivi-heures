@@ -280,16 +280,15 @@ function majFiltreSalarie() {
   
   if (toutes.checked) {
     // Coche toutes si "Tous" est activé
-    autres.forEach(b => b.checked = true);
+   autres.forEach(b => b.checked = true);
+genererPlanning();     // ⬅️  uniquement ici si tu veux, pas à chaque cas
+;
   } else if (autres.every(b => b.checked)) {
     // Si toutes les cases individuelles sont cochées => coche "Tous"
     toutes.checked = true;
   } else {
     toutes.checked = false;
   }
-
-  genererPlanning();
-}
 
 // Retourne les IDs cochés (utilisé dans genererPlanning)
 function getSalariesFiltres() {
@@ -533,12 +532,12 @@ document.addEventListener("DOMContentLoaded",()=>{
   const sem=document.getElementById("semaineSelect");
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  // Remplit le filtre salariés (nouveau menu à cocher)
+  remplirFiltreSalarie();
   chargerSemaines(); chargerJauge(); genererPlanning();
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 
-  // Remplit le filtre salariés (nouveau menu à cocher)
-  remplirFiltreSalarie();
 });
 
 </script>
