@@ -27,7 +27,7 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
   <a href="rapports.html">Rapports</a>
 </div>
 
-<!-- Bandeau haut -->
+<!-- 🔹 Bandeau haut : sélection + jauge + totaux -->
 <div style="background:#f8fafc;padding:0.8rem;" class="no-print">
   <div class="flex">
     <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
@@ -35,6 +35,7 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
     <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
   </div>
 
+  <!-- Jauge + Totaux -->
   <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
     <thead>
       <tr style="background:#fff3cd;">
@@ -61,43 +62,70 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
       </tr>
       <tr style="background:#d1fae5;font-weight:bold;text-align:center;">
          <td style="border:1px solid #ccc;padding:4px;width:140px;">TOTAUX</td>
-         <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-         <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
-         <td id="tot-total" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
-         <td id="tot-abs" style="border:1px solid #ccc;padding:4px;width:100px;">0</td>
-         <td id="tot-prev" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
-         <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
-      </tr>
-    </thead>
-  </table>
+  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
+  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
+  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
+  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
+  <td style="border:1px solid #ccc;padding:4px;width:165px;">—</td>
+  <td id="tot-total" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
+  <td id="tot-abs" style="border:1px solid #ccc;padding:4px;width:100px;">0</td>
+  <td id="tot-prev" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
+  <td id="tot-ecart" style="border:1px solid #ccc;padding:4px;width:50px;">0</td>
+</tr>
+  </thead>
+</table>
+
 </div>
 
+<!-- 🔹 Planning en dessous -->
 <div id="planning-wrapper" style="padding:0.8rem;"></div>
 
 <script>
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
 
-// ----- JAUGE -----
+// ====== Jauge =======
 function majZonesJauge(){
-  const rougeVal=parseFloat(limiteRouge.value)||33,orangeVal=parseFloat(limiteOrange.value)||66;
-  const rouge=Math.max(0,Math.min(rougeVal,100)),orange=Math.max(rouge,Math.min(orangeVal,100));
-  zone-rouge.style.left='0%';zone-rouge.style.width=rouge+'%';
-  zone-orange.style.left=rouge+'%';zone-orange.style.width=(orange-rouge)+'%';
-  zone-verte.style.left=orange+'%';zone-verte.style.width=(100-orange)+'%';
-  localStorage.setItem('parametresJauge',JSON.stringify({rouge,orange,fige:figerSeuils.checked}));
+  const rougeVal = parseFloat(document.getElementById('limiteRouge').value)||33;
+  const orangeVal = parseFloat(document.getElementById('limiteOrange').value)||66;
+  const rouge = Math.max(0, Math.min(rougeVal, 100));
+  const orange = Math.max(rouge, Math.min(orangeVal, 100));
+
+  const zR=document.getElementById('zone-rouge');
+  const zO=document.getElementById('zone-orange');
+  const zV=document.getElementById('zone-verte');
+  if(!zR||!zO||!zV)return;
+  zR.style.left='0%'; zR.style.width=rouge+'%';
+  zO.style.left=rouge+'%'; zO.style.width=(orange-rouge)+'%';
+  zV.style.left=orange+'%'; zV.style.width=(100-orange)+'%';
+  localStorage.setItem('parametresJauge',JSON.stringify({
+    rouge,orange,fige:document.getElementById('figerSeuils').checked
+  }));
 }
-function majEtatFiger(){const chk=figerSeuils.checked;limiteRouge.disabled=chk;limiteOrange.disabled=chk;majZonesJauge();}
+function majEtatFiger(){
+  const chk=document.getElementById('figerSeuils').checked;
+  document.getElementById('limiteRouge').disabled=chk;
+  document.getElementById('limiteOrange').disabled=chk;
+  majZonesJauge();
+}
 function chargerJauge(){
   const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
-  limiteRouge.value=conf.rouge;limiteOrange.value=conf.orange;figerSeuils.checked=conf.fige;majEtatFiger();
+  document.getElementById('limiteRouge').value=conf.rouge;
+  document.getElementById('limiteOrange').value=conf.orange;
+  document.getElementById('figerSeuils').checked=conf.fige;
+  majEtatFiger();
 }
 
-// ----- TABLEAU -----
-function genOptionsHeures(v){let opt='';for(let i=0;i<=10;i+=0.25){const lbl=i===Math.floor(i)?i:i.toFixed(2);const s=Math.abs(i-(+v||0))<0.001?'selected':'';opt+=`<option value="${i}" ${s}>${lbl}</option>`;}return opt;}
+// ====== Planning =======
+function genOptionsHeures(v){
+  let opt='';
+  for(let i=0;i<=10;i+=0.25){
+    const lbl=i===Math.floor(i)?i:i.toFixed(2);
+    const s=Math.abs(i-(+v||0))<0.001?'selected':'';
+    opt+=`<option value="${i}" ${s}>${lbl}</option>`;
+  }
+  return opt;
+}
 
 function genererPlanning(){
   salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]');
@@ -105,123 +133,124 @@ function genererPlanning(){
   const cont=document.getElementById("planning-wrapper");
   const moisSel=document.getElementById("moisPlanning").value;
   if(!moisSel){cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
+
   const [a,m]=moisSel.split("-");
-  const debut=new Date(+a,+m-1,1),fin=new Date(+a,+m,0);
+  const debut=new Date(+a,+m-1,1);
+  const fin=new Date(+a,+m,0);
   const jours=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   cont.innerHTML="";
-  let totT=0,totA=0,totP=0;
 
+  let totT=0,totA=0,totP=0;
   for(let d=new Date(debut);d<=fin;d.setDate(d.getDate()+1)){
     if(d.getDay()===0)continue;
-    const jourNom=jours[d.getDay()],dateStr=d.toISOString().split("T")[0];
+    const jourNom=jours[d.getDay()];
+    const dateStr=d.toISOString().split("T")[0];
     let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
     html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e2e8f0">
         <th style="border:1px solid #ccc;width:200px;">Salarié</th>
         <th style="border:1px solid #ccc;width:250px;">Ch1</th>
-        <th style="border:1px solid #ccc;width:250px;">Ch2</th>
-        <th style="border:1px solid #ccc;width:250px;">Ch3</th>
-        <th style="border:1px solid #ccc;width:250px;">Ch4</th>
-        <th style="border:1px solid #ccc;width:250px;">Ch5</th>
+<th style="border:1px solid #ccc;width:250px;">Ch2</th>
+<th style="border:1px solid #ccc;width:250px;">Ch3</th>
+<th style="border:1px solid #ccc;width:250px;">Ch4</th>
+<th style="border:1px solid #ccc;width:250px;">Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
+
     salaries.forEach(s=>{
       const e=new Date(s.dateEntree);
       const srt=s.dateSortie?new Date(s.dateSortie):null;
       if(d<e||(srt&&d>srt))return;
-      const hp=s.heuresParJour||{},cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
+      const hp=s.heuresParJour||{};
+      const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
       let total=0;
       let row=`<tr><td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
       for(let i=1;i<=5;i++){
-        const k=`${s.id}${dateStr}ch${i}`,data=heures[k]||{chantier:"",heures:0};
+        const k=`${s.id}${dateStr}ch${i}`;
+        const data=heures[k]||{chantier:"",heures:0};
         total+=parseFloat(data.heures)||0;
         row+=`<td style="border:1px solid #ccc;padding:2px;">
           <input value="${data.chantier}" placeholder="Chantier" style="width:150px;"
-            oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value,event)">
+            oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:60px;"
-            onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value,event)">
+            onchange="saveHeure('${k}',document.querySelector('input[oninput*=${k}]').value,this.value)">
             ${genOptionsHeures(data.heures)}
           </select>
         </td>`;
       }
-      const absK=`${s.id}${dateStr}abs`,abs=heures[absK]?.heures||0,prevu=hp[cle]||0,ec=total - prevu + abs;
+      const absK=`${s.id}${dateStr}abs`;
+      const abs=heures[absK]?.heures||0;
+      const prevu=hp[cle]||0;
+      const ec=total - prevu + abs;
       row+=`<td style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
              <td style="border:1px solid #ccc;text-align:center;">
-               <select id="${absK}h" style="width:60px;" onchange="saveHeure('${absK}','absence',this.value,event)">
+               <select id="${absK}h" style="width:60px;"
+                 onchange="saveHeure('${absK}','absence',this.value)">
                  ${genOptionsHeures(abs)}
                </select>
              </td>
              <td style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
              <td style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
       html+=row;
-      totT+=total;totA+=abs;totP+=prevu;
+      totT+=total; totA+=abs; totP+=prevu;
     });
     html+="</tbody></table>";
     cont.innerHTML+=html;
   }
-  majTotaux(totT,totA,totP);
-}
 
-function majTotaux(totT,totA,totP){
   const ec=totT-totP;
-  tot-total.textContent=totT.toFixed(1);
-  tot-abs.textContent=totA.toFixed(1);
-  tot-prev.textContent=totP.toFixed(1);
-  tot-ecart.textContent=ec.toFixed(1);
-  tot-ecart.style.color=ec<0?'red':'green';
+  document.getElementById('tot-total').textContent=totT.toFixed(1);
+  document.getElementById('tot-abs').textContent=totA.toFixed(1);
+  document.getElementById('tot-prev').textContent=totP.toFixed(1);
+  document.getElementById('tot-ecart').textContent=ec.toFixed(1);
+  document.getElementById('tot-ecart').style.color=ec<0?'red':'green';
+
   const pct=totP>0?(totT/totP)*100:0;
-  const L=curseur.parentElement.offsetWidth;
-  curseur.style.left=(L*pct/100-4)+'px';
-  pourcentage.textContent=pct.toFixed(0)+'%';
-}
-
-// recalcul instantané + sauvegarde
-function saveHeure(k,ch,h,evt){
-  heures[k]={chantier:ch,heures:parseFloat(h)||0};
-  localStorage.setItem('heuresdata',JSON.stringify(heures));
-  const ligne=evt.target.closest('tr');if(!ligne)return;
-  let total=0;ligne.querySelectorAll('select[id$="h"]').forEach(s=>{if(s.id.includes('ch'))total+=parseFloat(s.value)||0;});
-  const td=ligne.querySelectorAll('td'),totalCell=td[6],prevCell=td[8],ecartCell=td[9],absSel=td[7]?.querySelector('select');
-  const abs=absSel?parseFloat(absSel.value)||0:0,prevu=parseFloat(prevCell.textContent)||0,ecart=total-prevu+abs;
-  totalCell.textContent=total.toFixed(1);
-  ecartCell.textContent=(ecart>=0?'+':'')+ecart.toFixed(1);ecartCell.style.color=ecart<0?'red':'green';
-  // Totaux
-  let tot=0,absTot=0,prevTot=0;
-  document.querySelectorAll('#planning-wrapper table tbody tr').forEach(tr=>{
-    const c=tr.querySelectorAll('td');
-    if(c.length>=10){
-      tot+=parseFloat(c[6].textContent)||0;
-      const sAbs=tr.querySelector('td:nth-child(8) select');
-      absTot+=sAbs?parseFloat(sAbs.value)||0:0;
-      prevTot+=parseFloat(c[8].textContent)||0;
-    }
-  });
-  majTotaux(tot,absTot,prevTot);
-}
-
-// --- Impression et semaines ---
-function imprimerSemaine(){}
-function chargerSemaines(){
-  const m=moisPlanning.value,sel=semaineSelect;
-  sel.innerHTML='<option value="">— Mois complet —</option>';
-  if(!m)return;
-  const [a,mo]=m.split('-').map(Number);
-  const d1=new Date(a,mo-1,1),dL=new Date(a,mo,0);
-  let lun=new Date(d1);while(lun.getDay()!==1)lun.setDate(lun.getDate()+1);
-  let i=1;while(lun<=dL){
-    const sam=new Date(lun);sam.setDate(lun.getDate()+5);
-    const op=document.createElement('option');
-    op.value=i;op.textContent=`Semaine ${i}: ${lun.toLocaleDateString('fr-FR')} → ${sam.toLocaleDateString('fr-FR')}`;
-    sel.appendChild(op);lun.setDate(lun.getDate()+7);i++;
+  const curseur=document.getElementById('curseur');
+  const pour=document.getElementById('pourcentage');
+  if(curseur&&pour){
+    const largeur=curseur.parentElement.offsetWidth;
+    curseur.style.left=(pct/100)*largeur-4+'px';
+    pour.textContent=pct.toFixed(0)+'%';
   }
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
+function saveHeure(k,ch,h){
+  heures[k]={chantier:ch,heures:parseFloat(h)||0};
+  localStorage.setItem('heuresdata',JSON.stringify(heures));
+  genererPlanning(); // recalcul automatique
+}
+
+// ====== Impression & Semaines =======
+function imprimerSemaine(){ /* inchangée (garde ta version précédente) */ }
+function chargerSemaines(){
+  const m=document.getElementById("moisPlanning").value;
+  const sel=document.getElementById("semaineSelect");
+  sel.innerHTML='<option value="">— Mois complet —</option>';
+  if(!m)return;
+  const [a,mo]=m.split('-').map(Number);
+  const d1=new Date(a,mo-1,1);
+  const dL=new Date(a,mo,0);
+  let lun=new Date(d1);
+  while(lun.getDay()!==1) lun.setDate(lun.getDate()+1);
+  let i=1; while(lun<=dL){
+    const sam=new Date(lun); sam.setDate(lun.getDate()+5);
+    const op=document.createElement("option");
+    op.value=i;
+    op.textContent=`Semaine ${i}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}`;
+    sel.appendChild(op);
+    lun.setDate(lun.getDate()+7); i++;
+  }
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const mois=document.getElementById("moisPlanning");
+  const sem=document.getElementById("semaineSelect");
   const now=new Date();
-  moisPlanning.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  chargerSemaines();chargerJauge();genererPlanning();
-  moisPlanning.addEventListener('input',()=>{chargerSemaines();genererPlanning();});
-  semaineSelect.addEventListener('change',genererPlanning);
+  mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  chargerSemaines(); chargerJauge(); genererPlanning();
+  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  sem.addEventListener("change",genererPlanning);
 });
 </script>
 </body>
