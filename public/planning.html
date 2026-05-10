@@ -308,6 +308,43 @@ function initialiserEcouteursLive() {
     majTotalLigneLive(salarieId, dateStr);
   });
 }
+// === Écoute dynamique sur tout le tableau ===
+function activerCalculInstantane() {
+  const wrapper = document.getElementById("planning-wrapper");
+  if (!wrapper) return;
+
+  // on écoute les modifications d'inputs et de selects dans la zone du planning
+  wrapper.addEventListener("change", handleUpdate);
+  wrapper.addEventListener("input", handleUpdate);
+}
+
+function handleUpdate(e) {
+  const el = e.target;
+  if (!(el.matches("select") || el.matches("input"))) return;
+
+  const tr = el.closest("tr[data-salarie]");
+  if (!tr) return;
+
+  const salarieId = tr.getAttribute("data-salarie");
+  const dateStr = tr.getAttribute("data-date");
+
+  // 🔹 sauvegarde dans mémoire locale
+  if (el.id) {
+    // exemple: id => "1685045458202626-05-10ch2h"
+    const keyBase = el.id.replace(/chantier|h$/,"");
+    const champ = document.getElementById(`${keyBase}chantier`);
+    const select = document.getElementById(`${keyBase}h`);
+    if (champ && select) {
+      heures[keyBase] = {
+        chantier: champ.value,
+        heures: parseFloat(select.value)||0
+      };
+      localStorage.setItem("heuresdata", JSON.stringify(heures));
+    }
+  }
+
+  majTotalLigneLive(salarieId, dateStr);
+}
 
 // ====== Impression & Semaines =======
 function imprimerSemaine(){ /* inchangée */ }
@@ -338,6 +375,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   chargerSemaines(); chargerJauge(); genererPlanning();
+activerCalculInstantane(); // 🔹 active les événements live
 // Initialisation
 document.addEventListener("DOMContentLoaded",()=>{
   const mois=document.getElementById("moisPlanning");
