@@ -395,6 +395,18 @@ document.addEventListener("DOMContentLoaded",()=>{
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("✅ DOM chargé, initialisation en cours...");
+  const wrapper = document.getElementById("planning-wrapper");
+  if (wrapper) {
+    wrapper.addEventListener("input", e => {
+      console.log("🎯 événement input détecté :", e.target);
+    });
+    console.log("✅ Écoute installée sur #planning-wrapper");
+  } else {
+    console.warn("⚠️ #planning-wrapper introuvable au chargement !");
+  }
+});
 </script>
 </body>
 </html>
