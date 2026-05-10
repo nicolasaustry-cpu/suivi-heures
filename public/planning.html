@@ -370,46 +370,29 @@ function chargerSemaines(){
     lun.setDate(lun.getDate()+7); i++;
   }
 }
+// Initialisation
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("✅ DOM chargé, initialisation en cours...");
+  const mois = document.getElementById("moisPlanning");
+  const sem  = document.getElementById("semaineSelect");
+  const now  = new Date();
 
-// Initialisation
-document.addEventListener("DOMContentLoaded",()=>{
-  const mois=document.getElementById("moisPlanning");
-  const sem=document.getElementById("semaineSelect");
-  const now=new Date();
-  mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-  chargerSemaines(); chargerJauge(); genererPlanning();
-activerCalculInstantane(); // 🔹 active les événements live
-// Initialisation
-document.addEventListener("DOMContentLoaded",()=>{
-  const mois=document.getElementById("moisPlanning");
-  const sem=document.getElementById("semaineSelect");
-  const now=new Date();
-  mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  mois.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
 
   chargerSemaines();
   chargerJauge();
   genererPlanning();
-  initialiserEcouteursLive(); // 🔹 AJOUT ICI : active les mises à jour instantanées
 
-  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
-  sem.addEventListener("change",genererPlanning);
+  // Active les calculs instantanés
+  activerCalculInstantane();
+
+  // Écoute les changements de mois ou semaine
+  mois.addEventListener("input", () => { chargerSemaines(); genererPlanning(); });
+  sem.addEventListener("change", genererPlanning);
+
+  console.log("✅ Écoute installée sur #planning-wrapper");
 });
 
-  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
-  sem.addEventListener("change",genererPlanning);
-});
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ DOM chargé, initialisation en cours...");
-  const wrapper = document.getElementById("planning-wrapper");
-  if (wrapper) {
-    wrapper.addEventListener("input", e => {
-      console.log("🎯 événement input détecté :", e.target);
-    });
-    console.log("✅ Écoute installée sur #planning-wrapper");
-  } else {
-    console.warn("⚠️ #planning-wrapper introuvable au chargement !");
-  }
-});
 </script>
 </body>
 </html>
