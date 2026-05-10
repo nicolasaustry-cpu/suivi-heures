@@ -213,9 +213,6 @@ function saveHeure(k, ch, h) {
   majTotalLigneLive(salarieId, dateStr, true); // recalcul instantané
 }
 
-  majTotauxGlobaux();
-}
-
 function majTotalLigneLive(salarieId, dateStr, majGlobaux = false) {
   const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
   if (!tr) return;
