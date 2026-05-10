@@ -256,46 +256,39 @@ function genOptionsHeures(v){
 // === Gestion du menu "filtre Excel" ===
 function toggleFiltreSalarie() {
   const menu = document.getElementById("menuFiltreSalarie");
-  menu.style.display = menu.style.display === "none" ? "block" : "none";
+  if (menu) menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
 
-// Remplit la liste de checkboxes au chargement
 function remplirFiltreSalarie() {
   const data = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   const menu = document.getElementById("menuFiltreSalarie");
   if (!menu) return;
-
-  let html = `<label><input type="checkbox" value="" checked onchange="majFiltreSalarie()"> Tous</label><br>`;
+  let html = '<label><input type="checkbox" value="" checked onchange="majFiltreSalarie()"> Tous</label><br>';
   data.forEach(s => {
     html += `<label><input type="checkbox" value="${s.id}" checked onchange="majFiltreSalarie()"> ${s.prenom} ${s.nom}</label><br>`;
   });
   menu.innerHTML = html;
 }
 
-// Calcule la liste sélectionnée et actualise le planning
 function majFiltreSalarie() {
   const boxes = document.querySelectorAll("#menuFiltreSalarie input[type=checkbox]");
-  const toutes = boxes[0]; // la case "Tous"
+  const toutes = boxes[0];
   const autres = Array.from(boxes).slice(1);
-  
   if (toutes.checked) {
-    // Coche toutes si "Tous" est activé
-   autres.forEach(b => b.checked = true);
-genererPlanning();     // ⬅️  uniquement ici si tu veux, pas à chaque cas
-;
+    autres.forEach(b => b.checked = true);
   } else if (autres.every(b => b.checked)) {
-    // Si toutes les cases individuelles sont cochées => coche "Tous"
     toutes.checked = true;
   } else {
     toutes.checked = false;
   }
+  genererPlanning();
+}
 
-// Retourne les IDs cochés (utilisé dans genererPlanning)
 function getSalariesFiltres() {
   const boxes = document.querySelectorAll("#menuFiltreSalarie input[type=checkbox]:checked");
-  const values = Array.from(boxes).map(b => b.value).filter(v => v !== "");
-  return values; // Liste d'IDs (chaînes)
+  return Array.from(boxes).map(b => b.value).filter(v => v !== "");
 }
+
 
 function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
@@ -533,7 +526,6 @@ document.addEventListener("DOMContentLoaded",()=>{
   // Remplit le filtre salariés (nouveau menu à cocher)
   remplirFiltreSalarie();
 });
-
 </script>
 </body>
 </html>
