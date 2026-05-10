@@ -80,49 +80,36 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 <div id="planning-wrapper" style="padding:0.8rem;"></div>
 
 <script>
+// ===========================================
+// Données locales
+// ===========================================
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
 
-// ====== Jauge =======
+// ===========================================
+// Jauge
+// ===========================================
 function majZonesJauge(){
   const rougeVal = parseFloat(document.getElementById('limiteRouge').value)||33;
   const orangeVal = parseFloat(document.getElementById('limiteOrange').value)||66;
   const rouge = Math.max(0, Math.min(rougeVal, 100));
   const orange = Math.max(rouge, Math.min(orangeVal, 100));
-  const zR=document.getElementById('zone-rouge');
-  const zO=document.getElementById('zone-orange');
-  const zV=document.getElementById('zone-verte');
-  if(!zR||!zO||!zV)return;
-  zR.style.left='0%'; zR.style.width=rouge+'%';
-  zO.style.left=rouge+'%'; zO.style.width=(orange-rouge)+'%';
-  zV.style.left=orange+'%'; zV.style.width=(100-orange)+'%';
-  localStorage.setItem('parametresJauge',JSON.stringify({
-    rouge,orange,fige:document.getElementById('figerSeuils').checked
-  }));
-}
-function majEtatFiger(){
-  const chk=document.getElementById('figerSeuils').checked;
-  document.getElementById('limiteRouge').disabled=chk;
-  document.getElementById('limiteOrange').disabled=chk;
-  majZonesJauge();
-}
-function chargerJauge(){
-  const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
-  document.getElementById('limiteRouge').value=conf.rouge;
-  document.getElementById('limiteOrange').value=conf.orange;
-  document.getElementById('figerSeuils').checked=conf.fige;
-  majEtatFiger();
+  document.getElementById('zone-rouge').style.width  = rouge + '%';
+  document.getElementById('zone-orange').style.left   = rouge + '%';
+  document.getElementById('zone-orange').style.width  = (orange - rouge) + '%';
+  document.getElementById('zone-verte').style.left    = orange + '%';
+  document.getElementById('zone-verte').style.width   = (100 - orange) + '%';
 }
 
-// ====== Planning =======
+// ===========================================
+// Génération du planning
+// ===========================================
 function genOptionsHeures(v){
-  let opt='';
-  for(let i=0;i<=10;i+=0.25){
+  let opt=''; for(let i=0;i<=10;i+=0.25){
     const lbl=i===Math.floor(i)?i:i.toFixed(2);
     const s=Math.abs(i-(+v||0))<0.001?'selected':'';
     opt+=`<option value="${i}" ${s}>${lbl}</option>`;
-  }
-  return opt;
+  } return opt;
 }
 
 function genererPlanning(){
@@ -130,269 +117,155 @@ function genererPlanning(){
   heures=JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const cont=document.getElementById("planning-wrapper");
   const moisSel=document.getElementById("moisPlanning").value;
-  if(!moisSel){cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
+  if(!moisSel){ cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>"; return; }
 
-  const [a,m]=moisSel.split("-");
-  const debut=new Date(+a,+m-1,1);
-  const fin=new Date(+a,+m,0);
-  const jours=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  const [a,m] = moisSel.split("-");
+  const debut = new Date(+a,+m-1,1);
+  const fin   = new Date(+a,+m,0);
+  const jours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   cont.innerHTML="";
 
   let totT=0,totA=0,totP=0;
-  for(let d=new Date(debut);d<=fin;d.setDate(d.getDate()+1)){
-    if(d.getDay()===0)continue;
-    const jourNom=jours[d.getDay()];
-    const dateStr=d.toISOString().split("T")[0];
-    let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
-    html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+
+  for(let d=new Date(debut); d<=fin; d.setDate(d.getDate()+1)){
+    if(d.getDay()===0) continue;
+    const jourNom = jours[d.getDay()];
+    const dateStr = d.toISOString().split("T")[0];
+    const safeDate = dateStr.replace(/-/g,"_");
+
+    let html = `<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e2e8f0">
-        <th style="border:1px solid #ccc;width:200px;">Salarié</th>
-        <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
-        <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
-      </tr></thead><tbody>`;
+        <th>Salarié</th><th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
+        <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th></tr></thead><tbody>`;
 
     salaries.forEach(s=>{
       const e=new Date(s.dateEntree);
       const srt=s.dateSortie?new Date(s.dateSortie):null;
       if(d<e||(srt&&d>srt))return;
-      const hp=s.heuresParJour||{};
-      const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
+
+      const hp = s.heuresParJour || {}; 
+      const cle = ["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
       let total=0;
+
       let row=`<tr data-salarie="${s.id}" data-date="${dateStr}">
         <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
-for (let i = 1; i <= 5; i++) {
-const safeDate = dateStr.replace(/-/g, "_");
-const k = `${s.id}${safeDate}ch${i}`;
-  const data = heures[k] || { chantier: "", heures: 0 };
-  total += parseFloat(data.heures) || 0;
-  row += `
-    <td style="border:1px solid #ccc;padding:2px;">
-      <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
-        oninput="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
-<select id="${k}h" style="width:60px;"
-  oninput="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)"
-  onchange="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)">
-        ${genOptionsHeures(data.heures)}
-      </select>
-    </td>`;
-}
+
+      for(let i=1;i<=5;i++){
+        const k = `${s.id}${safeDate}ch${i}`;
+        const data = heures[k] || {chantier:"",heures:0};
+        total += parseFloat(data.heures)||0;
+        row += `<td style="border:1px solid #ccc;">
+          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
+            oninput="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
+          <select id="${k}h" style="width:60px;"
+            oninput="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)">
+            ${genOptionsHeures(data.heures)}</select></td>`;
+      }
+
       const absK = `${s.id}${safeDate}abs`;
-      const abs=heures[absK]?.heures||0;
-      const prevu=hp[cle]||0;
-      const ec=total - prevu + abs;
-      row+=`<td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
-             <td style="border:1px solid #ccc;text-align:center;">
-               <select data-type="abs" id="${absK}h" style="width:60px;"
-                 onchange="saveHeure('${absK}','absence',this.value)">
-                 ${genOptionsHeures(abs)}
-               </select>
-             </td>
-             <td class="cell-prevu" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
-             <td class="cell-ecart" style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
-      html+=row;
+      const abs  = heures[absK]?.heures || 0;
+      const prevu = hp[cle] || 0;
+      const ec = total - prevu + abs;
+
+      row += `<td class="cell-total">${total.toFixed(1)}</td>
+        <td><select data-type="abs" id="${absK}h" style="width:60px;"
+          oninput="saveHeure('${absK}', 'absence', this.value)">
+          ${genOptionsHeures(abs)}</select></td>
+        <td class="cell-prevu">${prevu.toFixed(1)}</td>
+        <td class="cell-ecart" style="color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
+
+      html += row;
       totT+=total; totA+=abs; totP+=prevu;
     });
-    html+="</tbody></table>";
+
+    html += "</tbody></table>";
     cont.innerHTML+=html;
   }
   majTotauxGlobaux();
 }
 
-// ===== Calcul et mise à jour instantanée =====
-function saveHeure(k, ch, h) {
-  // Sauvegarde immédiate dans la mémoire et le stockage
-  heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
-  localStorage.setItem("heuresdata", JSON.stringify(heures));
+// ===========================================
+// Calcul instantané
+// ===========================================
+function saveHeure(k,ch,h){
+  heures[k]={chantier:ch,heures:parseFloat(h)||0};
+  localStorage.setItem("heuresdata",JSON.stringify(heures));
 
-  // Identifier le salarié et la date (clé = id + date)
-  const match = k.match(/^(\d+)(\d{4}-\d{2}-\d{2})/);
-  if (!match) return;
-  const salarieId = match[1];
-  const dateStr   = match[2];
-  // Calcul direct
-  majTotalLigneLive(salarieId, dateStr);
+  const match = k.match(/^(\d+)(\d{4}_.+)/); // correspond au format encodé
+  if(!match) return;
+  majTotalLigneLive(match[1], match[2].replace(/_/g,"-"));
 }
 
-function majTotalLigneLive(salarieId, dateStr) {
-  const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
-  if (!tr) return;
-
-  // Somme directe des valeurs visibles dans la ligne
-  let total = 0;
-for (let i = 1; i <= 5; i++) {
-  const safeDate = dateStr.replace(/-/g, "_");
-  const inputHeure = tr.querySelector(`#${salarieId}${safeDate}ch${i}h`);
-  if (inputHeure) total += parseFloat(inputHeure.value || 0);
-}
+function majTotalLigneLive(salarieId,dateStr){
+  const tr=document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
+  if(!tr) return;
+  let total=0;
+  const safeDate=dateStr.replace(/-/g,"_");
+  for(let i=1;i<=5;i++){
+    const el=tr.querySelector(`#${salarieId}${safeDate}ch${i}h`);
+    if(el) total+=parseFloat(el.value)||0;
   }
-
-  // Lecture absence
-  const absSelect = tr.querySelector("select[data-type='abs']");
-  const abs = absSelect ? parseFloat(absSelect.value || 0) : 0;
-
-  // Heure prévue
-  const salarie = salaries.find(s => s.id == salarieId);
-  if (!salarie) return;
-  const jour = new Date(dateStr).getDay();
-  const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
-  const prevu = parseFloat(salarie.heuresParJour?.[cle] || 0);
-
-  const ecart = total - prevu + abs;
-
-  // Mise à jour visuelle
-  const totCell   = tr.querySelector(".cell-total");
-  const prevuCell = tr.querySelector(".cell-prevu");
-  const ecartCell = tr.querySelector(".cell-ecart");
-  if (totCell)   totCell.textContent   = total.toFixed(2);
-  if (prevuCell) prevuCell.textContent = prevu.toFixed(2);
-  if (ecartCell) {
-    ecartCell.textContent = (ecart >= 0 ? "+" : "") + ecart.toFixed(2);
-    ecartCell.style.color = ecart < 0 ? "red" : "green";
-  }
-
-  // Mise à jour des totaux globaux
+  const abs=parseFloat(tr.querySelector("select[data-type='abs']")?.value||0);
+  const s=salaries.find(x=>x.id==salarieId);
+  const jour=new Date(dateStr).getDay();
+  const cle=["dim","lun","mar","mer","jeu","ven","sam"][jour];
+  const prevu=s?.heuresParJour?.[cle]||0;
+  const ec=total-prevu+abs;
+  tr.querySelector(".cell-total").textContent=total.toFixed(2);
+  tr.querySelector(".cell-prevu").textContent=prevu.toFixed(2);
+  const cellEc=tr.querySelector(".cell-ecart");
+  cellEc.textContent=(ec>=0?"+":"")+ec.toFixed(2);
+  cellEc.style.color=ec<0?"red":"green";
   majTotauxGlobaux();
 }
 
-function majTotauxGlobaux() {
-  let totT = 0, totA = 0, totP = 0;
-  const lignes = document.querySelectorAll("tr[data-salarie]");
-  lignes.forEach(tr => {
-    totT += parseFloat(tr.querySelector(".cell-total")?.textContent || 0);
-    totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value || 0);
-    totP += parseFloat(tr.querySelector(".cell-prevu")?.textContent || 0);
+function majTotauxGlobaux(){
+  let totT=0,totA=0,totP=0;
+  document.querySelectorAll("tr[data-salarie]").forEach(tr=>{
+    totT+=parseFloat(tr.querySelector(".cell-total")?.textContent||0);
+    totA+=parseFloat(tr.querySelector("select[data-type='abs']")?.value||0);
+    totP+=parseFloat(tr.querySelector(".cell-prevu")?.textContent||0);
   });
-
-  const ec = totT - totP;
-  document.getElementById("tot-total").textContent = totT.toFixed(1);
-  document.getElementById("tot-abs").textContent   = totA.toFixed(1);
-  document.getElementById("tot-prev").textContent  = totP.toFixed(1);
-  document.getElementById("tot-ecart").textContent = ec.toFixed(1);
-  document.getElementById("tot-ecart").style.color = ec < 0 ? "red" : "green";
-
-  const pct = totP > 0 ? (totT / totP) * 100 : 0;
-  const curseur = document.getElementById("curseur");
-  const pour    = document.getElementById("pourcentage");
-  if (curseur && pour) {
-    const largeur = curseur.parentElement.offsetWidth;
-    curseur.style.left = (pct / 100) * largeur - 4 + "px";
-    pour.textContent = pct.toFixed(0) + "%";
+  const ec=totT-totP;
+  document.getElementById("tot-total").textContent=totT.toFixed(1);
+  document.getElementById("tot-abs").textContent=totA.toFixed(1);
+  document.getElementById("tot-prev").textContent=totP.toFixed(1);
+  document.getElementById("tot-ecart").textContent=ec.toFixed(1);
+  document.getElementById("tot-ecart").style.color=ec<0?"red":"green";
+  const pct=totP>0?(totT/totP)*100:0;
+  const curseur=document.getElementById("curseur");
+  const pour=document.getElementById("pourcentage");
+  if(curseur&&pour){
+    const largeur=curseur.parentElement.offsetWidth;
+    curseur.style.left=(pct/100)*largeur-4+"px";
+    pour.textContent=pct.toFixed(0)+"%";
   }
 }
 
-// === Mise à jour en direct de toutes les modifications ===
-function initialiserEcouteursLive() {
-  const wrapper = document.getElementById("planning-wrapper");
-  if (!wrapper) return;
-
-  wrapper.addEventListener("input", (e) => {
-    const el = e.target;
-    if (!(el.tagName === "INPUT" || el.tagName === "SELECT")) return;
-
-    // Trouver la ligne concernée
-    const tr = el.closest("tr[data-salarie]");
-    if (!tr) return;
-
-    const salarieId = tr.getAttribute("data-salarie");
-    const dateStr   = tr.getAttribute("data-date");
-
-    // Met à jour le stockage (si c’est bien un chantier ou une heure)
-    if (el.id && el.id.includes("ch")) {
-      const k = el.id.replace(/(chantier|h)$/,"");
-      const inputCh = document.getElementById(`${k}chantier`);
-      const selectH = document.getElementById(`${k}h`);
-      const chantier = inputCh ? inputCh.value : "";
-      const heure = selectH ? parseFloat(selectH.value) || 0 : 0;
-      heures[k] = { chantier, heures: heure };
-      localStorage.setItem("heuresdata", JSON.stringify(heures));
-    }
-
-    // Recalcul immédiat de la ligne et des totaux
-    majTotalLigneLive(salarieId, dateStr);
-  });
-}
-// === Écoute dynamique sur tout le tableau ===
-function activerCalculInstantane() {
-  const wrapper = document.getElementById("planning-wrapper");
-  if (!wrapper) return;
-
-  // on écoute les modifications d'inputs et de selects dans la zone du planning
-  wrapper.addEventListener("change", handleUpdate);
-  wrapper.addEventListener("input", handleUpdate);
-}
-
-function handleUpdate(e) {
-  const el = e.target;
-  if (!(el.matches("select") || el.matches("input"))) return;
-
-  const tr = el.closest("tr[data-salarie]");
-  if (!tr) return;
-
-  const salarieId = tr.getAttribute("data-salarie");
-  const dateStr = tr.getAttribute("data-date");
-
-  // 🔹 sauvegarde dans mémoire locale
-  if (el.id) {
-    // exemple: id => "1685045458202626-05-10ch2h"
-    const keyBase = el.id.replace(/chantier|h$/,"");
-    const champ = document.getElementById(`${keyBase}chantier`);
-    const select = document.getElementById(`${keyBase}h`);
-    if (champ && select) {
-      heures[keyBase] = {
-        chantier: champ.value,
-        heures: parseFloat(select.value)||0
-      };
-      localStorage.setItem("heuresdata", JSON.stringify(heures));
-    }
-  }
-
-  majTotalLigneLive(salarieId, dateStr);
-}
-
-// ====== Impression & Semaines =======
-function imprimerSemaine(){ /* inchangée */ }
-function chargerSemaines(){
-  const m=document.getElementById("moisPlanning").value;
-  const sel=document.getElementById("semaineSelect");
-  sel.innerHTML='<option value="">— Mois complet —</option>';
-  if(!m)return;
-  const [a,mo]=m.split('-').map(Number);
-  const d1=new Date(a,mo-1,1);
-  const dL=new Date(a,mo,0);
-  let lun=new Date(d1);
-  while(lun.getDay()!==1) lun.setDate(lun.getDate()+1);
-  let i=1; while(lun<=dL){
-    const sam=new Date(lun); sam.setDate(lun.getDate()+5);
-    const op=document.createElement("option");
-    op.value=i;
-    op.textContent=`Semaine ${i}: ${lun.toLocaleDateString("fr-FR")} → ${sam.toLocaleDateString("fr-FR")}`;
-    sel.appendChild(op);
-    lun.setDate(lun.getDate()+7); i++;
-  }
-}
+// ===========================================
 // Initialisation
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ DOM chargé, initialisation en cours...");
-  const mois = document.getElementById("moisPlanning");
-  const sem  = document.getElementById("semaineSelect");
-  const now  = new Date();
+// ===========================================
+document.addEventListener("DOMContentLoaded",()=>{
+  const mois=document.getElementById("moisPlanning");
+  const sem=document.getElementById("semaineSelect");
+  const now=new Date();
+  mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  chargerSemaines(); chargerJauge(); genererPlanning();
 
-  mois.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  // Écouteur live pour recalcul immédiat
+  document.getElementById("planning-wrapper")
+          .addEventListener("input",e=>{
+            if(e.target.matches("input,select")){
+              const tr=e.target.closest("tr[data-salarie]");
+              if(!tr)return;
+              majTotalLigneLive(tr.dataset.salarie,tr.dataset.date);
+            }
+          });
 
-  chargerSemaines();
-  chargerJauge();
-  genererPlanning();
-
-  // Active les calculs instantanés
-  activerCalculInstantane();
-
-  // Écoute les changements de mois ou semaine
-  mois.addEventListener("input", () => { chargerSemaines(); genererPlanning(); });
-  sem.addEventListener("change", genererPlanning);
-
-  console.log("✅ Écoute installée sur #planning-wrapper");
+  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  sem.addEventListener("change",genererPlanning);
 });
-
 </script>
 </body>
 </html>
