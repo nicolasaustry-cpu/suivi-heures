@@ -126,74 +126,99 @@ function genOptionsHeures(v){
 }
 
 function genererPlanning(){
-  salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]');
-  heures=JSON.parse(localStorage.getItem('heuresdata')||'{}');
-  const cont=document.getElementById("planning-wrapper");
-  const moisSel=document.getElementById("moisPlanning").value;
-  if(!moisSel){cont.innerHTML="<p style='padding:1rem;'>Choisissez un mois.</p>";return;}
+  salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
+  heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
+  const cont = document.getElementById("planning-wrapper");
+  const moisSel = document.getElementById("moisPlanning").value;
+  if(!moisSel){
+    cont.innerHTML = "<p style='padding:1rem;'>Choisissez un mois.</p>";
+    return;
+  }
 
-  const [a,m]=moisSel.split("-");
-  const debut=new Date(+a,+m-1,1);
-  const fin=new Date(+a,+m,0);
-  const jours=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
-  cont.innerHTML="";
+  const [a,m] = moisSel.split("-");
+  const debut = new Date(+a,+m-1,1);
+  const fin   = new Date(+a,+m,0);
+  const jours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  cont.innerHTML = "";
 
-  let totT=0,totA=0,totP=0;
-  for(let d=new Date(debut);d<=fin;d.setDate(d.getDate()+1)){
-    if(d.getDay()===0)continue;
-    const jourNom=jours[d.getDay()];
-    const dateStr=d.toISOString().split("T")[0];
-    const safeDate=dateStr.replace(/-/g,"_");     // ← ID sans tiret
-    let html=`<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
-    html+=`<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
+  let totT = 0, totA = 0, totP = 0;
+
+  // ==== boucle sur chaque jour du mois ====
+  for(let d = new Date(debut); d <= fin; d.setDate(d.getDate()+1)){
+    if(d.getDay() === 0) continue; // skip dimanche
+    const jourNom = jours[d.getDay()];
+    const dateStr = d.toISOString().split("T")[0];
+    const safeDate = dateStr.replace(/-/g,"_");
+    let htmlJour = `<h3 style="background:#dbeafe;padding:0.3rem;">${jourNom} ${d.toLocaleDateString("fr-FR")}</h3>`;
+    htmlJour += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.5rem;">
       <thead><tr style="background:#e2e8f0">
         <th style="border:1px solid #ccc;width:200px;">Salarié</th>
         <th>Ch1</th><th>Ch2</th><th>Ch3</th><th>Ch4</th><th>Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
 
+    let totalJour = 0;
+    let lignes = "";
+
     salaries.forEach(s=>{
-      const e=new Date(s.dateEntree);
-      const srt=s.dateSortie?new Date(s.dateSortie):null;
-      if(d<e||(srt&&d>srt))return;
+      const e = new Date(s.dateEntree);
+      const srt = s.dateSortie ? new Date(s.dateSortie) : null;
+      if(d<e || (srt && d>srt)) return;
+
       const hp=s.heuresParJour||{};
       const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
+      const prevu = hp[cle]||0;
+
       let total=0;
       let row=`<tr data-salarie="${s.id}" data-date="${dateStr}">
         <td style="font-weight:bold;border:1px solid #ccc;">${s.prenom} ${s.nom}</td>`;
       for (let i = 1; i <= 5; i++) {
         const k = `${s.id}${safeDate}ch${i}`;
-        const data = heures[k] || { chantier: "", heures: 0 };
-        total += parseFloat(data.heures) || 0;
-        row += `
-          <td style="border:1px solid #ccc;padding:2px;">
-            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
-              oninput="saveHeure('${k}', this.value, document.getElementById('${k}h').value)">
-            <select id="${k}h" style="width:60px;"
-              onchange="saveHeure('${k}', document.getElementById('${k}chantier').value, this.value)">
-              ${genOptionsHeures(data.heures)}
-            </select>
-          </td>`;
+        const data = heures[k]||{chantier:"",heures:0};
+        total += parseFloat(data.heures)||0;
+        row += `<td style="border:1px solid #ccc;padding:2px;">
+          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:150px;"
+            oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+          <select id="${k}h" style="width:60px;"
+            onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
+            ${genOptionsHeures(data.heures)}
+          </select>
+        </td>`;
       }
-      const absK=`${s.id}${safeDate}abs`;
-      const abs=heures[absK]?.heures||0;
-      const prevu=hp[cle]||0;
-      const ec=total - prevu + abs;
-      row+=`<td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
-             <td style="border:1px solid #ccc;text-align:center;">
-               <select data-type="abs" id="${absK}h" style="width:60px;"
-                 onchange="saveHeure('${absK}','absence',this.value)">
-                 ${genOptionsHeures(abs)}
-               </select>
-             </td>
-             <td class="cell-prevu" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
-             <td class="cell-ecart" style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">${ec>=0?'+':''}${ec.toFixed(1)}</td></tr>`;
-      html+=row;
-      totT+=total; totA+=abs; totP+=prevu;
+
+      const absK = `${s.id}${safeDate}abs`;
+      const abs = heures[absK]?.heures || 0;
+      const ec  = total - prevu + abs;
+      totalJour += total; // cumule les heures du jour
+
+      row += `<td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
+        <td style="border:1px solid #ccc;text-align:center;">
+          <select data-type="abs" id="${absK}h" style="width:60px;"
+            onchange="saveHeure('${absK}','absence',this.value)">
+            ${genOptionsHeures(abs)}
+          </select>
+        </td>
+        <td class="cell-prevu" style="border:1px solid #ccc;text-align:center;">${prevu.toFixed(1)}</td>
+        <td class="cell-ecart" style="border:1px solid #ccc;text-align:center;color:${ec<0?'red':'green'};">
+          ${ec>=0?'+':''}${ec.toFixed(1)}
+        </td></tr>`;
+
+      lignes += row;
+      totT += total; totA += abs; totP += prevu;
     });
-    html+="</tbody></table>";
-    cont.innerHTML+=html;
+
+    htmlJour += lignes + "</tbody></table>";
+
+    // 🔹 Si totalJour == 0 → on vide toutes les cellules prévu/écart pour cette journée
+    if (totalJour === 0) {
+      htmlJour = htmlJour
+        .replace(/<td class="cell-prevu"[^>]*>[^<]*<\/td>/g, '<td class="cell-prevu" style="border:1px solid #ccc;text-align:center;"></td>')
+        .replace(/<td class="cell-ecart"[^>]*>[^<]*<\/td>/g, '<td class="cell-ecart" style="border:1px solid #ccc;text-align:center;"></td>');
+    }
+
+    cont.innerHTML += htmlJour;
   }
+
   majTotauxGlobaux();
 }
 
