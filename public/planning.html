@@ -15,6 +15,45 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
+/* === Bloc supérieur fixe et collé === */
+
+/* Conteneurs du haut */
+header,
+.nav,
+.no-print {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- Bandeau bleu --- */
+header {
+  top: 0;
+  height: 48px;
+  line-height: 48px;
+}
+
+/* --- Barre de navigation --- */
+.nav {
+  top: 48px;                /* colle juste sous le bandeau bleu */
+  background: #e8edf3;
+  height: 40px;
+}
+
+/* --- Bloc Mois + Jauge + Totaux --- */
+.no-print {
+  top: 88px;                /* colle juste sous la nav */
+  background: #f8fafc;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* --- Pour ne pas masquer le planning derrière le haut fixe --- */
+#planning-wrapper {
+  margin-top: 240px;        /* hauteur totale : header + nav + no-print */
+}
 
 </style>
 </head>
