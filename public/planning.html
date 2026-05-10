@@ -204,10 +204,11 @@ function genererPlanning(){
     let totalJour = 0;
     let lignes = "";
 
-    salaries.forEach(s=>{
-      const e = new Date(s.dateEntree);
-      const srt = s.dateSortie ? new Date(s.dateSortie) : null;
-      if(d<e || (srt && d>srt)) return;
+ salaries.forEach(s=>{
+  const e = new Date(s.dateEntree);
+  const srt = s.dateSortie ? new Date(s.dateSortie + "T23:59:59") : null; // inclut toute la journée de sortie
+  if (d < e || (srt && d > srt)) return; // on ignore le salarié hors période
+
 
       const hp=s.heuresParJour||{};
       const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
