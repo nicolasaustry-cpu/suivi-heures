@@ -15,6 +15,57 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
+/* ================================
+   BLOC SUPÉRIEUR FIXE ET COLLÉ
+   ================================ */
+
+/* on bloque tout le haut */
+header,
+.nav,
+.no-print {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- Bandeau bleu --- */
+header {
+  top: 0;
+  height: 60px;               /* hauteur réelle du bandeau bleu */
+  line-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* --- Barre de navigation --- */
+.nav {
+  top: 60px;                  /* colle juste sous le header */
+  background: #e8edf3;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Zone filtres + jauge + totaux --- */
+.no-print {
+  top: 105px;                 /* 60 + 45 = 105 — sans espace */
+  background: #f8fafc;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  padding: 0.8rem;
+}
+
+/* --- Ajustement du contenu principal --- */
+#planning-wrapper {
+  margin-top: 270px;          /* compense la hauteur du bloc fixe */
+  padding: 0.8rem;
+  overflow-y: auto;
+}
+
 </style>
 </head>
 <body>
