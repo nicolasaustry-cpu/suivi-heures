@@ -200,6 +200,7 @@ if (total > 0) {
 
 row += `</tr>`;
 
+      html+=row;
       totT+=total; totA+=abs; totP+=prevu;
     });
     html+="</tbody></table>";
@@ -239,7 +240,6 @@ function majTotalLigne(salarieId, dateStr) {
   const cle = ["dim","lun","mar","mer","jeu","ven","sam"][jour];
   const prevu = salarie.heuresParJour?.[cle] || 0;
   const ecart = total - prevu + abs;
-  const ecCell = tr.querySelector(".cell-ecart");
 tr.querySelector(".cell-total").textContent = total.toFixed(1);
 const prevuCell = tr.querySelector(".cell-prevu");
 const ecCell = tr.querySelector(".cell-ecart");
