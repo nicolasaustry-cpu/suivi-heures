@@ -277,6 +277,37 @@ function majTotauxGlobaux() {
   }
 }
 
+// === Mise à jour en direct de toutes les modifications ===
+function initialiserEcouteursLive() {
+  const wrapper = document.getElementById("planning-wrapper");
+  if (!wrapper) return;
+
+  wrapper.addEventListener("input", (e) => {
+    const el = e.target;
+    if (!(el.tagName === "INPUT" || el.tagName === "SELECT")) return;
+
+    // Trouver la ligne concernée
+    const tr = el.closest("tr[data-salarie]");
+    if (!tr) return;
+
+    const salarieId = tr.getAttribute("data-salarie");
+    const dateStr   = tr.getAttribute("data-date");
+
+    // Met à jour le stockage (si c’est bien un chantier ou une heure)
+    if (el.id && el.id.includes("ch")) {
+      const k = el.id.replace(/(chantier|h)$/,"");
+      const inputCh = document.getElementById(`${k}chantier`);
+      const selectH = document.getElementById(`${k}h`);
+      const chantier = inputCh ? inputCh.value : "";
+      const heure = selectH ? parseFloat(selectH.value) || 0 : 0;
+      heures[k] = { chantier, heures: heure };
+      localStorage.setItem("heuresdata", JSON.stringify(heures));
+    }
+
+    // Recalcul immédiat de la ligne et des totaux
+    majTotalLigneLive(salarieId, dateStr);
+  });
+}
 
 // ====== Impression & Semaines =======
 function imprimerSemaine(){ /* inchangée */ }
@@ -307,6 +338,22 @@ document.addEventListener("DOMContentLoaded",()=>{
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   chargerSemaines(); chargerJauge(); genererPlanning();
+// Initialisation
+document.addEventListener("DOMContentLoaded",()=>{
+  const mois=document.getElementById("moisPlanning");
+  const sem=document.getElementById("semaineSelect");
+  const now=new Date();
+  mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+
+  chargerSemaines();
+  chargerJauge();
+  genererPlanning();
+  initialiserEcouteursLive(); // 🔹 AJOUT ICI : active les mises à jour instantanées
+
+  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  sem.addEventListener("change",genererPlanning);
+});
+
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
