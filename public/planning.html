@@ -60,6 +60,20 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
+/* Fixe la largeur des colonnes Totaux, Abs, Prévu, Écart */
+td.cell-total,
+td.cell-prevu,
+td.cell-ecart,
+td[data-type="abs"],
+th:nth-last-child(-n+4) {
+  width: 50px;
+  max-width: 50px;
+  min-width: 50px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 </style>
 </head>
 <body>
