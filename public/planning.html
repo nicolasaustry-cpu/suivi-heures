@@ -55,49 +55,6 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
 
-/* Filtre salariés simple */
-.filtre-salaries {
-  position: relative;
-  display: inline-block;
-}
-.filtre-btn {
-  min-width: 180px;
-  padding: 6px 10px;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: left;
-}
-.filtre-liste {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  min-width: 200px;
-  z-index: 1001;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-.filtre-liste.open {
-  display: block;
-}
-.filtre-liste label {
-  display: block;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-.filtre-liste label:hover {
-  background: #f0f4f8;
-}
-.filtre-liste input {
-  margin-right: 8px;
-}
-
 #totaux-barre td {
   width: 50px;
   text-align: center;
@@ -147,6 +104,12 @@ table {
   table-layout: fixed;
   width: 100%;
 }
+
+/* Select multiple pour salariés */
+#filtreSalaries {
+  min-width: 180px;
+  height: 80px;
+}
 </style>
 </head>
 <body>
@@ -164,15 +127,9 @@ table {
     <div class="flex">
       <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
       
-      <!-- Filtre salariés simple -->
       <div>
-        <label>Salariés :</label><br>
-        <div class="filtre-salaries">
-          <div class="filtre-btn" onclick="toggleFiltre()">
-            <span id="filtreTexte">Tous</span> ▼
-          </div>
-          <div class="filtre-liste" id="filtreListe"></div>
-        </div>
+        <label>Salariés : <small>(Ctrl+clic pour multi)</small></label><br>
+        <select id="filtreSalaries" multiple onchange="genererPlanning()"></select>
       </div>
       
       <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
@@ -220,57 +177,32 @@ table {
 <script>
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
-let salariesCoches = new Set();
 
 // ====== Filtre salariés ======
 function initFiltre() {
-  const liste = document.getElementById('filtreListe');
-  liste.innerHTML = '';
-  
-  // Par défaut : tous cochés
-  salaries.forEach(s => salariesCoches.add(s.id));
+  const select = document.getElementById('filtreSalaries');
+  select.innerHTML = '';
   
   salaries.forEach(s => {
-    const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" checked data-id="${s.id}" onchange="majFiltre()"> ${s.prenom} ${s.nom}`;
-    liste.appendChild(label);
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.prenom} ${s.nom}`;
+    opt.selected = true; // tous sélectionnés par défaut
+    select.appendChild(opt);
   });
-  
-  majFiltreTexte();
 }
 
-function toggleFiltre() {
-  document.getElementById('filtreListe').classList.toggle('open');
-}
-
-document.addEventListener('click', function(e) {
-  const filtre = document.querySelector('.filtre-salaries');
-  if (!filtre.contains(e.target)) {
-    document.getElementById('filtreListe').classList.remove('open');
+function getSalariesCoches() {
+  const select = document.getElementById('filtreSalaries');
+  const ids = new Set();
+  for (const opt of select.selectedOptions) {
+    ids.add(parseInt(opt.value));
   }
-});
-
-function majFiltre() {
-  salariesCoches.clear();
-  document.querySelectorAll('#filtreListe input:checked').forEach(cb => {
-    salariesCoches.add(parseInt(cb.dataset.id));
-  });
-  majFiltreTexte();
-  genererPlanning();
-}
-
-function majFiltreTexte() {
-  const texte = document.getElementById('filtreTexte');
-  const nb = salariesCoches.size;
-  const total = salaries.length;
-  
-  if (nb === total) {
-    texte.textContent = 'Tous';
-  } else if (nb === 0) {
-    texte.textContent = 'Aucun';
-  } else {
-    texte.textContent = nb + ' sélectionné' + (nb > 1 ? 's' : '');
+  // Si aucun sélectionné, afficher tous
+  if (ids.size === 0) {
+    salaries.forEach(s => ids.add(s.id));
   }
+  return ids;
 }
 
 // ====== Jauge =======
@@ -334,7 +266,7 @@ function genererPlanning(){
   const jours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   cont.innerHTML = "";
 
-  // Filtrer selon les salariés cochés
+  const salariesCoches = getSalariesCoches();
   const salariesAffiches = salaries.filter(s => salariesCoches.has(s.id));
 
   let totT = 0, totA = 0, totP = 0;
