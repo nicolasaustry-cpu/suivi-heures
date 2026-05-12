@@ -48,10 +48,119 @@ header {
 }
 /* --- Le planning commence sous le bloc fixe --- */
 #planning-wrapper {
-  margin-top: 270px; /* hauteur totale du bloc supérieur */
+  margin-top: 270px;
   padding:0.8rem;
 }
-/* Autres styles existants ---- */
+
+/* ========= FILTRE MULTI-SELECT TYPE EXCEL ========= */
+.multi-select-container {
+  position: relative;
+  display: inline-block;
+  min-width: 200px;
+}
+.multi-select-btn {
+  width: 100%;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  position: relative;
+}
+.multi-select-btn::after {
+  content: "▼";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: #666;
+}
+.multi-select-btn.open::after {
+  content: "▲";
+}
+.multi-select-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1001;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+.multi-select-dropdown.show {
+  display: block;
+}
+.multi-select-search {
+  width: calc(100% - 16px);
+  margin: 8px;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+.multi-select-actions {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  background: #f9f9f9;
+}
+.multi-select-actions button {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.multi-select-actions button:hover {
+  background: #cbd5e1;
+}
+.multi-select-option {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.multi-select-option:hover {
+  background: #e8f4fc;
+}
+.multi-select-option input[type="checkbox"] {
+  margin-right: 10px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.multi-select-option label {
+  cursor: pointer;
+  flex: 1;
+  font-size: 0.85rem;
+}
+.multi-select-option.hidden {
+  display: none;
+}
+.badge-count {
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
+/* Autres styles existants */
 h1{margin:0;font-size:1.4rem;}
 button{border:none;border-radius:4px;padding:0.5rem 1rem;font-weight:bold;cursor:pointer;color:#fff;}
 .btn-warning{background:#f59e0b;color:#000;}
@@ -60,7 +169,7 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a{text-decoration:none;color:#2563eb;font-weight:bold;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
-/* Barre TOTAUX simplifiée : 4 colonnes finales alignées */
+
 #totaux-barre td {
   width: 50px;
   text-align: center;
@@ -68,26 +177,13 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
   padding: 4px;
   white-space: nowrap;
 }
-
-/* Réduction et alignement de la barre TOTAUX */
-#totaux-barre td {
-  width: 50px;
-  text-align: center;
-  border: 1px solid #ccc;
-  padding: 4px;
-}
-
-/* Ajuste le bloc "TOTAUX" (le libellé) un peu plus large */
 #totaux-barre td:nth-child(6) {
   width: 50px;
   font-weight: bold;
 }
-
-/* Alignement global : 5 dern. colonnes sur la droite */
 #totaux-barre {
   table-layout: fixed;
 }
-/* Largeur fixe de 50 px pour les colonnes Total / Abs. / Prévu / Écart */
 .cell-total,
 .cell-prevu,
 .cell-ecart,
@@ -100,9 +196,6 @@ td[data-type="abs"],
   overflow: hidden;
   white-space: nowrap;
 }
-/* ==========================================
-   Largeurs fixes des 4 colonnes de résultats
-   ========================================== */
 .cell-total,
 .cell-prevu,
 .cell-ecart,
@@ -115,28 +208,21 @@ th:nth-last-child(-n+4) {
   overflow: hidden;
   white-space: nowrap;
 }
-
-/* ==========================================
-   Colonnes chantiers : flexibles et responsives
-   ========================================== */
 td:not(.cell-total):not(.cell-prevu):not(.cell-ecart):not([data-type="abs"]):not(:first-child),
 th:not(:first-child):not(:nth-last-child(-n+4)) {
   width: auto;
-  min-width: 150px;      /* largeur mini des colonnes chantier */
-  max-width: 250px;      /* largeur max souhaitée */
+  min-width: 150px;
+  max-width: 250px;
   white-space: nowrap;
 }
-
-/* Ajustement pour éviter la déformation du tableau complet */
 table {
   table-layout: fixed;
   width: 100%;
 }
-
 </style>
 </head>
 <body>
-<!-- ===== Bloc complet fixe collé en haut ===== -->
+
 <div class="top-bar">
   <header><h1>Planning du mois</h1><div>✔️ Active</div></header>
   <div class="nav no-print">
@@ -145,14 +231,35 @@ table {
     <a href="planning.html" class="active">Planning</a>
     <a href="rapports.html">Rapports</a>
   </div>
-  <!-- Zone filtres + jauge + totaux -->
+  
   <div class="fixed-tools no-print">
     <div class="flex">
       <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
+      
+      <!-- FILTRE SALARIÉS MULTI-SELECT -->
+      <div>
+        <label>Salariés :</label><br>
+        <div class="multi-select-container" id="filtreSalaries">
+          <div class="multi-select-btn" onclick="toggleDropdown()">
+            <span id="selectedText">Tous les salariés</span>
+            <span class="badge-count" id="badgeCount" style="display:none;"></span>
+          </div>
+          <div class="multi-select-dropdown" id="dropdown">
+            <input type="text" class="multi-select-search" placeholder="🔍 Rechercher..." oninput="filterOptions(this.value)">
+            <div class="multi-select-actions">
+              <button onclick="selectAll()">✓ Tout</button>
+              <button onclick="deselectAll()">✗ Aucun</button>
+              <button onclick="invertSelection()">⇄ Inverser</button>
+            </div>
+            <div id="optionsList"></div>
+          </div>
+        </div>
+      </div>
+      
       <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
       <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
     </div>
-    <!-- Jauge + Totaux : ton code existant -->
+    
     <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
       <thead>
         <tr style="background:#fff3cd;">
@@ -177,24 +284,147 @@ table {
             </div>
           </td>
         </tr>
-<tr id="totaux-barre" style="background:#d1fae5;font-weight:bold;text-align:center;">
-  <td colspan="6"></td> <!-- colonnes chantier masquées -->
-  <td id="tot-total" style="border:1px solid #ccc;">Total : 0</td>
-  <td id="tot-abs" style="border:1px solid #ccc;">Abs. : 0</td>
-  <td id="tot-prev" style="border:1px solid #ccc;">Prévu : 0</td>
-  <td id="tot-ecart" style="border:1px solid #ccc;">Écart : 0</td>
-</tr>
-
+        <tr id="totaux-barre" style="background:#d1fae5;font-weight:bold;text-align:center;">
+          <td colspan="6"></td>
+          <td id="tot-total" style="border:1px solid #ccc;">Total : 0</td>
+          <td id="tot-abs" style="border:1px solid #ccc;">Abs. : 0</td>
+          <td id="tot-prev" style="border:1px solid #ccc;">Prévu : 0</td>
+          <td id="tot-ecart" style="border:1px solid #ccc;">Écart : 0</td>
+        </tr>
       </thead>
     </table>
   </div>
 </div>
-<!-- Planning -->
+
 <div id="planning-wrapper"></div>
-<!-- Tout ton script inchangé -->
+
 <script>
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
+let selectedSalaries = new Set(); // IDs des salariés sélectionnés
+
+// ========== FILTRE MULTI-SELECT ==========
+function initFiltreSalaries() {
+  const container = document.getElementById('optionsList');
+  container.innerHTML = '';
+  
+  // Charger la sélection sauvegardée ou tout sélectionner par défaut
+  const saved = JSON.parse(localStorage.getItem('selectedSalaries') || '[]');
+  selectedSalaries = new Set(saved.length ? saved : salaries.map(s => s.id));
+  
+  salaries.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'multi-select-option';
+    div.dataset.id = s.id;
+    div.dataset.name = `${s.prenom} ${s.nom}`.toLowerCase();
+    
+    const checked = selectedSalaries.has(s.id) ? 'checked' : '';
+    div.innerHTML = `
+      <input type="checkbox" id="sal_${s.id}" ${checked} onchange="toggleSalarie(${s.id}, this.checked)">
+      <label for="sal_${s.id}">${s.prenom} ${s.nom}</label>
+    `;
+    container.appendChild(div);
+  });
+  
+  updateSelectedText();
+}
+
+function toggleDropdown() {
+  const dropdown = document.getElementById('dropdown');
+  const btn = document.querySelector('.multi-select-btn');
+  dropdown.classList.toggle('show');
+  btn.classList.toggle('open');
+}
+
+// Fermer le dropdown en cliquant ailleurs
+document.addEventListener('click', function(e) {
+  const container = document.getElementById('filtreSalaries');
+  if (!container.contains(e.target)) {
+    document.getElementById('dropdown').classList.remove('show');
+    document.querySelector('.multi-select-btn').classList.remove('open');
+  }
+});
+
+function filterOptions(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.multi-select-option').forEach(opt => {
+    const match = opt.dataset.name.includes(q);
+    opt.classList.toggle('hidden', !match);
+  });
+}
+
+function toggleSalarie(id, checked) {
+  if (checked) {
+    selectedSalaries.add(id);
+  } else {
+    selectedSalaries.delete(id);
+  }
+  saveSelection();
+  updateSelectedText();
+  genererPlanning();
+}
+
+function selectAll() {
+  salaries.forEach(s => selectedSalaries.add(s.id));
+  document.querySelectorAll('.multi-select-option input').forEach(cb => cb.checked = true);
+  saveSelection();
+  updateSelectedText();
+  genererPlanning();
+}
+
+function deselectAll() {
+  selectedSalaries.clear();
+  document.querySelectorAll('.multi-select-option input').forEach(cb => cb.checked = false);
+  saveSelection();
+  updateSelectedText();
+  genererPlanning();
+}
+
+function invertSelection() {
+  salaries.forEach(s => {
+    if (selectedSalaries.has(s.id)) {
+      selectedSalaries.delete(s.id);
+    } else {
+      selectedSalaries.add(s.id);
+    }
+  });
+  document.querySelectorAll('.multi-select-option input').forEach(cb => {
+    cb.checked = !cb.checked;
+  });
+  saveSelection();
+  updateSelectedText();
+  genererPlanning();
+}
+
+function saveSelection() {
+  localStorage.setItem('selectedSalaries', JSON.stringify([...selectedSalaries]));
+}
+
+function updateSelectedText() {
+  const textEl = document.getElementById('selectedText');
+  const badge = document.getElementById('badgeCount');
+  const count = selectedSalaries.size;
+  const total = salaries.length;
+  
+  if (count === 0) {
+    textEl.textContent = 'Aucun salarié';
+    badge.style.display = 'none';
+  } else if (count === total) {
+    textEl.textContent = 'Tous les salariés';
+    badge.style.display = 'none';
+  } else if (count <= 2) {
+    const names = salaries
+      .filter(s => selectedSalaries.has(s.id))
+      .map(s => s.prenom)
+      .join(', ');
+    textEl.textContent = names;
+    badge.style.display = 'none';
+  } else {
+    textEl.textContent = `${count} salarié${count > 1 ? 's' : ''}`;
+    badge.textContent = `/${total}`;
+    badge.style.display = 'inline';
+  }
+}
 
 // ====== Jauge =======
 function majZonesJauge(){
@@ -213,12 +443,14 @@ function majZonesJauge(){
     rouge,orange,fige:document.getElementById('figerSeuils').checked
   }));
 }
+
 function majEtatFiger(){
   const chk=document.getElementById('figerSeuils').checked;
   document.getElementById('limiteRouge').disabled=chk;
   document.getElementById('limiteOrange').disabled=chk;
   majZonesJauge();
 }
+
 function chargerJauge(){
   const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
   document.getElementById('limiteRouge').value=conf.rouge;
@@ -243,6 +475,7 @@ function genererPlanning(){
   heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
   const cont = document.getElementById("planning-wrapper");
   const moisSel = document.getElementById("moisPlanning").value;
+  
   if(!moisSel){
     cont.innerHTML = "<p style='padding:1rem;'>Choisissez un mois.</p>";
     return;
@@ -254,11 +487,19 @@ function genererPlanning(){
   const jours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   cont.innerHTML = "";
 
+  // Filtrer les salariés sélectionnés
+  const salariesFiltres = salaries.filter(s => selectedSalaries.has(s.id));
+  
+  if (salariesFiltres.length === 0) {
+    cont.innerHTML = "<p style='padding:1rem;color:#666;'>Aucun salarié sélectionné. Utilisez le filtre pour afficher des salariés.</p>";
+    majTotauxGlobaux();
+    return;
+  }
+
   let totT = 0, totA = 0, totP = 0;
 
-  // ==== boucle sur chaque jour du mois ====
   for(let d = new Date(debut); d <= fin; d.setDate(d.getDate()+1)){
-    if(d.getDay() === 0) continue; // skip dimanche
+    if(d.getDay() === 0) continue;
     const jourNom = jours[d.getDay()];
     const dateStr = d.toISOString().split("T")[0];
     const safeDate = dateStr.replace(/-/g,"_");
@@ -267,21 +508,20 @@ function genererPlanning(){
            <thead><tr style="background:#e2e8f0">
         <th style="border:1px solid #ccc;width:150px;">Salarié</th>
         <th style="border:1px solid #ccc;width:210px;">Ch1</th>
-<th style="border:1px solid #ccc;width:210px;">Ch2</th>
-<th style="border:1px solid #ccc;width:210px;">Ch3</th>
-<th style="border:1px solid #ccc;width:210px;">Ch4</th>
-<th style="border:1px solid #ccc;width:210px;">Ch5</th>
+        <th style="border:1px solid #ccc;width:210px;">Ch2</th>
+        <th style="border:1px solid #ccc;width:210px;">Ch3</th>
+        <th style="border:1px solid #ccc;width:210px;">Ch4</th>
+        <th style="border:1px solid #ccc;width:210px;">Ch5</th>
         <th>Total</th><th>Abs.</th><th>Prévu</th><th>Écart</th>
       </tr></thead><tbody>`;
 
     let totalJour = 0;
     let lignes = "";
 
- salaries.forEach(s=>{
-  const e = new Date(s.dateEntree);
-  const srt = s.dateSortie ? new Date(s.dateSortie + "T23:59:59") : null; // inclut toute la journée de sortie
-  if (d < e || (srt && d > srt)) return; // on ignore le salarié hors période
-
+    salariesFiltres.forEach(s=>{
+      const e = new Date(s.dateEntree);
+      const srt = s.dateSortie ? new Date(s.dateSortie + "T23:59:59") : null;
+      if (d < e || (srt && d > srt)) return;
 
       const hp=s.heuresParJour||{};
       const cle=["dim","lun","mar","mer","jeu","ven","sam"][d.getDay()];
@@ -307,7 +547,7 @@ function genererPlanning(){
       const absK = `${s.id}${safeDate}abs`;
       const abs = heures[absK]?.heures || 0;
       const ec  = total - prevu + abs;
-      totalJour += total; // cumule les heures du jour
+      totalJour += total;
 
       row += `<td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
         <td style="border:1px solid #ccc;text-align:center;">
@@ -327,7 +567,6 @@ function genererPlanning(){
 
     htmlJour += lignes + "</tbody></table>";
 
-    // 🔹 Si totalJour == 0 → on vide toutes les cellules prévu/écart pour cette journée
     if (totalJour === 0) {
       htmlJour = htmlJour
         .replace(/<td class="cell-prevu"[^>]*>[^<]*<\/td>/g, '<td class="cell-prevu" style="border:1px solid #ccc;text-align:center;"></td>')
@@ -340,12 +579,10 @@ function genererPlanning(){
   majTotauxGlobaux();
 }
 
-// ===== Calcul et mise à jour instantanée =====
 function saveHeure(k, ch, h) {
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   localStorage.setItem('heuresdata', JSON.stringify(heures));
 
-  // adapter à l'ID sûr
   const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
   if (!match) return;
   const salarieId = match[1];
@@ -374,7 +611,6 @@ function majTotalLigne(salarieId, dateStr) {
   const prevu = salarie.heuresParJour?.[cle] || 0;
   const ecart = total - prevu + abs;
 
-  // Mise à jour de la ligne
   tr.querySelector(".cell-total").textContent = total.toFixed(1);
   const prevuCell = tr.querySelector(".cell-prevu");
   const ecCell = tr.querySelector(".cell-ecart");
@@ -382,7 +618,6 @@ function majTotalLigne(salarieId, dateStr) {
   ecCell.textContent = (ecart >= 0 ? '+' : '') + ecart.toFixed(1);
   ecCell.style.color = ecart < 0 ? 'red' : 'green';
 
-  // === 🔹 Vérifie si au moins un salarié du jour a >0 heures ===
   const rowsJour = document.querySelectorAll(`tr[data-date="${dateStr}"]`);
   let jourAHeures = false;
   rowsJour.forEach(r => {
@@ -390,7 +625,6 @@ function majTotalLigne(salarieId, dateStr) {
     if (tot > 0) jourAHeures = true;
   });
 
-  // === 🔹 Actualise affichage Prévu/Écart pour tous les salariés du jour ===
   rowsJour.forEach(r => {
     const p = r.querySelector(".cell-prevu");
     const e = r.querySelector(".cell-ecart");
@@ -423,10 +657,10 @@ function majTotauxGlobaux() {
     totP += parseFloat(tr.querySelector(".cell-prevu")?.textContent) || 0;
   });
   const ec = totT - totP;
- document.getElementById('tot-total').textContent = "Total : " + totT.toFixed(1);
-document.getElementById('tot-abs').textContent   = "Abs. : " + totA.toFixed(1);
-document.getElementById('tot-prev').textContent  = "Prévu : " + totP.toFixed(1);
-document.getElementById('tot-ecart').textContent = "Écart : " + ec.toFixed(1);
+  document.getElementById('tot-total').textContent = "Total : " + totT.toFixed(1);
+  document.getElementById('tot-abs').textContent   = "Abs. : " + totA.toFixed(1);
+  document.getElementById('tot-prev').textContent  = "Prévu : " + totP.toFixed(1);
+  document.getElementById('tot-ecart').textContent = "Écart : " + ec.toFixed(1);
 
   document.getElementById('tot-ecart').style.color = ec < 0 ? 'red' : 'green';
   const pct = totP > 0 ? (totT / totP) * 100 : 0;
@@ -439,8 +673,8 @@ document.getElementById('tot-ecart').textContent = "Écart : " + ec.toFixed(1);
   }
 }
 
-// ====== Impression & Semaines =======
 function imprimerSemaine(){ /* inchangée */ }
+
 function chargerSemaines(){
   const m=document.getElementById("moisPlanning").value;
   const sel=document.getElementById("semaineSelect");
@@ -467,7 +701,10 @@ document.addEventListener("DOMContentLoaded",()=>{
   const sem=document.getElementById("semaineSelect");
   const now=new Date();
   mois.value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-  chargerSemaines(); chargerJauge(); genererPlanning();
+  chargerSemaines(); 
+  chargerJauge(); 
+  initFiltreSalaries(); // Initialiser le filtre
+  genererPlanning();
   mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
