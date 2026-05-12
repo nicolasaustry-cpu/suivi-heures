@@ -55,6 +55,44 @@ input,select{border:1px solid #ccc;border-radius:4px;padding:5px 8px;}
 .nav a.active{text-decoration:underline;}
 @media print{.no-print{display:none!important;}}
 
+/* Dropdown filtre salariés */
+.dropdown-filtre {
+  position: relative;
+  display: inline-block;
+}
+.dropdown-filtre select {
+  min-width: 180px;
+}
+.dropdown-liste {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  min-width: 200px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1001;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.dropdown-liste.open {
+  display: block;
+}
+.dropdown-liste label {
+  display: block;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dropdown-liste label:hover {
+  background: #f0f4f8;
+}
+.dropdown-liste input {
+  margin-right: 8px;
+}
+
 #totaux-barre td {
   width: 50px;
   text-align: center;
@@ -104,12 +142,6 @@ table {
   table-layout: fixed;
   width: 100%;
 }
-
-/* Select multiple pour salariés */
-#filtreSalaries {
-  min-width: 180px;
-  height: 80px;
-}
 </style>
 </head>
 <body>
@@ -128,8 +160,13 @@ table {
       <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
       
       <div>
-        <label>Salariés : <small>(Ctrl+clic pour multi)</small></label><br>
-        <select id="filtreSalaries" multiple onchange="genererPlanning()"></select>
+        <label>Salariés :</label><br>
+        <div class="dropdown-filtre">
+          <select onclick="toggleListe(event)" readonly>
+            <option id="optionTexte">Tous</option>
+          </select>
+          <div class="dropdown-liste" id="listeSalaries"></div>
+        </div>
       </div>
       
       <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
@@ -177,32 +214,55 @@ table {
 <script>
 let salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]');
 let heures   = JSON.parse(localStorage.getItem('heuresdata')||'{}');
+let salariesCoches = new Set();
 
 // ====== Filtre salariés ======
 function initFiltre() {
-  const select = document.getElementById('filtreSalaries');
-  select.innerHTML = '';
+  const liste = document.getElementById('listeSalaries');
+  liste.innerHTML = '';
+  salariesCoches.clear();
   
   salaries.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = `${s.prenom} ${s.nom}`;
-    opt.selected = true; // tous sélectionnés par défaut
-    select.appendChild(opt);
+    salariesCoches.add(s.id);
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" checked data-id="${s.id}" onchange="majFiltre()"> ${s.prenom} ${s.nom}`;
+    liste.appendChild(label);
   });
+  
+  majTexteFiltre();
 }
 
-function getSalariesCoches() {
-  const select = document.getElementById('filtreSalaries');
-  const ids = new Set();
-  for (const opt of select.selectedOptions) {
-    ids.add(parseInt(opt.value));
+function toggleListe(e) {
+  e.preventDefault();
+  document.getElementById('listeSalaries').classList.toggle('open');
+}
+
+document.addEventListener('click', function(e) {
+  const dropdown = document.querySelector('.dropdown-filtre');
+  if (!dropdown.contains(e.target)) {
+    document.getElementById('listeSalaries').classList.remove('open');
   }
-  // Si aucun sélectionné, afficher tous
-  if (ids.size === 0) {
-    salaries.forEach(s => ids.add(s.id));
+});
+
+function majFiltre() {
+  salariesCoches.clear();
+  document.querySelectorAll('#listeSalaries input:checked').forEach(cb => {
+    salariesCoches.add(parseInt(cb.dataset.id));
+  });
+  majTexteFiltre();
+  genererPlanning();
+}
+
+function majTexteFiltre() {
+  const opt = document.getElementById('optionTexte');
+  const nb = salariesCoches.size;
+  const total = salaries.length;
+  
+  if (nb === 0 || nb === total) {
+    opt.textContent = 'Tous';
+  } else {
+    opt.textContent = nb + ' salarié' + (nb > 1 ? 's' : '');
   }
-  return ids;
 }
 
 // ====== Jauge =======
@@ -266,8 +326,9 @@ function genererPlanning(){
   const jours = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   cont.innerHTML = "";
 
-  const salariesCoches = getSalariesCoches();
-  const salariesAffiches = salaries.filter(s => salariesCoches.has(s.id));
+  // Si aucun coché, afficher tous
+  const idsAffiches = salariesCoches.size === 0 ? new Set(salaries.map(s=>s.id)) : salariesCoches;
+  const salariesAffiches = salaries.filter(s => idsAffiches.has(s.id));
 
   let totT = 0, totA = 0, totP = 0;
 
