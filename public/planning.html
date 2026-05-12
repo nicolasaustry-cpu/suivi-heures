@@ -10,7 +10,6 @@ body {
   background:#f4f6f8;
   color:#222;
 }
-/* ========= BLOC SUPÉRIEUR FIXE ========= */
 .top-bar {
   position: fixed;
   top: 0;
@@ -22,7 +21,6 @@ body {
   background: #fff;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-/* --- Bandeau bleu --- */
 header {
   background:#2563eb;
   color:#fff;
@@ -31,7 +29,6 @@ header {
   justify-content:space-between;
   align-items:center;
 }
-/* --- Barre de navigation --- */
 .nav {
   background:#e8edf3;
   display:flex;
@@ -39,19 +36,16 @@ header {
   gap:1rem;
   padding:0.6rem;
 }
-/* --- Zone filtres + jauge + totaux --- */
 .fixed-tools {
   background:#f8fafc;
   padding:0.8rem;
   border-top:1px solid #ddd;
   border-bottom:1px solid #ccc;
 }
-/* --- Le planning commence sous le bloc fixe --- */
 #planning-wrapper {
   margin-top: 270px;
   padding:0.8rem;
 }
-/* Autres styles existants ---- */
 h1{margin:0;font-size:1.4rem;}
 button{border:none;border-radius:4px;padding:0.5rem 1rem;font-weight:bold;cursor:pointer;color:#fff;}
 .btn-warning{background:#f59e0b;color:#000;}
@@ -170,7 +164,6 @@ table {
 </style>
 </head>
 <body>
-<!-- ===== Bloc complet fixe collé en haut ===== -->
 <div class="top-bar">
   <header><h1>Planning du mois</h1><div>✔️ Active</div></header>
   <div class="nav no-print">
@@ -179,7 +172,6 @@ table {
     <a href="planning.html" class="active">Planning</a>
     <a href="rapports.html">Rapports</a>
   </div>
-  <!-- Zone filtres + jauge + totaux -->
   <div class="fixed-tools no-print">
     <div class="flex">
       <div><label>Mois :</label><br><input type="month" id="moisPlanning"></div>
@@ -202,7 +194,6 @@ table {
       <div><label>Semaine à imprimer :</label><br><select id="semaineSelect"></select></div>
       <div><button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button></div>
     </div>
-    <!-- Jauge + Totaux -->
     <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.8rem;">
       <thead>
         <tr style="background:#fff3cd;">
@@ -238,7 +229,6 @@ table {
     </table>
   </div>
 </div>
-<!-- Planning -->
 <div id="planning-wrapper"></div>
 
 <script>
@@ -336,12 +326,14 @@ function majZonesJauge(){
     rouge,orange,fige:document.getElementById('figerSeuils').checked
   }));
 }
+
 function majEtatFiger(){
   const chk=document.getElementById('figerSeuils').checked;
   document.getElementById('limiteRouge').disabled=chk;
   document.getElementById('limiteOrange').disabled=chk;
   majZonesJauge();
 }
+
 function chargerJauge(){
   const conf=JSON.parse(localStorage.getItem('parametresJauge')||'{"rouge":33,"orange":66,"fige":false}');
   document.getElementById('limiteRouge').value=conf.rouge;
@@ -371,7 +363,6 @@ function genererPlanning(){
     return;
   }
 
-  // Filtrer les salariés selon la sélection
   const idsAffiches = salariesCoches.size === 0 ? new Set(salaries.map(s => s.id)) : salariesCoches;
   const salariesAffiches = salaries.filter(s => idsAffiches.has(s.id));
 
@@ -560,7 +551,48 @@ function majTotauxGlobaux() {
 }
 
 // ====== Impression & Semaines =======
-function imprimerSemaine(){ /* inchangée */ }
+function imprimerSemaine() {
+  const semaine = document.getElementById("semaineSelect").value;
+  const mois = document.getElementById("moisPlanning").value;
+  
+  if (!mois) {
+    alert("Veuillez sélectionner un mois.");
+    return;
+  }
+  
+  if (!semaine) {
+    window.print();
+    return;
+  }
+  
+  const [a, mo] = mois.split('-').map(Number);
+  let lun = new Date(a, mo - 1, 1);
+  while (lun.getDay() !== 1) lun.setDate(lun.getDate() + 1);
+  lun.setDate(lun.getDate() + (parseInt(semaine) - 1) * 7);
+  
+  const sam = new Date(lun);
+  sam.setDate(lun.getDate() + 5);
+  
+  const h3s = document.querySelectorAll("#planning-wrapper h3");
+  const tables = document.querySelectorAll("#planning-wrapper table");
+  
+  h3s.forEach((h3, i) => {
+    const texte = h3.textContent;
+    const match = texte.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (match) {
+      const dateJour = new Date(match[3], match[2] - 1, match[1]);
+      const visible = dateJour >= lun && dateJour <= sam;
+      h3.style.display = visible ? '' : 'none';
+      if (tables[i]) tables[i].style.display = visible ? '' : 'none';
+    }
+  });
+  
+  window.print();
+  
+  h3s.forEach(h3 => h3.style.display = '');
+  tables.forEach(t => t.style.display = '');
+}
+
 function chargerSemaines(){
   const m=document.getElementById("moisPlanning").value;
   const sel=document.getElementById("semaineSelect");
@@ -591,7 +623,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   chargerJauge(); 
   initFiltre();
   genererPlanning();
-  mois.addEventListener("input",()=>{chargerSemaines(); genererPlanning();});
+  mois.addEventListener("input",()=>{chargerSemaines(); initFiltre(); genererPlanning();});
   sem.addEventListener("change",genererPlanning);
 });
 </script>
