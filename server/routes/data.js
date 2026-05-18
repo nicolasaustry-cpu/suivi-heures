@@ -1,35 +1,56 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import Donnees from "../models/donnees.js";
 
 const router = express.Router();
 
-// Exemple de route protégée
-router.get("/private", verifyToken, (req, res) => {
-  res.json({
-    message: "Bienvenue sur la route protégée !",
-    user: req.user
-  });
-});
-import Licence from "../models/licence.js";
-
-// Vérification d'une licence
-router.post("/verifyLicence", async (req, res) => {
-  const { code } = req.body;
-  if (!code) return res.status(400).json({ valid: false, message: "Aucun code fourni" });
-
-  const licence = await Licence.findOne({ codeClient: code });
-  if (!licence) return res.status(404).json({ valid: false, message: "Licence inconnue" });
-  if (!licence.actif) return res.status(403).json({ valid: false, message: "Licence désactivée" });
-
-  const now = new Date();
-  if (now > licence.dateExpiration) {
-    return res.status(403).json({ valid: false, message: "Licence expirée" });
+// ── Charger toutes les données du client ──
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    const clientId = req.user.clientId;
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) doc = { entreprise: {}, salaries: [], heures: {}, chantiers: [], previsionnel: {} };
+    res.json({ ok: true, data: doc });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
   }
+});
 
-  res.json({
-    valid: true,
-    message: "Licence valide jusqu’au " + licence.dateExpiration.toLocaleDateString("fr-FR")
-  });
+// ── Sauvegarder toutes les données du client ──
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const clientId = req.user.clientId;
+    const { entreprise, salaries, heures, chantiers, previsionnel } = req.body;
+
+    await Donnees.findOneAndUpdate(
+      { clientId },
+      { clientId, entreprise, salaries, heures, chantiers, previsionnel, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Sauvegarder une seule clé (ex: juste "heures") ──
+router.patch("/:cle", verifyToken, async (req, res) => {
+  try {
+    const clientId = req.user.clientId;
+    const { cle }  = req.params;
+    const clesAutorisees = ["entreprise", "salaries", "heures", "chantiers", "previsionnel"];
+    if (!clesAutorisees.includes(cle))
+      return res.status(400).json({ ok: false, message: "Clé non autorisée" });
+
+    await Donnees.findOneAndUpdate(
+      { clientId },
+      { $set: { [cle]: req.body.valeur, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
 });
 
 export default router;

@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Entreprise</title>
-<link rel="stylesheet" href="assets/style.css">
+  <meta charset="UTF-8">
+  <title>Entreprise – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+
 <header class="main-header">
   <div class="entreprise-nom" id="entreprise-nom"></div>
   <h1 class="page-title">Entreprise</h1>
   <div style="display:flex;align-items:center;gap:1rem;">
-    <div id="licence-status"></div> <!-- ✅ ce bloc est indispensable -->
+    <div id="licence-status"></div>
+  </div>
 </header>
 
 <div class="nav">
@@ -18,19 +20,22 @@
   <a href="salaries.html">Salariés</a>
   <a href="planning.html">Planning</a>
   <a href="rapports.html">Rapports</a>
+  <a href="chantiers.html">Prévisionnel</a>
 </div>
 
+<!-- Informations de l'entreprise -->
 <section>
-  <h2>Informations de l’entreprise</h2>
+  <h2>Informations de l'entreprise</h2>
   <div class="flex" style="flex-direction:column;align-items:flex-start;background:#e0f2fe;padding:1rem;border-radius:8px;gap:1rem;">
     <div>
-      <label>Nom de l’entreprise :</label><br>
+      <label>Nom de l'entreprise :</label><br>
       <input id="nom-entreprise" placeholder="Ex : Dupont Bâtiment" style="width:300px;">
     </div>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
 </section>
 
+<!-- Licence -->
 <section>
   <h2>Licence</h2>
   <div class="flex" style="align-items:flex-end;gap:1rem;">
@@ -40,85 +45,19 @@
     </div>
     <button class="btn btn-primary" onclick="activerLicence()">Activer la licence</button>
   </div>
+  <div id="msg-licence" style="margin-top:0.5rem;"></div>
 </section>
 
+<!-- Script unique en bas de page -->
 <script src="assets/script.js"></script>
 <script>
-// Vérification de la licence et chargement de l’entreprise
-licenceOK();
-initEntreprise();
-
-// Sauvegarde du nom d’entreprise dans le stockage local
-function sauverEntreprise() {
-  const nom = document.getElementById('nom-entreprise').value.trim();
-  if (!nom) return alert('Veuillez saisir un nom d’entreprise.');
-  entreprise.nom = nom;
-  // 🔧 même clé que dans ton script.js
-  localStorage.setItem('entreprisedata', JSON.stringify(entreprise));
-  alert('Informations enregistrées.');
-}
-<script src="assets/script.js"></script>
-<script>
-licenceOK(); // vérifie la licence sur la page Entreprise
-</script>
-
-<script>
-window.addEventListener("DOMContentLoaded", () => {
-  // 🔹 Création du logo Volitis à droite du header
-  const header = document.querySelector("header");
-  if (!header) return;
-
-  document.getElementById("volitis-link")?.remove();
-
-  const wrapper = document.createElement("div");
-  wrapper.id = "volitis-link";
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "0.5rem";
-  wrapper.style.marginLeft = "1rem";
-  wrapper.style.cursor = "pointer";
-  wrapper.style.userSelect = "none";
-
-  const logoContainer = document.createElement("div");
-  logoContainer.style.background = "white";
-  logoContainer.style.borderRadius = "50%";
-  logoContainer.style.width = "42px";
-  logoContainer.style.height = "42px";
-  logoContainer.style.display = "flex";
-  logoContainer.style.alignItems = "center";
-  logoContainer.style.justifyContent = "center";
-
-  const img = document.createElement("img");
-  img.src = "assets/volitis-logo.png";
-  img.alt = "Logo Volitis";
-  img.style.height = "30px";
-  img.style.width = "auto";
-  logoContainer.appendChild(img);
-
-  const text = document.createElement("span");
-  text.textContent = "Outil créé par Volitis";
-  text.style.fontSize = "0.8rem";
-  text.style.color = "white";
-  text.style.whiteSpace = "nowrap";
-
-  wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open"https://volitis.net/", "_blank"));
-  header.appendChild(wrapper);
-
-  // 🔹 Affiche le nom d’entreprise à gauche
-  const nomElt = document.getElementById("entreprise-nom");
-  if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
-});
-</script>
-<!-- Autres scripts éventuels -->
-
-<script src="assets/script.js"></script>
-<script>
-window.addEventListener("DOMContentLoaded", () => {
-  licenceOK();  // met à jour #licence-status
-});
+  window.addEventListener("DOMContentLoaded", () => {
+    initEntreprise();
+    // Pré-remplir le champ code si déjà enregistré
+    const code = localStorage.getItem("licenceCode");
+    if (code) document.getElementById("code-client").value = code;
+  });
 </script>
 
 </body>
 </html>
-

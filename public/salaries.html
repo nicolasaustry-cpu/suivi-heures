@@ -1,125 +1,126 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8"><title>Salariés</title>
-<link rel="stylesheet" href="assets/style.css">
+  <meta charset="UTF-8">
+  <title>Salariés – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
 </head>
-<body>
-<header class="main-header">
-  <div class="entreprise-nom" id="entreprise-nom"></div>
-  <h1 class="page-title">Entreprise</h1>
-  <div style="display:flex;align-items:center;gap:1rem;">
-    <div id="licence-status"></div> <!-- ✅ ce bloc est indispensable -->
-  </div>
-</header>
+<body style="margin:0;">
+<style>
+  .zone-figee-sal {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #f4f6f8;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  }
+</style>
 
-<div class="nav">
- <a href="index.html">Entreprise</a><a href="salaries.html" class="active">Salariés</a>
- <a href="planning.html">Planning</a><a href="rapports.html">Rapports</a>
-</div>
+<div class="zone-figee-sal">
 
-<section>
-<section>
-  <h2>Ajouter un salarié</h2>
-  <div class="flex" style="flex-direction:column;align-items:flex-start;background:#dcfce7;border-radius:8px;padding:1rem;margin-bottom:1rem;">
-    <div class="flex">
-      <div><label>Prénom :</label><br><input id="prenomEl"></div>
-      <div><label>Nom :</label><br><input id="nomEl"></div>
-      <div><label>Date d’entrée :</label><br><input type="date" id="dateEntreeEl"></div>
+  <header class="main-header">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <h1 class="page-title">Salariés</h1>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <div id="licence-status"></div>
     </div>
+  </header>
 
-    <h3>Heures prévues par jour</h3>
-    <table id="table-heures-ajout" style="width:auto;margin-bottom:0.5rem;">
-      <thead>
-        <tr>
-          <th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><input type="number" id="hLun" value="8" step="0.1" style="width:60px;"></td>
-          <td><input type="number" id="hMar" value="8" step="0.1" style="width:60px;"></td>
-          <td><input type="number" id="hMer" value="8" step="0.1" style="width:60px;"></td>
-          <td><input type="number" id="hJeu" value="8" step="0.1" style="width:60px;"></td>
-          <td><input type="number" id="hVen" value="8" step="0.1" style="width:60px;"></td>
-          <td><input type="number" id="hSam" value="0" step="0.1" style="width:60px;"></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <button class="btn btn-success" style="margin-top:0.5rem;" onclick="ajouterSalarie()">+ Ajouter le salarié</button>
+  <div class="nav">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html" class="active">Salariés</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+    <a href="chantiers.html">Prévisionnel</a>
   </div>
 
+  <!-- Formulaire d'ajout figé -->
+  <section style="margin-bottom:0;padding-bottom:0.8rem;">
+    <h2>Ajouter un salarié</h2>
+    <div style="background:#dcfce7;border-radius:8px;padding:0.8rem 1rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;">
+
+      <!-- Prénom / Nom / Date -->
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">
+        <div><label style="font-size:0.85rem;font-weight:600;">Prénom :</label><br><input id="prenomEl" placeholder="Jean"></div>
+        <div><label style="font-size:0.85rem;font-weight:600;">Nom :</label><br><input id="nomEl" placeholder="Dupont"></div>
+        <div><label style="font-size:0.85rem;font-weight:600;">Date d'entrée :</label><br><input type="date" id="dateEntreeEl"></div>
+      </div>
+
+      <!-- Heures contractuelles -->
+      <div>
+        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Heures / jour</label>
+        <table style="width:auto;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Lun</th>
+              <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Mar</th>
+              <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Mer</th>
+              <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Jeu</th>
+              <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Ven</th>
+              <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Sam</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hLun" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMar" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMer" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hJeu" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hVen" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hSam" value="0" step="0.5" min="0" max="12" style="width:52px;"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bouton -->
+      <div style="align-self:center;">
+        <button class="btn btn-success" onclick="ajouterSalarie()">+ Ajouter le salarié</button>
+      </div>
+
+    </div>
+  </section>
+
+</div><!-- fin zone-figee-sal -->
+
+<!-- Liste des salariés (défile) -->
+<section>
   <h2>Liste des salariés</h2>
-<table id="table-salaries">
-  <thead>
-    <tr>
-      <th>Prénom</th><th>Nom</th><th>Date entrée</th><th>Date sortie</th>
-      <th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
+  <p id="no-salarie" style="color:#6b7280;">Aucun salarié enregistré.</p>
+  <table id="table-salaries" style="display:none;">
+    <thead>
+      <tr>
+        <th>Prénom</th>
+        <th>Nom</th>
+        <th>Date entrée</th>
+        <th>Date sortie</th>
+        <th>Lun</th>
+        <th>Mar</th>
+        <th>Mer</th>
+        <th>Jeu</th>
+        <th>Ven</th>
+        <th>Sam</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </section>
-
-<script>
-window.addEventListener("DOMContentLoaded", () => {
-  // Création du logo Volitis à droite du header
-  const header = document.querySelector("header");
-  if (!header) return;
-  document.getElementById("volitis-link")?.remove();
-
-  const wrapper = document.createElement("div");
-  wrapper.id = "volitis-link";
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "0.5rem";
-  wrapper.style.marginLeft = "1rem";
-  wrapper.style.cursor = "pointer";
-  wrapper.style.userSelect = "none";
-
-  const logoContainer = document.createElement("div");
-  logoContainer.style.background = "white";
-  logoContainer.style.borderRadius = "50%";
-  logoContainer.style.width = "42px";
-  logoContainer.style.height = "42px";
-  logoContainer.style.display = "flex";
-  logoContainer.style.alignItems = "center";
-  logoContainer.style.justifyContent = "center";
-
-  const img = document.createElement("img");
-  img.src = "assets/volitis-logo.png";
-  img.alt = "Logo Volitis";
-  img.style.height = "30px";
-  img.style.width = "auto";
-  logoContainer.appendChild(img);
-
-  const text = document.createElement("span");
-  text.textContent = "Outil créé par Volitis";
-  text.style.fontSize = "0.8rem";
-  text.style.color = "white";
-  text.style.whiteSpace = "nowrap";
-
-  wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
-  header.appendChild(wrapper);
-
-  // Affiche le nom d’entreprise à gauche
-  const nomElt = document.getElementById("entreprise-nom");
-  if (nomElt && entreprise.nom) nomElt.textContent = entreprise.nom;
-});
-</script>
-<!-- Autres scripts éventuels -->
 
 <script src="assets/script.js"></script>
 <script>
-window.addEventListener("DOMContentLoaded", () => {
-  afficherSalaries(); // recharge la liste au chargement
-});
+  function majMessageVide() {
+    const liste = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    document.getElementById('no-salarie').style.display  = liste.length === 0 ? '' : 'none';
+    document.getElementById('table-salaries').style.display = liste.length === 0 ? 'none' : '';
+  }
+
+  // Appel initial après que script.js a déjà lancé DOMContentLoaded
+  majMessageVide();
+
+  // Écoute les changements de localStorage pour mettre à jour la vue
+  window.addEventListener('storage', () => majMessageVide());
 </script>
+
 </body>
 </html>
-
-

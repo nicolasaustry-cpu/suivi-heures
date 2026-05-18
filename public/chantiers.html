@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Prévisionnel – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+
+  /* ══ TABLEAU INDICATEURS (figé, pas de scroll) ══ */
+  .prev-wrapper {
+    overflow-x: visible;
+    margin-top: 1rem;
+  }
+
+  table.prev-table {
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  /* ══ ZONE CHANTIERS AVEC SCROLL HORIZONTAL ══ */
+  .chantiers-scroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    margin-top: 1rem;
+    border-top: 2px solid #e2e8f0;
+    padding-top: 0.5rem;
+  }
+  .chantiers-inner {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+
+  /* ══ PARTIE HAUTE FIGÉE ══ */
+  .zone-figee {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #f4f6f8;
+    padding-bottom: 0.5rem;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  }
+
+  table.prev-table th,
+  table.prev-table td {
+    border: 1px solid #cbd5e1;
+    padding: 4px 6px;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  /* En-têtes mois */
+  .th-mois {
+    background: #2563eb;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 6px 4px;
+  }
+
+  /* En-têtes sous-colonnes */
+  .th-sub {
+    background: #dbeafe;
+    color: #1e40af;
+    font-weight: 700;
+    font-size: 0.78rem;
+  }
+
+  /* Colonne libellé gauche */
+  .td-label {
+    background: #f1f5f9;
+    font-weight: 700;
+    text-align: left;
+    padding-left: 8px;
+    color: #374151;
+    border-right: 2px solid #cbd5e1;
+  }
+
+  /* Cellules saisie */
+  .td-saisie input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: 0.82rem;
+    font-family: inherit;
+    padding: 2px 0;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .td-saisie input:focus {
+    background: #eff6ff;
+    border-radius: 2px;
+  }
+  .td-saisie { background: #fff; }
+
+  /* Cellule calculée */
+  .td-calc {
+    font-weight: 600;
+    background: #f8fafc;
+    color: #374151;
+  }
+
+  /* Couleurs écart heures */
+  .ecart-rouge  { background: #fee2e2 !important; color: #991b1b; font-weight: 700; }
+  .ecart-orange { background: #ffedd5 !important; color: #92400e; font-weight: 700; }
+  .ecart-vert   { background: #dcfce7 !important; color: #15803d; font-weight: 700; }
+
+  /* Ligne séparatrice */
+  .tr-sep td { background: #e2e8f0; height: 4px; padding: 0; border: none; }
+
+  /* Section chantiers */
+  .tr-chantier-header th {
+    background: #1e40af;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.96rem;
+    padding: 5px 6px;
+  }
+
+  .tr-chantier td { background: #fff; }
+  .tr-chantier:nth-child(even) td { background: #f8fafc; }
+  .tr-chantier:hover td { background: #eff6ff; }
+
+  /* Boutons ajout/suppression chantier */
+  .btn-add-row {
+    margin-top: 0.5rem;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-add-row:hover { background: #15803d; }
+  .btn-del-row {
+    background: none;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .btn-copy-row {
+    background: none;
+    border: none;
+    color: #2563eb;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0 3px;
+    line-height: 1;
+    title: "Copier vers d'autres mois";
+  }
+  .btn-copy-row:hover { color: #1d4ed8; }
+
+  /* ══ MODALE COPIE ══ */
+  .modale-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modale-overlay.open { display: flex; }
+  .modale-box {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    width: 520px;
+    max-width: 95vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .modale-header {
+    background: #2563eb;
+    color: #fff;
+    padding: 0.8rem 1.2rem;
+    font-weight: 700;
+    font-size: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modale-header button {
+    background: none; border: none; color: #fff;
+    font-size: 1.2rem; cursor: pointer; padding: 0;
+  }
+  .modale-body {
+    padding: 1rem 1.2rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modale-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6b7280;
+    letter-spacing: 0.05em;
+    margin: 0.8rem 0 0.4rem 0;
+  }
+  .modale-section-title:first-child { margin-top: 0; }
+  .champ-check {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 6px; cursor: pointer;
+    font-size: 0.88rem;
+  }
+  .champ-check:hover { background: #eff6ff; }
+  .champ-check input { margin: 0; width: 15px; height: 15px; cursor: pointer; }
+  .mois-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 0.4rem;
+  }
+  .mois-check {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 6px; border-radius: 5px;
+    font-size: 0.8rem; cursor: pointer;
+    border: 1px solid #e5e7eb;
+  }
+  .mois-check:hover { background: #eff6ff; border-color: #93c5fd; }
+  .mois-check.hors { background: #f8fafc; color: #6b7280; }
+  .mois-check.source { background: #fef9c3; border-color: #fcd34d; font-style: italic; }
+  .mois-check input { margin: 0; cursor: pointer; }
+  .modale-footer {
+    padding: 0.8rem 1.2rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+  .btn-modale-annuler { background: #f3f4f6; color: #374151; border: none; border-radius: 6px; padding: 7px 18px; font-weight: 700; cursor: pointer; }
+  .btn-modale-copier  { background: #2563eb; color: #fff;     border: none; border-radius: 6px; padding: 7px 18px; font-weight: 700; cursor: pointer; }
+  .btn-modale-copier:hover { background: #1d4ed8; }
+
+  /* Ligne totaux chantiers */
+  .tr-total td {
+    background: #dbeafe;
+    font-weight: 700;
+    color: #1e40af;
+  }
+
+  /* Année selector */
+  .annee-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .annee-selector label { font-weight: 700; font-size: 0.9rem; color: #374151; }
+  .annee-selector select { padding: 5px 10px; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.9rem; }
+  .annee-selector button {
+    background: #2563eb; color: #fff; border: none;
+    border-radius: 5px; padding: 5px 14px;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  }
+  .annee-selector button:hover { background: #1d4ed8; }
+
+  /* Légende couleurs */
+  .legende {
+    display: flex; gap: 1rem; margin-bottom: 0.8rem; flex-wrap: wrap; align-items: center;
+    font-size: 0.8rem;
+  }
+  .leg-item { display: flex; align-items: center; gap: 4px; }
+  .leg-color { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<div class="zone-figee">
+
+<header class="main-header">
+  <div class="entreprise-nom" id="entreprise-nom"></div>
+  <h1 class="page-title">Prévisionnel</h1>
+  <div style="display:flex;align-items:center;gap:0.8rem;">
+    <div id="licence-status"></div>
+
+  </div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  <a href="chantiers.html" class="active">Prévisionnel</a>
+</div>
+  <section style="margin-bottom:0;padding-bottom:0.5rem;">
+
+    <!-- Sélecteur d'année -->
+    <div class="annee-selector">
+      <label>Année :</label>
+      <select id="selectAnnee" onchange="chargerAnnee()"></select>
+      <button onclick="ajouterAnnee()">+ Nouvelle année</button>
+    </div>
+
+    <!-- Légende -->
+    <div class="legende">
+      <strong>Écart heures :</strong>
+      <div class="leg-item"><div class="leg-color" style="background:#fee2e2;"></div> &lt; 90% (rouge)</div>
+      <div class="leg-item"><div class="leg-color" style="background:#ffedd5;"></div> 90–100% (orange)</div>
+      <div class="leg-item"><div class="leg-color" style="background:#dcfce7;"></div> &gt; 100% (vert)</div>
+    </div>
+
+    <!-- Tableau indicateurs -->
+    <div class="prev-wrapper">
+      <table class="prev-table" id="prev-table">
+        <thead id="thead-mois"></thead>
+        <tbody id="tbody-prev"></tbody>
+      </table>
+    </div>
+
+  </section>
+</div>
+
+<!-- Tableaux chantiers : scroll horizontal indépendant, défile avec la page -->
+<section style="margin-top:0;padding-top:0.5rem;">
+  <div class="chantiers-scroll">
+    <div class="chantiers-inner" id="section-chantiers"></div>
+  </div>
+</section>
+
+<!-- ══ MODALE COPIE CHANTIER ══ -->
+<div class="modale-overlay" id="modale-copie">
+  <div class="modale-box" style="width:560px;">
+    <div class="modale-header">
+      <span id="modale-titre">Reporter le chantier</span>
+      <button onclick="fermerModale()">✕</button>
+    </div>
+    <div class="modale-body">
+
+      <!-- Info chantier source -->
+      <div id="modale-source-info" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:0.88rem;margin-bottom:1rem;"></div>
+
+      <!-- Tableau mois + heures -->
+      <div class="modale-section-title">Reporter ce chantier sur les mois suivants :</div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem;margin-top:0.4rem;">
+        <thead>
+          <tr style="background:#e8edf3;">
+            <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;width:30px;"></th>
+            <th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">Mois</th>
+            <th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;width:110px;">Heures à reporter</th>
+          </tr>
+        </thead>
+        <tbody id="modale-mois-tbody"></tbody>
+      </table>
+
+    </div>
+    <div class="modale-footer">
+      <button class="btn-modale-annuler" onclick="fermerModale()">Annuler</button>
+      <button class="btn-modale-copier"  onclick="executerCopie()">✔ Reporter</button>
+    </div>
+  </div>
+</div>
+
+<script src="assets/script.js"></script>
+<script>
+/* ═══════════════════════════════
+   CONSTANTES
+═══════════════════════════════ */
+const MOIS_NOMS = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
+const MOIS_FULL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const CLE_DATA  = 'previsionnel_data';
+
+/* ═══════════════════════════════
+   ÉTAT
+═══════════════════════════════ */
+let anneeActive = new Date().getFullYear();
+let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrevues}] } } }
+
+/* ═══════════════════════════════
+   INIT
+═══════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  // Nom entreprise
+  const ent  = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  const nomE = document.getElementById('entreprise-nom');
+  if (nomE && ent.nom) nomE.textContent = ent.nom;
+
+  // Licence
+  const licEl = document.getElementById('licence-status');
+  if (licEl) {
+    const code = localStorage.getItem('licenceCode');
+    licEl.innerHTML = code
+      ? '<span style="font-size:0.78rem;background:rgba(134,239,172,0.25);border-radius:999px;padding:2px 10px;color:#fff;">✔ Licence active</span>'
+      : '<span style="font-size:0.78rem;background:rgba(252,165,165,0.25);border-radius:999px;padding:2px 10px;color:#fff;">⚠ Aucune licence</span>';
+  }
+
+  chargerData();
+  remplirSelectAnnee();
+  chargerAnnee();
+});
+
+/* ═══════════════════════════════
+   PERSISTANCE
+═══════════════════════════════ */
+function chargerData() {
+  data = JSON.parse(localStorage.getItem(CLE_DATA) || '{}');
+}
+
+
+function getDataMois(annee, mois) {
+  if (!data[annee]) data[annee] = {};
+  if (!data[annee][mois]) data[annee][mois] = { hVendables: '', caObjectif: '', chantiers: [] };
+  return data[annee][mois];
+}
+
+/* ═══════════════════════════════
+   SÉLECTEUR ANNÉE
+═══════════════════════════════ */
+function remplirSelectAnnee() {
+  const sel = document.getElementById('selectAnnee');
+  sel.innerHTML = '';
+  const annees = Object.keys(data).map(Number).sort((a,b) => a-b);
+  const now = new Date().getFullYear();
+  if (!annees.includes(now)) annees.push(now);
+  annees.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    if (a === anneeActive) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function chargerAnnee() {
+  anneeActive = parseInt(document.getElementById('selectAnnee').value);
+  rendrePage();
+}
+
+function ajouterAnnee() {
+  const a = parseInt(prompt('Saisir l\'année à ajouter :', new Date().getFullYear() + 1));
+  if (!a || isNaN(a)) return;
+  if (!data[a]) data[a] = {};
+  anneeActive = a;
+  remplirSelectAnnee();
+  rendrePage();
+}
+
+// calcHVendues supprimée : H. devis = somme hPrevues des tableaux
+
+/* ═══════════════════════════════
+   RENDU COMPLET
+═══════════════════════════════ */
+function rendrePage() {
+  rendreSynthese();
+  rendreChantiers();
+
+}
+
+/* ── LISTE DES 16 MOIS À AFFICHER ── */
+// Retourne un tableau de { annee, mois, label, isHors } pour les 16 mois
+function getMoisAffichage() {
+  const liste = [];
+  // 2 mois avant (Nov, Déc année précédente)
+  liste.push({ annee: anneeActive - 1, mois: 10, label: MOIS_NOMS[10] + '\n' + (anneeActive-1), isHors: true });
+  liste.push({ annee: anneeActive - 1, mois: 11, label: MOIS_NOMS[11] + '\n' + (anneeActive-1), isHors: true });
+  // 12 mois de l'année active
+  for (let mi = 0; mi < 12; mi++) {
+    liste.push({ annee: anneeActive, mois: mi, label: MOIS_NOMS[mi], isHors: false });
+  }
+  // 2 mois après (Jan, Fév année suivante)
+  liste.push({ annee: anneeActive + 1, mois: 0, label: MOIS_NOMS[0] + '\n' + (anneeActive+1), isHors: true });
+  liste.push({ annee: anneeActive + 1, mois: 1, label: MOIS_NOMS[1] + '\n' + (anneeActive+1), isHors: true });
+  return liste;
+}
+
+/* ── TABLEAU SYNTHÈSE (16 mois) ── */
+function rendreSynthese() {
+  const thead = document.getElementById('thead-mois');
+  const tbody = document.getElementById('tbody-prev');
+  const liste = getMoisAffichage();
+
+  // En-têtes mois
+  let thMois = '<tr><th style="width:140px;background:#1e40af;color:#fff;">Indicateur</th>';
+  liste.forEach(m => {
+    const bg = m.isHors ? '#64748b' : '#2563eb';
+    const labels = m.label.split('\n');
+    thMois += `<th class="th-mois" style="background:${bg};font-size:0.78rem;white-space:nowrap;">`;
+    thMois += labels[0];
+    if (labels[1]) thMois += `<br><span style="font-size:0.68rem;opacity:0.85;">${labels[1]}</span>`;
+    thMois += '</th>';
+  });
+  thMois += '</tr>';
+  thead.innerHTML = thMois;
+
+  const lignes = [
+    { cle: 'hVendables', label: 'H. vendables', type: 'saisie', unite: 'h' },
+    { cle: 'hDevis',     label: 'H. devis',     type: 'calc',   unite: 'h' },
+    { cle: 'ecartH',     label: 'Écart heures', type: 'ecart',  unite: '%' },
+  ];
+
+  const nbCols = liste.length + 1;
+  let html = '';
+  lignes.forEach(l => {
+    if (l.cle === 'sep') {
+      html += `<tr class="tr-sep"><td colspan="${nbCols}"></td></tr>`;
+      return;
+    }
+    html += '<tr>';
+    html += `<td class="td-label">${l.unite === '€' ? '<span style="color:#2563eb;font-size:0.8rem;">€</span> ' : ''}${l.label}</td>`;
+
+    liste.forEach(({ annee, mois, isHors }) => {
+      const uid = `${annee}_${mois}`;
+      const dm  = getDataMois(annee, mois);
+      const hVb = parseFloat(dm.hVendables) || 0;
+      const bgHors = isHors ? 'background:#f8fafc;' : '';
+
+      if (l.type === 'saisie') {
+        const val = dm[l.cle] !== undefined ? dm[l.cle] : '';
+        html += `<td class="td-saisie" style="${bgHors}">
+          <input type="number" min="0" step="0.5" value="${val}"
+            data-annee="${annee}" data-mois="${mois}" data-cle="${l.cle}" data-uid="${uid}"
+            onchange="majValeur(this)" oninput="majLigneInput(this)">
+        </td>`;
+
+      } else if (l.type === 'calc') {
+        // H. devis = somme hPrevues des chantiers du mois
+        const hDevis = (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+        html += `<td class="td-calc" id="hv-${uid}" style="${bgHors}">${hDevis > 0 ? hDevis.toFixed(1) + ' h' : '—'}</td>`;
+
+      } else if (l.type === 'ecart') {
+        const hDevis2 = (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+        let cls = '', txt = '—';
+        if (hVb > 0) {
+          const pct = (hDevis2 / hVb) * 100;
+          txt = pct.toFixed(1) + '%';
+          cls = pct < 90 ? 'ecart-rouge' : pct <= 100 ? 'ecart-orange' : 'ecart-vert';
+        }
+        html += `<td class="td-calc ${cls}" id="ecartH-${uid}">${txt}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+
+  tbody.innerHTML = html;
+}
+
+/* ── TABLEAUX CHANTIERS PAR MOIS ── */
+const NB_LIGNES_VIERGES = 10;
+
+function rendreChantiers() {
+  const cont = document.getElementById('section-chantiers');
+  const liste = getMoisAffichage();
+  let html = '';
+
+  let _idxBloc = 0;
+  liste.forEach(({ annee, mois: mi, isHors }) => {
+    const _bgBloc = (_idxBloc++ % 2 === 0) ? '#ffffff' : '#f0f7ff';
+    const dm       = getDataMois(annee, mi);
+    const chantiers = dm.chantiers || [];
+
+    // Compléter jusqu'à NB_LIGNES_VIERGES lignes (saisies + vierges)
+    const nbVierges = Math.max(0, NB_LIGNES_VIERGES - chantiers.length);
+
+    const bgHeader  = isHors ? '#64748b' : '#2563eb';
+    const labelAnnee = isHors ? ` ${annee}` : '';
+
+    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;overflow:hidden;flex:0 0 238px;width:238px;">`;
+    html += `<div style="background:${bgHeader};color:#fff;font-weight:700;font-size:0.98rem;padding:5px 8px;white-space:nowrap;">${MOIS_FULL[mi]}${labelAnnee}</div>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">`;
+    html += `<thead><tr class="tr-chantier-header">
+      <th style="text-align:left;padding:4px 5px;font-size:0.96rem;">Client</th>
+      <th style="text-align:right;padding:4px 5px;width:52px;font-size:0.96rem;">H.</th>
+      <th style="width:30px;font-size:0.96rem;"></th>
+    </tr></thead><tbody id="tbody-ch-${annee}_${mi}">`;
+
+    // Lignes saisies
+    chantiers.forEach((ch, ci) => {
+      html += `<tr class="tr-chantier">
+        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+          <input value="${ch.client||''}" placeholder=""
+            style="width:100%;border:none;background:transparent;font-size:0.96rem;font-family:inherit;"
+            data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
+            onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
+        </td>
+        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+          <input type="number" min="0" step="0.5" value="${ch.hPrevues||''}" placeholder=""
+            style="width:48px;border:none;background:transparent;font-size:0.96rem;text-align:right;font-family:inherit;"
+            data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="hPrevues" data-nav="hPrevues"
+            onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
+        </td>
+        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
+          <button class="btn-copy-row" onclick="ouvrirModaleCopie(${annee},${mi},${ci})" title="Copier">⧉</button>
+          <button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>
+        </td>
+      </tr>`;
+    });
+
+    // Lignes vierges
+    for (let v = 0; v < nbVierges; v++) {
+      html += `<tr class="tr-chantier">
+        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+          <input placeholder=""
+            style="width:100%;border:none;background:transparent;font-size:0.96rem;font-family:inherit;"
+            data-annee="${annee}" data-mi="${mi}" data-champ="client" data-nav="client"
+            onblur="ajouterVierge(this)" onkeydown="navEnTree(event,this)">
+        </td>
+        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+          <input type="number" min="0" step="0.5" placeholder=""
+            style="width:48px;border:none;background:transparent;font-size:0.96rem;text-align:right;font-family:inherit;"
+            data-annee="${annee}" data-mi="${mi}" data-champ="hPrevues" data-nav="hPrevues"
+            onblur="ajouterVierge(this)" onkeydown="navEnTree(event,this)">
+        </td>
+        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;"></td>
+      </tr>`;
+    }
+
+    // Ligne total
+    const totH = chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+    html += `<tr class="tr-total">
+      <td style="padding:4px 5px;font-size:0.96rem;">Total</td>
+      <td style="padding:4px 5px;text-align:right;font-size:0.96rem;" id="tot-ch-${annee}_${mi}">${totH > 0 ? totH.toFixed(1) + ' h' : '—'}</td>
+      <td></td>
+    </tr>`;
+
+    html += `</tbody></table>`;
+    html += `<div style="padding:5px 6px;border-top:1px solid #e5e7eb;">
+      <button class="btn-add-row" onclick="ajouterChantier(${annee},${mi})" style="width:100%;font-size:0.88rem;padding:4px 0;">+ Chantier</button>
+    </div></div>`;
+  });
+
+  cont.innerHTML = html;
+}
+
+/* Wrapper : majLigne depuis oninput (lit data-uid) */
+function majLigneInput(input) {
+  const uid = input.dataset.uid;
+  if (uid) majLigne(uid);
+}
+
+/* Wrapper : majChantier depuis onchange (lit data-attributes) */
+function majChantierInput(input) {
+  const annee = parseInt(input.dataset.annee);
+  const mi    = parseInt(input.dataset.mi);
+  const ci    = parseInt(input.dataset.ci);
+  const champ = input.dataset.champ;
+  majChantier(annee, mi, ci, champ, input.value);
+}
+
+/* Wrapper : ajouterDepuisVierge depuis onblur (lit data-attributes) */
+function ajouterVierge(input) {
+  const val   = input.value.trim();
+  if (!val) return;
+  const annee = parseInt(input.dataset.annee);
+  const mi    = parseInt(input.dataset.mi);
+  const champ = input.dataset.champ;
+  ajouterDepuisVierge(annee, mi, input, champ);
+}
+
+/* Ajouter un chantier quand on saisit dans une ligne vierge */
+function ajouterDepuisVierge(annee, mi, input, champ) {
+  const val = input.value.trim();
+  if (!val) return;
+  const dm = getDataMois(annee, mi);
+  if (!dm.chantiers) dm.chantiers = [];
+  const nouveau = { client: '', hPrevues: '' };
+  nouveau[champ] = val;
+  dm.chantiers.push(nouveau);
+  rendreChantiers();
+  majLigne(`${annee}_${mi}`);
+}
+
+/* ═══════════════════════════════
+   ACTIONS
+═══════════════════════════════ */
+function majValeur(input) {
+  const annee = parseInt(input.dataset.annee);
+  const mois  = parseInt(input.dataset.mois);
+  const cle   = input.dataset.cle;
+  const dm    = getDataMois(annee, mois);
+  dm[cle]     = input.value;
+  majLigne(`${annee}_${mois}`);
+}
+
+function majLigne(uid) {
+  const parts = String(uid).split('_');
+  const annee = parseInt(parts[0]);
+  const mi    = parseInt(parts[1]);
+  const dm    = getDataMois(annee, mi);
+  const hDevis = (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+  const hVb    = parseFloat(dm.hVendables) || 0;
+
+  const hvEl = document.getElementById(`hv-${uid}`);
+  if (hvEl) hvEl.textContent = hDevis > 0 ? hDevis.toFixed(1) + ' h' : '—';
+
+  const ecHEl = document.getElementById(`ecartH-${uid}`);
+  if (ecHEl) {
+    if (hVb > 0) {
+      const pct = (hDevis / hVb) * 100;
+      ecHEl.textContent = pct.toFixed(1) + '%';
+      ecHEl.className = 'td-calc ' + (pct < 90 ? 'ecart-rouge' : pct <= 100 ? 'ecart-orange' : 'ecart-vert');
+    } else { ecHEl.textContent = '—'; ecHEl.className = 'td-calc'; }
+  }
+}
+
+function ajouterChantier(annee, mi) {
+  const dm = getDataMois(annee, mi);
+  if (!dm.chantiers) dm.chantiers = [];
+  dm.chantiers.push({ client: '', caHT: '', hPrevues: '' });
+  rendreChantiers();
+}
+
+function supprimerChantier(annee, mi, ci) {
+  if (!confirm('Supprimer ce chantier ?')) return;
+  const dm = getDataMois(annee, mi);
+  dm.chantiers.splice(ci, 1);
+  rendreChantiers();
+  majLigne(`${annee}_${mi}`);
+}
+
+function majChantier(annee, mi, ci, champ, val) {
+  const dm = getDataMois(annee, mi);
+  dm.chantiers[ci][champ] = val;
+  majLigne(`${annee}_${mi}`);
+  const totH = dm.chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+  const tbody = document.getElementById(`tbody-ch-${annee}_${mi}`);
+  if (tbody) {
+    const totRow = tbody.querySelector('.tr-total');
+    if (totRow) {
+      const cells = totRow.querySelectorAll('td');
+      cells[1].textContent = totH > 0 ? totH.toFixed(1) + ' h' : '—';
+    }
+  }
+}
+
+/* ═══════════════════════════════
+   MODALE COPIE
+═══════════════════════════════ */
+let _copieSource = null; // { annee, mi, ci, chantier }
+
+function ouvrirModaleCopie(annee, mi, ci) {
+  const dm = getDataMois(annee, mi);
+  const ch = dm.chantiers[ci];
+  if (!ch) return;
+
+  _copieSource = { annee, mi, ci, chantier: { ...ch } };
+
+  // Titre
+  document.getElementById('modale-titre').textContent =
+    'Reporter : ' + (ch.client || 'Chantier sans nom');
+
+  // Info source
+  const moisSrc = MOIS_FULL[mi] + (_copieSource.annee !== anneeActive ? ' ' + _copieSource.annee : '');
+  document.getElementById('modale-source-info').innerHTML =
+    `<strong>${ch.client || '—'}</strong>` +
+    `<span style="color:#6b7280;font-size:0.82rem;margin-left:8px;">Source : ${moisSrc}</span>`;
+
+  // Tableau mois avec case à cocher (décochée par défaut) + champ heures
+  const liste = getMoisAffichage();
+  const tbody = document.getElementById('modale-mois-tbody');
+  // Construire le tableau sans onchange inline (evite les bugs de quotes imbriquees)
+  tbody.innerHTML = '';
+  liste.forEach(({ annee: a, mois: m, isHors }) => {
+    const isSource = (a === annee && m === mi);
+    const uid  = 'dest_' + a + '_' + m;
+    const huid = 'h_' + a + '_' + m;
+    const bg   = isSource ? '#fef9c3' : (isHors ? '#f8fafc' : '#fff');
+    const labelMois = MOIS_FULL[m] + (isHors ? ' (' + a + ')' : '');
+
+    const tr = document.createElement('tr');
+    tr.style.background = bg;
+
+    // Cellule checkbox
+    const tdCb = document.createElement('td');
+    tdCb.style.cssText = 'padding:5px 8px;border:1px solid #e2e8f0;text-align:center;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id   = uid;
+    if (isSource) cb.disabled = true;
+    cb.addEventListener('change', () => toggleHeureMois(huid, cb.checked));
+    tdCb.appendChild(cb);
+
+    // Cellule libellé mois
+    const tdLabel = document.createElement('td');
+    tdLabel.style.cssText = 'padding:5px 8px;border:1px solid #e2e8f0;font-size:0.85rem;';
+    tdLabel.textContent = labelMois;
+
+    // Cellule heures
+    const tdH = document.createElement('td');
+    tdH.style.cssText = 'padding:4px 8px;border:1px solid #e2e8f0;text-align:right;';
+    const inp = document.createElement('input');
+    inp.type        = 'number';
+    inp.id          = huid;
+    inp.min         = '0';
+    inp.step        = '0.5';
+    inp.placeholder = 'h';
+    inp.disabled    = true;
+    inp.style.cssText = 'width:80px;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;font-size:0.85rem;font-family:inherit;background:#f9fafb;';
+    tdH.appendChild(inp);
+
+    tr.append(tdCb, tdLabel, tdH);
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('modale-copie').classList.add('open');
+}
+
+function toggleHeureMois(huid, checked) {
+  const inp = document.getElementById(huid);
+  if (!inp) return;
+  inp.disabled = !checked;
+  inp.style.background = checked ? '#fff' : '#f9fafb';
+  if (checked) inp.focus();
+}
+
+function fermerModale() {
+  document.getElementById('modale-copie').classList.remove('open');
+  _copieSource = null;
+}
+
+function executerCopie() {
+  if (!_copieSource) return;
+  const { annee: srcAnnee, mi: srcMi, ci: srcCi, chantier: ch } = _copieSource;
+  const liste = getMoisAffichage();
+
+  // Collecter les destinations cochées avec heures > 0
+  let totalReporte = 0;
+  const destinations = [];
+  liste.forEach(({ annee, mois }) => {
+    const cb  = document.getElementById('dest_' + annee + '_' + mois);
+    const inp = document.getElementById('h_' + annee + '_' + mois);
+    if (!cb || !cb.checked || cb.disabled) return;
+    const h = parseFloat(inp ? inp.value : 0) || 0;
+    if (h <= 0) return;
+    destinations.push({ annee, mois, h });
+    totalReporte += h;
+  });
+
+  if (!destinations.length) {
+    alert('Cochez au moins un mois et saisissez le nombre d\'heures.');
+    return;
+  }
+
+  // Diminuer les heures du chantier source du total reporté
+  const dmSrc = getDataMois(srcAnnee, srcMi);
+  if (dmSrc.chantiers && dmSrc.chantiers[srcCi]) {
+    const hOrig = parseFloat(dmSrc.chantiers[srcCi].hPrevues) || 0;
+    dmSrc.chantiers[srcCi].hPrevues = Math.max(0, hOrig - totalReporte);
+  }
+
+  // Ajouter le chantier sur les mois de destination
+  destinations.forEach(({ annee, mois, h }) => {
+    const dm = getDataMois(annee, mois);
+    if (!dm.chantiers) dm.chantiers = [];
+    dm.chantiers.push({ client: ch.client || '', hPrevues: h });
+  });
+
+  fermerModale();
+  rendreChantiers();
+  majLigne(srcAnnee + '_' + srcMi);
+  destinations.forEach(({ annee, mois }) => majLigne(annee + '_' + mois));
+
+  const msg = document.createElement('div');
+  msg.textContent = '\u2714 Reporté sur ' + destinations.length + ' mois (-' + totalReporte + ' h sur la source)';
+  Object.assign(msg.style, {
+    position:'fixed', bottom:'1.5rem', right:'1.5rem',
+    background:'#16a34a', color:'#fff', padding:'10px 20px',
+    borderRadius:'8px', fontWeight:'700', fontSize:'0.9rem',
+    zIndex:'5000', boxShadow:'0 4px 12px rgba(0,0,0,0.2)'
+  });
+  document.body.appendChild(msg);
+  setTimeout(() => msg.remove(), 2500);
+}
+
+
+// Fermer modale sur clic overlay
+document.getElementById('modale-copie').addEventListener('click', function(e) {
+  if (e.target === this) fermerModale();
+});
+
+/* ═══════════════════════════════
+   NAVIGATION AU CLAVIER (Entrée)
+═══════════════════════════════ */
+function navEnTree(event, input) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+
+  const nav   = input.dataset.nav;   // 'client' ou 'hPrevues'
+  const tr    = input.closest('tr');
+  if (!tr) return;
+
+  if (nav === 'client') {
+    // Entrée sur Client → aller sur Heures de la même ligne
+    const hInput = tr.querySelector('input[data-nav="hPrevues"]');
+    if (hInput) { hInput.focus(); hInput.select(); }
+
+  } else if (nav === 'hPrevues') {
+    // Entrée sur Heures → aller sur Client de la ligne suivante
+    // Déclencher d'abord le onblur/onchange pour sauvegarder
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event('blur',   { bubbles: true }));
+
+    // Trouver la prochaine ligne et son input client
+    const tbody   = tr.closest('tbody');
+    const rows    = Array.from(tbody.querySelectorAll('tr.tr-chantier'));
+    const idx     = rows.indexOf(tr);
+    const nextTr  = rows[idx + 1];
+    if (nextTr) {
+      const nextClient = nextTr.querySelector('input[data-nav="client"]');
+      if (nextClient) {
+        // Petit délai pour laisser le re-rendu éventuel (ajouterVierge) se terminer
+        setTimeout(() => {
+          // Après re-rendu, retrouver la bonne ligne par index
+          const newRows   = Array.from(tbody.querySelectorAll('tr.tr-chantier'));
+          const newNextTr = newRows[idx + 1];
+          const newInput  = newNextTr
+            ? newNextTr.querySelector('input[data-nav="client"]')
+            : null;
+          if (newInput) { newInput.focus(); newInput.select(); }
+        }, 80);
+      }
+    }
+  }
+}
+
+
+</script>
+</body>
+</html>

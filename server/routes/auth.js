@@ -1,42 +1,69 @@
 import express from "express";
-import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import User from "../models/user.js";
+import Licence from "../models/licence.js";
 
 const router = express.Router();
 
-// Inscription d'un utilisateur
-router.post("/register", async (req, res) => {
+// ── Connexion par code licence ──
+// Le client saisit son code → on vérifie → on retourne un JWT
+router.post("/login", async (req, res) => {
   try {
-    const { email, password, role } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword, role });
-    await user.save();
-    res.status(201).json({ message: "Utilisateur créé avec succès" });
+    const code = (req.body.code || "").trim().toUpperCase();
+    if (!code) return res.status(400).json({ ok: false, message: "Code manquant" });
+
+    const licence = await Licence.findOne({ codeClient: code });
+    if (!licence)       return res.status(404).json({ ok: false, message: "Code inconnu" });
+    if (!licence.actif) return res.status(403).json({ ok: false, message: "Licence désactivée" });
+    if (new Date() > licence.dateExpiration)
+      return res.status(403).json({ ok: false, message: "Licence expirée" });
+
+    // Token valide 30 jours
+    const token = jwt.sign(
+      { clientId: licence.codeClient, nomClient: licence.nomClient, role: "client" },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({
+      ok: true,
+      token,
+      clientId:   licence.codeClient,
+      nomClient:  licence.nomClient,
+      expiration: licence.dateExpiration
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ ok: false, message: err.message });
   }
 });
 
-// Connexion d'un utilisateur
-router.post("/login", async (req, res) => {
+// ── Connexion admin (email + mot de passe) ──
+router.post("/admin-login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "Utilisateur non trouvé" });
-    if (!user.active) return res.status(403).json({ error: "Compte désactivé" });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: "Mot de passe incorrect" });
+    if (email    !== process.env.ADMIN_EMAIL ||
+        password !== process.env.ADMIN_PASSWORD)
+      return res.status(401).json({ ok: false, message: "Identifiants incorrects" });
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
-      "SECRET_KEY",
-      { expiresIn: "1d" }
+      { role: "admin" },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
     );
-    res.json({ message: "Connexion réussie", token });
+    res.json({ ok: true, token });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Vérification d'un token existant ──
+router.post("/verify", (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ ok: false });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ ok: true, ...decoded });
+  } catch {
+    res.status(401).json({ ok: false, message: "Token invalide" });
   }
 });
 

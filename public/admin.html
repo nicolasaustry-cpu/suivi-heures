@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Administration – Suiv'Heures</title>
+  <style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f4f6f8; color: #222; }
+
+  /* ── LOGIN ── */
+  #ecran-login {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  .login-box {
+    background: #fff; border-radius: 12px; padding: 2rem 2.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12); width: 360px;
+  }
+  .login-box h1 { font-size: 1.3rem; margin-bottom: 1.5rem; color: #2563eb; text-align: center; }
+  .login-box label { font-size: 0.85rem; font-weight: 600; color: #374151; display: block; margin-bottom: 3px; }
+  .login-box input {
+    width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
+    border-radius: 6px; font-size: 0.95rem; margin-bottom: 1rem;
+  }
+  .login-box button {
+    width: 100%; background: #2563eb; color: #fff; border: none;
+    border-radius: 6px; padding: 10px; font-weight: 700; font-size: 1rem; cursor: pointer;
+  }
+  .login-box button:hover { background: #1d4ed8; }
+  #login-error { color: #dc2626; font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
+
+  /* ── ADMIN ── */
+  #ecran-admin { display: none; }
+
+  header {
+    background: #2563eb; color: #fff; padding: 0.7rem 1.5rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 1.2rem; }
+  header button {
+    background: rgba(255,255,255,0.2); border: none; color: #fff;
+    padding: 5px 14px; border-radius: 5px; cursor: pointer; font-size: 0.85rem;
+  }
+
+  .container { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
+
+  /* Stats */
+  .stats { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 1rem 1.5rem; text-align: center; flex: 1; min-width: 120px;
+  }
+  .stat-card .val { font-size: 2rem; font-weight: 800; color: #2563eb; }
+  .stat-card .lbl { font-size: 0.8rem; color: #6b7280; margin-top: 2px; }
+
+  /* Formulaire nouvelle licence */
+  .card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 1.2rem; margin-bottom: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .card h2 { font-size: 1rem; color: #374151; margin-bottom: 1rem; font-weight: 700; }
+  .form-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+  .form-row > div { display: flex; flex-direction: column; gap: 3px; }
+  .form-row label { font-size: 0.82rem; font-weight: 600; color: #6b7280; }
+  .form-row input, .form-row textarea {
+    padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; font-family: inherit;
+  }
+  .form-row textarea { resize: vertical; min-height: 38px; }
+
+  button.btn { border: none; border-radius: 6px; padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: 0.88rem; }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-success { background: #16a34a; color: #fff; }
+  .btn-danger  { background: #dc2626; color: #fff; }
+  .btn-warning { background: #f59e0b; color: #000; }
+  .btn:hover { opacity: 0.88; }
+
+  /* Tableau licences */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { background: #f1f5f9; padding: 8px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  tr:hover td { background: #f8fafc; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
+  .badge-on  { background: #dcfce7; color: #15803d; }
+  .badge-off { background: #fee2e2; color: #b91c1c; }
+  .badge-exp { background: #f3f4f6; color: #6b7280; }
+
+  .search-bar { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; }
+  .search-bar input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; flex: 1; }
+
+  #msg-global {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    background: #16a34a; color: #fff; padding: 10px 20px;
+    border-radius: 8px; font-weight: 700; font-size: 0.9rem;
+    display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  </style>
+</head>
+<body>
+
+<!-- ── ÉCRAN LOGIN ── -->
+<div id="ecran-login">
+  <div class="login-box">
+    <h1>🔐 Administration<br>Suiv'Heures</h1>
+    <label>Email</label>
+    <input type="email" id="loginEmail" placeholder="admin@exemple.fr">
+    <label>Mot de passe</label>
+    <input type="password" id="loginPassword" placeholder="••••••••">
+    <button onclick="seConnecter()">Se connecter</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── ÉCRAN ADMIN ── -->
+<div id="ecran-admin">
+  <header>
+    <h1>⚙ Administration – Suiv'Heures</h1>
+    <button onclick="seDeconnecter()">Déconnexion</button>
+  </header>
+
+  <div class="container">
+
+    <!-- Stats -->
+    <div class="stats" id="stats-bloc">
+      <div class="stat-card"><div class="val" id="s-total">—</div><div class="lbl">Licences totales</div></div>
+      <div class="stat-card"><div class="val" id="s-actifs">—</div><div class="lbl">Actives</div></div>
+      <div class="stat-card"><div class="val" id="s-expires">—</div><div class="lbl">Expirées</div></div>
+    </div>
+
+    <!-- Nouvelle licence -->
+    <div class="card">
+      <h2>+ Nouvelle licence client</h2>
+      <div class="form-row">
+        <div>
+          <label>Code client *</label>
+          <input id="f-code" placeholder="ABCD-1234" style="text-transform:uppercase;width:140px;">
+        </div>
+        <div>
+          <label>Nom de l'entreprise *</label>
+          <input id="f-nom" placeholder="Dupont Bâtiment" style="width:200px;">
+        </div>
+        <div>
+          <label>Email client</label>
+          <input id="f-email" type="email" placeholder="client@exemple.fr" style="width:200px;">
+        </div>
+        <div>
+          <label>Date d'expiration *</label>
+          <input id="f-expiration" type="date" style="width:150px;">
+        </div>
+        <div>
+          <label>Notes</label>
+          <input id="f-notes" placeholder="Remarques..." style="width:180px;">
+        </div>
+        <div>
+          <button class="btn btn-success" onclick="creerLicence()">✔ Créer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste licences -->
+    <div class="card">
+      <h2>Liste des licences</h2>
+      <div class="search-bar">
+        <input id="recherche" placeholder="Rechercher un client ou un code..." oninput="filtrerLicences()">
+        <button class="btn btn-primary" onclick="chargerLicences()">↺ Actualiser</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Entreprise</th>
+            <th>Email</th>
+            <th>Expiration</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-licences"></tbody>
+      </table>
+      <p id="no-licence" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune licence.</p>
+    </div>
+
+  </div>
+</div>
+
+<div id="msg-global"></div>
+
+<script>
+const API = ''; // même domaine
+
+let _token = localStorage.getItem('admin_token') || '';
+let _licences = [];
+
+/* ── AUTH ── */
+async function seConnecter() {
+  const email    = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl    = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    const r = await fetch(API + '/api/auth/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const d = await r.json();
+    if (!d.ok) { errEl.textContent = d.message || 'Identifiants incorrects'; return; }
+    _token = d.token;
+    localStorage.setItem('admin_token', _token);
+    afficherAdmin();
+  } catch {
+    errEl.textContent = 'Erreur de connexion au serveur';
+  }
+}
+
+function seDeconnecter() {
+  _token = '';
+  localStorage.removeItem('admin_token');
+  document.getElementById('ecran-login').style.display = 'flex';
+  document.getElementById('ecran-admin').style.display = 'none';
+}
+
+async function afficherAdmin() {
+  document.getElementById('ecran-login').style.display = 'none';
+  document.getElementById('ecran-admin').style.display = '';
+  await chargerStats();
+  await chargerLicences();
+
+  // Date expiration par défaut : dans 1 an
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  document.getElementById('f-expiration').value = d.toISOString().split('T')[0];
+}
+
+// Vérifier token existant au chargement
+window.addEventListener('DOMContentLoaded', async () => {
+  if (!_token) return;
+  try {
+    const r = await fetch(API + '/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + _token }
+    });
+    const d = await r.json();
+    if (d.ok && d.role === 'admin') afficherAdmin();
+    else seDeconnecter();
+  } catch { /* ignorer */ }
+});
+
+/* ── STATS ── */
+async function chargerStats() {
+  try {
+    const r = await fetch(API + '/api/admin/stats', { headers: auth() });
+    const d = await r.json();
+    if (!d.ok) return;
+    document.getElementById('s-total').textContent   = d.total;
+    document.getElementById('s-actifs').textContent  = d.actifs;
+    document.getElementById('s-expires').textContent = d.expires;
+  } catch {}
+}
+
+/* ── LICENCES ── */
+async function chargerLicences() {
+  try {
+    const r = await fetch(API + '/api/admin/licences', { headers: auth() });
+    const d = await r.json();
+    if (!d.ok) return;
+    _licences = d.licences;
+    afficherLicences(_licences);
+  } catch {}
+}
+
+function filtrerLicences() {
+  const t = document.getElementById('recherche').value.toLowerCase();
+  afficherLicences(_licences.filter(l =>
+    (l.codeClient || '').toLowerCase().includes(t) ||
+    (l.nomClient  || '').toLowerCase().includes(t) ||
+    (l.email      || '').toLowerCase().includes(t)
+  ));
+}
+
+function afficherLicences(liste) {
+  const tbody = document.getElementById('tbody-licences');
+  const noEl  = document.getElementById('no-licence');
+  tbody.innerHTML = '';
+  noEl.style.display = liste.length ? 'none' : '';
+
+  liste.forEach(l => {
+    const exp     = new Date(l.dateExpiration);
+    const expire  = exp < new Date();
+    const statut  = !l.actif  ? '<span class="badge badge-off">Désactivée</span>'
+                  : expire    ? '<span class="badge badge-exp">Expirée</span>'
+                  :             '<span class="badge badge-on">Active</span>';
+    const expStr  = exp.toLocaleDateString('fr-FR');
+
+    tbody.innerHTML += `<tr>
+      <td><strong>${l.codeClient}</strong></td>
+      <td>${l.nomClient || '—'}</td>
+      <td>${l.email || '—'}</td>
+      <td style="color:${expire ? '#dc2626' : '#374151'}">${expStr}</td>
+      <td>${statut}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
+          onclick="toggleLicence('${l.codeClient}')">
+          ${l.actif ? '⏸ Désactiver' : '▶ Activer'}
+        </button>
+        <button class="btn btn-danger" style="padding:4px 10px;font-size:0.8rem;margin-left:4px;"
+          onclick="supprimerLicence('${l.codeClient}')">✕</button>
+      </td>
+    </tr>`;
+  });
+}
+
+async function creerLicence() {
+  const code       = document.getElementById('f-code').value.trim().toUpperCase();
+  const nomClient  = document.getElementById('f-nom').value.trim();
+  const email      = document.getElementById('f-email').value.trim();
+  const expiration = document.getElementById('f-expiration').value;
+  const notes      = document.getElementById('f-notes').value.trim();
+
+  if (!code || !nomClient || !expiration) {
+    alert('Code, nom et date d\'expiration sont obligatoires.');
+    return;
+  }
+  try {
+    const r = await fetch(API + '/api/admin/licences', {
+      method: 'POST',
+      headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg('✔ Licence créée : ' + code);
+    document.getElementById('f-code').value = '';
+    document.getElementById('f-nom').value  = '';
+    document.getElementById('f-email').value = '';
+    document.getElementById('f-notes').value = '';
+    await chargerStats();
+    await chargerLicences();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function toggleLicence(code) {
+  try {
+    const r = await fetch(API + '/api/admin/licences/' + code + '/toggle', {
+      method: 'PATCH', headers: auth()
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg(d.actif ? '✔ Licence activée' : '⏸ Licence désactivée');
+    await chargerStats();
+    await chargerLicences();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function supprimerLicence(code) {
+  if (!confirm('Supprimer la licence ' + code + ' et toutes ses données ?')) return;
+  try {
+    const r = await fetch(API + '/api/admin/licences/' + code, {
+      method: 'DELETE', headers: auth()
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg('✔ Licence supprimée');
+    await chargerStats();
+    await chargerLicences();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+/* ── UTILITAIRES ── */
+function auth() {
+  return { 'Authorization': 'Bearer ' + _token };
+}
+
+function msg(texte, couleur = '#16a34a') {
+  const el = document.getElementById('msg-global');
+  el.textContent   = texte;
+  el.style.background = couleur;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+// Appui Entrée sur le formulaire login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('ecran-login').style.display !== 'none')
+    seConnecter();
+});
+</script>
+</body>
+</html>

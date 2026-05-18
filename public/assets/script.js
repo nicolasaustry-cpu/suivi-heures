@@ -6,7 +6,57 @@ let salaries   = JSON.parse(localStorage.getItem("salariesdata")   || "[]");
 let heures     = JSON.parse(localStorage.getItem("heuresdata")     || "{}");
 
 /* ===========================================
-   SALARIÉS / ENTREPRISE
+   LICENCE
+   =========================================== */
+function licenceOK() {
+  const statusEl = document.getElementById("licence-status");
+  if (!statusEl) return;
+
+  const code = localStorage.getItem("licenceCode");
+  if (!code) {
+    statusEl.innerHTML = '<span style="color:#fca5a5;font-size:0.85rem;">⚠ Aucune licence</span>';
+    return;
+  }
+  statusEl.innerHTML = '<span style="color:#86efac;font-size:0.85rem;">✔ Licence active</span>';
+}
+
+function activerLicence() {
+  const code = document.getElementById("code-client")?.value.trim();
+  if (!code) {
+    alert("Veuillez saisir un code client.");
+    return;
+  }
+  // Sauvegarde locale du code (la vérification serveur peut être ajoutée ici)
+  localStorage.setItem("licenceCode", code);
+  alert("Licence enregistrée avec succès !");
+  licenceOK();
+}
+
+/* ===========================================
+   ENTREPRISE
+   =========================================== */
+function initEntreprise() {
+  const input = document.getElementById("nom-entreprise");
+  if (input && entreprise.nom) input.value = entreprise.nom;
+  const nomE = document.getElementById("entreprise-nom");
+  if (nomE && entreprise.nom) nomE.textContent = entreprise.nom;
+}
+
+function sauverEntreprise() {
+  const nom = document.getElementById("nom-entreprise")?.value.trim();
+  if (!nom) {
+    alert("Veuillez saisir un nom d'entreprise.");
+    return;
+  }
+  entreprise.nom = nom;
+  localStorage.setItem("entreprisedata", JSON.stringify(entreprise));
+  const nomE = document.getElementById("entreprise-nom");
+  if (nomE) nomE.textContent = nom;
+  alert("Informations enregistrées.");
+}
+
+/* ===========================================
+   SALARIÉS
    =========================================== */
 function afficherSalaries() {
   const tb = document.querySelector("#table-salaries tbody");
@@ -36,30 +86,26 @@ function afficherSalaries() {
       </tr>`;
   });
 }
+
 function majDateSortie(id, nouvelleDate) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
   sal.dateSortie = nouvelleDate || "";
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
-
-  // 🔄 actualise l'affichage
   afficherSalaries();
-
-  // 🔁 signale la maj du planning (pour actualiser les jours actifs)
   localStorage.setItem("majPlanning", Date.now().toString());
 }
-
 
 /* ===========================================
    AJOUT / SUPPRESSION DE SALARIÉ
    =========================================== */
 function ajouterSalarie() {
-  const prenom = document.getElementById("prenomEl")?.value.trim();
-  const nom = document.getElementById("nomEl")?.value.trim();
+  const prenom    = document.getElementById("prenomEl")?.value.trim();
+  const nom       = document.getElementById("nomEl")?.value.trim();
   const dateEntree = document.getElementById("dateEntreeEl")?.value;
 
   if (!prenom || !nom || !dateEntree) {
-    alert("Veuillez remplir tous les champs avant d’ajouter un salarié.");
+    alert("Veuillez remplir tous les champs avant d'ajouter un salarié.");
     return;
   }
 
@@ -83,11 +129,20 @@ function ajouterSalarie() {
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
 
-  // 🔄 Met à jour automatiquement le planning si ouvert
-  window.actualiserFiltreSalaries?.();
-  localStorage.setItem("majPlanning", Date.now().toString());
+  // Réinitialiser le formulaire
+  ["prenomEl","nomEl","dateEntreeEl"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  ["hLun","hMar","hMer","hJeu","hVen"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "8";
+  });
+  const hSam = document.getElementById("hSam");
+  if (hSam) hSam.value = "0";
 
-  alert("Salarié ajouté et intégré au planning !");
+  localStorage.setItem("majPlanning", Date.now().toString());
+  alert("Salarié ajouté !");
 }
 
 function supprimerSalarie(index) {
@@ -106,11 +161,58 @@ function supprimerSalarie(index) {
 }
 
 /* ===========================================
+   LOGO VOLITIS (réutilisable sur toutes les pages)
+   =========================================== */
+function ajouterLogoVolitis() {
+  const header = document.querySelector("header");
+  if (!header) return;
+  document.getElementById("volitis-link")?.remove();
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "volitis-link";
+  Object.assign(wrapper.style, {
+    display: "flex", alignItems: "center", gap: "0.5rem",
+    marginLeft: "1rem", cursor: "pointer", userSelect: "none"
+  });
+
+  const logoContainer = document.createElement("div");
+  Object.assign(logoContainer.style, {
+    background: "white", borderRadius: "50%",
+    width: "42px", height: "42px",
+    display: "flex", alignItems: "center", justifyContent: "center"
+  });
+
+  const img = document.createElement("img");
+  img.src = "assets/volitis-logo.png";
+  img.alt = "Logo Volitis";
+  img.style.height = "30px";
+  img.style.width = "auto";
+  logoContainer.appendChild(img);
+
+  const text = document.createElement("span");
+  text.textContent = "Outil créé par Volitis";
+  Object.assign(text.style, { fontSize: "0.8rem", color: "white", whiteSpace: "nowrap" });
+
+  wrapper.append(logoContainer, text);
+  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
+  header.appendChild(wrapper);
+}
+
+/* ===========================================
    CHARGEMENT INITIAL
    =========================================== */
 window.addEventListener("DOMContentLoaded", () => {
+  // Nom entreprise dans le header
   const nomE = document.getElementById("entreprise-nom");
   if (nomE && entreprise.nom) nomE.textContent = entreprise.nom;
+
+  // Logo
+  ajouterLogoVolitis();
+
+  // Licence
+  licenceOK();
+
+  // Salariés
   afficherSalaries();
 });
 
@@ -119,7 +221,10 @@ window.addEventListener("DOMContentLoaded", () => {
    =========================================== */
 window.addEventListener("storage", (e) => {
   if (e.key === "majPlanning") {
-    // Actualisation automatique si le planning est ouvert dans un autre onglet
     if (typeof genererPlanning === "function") genererPlanning();
+  }
+  if (e.key === "salariesdata") {
+    salaries = JSON.parse(localStorage.getItem("salariesdata") || "[]");
+    afficherSalaries();
   }
 });

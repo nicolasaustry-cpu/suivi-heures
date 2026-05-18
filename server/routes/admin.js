@@ -1,30 +1,87 @@
 import express from "express";
-import User from "../models/user.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
+import Licence from "../models/licence.js";
+import Donnees from "../models/donnees.js";
 
 const router = express.Router();
 
-// Vérifie que l'utilisateur est un admin
-function verifyAdmin(req, res, next) {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Accès réservé à l'administrateur" });
-  }
-  next();
-}
-
-// Liste tous les utilisateurs
-router.get("/users", verifyToken, verifyAdmin, async (req, res) => {
-  const users = await User.find().select("-password");
-  res.json(users);
+// ── Lister toutes les licences ──
+router.get("/licences", verifyToken, verifyAdmin, async (req, res) => {
+  const licences = await Licence.find().sort({ dateActivation: -1 });
+  res.json({ ok: true, licences });
 });
 
-// Activer / désactiver un utilisateur
-router.patch("/users/:id/toggle", verifyToken, verifyAdmin, async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
-  user.active = !user.active;
-  await user.save();
-  res.json({ message: `Utilisateur ${user.active ? "activé" : "désactivé"}` });
+// ── Créer une licence ──
+router.post("/licences", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const { codeClient, nomClient, email, dateExpiration, notes } = req.body;
+    if (!codeClient || !dateExpiration)
+      return res.status(400).json({ ok: false, message: "Code et date d'expiration requis" });
+
+    const licence = new Licence({
+      codeClient: codeClient.toUpperCase().trim(),
+      nomClient, email, notes,
+      dateExpiration: new Date(dateExpiration),
+      actif: true
+    });
+    await licence.save();
+    res.status(201).json({ ok: true, licence });
+  } catch (err) {
+    if (err.code === 11000)
+      return res.status(400).json({ ok: false, message: "Ce code existe déjà" });
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Modifier une licence ──
+router.put("/licences/:code", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const licence = await Licence.findOne({ codeClient: req.params.code.toUpperCase() });
+    if (!licence) return res.status(404).json({ ok: false, message: "Licence introuvable" });
+
+    const { nomClient, email, dateExpiration, notes } = req.body;
+    if (nomClient)      licence.nomClient      = nomClient;
+    if (email)          licence.email          = email;
+    if (dateExpiration) licence.dateExpiration = new Date(dateExpiration);
+    if (notes !== undefined) licence.notes     = notes;
+    await licence.save();
+    res.json({ ok: true, licence });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Activer / désactiver une licence ──
+router.patch("/licences/:code/toggle", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const licence = await Licence.findOne({ codeClient: req.params.code.toUpperCase() });
+    if (!licence) return res.status(404).json({ ok: false, message: "Licence introuvable" });
+    licence.actif = !licence.actif;
+    await licence.save();
+    res.json({ ok: true, actif: licence.actif });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Supprimer une licence (et ses données) ──
+router.delete("/licences/:code", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    await Licence.deleteOne({ codeClient: code });
+    await Donnees.deleteOne({ clientId: code });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Stats ──
+router.get("/stats", verifyToken, verifyAdmin, async (req, res) => {
+  const total  = await Licence.countDocuments();
+  const actifs = await Licence.countDocuments({ actif: true });
+  const expires = await Licence.countDocuments({ dateExpiration: { $lt: new Date() } });
+  res.json({ ok: true, total, actifs, expires });
 });
 
 export default router;
