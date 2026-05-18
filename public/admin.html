@@ -235,6 +235,10 @@ async function afficherAdmin() {
 
 // Vérifier token existant au chargement
 window.addEventListener('DOMContentLoaded', async () => {
+  // Toujours afficher le login par défaut
+  document.getElementById('ecran-login').style.display = 'flex';
+  document.getElementById('ecran-admin').style.display = 'none';
+
   if (!_token) return;
   try {
     const r = await fetch(API + '/api/auth/verify', {
@@ -243,8 +247,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     const d = await r.json();
     if (d.ok && d.role === 'admin') afficherAdmin();
-    else seDeconnecter();
-  } catch { /* ignorer */ }
+    else {
+      localStorage.removeItem('admin_token');
+      _token = '';
+    }
+  } catch {
+    // Erreur réseau : rester sur le login
+  }
 });
 
 /* ── STATS ── */
