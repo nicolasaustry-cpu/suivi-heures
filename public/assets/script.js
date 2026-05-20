@@ -42,7 +42,7 @@ function initEntreprise() {
   if (nomE && entreprise.nom) nomE.textContent = entreprise.nom;
 }
 
-function sauverEntreprise() {
+async function sauverEntreprise() {
   const nom  = document.getElementById("nom-entreprise")?.value.trim();
   const code = document.getElementById("code-employe")?.value.trim().toUpperCase();
   if (!nom) {
@@ -54,7 +54,14 @@ function sauverEntreprise() {
   localStorage.setItem("entreprisedata", JSON.stringify(entreprise));
   const nomE = document.getElementById("entreprise-nom");
   if (nomE) nomE.textContent = nom;
-  alert("Informations enregistrées.");
+
+  // Sauvegarde immédiate sur le serveur (sans attendre le délai de 2s)
+  if (typeof SYNC !== 'undefined' && SYNC.sauvegarderTout) {
+    await SYNC.sauvegarderTout();
+    alert("Informations enregistrées et synchronisées !");
+  } else {
+    alert("Informations enregistrées.");
+  }
 }
 
 /* ===========================================
