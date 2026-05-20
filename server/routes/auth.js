@@ -4,8 +4,6 @@ import Licence from "../models/licence.js";
 
 const router = express.Router();
 
-// ── Connexion par code licence ──
-// Le client saisit son code → on vérifie → on retourne un JWT
 router.post("/login", async (req, res) => {
   try {
     const code = (req.body.code || "").trim().toUpperCase();
@@ -17,18 +15,17 @@ router.post("/login", async (req, res) => {
     if (new Date() > licence.dateExpiration)
       return res.status(403).json({ ok: false, message: "Licence expirée" });
 
-    // Token valide 30 jours
     const token = jwt.sign(
-      { clientId: licence.codeClient, nomClient: licence.nomClient, role: "client" },
+      { clientId: licence.codeClient, nomClient: licence.nomClient, role: "client", type: licence.type },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
 
     res.json({
-      ok: true,
-      token,
+      ok: true, token,
       clientId:   licence.codeClient,
       nomClient:  licence.nomClient,
+      type:       licence.type,
       expiration: licence.dateExpiration
     });
   } catch (err) {
@@ -36,7 +33,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ── Connexion admin (email + mot de passe) ──
 router.post("/admin-login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -44,18 +40,13 @@ router.post("/admin-login", async (req, res) => {
         password !== process.env.ADMIN_PASSWORD)
       return res.status(401).json({ ok: false, message: "Identifiants incorrects" });
 
-    const token = jwt.sign(
-      { role: "admin" },
-      process.env.JWT_SECRET,
-      { expiresIn: "8h" }
-    );
+    const token = jwt.sign({ role: "admin" }, process.env.JWT_SECRET, { expiresIn: "8h" });
     res.json({ ok: true, token });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
 });
 
-// ── Vérification d'un token existant ──
 router.post("/verify", (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ ok: false });

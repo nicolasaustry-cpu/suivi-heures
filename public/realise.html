@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Planning Réalisé – Suiv'Heures</title>
+  <style>
+  body { margin:0; font-family:Arial,sans-serif; background:#f4f6f8; color:#222; }
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+  header { background:#16a34a; color:#fff; padding:0.6rem 1rem; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { margin:0; font-size:1.3rem; font-weight:800; flex:1; text-align:center; }
+  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
+  .nav a.active { text-decoration:underline; }
+  .fixed-tools { background:#f8fafc; padding:0.5rem 0.8rem; border-bottom:1px solid #ccc; }
+  #planning-wrapper { padding:0.5rem 0.8rem; }
+
+  /* Tableau */
+  table { width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
+  th, td { border:1px solid #ccc; padding:4px 6px; }
+  th { background:#e2e8f0; font-weight:700; }
+  .jour-block { margin-bottom:0.5rem; }
+  .jour-titre { background:#d1fae5; padding:0.3rem 0.6rem; font-weight:700; border-radius:4px; margin-bottom:3px; color:#065f46; }
+  .td-sal { font-weight:700; width:150px; }
+  .td-ch  { width:200px; }
+  .td-h   { text-align:center; width:80px; }
+  .td-depl { text-align:center; width:70px; color:#92400e; }
+  .td-total { text-align:center; width:70px; font-weight:700; color:#2563eb; }
+  .badge-val { background:#dcfce7; color:#15803d; border-radius:999px; padding:1px 8px; font-size:0.72rem; font-weight:700; }
+  .badge-env { background:#fef3c7; color:#92400e; border-radius:999px; padding:1px 8px; font-size:0.72rem; font-weight:700; }
+  .btn-valider { background:#16a34a; color:#fff; border:none; border-radius:4px; padding:3px 8px; font-size:0.75rem; cursor:pointer; }
+  .no-data { color:#9ca3af; font-style:italic; text-align:center; padding:2rem; }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <header>
+    <div class="entreprise-nom" id="entreprise-nom" style="min-width:120px;font-size:0.9rem;font-weight:700;"></div>
+    <h1 class="page-title">Planning Réalisé</h1>
+    <div id="licence-status" style="min-width:120px;text-align:right;font-size:0.8rem;"></div>
+  </header>
+  <div class="nav">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="saisie.html">Saisie mobile</a>
+    <a href="realise.html" class="active">Planning réalisé</a>
+    <a href="rapports-realise.html">Rapports réalisé</a>
+  </div>
+  <div class="fixed-tools">
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+      <label>Mois : <input type="month" id="moisRealise" onchange="chargerRealise()"></label>
+      <label>Salarié :
+        <select id="filtresal" onchange="afficherRealise()">
+          <option value="">Tous</option>
+        </select>
+      </label>
+      <button onclick="window.print()" style="background:#f59e0b;color:#000;border:none;border-radius:4px;padding:5px 12px;font-weight:700;cursor:pointer;">🖨 Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<div id="planning-wrapper" style="margin-top:160px;">
+  <p class="no-data" id="msg-vide">Choisissez un mois pour afficher le réalisé.</p>
+  <div id="contenu-realise"></div>
+</div>
+
+<script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
+<script>
+let _saisies = [];
+let _salaries = [];
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+
+  _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const sel = document.getElementById('filtresal');
+  _salaries.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id; opt.textContent = `${s.prenom} ${s.nom}`;
+    sel.appendChild(opt);
+  });
+
+  const now = new Date();
+  document.getElementById('moisRealise').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  chargerRealise();
+});
+
+async function chargerRealise() {
+  const mois  = document.getElementById('moisRealise').value;
+  if (!mois) return;
+  const token = SYNC.getToken();
+  if (!token) { afficherRealise([]); return; }
+
+  try {
+    const r = await fetch(`/api/saisies/${mois}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    _saisies = d.ok ? d.saisies : [];
+  } catch {
+    _saisies = [];
+  }
+  afficherRealise();
+}
+
+function afficherRealise() {
+  const filtreSal = document.getElementById('filtresal').value;
+  const cont = document.getElementById('contenu-realise');
+  const msgV = document.getElementById('msg-vide');
+
+  let saisies = _saisies;
+  if (filtreSal) saisies = saisies.filter(s => s.salarieId == filtreSal);
+
+  if (!saisies.length) {
+    msgV.style.display = '';
+    cont.innerHTML = '';
+    return;
+  }
+  msgV.style.display = 'none';
+
+  // Grouper par date
+  const parDate = {};
+  saisies.forEach(s => {
+    if (!parDate[s.date]) parDate[s.date] = [];
+    parDate[s.date].push(s);
+  });
+
+  cont.innerHTML = Object.keys(parDate).sort().map(date => {
+    const d = new Date(date + 'T00:00:00');
+    const label = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+    const lignes = parDate[date];
+
+    const rows = lignes.map(s => {
+      const chantiers = (s.chantiers || []).map(c => {
+        const h = Math.floor(c.dureeMin / 60);
+        const m = c.dureeMin % 60;
+        const duree = `${h}h${String(m).padStart(2,'0')}`;
+        const deplStr = c.deplacement ? `${c.deplacement} min` : '—';
+        const total = c.dureeMin + (c.deplacement || 0);
+        const th = Math.floor(total/60), tm = total%60;
+        return `<tr>
+          <td class="td-sal">${s.salarieNom}</td>
+          <td class="td-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
+          <td class="td-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
+          <td class="td-h">${duree}</td>
+          <td class="td-depl">${deplStr}</td>
+          <td class="td-total">${th}h${String(tm).padStart(2,'0')}</td>
+          <td style="text-align:center;">
+            ${s.statut === 'validee'
+              ? '<span class="badge-val">✔ Validé</span>'
+              : `<button class="btn-valider" onclick="validerSaisie('${s._id}')">Valider</button>`}
+          </td>
+        </tr>`;
+      }).join('');
+      return chantiers;
+    }).join('');
+
+    return `<div class="jour-block">
+      <div class="jour-titre">${label.charAt(0).toUpperCase() + label.slice(1)}</div>
+      <table>
+        <thead><tr>
+          <th class="td-sal">Salarié</th>
+          <th class="td-ch">Chantier</th>
+          <th class="td-h">Horaires</th>
+          <th class="td-h">Durée</th>
+          <th class="td-depl">Déplacement</th>
+          <th class="td-total">Total</th>
+          <th style="width:80px;">Statut</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+async function validerSaisie(id) {
+  const token = SYNC.getToken();
+  try {
+    const r = await fetch(`/api/saisies/${id}/valider`, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (d.ok) chargerRealise();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+</script>
+</body>
+</html>

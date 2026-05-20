@@ -2,315 +2,150 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Rapports – Suivi des heures</title>
+  <title>Rapports – Suiv'Heures</title>
   <link rel="stylesheet" href="assets/style.css">
   <style>
 
-  /* ══ BARRE FIXE HAUTE ══ */
-  .top-bar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
-    background: #f4f6f8;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  }
+  /* ══ BARRE FIXE ══ */
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
 
   /* ══ HEADER ══ */
-  .main-header {
-    background: #2563eb;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.6rem 1rem;
-  }
-  .main-header .entreprise-nom {
-    font-weight: 700;
-    font-size: 0.95rem;
-    min-width: 160px;
-  }
-  .main-header .page-title {
-    flex: 1;
-    text-align: center;
-    margin: 0;
-    font-size: 1.3rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-  }
-  .header-droite {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    min-width: 160px;
-    justify-content: flex-end;
-  }
-  .licence-badge {
-    font-size: 0.78rem;
-    background: rgba(255,255,255,0.15);
-    border-radius: 999px;
-    padding: 2px 10px;
-    color: #fff;
-  }
-  .volitis-logo-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-    opacity: 0.9;
-  }
-  .volitis-logo-wrapper:hover { opacity: 1; }
-  .volitis-logo-circle {
-    background: #fff;
-    border-radius: 50%;
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .volitis-logo-circle img { height: 22px; width: auto; }
-  .volitis-label { font-size: 0.72rem; color: rgba(255,255,255,0.85); white-space: nowrap; }
+  .main-header { background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem; }
+  .main-header .entreprise-nom { font-weight:700; font-size:0.95rem; min-width:160px; }
+  .main-header .page-title { flex:1; text-align:center; margin:0; font-size:1.3rem; font-weight:800; }
+  .header-droite { display:flex; align-items:center; gap:0.8rem; min-width:160px; justify-content:flex-end; }
+  .licence-badge { font-size:0.78rem; background:rgba(255,255,255,0.15); border-radius:999px; padding:2px 10px; color:#fff; }
+  .volitis-logo-wrapper { display:flex; align-items:center; gap:0.4rem; cursor:pointer; opacity:0.9; }
+  .volitis-logo-wrapper:hover { opacity:1; }
+  .volitis-logo-circle { background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+  .volitis-logo-circle img { height:22px; width:auto; }
+  .volitis-label { font-size:0.72rem; color:rgba(255,255,255,0.85); white-space:nowrap; }
 
   /* ══ NAV ══ */
-  .nav {
-    background: #e8edf3;
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    padding: 0.5rem;
-    border-top: none;
-  }
-  .nav a { text-decoration: none; color: #2563eb; font-weight: bold; font-size: 0.9rem; }
-  .nav a.active { text-decoration: underline; }
-  .nav a:hover { color: #1d4ed8; }
+  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
+  .nav a.active { text-decoration:underline; }
 
-  /* ══ ZONE FILTRES + SYNTHÈSE ══ */
-  .zone-haut {
-    background: #fff;
-    border-top: 1px solid #e5e7eb;
-    border-bottom: 2px solid #e5e7eb;
-    padding: 0.8rem 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.8rem;
+  /* ══ FILTRES ══ */
+  .zone-filtres {
+    background:#fff; border-top:1px solid #e5e7eb; border-bottom:2px solid #e5e7eb;
+    padding:0.7rem 1rem; display:flex; gap:1rem; align-items:flex-end;
+    flex-wrap:wrap; justify-content:center;
   }
-
-  /* Filtres en ligne */
-  .filtres-inline {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .filtre-item label {
-    display: block;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 3px;
-  }
-  .filtre-item input[type="month"],
-  .filtre-item select {
-    padding: 5px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    background: #f9fafb;
-    min-width: 130px;
-  }
-  .filtre-item input[type="month"]:focus,
-  .filtre-item select:focus { border-color: #2563eb; background: #fff; outline: none; }
-
-  .filtre-btn {
-    padding: 5px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #f9fafb;
-    cursor: pointer;
-    font-size: 0.85rem;
-    user-select: none;
-    min-width: 140px;
-    text-align: left;
-  }
-  .filtre-btn:hover { border-color: #2563eb; background: #fff; }
-  .filtre-btn.actif { border-color: #2563eb; color: #2563eb; background: #eff6ff; font-weight: 600; }
-
-  .sep-v { display: none; }
-
-  /* Synthèse chantier */
-  .synthese-inline {
-    min-width: 240px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-  }
-  .synthese-inline .synth-titre {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 6px;
-    text-align: center;
-    width: 100%;
-  }
-  .synthese-inline .synth-chantier-nom {
-    font-size: 0.95rem;
-    font-weight: 800;
-    color: #15803d;
-    margin-bottom: 8px;
-    padding-bottom: 4px;
-    border-bottom: 2px solid #bbf7d0;
-    text-align: center;
-    width: 100%;
-  }
-  #tableau-synthese {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-  }
-  #tableau-synthese table {
-    width: auto;
-    min-width: 200px;
-    border-collapse: collapse;
-    font-size: 0.83rem;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  #tableau-synthese thead tr { background: #16a34a; }
-  #tableau-synthese thead th {
-    color: #fff; font-weight: 700;
-    padding: 5px 12px;
-    text-align: left;
-  }
-  #tableau-synthese thead th:last-child { text-align: right; }
-  #tableau-synthese tbody tr { background: #f0fdf4; }
-  #tableau-synthese tbody tr:nth-child(even) { background: #dcfce7; }
-  #tableau-synthese td { padding: 4px 12px; border-bottom: 1px solid #bbf7d0; }
-  #tableau-synthese td:last-child { text-align: right; font-weight: 600; color: #15803d; }
-  #tableau-synthese tfoot tr { background: #dcfce7; }
-  #tableau-synthese tfoot td {
-    font-weight: 800; color: #15803d;
-    border-top: 2px solid #16a34a;
-    padding: 5px 12px;
-  }
-  #tableau-synthese tfoot td:last-child { text-align: right; }
+  .filtre-item label { display:block; font-size:0.75rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px; }
+  .filtre-item input[type="month"], .filtre-item select { padding:5px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem; background:#f9fafb; min-width:120px; }
+  .filtre-btn { padding:5px 10px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; cursor:pointer; font-size:0.85rem; user-select:none; min-width:130px; text-align:left; }
+  .filtre-btn:hover { border-color:#2563eb; background:#fff; }
+  .filtre-btn.actif { border-color:#2563eb; color:#2563eb; background:#eff6ff; font-weight:600; }
 
   /* ══ CONTENU DÉFILANT ══ */
-  #contenu-detail {
-    overflow-y: auto;
-    padding: 1rem;
+  #contenu-detail { overflow-y:auto; padding:0.8rem; }
+
+  /* ══ GRILLE 2 COLONNES ══ */
+  .grille-rapport {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0.8rem;
+    margin-bottom:0.8rem;
   }
 
-  /* ══ TABLEAU DÉTAIL ══ */
-  .detail-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  /* ══ CARTE TABLEAU ══ */
+  .rapport-card {
+    background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+    overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);
   }
-  .detail-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.7rem 1rem;
-    background: #f8fafc;
-    border-bottom: 1px solid #e5e7eb;
+  .rapport-card-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0.6rem 1rem;
+    border-bottom:1px solid #e5e7eb;
   }
-  .detail-card-header h3 { margin: 0; font-size: 0.9rem; color: #374151; font-weight: 700; }
-  .badge-nb {
-    background: #dbeafe; color: #1d4ed8;
-    border-radius: 999px; font-size: 0.75rem;
-    font-weight: 700; padding: 2px 9px;
-  }
+  .rapport-card-header.prevu  { background:#eff6ff; }
+  .rapport-card-header.realise { background:#f0fdf4; }
+  .rapport-card-header h3 { margin:0; font-size:0.88rem; font-weight:700; }
+  .rapport-card-header.prevu  h3 { color:#1d4ed8; }
+  .rapport-card-header.realise h3 { color:#15803d; }
+  .badge-nb { border-radius:999px; font-size:0.72rem; font-weight:700; padding:2px 8px; }
+  .badge-nb.prevu  { background:#dbeafe; color:#1d4ed8; }
+  .badge-nb.realise { background:#dcfce7; color:#15803d; }
 
-  #table-rapport {
-    width: auto;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-    margin: 0 auto;   /* centré */
-  }
-  #table-rapport th, #table-rapport td { white-space: nowrap; }
-  /* Colonne heures : plus étroite, alignée à droite */
-  #table-rapport th:last-child,
-  #table-rapport td:last-child { text-align: right; width: 80px; }
-  #table-rapport th {
-    background: #f1f5f9;
-    border-bottom: 2px solid #e2e8f0;
-    padding: 8px 12px;
-    cursor: pointer; white-space: nowrap;
-    user-select: none; font-weight: 700;
-    color: #374151; text-align: left;
-    position: sticky; top: 0; z-index: 1;
-  }
-  #table-rapport th:hover { background: #e2e8f0; color: #2563eb; }
-  #table-rapport td { border-bottom: 1px solid #f1f5f9; padding: 7px 12px; }
-  #table-rapport tbody tr:hover td { background: #f0f9ff; }
-  #table-rapport tfoot td {
-    border-top: 2px solid #e2e8f0;
-    padding: 8px 12px;
-    font-weight: 700;
-    background: #f8fafc;
-  }
-  .tri-icone { font-size: 0.72rem; color: #94a3b8; margin-left: 3px; }
+  /* ══ SYNTHÈSE ══ */
+  .synth-titre { font-size:0.82rem; font-weight:800; padding:6px 10px 3px; text-align:center; }
+  .synth-titre.prevu  { color:#1d4ed8; }
+  .synth-titre.realise { color:#15803d; }
 
-  /* ══ DROPDOWN EXCEL ══ */
-  .col-filtre-dropdown {
-    display: none; position: fixed; background: #fff;
-    border: 1px solid #d1d5db; min-width: 230px; max-height: 300px;
-    z-index: 3000; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    border-radius: 8px; flex-direction: column;
-  }
-  .col-filtre-dropdown.open { display: flex; }
-  .dd-search { padding: 8px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0; }
-  .dd-search input {
-    width: 100%; box-sizing: border-box; font-size: 0.85rem;
-    border: 1px solid #d1d5db; border-radius: 5px; padding: 5px 8px;
-  }
-  .dd-actions { display: flex; gap: 8px; padding: 4px 8px; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; flex-shrink: 0; }
-  .dd-actions span { cursor: pointer; color: #2563eb; text-decoration: underline; }
-  .dd-list { overflow-y: auto; flex: 1; padding: 4px 0; }
-  .dd-list label { display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; font-weight: normal; }
-  .dd-list label:hover { background: #eff6ff; }
-  .dd-list label input[type="checkbox"] { margin: 0; }
-  .dd-footer { display: flex; gap: 6px; padding: 7px 8px; border-top: 1px solid #f1f5f9; justify-content: flex-end; flex-shrink: 0; }
-  .dd-footer button { padding: 5px 14px; font-size: 0.82rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; }
-  .btn-appliquer { background: #2563eb; color: #fff; }
-  .btn-effacer   { background: #f3f4f6; color: #374151; }
+  .synth-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .synth-table th { padding:5px 10px; font-weight:700; text-align:left; }
+  .synth-table th:last-child { text-align:right; }
+  .synth-table.prevu  thead { background:#2563eb; }
+  .synth-table.realise thead { background:#16a34a; }
+  .synth-table thead th { color:#fff; }
+  .synth-table.prevu  tbody tr { background:#f0f7ff; }
+  .synth-table.realise tbody tr { background:#f0fdf4; }
+  .synth-table.prevu  tbody tr:nth-child(even) { background:#dbeafe; }
+  .synth-table.realise tbody tr:nth-child(even) { background:#dcfce7; }
+  .synth-table td { padding:4px 10px; border-bottom:1px solid rgba(0,0,0,0.05); }
+  .synth-table td:last-child { text-align:right; font-weight:600; }
+  .synth-table.prevu  tfoot { background:#dbeafe; }
+  .synth-table.realise tfoot { background:#dcfce7; }
+  .synth-table tfoot td { font-weight:800; padding:5px 10px; border-top:2px solid; }
+  .synth-table.prevu  tfoot td { color:#1d4ed8; border-color:#2563eb; }
+  .synth-table.realise tfoot td { color:#15803d; border-color:#16a34a; }
+  .synth-table tfoot td:last-child { text-align:right; }
 
-  @media print {
-    .top-bar { position: static; box-shadow: none; }
-    #contenu-detail { height: auto !important; overflow: visible; }
-    .zone-haut { border: none; }
+  /* ══ DÉTAIL ══ */
+  .detail-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .detail-table th {
+    padding:6px 10px; font-weight:700; text-align:left;
+    position:sticky; top:0; z-index:1; cursor:pointer; white-space:nowrap; user-select:none;
   }
+  .detail-table.prevu  th { background:#dbeafe; color:#1e40af; border-bottom:2px solid #93c5fd; }
+  .detail-table.realise th { background:#dcfce7; color:#15803d; border-bottom:2px solid #86efac; }
+  .detail-table.prevu  th:hover { background:#bfdbfe; }
+  .detail-table.realise th:hover { background:#bbf7d0; }
+  .detail-table td { padding:5px 10px; border-bottom:1px solid #f1f5f9; white-space:nowrap; }
+  .detail-table.prevu  tbody tr:hover td { background:#eff6ff; }
+  .detail-table.realise tbody tr:hover td { background:#f0fdf4; }
+  .detail-table tfoot td { padding:6px 10px; font-weight:700; border-top:2px solid; }
+  .detail-table.prevu  tfoot td { background:#eff6ff; color:#1d4ed8; border-color:#93c5fd; }
+  .detail-table.realise tfoot td { background:#f0fdf4; color:#15803d; border-color:#86efac; }
+  .tri-icone { font-size:0.7rem; margin-left:3px; opacity:0.6; }
+
+  /* ══ DROPDOWN FILTRE ══ */
+  .col-filtre-dropdown { display:none; position:fixed; background:#fff; border:1px solid #d1d5db; min-width:230px; max-height:300px; z-index:3000; box-shadow:0 8px 24px rgba(0,0,0,0.15); border-radius:8px; flex-direction:column; }
+  .col-filtre-dropdown.open { display:flex; }
+  .dd-search { padding:8px; border-bottom:1px solid #f1f5f9; flex-shrink:0; }
+  .dd-search input { width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:5px; padding:5px 8px; font-size:0.85rem; }
+  .dd-actions { display:flex; gap:8px; padding:4px 8px; border-bottom:1px solid #f1f5f9; font-size:0.8rem; flex-shrink:0; }
+  .dd-actions span { cursor:pointer; color:#2563eb; text-decoration:underline; }
+  .dd-list { overflow-y:auto; flex:1; padding:4px 0; }
+  .dd-list label { display:flex; align-items:center; gap:6px; padding:4px 10px; font-size:0.85rem; cursor:pointer; white-space:nowrap; font-weight:normal; }
+  .dd-list label:hover { background:#eff6ff; }
+  .dd-footer { display:flex; gap:6px; padding:7px 8px; border-top:1px solid #f1f5f9; justify-content:flex-end; flex-shrink:0; }
+  .dd-footer button { padding:5px 14px; font-size:0.82rem; border:none; border-radius:5px; cursor:pointer; font-weight:700; }
+  .btn-appliquer { background:#2563eb; color:#fff; }
+  .btn-effacer   { background:#f3f4f6; color:#374151; }
+
+  .msg-vide { color:#9ca3af; font-style:italic; text-align:center; padding:1.5rem 0; font-size:0.85rem; }
+
+  @media print { .top-bar { position:static; } #contenu-detail { height:auto !important; overflow:visible; } }
+  @media (max-width: 900px) { .grille-rapport { grid-template-columns:1fr; } }
   </style>
 </head>
 <body style="margin:0;overflow:hidden;">
 
-<!-- ══ BARRE FIXE ══ -->
 <div class="top-bar" id="top-bar">
-
-  <!-- Header -->
-  <div class="main-header">
+  <header class="main-header">
     <div class="entreprise-nom" id="entreprise-nom"></div>
     <h1 class="page-title">Rapports</h1>
     <div class="header-droite">
       <div id="licence-status" class="licence-badge"></div>
       <div class="volitis-logo-wrapper" onclick="window.open('https://volitis.net/','_blank')" title="Outil créé par Volitis">
-        <div class="volitis-logo-circle">
-          <img src="assets/volitis-logo.png" alt="Volitis">
-        </div>
+        <div class="volitis-logo-circle"><img src="assets/volitis-logo.png" alt="Volitis"></div>
         <span class="volitis-label">Outil créé par Volitis</span>
       </div>
     </div>
-  </div>
+  </header>
 
-  <!-- Nav -->
   <div class="nav">
     <a href="index.html">Entreprise</a>
     <a href="salaries.html">Salariés</a>
@@ -319,86 +154,124 @@
     <a href="chantiers.html">Prévisionnel</a>
   </div>
 
-  <!-- Filtres + Synthèse -->
-  <div class="zone-haut">
-
-    <!-- Filtres en ligne -->
-    <div class="filtres-inline">
-      <div class="filtre-item">
-        <label>Mois</label>
-        <input type="month" id="filtreMonth" onchange="genererRapport()">
-      </div>
-      <div class="filtre-item">
-        <label>Année</label>
-        <select id="filtreAnnee" onchange="genererRapport()">
-          <option value="">Toutes</option>
-        </select>
-      </div>
-      <div class="filtre-item">
-        <label>Salarié(s)</label>
-        <div class="filtre-btn" id="btn-salarie" onclick="ouvrirFiltre('salarie',event)">Tous ▼</div>
-      </div>
-      <div class="filtre-item">
-        <label>Chantier(s)</label>
-        <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
-      </div>
+  <!-- Filtres uniques -->
+  <div class="zone-filtres">
+    <div class="filtre-item">
+      <label>Mois</label>
+      <input type="month" id="filtreMonth" onchange="genererRapport()">
     </div>
-
-    <!-- Séparateur -->
-    <div class="sep-v"></div>
-
-    <!-- Synthèse -->
-    <div class="synthese-inline" id="zone-synthese" style="display:none;">
-      <div class="synth-titre">Synthèse</div>
-      <div class="synth-chantier-nom" id="synthese-titre"></div>
-      <div id="tableau-synthese"></div>
+    <div class="filtre-item">
+      <label>Année</label>
+      <select id="filtreAnnee" onchange="genererRapport()">
+        <option value="">Toutes</option>
+      </select>
     </div>
-
+    <div class="filtre-item">
+      <label>Salarié(s)</label>
+      <div class="filtre-btn" id="btn-salarie" onclick="ouvrirFiltre('salarie',event)">Tous ▼</div>
+    </div>
+    <div class="filtre-item">
+      <label>Chantier(s)</label>
+      <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
+    </div>
   </div>
 </div>
 
-<!-- ══ CONTENU DÉFILANT ══ -->
+<!-- Contenu défilant -->
 <div id="contenu-detail">
-  <div class="detail-card">
-    <div class="detail-card-header">
-      <h3>Détail des heures</h3>
-      <span class="badge-nb" id="badge-nb">0 ligne</span>
+
+  <!-- LIGNE 1 : Synthèses côte à côte -->
+  <div class="grille-rapport">
+
+    <!-- Synthèse PRÉVUE -->
+    <div class="rapport-card">
+      <div class="rapport-card-header prevu">
+        <h3>Synthèse prévue</h3>
+        <span class="badge-nb prevu" id="badge-synth-prev">0 h</span>
+      </div>
+      <div class="synth-titre prevu" id="synth-titre-prev">Tous chantiers</div>
+      <table class="synth-table prevu">
+        <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
+        <tbody id="tbody-synth-prev"></tbody>
+        <tfoot><tr><td>Total</td><td id="total-synth-prev">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-synth-prev" style="display:none;">Aucune donnée</p>
     </div>
-    <table id="table-rapport">
-      <thead>
-        <tr>
-          <th onclick="trierPar('date')">Date <span class="tri-icone" id="tri-date">↕</span></th>
-          <th onclick="trierPar('salarie')">Salarié <span class="tri-icone" id="tri-salarie">↕</span></th>
-          <th onclick="trierPar('chantier')">Chantier <span class="tri-icone" id="tri-chantier">↕</span></th>
-          <th onclick="trierPar('heures')" style="text-align:right;">Heures <span class="tri-icone" id="tri-heures">↕</span></th>
-        </tr>
-      </thead>
-      <tbody id="tbody-rapport"></tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3" style="text-align:right;color:#6b7280;">Total</td>
-          <td id="total-heures" style="text-align:right;">0 h</td>
-        </tr>
-      </tfoot>
-    </table>
-    <p id="msg-vide" style="color:#9ca3af;font-style:italic;font-size:0.88rem;display:none;text-align:center;padding:2rem 0;">
-      Aucune donnée pour ces critères.
-    </p>
+
+    <!-- Synthèse RÉALISÉE -->
+    <div class="rapport-card">
+      <div class="rapport-card-header realise">
+        <h3>Synthèse réalisée</h3>
+        <span class="badge-nb realise" id="badge-synth-real">0 h</span>
+      </div>
+      <div class="synth-titre realise" id="synth-titre-real">Tous chantiers</div>
+      <table class="synth-table realise">
+        <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
+        <tbody id="tbody-synth-real"></tbody>
+        <tfoot><tr><td>Total</td><td id="total-synth-real">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-synth-real" style="display:none;">Aucune donnée</p>
+    </div>
   </div>
+
+  <!-- LIGNE 2 : Détails côte à côte -->
+  <div class="grille-rapport">
+
+    <!-- Détail PRÉVU -->
+    <div class="rapport-card">
+      <div class="rapport-card-header prevu">
+        <h3>Détail prévu</h3>
+        <span class="badge-nb prevu" id="badge-det-prev">0 ligne</span>
+      </div>
+      <table class="detail-table prevu">
+        <thead>
+          <tr>
+            <th onclick="trierPar('prev','date')">Date <span class="tri-icone" id="tri-prev-date">↕</span></th>
+            <th onclick="trierPar('prev','salarie')">Salarié <span class="tri-icone" id="tri-prev-salarie">↕</span></th>
+            <th onclick="trierPar('prev','chantier')">Chantier <span class="tri-icone" id="tri-prev-chantier">↕</span></th>
+            <th onclick="trierPar('prev','heures')" style="text-align:right;">Heures <span class="tri-icone" id="tri-prev-heures">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-det-prev"></tbody>
+        <tfoot><tr><td colspan="3" style="text-align:right;">Total</td><td id="total-det-prev" style="text-align:right;">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-det-prev" style="display:none;">Aucune donnée</p>
+    </div>
+
+    <!-- Détail RÉALISÉ -->
+    <div class="rapport-card">
+      <div class="rapport-card-header realise">
+        <h3>Détail réalisé</h3>
+        <span class="badge-nb realise" id="badge-det-real">0 ligne</span>
+      </div>
+      <table class="detail-table realise">
+        <thead>
+          <tr>
+            <th onclick="trierPar('real','date')">Date <span class="tri-icone" id="tri-real-date">↕</span></th>
+            <th onclick="trierPar('real','salarie')">Salarié <span class="tri-icone" id="tri-real-salarie">↕</span></th>
+            <th onclick="trierPar('real','chantier')">Chantier <span class="tri-icone" id="tri-real-chantier">↕</span></th>
+            <th onclick="trierPar('real','heures')" style="text-align:right;">Heures <span class="tri-icone" id="tri-real-heures">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-det-real"></tbody>
+        <tfoot><tr><td colspan="3" style="text-align:right;">Total</td><td id="total-det-real" style="text-align:right;">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-det-real" style="display:none;">Aucune donnée</p>
+    </div>
+  </div>
+
 </div>
 
-<!-- Dropdown Excel -->
+<!-- Dropdown filtre -->
 <div class="col-filtre-dropdown" id="col-filtre-dropdown">
-  <div class="dd-search">
-    <input type="text" id="dd-search-input" placeholder="Rechercher..." oninput="rechercherDD(this.value)">
-  </div>
+  <div class="dd-search"><input type="text" id="dd-search-input" placeholder="Rechercher..." oninput="rechercherDD(this.value)"></div>
   <div class="dd-actions">
     <span onclick="ddCocherTous(true)">Tout sélectionner</span>
     <span onclick="ddCocherTous(false)">Tout désélectionner</span>
   </div>
   <div class="dd-list" id="dd-list"></div>
   <div class="dd-footer">
-    <button class="btn-effacer"   onclick="ddEffacer()">Effacer</button>
+    <button class="btn-effacer" onclick="ddEffacer()">Effacer</button>
     <button class="btn-appliquer" onclick="ddAppliquer()">OK</button>
   </div>
 </div>
@@ -407,24 +280,28 @@
 const entreprise = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
 </script>
 <script>
-/* ═══════════════════
+/* ═══════════════════════════
    ÉTAT
-═══════════════════ */
-let toutesLignes   = [];
-let lignesVisibles = [];
-let triCol = 'date', triAsc = true;
+═══════════════════════════ */
+let lignesPrev  = []; // heures planning (prévues)
+let lignesReal  = []; // saisies salariés (réalisées)
+let prevVisible = [], realVisible = [];
+
 const filtresActifs = { salarie: null, chantier: null };
 let ddColonne = null, ddValeursPossibles = [], ddSelection = new Set();
 
-/* ═══════════════════
+const triEtat = {
+  prev: { col: 'date', asc: true },
+  real: { col: 'date', asc: true }
+};
+
+/* ═══════════════════════════
    INIT
-═══════════════════ */
+═══════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
-  // Nom entreprise
   const nomE = document.getElementById('entreprise-nom');
   if (nomE && entreprise.nom) nomE.textContent = entreprise.nom;
 
-  // Licence
   const licEl = document.getElementById('licence-status');
   if (licEl) {
     const code = localStorage.getItem('licenceCode');
@@ -455,9 +332,9 @@ document.addEventListener('click', e => {
   }
 });
 
-/* ═══════════════════
+/* ═══════════════════════════
    ANNÉES
-═══════════════════ */
+═══════════════════════════ */
 function remplirAnnees() {
   const h = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   const annees = new Set();
@@ -469,19 +346,16 @@ function remplirAnnees() {
   });
 }
 
-/* ═══════════════════
-   EXTRACTION
-═══════════════════ */
-function genererRapport() {
-  const salaries    = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-  const heures      = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
-  const filtreMois  = document.getElementById('filtreMonth').value;
-  const filtreAnnee = document.getElementById('filtreAnnee').value;
-
+/* ═══════════════════════════
+   EXTRACTION PRÉVUES (planning localStorage)
+═══════════════════════════ */
+function extrairePrev(filtreMois, filtreAnnee) {
+  const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
   const indexSal = {};
   salaries.forEach(s => { indexSal[String(s.id)] = `${s.prenom} ${s.nom}`; });
 
-  toutesLignes = [];
+  const lignes = [];
   for (const k in heures) {
     const data = heures[k];
     if (!data) continue;
@@ -500,32 +374,87 @@ function genererRapport() {
     if (filtreAnnee && annee   !== filtreAnnee) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
-    toutesLignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h });
+    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h });
   }
+  return lignes;
+}
 
-  filtresActifs.salarie = null;
+/* ═══════════════════════════
+   EXTRACTION RÉALISÉES (saisies serveur)
+═══════════════════════════ */
+async function extraireReal(filtreMois) {
+  if (!filtreMois) return [];
+  try {
+    const token = localStorage.getItem('syncToken');
+    if (!token) return [];
+    const r = await fetch(`/api/saisies/${filtreMois}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) return [];
+
+    const lignes = [];
+    d.saisies.forEach(s => {
+      (s.chantiers || []).forEach(c => {
+        if (!c.dureeMin) return;
+        const dt = new Date(s.date + 'T00:00:00');
+        lignes.push({
+          date:      dt,
+          dateStr:   dt.toLocaleDateString('fr-FR'),
+          salarie:   s.salarieNom,
+          salarieId: String(s.salarieId),
+          chantier:  c.nom,
+          heures:    parseFloat((c.dureeMin / 60).toFixed(2))
+        });
+      });
+    });
+    return lignes;
+  } catch { return []; }
+}
+
+/* ═══════════════════════════
+   GÉNÉRATION GLOBALE
+═══════════════════════════ */
+async function genererRapport() {
+  const filtreMois  = document.getElementById('filtreMonth').value;
+  const filtreAnnee = document.getElementById('filtreAnnee').value;
+
+  lignesPrev = extrairePrev(filtreMois, filtreAnnee);
+  lignesReal = await extraireReal(filtreMois);
+
+  filtresActifs.salarie  = null;
   filtresActifs.chantier = null;
   majBoutons();
   appliquerEtAfficher();
   setTimeout(ajusterHauteur, 50);
 }
 
-/* ═══════════════════
+/* ═══════════════════════════
    FILTRES
-═══════════════════ */
+═══════════════════════════ */
 function appliquerEtAfficher() {
-  lignesVisibles = toutesLignes.filter(l => {
-    if (filtresActifs.salarie  && !filtresActifs.salarie.has(l.salarie))   return false;
-    if (filtresActifs.chantier && !filtresActifs.chantier.has(l.chantier)) return false;
-    return true;
-  });
-  afficherTableau();
-  majSynthese();
+  prevVisible = filtrer(lignesPrev);
+  realVisible = filtrer(lignesReal);
+
+  afficherSynthese('prev', prevVisible);
+  afficherSynthese('real', realVisible);
+  afficherDetail('prev', prevVisible);
+  afficherDetail('real', realVisible);
   majBoutons();
   setTimeout(ajusterHauteur, 50);
 }
 
+function filtrer(lignes) {
+  return lignes.filter(l => {
+    if (filtresActifs.salarie  && !filtresActifs.salarie.has(l.salarie))   return false;
+    if (filtresActifs.chantier && !filtresActifs.chantier.has(l.chantier)) return false;
+    return true;
+  });
+}
+
 function majBoutons() {
+  // Construire les valeurs disponibles depuis les deux sources
+  const toutesLignes = [...lignesPrev, ...lignesReal];
   ['salarie','chantier'].forEach(col => {
     const btn = document.getElementById('btn-' + col);
     if (!btn) return;
@@ -535,24 +464,103 @@ function majBoutons() {
   });
 }
 
-/* ═══════════════════
-   DROPDOWN
-═══════════════════ */
+/* ═══════════════════════════
+   AFFICHAGE SYNTHÈSE
+═══════════════════════════ */
+function afficherSynthese(type, lignes) {
+  const tbody    = document.getElementById('tbody-synth-' + type);
+  const total    = document.getElementById('total-synth-' + type);
+  const badge    = document.getElementById('badge-synth-' + type);
+  const vide     = document.getElementById('vide-synth-' + type);
+  const titreEl  = document.getElementById('synth-titre-' + type);
+
+  const chActifs = filtresActifs.chantier;
+  titreEl.textContent = (chActifs && chActifs.size === 1) ? [...chActifs][0] : 'Tous chantiers';
+
+  if (!lignes.length) {
+    tbody.innerHTML = '';
+    total.textContent = '0 h';
+    badge.textContent = '0 h';
+    vide.style.display = '';
+    return;
+  }
+  vide.style.display = 'none';
+
+  const parSalarie = {};
+  lignes.forEach(l => { parSalarie[l.salarie] = (parSalarie[l.salarie] || 0) + l.heures; });
+  const sals  = Object.keys(parSalarie).sort((a,b) => a.localeCompare(b,'fr'));
+  const grand = sals.reduce((s,k) => s + parSalarie[k], 0);
+
+  tbody.innerHTML = sals.map(s =>
+    `<tr><td>${s}</td><td>${parSalarie[s].toFixed(2)} h</td></tr>`
+  ).join('');
+  total.textContent = grand.toFixed(2) + ' h';
+  badge.textContent = grand.toFixed(1) + ' h';
+}
+
+/* ═══════════════════════════
+   AFFICHAGE DÉTAIL
+═══════════════════════════ */
+function afficherDetail(type, lignes) {
+  const t = triEtat[type];
+  const triees = [...lignes].sort((a, b) => {
+    const va = a[t.col === 'date' ? 'date' : t.col];
+    const vb = b[t.col === 'date' ? 'date' : t.col];
+    if (typeof va === 'string') return t.asc ? va.localeCompare(vb,'fr') : vb.localeCompare(va,'fr');
+    return t.asc ? va - vb : vb - va;
+  });
+
+  const tbody = document.getElementById('tbody-det-' + type);
+  const total = document.getElementById('total-det-' + type);
+  const badge = document.getElementById('badge-det-' + type);
+  const vide  = document.getElementById('vide-det-' + type);
+
+  let sum = 0;
+  tbody.innerHTML = triees.map(l => {
+    sum += l.heures;
+    return `<tr>
+      <td>${l.dateStr}</td>
+      <td>${l.salarie}</td>
+      <td>${l.chantier}</td>
+      <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
+    </tr>`;
+  }).join('');
+
+  total.textContent = sum.toFixed(2) + ' h';
+  badge.textContent = triees.length + ' ligne' + (triees.length > 1 ? 's' : '');
+  vide.style.display = triees.length ? 'none' : '';
+}
+
+/* ═══════════════════════════
+   TRI (prévu ou réalisé)
+═══════════════════════════ */
+function trierPar(type, col) {
+  const t = triEtat[type];
+  if (t.col === col) t.asc = !t.asc; else { t.col = col; t.asc = true; }
+  ['date','salarie','chantier','heures'].forEach(c => {
+    const el = document.getElementById(`tri-${type}-${c}`);
+    if (el) el.textContent = t.col === c ? (t.asc ? '▲' : '▼') : '↕';
+  });
+  afficherDetail(type, type === 'prev' ? prevVisible : realVisible);
+}
+
+/* ═══════════════════════════
+   DROPDOWN FILTRE
+═══════════════════════════ */
 function ouvrirFiltre(col, event) {
   event.stopPropagation();
   const dd = document.getElementById('col-filtre-dropdown');
-  if (ddColonne === col && dd.classList.contains('open')) {
-    dd.classList.remove('open'); ddColonne = null; return;
-  }
+  if (ddColonne === col && dd.classList.contains('open')) { dd.classList.remove('open'); ddColonne = null; return; }
   ddColonne = col;
-  const autreCol   = col === 'salarie' ? 'chantier' : 'salarie';
-  const lignesFilt = filtresActifs[autreCol] ? toutesLignes.filter(l => filtresActifs[autreCol].has(l[autreCol])) : toutesLignes;
-  const valeurs    = [...new Set(lignesFilt.map(l => l[col]))].sort((a,b) => a.localeCompare(b,'fr',{sensitivity:'base'}));
+  const toutesLignes = [...lignesPrev, ...lignesReal];
+  const autreCol = col === 'salarie' ? 'chantier' : 'salarie';
+  const lf = filtresActifs[autreCol] ? toutesLignes.filter(l => filtresActifs[autreCol].has(l[autreCol])) : toutesLignes;
+  const valeurs = [...new Set(lf.map(l => l[col]))].sort((a,b) => a.localeCompare(b,'fr',{sensitivity:'base'}));
   ddValeursPossibles = valeurs;
   ddSelection = filtresActifs[col] ? new Set(filtresActifs[col]) : new Set(valeurs);
   document.getElementById('dd-search-input').value = '';
   remplirDD(valeurs, '');
-  const btn  = document.getElementById('btn-' + col);
+  const btn = document.getElementById('btn-' + col);
   const rect = btn.getBoundingClientRect();
   dd.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
   dd.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 250) + 'px';
@@ -583,87 +591,14 @@ function ddCocherTous(c) {
 
 function ddAppliquer() {
   filtresActifs[ddColonne] = ddValeursPossibles.every(v => ddSelection.has(v)) ? null : new Set(ddSelection);
-  document.getElementById('col-filtre-dropdown').classList.remove('open');
-  ddColonne = null;
+  document.getElementById('col-filtre-dropdown').classList.remove('open'); ddColonne = null;
   appliquerEtAfficher();
 }
 
 function ddEffacer() {
   filtresActifs[ddColonne] = null;
-  document.getElementById('col-filtre-dropdown').classList.remove('open');
-  ddColonne = null;
+  document.getElementById('col-filtre-dropdown').classList.remove('open'); ddColonne = null;
   appliquerEtAfficher();
-}
-
-/* ═══════════════════
-   TRI
-═══════════════════ */
-function trierPar(col) {
-  if (triCol === col) triAsc = !triAsc; else { triCol = col; triAsc = true; }
-  ['date','salarie','chantier','heures'].forEach(c => {
-    const el = document.getElementById('tri-' + c);
-    if (el) el.textContent = triCol === c ? (triAsc ? '▲' : '▼') : '↕';
-  });
-  afficherTableau();
-}
-
-/* ═══════════════════
-   TABLEAU DÉTAIL
-═══════════════════ */
-function afficherTableau() {
-  const triees = [...lignesVisibles].sort((a, b) => {
-    const va = a[triCol === 'date' ? 'date' : triCol];
-    const vb = b[triCol === 'date' ? 'date' : triCol];
-    if (typeof va === 'string') return triAsc ? va.localeCompare(vb,'fr') : vb.localeCompare(va,'fr');
-    return triAsc ? va - vb : vb - va;
-  });
-
-  const tbody = document.getElementById('tbody-rapport');
-  let total = 0;
-  tbody.innerHTML = triees.map(l => {
-    total += l.heures;
-    return `<tr>
-      <td>${l.dateStr}</td>
-      <td>${l.salarie}</td>
-      <td>${l.chantier}</td>
-      <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('total-heures').textContent = total.toFixed(2) + ' h';
-  const nb = triees.length;
-  document.getElementById('badge-nb').textContent = nb + ' ligne' + (nb > 1 ? 's' : '');
-  document.getElementById('msg-vide').style.display = nb ? 'none' : '';
-}
-
-/* ═══════════════════
-   SYNTHÈSE
-═══════════════════ */
-function majSynthese() {
-  const zone = document.getElementById('zone-synthese');
-  if (!lignesVisibles.length) { zone.style.display = 'none'; setTimeout(ajusterHauteur,50); return; }
-  zone.style.display = '';
-
-  const chActifs = filtresActifs.chantier;
-  document.getElementById('synthese-titre').textContent =
-    (chActifs && chActifs.size === 1) ? [...chActifs][0] : 'Tous chantiers';
-
-  const parSalarie = {};
-  lignesVisibles.forEach(l => {
-    if (!parSalarie[l.salarie]) parSalarie[l.salarie] = 0;
-    parSalarie[l.salarie] += l.heures;
-  });
-  const sals = Object.keys(parSalarie).sort((a,b) => a.localeCompare(b,'fr'));
-  const grandTotal = sals.reduce((s,k) => s + parSalarie[k], 0);
-
-  let html = '<table>';
-  html += '<thead><tr><th>Salarié</th><th>Heures</th></tr></thead><tbody>';
-  sals.forEach(s => {
-    html += `<tr><td>${s}</td><td>${parSalarie[s].toFixed(2)} h</td></tr>`;
-  });
-  html += `</tbody><tfoot><tr><td>Total</td><td>${grandTotal.toFixed(2)} h</td></tr></tfoot></table>`;
-  document.getElementById('tableau-synthese').innerHTML = html;
-  setTimeout(ajusterHauteur, 50);
 }
 </script>
 <script src="assets/sync.js"></script>

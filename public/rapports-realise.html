@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Rapports Réalisé – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+  .synthese-card { display:inline-block; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:0.8rem 1.2rem; min-width:140px; text-align:center; }
+  .synthese-card .val { font-size:1.6rem; font-weight:800; color:#16a34a; }
+  .synthese-card .lbl { font-size:0.8rem; color:#6b7280; }
+  .filtre-btn { min-width:180px; padding:5px 10px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; cursor:pointer; font-size:0.9rem; user-select:none; }
+  .filtre-btn:hover { border-color:#16a34a; }
+  .filtre-btn.actif { border-color:#16a34a; color:#16a34a; background:#f0fdf4; font-weight:600; }
+  .col-filtre-dropdown { display:none; position:fixed; background:#fff; border:1px solid #d1d5db; min-width:230px; max-height:300px; z-index:3000; box-shadow:0 4px 12px rgba(0,0,0,0.15); border-radius:8px; flex-direction:column; }
+  .col-filtre-dropdown.open { display:flex; }
+  .dd-search { padding:8px; border-bottom:1px solid #f1f5f9; flex-shrink:0; }
+  .dd-search input { width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:5px; padding:4px 8px; font-size:0.85rem; }
+  .dd-actions { display:flex; gap:8px; padding:4px 8px; border-bottom:1px solid #f1f5f9; font-size:0.8rem; flex-shrink:0; }
+  .dd-actions span { cursor:pointer; color:#16a34a; text-decoration:underline; }
+  .dd-list { overflow-y:auto; flex:1; padding:4px 0; }
+  .dd-list label { display:flex; align-items:center; gap:6px; padding:4px 10px; font-size:0.85rem; cursor:pointer; white-space:nowrap; font-weight:normal; }
+  .dd-list label:hover { background:#f0fdf4; }
+  .dd-footer { display:flex; gap:6px; padding:7px 8px; border-top:1px solid #f1f5f9; justify-content:flex-end; flex-shrink:0; }
+  .dd-footer button { padding:5px 14px; font-size:0.82rem; border:none; border-radius:5px; cursor:pointer; font-weight:700; }
+  .btn-appliquer { background:#16a34a; color:#fff; }
+  .btn-effacer   { background:#f3f4f6; color:#374151; }
+  #table-rapport { width:100%; border-collapse:collapse; font-size:0.88rem; margin-top:0.5rem; }
+  #table-rapport th { background:#d1fae5; border-bottom:2px solid #6ee7b7; padding:8px 12px; cursor:pointer; white-space:nowrap; user-select:none; font-weight:700; text-align:left; }
+  #table-rapport th:hover { background:#a7f3d0; }
+  #table-rapport td { border-bottom:1px solid #f1f5f9; padding:6px 12px; }
+  #table-rapport tbody tr:hover td { background:#f0fdf4; }
+  #table-rapport tfoot td { border-top:2px solid #6ee7b7; padding:8px 12px; font-weight:700; background:#d1fae5; }
+  .tri-icone { font-size:0.72rem; color:#6b7280; margin-left:3px; }
+  </style>
+</head>
+<body>
+
+<header class="main-header">
+  <div class="entreprise-nom" id="entreprise-nom"></div>
+  <h1 class="page-title">Rapports Réalisé</h1>
+  <div id="licence-status"></div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="saisie.html">Saisie mobile</a>
+  <a href="realise.html">Planning réalisé</a>
+  <a href="rapports-realise.html" class="active">Rapports réalisé</a>
+</div>
+
+<section>
+  <!-- Filtres -->
+  <div style="display:flex;gap:1.2rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem;">
+    <div>
+      <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;">Mois</label>
+      <input type="month" id="filtreMonth" onchange="chargerEtFiltrer()">
+    </div>
+    <div>
+      <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;">Salarié(s)</label>
+      <div class="filtre-btn" id="btn-salarie" onclick="ouvrirFiltre('salarie',event)">Tous ▼</div>
+    </div>
+    <div>
+      <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:3px;">Chantier(s)</label>
+      <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;" id="zone-stats" style="display:none;">
+    <div class="synthese-card"><div class="val" id="stat-h">0 h</div><div class="lbl">Heures réalisées</div></div>
+    <div class="synthese-card"><div class="val" id="stat-depl">0 min</div><div class="lbl">Déplacements</div></div>
+    <div class="synthese-card"><div class="val" id="stat-sal">0</div><div class="lbl">Salariés</div></div>
+    <div class="synthese-card"><div class="val" id="stat-ch">0</div><div class="lbl">Chantiers</div></div>
+  </div>
+
+  <!-- Tableau -->
+  <table id="table-rapport">
+    <thead>
+      <tr>
+        <th onclick="trierPar('date')">Date <span class="tri-icone" id="tri-date">↕</span></th>
+        <th onclick="trierPar('salarie')">Salarié <span class="tri-icone" id="tri-salarie">↕</span></th>
+        <th onclick="trierPar('chantier')">Chantier <span class="tri-icone" id="tri-chantier">↕</span></th>
+        <th onclick="trierPar('heures')" style="text-align:right;">Heures <span class="tri-icone" id="tri-heures">↕</span></th>
+        <th style="text-align:right;">Déplacement</th>
+        <th style="text-align:right;">Total</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-rapport"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3" style="text-align:right;">Total</td>
+        <td id="total-h"    style="text-align:right;">0 h</td>
+        <td id="total-depl" style="text-align:right;">0 min</td>
+        <td id="total-tot"  style="text-align:right;">0 h</td>
+      </tr>
+    </tfoot>
+  </table>
+  <p id="msg-vide" style="color:#9ca3af;font-style:italic;text-align:center;padding:2rem 0;display:none;">Aucune donnée.</p>
+</section>
+
+<!-- Dropdown -->
+<div class="col-filtre-dropdown" id="col-filtre-dropdown">
+  <div class="dd-search"><input type="text" id="dd-search-input" placeholder="Rechercher..." oninput="rechercherDD(this.value)"></div>
+  <div class="dd-actions">
+    <span onclick="ddCocherTous(true)">Tout sélectionner</span>
+    <span onclick="ddCocherTous(false)">Tout désélectionner</span>
+  </div>
+  <div class="dd-list" id="dd-list"></div>
+  <div class="dd-footer">
+    <button class="btn-effacer" onclick="ddEffacer()">Effacer</button>
+    <button class="btn-appliquer" onclick="ddAppliquer()">OK</button>
+  </div>
+</div>
+
+<script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
+<script>
+let toutesLignes = [], lignesVisibles = [];
+let triCol = 'date', triAsc = true;
+const filtresActifs = { salarie: null, chantier: null };
+let ddColonne = null, ddValeursPossibles = [], ddSelection = new Set();
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  const now = new Date();
+  document.getElementById('filtreMonth').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  chargerEtFiltrer();
+});
+
+document.addEventListener('click', e => {
+  const dd = document.getElementById('col-filtre-dropdown');
+  const btn = ddColonne ? document.getElementById('btn-' + ddColonne) : null;
+  if (!dd.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    dd.classList.remove('open'); ddColonne = null;
+  }
+});
+
+async function chargerEtFiltrer() {
+  const mois  = document.getElementById('filtreMonth').value;
+  const token = SYNC.getToken();
+  if (!mois || !token) return;
+
+  try {
+    const r = await fetch(`/api/saisies/${mois}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    const saisies = d.ok ? d.saisies : [];
+
+    toutesLignes = [];
+    saisies.forEach(s => {
+      (s.chantiers || []).forEach(c => {
+        if (!c.dureeMin && !c.deplacement) return;
+        toutesLignes.push({
+          date:       new Date(s.date + 'T00:00:00'),
+          dateStr:    new Date(s.date + 'T00:00:00').toLocaleDateString('fr-FR'),
+          salarie:    s.salarieNom,
+          salarieId:  s.salarieId,
+          chantier:   c.nom,
+          heuresMin:  c.dureeMin || 0,
+          deplMin:    c.deplacement || 0,
+          totalMin:   (c.dureeMin || 0) + (c.deplacement || 0)
+        });
+      });
+    });
+  } catch {
+    toutesLignes = [];
+  }
+
+  filtresActifs.salarie = null;
+  filtresActifs.chantier = null;
+  majBoutons();
+  appliquerEtAfficher();
+}
+
+function appliquerEtAfficher() {
+  lignesVisibles = toutesLignes.filter(l => {
+    if (filtresActifs.salarie  && !filtresActifs.salarie.has(l.salarie))   return false;
+    if (filtresActifs.chantier && !filtresActifs.chantier.has(l.chantier)) return false;
+    return true;
+  });
+  afficherTableau();
+  majStats();
+  majBoutons();
+}
+
+function majBoutons() {
+  ['salarie','chantier'].forEach(col => {
+    const btn = document.getElementById('btn-' + col);
+    if (!btn) return;
+    const f = filtresActifs[col];
+    btn.textContent = !f ? 'Tous ▼' : f.size + ' sélectionné' + (f.size > 1 ? 's' : '') + ' ▼';
+    btn.classList.toggle('actif', !!f);
+  });
+}
+
+function ouvrirFiltre(col, event) {
+  event.stopPropagation();
+  const dd = document.getElementById('col-filtre-dropdown');
+  if (ddColonne === col && dd.classList.contains('open')) { dd.classList.remove('open'); ddColonne = null; return; }
+  ddColonne = col;
+  const autreCol = col === 'salarie' ? 'chantier' : 'salarie';
+  const lf = filtresActifs[autreCol] ? toutesLignes.filter(l => filtresActifs[autreCol].has(l[autreCol])) : toutesLignes;
+  const valeurs = [...new Set(lf.map(l => l[col]))].sort((a,b) => a.localeCompare(b,'fr',{sensitivity:'base'}));
+  ddValeursPossibles = valeurs;
+  ddSelection = filtresActifs[col] ? new Set(filtresActifs[col]) : new Set(valeurs);
+  document.getElementById('dd-search-input').value = '';
+  remplirDD(valeurs, '');
+  const btn = document.getElementById('btn-' + col);
+  const rect = btn.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  dd.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 250) + 'px';
+  dd.classList.add('open');
+}
+
+function remplirDD(valeurs, terme) {
+  const list = document.getElementById('dd-list');
+  const t = terme.toLowerCase();
+  list.innerHTML = '';
+  valeurs.filter(v => v.toLowerCase().includes(t)).forEach(v => {
+    const lbl = document.createElement('label');
+    const cb  = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = ddSelection.has(v);
+    cb.addEventListener('change', () => { if (cb.checked) ddSelection.add(v); else ddSelection.delete(v); });
+    lbl.appendChild(cb); lbl.appendChild(document.createTextNode(' ' + v));
+    list.appendChild(lbl);
+  });
+}
+function rechercherDD(t) { remplirDD(ddValeursPossibles, t); }
+function ddCocherTous(c) {
+  const t = document.getElementById('dd-search-input').value.toLowerCase();
+  ddValeursPossibles.filter(v => v.toLowerCase().includes(t)).forEach(v => { if (c) ddSelection.add(v); else ddSelection.delete(v); });
+  remplirDD(ddValeursPossibles, document.getElementById('dd-search-input').value);
+}
+function ddAppliquer() {
+  filtresActifs[ddColonne] = ddValeursPossibles.every(v => ddSelection.has(v)) ? null : new Set(ddSelection);
+  document.getElementById('col-filtre-dropdown').classList.remove('open'); ddColonne = null;
+  appliquerEtAfficher();
+}
+function ddEffacer() {
+  filtresActifs[ddColonne] = null;
+  document.getElementById('col-filtre-dropdown').classList.remove('open'); ddColonne = null;
+  appliquerEtAfficher();
+}
+
+function trierPar(col) {
+  if (triCol === col) triAsc = !triAsc; else { triCol = col; triAsc = true; }
+  ['date','salarie','chantier','heures'].forEach(c => {
+    const el = document.getElementById('tri-' + c);
+    if (el) el.textContent = triCol === c ? (triAsc ? '▲' : '▼') : '↕';
+  });
+  afficherTableau();
+}
+
+function afficherTableau() {
+  const triees = [...lignesVisibles].sort((a, b) => {
+    const va = a[triCol === 'date' ? 'date' : triCol === 'heures' ? 'heuresMin' : triCol];
+    const vb = b[triCol === 'date' ? 'date' : triCol === 'heures' ? 'heuresMin' : triCol];
+    if (typeof va === 'string') return triAsc ? va.localeCompare(vb,'fr') : vb.localeCompare(va,'fr');
+    return triAsc ? va - vb : vb - va;
+  });
+
+  const tbody = document.getElementById('tbody-rapport');
+  tbody.innerHTML = triees.map(l => {
+    const h = Math.floor(l.heuresMin/60), m = l.heuresMin%60;
+    const ht = Math.floor(l.totalMin/60), mt = l.totalMin%60;
+    return `<tr>
+      <td>${l.dateStr}</td>
+      <td>${l.salarie}</td>
+      <td>${l.chantier}</td>
+      <td style="text-align:right;">${h}h${String(m).padStart(2,'0')}</td>
+      <td style="text-align:right;color:#92400e;">${l.deplMin ? l.deplMin + ' min' : '—'}</td>
+      <td style="text-align:right;font-weight:600;color:#16a34a;">${ht}h${String(mt).padStart(2,'0')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('msg-vide').style.display = triees.length ? 'none' : '';
+}
+
+function majStats() {
+  const totalH    = lignesVisibles.reduce((s,l) => s + l.heuresMin, 0);
+  const totalDepl = lignesVisibles.reduce((s,l) => s + l.deplMin, 0);
+  const totalTot  = lignesVisibles.reduce((s,l) => s + l.totalMin, 0);
+  const nbSal     = new Set(lignesVisibles.map(l => l.salarieId)).size;
+  const nbCh      = new Set(lignesVisibles.map(l => l.chantier)).size;
+
+  const fmtH = min => `${Math.floor(min/60)}h${String(min%60).padStart(2,'0')}`;
+  document.getElementById('stat-h').textContent    = fmtH(totalH);
+  document.getElementById('stat-depl').textContent = totalDepl + ' min';
+  document.getElementById('stat-sal').textContent  = nbSal;
+  document.getElementById('stat-ch').textContent   = nbCh;
+  document.getElementById('total-h').textContent    = fmtH(totalH);
+  document.getElementById('total-depl').textContent = totalDepl + ' min';
+  document.getElementById('total-tot').textContent  = fmtH(totalTot);
+  document.getElementById('zone-stats').style.display = lignesVisibles.length ? '' : 'none';
+}
+</script>
+</body>
+</html>

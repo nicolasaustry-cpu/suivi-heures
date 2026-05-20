@@ -81,6 +81,11 @@ function afficherSalaries() {
         <td>${h.ven ?? 0}</td>
         <td>${h.sam ?? 0}</td>
         <td>
+          <input type="password" maxlength="4" value="${s.pin || ''}" placeholder="----"
+            style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
+            onchange="majPIN(${s.id}, this.value)">
+        </td>
+        <td>
           <button class="btn btn-danger" onclick="supprimerSalarie(${i})">✖</button>
         </td>
       </tr>`;
@@ -94,6 +99,14 @@ function majDateSortie(id, nouvelleDate) {
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
   localStorage.setItem("majPlanning", Date.now().toString());
+}
+
+function majPIN(id, pin) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  if (pin && !/^\d{4}$/.test(pin)) { alert("Le PIN doit être composé de 4 chiffres."); return; }
+  sal.pin = pin;
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
 }
 
 /* ===========================================

@@ -153,6 +153,13 @@
           <input id="f-notes" placeholder="Remarques..." style="width:180px;">
         </div>
         <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Type</label>
+          <select id="f-type" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;">
+            <option value="standard">Standard</option>
+            <option value="plus">Plus ★</option>
+          </select>
+        </div>
+        <div>
           <button class="btn btn-success" onclick="creerLicence()">✔ Créer</button>
         </div>
       </div>
@@ -172,6 +179,7 @@
             <th>Entreprise</th>
             <th>Email</th>
             <th>Expiration</th>
+            <th>Type</th>
             <th>Statut</th>
             <th>Consulter</th>
             <th>Actions</th>
@@ -310,6 +318,12 @@ function afficherLicences(liste) {
       <td style="color:${expire ? '#dc2626' : '#374151'}">${expStr}</td>
       <td>${statut}</td>
       <td style="text-align:center;">
+        <span style="background:${l.type==='plus'?'#fef9c3':'#f3f4f6'};color:${l.type==='plus'?'#92400e':'#6b7280'};
+          border-radius:999px;padding:2px 10px;font-size:0.78rem;font-weight:700;">
+          ${l.type === 'plus' ? 'Plus ★' : 'Standard'}
+        </span>
+      </td>
+      <td style="text-align:center;">
         <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;"
           onclick="consulterClient('${l.codeClient}')" title="Accéder aux données de ce client">
           👁 Consulter
@@ -333,6 +347,7 @@ async function creerLicence() {
   const email      = document.getElementById('f-email').value.trim();
   const expiration = document.getElementById('f-expiration').value;
   const notes      = document.getElementById('f-notes').value.trim();
+  const type       = document.getElementById('f-type').value;
 
   if (!code || !nomClient || !expiration) {
     alert('Code, nom et date d\'expiration sont obligatoires.');
@@ -342,7 +357,7 @@ async function creerLicence() {
     const r = await fetch(API + '/api/admin/licences', {
       method: 'POST',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes })
+      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }

@@ -14,13 +14,14 @@ router.get("/licences", verifyToken, verifyAdmin, async (req, res) => {
 // ── Créer une licence ──
 router.post("/licences", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { codeClient, nomClient, email, dateExpiration, notes } = req.body;
+    const { codeClient, nomClient, email, dateExpiration, notes, type } = req.body;
     if (!codeClient || !dateExpiration)
       return res.status(400).json({ ok: false, message: "Code et date d'expiration requis" });
 
     const licence = new Licence({
       codeClient: codeClient.toUpperCase().trim(),
       nomClient, email, notes,
+      type: type || "standard",
       dateExpiration: new Date(dateExpiration),
       actif: true
     });
