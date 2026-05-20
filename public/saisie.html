@@ -194,41 +194,48 @@
 <!-- ── ÉCRAN PIN ── -->
 <div class="pin-screen" id="pin-screen">
   <h2>Suiv'Heures</h2>
-  <p>Identifiez-vous pour saisir vos heures</p>
+  <p id="pin-subtitle">Identifiez-vous pour saisir vos heures</p>
 
-  <input type="text" id="pin-code-entreprise" placeholder="Code employé (fourni par votre responsable)"
-    style="width:100%;padding:12px;border-radius:8px;border:none;font-size:1rem;margin-bottom:0.5rem;text-transform:uppercase;text-align:center;">
-
-  <select id="pin-salarie" style="display:none;">
-    <option value="">Choisir votre nom...</option>
-  </select>
-
-  <button id="btn-code-entreprise" onclick="validerCodeEntreprise()"
-    style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:1rem;">
-    Valider
-  </button>
-
-  <div class="pin-dots" id="pin-dots">
-    <div class="pin-dot" id="d0"></div>
-    <div class="pin-dot" id="d1"></div>
-    <div class="pin-dot" id="d2"></div>
-    <div class="pin-dot" id="d3"></div>
+  <!-- ÉTAPE 1 : Code employé -->
+  <div id="etape-code">
+    <input type="text" id="pin-code-entreprise" placeholder="Code employé"
+      style="width:100%;padding:12px;border-radius:8px;border:none;font-size:1rem;margin-bottom:0.5rem;text-transform:uppercase;text-align:center;"
+      onkeydown="if(event.key==='Enter') validerCodeEntreprise()">
+    <button id="btn-code-entreprise" onclick="validerCodeEntreprise()"
+      style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:1rem;">
+      Valider
+    </button>
   </div>
 
-  <div class="pin-pad">
-    <button class="pin-key" onclick="pinSaisir('1')">1</button>
-    <button class="pin-key" onclick="pinSaisir('2')">2</button>
-    <button class="pin-key" onclick="pinSaisir('3')">3</button>
-    <button class="pin-key" onclick="pinSaisir('4')">4</button>
-    <button class="pin-key" onclick="pinSaisir('5')">5</button>
-    <button class="pin-key" onclick="pinSaisir('6')">6</button>
-    <button class="pin-key" onclick="pinSaisir('7')">7</button>
-    <button class="pin-key" onclick="pinSaisir('8')">8</button>
-    <button class="pin-key" onclick="pinSaisir('9')">9</button>
-    <button class="pin-key" onclick="pinEffacer()">⌫</button>
-    <button class="pin-key" onclick="pinSaisir('0')">0</button>
-    <button class="pin-key" onclick="pinValider()">OK</button>
+  <!-- ÉTAPE 2 : Choix salarié + PIN (masqués au départ) -->
+  <div id="etape-pin" style="display:none;width:100%;">
+    <select id="pin-salarie" style="width:100%;padding:12px;border-radius:8px;border:none;font-size:1rem;margin-bottom:1rem;">
+      <option value="">Choisir votre nom...</option>
+    </select>
+
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinSaisir('1')">1</button>
+      <button class="pin-key" onclick="pinSaisir('2')">2</button>
+      <button class="pin-key" onclick="pinSaisir('3')">3</button>
+      <button class="pin-key" onclick="pinSaisir('4')">4</button>
+      <button class="pin-key" onclick="pinSaisir('5')">5</button>
+      <button class="pin-key" onclick="pinSaisir('6')">6</button>
+      <button class="pin-key" onclick="pinSaisir('7')">7</button>
+      <button class="pin-key" onclick="pinSaisir('8')">8</button>
+      <button class="pin-key" onclick="pinSaisir('9')">9</button>
+      <button class="pin-key" onclick="pinEffacer()">⌫</button>
+      <button class="pin-key" onclick="pinSaisir('0')">0</button>
+      <button class="pin-key" onclick="pinValider()">OK</button>
+    </div>
   </div>
+
   <div class="pin-error" id="pin-error"></div>
 </div>
 
@@ -349,10 +356,10 @@ async function validerCodeEntreprise() {
     if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
 
-    // Afficher le select salarié
-    document.getElementById('pin-code-entreprise').style.display = 'none';
-    btn.style.display = 'none';
-    document.getElementById('pin-salarie').style.display = '';
+    // Passer à l'étape PIN
+    document.getElementById('etape-code').style.display = 'none';
+    document.getElementById('etape-pin').style.display = '';
+    document.getElementById('pin-subtitle').textContent = 'Choisissez votre nom et saisissez votre PIN';
     chargerSalaries();
 
   } catch(e) {
