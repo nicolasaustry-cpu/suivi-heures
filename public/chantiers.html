@@ -496,9 +496,10 @@ function rendreSynthese() {
   thead.innerHTML = thMois;
 
   const lignes = [
-    { cle: 'hVendables', label: 'H. vendables', type: 'saisie', unite: 'h' },
-    { cle: 'hDevis',     label: 'H. devis',     type: 'calc',   unite: 'h' },
-    { cle: 'ecartH',     label: 'Écart heures', type: 'ecart',  unite: '%' },
+    { cle: 'hVendables', label: 'H. vendables', type: 'saisie',    unite: 'h' },
+    { cle: 'hDevis',     label: 'H. devis',     type: 'calc',      unite: 'h' },
+    { cle: 'ecartAbs',   label: 'Écart h.',     type: 'ecart-abs', unite: 'h' },
+    { cle: 'ecartH',     label: 'Écart %',      type: 'ecart',     unite: '%' },
   ];
 
   const nbCols = liste.length + 1;
@@ -530,12 +531,24 @@ function rendreSynthese() {
         const hDevis = (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
         html += `<td class="td-calc" id="hv-${uid}" style="${bgHors}">${hDevis > 0 ? hDevis.toFixed(1) + ' h' : '—'}</td>`;
 
+      } else if (l.type === 'ecart-abs') {
+        // Écart en heures = H.devis - H.vendables
+        const hDevisAbs = (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+        let cls = '', txt = '—';
+        if (hVb > 0 && hDevisAbs > 0) {
+          const diff = hDevisAbs - hVb;
+          txt = (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' h';
+          const pct = (hDevisAbs / hVb) * 100;
+          cls = pct < 90 ? 'ecart-rouge' : pct <= 100 ? 'ecart-orange' : 'ecart-vert';
+        }
+        html += `<td class="td-calc ${cls}" id="ecartAbs-${uid}">${txt}</td>`;
+
       } else if (l.type === 'ecart') {
         const hDevis2 = (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
         let cls = '', txt = '—';
         if (hVb > 0) {
           const pct = (hDevis2 / hVb) * 100;
-          txt = pct.toFixed(1) + '%';
+          txt = pct.toFixed(1) + ' %';
           cls = pct < 90 ? 'ecart-rouge' : pct <= 100 ? 'ecart-orange' : 'ecart-vert';
         }
         html += `<td class="td-calc ${cls}" id="ecartH-${uid}">${txt}</td>`;
@@ -695,11 +708,22 @@ function majLigne(uid) {
   const hvEl = document.getElementById(`hv-${uid}`);
   if (hvEl) hvEl.textContent = hDevis > 0 ? hDevis.toFixed(1) + ' h' : '—';
 
+  // Écart absolu en heures
+  const ecAbsEl = document.getElementById(`ecartAbs-${uid}`);
+  if (ecAbsEl) {
+    if (hVb > 0 && hDevis > 0) {
+      const diff = hDevis - hVb;
+      const pct  = (hDevis / hVb) * 100;
+      ecAbsEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' h';
+      ecAbsEl.className = 'td-calc ' + (pct < 90 ? 'ecart-rouge' : pct <= 100 ? 'ecart-orange' : 'ecart-vert');
+    } else { ecAbsEl.textContent = '—'; ecAbsEl.className = 'td-calc'; }
+  }
+
   const ecHEl = document.getElementById(`ecartH-${uid}`);
   if (ecHEl) {
     if (hVb > 0) {
       const pct = (hDevis / hVb) * 100;
-      ecHEl.textContent = pct.toFixed(1) + '%';
+      ecHEl.textContent = pct.toFixed(1) + ' %';
       ecHEl.className = 'td-calc ' + (pct < 90 ? 'ecart-rouge' : pct <= 100 ? 'ecart-orange' : 'ecart-vert');
     } else { ecHEl.textContent = '—'; ecHEl.className = 'td-calc'; }
   }
