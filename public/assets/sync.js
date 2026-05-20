@@ -223,5 +223,32 @@ const SYNC = (() => {
 
 /* ── Initialisation automatique au chargement ── */
 window.addEventListener('DOMContentLoaded', () => {
+  // Détecter si on vient de l'interface admin (mode consultation)
+  const params = new URLSearchParams(window.location.search);
+  const clientCode = params.get('client');
+  const modeAdmin  = params.get('admin') === '1';
+
+  if (modeAdmin && clientCode) {
+    // Récupérer le token client stocké par la page admin
+    const clientToken = sessionStorage.getItem('clientToken');
+    const clientNom   = sessionStorage.getItem('clientNom') || clientCode;
+
+    if (clientToken) {
+      // Afficher une bannière "mode consultation admin"
+      const banniere = document.createElement('div');
+      banniere.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:700;font-size:0.85rem;';
+      banniere.innerHTML = `👁 Mode consultation admin – Client : <strong>${clientNom}</strong> (${clientCode}) &nbsp;|&nbsp; <a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
+      document.body.prepend(banniere);
+
+      // Utiliser le token client pour charger ses données
+      _token    = clientToken;
+      _clientId = clientCode;
+      chargerDonnees().then(() => {
+        window.dispatchEvent(new Event('donnees-chargees'));
+      });
+      return;
+    }
+  }
+
   SYNC.init();
 });

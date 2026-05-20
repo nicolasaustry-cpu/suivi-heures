@@ -173,6 +173,7 @@
             <th>Email</th>
             <th>Expiration</th>
             <th>Statut</th>
+            <th>Consulter</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -308,6 +309,12 @@ function afficherLicences(liste) {
       <td>${l.email || '—'}</td>
       <td style="color:${expire ? '#dc2626' : '#374151'}">${expStr}</td>
       <td>${statut}</td>
+      <td style="text-align:center;">
+        <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;"
+          onclick="consulterClient('${l.codeClient}')" title="Accéder aux données de ce client">
+          👁 Consulter
+        </button>
+      </td>
       <td style="white-space:nowrap;">
         <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
           onclick="toggleLicence('${l.codeClient}')">
@@ -394,6 +401,31 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('ecran-login').style.display !== 'none')
     seConnecter();
 });
+
+/* ── Consulter les données d'un client ── */
+async function consulterClient(code) {
+  try {
+    // Connexion avec le code licence du client
+    const r = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      msg('Impossible de se connecter : ' + d.message, '#dc2626');
+      return;
+    }
+    // Stocker le token client dans sessionStorage (pas localStorage pour ne pas écraser le token admin)
+    sessionStorage.setItem('clientToken',    d.token);
+    sessionStorage.setItem('clientId',       d.clientId);
+    sessionStorage.setItem('clientNom',      d.nomClient || code);
+    // Ouvrir l'outil dans un nouvel onglet
+    window.open('/index.html?admin=1&client=' + encodeURIComponent(code), '_blank');
+  } catch (e) {
+    msg('Erreur : ' + e.message, '#dc2626');
+  }
+}
 </script>
 </body>
 </html>
