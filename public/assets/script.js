@@ -80,10 +80,12 @@ function afficherSalaries() {
         <td>${h.jeu ?? 0}</td>
         <td>${h.ven ?? 0}</td>
         <td>${h.sam ?? 0}</td>
-        <td>
-          <input type="password" maxlength="4" value="${s.pin || ''}" placeholder="----"
+        <td style="white-space:nowrap;">
+          <input type="password" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
             style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
             onchange="majPIN(${s.id}, this.value)">
+          <span onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
+            style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>
         </td>
         <td>
           <button class="btn btn-danger" onclick="supprimerSalarie(${i})">✖</button>
@@ -107,6 +109,12 @@ function majPIN(id, pin) {
   if (pin && !/^\d{4}$/.test(pin)) { alert("Le PIN doit être composé de 4 chiffres."); return; }
   sal.pin = pin;
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
+}
+
+function togglePIN(id) {
+  const input = document.getElementById('pin-' + id);
+  if (!input) return;
+  input.type = input.type === 'password' ? 'text' : 'password';
 }
 
 /* ===========================================

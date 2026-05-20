@@ -11,14 +11,18 @@ router.post("/connect", async (req, res) => {
     if (!codeEmploye) return res.status(400).json({ ok: false, message: "Code employé manquant" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const doc = await Donnees.findOne({ "entreprise.codeEmploye": codeEmploye });
+    // Chercher dans tous les documents (Object générique, pas de requête directe sur sous-champ)
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => {
+      const ce = (d.entreprise?.codeEmploye || "").trim().toUpperCase();
+      return ce === codeEmploye;
+    });
     if (!doc) return res.status(404).json({ ok: false, message: "Code employé invalide" });
 
-    // Retourner uniquement les données nécessaires à la saisie
     res.json({
       ok: true,
-      clientId:    doc.clientId,
-      salaries:    doc.salaries || [],
+      clientId:     doc.clientId,
+      salaries:     doc.salaries     || [],
       previsionnel: doc.previsionnel || {}
     });
   } catch (err) {
@@ -33,7 +37,11 @@ router.post("/envoyer", async (req, res) => {
     const codeEmp = (codeEmploye || "").trim().toUpperCase();
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const doc = await Donnees.findOne({ "entreprise.codeEmploye": codeEmp });
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => {
+      const ce = (d.entreprise?.codeEmploye || "").trim().toUpperCase();
+      return ce === codeEmp;
+    });
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const saisie = await Saisie.findOneAndUpdate(
