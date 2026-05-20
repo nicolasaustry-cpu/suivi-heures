@@ -58,6 +58,16 @@
     const code = localStorage.getItem("licenceCode");
     if (code) document.getElementById("code-client").value = code;
 
+  // Afficher message si redirigé depuis une page protégée
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('erreur') === 'licence') {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;padding:0.8rem 1rem;border-radius:6px;margin-bottom:1rem;font-weight:600;';
+    msg.textContent = '⚠ Accès refusé : veuillez saisir votre code licence pour accéder à l'outil.';
+    const section = document.querySelector('section');
+    if (section) section.prepend(msg);
+  }
+
   // Surcharge de activerLicence pour passer par le serveur
   window.activerLicence = async function() {
     const code = document.getElementById("code-client")?.value.trim();

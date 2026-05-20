@@ -18,6 +18,21 @@ const SYNC = (() => {
   /* ─────────────────────────────────────────
      INITIALISATION
   ───────────────────────────────────────── */
+  // Pages accessibles sans licence
+  const PAGES_LIBRES = ['index.html', '/', ''];
+
+  function pageActuelle() {
+    const p = window.location.pathname.split('/').pop();
+    return p || 'index.html';
+  }
+
+  function redirigerVersAccueil() {
+    const page = pageActuelle();
+    if (!PAGES_LIBRES.includes(page)) {
+      window.location.href = '/index.html?erreur=licence';
+    }
+  }
+
   async function init() {
     _token    = localStorage.getItem('syncToken');
     _clientId = localStorage.getItem('syncClientId');
@@ -25,7 +40,12 @@ const SYNC = (() => {
     if (!_token || !_clientId) {
       // Pas connecté → vérifier s'il y a un code licence
       const code = localStorage.getItem('licenceCode');
-      if (code) await connecter(code);
+      if (code) {
+        const ok = await connecter(code);
+        if (!ok) redirigerVersAccueil();
+      } else {
+        redirigerVersAccueil();
+      }
       return;
     }
 
@@ -39,13 +59,20 @@ const SYNC = (() => {
       if (!d.ok) {
         // Token expiré → reconnecter
         const code = localStorage.getItem('licenceCode');
-        if (code) await connecter(code);
+        if (code) {
+          const ok = await connecter(code);
+          if (!ok) redirigerVersAccueil();
+        } else {
+          localStorage.removeItem('syncToken');
+          localStorage.removeItem('syncClientId');
+          redirigerVersAccueil();
+        }
         return;
       }
       // Token valide → charger les données
       await chargerDonnees();
     } catch {
-      // Hors ligne → continuer avec localStorage
+      // Hors ligne → continuer avec localStorage (ne pas bloquer)
       console.log('Suiv\'Heures : mode hors ligne');
     }
   }
