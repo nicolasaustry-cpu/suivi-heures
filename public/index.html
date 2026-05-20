@@ -31,6 +31,10 @@
       <label>Nom de l'entreprise :</label><br>
       <input id="nom-entreprise" placeholder="Ex : Dupont Bâtiment" style="width:300px;">
     </div>
+    <div>
+      <label>Code employé <span style="font-size:0.8rem;color:#6b7280;">(communiqué aux salariés pour la saisie mobile)</span> :</label><br>
+      <input id="code-employe" placeholder="Ex : VOLITIS-SAL" style="width:220px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+    </div>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
 </section>
@@ -54,9 +58,13 @@
 <script>
   window.addEventListener("DOMContentLoaded", () => {
     initEntreprise();
-    // Pré-remplir le champ code si déjà enregistré
+    // Pré-remplir le champ code licence si déjà enregistré
     const code = localStorage.getItem("licenceCode");
     if (code) document.getElementById("code-client").value = code;
+    // Pré-remplir le code employé
+    const ent = JSON.parse(localStorage.getItem("entreprisedata") || "{}");
+    const inputCode = document.getElementById("code-employe");
+    if (inputCode && ent.codeEmploye) inputCode.value = ent.codeEmploye;
 
   // Afficher message si redirigé depuis une page protégée
   const params = new URLSearchParams(window.location.search);

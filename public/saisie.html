@@ -196,9 +196,17 @@
   <h2>Suiv'Heures</h2>
   <p>Identifiez-vous pour saisir vos heures</p>
 
-  <select id="pin-salarie">
+  <input type="text" id="pin-code-entreprise" placeholder="Code employé (fourni par votre responsable)"
+    style="width:100%;padding:12px;border-radius:8px;border:none;font-size:1rem;margin-bottom:0.5rem;text-transform:uppercase;text-align:center;">
+
+  <select id="pin-salarie" style="display:none;">
     <option value="">Choisir votre nom...</option>
   </select>
+
+  <button id="btn-code-entreprise" onclick="validerCodeEntreprise()"
+    style="width:100%;padding:12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:1rem;">
+    Valider
+  </button>
 
   <div class="pin-dots" id="pin-dots">
     <div class="pin-dot" id="d0"></div>
@@ -314,13 +322,53 @@ window.addEventListener('DOMContentLoaded', () => {
   chargerSalaries();
 });
 
+async function validerCodeEntreprise() {
+  const codeEmploye = document.getElementById('pin-code-entreprise').value.trim().toUpperCase();
+  if (!codeEmploye) { document.getElementById('pin-error').textContent = 'Saisissez votre code employé'; return; }
+
+  const btn = document.getElementById('btn-code-entreprise');
+  btn.textContent = 'Vérification...'; btn.disabled = true;
+
+  try {
+    // Connexion via le code employé (route dédiée, sans accès à l'outil)
+    const r = await fetch('/api/saisies/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      document.getElementById('pin-error').textContent = 'Code employé invalide';
+      btn.textContent = 'Valider'; btn.disabled = false;
+      return;
+    }
+
+    // Stocker le code employé et les données nécessaires (pas de token licence)
+    localStorage.setItem('saisie_codeEmploye', codeEmploye);
+    localStorage.setItem('saisie_clientId',    d.clientId);
+    if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
+    if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
+
+    // Afficher le select salarié
+    document.getElementById('pin-code-entreprise').style.display = 'none';
+    btn.style.display = 'none';
+    document.getElementById('pin-salarie').style.display = '';
+    chargerSalaries();
+
+  } catch(e) {
+    document.getElementById('pin-error').textContent = 'Erreur de connexion';
+    btn.textContent = 'Valider'; btn.disabled = false;
+  }
+}
+
 function chargerSalaries() {
   const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   const sel  = document.getElementById('pin-salarie');
+  sel.innerHTML = '<option value="">Choisir votre nom...</option>';
   sals.forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.id;
-    opt.textContent = `${s.prenom} ${s.nom}`;
+    opt.textContent = s.prenom + ' ' + s.nom;
     sel.appendChild(opt);
   });
 }
@@ -660,11 +708,12 @@ async function envoyerSaisie() {
   btn.textContent = 'Envoi en cours...';
 
   try {
-    const token = SYNC.getToken();
-    const r = await fetch('/api/saisies', {
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    const r = await fetch('/api/saisies/envoyer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        codeEmploye,
         salarieId:  _salarie.id,
         salarieNom: _salarie.nom,
         date, chantiers, totalMin

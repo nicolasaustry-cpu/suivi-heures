@@ -4,6 +4,49 @@ import Saisie from "../models/saisies.js";
 
 const router = express.Router();
 
+/* ── Connexion par code employé (sans token licence) ── */
+router.post("/connect", async (req, res) => {
+  try {
+    const codeEmploye = (req.body.codeEmploye || "").trim().toUpperCase();
+    if (!codeEmploye) return res.status(400).json({ ok: false, message: "Code employé manquant" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const doc = await Donnees.findOne({ "entreprise.codeEmploye": codeEmploye });
+    if (!doc) return res.status(404).json({ ok: false, message: "Code employé invalide" });
+
+    // Retourner uniquement les données nécessaires à la saisie
+    res.json({
+      ok: true,
+      clientId:    doc.clientId,
+      salaries:    doc.salaries || [],
+      previsionnel: doc.previsionnel || {}
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Envoyer une saisie (avec code employé) ── */
+router.post("/envoyer", async (req, res) => {
+  try {
+    const { codeEmploye, salarieId, salarieNom, date, chantiers, totalMin } = req.body;
+    const codeEmp = (codeEmploye || "").trim().toUpperCase();
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const doc = await Donnees.findOne({ "entreprise.codeEmploye": codeEmp });
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const saisie = await Saisie.findOneAndUpdate(
+      { clientId: doc.clientId, salarieId, date },
+      { clientId: doc.clientId, salarieId, salarieNom, date, chantiers, totalMin, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json({ ok: true, saisie });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Authentification salarié par PIN ── */
 router.post("/auth", verifyToken, async (req, res) => {
   try {

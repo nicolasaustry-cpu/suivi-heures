@@ -18,7 +18,10 @@ const SYNC = (() => {
   const PAGES_LIBRES = ['index.html', '/', ''];
 
   // Pages réservées Licence +
-  const PAGES_PLUS = ['saisie.html', 'realise.html', 'rapports-realise.html'];
+  // saisie.html est accessible sans licence (auth par PIN salarié)
+  const PAGES_PLUS = ['realise.html', 'rapports-realise.html'];
+  // Pages totalement libres (pas de vérification licence)
+  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
 
   function pageActuelle() {
     return window.location.pathname.split('/').pop() || 'index.html';
@@ -26,7 +29,7 @@ const SYNC = (() => {
 
   function redirigerVersAccueil() {
     const page = pageActuelle();
-    if (!PAGES_LIBRES.includes(page)) {
+    if (!PAGES_LIBRES.includes(page) && !PAGES_LIBRES_TOTAL.includes(page)) {
       window.location.href = '/index.html?erreur=licence';
     }
   }
@@ -42,6 +45,9 @@ const SYNC = (() => {
     _token    = localStorage.getItem('syncToken');
     _clientId = localStorage.getItem('syncClientId');
     _type     = localStorage.getItem('syncType');
+
+    // Pages totalement libres : pas de vérification
+    if (PAGES_LIBRES_TOTAL.includes(pageActuelle())) return;
 
     if (!_token || !_clientId) {
       const code = localStorage.getItem('licenceCode');
