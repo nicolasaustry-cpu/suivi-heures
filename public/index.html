@@ -50,12 +50,28 @@
 
 <!-- Script unique en bas de page -->
 <script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
 <script>
   window.addEventListener("DOMContentLoaded", () => {
     initEntreprise();
     // Pré-remplir le champ code si déjà enregistré
     const code = localStorage.getItem("licenceCode");
     if (code) document.getElementById("code-client").value = code;
+
+  // Surcharge de activerLicence pour passer par le serveur
+  window.activerLicence = async function() {
+    const code = document.getElementById("code-client")?.value.trim();
+    if (!code) { alert("Veuillez saisir un code client."); return; }
+    const btn = document.querySelector('button[onclick="activerLicence()"]');
+    if (btn) { btn.textContent = "Vérification..."; btn.disabled = true; }
+    const ok = await SYNC.connecter(code);
+    if (btn) { btn.textContent = "Activer la licence"; btn.disabled = false; }
+    if (ok) {
+      SYNC.afficherNotif("✔ Licence activée !");
+    } else {
+      alert("Code licence invalide ou expiré.");
+    }
+  };
   });
 </script>
 

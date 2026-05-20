@@ -89,6 +89,31 @@
     .col-abs, .col-prevu, .col-ecart,
     th.col-abs, th.col-prevu, th.col-ecart,
     td.cell-abs, td.cell-prevu, td.cell-ecart { display:none !important; }
+    /* En-tête impression */
+    #entete-impression { display:flex !important; }
+    .main-header { display:none !important; }
+  }
+  #entete-impression {
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid #2563eb;
+    margin-bottom: 0.5rem;
+  }
+  #entete-impression .ent-nom {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #2563eb;
+  }
+  #entete-impression .ent-titre {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #374151;
+  }
+  #entete-impression .ent-mois {
+    font-size: 0.9rem;
+    color: #6b7280;
   }
   </style>
 </head>
@@ -190,6 +215,13 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- En-tête visible uniquement à l'impression -->
+<div id="entete-impression">
+  <div class="ent-nom" id="print-nom-entreprise"></div>
+  <div class="ent-titre">Planning – <span id="print-mois"></span></div>
+  <div class="ent-mois">Outil Suiv'Heures – Volitis</div>
 </div>
 
 <!-- Décalage pour la barre fixe (calculé en JS après rendu) -->
@@ -605,11 +637,13 @@ document.addEventListener('DOMContentLoaded', () => {
   chargerJauge();
   initFiltre();
   genererPlanning();
+  majMoisImpression();
 
   mois.addEventListener('input', () => {
     chargerSemaines();
     initFiltre();
     genererPlanning();
+    majMoisImpression();
   });
 
   // Licence
@@ -625,10 +659,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   const nomE = document.getElementById('entreprise-nom');
   if (nomE && ent.nom) nomE.textContent = ent.nom;
+  // En-tête impression
+  const printNom = document.getElementById('print-nom-entreprise');
+  if (printNom && ent.nom) printNom.textContent = ent.nom;
 
   window.addEventListener('resize', ajusterMarginTop);
   ajusterMarginTop();
 });
+
+function majMoisImpression() {
+  const moisVal = document.getElementById('moisPlanning').value;
+  const printMois = document.getElementById('print-mois');
+  if (!printMois || !moisVal) return;
+  const d = new Date(moisVal + '-01');
+  printMois.textContent = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
 </script>
+<script src="assets/sync.js"></script>
 </body>
 </html>
