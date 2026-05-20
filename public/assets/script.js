@@ -43,12 +43,14 @@ function initEntreprise() {
 }
 
 function sauverEntreprise() {
-  const nom = document.getElementById("nom-entreprise")?.value.trim();
+  const nom  = document.getElementById("nom-entreprise")?.value.trim();
+  const code = document.getElementById("code-employe")?.value.trim().toUpperCase();
   if (!nom) {
     alert("Veuillez saisir un nom d'entreprise.");
     return;
   }
   entreprise.nom = nom;
+  if (code) entreprise.codeEmploye = code;
   localStorage.setItem("entreprisedata", JSON.stringify(entreprise));
   const nomE = document.getElementById("entreprise-nom");
   if (nomE) nomE.textContent = nom;
