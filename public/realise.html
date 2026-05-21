@@ -93,19 +93,27 @@ async function chargerRealise() {
   const mois  = document.getElementById('moisRealise').value;
   if (!mois) return;
 
-  // Essayer d'abord avec le token licence, sinon avec le token stocké
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken())
     || localStorage.getItem('syncToken');
 
-  if (!token) { _saisies = []; afficherRealise(); return; }
+  console.log('Token:', token ? token.substring(0,30) + '...' : 'AUCUN');
+  console.log('Mois:', mois);
+
+  if (!token) { 
+    console.warn('Pas de token - impossible de charger les saisies');
+    _saisies = []; afficherRealise(); return; 
+  }
 
   try {
     const r = await fetch(`/api/saisies/${mois}`, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
+    console.log('Statut réponse:', r.status);
     const d = await r.json();
+    console.log('Réponse:', d);
     _saisies = d.ok ? d.saisies : [];
-  } catch {
+  } catch(e) {
+    console.error('Erreur fetch:', e);
     _saisies = [];
   }
   afficherRealise();
