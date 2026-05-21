@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -177,8 +177,8 @@
         </div>
         <!-- Totaux -->
         <div style="background:#d1fae5;font-weight:bold;display:flex;justify-content:space-around;padding:3px 6px;gap:4px;flex-wrap:wrap;flex:0;font-size:0.78rem;">
-          <span>Total : <strong id="tot-total">0 h</strong></span>
-          <span>Dépl. : <strong id="tot-depl">0 min</strong></span>
+          <span>Réalisé : <strong id="tot-total">0 h</strong></span>
+          <span>Prévu : <strong id="tot-prev">0 h</strong></span>
           <span>Écart : <strong id="tot-ecart" style="color:#16a34a;">—</strong></span>
         </div>
       </div>
@@ -523,15 +523,17 @@ function sauverSeuils() {
 
 /* ══ JAUGE ══ */
 function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
-  const totalH = (totalMin / 60).toFixed(1);
-  const deplH  = deplMin;
-  const pct    = prevMin > 0 ? Math.min(100, Math.round((totalMin / prevMin) * 100)) : 0;
-  const ecart  = prevMin > 0 ? ((totalMin - prevMin) / 60).toFixed(1) : null;
+  const realiseMin = totalMin + deplMin; // Total réalisé = heures chantier + déplacement
+  const realiseH   = (realiseMin / 60).toFixed(1);
+  const prevH      = (prevMin / 60).toFixed(1);
+  const pct        = prevMin > 0 ? Math.min(100, Math.round((realiseMin / prevMin) * 100)) : 0;
+  const ecartMin   = realiseMin - prevMin;
+  const ecart      = prevMin > 0 ? (ecartMin / 60).toFixed(1) : null;
 
-  document.getElementById('tot-total').textContent = totalH + ' h';
-  document.getElementById('tot-depl').textContent  = deplH + ' min';
+  document.getElementById('tot-total').textContent = realiseH + ' h';
+  document.getElementById('tot-prev').textContent  = prevMin > 0 ? prevH + ' h' : '—';
   document.getElementById('tot-ecart').textContent = ecart !== null ? (ecart >= 0 ? '+' : '') + ecart + ' h' : '—';
-  document.getElementById('tot-ecart').style.color = ecart !== null ? (ecart >= 0 ? '#16a34a' : '#dc2626') : '#6b7280';
+  document.getElementById('tot-ecart').style.color = ecart !== null ? (parseFloat(ecart) >= 0 ? '#16a34a' : '#dc2626') : '#6b7280';
 
   const r = parseInt(document.getElementById('limiteRouge').value)  || 33;
   const o = parseInt(document.getElementById('limiteOrange').value) || 66;
