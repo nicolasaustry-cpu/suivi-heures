@@ -5,6 +5,21 @@
   <title>Planning Réalisé – Suiv'Heures</title>
   <link rel="stylesheet" href="assets/style.css">
   <style>
+  /* ══ HEADER ══ */
+  .main-header { background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem; }
+  .main-header .entreprise-nom { font-weight:700; font-size:0.95rem; min-width:160px; }
+  .main-header .page-title { flex:1; text-align:center; margin:0; font-size:1.3rem; font-weight:800; }
+  .volitis-logo-wrapper { display:flex; align-items:center; gap:0.4rem; cursor:pointer; opacity:0.9; }
+  .volitis-logo-wrapper:hover { opacity:1; }
+  .volitis-logo-circle { background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .volitis-logo-circle img { height:22px; width:auto; }
+  .volitis-label { font-size:0.72rem; color:rgba(255,255,255,0.85); white-space:nowrap; }
+  .licence-badge { font-size:0.78rem; }
+  /* ══ NAV ══ */
+  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
+  .nav a.active { text-decoration:underline; }
+  .nav a.nav-plus { color:#16a34a; }
   /* ══ BARRE FIXE ══ */
   .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
 
