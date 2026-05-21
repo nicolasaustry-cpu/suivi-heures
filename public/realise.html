@@ -42,13 +42,7 @@
   .filtre-dropdown label:hover { background:#eff6ff; }
   .filtre-dropdown .select-all { border-bottom:1px solid #eee; font-weight:600; }
 
-  /* ══ JAUGE ══ */
-  .jauge-wrapper { flex:0 0 300px; min-width:280px; display:flex; flex-direction:column; border:1px solid #ccc; border-radius:6px; overflow:hidden; font-size:0.8rem; align-self:stretch; }
-  .jauge-seuils { background:#fff3cd; padding:3px 8px; display:flex; align-items:center; gap:6px; font-size:0.72rem; flex-wrap:wrap; }
-  .jauge-seuils input[type="number"] { width:40px; }
-  .jauge-barre { background:#f0f9ff; padding:4px 8px; display:flex; align-items:center; gap:8px; flex:1; }
-  .jauge-barre-inner { flex:1; position:relative; height:16px; border-radius:10px; overflow:hidden; border:1px solid #333; }
-  .jauge-totaux { background:#d1fae5; font-weight:bold; display:flex; gap:0.5rem; padding:3px 6px; font-size:0.78rem; flex-wrap:wrap; justify-content:space-around; }
+  /* ══ JAUGE intégrée dans fixed-tools ══ */
 
   /* ══ CONTENU ══ */
   #planning-wrapper { padding:0.5rem 0.8rem; }
@@ -111,15 +105,12 @@
   </div>
 
   <div class="fixed-tools no-print">
-    <div style="display:flex;align-items:flex-end;gap:0.8rem;flex-wrap:nowrap;">
-
-      <!-- Mois -->
+    <!-- Ligne 1 : filtres + imprimer -->
+    <div style="display:flex;align-items:flex-end;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.3rem;">
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Mois :</label><br>
         <input type="month" id="moisRealise" onchange="chargerRealise()">
       </div>
-
-      <!-- Filtre salariés -->
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Salariés :</label><br>
         <div class="filtre-container">
@@ -134,8 +125,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Filtre chantiers -->
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Chantiers :</label><br>
         <div class="filtre-container">
@@ -150,42 +139,40 @@
           </div>
         </div>
       </div>
-
       <div>
-        <button class="btn-warning no-print" onclick="window.print()" style="background:#f59e0b;color:#000;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;">🖨 Imprimer</button>
+        <button onclick="window.print()" style="background:#f59e0b;color:#000;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;">🖨 Imprimer</button>
       </div>
+    </div>
 
-      <!-- Espaceur -->
-      <div style="flex:1;"></div>
-
-      <!-- Jauge 1/4 droite -->
-      <div class="jauge-wrapper no-print">
-        <div class="jauge-seuils">
-          <span>Rouge :</span>
-          <input id="limiteRouge" value="33" type="number" min="0" max="100" onchange="sauverSeuils();majJauge()">
-          <span>%</span>
-          <span>Orange :</span>
-          <input id="limiteOrange" value="66" type="number" min="0" max="100" onchange="sauverSeuils();majJauge()">
-          <span>%</span>
-          <input type="checkbox" id="figerSeuils">
-          <label for="figerSeuils" style="font-size:0.72rem;">Figer</label>
-        </div>
-        <div class="jauge-barre">
-          <div id="pct-jauge" style="font-weight:bold;font-size:0.95rem;min-width:38px;">0%</div>
-          <div class="jauge-barre-inner">
-            <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-            <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-            <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-            <div id="curseur"     style="position:absolute;top:-2px;left:0;width:7px;height:20px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
-          </div>
-        </div>
-        <div class="jauge-totaux">
-          <span>Total : <strong id="tot-total">0 h</strong></span>
-          <span>Dépl. : <strong id="tot-depl">0 min</strong></span>
-          <span>Écart : <strong id="tot-ecart" style="color:#16a34a;">—</strong></span>
+    <!-- Ligne 2 : jauge pleine largeur -->
+    <div style="display:flex;align-items:stretch;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;font-size:0.8rem;">
+      <!-- Seuils -->
+      <div style="background:#fff3cd;padding:3px 10px;display:flex;align-items:center;gap:6px;font-size:0.72rem;white-space:nowrap;flex-shrink:0;">
+        <span>Rouge :</span>
+        <input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:40px;" onchange="sauverSeuils();majJauge()">
+        <span>%</span>
+        <span>Orange :</span>
+        <input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:40px;" onchange="sauverSeuils();majJauge()">
+        <span>%</span>
+        <input type="checkbox" id="figerSeuils">
+        <label for="figerSeuils">Figer</label>
+      </div>
+      <!-- Barre -->
+      <div style="background:#f0f9ff;padding:4px 10px;display:flex;align-items:center;gap:10px;flex:1;">
+        <div id="pct-jauge" style="font-weight:bold;font-size:0.95rem;min-width:38px;">0%</div>
+        <div style="flex:1;position:relative;height:16px;border-radius:10px;overflow:hidden;border:1px solid #333;">
+          <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+          <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+          <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+          <div id="curseur"     style="position:absolute;top:-2px;left:0;width:7px;height:20px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
         </div>
       </div>
-
+      <!-- Totaux -->
+      <div style="background:#d1fae5;padding:3px 12px;display:flex;align-items:center;gap:1.2rem;font-weight:700;font-size:0.82rem;white-space:nowrap;flex-shrink:0;">
+        <span>Total : <strong id="tot-total">0 h</strong></span>
+        <span>Dépl. : <strong id="tot-depl">0 min</strong></span>
+        <span>Écart : <strong id="tot-ecart" style="color:#16a34a;">—</strong></span>
+      </div>
     </div>
   </div>
 </div>
