@@ -404,20 +404,30 @@ function afficherRealise() {
           <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>
           <td class="col-depl">${c.deplacement ? c.deplacement + ' min' : '—'}</td>
           <td class="col-tot">${th}h${String(tm).padStart(2,'0')}</td>
-
+          <td class="col-tot" style="color:#9ca3af;">—</td>
+          <td class="col-tot" style="color:#9ca3af;">—</td>
         </tr>`;
       });
 
-      // Ligne total salarié
-      if (chantiersFiltres.length > 1) {
-        const th = Math.floor((salTotalMin + salDeplMin)/60);
-        const tm = (salTotalMin + salDeplMin) % 60;
+      // Ligne total salarié avec prévu et écart
+      {
+        const salPrevuMin = getPrevuMin(date, s.salarieId);
+        const salRealMin  = salTotalMin + salDeplMin;
+        const salEcartMin = salRealMin - salPrevuMin;
+        const salEcartStr = salPrevuMin > 0
+          ? (salEcartMin >= 0 ? '+' : '') + Math.floor(Math.abs(salEcartMin)/60) + 'h' + String(Math.abs(salEcartMin)%60).padStart(2,'0')
+          : '—';
+        const salEcartColor = salEcartMin >= 0 ? '#16a34a' : '#dc2626';
+        const salPrevStr = salPrevuMin > 0
+          ? Math.floor(salPrevuMin/60) + 'h' + String(salPrevuMin%60).padStart(2,'0') : '—';
+        const sth = Math.floor(salRealMin/60), stm = salRealMin%60;
         rows += `<tr class="ligne-total-sal">
-          <td colspan="3" style="text-align:right;">Total ${s.salarieNom}</td>
+          <td colspan="3" style="text-align:right;font-size:0.78rem;">Total ${s.salarieNom}</td>
           <td class="col-h">${Math.floor(salTotalMin/60)}h${String(salTotalMin%60).padStart(2,'0')}</td>
           <td class="col-depl">${salDeplMin ? salDeplMin + ' min' : '—'}</td>
-          <td class="col-tot">${th}h${String(tm).padStart(2,'0')}</td>
-          <td></td>
+          <td class="col-tot">${sth}h${String(stm).padStart(2,'0')}</td>
+          <td class="col-tot">${salPrevStr}</td>
+          <td class="col-tot" style="color:${salEcartColor};">${salEcartStr}</td>
         </tr>`;
       }
 
@@ -432,6 +442,19 @@ function afficherRealise() {
 
     const jth = Math.floor((jourTotalMin + jourDeplMin)/60);
     const jtm = (jourTotalMin + jourDeplMin) % 60;
+    const jRealMin = jourTotalMin + jourDeplMin;
+
+    // Prévu journée = somme des heures contractuelles des salariés présents
+    const salsDuJour = [...new Set(parDate[date].map(s => s.salarieId))];
+    let jourPrevuMin = 0;
+    salsDuJour.forEach(sid => { jourPrevuMin += getPrevuMin(date, sid); });
+    const jourEcartMin = jRealMin - jourPrevuMin;
+    const jourEcartStr = jourPrevuMin > 0
+      ? (jourEcartMin >= 0 ? '+' : '') + Math.floor(Math.abs(jourEcartMin)/60) + 'h' + String(Math.abs(jourEcartMin)%60).padStart(2,'0')
+      : '—';
+    const jourEcartColor = jourEcartMin >= 0 ? '#16a34a' : '#dc2626';
+    const jourPrevStr = jourPrevuMin > 0
+      ? Math.floor(jourPrevuMin/60) + 'h' + String(jourPrevuMin%60).padStart(2,'0') : '—';
 
     return `<div class="jour-block">
       <div class="jour-titre">
@@ -457,7 +480,8 @@ function afficherRealise() {
             <td class="col-h">${Math.floor(jourTotalMin/60)}h${String(jourTotalMin%60).padStart(2,'0')}</td>
             <td class="col-depl">${jourDeplMin ? jourDeplMin + ' min' : '—'}</td>
             <td class="col-tot">${jth}h${String(jtm).padStart(2,'0')}</td>
-
+            <td class="col-tot">${jourPrevStr}</td>
+            <td class="col-tot" style="color:${jourEcartColor};">${jourEcartStr}</td>
           </tr>
         </tfoot>
       </table>
