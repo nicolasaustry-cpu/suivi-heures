@@ -182,6 +182,7 @@
             <th>Type</th>
             <th>Statut</th>
             <th>Consulter</th>
+            <th>Modifier</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -190,6 +191,39 @@
       <p id="no-licence" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune licence.</p>
     </div>
 
+  </div>
+</div>
+
+<!-- Modale modification licence -->
+<div id="modale-modif" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:1.5rem;width:500px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    <h2 style="margin:0 0 1rem;font-size:1rem;color:#374151;">✏ Modifier la licence</h2>
+    <input type="hidden" id="modif-code">
+    <div style="display:flex;flex-direction:column;gap:0.8rem;">
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Nom de l'entreprise</label>
+        <input id="modif-nom" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Email</label>
+        <input id="modif-email" type="email" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Date d'expiration</label>
+        <input id="modif-expiration" type="date" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Type de licence</label>
+        <select id="modif-type" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+          <option value="standard">Standard</option>
+          <option value="plus">Plus ★</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem;">
+      <button class="btn btn-warning" onclick="fermerModifLicence()" style="padding:7px 16px;">Annuler</button>
+      <button class="btn btn-success" onclick="sauverModifLicence()" style="padding:7px 16px;">✔ Sauvegarder</button>
+    </div>
   </div>
 </div>
 
@@ -329,6 +363,12 @@ function afficherLicences(liste) {
           👁 Consulter
         </button>
       </td>
+      <td style="text-align:center;">
+        <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
+          onclick="ouvrirModifLicence('${l.codeClient}','${l.nomClient}','${l.email}','${l.dateExpiration?.split('T')[0]}','${l.type || 'standard'}')">
+          ✏ Modifier
+        </button>
+      </td>
       <td style="white-space:nowrap;">
         <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
           onclick="toggleLicence('${l.codeClient}')">
@@ -415,6 +455,46 @@ function msg(texte, couleur = '#16a34a') {
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('ecran-login').style.display !== 'none')
     seConnecter();
+});
+
+/* ── Modifier une licence ── */
+function ouvrirModifLicence(code, nom, email, expiration, type) {
+  document.getElementById('modif-code').value       = code;
+  document.getElementById('modif-nom').value        = nom || '';
+  document.getElementById('modif-email').value      = email || '';
+  document.getElementById('modif-expiration').value = expiration || '';
+  document.getElementById('modif-type').value       = type || 'standard';
+  document.getElementById('modale-modif').style.display = 'flex';
+}
+
+function fermerModifLicence() {
+  document.getElementById('modale-modif').style.display = 'none';
+}
+
+async function sauverModifLicence() {
+  const code       = document.getElementById('modif-code').value;
+  const nomClient  = document.getElementById('modif-nom').value.trim();
+  const email      = document.getElementById('modif-email').value.trim();
+  const expiration = document.getElementById('modif-expiration').value;
+  const type       = document.getElementById('modif-type').value;
+
+  try {
+    const r = await fetch(API + '/api/admin/licences/' + code, {
+      method: 'PUT',
+      headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg('✔ Licence modifiée');
+    fermerModifLicence();
+    await chargerLicences();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+// Fermer modale si clic extérieur
+document.getElementById('modale-modif').addEventListener('click', function(e) {
+  if (e.target === this) fermerModifLicence();
 });
 
 /* ── Consulter les données d'un client ── */

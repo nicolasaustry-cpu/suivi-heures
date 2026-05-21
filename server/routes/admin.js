@@ -40,11 +40,12 @@ router.put("/licences/:code", verifyToken, verifyAdmin, async (req, res) => {
     const licence = await Licence.findOne({ codeClient: req.params.code.toUpperCase() });
     if (!licence) return res.status(404).json({ ok: false, message: "Licence introuvable" });
 
-    const { nomClient, email, dateExpiration, notes } = req.body;
-    if (nomClient)      licence.nomClient      = nomClient;
-    if (email)          licence.email          = email;
-    if (dateExpiration) licence.dateExpiration = new Date(dateExpiration);
-    if (notes !== undefined) licence.notes     = notes;
+    const { nomClient, email, dateExpiration, notes, type } = req.body;
+    if (nomClient)           licence.nomClient      = nomClient;
+    if (email)               licence.email          = email;
+    if (dateExpiration)      licence.dateExpiration = new Date(dateExpiration);
+    if (notes !== undefined) licence.notes          = notes;
+    if (type)                licence.type           = type;
     await licence.save();
     res.json({ ok: true, licence });
   } catch (err) {
