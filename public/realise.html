@@ -488,26 +488,12 @@ function afficherRealise() {
     </div>`;
   }).join('');
 
-  // Calculer le prévu total du mois
-  const moisStr = document.getElementById('moisRealise').value;
+  // Calculer le prévu uniquement sur les jours avec des saisies
   let grandPrevuMin = 0;
-  if (moisStr) {
-    const [a, m] = moisStr.split('-').map(Number);
-    const nbJ = new Date(a, m, 0).getDate();
-    salaries.filter(s => _cochésSal.has(s.prenom + ' ' + s.nom)).forEach(s => {
-      const hp = s.heuresParJour || {};
-      const noms = ['dim','lun','mar','mer','jeu','ven','sam'];
-      for (let j = 1; j <= nbJ; j++) {
-        const dj = new Date(a, m-1, j);
-        if (dj.getDay() === 0) continue;
-        const entree = s.dateEntree ? new Date(s.dateEntree) : null;
-        const sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
-        if (entree && dj < entree) continue;
-        if (sortie && dj > sortie) continue;
-        grandPrevuMin += (parseFloat(hp[noms[dj.getDay()]] || 0)) * 60;
-      }
-    });
-  }
+  Object.keys(parDate).forEach(date => {
+    const salsDuJour = [...new Set(parDate[date].map(s => s.salarieId))];
+    salsDuJour.forEach(sid => { grandPrevuMin += getPrevuMin(date, sid); });
+  });
 
   // Mettre à jour la jauge et les totaux
   majJauge(grandTotalMin, grandDeplMin, grandPrevuMin);
