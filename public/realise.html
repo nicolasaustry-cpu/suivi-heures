@@ -43,7 +43,7 @@
   .filtre-dropdown .select-all { border-bottom:1px solid #eee; font-weight:600; }
 
   /* ══ JAUGE ══ */
-  .jauge-wrapper { flex:0 0 25%; min-width:200px; display:flex; flex-direction:column; border:1px solid #ccc; border-radius:6px; overflow:hidden; font-size:0.8rem; align-self:stretch; }
+  .jauge-wrapper { flex:0 0 300px; min-width:280px; display:flex; flex-direction:column; border:1px solid #ccc; border-radius:6px; overflow:hidden; font-size:0.8rem; align-self:stretch; }
   .jauge-seuils { background:#fff3cd; padding:3px 8px; display:flex; align-items:center; gap:6px; font-size:0.72rem; flex-wrap:wrap; }
   .jauge-seuils input[type="number"] { width:40px; }
   .jauge-barre { background:#f0f9ff; padding:4px 8px; display:flex; align-items:center; gap:8px; flex:1; }
@@ -98,10 +98,7 @@
     <h1 class="page-title">Planning Réalisé</h1>
     <div style="display:flex;align-items:center;gap:0.8rem;">
       <div id="licence-status"></div>
-      <div class="volitis-logo-wrapper" onclick="window.open('https://volitis.net/','_blank')" title="Outil créé par Volitis">
-        <div class="volitis-logo-circle"><img src="assets/volitis-logo.png" alt="Volitis"></div>
-        <span class="volitis-label">Outil créé par Volitis</span>
-      </div>
+
     </div>
   </header>
 
@@ -357,6 +354,22 @@ function afficherRealise() {
 
   let grandTotalMin = 0, grandDeplMin = 0;
 
+  // Pré-calculer les heures prévues par salarié par jour depuis le planning
+  const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+
+  function getPrevuMin(date, salarieId) {
+    // Chercher toutes les entrées du planning pour ce salarié/date
+    let total = 0;
+    const dateKey = date.replace(/-/g, '_');
+    for (const k in heures) {
+      if (k.startsWith(String(salarieId) + dateKey) && !k.endsWith('abs')) {
+        total += (parseFloat(heures[k]?.heures) || 0) * 60;
+      }
+    }
+    return total;
+  }
+
   cont.innerHTML = Object.keys(parDate).sort().map(date => {
     const d = new Date(date + 'T00:00:00');
     const label = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
@@ -426,7 +439,7 @@ function afficherRealise() {
           <th class="col-h">Horaires</th>
           <th class="col-h">Durée</th>
           <th class="col-depl">Déplacement</th>
-          <th class="col-tot">Total</th>
+          <th class="col-tot">Réalisé</th>
 
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -443,8 +456,29 @@ function afficherRealise() {
     </div>`;
   }).join('');
 
+  // Calculer le prévu total du mois
+  const moisStr = document.getElementById('moisRealise').value;
+  let grandPrevuMin = 0;
+  if (moisStr) {
+    const [a, m] = moisStr.split('-').map(Number);
+    const nbJ = new Date(a, m, 0).getDate();
+    salaries.filter(s => _cochésSal.has(s.prenom + ' ' + s.nom)).forEach(s => {
+      const hp = s.heuresParJour || {};
+      const noms = ['dim','lun','mar','mer','jeu','ven','sam'];
+      for (let j = 1; j <= nbJ; j++) {
+        const dj = new Date(a, m-1, j);
+        if (dj.getDay() === 0) continue;
+        const entree = s.dateEntree ? new Date(s.dateEntree) : null;
+        const sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
+        if (entree && dj < entree) continue;
+        if (sortie && dj > sortie) continue;
+        grandPrevuMin += (parseFloat(hp[noms[dj.getDay()]] || 0)) * 60;
+      }
+    });
+  }
+
   // Mettre à jour la jauge et les totaux
-  majJauge(grandTotalMin, grandDeplMin);
+  majJauge(grandTotalMin, grandDeplMin, grandPrevuMin);
   setTimeout(ajusterMarginTop, 50);
 }
 
@@ -456,29 +490,7 @@ function sauverSeuils() {
 }
 
 /* ══ JAUGE ══ */
-function majJauge(totalMin = 0, deplMin = 0) {
-  // Calculer les heures prévues du mois pour comparer
-  const mois = document.getElementById('moisRealise').value;
-  let prevMin = 0;
-  if (mois) {
-    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-    const [a, m] = mois.split('-').map(Number);
-    const nbJours = new Date(a, m, 0).getDate();
-    const noms = ['dim','lun','mar','mer','jeu','ven','sam'];
-    sals.forEach(s => {
-      const hp = s.heuresParJour || {};
-      for (let j = 1; j <= nbJours; j++) {
-        const dj = new Date(a, m-1, j);
-        if (dj.getDay() === 0) continue;
-        const entree = s.dateEntree ? new Date(s.dateEntree) : null;
-        const sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
-        if (entree && dj < entree) continue;
-        if (sortie && dj > sortie) continue;
-        prevMin += (parseFloat(hp[noms[dj.getDay()]] || 0)) * 60;
-      }
-    });
-  }
-
+function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
   const totalH = (totalMin / 60).toFixed(1);
   const deplH  = deplMin;
   const pct    = prevMin > 0 ? Math.min(100, Math.round((totalMin / prevMin) * 100)) : 0;
