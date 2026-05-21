@@ -30,10 +30,10 @@ router.post("/connect", async (req, res) => {
   }
 });
 
-/* ── Envoyer une saisie (avec code employé) ── */
+/* ── Envoyer un chantier (avec code employé) – s'ajoute à la journée ── */
 router.post("/envoyer", async (req, res) => {
   try {
-    const { codeEmploye, salarieId, salarieNom, date, chantiers, totalMin } = req.body;
+    const { codeEmploye, salarieId, salarieNom, date, chantier } = req.body;
     const codeEmp = (codeEmploye || "").trim().toUpperCase();
 
     const Donnees = (await import("../models/donnees.js")).default;
@@ -44,11 +44,25 @@ router.post("/envoyer", async (req, res) => {
     });
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
-    const saisie = await Saisie.findOneAndUpdate(
-      { clientId: doc.clientId, salarieId, date },
-      { clientId: doc.clientId, salarieId, salarieNom, date, chantiers, totalMin, updatedAt: new Date() },
-      { upsert: true, new: true }
-    );
+    // Chercher la saisie du jour ou la créer
+    let saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
+
+    if (!saisie) {
+      // Créer une nouvelle saisie pour ce jour
+      saisie = new Saisie({
+        clientId: doc.clientId, salarieId, salarieNom, date,
+        chantiers: [chantier],
+        totalMin: chantier.dureeMin + (chantier.deplacement || 0),
+        statut: "envoyee"
+      });
+    } else {
+      // Ajouter le chantier à la saisie existante
+      saisie.chantiers.push(chantier);
+      saisie.totalMin = saisie.chantiers.reduce((s, c) => s + (c.dureeMin || 0) + (c.deplacement || 0), 0);
+      saisie.updatedAt = new Date();
+    }
+
+    await saisie.save();
     res.json({ ok: true, saisie });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

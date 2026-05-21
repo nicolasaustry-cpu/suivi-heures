@@ -286,8 +286,8 @@
       <span class="total-lbl">Total du jour</span>
       <span class="total-val" id="total-jour">0 h 00</span>
     </div>
-    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerSaisie()">
-      ✉ Envoyer ma journée
+    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerChantier()">
+      ✉ Envoyer ce chantier
     </button>
   </div>
 
@@ -672,82 +672,85 @@ async function installerApp() {
   }
 }
 
-async function envoyerSaisie() {
+async function envoyerChantier() {
   const date = document.getElementById('date-saisie').value;
   if (!date) { alert('Choisissez une date'); return; }
 
-  const chantiers = [];
+  // Collecter tous les chantiers avec des heures saisies
+  const aEnvoyer = [];
 
-  _chantiersP.forEach(c => {
-    const s = _saisiesPrev[c.nom] || {};
-    if (s.arrivee || s.depart) {
-      chantiers.push({
-        nom:          c.nom,
-        heureArrivee: s.arrivee || '',
-        heureDepart:  s.depart  || '',
-        dureeMin:     calcMinutes(s.arrivee, s.depart),
-        deplacement:  s.depl || 0,
+  _chantiersP.forEach(ch => {
+    const s = _saisiesPrev[ch.nom] || {};
+    if (s.arrivee && s.depart) {
+      aEnvoyer.push({
+        nom:           ch.nom,
+        heureArrivee:  s.arrivee,
+        heureDepart:   s.depart,
+        dureeMin:      calcMinutes(s.arrivee, s.depart),
+        deplacement:   s.depl || 0,
         isPrevisionnel: true
       });
     }
   });
 
-  _chantiersA.forEach(c => {
-    if (c.arrivee || c.depart || c.nom) {
-      chantiers.push({
-        nom:          c.nom,
-        heureArrivee: c.arrivee || '',
-        heureDepart:  c.depart  || '',
-        dureeMin:     calcMinutes(c.arrivee, c.depart),
-        deplacement:  c.depl || 0,
+  _chantiersA.forEach(ch => {
+    if (ch.nom && (ch.arrivee || ch.depart)) {
+      aEnvoyer.push({
+        nom:           ch.nom,
+        heureArrivee:  ch.arrivee || '',
+        heureDepart:   ch.depart  || '',
+        dureeMin:      calcMinutes(ch.arrivee, ch.depart),
+        deplacement:   ch.depl || 0,
         isPrevisionnel: false
       });
     }
   });
 
-  if (!chantiers.length) { alert('Saisissez au moins un chantier'); return; }
-
-  let totalMin = 0;
-  chantiers.forEach(c => { totalMin += c.dureeMin + c.deplacement; });
+  if (!aEnvoyer.length) { alert('Saisissez au moins un chantier avec des horaires'); return; }
 
   const btn = document.getElementById('btn-envoyer');
   btn.disabled = true;
   btn.textContent = 'Envoi en cours...';
 
-  try {
-    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
-    const r = await fetch('/api/saisies/envoyer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        codeEmploye,
-        salarieId:  _salarie.id,
-        salarieNom: _salarie.nom,
-        date, chantiers, totalMin
-      })
-    });
-    const d = await r.json();
-    if (d.ok) {
-      btn.textContent = '✔ Envoyé !';
-      btn.style.background = '#16a34a';
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = '✉ Envoyer ma journée';
-        btn.style.background = '';
-        // Réinitialiser
-        _saisiesPrev = {};
-        _chantiersA  = [];
-        rendrePrev();
-        rendreAjout();
-        majTotal();
-      }, 2000);
-    } else {
-      throw new Error(d.message);
-    }
-  } catch (e) {
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  let nbEnvoyes = 0, erreurs = 0;
+
+  // Envoyer chaque chantier séparément
+  for (const chantier of aEnvoyer) {
+    try {
+      const r = await fetch('/api/saisies/envoyer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeEmploye,
+          salarieId:  _salarie.id,
+          salarieNom: _salarie.nom,
+          date, chantier
+        })
+      });
+      const d = await r.json();
+      if (d.ok) nbEnvoyes++; else erreurs++;
+    } catch { erreurs++; }
+  }
+
+  if (nbEnvoyes > 0) {
+    btn.textContent = `✔ ${nbEnvoyes} chantier${nbEnvoyes > 1 ? 's' : ''} envoyé${nbEnvoyes > 1 ? 's' : ''} !`;
+    btn.style.background = '#16a34a';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = '✉ Envoyer ce chantier';
+      btn.style.background = '';
+      // Réinitialiser uniquement les chantiers envoyés
+      _saisiesPrev = {};
+      _chantiersA  = [];
+      rendrePrev();
+      rendreAjout();
+      majTotal();
+    }, 2500);
+  } else {
     btn.disabled = false;
-    btn.textContent = '✉ Envoyer ma journée';
-    alert('Erreur : ' + e.message);
+    btn.textContent = '✉ Envoyer ce chantier';
+    alert('Erreur lors de l'envoi');
   }
 }
 </script>
