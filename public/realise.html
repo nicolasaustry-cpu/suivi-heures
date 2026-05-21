@@ -355,16 +355,24 @@ function afficherRealise() {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
 
+  const joursNoms = ['dim','lun','mar','mer','jeu','ven','sam'];
+
   function getPrevuMin(date, salarieId) {
-    // Chercher toutes les entrées du planning pour ce salarié/date
-    let total = 0;
-    const dateKey = date.replace(/-/g, '_');
-    for (const k in heures) {
-      if (k.startsWith(String(salarieId) + dateKey) && !k.endsWith('abs')) {
-        total += (parseFloat(heures[k]?.heures) || 0) * 60;
-      }
-    }
-    return total;
+    // Heures contractuelles du salarié ce jour-là
+    const sal = salaries.find(s => s.id == salarieId);
+    if (!sal) return 0;
+    const d = new Date(date + 'T00:00:00');
+    const jourSemaine = d.getDay(); // 0=dim, 1=lun...
+    if (jourSemaine === 0) return 0; // dimanche = 0
+    // Vérifier que le salarié était présent ce jour
+    const entree = sal.dateEntree ? new Date(sal.dateEntree) : null;
+    const sortie = sal.dateSortie ? new Date(sal.dateSortie + 'T23:59:59') : null;
+    if (entree && d < entree) return 0;
+    if (sortie && d > sortie) return 0;
+    // Lire les heures contractuelles
+    const hp = sal.heuresParJour || {};
+    const nomJour = joursNoms[jourSemaine];
+    return (parseFloat(hp[nomJour]) || 0) * 60;
   }
 
   cont.innerHTML = Object.keys(parDate).sort().map(date => {
