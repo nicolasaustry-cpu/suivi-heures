@@ -359,20 +359,21 @@ function afficherRealise() {
 
   function getPrevuMin(date, salarieId) {
     // Heures contractuelles du salarié ce jour-là
-    const sal = salaries.find(s => s.id == salarieId);
+    const sal = salaries.find(s => String(s.id) === String(salarieId));
     if (!sal) return 0;
     const d = new Date(date + 'T00:00:00');
     const jourSemaine = d.getDay(); // 0=dim, 1=lun...
-    if (jourSemaine === 0) return 0; // dimanche = 0
-    // Vérifier que le salarié était présent ce jour
+    if (jourSemaine === 0) return 0; // dimanche
+    // Vérifier présence
     const entree = sal.dateEntree ? new Date(sal.dateEntree) : null;
     const sortie = sal.dateSortie ? new Date(sal.dateSortie + 'T23:59:59') : null;
     if (entree && d < entree) return 0;
     if (sortie && d > sortie) return 0;
-    // Lire les heures contractuelles
+    // Heures contractuelles : lun/mar/mer/jeu/ven/sam
     const hp = sal.heuresParJour || {};
-    const nomJour = joursNoms[jourSemaine];
-    return (parseFloat(hp[nomJour]) || 0) * 60;
+    const nomJour = joursNoms[jourSemaine]; // 'lun','mar'...
+    const h = parseFloat(hp[nomJour]) || 0;
+    return h * 60;
   }
 
   cont.innerHTML = Object.keys(parDate).sort().map(date => {
