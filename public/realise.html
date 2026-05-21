@@ -3,64 +3,183 @@
 <head>
   <meta charset="UTF-8">
   <title>Planning Réalisé – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
   <style>
-  body { margin:0; font-family:Arial,sans-serif; background:#f4f6f8; color:#222; }
-  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
-  header { background:#16a34a; color:#fff; padding:0.6rem 1rem; display:flex; justify-content:space-between; align-items:center; }
-  header h1 { margin:0; font-size:1.3rem; font-weight:800; flex:1; text-align:center; }
-  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
-  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
-  .nav a.active { text-decoration:underline; }
-  .fixed-tools { background:#f8fafc; padding:0.5rem 0.8rem; border-bottom:1px solid #ccc; }
+  /* ══ BARRE FIXE ══ */
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
+
+  /* ══ OUTILS FIXES ══ */
+  .fixed-tools { background:#fff; border-bottom:1px solid #ccc; padding:0.4rem 0.8rem; }
+
+  /* ══ FILTRE DROPDOWN ══ */
+  .filtre-container { position:relative; display:inline-block; }
+  .filtre-btn { padding:5px 10px; border:1px solid #ccc; border-radius:4px; background:#fff; cursor:pointer; font-size:0.9rem; min-width:120px; user-select:none; }
+  .filtre-btn:hover { border-color:#2563eb; }
+  .filtre-dropdown {
+    display:none; position:absolute; top:110%; left:0; z-index:200;
+    background:#fff; border:1px solid #ccc; border-radius:6px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15); min-width:200px; max-height:250px;
+    overflow-y:auto; padding:4px 0;
+  }
+  .filtre-dropdown.open { display:block; }
+  .filtre-dropdown input[type="text"] { width:calc(100% - 16px); margin:6px 8px; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:0.85rem; }
+  .filtre-dropdown label { display:flex; align-items:center; gap:6px; padding:4px 10px; font-size:0.85rem; cursor:pointer; }
+  .filtre-dropdown label:hover { background:#eff6ff; }
+  .filtre-dropdown .select-all { border-bottom:1px solid #eee; font-weight:600; }
+
+  /* ══ JAUGE ══ */
+  .jauge-wrapper { flex:0 0 25%; min-width:200px; display:flex; flex-direction:column; border:1px solid #ccc; border-radius:6px; overflow:hidden; font-size:0.8rem; align-self:stretch; }
+  .jauge-seuils { background:#fff3cd; padding:3px 8px; display:flex; align-items:center; gap:6px; font-size:0.72rem; flex-wrap:wrap; }
+  .jauge-seuils input[type="number"] { width:40px; }
+  .jauge-barre { background:#f0f9ff; padding:4px 8px; display:flex; align-items:center; gap:8px; flex:1; }
+  .jauge-barre-inner { flex:1; position:relative; height:16px; border-radius:10px; overflow:hidden; border:1px solid #333; }
+  .jauge-totaux { background:#d1fae5; font-weight:bold; display:flex; gap:0.5rem; padding:3px 6px; font-size:0.78rem; flex-wrap:wrap; justify-content:space-around; }
+
+  /* ══ CONTENU ══ */
   #planning-wrapper { padding:0.5rem 0.8rem; }
 
-  /* Tableau */
-  table { width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
-  th, td { border:1px solid #ccc; padding:4px 6px; }
-  th { background:#e2e8f0; font-weight:700; }
-  .jour-block { margin-bottom:0.5rem; }
-  .jour-titre { background:#d1fae5; padding:0.3rem 0.6rem; font-weight:700; border-radius:4px; margin-bottom:3px; color:#065f46; }
-  .td-sal { font-weight:700; width:150px; }
-  .td-ch  { width:200px; }
-  .td-h   { text-align:center; width:80px; }
-  .td-depl { text-align:center; width:70px; color:#92400e; }
-  .td-total { text-align:center; width:70px; font-weight:700; color:#2563eb; }
+  /* ══ JOUR BLOCK ══ */
+  .jour-block { margin-bottom:0.6rem; }
+  .jour-titre {
+    background:#d1fae5; color:#065f46;
+    padding:0.3rem 0.6rem; font-weight:700; font-size:0.88rem;
+    border-radius:4px; margin-bottom:3px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .jour-total { font-size:0.82rem; color:#15803d; }
+
+  table.real-table { width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
+  table.real-table th { background:#e2e8f0; border:1px solid #ccc; padding:4px 6px; font-weight:700; }
+  table.real-table td { border:1px solid #ccc; padding:4px 6px; }
+  table.real-table tr:nth-child(even) td { background:#f8fafc; }
+  table.real-table tr:hover td { background:#f0fdf4; }
+  table.real-table tr.ligne-total td { background:#d1fae5; font-weight:700; color:#065f46; }
+  table.real-table tr.ligne-total-sal td { background:#dbeafe; font-weight:700; color:#1d4ed8; }
+
+  .col-sal  { width:140px; font-weight:700; }
+  .col-ch   { min-width:150px; }
+  .col-h    { width:80px; text-align:center; }
+  .col-depl { width:70px; text-align:center; color:#92400e; }
+  .col-tot  { width:70px; text-align:center; font-weight:700; color:#2563eb; }
+
   .badge-val { background:#dcfce7; color:#15803d; border-radius:999px; padding:1px 8px; font-size:0.72rem; font-weight:700; }
   .badge-env { background:#fef3c7; color:#92400e; border-radius:999px; padding:1px 8px; font-size:0.72rem; font-weight:700; }
-  .btn-valider { background:#16a34a; color:#fff; border:none; border-radius:4px; padding:3px 8px; font-size:0.75rem; cursor:pointer; }
+  .btn-valider { background:#16a34a; color:#fff; border:none; border-radius:4px; padding:2px 8px; font-size:0.72rem; cursor:pointer; }
+
   .no-data { color:#9ca3af; font-style:italic; text-align:center; padding:2rem; }
+
+  @media print {
+    .top-bar { position:static; box-shadow:none; }
+    .no-print { display:none !important; }
+    #planning-wrapper { margin-top:0 !important; }
+  }
   </style>
 </head>
 <body>
 
-<div class="top-bar">
-  <header>
-    <div class="entreprise-nom" id="entreprise-nom" style="min-width:120px;font-size:0.9rem;font-weight:700;"></div>
+<div class="top-bar" id="top-bar">
+  <header class="main-header">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
     <h1 class="page-title">Planning Réalisé</h1>
-    <div id="licence-status" style="min-width:120px;text-align:right;font-size:0.8rem;"></div>
+    <div style="display:flex;align-items:center;gap:0.8rem;">
+      <div id="licence-status"></div>
+      <div class="volitis-logo-wrapper" onclick="window.open('https://volitis.net/','_blank')" title="Outil créé par Volitis">
+        <div class="volitis-logo-circle"><img src="assets/volitis-logo.png" alt="Volitis"></div>
+        <span class="volitis-label">Outil créé par Volitis</span>
+      </div>
+    </div>
   </header>
-  <div class="nav">
+
+  <div class="nav no-print">
     <a href="index.html">Entreprise</a>
     <a href="salaries.html">Salariés</a>
     <a href="planning.html">Planning</a>
     <a href="rapports.html">Rapports</a>
     <a href="chantiers.html">Prévisionnel</a>
-
   </div>
-  <div class="fixed-tools">
-    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
-      <label>Mois : <input type="month" id="moisRealise" onchange="chargerRealise()"></label>
-      <label>Salarié :
-        <select id="filtresal" onchange="afficherRealise()">
-          <option value="">Tous</option>
-        </select>
-      </label>
-      <button onclick="window.print()" style="background:#f59e0b;color:#000;border:none;border-radius:4px;padding:5px 12px;font-weight:700;cursor:pointer;">🖨 Imprimer</button>
+
+  <div class="fixed-tools no-print">
+    <div style="display:flex;align-items:flex-end;gap:0.8rem;flex-wrap:nowrap;">
+
+      <!-- Mois -->
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;">Mois :</label><br>
+        <input type="month" id="moisRealise" onchange="chargerRealise()">
+      </div>
+
+      <!-- Filtre salariés -->
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;">Salariés :</label><br>
+        <div class="filtre-container">
+          <div class="filtre-btn" id="btn-sal" onclick="toggleFiltre('sal')">Tous ▼</div>
+          <div class="filtre-dropdown" id="dropdown-sal">
+            <input type="text" placeholder="Rechercher" oninput="rechercherItem('sal',this.value)">
+            <label class="select-all">
+              <input type="checkbox" id="cb-sal-tous" checked onchange="cocherTous('sal',this.checked)">
+              (Sélectionner tout)
+            </label>
+            <div id="liste-sal"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtre chantiers -->
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;">Chantiers :</label><br>
+        <div class="filtre-container">
+          <div class="filtre-btn" id="btn-ch" onclick="toggleFiltre('ch')">Tous ▼</div>
+          <div class="filtre-dropdown" id="dropdown-ch">
+            <input type="text" placeholder="Rechercher" oninput="rechercherItem('ch',this.value)">
+            <label class="select-all">
+              <input type="checkbox" id="cb-ch-tous" checked onchange="cocherTous('ch',this.checked)">
+              (Sélectionner tout)
+            </label>
+            <div id="liste-ch"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <button class="btn-warning no-print" onclick="window.print()" style="background:#f59e0b;color:#000;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;">🖨 Imprimer</button>
+      </div>
+
+      <!-- Espaceur -->
+      <div style="flex:1;"></div>
+
+      <!-- Jauge 1/4 droite -->
+      <div class="jauge-wrapper no-print">
+        <div class="jauge-seuils">
+          <span>Rouge :</span>
+          <input id="limiteRouge" value="33" type="number" min="0" max="100" onchange="sauverSeuils();majJauge()">
+          <span>%</span>
+          <span>Orange :</span>
+          <input id="limiteOrange" value="66" type="number" min="0" max="100" onchange="sauverSeuils();majJauge()">
+          <span>%</span>
+          <input type="checkbox" id="figerSeuils">
+          <label for="figerSeuils" style="font-size:0.72rem;">Figer</label>
+        </div>
+        <div class="jauge-barre">
+          <div id="pct-jauge" style="font-weight:bold;font-size:0.95rem;min-width:38px;">0%</div>
+          <div class="jauge-barre-inner">
+            <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
+            <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
+            <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
+            <div id="curseur"     style="position:absolute;top:-2px;left:0;width:7px;height:20px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
+          </div>
+        </div>
+        <div class="jauge-totaux">
+          <span>Total : <strong id="tot-total">0 h</strong></span>
+          <span>Dépl. : <strong id="tot-depl">0 min</strong></span>
+          <span>Écart : <strong id="tot-ecart" style="color:#16a34a;">—</strong></span>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
-<div id="planning-wrapper" style="margin-top:160px;">
+<!-- Contenu défilant -->
+<div id="planning-wrapper">
   <p class="no-data" id="msg-vide">Choisissez un mois pour afficher le réalisé.</p>
   <div id="contenu-realise"></div>
 </div>
@@ -68,34 +187,56 @@
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
 <script>
-let _saisies = [];
+let _saisies  = [];
 let _salaries = [];
+let _cochésSal = new Set();
+let _cochesCh  = new Set();
+let _tousSals  = [];
+let _tousChs   = [];
 
+/* ══ INIT ══ */
 window.addEventListener('DOMContentLoaded', () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
 
   _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-  const sel = document.getElementById('filtresal');
-  _salaries.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id; opt.textContent = `${s.prenom} ${s.nom}`;
-    sel.appendChild(opt);
-  });
 
   const now = new Date();
   document.getElementById('moisRealise').value =
     `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  // Charger les seuils partagés avec le planning
+  const r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
+  const o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
+  document.getElementById('limiteRouge').value  = r;
+  document.getElementById('limiteOrange').value = o;
+  const fige = localStorage.getItem('jaugeFige') === '1';
+  document.getElementById('figerSeuils').checked = fige;
+
+  ajusterMarginTop();
+  window.addEventListener('resize', ajusterMarginTop);
   chargerRealise();
+
+  // Fermer dropdowns si clic extérieur
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.filtre-container')) {
+      document.querySelectorAll('.filtre-dropdown').forEach(d => d.classList.remove('open'));
+    }
+  });
 });
 
+function ajusterMarginTop() {
+  const bar = document.getElementById('top-bar');
+  const wrap = document.getElementById('planning-wrapper');
+  if (bar && wrap) wrap.style.marginTop = bar.offsetHeight + 'px';
+}
+
+/* ══ CHARGEMENT ══ */
 async function chargerRealise() {
   const mois  = document.getElementById('moisRealise').value;
   if (!mois) return;
 
-  const token = (typeof SYNC !== 'undefined' && SYNC.getToken())
-    || localStorage.getItem('syncToken');
-
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken()) || localStorage.getItem('syncToken');
   if (!token) { _saisies = []; afficherRealise(); return; }
 
   try {
@@ -104,23 +245,90 @@ async function chargerRealise() {
     });
     const d = await r.json();
     _saisies = d.ok ? d.saisies : [];
-  } catch {
-    _saisies = [];
-  }
+  } catch { _saisies = []; }
+
+  // Construire les listes de filtres
+  _tousSals = [...new Set(_saisies.map(s => s.salarieNom))].sort();
+  _tousChs  = [...new Set(_saisies.flatMap(s => (s.chantiers||[]).map(c => c.nom)))].sort();
+  _cochésSal = new Set(_tousSals);
+  _cochesCh  = new Set(_tousChs);
+
+  remplirFiltre('sal', _tousSals);
+  remplirFiltre('ch',  _tousChs);
   afficherRealise();
 }
 
+/* ══ FILTRES ══ */
+function toggleFiltre(type) {
+  const dd = document.getElementById('dropdown-' + type);
+  document.querySelectorAll('.filtre-dropdown').forEach(d => {
+    if (d !== dd) d.classList.remove('open');
+  });
+  dd.classList.toggle('open');
+  setTimeout(ajusterMarginTop, 10);
+}
+
+function remplirFiltre(type, valeurs) {
+  const cont = document.getElementById('liste-' + type);
+  const coches = type === 'sal' ? _cochésSal : _cochesCh;
+  cont.innerHTML = valeurs.map(v => `
+    <label>
+      <input type="checkbox" ${coches.has(v) ? 'checked' : ''}
+        onchange="majFiltre('${type}','${v.replace(/'/g,"\\'")}',this.checked)">
+      ${v}
+    </label>`).join('');
+}
+
+function rechercherItem(type, terme) {
+  const valeurs = type === 'sal' ? _tousSals : _tousChs;
+  const coches  = type === 'sal' ? _cochésSal : _cochesCh;
+  const t = terme.toLowerCase();
+  const cont = document.getElementById('liste-' + type);
+  cont.innerHTML = valeurs.filter(v => v.toLowerCase().includes(t)).map(v => `
+    <label>
+      <input type="checkbox" ${coches.has(v) ? 'checked' : ''}
+        onchange="majFiltre('${type}','${v.replace(/'/g,"\\'")}',this.checked)">
+      ${v}
+    </label>`).join('');
+}
+
+function majFiltre(type, val, coche) {
+  const coches = type === 'sal' ? _cochésSal : _cochesCh;
+  if (coche) coches.add(val); else coches.delete(val);
+  majBtnFiltre(type);
+  afficherRealise();
+}
+
+function cocherTous(type, coche) {
+  const valeurs = type === 'sal' ? _tousSals : _tousChs;
+  const coches  = type === 'sal' ? _cochésSal : _cochesCh;
+  valeurs.forEach(v => { if (coche) coches.add(v); else coches.delete(v); });
+  remplirFiltre(type, valeurs);
+  majBtnFiltre(type);
+  afficherRealise();
+}
+
+function majBtnFiltre(type) {
+  const btn    = document.getElementById('btn-' + type);
+  const coches = type === 'sal' ? _cochésSal : _cochesCh;
+  const tous   = type === 'sal' ? _tousSals  : _tousChs;
+  btn.textContent = (coches.size === tous.length) ? 'Tous ▼' : coches.size + ' sél. ▼';
+  btn.style.color = (coches.size === tous.length) ? '' : '#2563eb';
+  btn.style.fontWeight = (coches.size === tous.length) ? '' : '700';
+}
+
+/* ══ AFFICHAGE ══ */
 function afficherRealise() {
-  const filtreSal = document.getElementById('filtresal').value;
   const cont = document.getElementById('contenu-realise');
   const msgV = document.getElementById('msg-vide');
 
-  let saisies = _saisies;
-  if (filtreSal) saisies = saisies.filter(s => s.salarieId == filtreSal);
+  // Filtrer les saisies
+  const saisies = _saisies.filter(s => _cochésSal.has(s.salarieNom));
 
   if (!saisies.length) {
     msgV.style.display = '';
     cont.innerHTML = '';
+    majJauge(0, 0);
     return;
   }
   msgV.style.display = 'none';
@@ -132,65 +340,152 @@ function afficherRealise() {
     parDate[s.date].push(s);
   });
 
+  let grandTotalMin = 0, grandDeplMin = 0;
+
   cont.innerHTML = Object.keys(parDate).sort().map(date => {
     const d = new Date(date + 'T00:00:00');
-    const label = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
-    const lignes = parDate[date];
+    const label = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
-    const rows = lignes.map(s => {
-      const chantiers = (s.chantiers || []).map(c => {
-        const h = Math.floor(c.dureeMin / 60);
-        const m = c.dureeMin % 60;
-        const duree = `${h}h${String(m).padStart(2,'0')}`;
-        const deplStr = c.deplacement ? `${c.deplacement} min` : '—';
-        const total = c.dureeMin + (c.deplacement || 0);
-        const th = Math.floor(total/60), tm = total%60;
-        return `<tr>
-          <td class="td-sal">${s.salarieNom}</td>
-          <td class="td-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
-          <td class="td-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
-          <td class="td-h">${duree}</td>
-          <td class="td-depl">${deplStr}</td>
-          <td class="td-total">${th}h${String(tm).padStart(2,'0')}</td>
-          <td style="text-align:center;">
-            ${s.statut === 'validee'
-              ? '<span class="badge-val">✔ Validé</span>'
-              : `<button class="btn-valider" onclick="validerSaisie('${s._id}')">Valider</button>`}
-          </td>
+    let jourTotalMin = 0, jourDeplMin = 0;
+    let rows = '';
+
+    parDate[date].forEach(s => {
+      const chantiersFiltres = (s.chantiers || []).filter(c => _cochesCh.has(c.nom));
+      if (!chantiersFiltres.length) return;
+
+      let salTotalMin = 0, salDeplMin = 0;
+
+      chantiersFiltres.forEach(c => {
+        if (!_cochesCh.has(c.nom)) return;
+        const hh = Math.floor(c.dureeMin / 60), mm = c.dureeMin % 60;
+        const totMin = c.dureeMin + (c.deplacement || 0);
+        const th = Math.floor(totMin / 60), tm = totMin % 60;
+        salTotalMin += c.dureeMin;
+        salDeplMin  += c.deplacement || 0;
+
+        rows += `<tr>
+          <td class="col-sal">${s.salarieNom}</td>
+          <td class="col-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
+          <td class="col-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
+          <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>
+          <td class="col-depl">${c.deplacement ? c.deplacement + ' min' : '—'}</td>
+          <td class="col-tot">${th}h${String(tm).padStart(2,'0')}</td>
+
         </tr>`;
-      }).join('');
-      return chantiers;
-    }).join('');
+      });
+
+      // Ligne total salarié
+      if (chantiersFiltres.length > 1) {
+        const th = Math.floor((salTotalMin + salDeplMin)/60);
+        const tm = (salTotalMin + salDeplMin) % 60;
+        rows += `<tr class="ligne-total-sal">
+          <td colspan="3" style="text-align:right;">Total ${s.salarieNom}</td>
+          <td class="col-h">${Math.floor(salTotalMin/60)}h${String(salTotalMin%60).padStart(2,'0')}</td>
+          <td class="col-depl">${salDeplMin ? salDeplMin + ' min' : '—'}</td>
+          <td class="col-tot">${th}h${String(tm).padStart(2,'0')}</td>
+          <td></td>
+        </tr>`;
+      }
+
+      jourTotalMin += salTotalMin;
+      jourDeplMin  += salDeplMin;
+    });
+
+    if (!rows) return '';
+
+    grandTotalMin += jourTotalMin;
+    grandDeplMin  += jourDeplMin;
+
+    const jth = Math.floor((jourTotalMin + jourDeplMin)/60);
+    const jtm = (jourTotalMin + jourDeplMin) % 60;
 
     return `<div class="jour-block">
-      <div class="jour-titre">${label.charAt(0).toUpperCase() + label.slice(1)}</div>
-      <table>
+      <div class="jour-titre">
+        <span>${label.charAt(0).toUpperCase() + label.slice(1)}</span>
+        <span class="jour-total">Total : ${jth}h${String(jtm).padStart(2,'0')}</span>
+      </div>
+      <table class="real-table">
         <thead><tr>
-          <th class="td-sal">Salarié</th>
-          <th class="td-ch">Chantier</th>
-          <th class="td-h">Horaires</th>
-          <th class="td-h">Durée</th>
-          <th class="td-depl">Déplacement</th>
-          <th class="td-total">Total</th>
-          <th style="width:80px;">Statut</th>
+          <th class="col-sal">Salarié</th>
+          <th class="col-ch">Chantier</th>
+          <th class="col-h">Horaires</th>
+          <th class="col-h">Durée</th>
+          <th class="col-depl">Déplacement</th>
+          <th class="col-tot">Total</th>
+
         </tr></thead>
         <tbody>${rows}</tbody>
+        <tfoot>
+          <tr class="ligne-total">
+            <td colspan="3" style="text-align:right;">Total journée</td>
+            <td class="col-h">${Math.floor(jourTotalMin/60)}h${String(jourTotalMin%60).padStart(2,'0')}</td>
+            <td class="col-depl">${jourDeplMin ? jourDeplMin + ' min' : '—'}</td>
+            <td class="col-tot">${jth}h${String(jtm).padStart(2,'0')}</td>
+
+          </tr>
+        </tfoot>
       </table>
     </div>`;
   }).join('');
+
+  // Mettre à jour la jauge et les totaux
+  majJauge(grandTotalMin, grandDeplMin);
+  setTimeout(ajusterMarginTop, 50);
 }
 
-async function validerSaisie(id) {
-  const token = (typeof SYNC !== 'undefined' && SYNC.getToken()) || localStorage.getItem('syncToken');
-  try {
-    const r = await fetch(`/api/saisies/${id}/valider`, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const d = await r.json();
-    if (d.ok) chargerRealise();
-  } catch (e) { alert('Erreur : ' + e.message); }
+/* ══ SEUILS ══ */
+function sauverSeuils() {
+  localStorage.setItem('jaugeRouge',  document.getElementById('limiteRouge').value);
+  localStorage.setItem('jaugeOrange', document.getElementById('limiteOrange').value);
+  localStorage.setItem('jaugeFige',   document.getElementById('figerSeuils').checked ? '1' : '0');
 }
+
+/* ══ JAUGE ══ */
+function majJauge(totalMin = 0, deplMin = 0) {
+  // Calculer les heures prévues du mois pour comparer
+  const mois = document.getElementById('moisRealise').value;
+  let prevMin = 0;
+  if (mois) {
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const [a, m] = mois.split('-').map(Number);
+    const nbJours = new Date(a, m, 0).getDate();
+    const noms = ['dim','lun','mar','mer','jeu','ven','sam'];
+    sals.forEach(s => {
+      const hp = s.heuresParJour || {};
+      for (let j = 1; j <= nbJours; j++) {
+        const dj = new Date(a, m-1, j);
+        if (dj.getDay() === 0) continue;
+        const entree = s.dateEntree ? new Date(s.dateEntree) : null;
+        const sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
+        if (entree && dj < entree) continue;
+        if (sortie && dj > sortie) continue;
+        prevMin += (parseFloat(hp[noms[dj.getDay()]] || 0)) * 60;
+      }
+    });
+  }
+
+  const totalH = (totalMin / 60).toFixed(1);
+  const deplH  = deplMin;
+  const pct    = prevMin > 0 ? Math.min(100, Math.round((totalMin / prevMin) * 100)) : 0;
+  const ecart  = prevMin > 0 ? ((totalMin - prevMin) / 60).toFixed(1) : null;
+
+  document.getElementById('tot-total').textContent = totalH + ' h';
+  document.getElementById('tot-depl').textContent  = deplH + ' min';
+  document.getElementById('tot-ecart').textContent = ecart !== null ? (ecart >= 0 ? '+' : '') + ecart + ' h' : '—';
+  document.getElementById('tot-ecart').style.color = ecart !== null ? (ecart >= 0 ? '#16a34a' : '#dc2626') : '#6b7280';
+
+  const r = parseInt(document.getElementById('limiteRouge').value)  || 33;
+  const o = parseInt(document.getElementById('limiteOrange').value) || 66;
+  document.getElementById('zone-rouge').style.width  = r + '%';
+  document.getElementById('zone-orange').style.left  = r + '%';
+  document.getElementById('zone-orange').style.width = (o - r) + '%';
+  document.getElementById('zone-verte').style.left   = o + '%';
+  document.getElementById('zone-verte').style.width  = (100 - o) + '%';
+  document.getElementById('curseur').style.left      = `calc(${pct}% - 3px)`;
+  document.getElementById('pct-jauge').textContent   = pct + '%';
+}
+
+
 </script>
 </body>
 </html>

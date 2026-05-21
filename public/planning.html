@@ -184,12 +184,12 @@
         <!-- Paramètres seuils -->
         <div style="background:#fff3cd;padding:3px 8px;display:flex;align-items:center;gap:6px;font-size:0.72rem;flex-wrap:wrap;flex:0;">
           <span>Rouge :</span>
-          <input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:40px;" onchange="majZonesJauge()">
+          <input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:40px;" onchange="majZonesJauge();sauverSeuilsLS()">
           <span>%</span>
           <span>Orange :</span>
-          <input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:40px;" onchange="majZonesJauge()">
+          <input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:40px;" onchange="majZonesJauge();sauverSeuilsLS()">
           <span>%</span>
-          <input type="checkbox" id="figerSeuils" onchange="majEtatFiger()">
+          <input type="checkbox" id="figerSeuils" onchange="majEtatFiger();sauverSeuilsLS()">
           <label for="figerSeuils">Figer</label>
         </div>
 
@@ -304,6 +304,12 @@ function majBoutonFiltre() {
 }
 
 /* ====== JAUGE ====== */
+function sauverSeuilsLS() {
+  localStorage.setItem('jaugeRouge',  document.getElementById('limiteRouge').value);
+  localStorage.setItem('jaugeOrange', document.getElementById('limiteOrange').value);
+  localStorage.setItem('jaugeFige',   document.getElementById('figerSeuils').checked ? '1' : '0');
+}
+
 function majZonesJauge() {
   const rouge  = Math.max(0, Math.min(parseFloat(document.getElementById('limiteRouge').value)  || 33, 100));
   const orange = Math.max(rouge, Math.min(parseFloat(document.getElementById('limiteOrange').value) || 66, 100));
