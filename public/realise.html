@@ -92,8 +92,12 @@ window.addEventListener('DOMContentLoaded', () => {
 async function chargerRealise() {
   const mois  = document.getElementById('moisRealise').value;
   if (!mois) return;
-  const token = SYNC.getToken();
-  if (!token) { afficherRealise([]); return; }
+
+  // Essayer d'abord avec le token licence, sinon avec le token stocké
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken())
+    || localStorage.getItem('syncToken');
+
+  if (!token) { _saisies = []; afficherRealise(); return; }
 
   try {
     const r = await fetch(`/api/saisies/${mois}`, {
@@ -178,7 +182,7 @@ function afficherRealise() {
 }
 
 async function validerSaisie(id) {
-  const token = SYNC.getToken();
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken()) || localStorage.getItem('syncToken');
   try {
     const r = await fetch(`/api/saisies/${id}/valider`, {
       method: 'PATCH',

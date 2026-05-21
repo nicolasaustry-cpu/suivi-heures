@@ -19,7 +19,7 @@ const SYNC = (() => {
 
   // Pages réservées Licence +
   // saisie.html est accessible sans licence (auth par PIN salarié)
-  const PAGES_PLUS = ['realise.html', 'rapports-realise.html'];
+  const PAGES_PLUS = ['realise.html'];
   // Pages totalement libres (pas de vérification licence)
   const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
 
@@ -199,9 +199,8 @@ const SYNC = (() => {
     if (_type === 'plus') {
       const page = pageActuelle();
       const liens = [
-        { href: 'saisie.html',          label: 'Saisie mobile' },
-        { href: 'realise.html',         label: 'Planning réalisé' },
-        { href: 'rapports-realise.html', label: 'Rapports réalisé' },
+        { href: 'saisie.html',  label: 'Saisie mobile' },
+        { href: 'realise.html', label: 'Planning réalisé' },
       ];
       liens.forEach(l => {
         const a = document.createElement('a');
