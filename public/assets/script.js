@@ -126,7 +126,8 @@ function ouvrirModifSalarie(id) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
   const h = sal.heuresParJour || {};
-  // Créer ou afficher la modale
+  const jours = ['lun','mar','mer','jeu','ven','sam'];
+
   let modale = document.getElementById('modale-modif-sal');
   if (!modale) {
     modale = document.createElement('div');
@@ -134,27 +135,33 @@ function ouvrirModifSalarie(id) {
     modale.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
     document.body.appendChild(modale);
   }
-  modale.innerHTML = \`
-    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
-      <h3 style="margin:0 0 1rem;color:#374151;">✏ Modifier \${sal.prenom} \${sal.nom}</h3>
-      <p style="font-size:0.85rem;color:#6b7280;margin-bottom:0.8rem;">Heures contractuelles par jour</p>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem;">
-        \${['lun','mar','mer','jeu','ven','sam'].map(j => \`
-          <div style="text-align:center;">
-            <label style="font-size:0.78rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">\${j.charAt(0).toUpperCase()+j.slice(1)}</label>
-            <input type="number" id="modif-\${j}" value="\${h[j] ?? 0}" min="0" max="12" step="0.5"
-              style="width:100%;text-align:center;border:1px solid #d1d5db;border-radius:6px;padding:5px 2px;font-size:0.9rem;">
-          </div>\`).join('')}
-      </div>
-      <div style="display:flex;gap:0.8rem;justify-content:flex-end;">
-        <button class="btn" onclick="document.getElementById('modale-modif-sal').style.display='none'"
-          style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>
-        <button class="btn btn-success" onclick="sauverModifSalarie(${id})" style="padding:7px 16px;">✔ Sauvegarder</button>
-      </div>
-    </div>
-  \`;
+
+  // Construire les inputs sans template imbriqué
+  let inputsHTML = '';
+  jours.forEach(function(j) {
+    const label = j.charAt(0).toUpperCase() + j.slice(1);
+    const val   = h[j] !== undefined ? h[j] : 0;
+    inputsHTML += '<div style="text-align:center;">'
+      + '<label style="font-size:0.78rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">' + label + '</label>'
+      + '<input type="number" id="modif-' + j + '" value="' + val + '" min="0" max="12" step="0.5"'
+      + ' style="width:100%;text-align:center;border:1px solid #d1d5db;border-radius:6px;padding:5px 2px;font-size:0.9rem;">'
+      + '</div>';
+  });
+
+  modale.innerHTML = '<div style="background:#fff;border-radius:12px;padding:1.5rem;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">'
+    + '<h3 style="margin:0 0 1rem;color:#374151;">✏ Modifier ' + sal.prenom + ' ' + sal.nom + '</h3>'
+    + '<p style="font-size:0.85rem;color:#6b7280;margin-bottom:0.8rem;">Heures contractuelles par jour</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem;">'
+    + inputsHTML
+    + '</div>'
+    + '<div style="display:flex;gap:0.8rem;justify-content:flex-end;">'
+    + '<button class="btn" onclick="document.getElementById('modale-modif-sal').style.display='none'"'
+    + ' style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>'
+    + '<button class="btn btn-success" onclick="sauverModifSalarie(' + id + ')" style="padding:7px 16px;">✔ Sauvegarder</button>'
+    + '</div></div>';
+
   modale.style.display = 'flex';
-  modale.onclick = e => { if (e.target === modale) modale.style.display = 'none'; };
+  modale.onclick = function(e) { if (e.target === modale) modale.style.display = 'none'; };
 }
 
 function sauverModifSalarie(id) {
