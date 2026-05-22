@@ -86,11 +86,13 @@
     .no-print { display:none !important; }
     .top-bar { position:static; box-shadow:none; }
     #planning-wrapper { margin-top:0; }
-    /* Un jour ne doit jamais être coupé entre deux pages */
-    .jour-block { page-break-inside:avoid; break-inside:avoid; page-break-after:auto; }
+    /* Un jour ne doit JAMAIS être coupé entre deux pages */
+    .jour-block, .jour-block * { page-break-inside:avoid !important; break-inside:avoid !important; }
+    .jour-block { page-break-after:auto; display:block; }
+    .jour-block table, .jour-block tr, .jour-block thead, .jour-block tbody { page-break-inside:avoid !important; break-inside:avoid !important; }
     /* Le tableau garde la largeur de ses colonnes (pas d'étirement) ;
        c'est le zoom JS qui agrandit l'ensemble si des colonnes sont masquées */
-    .jour-block table { width:auto !important; table-layout:fixed; }
+    .jour-block table { width:auto !important; table-layout:fixed; margin:0 auto; }
     .col-abs, .col-prevu, .col-ecart,
     th.col-abs, th.col-prevu, th.col-ecart,
     td.cell-abs, td.cell-prevu, td.cell-ecart { display:none !important; }
@@ -701,23 +703,28 @@ function imprimerSemaine() {
   });
 
   // Calcul du facteur de zoom : on agrandit le tableau proportionnellement
-  // à la largeur "perdue" par les colonnes décochées.
+  // à la largeur "perdue" par les colonnes décochées, +50% pour bien remplir.
   // Largeur d'origine = 150 (Salariés) + 5×210 (Ch) + 55 (Total) = 1255 px
   // Largeur restante  = 150 + nbChCoches×210 + 55
   const LARG_ORIG = 1255;
   const largRestante = 150 + nbChCoches * 210 + 55;
-  const zoom = nbChCoches > 0 ? (LARG_ORIG / largRestante) : 1;
+  let zoom = nbChCoches > 0 ? (LARG_ORIG / largRestante) : 1;
+  // Bonus +50% : seulement quand des colonnes sont masquées
+  if (nbChCoches > 0 && nbChCoches < 5) zoom *= 1.5;
 
-  // Appliquer le zoom sur le contenu imprimable
+  // Appliquer le zoom sur le contenu imprimable, centré horizontalement
   const wrapper = document.getElementById('planning-wrapper');
   const ancienTransform       = wrapper.style.transform;
   const ancienTransformOrigin = wrapper.style.transformOrigin;
   const ancienWidth           = wrapper.style.width;
+  const ancienMargin          = wrapper.style.margin;
   if (zoom > 1) {
-    wrapper.style.transformOrigin = 'top left';
+    wrapper.style.transformOrigin = 'top center';
     wrapper.style.transform = 'scale(' + zoom + ')';
-    // Compenser pour que le contenu zoomé tienne sur la largeur de la page
     wrapper.style.width = (100 / zoom) + '%';
+    wrapper.style.margin = '0 auto';
+  } else {
+    wrapper.style.margin = '0 auto';
   }
 
   const restaurer = () => {
@@ -726,6 +733,7 @@ function imprimerSemaine() {
     wrapper.style.transform       = ancienTransform;
     wrapper.style.transformOrigin = ancienTransformOrigin;
     wrapper.style.width           = ancienWidth;
+    wrapper.style.margin          = ancienMargin;
   };
 
   if (!semaine) {
