@@ -174,9 +174,18 @@
 
   /* ── PIN ── */
   .pin-screen {
-    position: fixed; inset: 0; background: #2563eb; z-index: 300;
+    position: absolute; inset: 0; background: #2563eb; z-index: 300;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 2rem;
+  }
+  /* Sur desktop : pin-screen dans le cadre téléphone */
+  @media (min-width: 600px) {
+    .pin-screen {
+      position: relative;
+      min-height: 700px;
+      border-radius: 28px;
+    }
+    .phone-container { position: relative; overflow: hidden; }
   }
   .pin-screen h2 { color: #fff; font-size: 1.2rem; margin-bottom: 0.5rem; }
   .pin-screen p  { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-bottom: 1.5rem; }
@@ -291,6 +300,11 @@
                border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
         ⬇ Installer
       </button>
+      <button id="btn-sortie" onclick="window.location.href='index.html'"
+        style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
+               border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;">
+        ← Sortir
+      </button>
       <button onclick="seDeconnecter()"
         style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
                border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
@@ -372,6 +386,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const dd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('date-saisie').value = dd;
   document.getElementById('date-saisie').addEventListener('change', chargerChantiersPrev);
+
+  // Afficher le bouton Sortie uniquement sur desktop
+  if (window.innerWidth >= 600) {
+    const btnSortie = document.getElementById('btn-sortie');
+    if (btnSortie) btnSortie.style.display = 'block';
+  }
 
   // Si code employé mémorisé → reconnecter automatiquement sans redemander
   const codeMemorize = localStorage.getItem('saisie_codeEmploye');
