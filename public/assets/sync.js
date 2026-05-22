@@ -139,15 +139,32 @@ const SYNC = (() => {
       const aDesDonneesServeur = serveur.salaries?.length > 0
         || Object.keys(serveur.heures || {}).length > 0;
 
-      if (aDesDonneesLocales && !aDesDonneesServeur) {
-        await sauvegarderTout();
-        afficherNotif('✔ Données synchronisées', '#16a34a');
-      } else if (aDesDonneesServeur) {
-        if (serveur.entreprise)   localStorage.setItem('entreprisedata',    JSON.stringify(serveur.entreprise));
-        if (serveur.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries));
-        if (serveur.heures)       localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures));
-        if (serveur.chantiers)    localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers));
-        if (serveur.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(serveur.previsionnel));
+      // Vérifier si on est en mode admin (consultation d'un client)
+      const urlParams = new URLSearchParams(window.location.search);
+      const modeAdmin = urlParams.get('admin') === '1';
+
+      if (aDesDonneesLocales && !aDesDonneesServeur && !modeAdmin) {
+        // Seulement sauvegarder si ce ne sont PAS des données d'un autre client
+        const localClientId = localStorage.getItem('syncClientId');
+        if (localClientId === _clientId) {
+          await sauvegarderTout();
+          afficherNotif('✔ Données synchronisées', '#16a34a');
+        } else {
+          // Données d'un autre client — ne pas écraser le serveur, charger depuis le serveur
+          localStorage.setItem('entreprisedata',    JSON.stringify(serveur.entreprise || {}));
+          localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries   || []));
+          localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures     || {}));
+          localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers  || []));
+          localStorage.setItem('previsionnel_data', JSON.stringify(serveur.previsionnel || {}));
+          window.dispatchEvent(new Event('donnees-chargees'));
+        }
+      } else {
+        // Toujours écraser le localStorage avec les données du serveur
+        localStorage.setItem('entreprisedata',    JSON.stringify(serveur.entreprise || {}));
+        localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries   || []));
+        localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures     || {}));
+        localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers  || []));
+        localStorage.setItem('previsionnel_data', JSON.stringify(serveur.previsionnel || {}));
         window.dispatchEvent(new Event('donnees-chargees'));
       }
     } catch {
