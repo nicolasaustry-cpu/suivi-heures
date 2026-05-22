@@ -33,8 +33,11 @@ html, body {
 
 /* ═══════════════════════════════════════════════════════════════
    HEADER VOLITIS
-   ═══════════════════════════════════════════════════════════════ */
-.main-header {
+   ═══════════════════════════════════════════════════════════════
+   On préfixe par body pour battre `header.main-header` (spécificité 0,0,1,1)
+   redéclaré dans certaines pages inline. body.main-header → (0,0,1,2). */
+body header.main-header,
+body .main-header {
   background: var(--vol-bleu) !important;
   color: #fff !important;
   border-bottom: 3px solid var(--vol-ambre) !important;
@@ -42,79 +45,95 @@ html, body {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 16px;
+  gap: 16px !important;
   position: relative;
   z-index: 10;
+  min-height: 0 !important;
 }
 
 /* Bloc identité à gauche : logo + nom outil + baseline */
-.main-header .vol-identite {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
+body header.main-header .vol-identite,
+body .main-header .vol-identite {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
 }
-.main-header .vol-identite img.vol-logo {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  background: #fff;
-  border-radius: 6px;
-  padding: 3px;
-  box-sizing: border-box;
+body header.main-header .vol-identite img.vol-logo,
+body .main-header .vol-identite img.vol-logo {
+  width: 40px !important;
+  height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  flex-shrink: 0 !important;
+  background: #fff !important;
+  border-radius: 6px !important;
+  padding: 3px !important;
+  box-sizing: border-box !important;
+  display: block !important;
 }
-.main-header .vol-identite .vol-titres {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  min-width: 0;
+body header.main-header .vol-identite .vol-titres,
+body .main-header .vol-identite .vol-titres {
+  display: flex !important;
+  flex-direction: column !important;
+  line-height: 1.15 !important;
+  min-width: 0 !important;
+  gap: 0 !important;
 }
-.main-header .vol-identite .vol-marque {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--vol-bleu-pale);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+body header.main-header .vol-identite .vol-marque,
+body .main-header .vol-identite .vol-marque {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: var(--vol-bleu-pale) !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
 }
-.main-header .vol-identite .vol-nom {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
+body header.main-header .vol-identite .vol-nom,
+body .main-header .vol-identite .vol-nom {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #fff !important;
 }
-.main-header .vol-identite .vol-baseline {
-  font-size: 11px;
-  color: var(--vol-bleu-pale);
-  font-style: italic;
-  margin-top: 1px;
+body header.main-header .vol-identite .vol-baseline,
+body .main-header .vol-identite .vol-baseline {
+  font-size: 11px !important;
+  color: var(--vol-bleu-pale) !important;
+  font-style: italic !important;
+  margin-top: 1px !important;
 }
 
 /* Centre du header : titre de la page */
-.main-header .page-title {
+body header.main-header .page-title,
+body .main-header .page-title {
   flex: 1 1 auto !important;
   text-align: center !important;
   margin: 0 !important;
   font-size: 1.15rem !important;
   font-weight: 600 !important;
   color: #fff !important;
-  letter-spacing: 0.02em;
-  min-width: 0;
+  letter-spacing: 0.02em !important;
+  min-width: 0 !important;
 }
 
 /* Bloc droite : entreprise + licence */
-.main-header .vol-droite {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-shrink: 0;
+body header.main-header .vol-droite,
+body .main-header .vol-droite {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  flex: 0 0 auto !important;
 }
-.main-header .entreprise-nom {
-  text-align: right;
+body header.main-header .entreprise-nom,
+body .main-header .entreprise-nom {
+  text-align: right !important;
   font-size: 13px !important;
   font-weight: 600 !important;
   color: #fff !important;
   min-width: auto !important;
 }
-.main-header .entreprise-nom::before {
+body header.main-header .entreprise-nom::before,
+body .main-header .entreprise-nom::before {
   content: "ENTREPRISE";
   display: block;
   font-size: 9px;
@@ -125,28 +144,24 @@ html, body {
 }
 
 /* Badge licence */
-#licence-status {
+body #licence-status {
   font-size: 11px !important;
   font-weight: 600 !important;
   padding: 5px 11px !important;
   border-radius: 3px !important;
-  letter-spacing: 0.04em;
-  background: var(--vol-success);
-  color: #fff;
-  white-space: nowrap;
+  letter-spacing: 0.04em !important;
+  background: var(--vol-success) !important;
+  color: #fff !important;
+  white-space: nowrap !important;
+  display: inline-block !important;
 }
-/* État inactif (texte rouge présent dans le code existant) */
-#licence-status:has(span[style*="fca5a5"]),
-#licence-status[data-licence="0"] {
-  background: var(--vol-danger);
-}
-/* Pour les ::before/spans HTML existants : on cache pour homogénéiser, le badge en CSS prend le relais via le texte */
-#licence-status span { color: #fff !important; font-size: 11px !important; }
+body #licence-status span { color: #fff !important; font-size: 11px !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    NAVIGATION EN ONGLETS (style Direction B)
    ═══════════════════════════════════════════════════════════════ */
-.nav {
+body .nav,
+body div.nav {
   background: #fff !important;
   border-bottom: 1px solid var(--vol-gris-bord) !important;
   padding: 0 22px !important;
@@ -156,7 +171,8 @@ html, body {
   top: 0 !important;
   margin: 0 !important;
 }
-.nav a {
+body .nav a,
+body div.nav a {
   padding: 13px 18px !important;
   font-size: 13px !important;
   font-weight: 500 !important;
@@ -164,23 +180,27 @@ html, body {
   border-bottom: 3px solid transparent !important;
   border-radius: 0 !important;
   text-decoration: none !important;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s !important;
+  background: transparent !important;
 }
-.nav a:hover {
+body .nav a:hover,
+body div.nav a:hover {
   background: var(--vol-gris-card) !important;
   color: var(--vol-bleu) !important;
 }
-.nav a.active {
+body .nav a.active,
+body div.nav a.active {
   color: var(--vol-bleu) !important;
   font-weight: 700 !important;
   border-bottom-color: var(--vol-ambre) !important;
   background: transparent !important;
   text-decoration: none !important;
 }
-.nav a.nav-plus {
+body .nav a.nav-plus,
+body div.nav a.nav-plus {
   color: var(--vol-success) !important;
   font-weight: 700 !important;
-  margin-left: auto;
+  margin-left: auto !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════
