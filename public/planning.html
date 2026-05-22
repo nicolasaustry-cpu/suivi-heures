@@ -226,10 +226,10 @@
       <div style="flex:1;"></div>
 
       <!-- Jauge circulaire compacte : 1/4 droite -->
-      <div style="flex:0 0 25%;min-width:240px;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;align-self:stretch;">
+      <div style="flex:0 0 25%;min-width:280px;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;align-self:stretch;">
 
         <!-- Arc gauge -->
-        <svg viewBox="0 0 100 65" width="110" height="72" style="flex-shrink:0;">
+        <svg viewBox="0 0 100 65" width="150" height="98" style="flex-shrink:0;">
           <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-rouge"  d="" fill="none" stroke="#dc2626" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
@@ -238,21 +238,17 @@
           <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
         </svg>
 
-        <!-- Lignes de totaux à droite -->
-        <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;font-size:0.78rem;">
-          <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
+        <!-- Lignes de totaux à droite (sans Absence) -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;font-size:0.8rem;">
+          <div style="display:flex;justify-content:space-between;padding:4px 9px;background:#f8fafc;border-radius:4px;">
             <span style="color:#64748b;font-weight:600;">Réalisé</span>
             <span id="tot-total" style="font-weight:700;color:#0f172a;">0 h</span>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
-            <span style="color:#64748b;font-weight:600;">Absence</span>
-            <span id="tot-abs" style="font-weight:700;color:#0f172a;">0 h</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
+          <div style="display:flex;justify-content:space-between;padding:4px 9px;background:#f8fafc;border-radius:4px;">
             <span style="color:#64748b;font-weight:600;">Prévu</span>
             <span id="tot-prev" style="font-weight:700;color:#0f172a;">0 h</span>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:3px 8px;border-radius:4px;" id="ligne-ecart">
+          <div style="display:flex;justify-content:space-between;padding:4px 9px;border-radius:4px;" id="ligne-ecart">
             <span style="font-weight:600;">Écart</span>
             <span id="tot-ecart" style="font-weight:700;">0 h</span>
           </div>
@@ -632,7 +628,6 @@ function majTotauxGlobaux() {
 
   const ec = totT - totP;
   document.getElementById('tot-total').textContent = totT.toFixed(1) + ' h';
-  document.getElementById('tot-abs').textContent   = totA.toFixed(1) + ' h';
   document.getElementById('tot-prev').textContent  = totP.toFixed(1) + ' h';
   const ligneEcart = document.getElementById('ligne-ecart');
   const tdEcart    = document.getElementById('tot-ecart');
