@@ -262,13 +262,25 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (modeAdmin && clientCode) {
     const clientToken = sessionStorage.getItem('clientToken');
+    const clientId    = sessionStorage.getItem('clientId');
     const clientNom   = sessionStorage.getItem('clientNom') || clientCode;
-    if (clientToken) {
+    const clientType  = sessionStorage.getItem('clientType') || 'standard';
+    if (clientToken && clientId) {
+      // Vider localStorage et charger les données du client consulté
+      const keysToKeep = ['admin_token'];
+      Object.keys(localStorage).forEach(k => {
+        if (!keysToKeep.includes(k)) localStorage.removeItem(k);
+      });
+      // Stocker le token du client dans localStorage pour cette session
+      localStorage.setItem('syncToken',    clientToken);
+      localStorage.setItem('syncClientId', clientId);
+      localStorage.setItem('syncType',     clientType);
+      localStorage.setItem('licenceCode',  clientCode);
+
       const banniere = document.createElement('div');
       banniere.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:700;font-size:0.85rem;';
       banniere.innerHTML = `👁 Mode consultation admin – Client : <strong>${clientNom}</strong> &nbsp;|&nbsp; <a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
       document.body.prepend(banniere);
-      return;
     }
   }
 
