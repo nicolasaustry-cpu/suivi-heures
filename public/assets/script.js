@@ -240,6 +240,7 @@ function ajouterSalarie() {
   salaries.push(nouveau);
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
+  if (typeof majMessageVide === "function") majMessageVide();
 
   // Réinitialiser le formulaire
   ["prenomEl","nomEl","dateEntreeEl"].forEach(id => {
@@ -262,6 +263,7 @@ function supprimerSalarie(index) {
   const supprime = salaries.splice(index, 1)[0];
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
+  if (typeof majMessageVide === "function") majMessageVide();
 
   // Supprime aussi ses heures associées
   const id = supprime.id;
