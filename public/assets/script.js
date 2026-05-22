@@ -108,6 +108,7 @@ function afficherSalaries() {
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">
           <input type="password" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
+            autocomplete="off" autocorrect="off" autocapitalize="off"
             style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
             onchange="majPIN(${s.id}, this.value)">
           <span onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
