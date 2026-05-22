@@ -89,6 +89,17 @@
     .col-abs, .col-prevu, .col-ecart,
     th.col-abs, th.col-prevu, th.col-ecart,
     td.cell-abs, td.cell-prevu, td.cell-ecart { display:none !important; }
+    /* Masquage des colonnes Ch X à l'impression selon classe sur body */
+    body.hide-ch1 .jour-block table th:nth-child(2),
+    body.hide-ch1 .jour-block table td:nth-child(2) { display:none !important; }
+    body.hide-ch2 .jour-block table th:nth-child(3),
+    body.hide-ch2 .jour-block table td:nth-child(3) { display:none !important; }
+    body.hide-ch3 .jour-block table th:nth-child(4),
+    body.hide-ch3 .jour-block table td:nth-child(4) { display:none !important; }
+    body.hide-ch4 .jour-block table th:nth-child(5),
+    body.hide-ch4 .jour-block table td:nth-child(5) { display:none !important; }
+    body.hide-ch5 .jour-block table th:nth-child(6),
+    body.hide-ch5 .jour-block table td:nth-child(6) { display:none !important; }
     /* En-tête impression */
     #entete-impression { display:flex !important; }
     .main-header { display:none !important; }
@@ -171,6 +182,30 @@
         <label>Semaine à imprimer :</label><br>
         <select id="semaineSelect"></select>
       </div>
+
+      <!-- Chantiers à imprimer -->
+      <div>
+        <label>Chantiers à imprimer :</label><br>
+        <div class="filtre-container" style="position:relative;display:inline-block;">
+          <div id="btn-print-ch" onclick="togglePrintChDropdown()"
+               style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.85rem;min-width:120px;user-select:none;">
+            Tous ▼
+          </div>
+          <div id="dropdown-print-ch"
+               style="display:none;position:absolute;top:110%;left:0;z-index:200;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:140px;padding:4px 0;">
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;border-bottom:1px solid #eee;font-weight:600;">
+              <input type="checkbox" id="print-ch-tous" checked onchange="cocherTousPrintCh(this.checked)">
+              (Tous)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="1" checked onchange="majBtnPrintCh()"> Ch 1</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="2" checked onchange="majBtnPrintCh()"> Ch 2</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="3" checked onchange="majBtnPrintCh()"> Ch 3</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="4" checked onchange="majBtnPrintCh()"> Ch 4</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="5" checked onchange="majBtnPrintCh()"> Ch 5</label>
+          </div>
+        </div>
+      </div>
+
       <div>
         <button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button>
       </div>
@@ -606,11 +641,67 @@ function chargerSemaines() {
   }
 }
 
+/* ====== DROPDOWN CHANTIERS À IMPRIMER ====== */
+function togglePrintChDropdown() {
+  const dd = document.getElementById('dropdown-print-ch');
+  dd.style.display = (dd.style.display === 'block') ? 'none' : 'block';
+}
+function cocherTousPrintCh(coche) {
+  document.querySelectorAll('.print-ch-cb').forEach(cb => cb.checked = coche);
+  majBtnPrintCh();
+}
+function majBtnPrintCh() {
+  const cbs = [...document.querySelectorAll('.print-ch-cb')];
+  const cochees = cbs.filter(cb => cb.checked).map(cb => cb.dataset.ch);
+  const btn = document.getElementById('btn-print-ch');
+  const tous = document.getElementById('print-ch-tous');
+  if (cochees.length === cbs.length) {
+    btn.textContent = 'Tous ▼';
+    btn.style.color = ''; btn.style.fontWeight = '';
+    if (tous) tous.checked = true;
+  } else if (cochees.length === 0) {
+    btn.textContent = 'Aucun ▼';
+    btn.style.color = '#dc2626'; btn.style.fontWeight = '700';
+    if (tous) tous.checked = false;
+  } else {
+    btn.textContent = 'Ch ' + cochees.join(', ') + ' ▼';
+    btn.style.color = '#2563eb'; btn.style.fontWeight = '700';
+    if (tous) tous.checked = false;
+  }
+}
+// Fermer le dropdown sur clic extérieur
+document.addEventListener('click', e => {
+  const cont = document.getElementById('dropdown-print-ch')?.parentElement;
+  if (cont && !cont.contains(e.target)) {
+    document.getElementById('dropdown-print-ch').style.display = 'none';
+  }
+});
+
 function imprimerSemaine() {
   const semaine = document.getElementById('semaineSelect').value;
   const mois    = document.getElementById('moisPlanning').value;
   if (!mois) { alert('Veuillez sélectionner un mois.'); return; }
-  if (!semaine) { window.print(); return; }
+
+  // Appliquer le filtrage des colonnes CH selon les cases cochées
+  const classesAjoutees = [];
+  document.querySelectorAll('.print-ch-cb').forEach(cb => {
+    if (!cb.checked) {
+      const cls = 'hide-ch' + cb.dataset.ch;
+      document.body.classList.add(cls);
+      classesAjoutees.push(cls);
+    }
+  });
+
+  const restaurer = () => {
+    classesAjoutees.forEach(cls => document.body.classList.remove(cls));
+    document.querySelectorAll('#planning-wrapper .jour-block').forEach(b => b.style.display = '');
+  };
+
+  if (!semaine) {
+    window.print();
+    restaurer();
+    return;
+  }
 
   const [a, mo] = mois.split('-').map(Number);
   let lun = new Date(a, mo - 1, 1);
@@ -630,7 +721,7 @@ function imprimerSemaine() {
   });
 
   window.print();
-  document.querySelectorAll('#planning-wrapper .jour-block').forEach(b => b.style.display = '');
+  restaurer();
 }
 
 /* ====== INITIALISATION ====== */
