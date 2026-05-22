@@ -63,6 +63,104 @@
   <div id="msg-licence" style="margin-top:0.5rem;"></div>
 </section>
 
+<!-- Paramétrage des jauges (utilisé par Planning et Planning Réalisé) -->
+<section>
+  <h2>Paramétrage des jauges</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Ces seuils s'appliquent aux jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong>. Ils déterminent à partir de quel pourcentage d'avancement l'indicateur passe au rouge, à l'orange ou au vert.
+  </p>
+
+  <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:1rem 1.2rem;">
+
+    <!-- Aperçu en direct -->
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+      <svg viewBox="0 0 100 65" width="160" height="104" id="jaugeApercu">
+        <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
+        <path id="apercu-arc-rouge"  d="" fill="none" stroke="#dc2626" stroke-width="9" stroke-linecap="round"/>
+        <path id="apercu-arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
+        <path id="apercu-arc-vert"   d="" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round"/>
+        <text x="50" y="50" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">63%</text>
+        <text x="50" y="60" text-anchor="middle" font-size="5" fill="#64748b">aperçu</text>
+      </svg>
+      <div style="font-size:0.75rem;color:#64748b;margin-top:4px;font-style:italic;">Aperçu en direct</div>
+    </div>
+
+    <!-- Réglages -->
+    <div style="display:flex;flex-direction:column;gap:0.8rem;min-width:240px;">
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <span style="display:inline-block;width:14px;height:14px;background:#dc2626;border-radius:3px;flex-shrink:0;"></span>
+        <label for="seuilRouge" style="min-width:90px;font-size:0.85rem;">Seuil rouge :</label>
+        <span style="font-size:0.8rem;color:#64748b;">jusqu'à</span>
+        <input id="seuilRouge" type="number" min="0" max="100" value="33" style="width:60px;" onchange="majJaugeApercu();sauverSeuilsJauge()">
+        <span style="font-size:0.85rem;">%</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <span style="display:inline-block;width:14px;height:14px;background:#f59e0b;border-radius:3px;flex-shrink:0;"></span>
+        <label for="seuilOrange" style="min-width:90px;font-size:0.85rem;">Seuil orange :</label>
+        <span style="font-size:0.8rem;color:#64748b;">jusqu'à</span>
+        <input id="seuilOrange" type="number" min="0" max="100" value="66" style="width:60px;" onchange="majJaugeApercu();sauverSeuilsJauge()">
+        <span style="font-size:0.85rem;">%</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <span style="display:inline-block;width:14px;height:14px;background:#16a34a;border-radius:3px;flex-shrink:0;"></span>
+        <label style="min-width:90px;font-size:0.85rem;">Zone verte :</label>
+        <span style="font-size:0.85rem;color:#0f172a;">au-delà</span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:0.5rem;padding-top:0.4rem;border-top:1px solid #e5e7eb;">
+        <input type="checkbox" id="seuilFige" onchange="sauverSeuilsJauge()">
+        <label for="seuilFige" style="font-size:0.82rem;color:#475569;">Figer les seuils (verrouiller les modifications)</label>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+function chargerSeuilsJauge() {
+  const r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
+  const o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
+  const f = localStorage.getItem('jaugeFige') === '1';
+  document.getElementById('seuilRouge').value  = r;
+  document.getElementById('seuilOrange').value = o;
+  document.getElementById('seuilFige').checked = f;
+  document.getElementById('seuilRouge').disabled  = f;
+  document.getElementById('seuilOrange').disabled = f;
+  majJaugeApercu();
+}
+function sauverSeuilsJauge() {
+  let r = parseInt(document.getElementById('seuilRouge').value)  || 0;
+  let o = parseInt(document.getElementById('seuilOrange').value) || 0;
+  r = Math.max(0, Math.min(100, r));
+  o = Math.max(r, Math.min(100, o));
+  document.getElementById('seuilOrange').value = o;
+  const f = document.getElementById('seuilFige').checked;
+  document.getElementById('seuilRouge').disabled  = f;
+  document.getElementById('seuilOrange').disabled = f;
+  localStorage.setItem('jaugeRouge',  r);
+  localStorage.setItem('jaugeOrange', o);
+  localStorage.setItem('jaugeFige',   f ? '1' : '0');
+  majJaugeApercu();
+}
+function majJaugeApercu() {
+  const r = parseInt(document.getElementById('seuilRouge').value)  || 0;
+  const o = parseInt(document.getElementById('seuilOrange').value) || 0;
+  document.getElementById('apercu-arc-rouge').setAttribute('d',  arcPath(0, r));
+  document.getElementById('apercu-arc-orange').setAttribute('d', arcPath(r, o));
+  document.getElementById('apercu-arc-vert').setAttribute('d',   arcPath(o, 100));
+}
+function arcPath(pctFrom, pctTo) {
+  if (pctTo <= pctFrom) return '';
+  const a1 = Math.PI * (1 + pctFrom / 100);
+  const a2 = Math.PI * (1 + pctTo / 100);
+  const x1 = 50 + 40 * Math.cos(a1), y1 = 60 + 40 * Math.sin(a1);
+  const x2 = 50 + 40 * Math.cos(a2), y2 = 60 + 40 * Math.sin(a2);
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A 40 40 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+window.addEventListener('DOMContentLoaded', chargerSeuilsJauge);
+</script>
+
 <!-- Script unique en bas de page -->
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>

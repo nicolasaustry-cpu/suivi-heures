@@ -163,34 +163,33 @@
       <!-- Espaceur -->
       <div style="flex:1;"></div>
 
-      <!-- Jauge 1/4 droite comme planning -->
-      <div style="flex:0 0 25%;min-width:200px;display:flex;flex-direction:column;gap:0;border:1px solid #ccc;border-radius:6px;overflow:hidden;font-size:0.8rem;align-self:stretch;">
-        <!-- Seuils -->
-        <div style="background:#fff3cd;padding:3px 8px;display:flex;align-items:center;gap:6px;font-size:0.72rem;flex-wrap:wrap;flex:0;">
-          <span>Rouge :</span>
-          <input id="limiteRouge" value="33" type="number" min="0" max="100" style="width:40px;" onchange="sauverSeuils();majJauge()">
-          <span>%</span>
-          <span>Orange :</span>
-          <input id="limiteOrange" value="66" type="number" min="0" max="100" style="width:40px;" onchange="sauverSeuils();majJauge()">
-          <span>%</span>
-          <input type="checkbox" id="figerSeuils">
-          <label for="figerSeuils" style="font-size:0.72rem;">Figer</label>
-        </div>
-        <!-- Barre -->
-        <div style="background:#f0f9ff;padding:4px 8px;display:flex;align-items:center;gap:8px;flex:1;">
-          <div id="pct-jauge" style="font-weight:bold;font-size:0.95rem;min-width:38px;">0%</div>
-          <div style="flex:1;position:relative;height:16px;border-radius:10px;overflow:hidden;border:1px solid #333;">
-            <div id="zone-rouge"  style="position:absolute;top:0;left:0;width:33%;height:100%;background:red;"></div>
-            <div id="zone-orange" style="position:absolute;top:0;left:33%;width:33%;height:100%;background:orange;"></div>
-            <div id="zone-verte"  style="position:absolute;top:0;left:66%;width:34%;height:100%;background:green;"></div>
-            <div id="curseur"     style="position:absolute;top:-2px;left:0;width:7px;height:20px;background:white;border:1px solid #000;border-radius:2px;transition:left 0.3s;"></div>
+      <!-- Jauge circulaire compacte : 1/4 droite -->
+      <div style="flex:0 0 25%;min-width:240px;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;align-self:stretch;">
+
+        <!-- Arc gauge -->
+        <svg viewBox="0 0 100 65" width="110" height="72" style="flex-shrink:0;">
+          <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
+          <path id="arc-rouge"  d="" fill="none" stroke="#dc2626" stroke-width="9" stroke-linecap="round"/>
+          <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
+          <path id="arc-vert"   d="" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round"/>
+          <text id="pct-jauge" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
+          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
+        </svg>
+
+        <!-- Lignes de totaux à droite -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;font-size:0.78rem;">
+          <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
+            <span style="color:#64748b;font-weight:600;">Réalisé</span>
+            <span id="tot-total" style="font-weight:700;color:#0f172a;">0 h</span>
           </div>
-        </div>
-        <!-- Totaux -->
-        <div style="background:#d1fae5;font-weight:bold;display:flex;justify-content:space-around;padding:3px 6px;gap:4px;flex-wrap:wrap;flex:0;font-size:0.78rem;">
-          <span>Réalisé : <strong id="tot-total">0 h</strong></span>
-          <span>Prévu : <strong id="tot-prev">0 h</strong></span>
-          <span>Écart : <strong id="tot-ecart" style="color:#16a34a;">—</strong></span>
+          <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
+            <span style="color:#64748b;font-weight:600;">Prévu</span>
+            <span id="tot-prev" style="font-weight:700;color:#0f172a;">0 h</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:3px 8px;border-radius:4px;" id="ligne-ecart">
+            <span style="font-weight:600;">Écart</span>
+            <span id="tot-ecart" style="font-weight:700;">—</span>
+          </div>
         </div>
       </div>
 
@@ -224,14 +223,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   document.getElementById('moisRealise').value =
     `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-
-  // Charger les seuils partagés avec le planning
-  const r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
-  const o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
-  document.getElementById('limiteRouge').value  = r;
-  document.getElementById('limiteOrange').value = o;
-  const fige = localStorage.getItem('jaugeFige') === '1';
-  document.getElementById('figerSeuils').checked = fige;
 
   ajusterMarginTop();
   window.addEventListener('resize', ajusterMarginTop);
@@ -511,16 +502,29 @@ function afficherRealise() {
   setTimeout(ajusterMarginTop, 50);
 }
 
-/* ══ SEUILS ══ */
-function sauverSeuils() {
-  localStorage.setItem('jaugeRouge',  document.getElementById('limiteRouge').value);
-  localStorage.setItem('jaugeOrange', document.getElementById('limiteOrange').value);
-  localStorage.setItem('jaugeFige',   document.getElementById('figerSeuils').checked ? '1' : '0');
+/* ══ SEUILS (gérés sur la page Entreprise) ══ */
+function sauverSeuils() { /* obsolète */ }
+
+/* ══ JAUGE CIRCULAIRE ══ */
+function getSeuilsJauge() {
+  const r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
+  const o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
+  return {
+    rouge:  Math.max(0, Math.min(100, r)),
+    orange: Math.max(0, Math.min(100, o))
+  };
+}
+function arcPathJauge(pctFrom, pctTo) {
+  if (pctTo <= pctFrom) return '';
+  const a1 = Math.PI * (1 + pctFrom / 100);
+  const a2 = Math.PI * (1 + pctTo / 100);
+  const x1 = 50 + 40 * Math.cos(a1), y1 = 60 + 40 * Math.sin(a1);
+  const x2 = 50 + 40 * Math.cos(a2), y2 = 60 + 40 * Math.sin(a2);
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A 40 40 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 
-/* ══ JAUGE ══ */
 function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
-  const realiseMin = totalMin + deplMin; // Total réalisé = heures chantier + déplacement
+  const realiseMin = totalMin + deplMin;
   const realiseH   = (realiseMin / 60).toFixed(1);
   const prevH      = (prevMin / 60).toFixed(1);
   const pct        = prevMin > 0 ? Math.min(100, Math.round((realiseMin / prevMin) * 100)) : 0;
@@ -529,18 +533,43 @@ function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
 
   document.getElementById('tot-total').textContent = realiseH + ' h';
   document.getElementById('tot-prev').textContent  = prevMin > 0 ? prevH + ' h' : '—';
-  document.getElementById('tot-ecart').textContent = ecart !== null ? (ecart >= 0 ? '+' : '') + ecart + ' h' : '—';
-  document.getElementById('tot-ecart').style.color = ecart !== null ? (parseFloat(ecart) >= 0 ? '#16a34a' : '#dc2626') : '#6b7280';
+  const tdEcart = document.getElementById('tot-ecart');
+  const lEcart  = document.getElementById('ligne-ecart');
+  if (ecart === null) {
+    tdEcart.textContent = '—';
+    tdEcart.style.color = '#6b7280';
+    lEcart.style.background = '#f8fafc';
+  } else {
+    tdEcart.textContent = (parseFloat(ecart) >= 0 ? '+' : '') + ecart + ' h';
+    if (parseFloat(ecart) >= 0) {
+      tdEcart.style.color = '#16a34a';
+      lEcart.style.background = '#f0fdf4';
+    } else {
+      tdEcart.style.color = '#dc2626';
+      lEcart.style.background = '#fef2f2';
+    }
+  }
 
-  const r = parseInt(document.getElementById('limiteRouge').value)  || 33;
-  const o = parseInt(document.getElementById('limiteOrange').value) || 66;
-  document.getElementById('zone-rouge').style.width  = r + '%';
-  document.getElementById('zone-orange').style.left  = r + '%';
-  document.getElementById('zone-orange').style.width = (o - r) + '%';
-  document.getElementById('zone-verte').style.left   = o + '%';
-  document.getElementById('zone-verte').style.width  = (100 - o) + '%';
-  document.getElementById('curseur').style.left      = `calc(${pct}% - 3px)`;
-  document.getElementById('pct-jauge').textContent   = pct + '%';
+  // Dessin des arcs
+  const { rouge, orange } = getSeuilsJauge();
+  const cap = Math.max(0, Math.min(100, pct));
+  const ar = document.getElementById('arc-rouge');
+  const ao = document.getElementById('arc-orange');
+  const av = document.getElementById('arc-vert');
+  if (ar && ao && av) {
+    ar.setAttribute('d', arcPathJauge(0, Math.min(cap, rouge)));
+    ao.setAttribute('d', cap > rouge ? arcPathJauge(rouge, Math.min(cap, orange)) : '');
+    av.setAttribute('d', cap > orange ? arcPathJauge(orange, cap) : '');
+  }
+  const pourcentage = document.getElementById('pct-jauge');
+  if (pourcentage) {
+    pourcentage.textContent = pct + '%';
+    let color = '#0f172a';
+    if (cap < rouge)        color = '#dc2626';
+    else if (cap < orange)  color = '#b45309';
+    else                    color = '#16a34a';
+    pourcentage.setAttribute('fill', color);
+  }
 }
 
 
