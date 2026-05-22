@@ -310,6 +310,14 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   remplirAnnees();
+
+  // Mois en cours par défaut dans le filtre
+  const moisInput = document.getElementById('filtreMonth');
+  if (moisInput && !moisInput.value) {
+    const now = new Date();
+    moisInput.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+
   genererRapport();
   ajusterHauteur();
   window.addEventListener('resize', ajusterHauteur);
