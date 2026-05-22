@@ -29,6 +29,7 @@
   <div class="nav">
     <a href="index.html">Entreprise</a>
     <a href="salaries.html" class="active">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
     <a href="planning.html">Planning</a>
     <a href="rapports.html">Rapports</a>
     <a href="chantiers.html">Prévisionnel</a>
@@ -85,7 +86,13 @@
 
 <!-- Liste des salariés (défile) -->
 <section>
-  <h2>Liste des salariés</h2>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+    <h2 style="margin:0;">Liste des salariés</h2>
+    <button id="btn-filtre-presents" onclick="toggleFiltrePresents()"
+      style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:0.88rem;">
+      ✅ Salariés présents
+    </button>
+  </div>
   <p id="no-salarie" style="color:#6b7280;">Aucun salarié enregistré.</p>
   <table id="table-salaries" style="display:none;">
     <thead>

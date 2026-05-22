@@ -67,11 +67,28 @@ async function sauverEntreprise() {
 /* ===========================================
    SALARIÉS
    =========================================== */
+let _filtrePresents = false;
+
+function toggleFiltrePresents() {
+  _filtrePresents = !_filtrePresents;
+  const btn = document.getElementById('btn-filtre-presents');
+  if (btn) {
+    btn.textContent = _filtrePresents ? '👥 Tous les salariés' : '✅ Salariés présents';
+    btn.style.background = _filtrePresents ? '#2563eb' : '#16a34a';
+  }
+  afficherSalaries();
+}
+
 function afficherSalaries() {
   const tb = document.querySelector("#table-salaries tbody");
   if (!tb) return;
   tb.innerHTML = "";
-  salaries.forEach((s, i) => {
+  const aujourd_hui = new Date();
+  const liste = _filtrePresents
+    ? salaries.filter(s => !s.dateSortie || new Date(s.dateSortie) >= aujourd_hui)
+    : salaries;
+  liste.forEach((s, i) => {
+    const idx = salaries.indexOf(s);
     const h = s.heuresParJour || {};
     tb.innerHTML += `
       <tr>
@@ -83,12 +100,12 @@ function afficherSalaries() {
                  onchange="majDateSortie(${s.id}, this.value)"
                  style="width:130px;">
         </td>
-        <td>${h.lun ?? 0}</td>
-        <td>${h.mar ?? 0}</td>
-        <td>${h.mer ?? 0}</td>
-        <td>${h.jeu ?? 0}</td>
-        <td>${h.ven ?? 0}</td>
-        <td>${h.sam ?? 0}</td>
+        <td id="h-lun-${s.id}">${h.lun ?? 0}</td>
+        <td id="h-mar-${s.id}">${h.mar ?? 0}</td>
+        <td id="h-mer-${s.id}">${h.mer ?? 0}</td>
+        <td id="h-jeu-${s.id}">${h.jeu ?? 0}</td>
+        <td id="h-ven-${s.id}">${h.ven ?? 0}</td>
+        <td id="h-sam-${s.id}">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">
           <input type="password" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
             style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
@@ -96,11 +113,61 @@ function afficherSalaries() {
           <span onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
             style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>
         </td>
-        <td>
-          <button class="btn btn-danger" onclick="supprimerSalarie(${i})">✖</button>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-primary" style="padding:3px 8px;font-size:0.8rem;" onclick="ouvrirModifSalarie(${s.id})">✏</button>
+          <button class="btn btn-danger" style="padding:3px 8px;font-size:0.8rem;" onclick="supprimerSalarie(${idx})">✖</button>
         </td>
       </tr>`;
   });
+}
+
+/* ── Modale modification heures salarié ── */
+function ouvrirModifSalarie(id) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  const h = sal.heuresParJour || {};
+  // Créer ou afficher la modale
+  let modale = document.getElementById('modale-modif-sal');
+  if (!modale) {
+    modale = document.createElement('div');
+    modale.id = 'modale-modif-sal';
+    modale.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
+    document.body.appendChild(modale);
+  }
+  modale.innerHTML = \`
+    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <h3 style="margin:0 0 1rem;color:#374151;">✏ Modifier \${sal.prenom} \${sal.nom}</h3>
+      <p style="font-size:0.85rem;color:#6b7280;margin-bottom:0.8rem;">Heures contractuelles par jour</p>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem;">
+        \${['lun','mar','mer','jeu','ven','sam'].map(j => \`
+          <div style="text-align:center;">
+            <label style="font-size:0.78rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">\${j.charAt(0).toUpperCase()+j.slice(1)}</label>
+            <input type="number" id="modif-\${j}" value="\${h[j] ?? 0}" min="0" max="12" step="0.5"
+              style="width:100%;text-align:center;border:1px solid #d1d5db;border-radius:6px;padding:5px 2px;font-size:0.9rem;">
+          </div>\`).join('')}
+      </div>
+      <div style="display:flex;gap:0.8rem;justify-content:flex-end;">
+        <button class="btn" onclick="document.getElementById('modale-modif-sal').style.display='none'"
+          style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>
+        <button class="btn btn-success" onclick="sauverModifSalarie(${id})" style="padding:7px 16px;">✔ Sauvegarder</button>
+      </div>
+    </div>
+  \`;
+  modale.style.display = 'flex';
+  modale.onclick = e => { if (e.target === modale) modale.style.display = 'none'; };
+}
+
+function sauverModifSalarie(id) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  if (!sal.heuresParJour) sal.heuresParJour = {};
+  ['lun','mar','mer','jeu','ven','sam'].forEach(j => {
+    const val = parseFloat(document.getElementById('modif-' + j)?.value) || 0;
+    sal.heuresParJour[j] = val;
+  });
+  localStorage.setItem('salariesdata', JSON.stringify(salaries));
+  document.getElementById('modale-modif-sal').style.display = 'none';
+  afficherSalaries();
 }
 
 function majDateSortie(id, nouvelleDate) {
