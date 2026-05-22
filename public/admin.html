@@ -515,6 +515,7 @@ async function consulterClient(code) {
     sessionStorage.setItem('clientToken',    d.token);
     sessionStorage.setItem('clientId',       d.clientId);
     sessionStorage.setItem('clientNom',      d.nomClient || code);
+    sessionStorage.setItem('clientType',     d.type || 'standard');
     // Ouvrir l'outil dans un nouvel onglet
     window.open('/index.html?admin=1&client=' + encodeURIComponent(code), '_blank');
   } catch (e) {
