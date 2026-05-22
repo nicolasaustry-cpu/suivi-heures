@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -229,12 +229,12 @@
 <!-- Bandeau navigation (visible sur desktop uniquement) -->
 <div class="nav-desktop">
   <span class="nav-titre">Suiv'Heures</span>
-<a href="index.html">Entreprise</a>
+  <a href="index.html">Entreprise</a>
   <a href="salaries.html">Salariés</a>
   <a href="chantiers.html">Prévisionnel</a>
   <a href="planning.html">Planning</a>
-  <a href="realise.html">Planning réalisé</a>
   <a href="rapports.html">Rapports</a>
+  <a href="realise.html">Planning réalisé</a>
 </div>
 
 <div class="phone-wrap">
@@ -408,7 +408,7 @@ async function reconnecterAuto(codeEmploye) {
     const d = await r.json();
     if (d.ok) {
       localStorage.setItem('saisie_clientId', d.clientId);
-      if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
+      localStorage.setItem('salariesdata', JSON.stringify(d.salaries || []));
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
 
@@ -478,7 +478,7 @@ async function validerCodeEntreprise() {
     // Stocker le code employé et les données nécessaires (pas de token licence)
     localStorage.setItem('saisie_codeEmploye', codeEmploye);
     localStorage.setItem('saisie_clientId',    d.clientId);
-    if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
+    localStorage.setItem('salariesdata', JSON.stringify(d.salaries || []));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
 
