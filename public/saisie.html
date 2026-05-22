@@ -325,9 +325,47 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('date-saisie').value = dd;
   document.getElementById('date-saisie').addEventListener('change', chargerChantiersPrev);
 
-  // Charger les salariés dans le select PIN
-  chargerSalaries();
+  // Si code employé mémorisé → reconnecter automatiquement sans redemander
+  const codeMemorize = localStorage.getItem('saisie_codeEmploye');
+  if (codeMemorize) {
+    reconnecterAuto(codeMemorize);
+  } else {
+    chargerSalaries();
+  }
 });
+
+async function reconnecterAuto(codeEmploye) {
+  try {
+    const r = await fetch('/api/saisies/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      localStorage.setItem('saisie_clientId', d.clientId);
+      if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
+      if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
+      if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+      // Passer directement à l'étape PIN
+      document.getElementById('etape-code').style.display = 'none';
+      document.getElementById('etape-pin').style.display = '';
+      document.getElementById('pin-subtitle').textContent = 'Choisissez votre nom et saisissez votre PIN';
+      chargerSalaries();
+    } else {
+      // Code invalide → effacer et demander à nouveau
+      localStorage.removeItem('saisie_codeEmploye');
+      localStorage.removeItem('saisie_clientId');
+      chargerSalaries();
+    }
+  } catch {
+    // Hors ligne → utiliser les données en cache et passer au PIN
+    document.getElementById('etape-code').style.display = 'none';
+    document.getElementById('etape-pin').style.display = '';
+    document.getElementById('pin-subtitle').textContent = 'Mode hors ligne – Choisissez votre nom et saisissez votre PIN';
+    chargerSalaries();
+  }
+}
 
 async function validerCodeEntreprise() {
   const codeEmploye = document.getElementById('pin-code-entreprise').value.trim().toUpperCase();

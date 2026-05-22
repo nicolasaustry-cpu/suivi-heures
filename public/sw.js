@@ -3,7 +3,7 @@
    Cache les ressources pour usage hors ligne
    ======================================= */
 
-const CACHE_NAME = 'suivheures-v1';
+const CACHE_NAME = 'suivheures-v2';
 
 // Fichiers à mettre en cache pour le mode hors ligne
 const FICHIERS_CACHE = [
