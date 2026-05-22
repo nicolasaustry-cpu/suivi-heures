@@ -13,7 +13,34 @@
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: Arial, sans-serif; background: #f4f6f8; color: #222; max-width: 480px; margin: 0 auto; }
+  body { font-family: Arial, sans-serif; background: #e2e8f0; color: #222; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+  /* Bandeau navigation desktop */
+  .nav-desktop { width: 100%; background: #1e3a8a; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .nav-desktop a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
+  .nav-desktop a:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .nav-desktop .nav-titre { color: #fff; font-weight: 800; font-size: 0.95rem; margin-right: 0.5rem; }
+  /* Cadre téléphone */
+  .phone-container {
+    width: 100%; max-width: 420px;
+    background: #fff;
+    border-radius: 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    overflow: hidden;
+    flex: 1;
+  }
+  @media (min-width: 600px) {
+    .phone-container {
+      margin: 1.5rem 0 2rem;
+      border-radius: 28px;
+      min-height: 700px;
+    }
+    .nav-desktop { justify-content: center; }
+  }
+  @media (max-width: 599px) {
+    body { background: #fff; }
+    .nav-desktop { display: none; }
+    .phone-container { box-shadow: none; border-radius: 0; }
+  }
 
   /* ── HEADER ── */
   header {
@@ -190,6 +217,20 @@
   </style>
 </head>
 <body>
+
+<!-- Bandeau navigation (visible sur desktop uniquement) -->
+<div class="nav-desktop">
+  <span class="nav-titre">Suiv'Heures</span>
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="realise.html">Planning réalisé</a>
+</div>
+
+<!-- Cadre téléphone -->
+<div class="phone-container">
 
 <!-- ── ÉCRAN PIN ── -->
 <div class="pin-screen" id="pin-screen" style="display:none;">
@@ -887,5 +928,6 @@ window.addEventListener('beforeinstallprompt', e => {
   if (btn) btn.style.display = 'flex';
 });
 </script>
+</div><!-- fin phone-container -->
 </body>
 </html>
