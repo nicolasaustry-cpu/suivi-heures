@@ -155,7 +155,7 @@ function ouvrirModifSalarie(id) {
     + inputsHTML
     + '</div>'
     + '<div style="display:flex;gap:0.8rem;justify-content:flex-end;">'
-    + '<button class="btn" onclick="document.getElementById('modale-modif-sal').style.display='none'"'
+    + '<button class="btn" onclick="document.getElementById(\'modale-modif-sal\').style.display=\'none\'"'
     + ' style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>'
     + '<button class="btn btn-success" onclick="sauverModifSalarie(' + id + ')" style="padding:7px 16px;">✔ Sauvegarder</button>'
     + '</div></div>';
