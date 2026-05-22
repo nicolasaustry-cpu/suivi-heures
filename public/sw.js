@@ -57,8 +57,12 @@ self.addEventListener('fetch', event => {
         }
         return response;
       }).catch(() => {
-        // Hors ligne et pas en cache : page de fallback
+        // Hors ligne et pas en cache : rester sur saisie.html
         if (event.request.destination === 'document') {
+          const pathname = new URL(event.request.url).pathname;
+          if (pathname.includes('saisie')) {
+            return caches.match('/saisie.html');
+          }
           return caches.match('/saisie.html');
         }
       });
