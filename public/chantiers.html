@@ -253,6 +253,17 @@
     color: #1e40af;
   }
 
+  /* Ligne fusionnée : légende (gauche) + sélecteur d'année (droite) */
+  .prev-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .prev-toolbar .annee-selector { margin-left: auto; margin-bottom: 0; }
+  .prev-toolbar .legende { margin-bottom: 0; }
+
   /* Année selector */
   .annee-selector {
     display: flex;
@@ -308,19 +319,19 @@
 </div>
   <section style="margin-bottom:0;padding-bottom:0.5rem;">
 
-    <!-- Sélecteur d'année -->
-    <div class="annee-selector">
-      <label>Année :</label>
-      <select id="selectAnnee" onchange="chargerAnnee()"></select>
-      <button onclick="ajouterAnnee()">+ Nouvelle année</button>
-    </div>
-
-    <!-- Légende -->
-    <div class="legende">
-      <strong>Écart heures :</strong>
-      <div class="leg-item"><div class="leg-color" style="background:#fee2e2;"></div> &lt; 90% (rouge)</div>
-      <div class="leg-item"><div class="leg-color" style="background:#ffedd5;"></div> 90–100% (orange)</div>
-      <div class="leg-item"><div class="leg-color" style="background:#dcfce7;"></div> &gt; 100% (vert)</div>
+    <!-- Légende + Sélecteur d'année (une seule ligne) -->
+    <div class="prev-toolbar">
+      <div class="legende">
+        <strong>Écart heures :</strong>
+        <div class="leg-item"><div class="leg-color" style="background:#fee2e2;"></div> &lt; 90% (rouge)</div>
+        <div class="leg-item"><div class="leg-color" style="background:#ffedd5;"></div> 90–100% (orange)</div>
+        <div class="leg-item"><div class="leg-color" style="background:#dcfce7;"></div> &gt; 100% (vert)</div>
+      </div>
+      <div class="annee-selector">
+        <label>Année :</label>
+        <select id="selectAnnee" onchange="chargerAnnee()"></select>
+        <button onclick="ajouterAnnee()">+ Nouvelle année</button>
+      </div>
     </div>
 
     <!-- Tableau indicateurs -->
