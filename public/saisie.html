@@ -289,11 +289,7 @@
   <header>
     <h1>Saisie journalière</h1>
     <div style="display:flex;gap:6px;align-items:center;">
-      <button id="btn-install" onclick="installerApp()"
-        style="display:none;background:rgba(255,255,255,0.2);border:none;color:#fff;
-               border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
-        ⬇ Installer
-      </button>
+
       <button id="btn-sortie" onclick="window.location.href='index.html'"
         style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
                border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;">
@@ -832,14 +828,7 @@ function seDeconnecter() {
   chargerSalaries();
 }
 
-async function installerApp() {
-  if (_deferredPrompt) {
-    _deferredPrompt.prompt();
-    const result = await _deferredPrompt.userChoice;
-    _deferredPrompt = null;
-    document.getElementById('btn-install').style.display = 'none';
-  }
-}
+
 
 async function envoyerChantier() {
   const date = document.getElementById('date-saisie').value;
@@ -924,23 +913,14 @@ async function envoyerChantier() {
 }
 </script>
 <script>
-if ('serviceWorker' in navigator) {
+// Service Worker uniquement sur mobile
+if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(() => console.log('Service Worker enregistré'))
       .catch(e => console.warn('Service Worker erreur :', e));
   });
 }
-
-// Invite installation sur iOS (pas de bannière automatique)
-let _deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  _deferredPrompt = e;
-  // Afficher bouton "Installer l'app"
-  const btn = document.getElementById('btn-install');
-  if (btn) btn.style.display = 'flex';
-});
 </script>
 </div><!-- fin phone-container -->
 </body>
