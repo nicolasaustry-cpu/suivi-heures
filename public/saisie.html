@@ -8,22 +8,29 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Suiv'Heures">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#0f3a8a">
   <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; background: #fff; }
 
   /* Bandeau navigation desktop */
   .nav-desktop {
-    display: none; width: 100%; background: #1e3a8a;
-    padding: 0.5rem 1rem; align-items: center;
-    gap: 1rem; flex-wrap: wrap; justify-content: center;
+    display: none; width: 100%; background: #0f3a8a;
+    padding: 0.7rem 1rem; align-items: center;
+    gap: 1rem; border-bottom: 3px solid #f59e0b;
+    box-sizing: border-box;
   }
   .nav-desktop a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
   .nav-desktop a:hover { background: rgba(255,255,255,0.15); color: #fff; }
-  .nav-desktop .nav-titre { color: #fff; font-weight: 800; font-size: 0.95rem; margin-right: 0.5rem; }
+  .nav-desktop .nav-identite { display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-right: auto; }
+  .nav-desktop .nav-identite img { width: 38px; height: 38px; background: #fff; border-radius: 6px; padding: 3px; box-sizing: border-box; }
+  .nav-desktop .nav-titres { display: flex; flex-direction: column; line-height: 1.15; }
+  .nav-desktop .nav-marque { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; text-transform: uppercase; }
+  .nav-desktop .nav-nom { font-size: 15px; font-weight: 700; color: #fff; }
+  .nav-desktop .nav-baseline { font-size: 10px; color: rgba(255,255,255,0.75); font-style: italic; }
 
   /* Cadre téléphone */
   .phone-wrap { width: 100%; }
@@ -51,12 +58,20 @@
 
   /* ── HEADER ── */
   header {
-    background: #2563eb; color: #fff;
-    padding: 0.8rem 1rem;
+    background: #0f3a8a; color: #fff;
+    padding: 0.6rem 0.9rem;
     display: flex; align-items: center; gap: 0.8rem;
     position: sticky; top: 0; z-index: 100;
+    border-bottom: 2px solid #f59e0b;
   }
-  header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; text-align: center; }
+  header .header-logo {
+    width: 32px; height: 32px;
+    background: #fff; border-radius: 5px; padding: 2px;
+    box-sizing: border-box; flex-shrink: 0;
+  }
+  header .header-titres { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+  header .header-titres .header-marque { font-size: 8px; font-weight: 600; color: rgba(255,255,255,0.65); letter-spacing: 0.1em; text-transform: uppercase; }
+  header h1 { font-size: 0.95rem; font-weight: 700; text-align: left; margin: 0; flex: 1; }
   .back-btn { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; padding: 0; }
 
   /* ── SECTIONS ── */
@@ -182,12 +197,25 @@
   /* ── PIN ── */
   /* PIN : toujours plein écran */
   .pin-screen {
-    position: fixed; inset: 0; background: #2563eb; z-index: 300;
+    position: fixed; inset: 0; background: #0f3a8a; z-index: 300;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 2rem;
   }
-  .pin-screen h2 { color: #fff; font-size: 1.2rem; margin-bottom: 0.5rem; }
-  .pin-screen p  { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-bottom: 1.5rem; text-align:center; }
+  .pin-identite {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .pin-identite img { width: 88px; height: 88px; background: #fff; border-radius: 14px; padding: 6px; box-sizing: border-box; margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .pin-identite .pin-marque { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7); letter-spacing: 0.15em; text-transform: uppercase; }
+  .pin-identite .pin-nom { font-size: 26px; font-weight: 700; color: #fff; margin-top: 2px; }
+  .pin-identite .pin-baseline { font-size: 12px; color: rgba(255,255,255,0.75); font-style: italic; margin-top: 4px; }
+  .pin-identite::after {
+    content: ""; display: block;
+    width: 50px; height: 3px; background: #f59e0b; border-radius: 2px;
+    margin-top: 12px;
+  }
+  .pin-screen h2 { display: none; }
+  .pin-screen p  { color: rgba(255,255,255,0.85); font-size: 0.88rem; margin-bottom: 1.5rem; text-align:center; }
   .pin-screen select {
     width: 100%; padding: 12px; border-radius: 8px; border: none;
     font-size: 1rem; margin-bottom: 1rem; background: #fff;
@@ -228,7 +256,14 @@
 
 <!-- Bandeau navigation (visible sur desktop uniquement) -->
 <div class="nav-desktop">
-  <span class="nav-titre">Suiv'Heures</span>
+  <div class="nav-identite">
+    <img src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="nav-titres">
+      <span class="nav-marque">VOLITIS</span>
+      <span class="nav-nom">Suiv'Heures</span>
+      <span class="nav-baseline">La gestion des heures, simplement</span>
+    </div>
+  </div>
   <a href="index.html">Entreprise</a>
   <a href="salaries.html">Salariés</a>
   <a href="chantiers.html">Prévisionnel</a>
@@ -241,6 +276,12 @@
 
 <!-- ── ÉCRAN PIN ── -->
 <div class="pin-screen" id="pin-screen" style="display:none;">
+  <div class="pin-identite">
+    <img src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <span class="pin-marque">VOLITIS</span>
+    <span class="pin-nom">Suiv'Heures</span>
+    <span class="pin-baseline">La gestion des heures, simplement</span>
+  </div>
   <h2>Suiv'Heures</h2>
   <p id="pin-subtitle">Identifiez-vous pour saisir vos heures</p>
 
@@ -291,6 +332,7 @@
 <div id="ecran-saisie" style="display:none;padding-bottom:2rem;">
 
   <header>
+    <img src="assets/suivheures-logo.svg" alt="Suiv'Heures" class="header-logo">
     <h1>Saisie journalière</h1>
     <div style="display:flex;gap:6px;align-items:center;">
 
