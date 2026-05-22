@@ -196,11 +196,18 @@ const SYNC = (() => {
     // Supprimer les liens Plus existants pour éviter les doublons
     nav.querySelectorAll('.nav-plus').forEach(el => el.remove());
 
+    const page = pageActuelle();
+
     if (_type === 'plus') {
-      const page = pageActuelle();
+      // Licence Plus : retirer Rapports de sa position actuelle et le remettre en fin
+      const rapportsLink = nav.querySelector('a[href="rapports.html"]');
+      if (rapportsLink) rapportsLink.remove();
+
+      // Ajouter Saisie mobile + Planning réalisé + Rapports en fin
       const liens = [
         { href: 'saisie.html',  label: 'Saisie mobile' },
         { href: 'realise.html', label: 'Planning réalisé' },
+        { href: 'rapports.html', label: 'Rapports' },
       ];
       liens.forEach(l => {
         const a = document.createElement('a');
