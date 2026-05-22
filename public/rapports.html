@@ -73,7 +73,9 @@
   .synth-titre.prevu  { color:#1d4ed8; }
   .synth-titre.realise { color:#15803d; }
 
-  .synth-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .synth-table { width:auto; max-width:100%; margin:0 auto; border-collapse:collapse; font-size:0.82rem; table-layout:fixed; }
+  .synth-table col.col-sal-synth { width:180px; }
+  .synth-table col.col-h-synth   { width:90px; }
   .synth-table th { padding:5px 10px; font-weight:700; text-align:left; }
   .synth-table th:last-child { text-align:right; }
   .synth-table.prevu  thead { background:#2563eb; }
@@ -93,21 +95,28 @@
   .synth-table tfoot td:last-child { text-align:right; }
 
   /* ══ DÉTAIL ══ */
-  .detail-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .detail-table { width:auto; max-width:100%; margin:0 auto; border-collapse:collapse; font-size:0.82rem; table-layout:fixed; }
   .detail-table th {
     padding:6px 10px; font-weight:700; text-align:left;
     position:sticky; top:0; z-index:1; cursor:pointer; white-space:nowrap; user-select:none;
   }
-  .detail-table.prevu  th { background:#dbeafe; color:#1e40af; border-bottom:2px solid #93c5fd; }
-  .detail-table.realise th { background:#dcfce7; color:#15803d; border-bottom:2px solid #86efac; }
-  .detail-table.prevu  th:hover { background:#bfdbfe; }
-  .detail-table.realise th:hover { background:#bbf7d0; }
-  .detail-table td { padding:5px 10px; border-bottom:1px solid #f1f5f9; white-space:nowrap; }
-  .detail-table.prevu  tbody tr:hover td { background:#eff6ff; }
-  .detail-table.realise tbody tr:hover td { background:#f0fdf4; }
+  /* Largeurs identiques entre Prévu et Réalisé (mêmes 4 colonnes : Date, Salarié, Chantier, Heures) */
+  .detail-table col.col-date     { width:85px; }
+  .detail-table col.col-salarie  { width:140px; }
+  .detail-table col.col-chantier { width:160px; }
+  .detail-table col.col-heures   { width:75px; }
+  .detail-table.prevu  th { background:#2563eb; color:#fff; border-bottom:2px solid #1d4ed8; }
+  .detail-table.realise th { background:#16a34a; color:#fff; border-bottom:2px solid #15803d; }
+  .detail-table.prevu  th:hover { background:#1d4ed8; }
+  .detail-table.realise th:hover { background:#15803d; }
+  .detail-table td { padding:5px 10px; border-bottom:1px solid #f1f5f9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .detail-table.prevu  tbody tr:nth-child(even) td { background:#f0f7ff; }
+  .detail-table.realise tbody tr:nth-child(even) td { background:#f0fdf4; }
+  .detail-table.prevu  tbody tr:hover td { background:#dbeafe; }
+  .detail-table.realise tbody tr:hover td { background:#dcfce7; }
   .detail-table tfoot td { padding:6px 10px; font-weight:700; border-top:2px solid; }
-  .detail-table.prevu  tfoot td { background:#eff6ff; color:#1d4ed8; border-color:#93c5fd; }
-  .detail-table.realise tfoot td { background:#f0fdf4; color:#15803d; border-color:#86efac; }
+  .detail-table.prevu  tfoot td { background:#dbeafe; color:#1d4ed8; border-color:#2563eb; }
+  .detail-table.realise tfoot td { background:#dcfce7; color:#15803d; border-color:#16a34a; }
   .tri-icone { font-size:0.7rem; margin-left:3px; opacity:0.6; }
 
   /* ══ DROPDOWN FILTRE ══ */
@@ -191,6 +200,10 @@
       </div>
       <div class="synth-titre prevu" id="synth-titre-prev">Tous chantiers</div>
       <table class="synth-table prevu">
+        <colgroup>
+          <col class="col-sal-synth">
+          <col class="col-h-synth">
+        </colgroup>
         <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
         <tbody id="tbody-synth-prev"></tbody>
         <tfoot><tr><td>Total</td><td id="total-synth-prev">0 h</td></tr></tfoot>
@@ -206,6 +219,10 @@
       </div>
       <div class="synth-titre realise" id="synth-titre-real">Tous chantiers</div>
       <table class="synth-table realise">
+        <colgroup>
+          <col class="col-sal-synth">
+          <col class="col-h-synth">
+        </colgroup>
         <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
         <tbody id="tbody-synth-real"></tbody>
         <tfoot><tr><td>Total</td><td id="total-synth-real">0 h</td></tr></tfoot>
@@ -224,6 +241,12 @@
         <span class="badge-nb prevu" id="badge-det-prev">0 ligne</span>
       </div>
       <table class="detail-table prevu">
+        <colgroup>
+          <col class="col-date">
+          <col class="col-salarie">
+          <col class="col-chantier">
+          <col class="col-heures">
+        </colgroup>
         <thead>
           <tr>
             <th onclick="trierPar('prev','date')">Date <span class="tri-icone" id="tri-prev-date">↕</span></th>
@@ -245,6 +268,12 @@
         <span class="badge-nb realise" id="badge-det-real">0 ligne</span>
       </div>
       <table class="detail-table realise">
+        <colgroup>
+          <col class="col-date">
+          <col class="col-salarie">
+          <col class="col-chantier">
+          <col class="col-heures">
+        </colgroup>
         <thead>
           <tr>
             <th onclick="trierPar('real','date')">Date <span class="tri-icone" id="tri-real-date">↕</span></th>
