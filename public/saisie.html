@@ -250,26 +250,44 @@
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn-envoyer:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  /* ── HEADER + NAV DESKTOP (réutilise theme-volitis.css) ─────
+     Cachés en mode mobile, affichés ≥ 600px */
+  .desktop-only { display: none; }
+  @media (min-width: 600px) {
+    .desktop-only { display: block; }
+  }
   </style>
+  <link rel="stylesheet" href="assets/theme-volitis.css">
 </head>
 <body>
 
-<!-- Bandeau navigation (visible sur desktop uniquement) -->
-<div class="nav-desktop">
-  <div class="nav-identite">
-    <img src="assets/suivheures-logo.svg" alt="Suiv'Heures">
-    <div class="nav-titres">
-      <span class="nav-marque">VOLITIS</span>
-      <span class="nav-nom">Suiv'Heures</span>
-      <span class="nav-baseline">La gestion des heures, simplement</span>
+<!-- Header + Nav identiques aux autres pages (visibles desktop uniquement) -->
+<div class="desktop-only">
+  <header class="main-header">
+    <div class="vol-identite">
+      <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+      <div class="vol-titres">
+        <span class="vol-marque">VOLITIS</span>
+        <span class="vol-nom">Suiv'Heures</span>
+        <span class="vol-baseline">La gestion des heures, simplement</span>
+      </div>
     </div>
+    <h1 class="page-title">Saisie mobile</h1>
+    <div class="vol-droite">
+      <div class="entreprise-nom" id="entreprise-nom"></div>
+      <div id="licence-status"></div>
+    </div>
+  </header>
+  <div class="nav">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="planning.html">Planning</a>
+    <a href="saisie.html" class="nav-plus active">Saisie mobile</a>
+    <a href="realise.html" class="nav-plus">Planning réalisé</a>
+    <a href="rapports.html" class="nav-plus">Rapports</a>
   </div>
-  <a href="index.html">Entreprise</a>
-  <a href="salaries.html">Salariés</a>
-  <a href="chantiers.html">Prévisionnel</a>
-  <a href="planning.html">Planning</a>
-  <a href="rapports.html">Rapports</a>
-  <a href="realise.html">Planning réalisé</a>
 </div>
 
 <div class="phone-wrap">
@@ -417,6 +435,19 @@ let _selModal   = null; // chantier sélectionné dans la modal
    INIT
 ═══════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
+  // Alimenter le header desktop (nom entreprise + licence)
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    const elNom = document.getElementById('entreprise-nom');
+    if (elNom && ent.nom) elNom.textContent = ent.nom;
+    const elLic = document.getElementById('licence-status');
+    if (elLic) {
+      const code = localStorage.getItem('licenceCode');
+      elLic.textContent = code ? '✓ Licence active' : '⚠ Aucune licence';
+      if (!code) elLic.dataset.licence = '0';
+    }
+  } catch (e) { /* ignore */ }
+
   // Date par défaut = aujourd'hui
   const today = new Date();
   const dd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
