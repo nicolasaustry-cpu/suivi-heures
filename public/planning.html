@@ -85,7 +85,8 @@
     .no-print { display:none !important; }
     .top-bar { position:static; box-shadow:none; }
     #planning-wrapper { margin-top:0; }
-    .jour-block { page-break-inside:avoid; break-inside:avoid; }
+    /* Un jour ne doit jamais être coupé entre deux pages */
+    .jour-block { page-break-inside:avoid; break-inside:avoid; page-break-after:auto; }
     .col-abs, .col-prevu, .col-ecart,
     th.col-abs, th.col-prevu, th.col-ecart,
     td.cell-abs, td.cell-prevu, td.cell-ecart { display:none !important; }
