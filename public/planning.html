@@ -88,6 +88,9 @@
     #planning-wrapper { margin-top:0; }
     /* Un jour ne doit jamais être coupé entre deux pages */
     .jour-block { page-break-inside:avoid; break-inside:avoid; page-break-after:auto; }
+    /* Le tableau garde la largeur de ses colonnes (pas d'étirement) ;
+       c'est le zoom JS qui agrandit l'ensemble si des colonnes sont masquées */
+    .jour-block table { width:auto !important; table-layout:fixed; }
     .col-abs, .col-prevu, .col-ecart,
     th.col-abs, th.col-prevu, th.col-ecart,
     td.cell-abs, td.cell-prevu, td.cell-ecart { display:none !important; }
@@ -686,17 +689,43 @@ function imprimerSemaine() {
 
   // Appliquer le filtrage des colonnes CH selon les cases cochées
   const classesAjoutees = [];
+  let nbChCoches = 0;
   document.querySelectorAll('.print-ch-cb').forEach(cb => {
-    if (!cb.checked) {
+    if (cb.checked) {
+      nbChCoches++;
+    } else {
       const cls = 'hide-ch' + cb.dataset.ch;
       document.body.classList.add(cls);
       classesAjoutees.push(cls);
     }
   });
 
+  // Calcul du facteur de zoom : on agrandit le tableau proportionnellement
+  // à la largeur "perdue" par les colonnes décochées.
+  // Largeur d'origine = 150 (Salariés) + 5×210 (Ch) + 55 (Total) = 1255 px
+  // Largeur restante  = 150 + nbChCoches×210 + 55
+  const LARG_ORIG = 1255;
+  const largRestante = 150 + nbChCoches * 210 + 55;
+  const zoom = nbChCoches > 0 ? (LARG_ORIG / largRestante) : 1;
+
+  // Appliquer le zoom sur le contenu imprimable
+  const wrapper = document.getElementById('planning-wrapper');
+  const ancienTransform       = wrapper.style.transform;
+  const ancienTransformOrigin = wrapper.style.transformOrigin;
+  const ancienWidth           = wrapper.style.width;
+  if (zoom > 1) {
+    wrapper.style.transformOrigin = 'top left';
+    wrapper.style.transform = 'scale(' + zoom + ')';
+    // Compenser pour que le contenu zoomé tienne sur la largeur de la page
+    wrapper.style.width = (100 / zoom) + '%';
+  }
+
   const restaurer = () => {
     classesAjoutees.forEach(cls => document.body.classList.remove(cls));
     document.querySelectorAll('#planning-wrapper .jour-block').forEach(b => b.style.display = '');
+    wrapper.style.transform       = ancienTransform;
+    wrapper.style.transformOrigin = ancienTransformOrigin;
+    wrapper.style.width           = ancienWidth;
   };
 
   if (!semaine) {
