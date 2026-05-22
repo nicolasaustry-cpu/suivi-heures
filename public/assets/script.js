@@ -107,10 +107,12 @@ function afficherSalaries() {
         <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">
-          <input type="password" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
-            autocomplete="off" autocorrect="off" autocapitalize="off"
-            style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
-            onchange="majPIN(${s.id}, this.value)">
+          <input type="text" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
+            autocomplete="new-password" name="pin_${s.id}_${Date.now()}"
+            style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;-webkit-text-security:disc;"
+            onchange="majPIN(${s.id}, this.value)"
+            onfocus="this.setAttribute('type','text')"
+            data-pin="true">
           <span onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
             style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>
         </td>
@@ -198,7 +200,12 @@ function majPIN(id, pin) {
 function togglePIN(id) {
   const input = document.getElementById('pin-' + id);
   if (!input) return;
-  input.type = input.type === 'password' ? 'text' : 'password';
+  // Basculer entre masqué (-webkit-text-security:disc) et visible
+  if (input.style.webkitTextSecurity === 'none' || input.style.webkitTextSecurity === '') {
+    input.style.webkitTextSecurity = 'disc';
+  } else {
+    input.style.webkitTextSecurity = 'none';
+  }
 }
 
 /* ===========================================
