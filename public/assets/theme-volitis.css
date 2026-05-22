@@ -200,6 +200,11 @@ body .nav a.nav-plus,
 body div.nav a.nav-plus {
   color: var(--vol-success) !important;
   font-weight: 700 !important;
+}
+/* Seul le PREMIER lien nav-plus consécutif est poussé à droite,
+   les suivants restent collés à côté */
+body .nav a.nav-plus:not(.nav-plus + .nav-plus),
+body div.nav a.nav-plus:not(.nav-plus + .nav-plus) {
   margin-left: auto !important;
 }
 
