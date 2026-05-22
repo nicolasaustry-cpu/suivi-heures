@@ -278,38 +278,11 @@ function supprimerSalarie(index) {
    LOGO VOLITIS (réutilisable sur toutes les pages)
    =========================================== */
 function ajouterLogoVolitis() {
-  const header = document.querySelector("header");
-  if (!header) return;
+  // Désactivé depuis l'intégration du thème Volitis : le logo Suiv'Heures
+  // figure désormais dans le header (vol-identite). Plus besoin d'ajouter
+  // un second bloc "Outil créé par Volitis" à droite.
   document.getElementById("volitis-link")?.remove();
-
-  const wrapper = document.createElement("div");
-  wrapper.id = "volitis-link";
-  Object.assign(wrapper.style, {
-    display: "flex", alignItems: "center", gap: "0.5rem",
-    marginLeft: "1rem", cursor: "pointer", userSelect: "none"
-  });
-
-  const logoContainer = document.createElement("div");
-  Object.assign(logoContainer.style, {
-    background: "white", borderRadius: "50%",
-    width: "42px", height: "42px",
-    display: "flex", alignItems: "center", justifyContent: "center"
-  });
-
-  const img = document.createElement("img");
-  img.src = "assets/volitis-logo.png";
-  img.alt = "Logo Volitis";
-  img.style.height = "30px";
-  img.style.width = "auto";
-  logoContainer.appendChild(img);
-
-  const text = document.createElement("span");
-  text.textContent = "Outil créé par Volitis";
-  Object.assign(text.style, { fontSize: "0.8rem", color: "white", whiteSpace: "nowrap" });
-
-  wrapper.append(logoContainer, text);
-  wrapper.addEventListener("click", () => window.open("https://volitis.net/", "_blank"));
-  header.appendChild(wrapper);
+  return;
 }
 
 /* ===========================================
