@@ -32,13 +32,21 @@
 
   /* ── DESKTOP uniquement ── */
   @media (min-width: 600px) {
-    body { background: #e2e8f0; min-height: 100vh; padding-top: 0; }
+    body { background: #e2e8f0; min-height: 100vh; }
     .nav-desktop { display: flex; }
     .phone-container {
-      width: 420px; margin: 0 auto;
-      border-radius: 28px; overflow: hidden;
+      display: block;
+      width: 420px !important;
+      margin: 1rem auto 2rem !important;
+      border-radius: 28px;
+      overflow: hidden;
       box-shadow: 0 8px 32px rgba(0,0,0,0.22);
-      background: #2563eb;
+    }
+    /* Forcer le pin-screen dans le cadre */
+    .phone-container .pin-screen {
+      min-height: 600px !important;
+      width: 100% !important;
+      border-radius: 0;
     }
   }
 
@@ -173,19 +181,18 @@
   }
 
   /* ── PIN ── */
+  /* Mobile : plein écran */
   .pin-screen {
     background: #2563eb;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 2rem; width: 100%; min-height: 100vh;
   }
+  /* Desktop : contenu normal dans le cadre */
   @media (min-width: 600px) {
     .pin-screen {
       min-height: 600px;
-      max-width: 420px;
-      margin: 0 auto;
-      border-radius: 28px;
+      width: 100%;
     }
-    body { padding: 1.5rem 0 2rem; }
   }
   .pin-screen h2 { color: #fff; font-size: 1.2rem; margin-bottom: 0.5rem; }
   .pin-screen p  { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-bottom: 1.5rem; text-align:center; }
