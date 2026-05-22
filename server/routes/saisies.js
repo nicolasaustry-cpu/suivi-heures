@@ -23,7 +23,8 @@ router.post("/connect", async (req, res) => {
       ok: true,
       clientId:     doc.clientId,
       salaries:     doc.salaries     || [],
-      previsionnel: doc.previsionnel || {}
+      previsionnel: doc.previsionnel || {},
+      heures:       doc.heures       || {}
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

@@ -355,6 +355,7 @@ async function validerCodeEntreprise() {
     localStorage.setItem('saisie_clientId',    d.clientId);
     if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
+    if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
 
     // Passer à l'étape PIN
     document.getElementById('etape-code').style.display = 'none';
