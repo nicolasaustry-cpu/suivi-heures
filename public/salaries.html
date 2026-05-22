@@ -94,25 +94,27 @@
     </button>
   </div>
   <p id="no-salarie" style="color:#6b7280;">Aucun salarié enregistré.</p>
-  <table id="table-salaries" style="display:none;">
+  <div style="overflow-x:auto;">
+  <table id="table-salaries" style="display:none;width:auto;margin:0 auto;border-collapse:collapse;white-space:nowrap;">
     <thead>
       <tr>
-        <th>Prénom</th>
-        <th>Nom</th>
-        <th>Date entrée</th>
-        <th>Date sortie</th>
-        <th>Lun</th>
-        <th>Mar</th>
-        <th>Mer</th>
-        <th>Jeu</th>
-        <th>Ven</th>
-        <th>Sam</th>
-        <th>PIN</th>
-        <th>Actions</th>
+        <th style="min-width:90px;">Prénom</th>
+        <th style="min-width:90px;">Nom</th>
+        <th style="width:110px;">Entrée</th>
+        <th style="width:140px;">Sortie</th>
+        <th style="width:38px;text-align:center;">Lun</th>
+        <th style="width:38px;text-align:center;">Mar</th>
+        <th style="width:38px;text-align:center;">Mer</th>
+        <th style="width:38px;text-align:center;">Jeu</th>
+        <th style="width:38px;text-align:center;">Ven</th>
+        <th style="width:38px;text-align:center;">Sam</th>
+        <th style="width:80px;text-align:center;">PIN</th>
+        <th style="width:70px;text-align:center;">Actions</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
+  </div>
 </section>
 
 <script src="assets/script.js"></script>
@@ -122,12 +124,14 @@
     const liste = JSON.parse(localStorage.getItem('salariesdata') || '[]');
     document.getElementById('no-salarie').style.display  = liste.length === 0 ? '' : 'none';
     document.getElementById('table-salaries').style.display = liste.length === 0 ? 'none' : '';
+    // Rafraîchir l'affichage avec le filtre actif
+    if (typeof afficherSalaries === 'function') afficherSalaries();
   }
 
-  // Appel initial après que script.js a déjà lancé DOMContentLoaded
+  // Appel initial
+  window.addEventListener('donnees-chargees', majMessageVide);
   majMessageVide();
 
-  // Écoute les changements de localStorage pour mettre à jour la vue
   window.addEventListener('storage', () => majMessageVide());
 </script>
 

@@ -100,12 +100,12 @@ function afficherSalaries() {
                  onchange="majDateSortie(${s.id}, this.value)"
                  style="width:130px;">
         </td>
-        <td id="h-lun-${s.id}">${h.lun ?? 0}</td>
-        <td id="h-mar-${s.id}">${h.mar ?? 0}</td>
-        <td id="h-mer-${s.id}">${h.mer ?? 0}</td>
-        <td id="h-jeu-${s.id}">${h.jeu ?? 0}</td>
-        <td id="h-ven-${s.id}">${h.ven ?? 0}</td>
-        <td id="h-sam-${s.id}">${h.sam ?? 0}</td>
+        <td id="h-lun-${s.id}" style="text-align:center;">${h.lun ?? 0}</td>
+        <td id="h-mar-${s.id}" style="text-align:center;">${h.mar ?? 0}</td>
+        <td id="h-mer-${s.id}" style="text-align:center;">${h.mer ?? 0}</td>
+        <td id="h-jeu-${s.id}" style="text-align:center;">${h.jeu ?? 0}</td>
+        <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
+        <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">
           <input type="password" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
             style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
