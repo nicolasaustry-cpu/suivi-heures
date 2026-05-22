@@ -57,19 +57,19 @@
   }
   .jour-total { font-size:0.82rem; color:#15803d; }
 
-  table.real-table { width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
-  table.real-table th { background:#e2e8f0; border:1px solid #ccc; padding:4px 6px; font-weight:700; }
-  table.real-table td { border:1px solid #ccc; padding:4px 6px; }
+  table.real-table { width:auto; max-width:100%; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
+  table.real-table th { background:#e2e8f0; border:1px solid #ccc; padding:4px 6px; font-weight:700; white-space:nowrap; }
+  table.real-table td { border:1px solid #ccc; padding:4px 6px; white-space:nowrap; }
   table.real-table tr:nth-child(even) td { background:#f8fafc; }
   table.real-table tr:hover td { background:#f0fdf4; }
   table.real-table tr.ligne-total td { background:#d1fae5; font-weight:700; color:#065f46; }
   table.real-table tr.ligne-total-sal td { background:#dbeafe; font-weight:700; color:#1d4ed8; }
 
-  .col-sal  { width:140px; font-weight:700; }
-  .col-ch   { min-width:150px; }
-  .col-h    { width:80px; text-align:center; }
-  .col-depl { width:70px; text-align:center; color:#92400e; }
-  .col-tot  { width:70px; text-align:center; font-weight:700; color:#2563eb; }
+  .col-sal  { font-weight:700; }
+  .col-ch   { }
+  .col-h    { text-align:center; }
+  .col-depl { text-align:center; color:#92400e; }
+  .col-tot  { text-align:center; font-weight:700; color:#2563eb; }
 
   .badge-val { background:#dcfce7; color:#15803d; border-radius:999px; padding:1px 8px; font-size:0.72rem; font-weight:700; }
   .badge-env { background:#fef3c7; color:#92400e; border-radius:999px; padding:1px 8px; font-size:0.72rem; font-weight:700; }
