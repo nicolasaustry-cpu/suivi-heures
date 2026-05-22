@@ -1,0 +1,303 @@
+/* ═══════════════════════════════════════════════════════════════
+   THÈME VOLITIS · Direction B « Pro Corporate »
+   Suiv'Heures — La gestion des heures, simplement
+   ═══════════════════════════════════════════════════════════════
+   Ce fichier surcharge style.css pour appliquer l'identité Volitis.
+   Pour revenir à l'ancien style, retirer la ligne <link> qui le charge.
+   ─────────────────────────────────────────────────────────────── */
+
+/* ─── Variables de thème ─── */
+:root {
+  --vol-bleu:        #0f3a8a;   /* bleu marine principal */
+  --vol-bleu-clair:  #1e4fa8;
+  --vol-bleu-pale:   #bfdbfe;   /* texte secondaire sur fond bleu */
+  --vol-ambre:       #f59e0b;   /* accent (signature) */
+  --vol-ambre-clair: #fcd34d;
+  --vol-noir:        #0f172a;
+  --vol-gris-bg:     #f1f5f9;   /* fond de page */
+  --vol-gris-card:   #f8fafc;
+  --vol-gris-bord:   #cbd5e1;
+  --vol-gris-texte:  #475569;
+  --vol-gris-mute:   #64748b;
+  --vol-success:     #16a34a;
+  --vol-warning:     #f59e0b;
+  --vol-danger:      #dc2626;
+}
+
+/* ─── Page ─── */
+html, body {
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  background: var(--vol-gris-bg) !important;
+  color: var(--vol-noir) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER VOLITIS
+   ═══════════════════════════════════════════════════════════════ */
+.main-header {
+  background: var(--vol-bleu) !important;
+  color: #fff !important;
+  border-bottom: 3px solid var(--vol-ambre) !important;
+  padding: 12px 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px;
+  position: relative;
+  z-index: 10;
+}
+
+/* Bloc identité à gauche : logo + nom outil + baseline */
+.main-header .vol-identite {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.main-header .vol-identite img.vol-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 6px;
+  padding: 3px;
+  box-sizing: border-box;
+}
+.main-header .vol-identite .vol-titres {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+.main-header .vol-identite .vol-marque {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vol-bleu-pale);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.main-header .vol-identite .vol-nom {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+.main-header .vol-identite .vol-baseline {
+  font-size: 11px;
+  color: var(--vol-bleu-pale);
+  font-style: italic;
+  margin-top: 1px;
+}
+
+/* Centre du header : titre de la page */
+.main-header .page-title {
+  flex: 1 1 auto !important;
+  text-align: center !important;
+  margin: 0 !important;
+  font-size: 1.15rem !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  letter-spacing: 0.02em;
+  min-width: 0;
+}
+
+/* Bloc droite : entreprise + licence */
+.main-header .vol-droite {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.main-header .entreprise-nom {
+  text-align: right;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #fff !important;
+  min-width: auto !important;
+}
+.main-header .entreprise-nom::before {
+  content: "ENTREPRISE";
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--vol-bleu-pale);
+  letter-spacing: 0.06em;
+  margin-bottom: 1px;
+}
+
+/* Badge licence */
+#licence-status {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 5px 11px !important;
+  border-radius: 3px !important;
+  letter-spacing: 0.04em;
+  background: var(--vol-success);
+  color: #fff;
+  white-space: nowrap;
+}
+/* État inactif (texte rouge présent dans le code existant) */
+#licence-status:has(span[style*="fca5a5"]),
+#licence-status[data-licence="0"] {
+  background: var(--vol-danger);
+}
+/* Pour les ::before/spans HTML existants : on cache pour homogénéiser, le badge en CSS prend le relais via le texte */
+#licence-status span { color: #fff !important; font-size: 11px !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION EN ONGLETS (style Direction B)
+   ═══════════════════════════════════════════════════════════════ */
+.nav {
+  background: #fff !important;
+  border-bottom: 1px solid var(--vol-gris-bord) !important;
+  padding: 0 22px !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  top: 0 !important;
+  margin: 0 !important;
+}
+.nav a {
+  padding: 13px 18px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--vol-gris-texte) !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  text-decoration: none !important;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav a:hover {
+  background: var(--vol-gris-card) !important;
+  color: var(--vol-bleu) !important;
+}
+.nav a.active {
+  color: var(--vol-bleu) !important;
+  font-weight: 700 !important;
+  border-bottom-color: var(--vol-ambre) !important;
+  background: transparent !important;
+  text-decoration: none !important;
+}
+.nav a.nav-plus {
+  color: var(--vol-success) !important;
+  font-weight: 700 !important;
+  margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTIONS / CARTES
+   ═══════════════════════════════════════════════════════════════ */
+section {
+  background: #fff;
+  border: 1px solid var(--vol-gris-bord);
+  border-radius: 6px;
+  margin: 16px 22px;
+  padding: 18px 22px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+section > h2:first-child,
+section > h3:first-child {
+  margin-top: 0;
+  color: var(--vol-bleu);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+h2 { font-size: 16px; }
+h3 { font-size: 14px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FORMULAIRES
+   ═══════════════════════════════════════════════════════════════ */
+label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vol-gris-mute);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+input[type="text"], input[type="date"], input[type="month"],
+input[type="number"], input[type="email"], input[type="password"],
+input[type="tel"], select, textarea {
+  border: 1px solid var(--vol-gris-bord);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: #fff;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--vol-bleu);
+  box-shadow: 0 0 0 3px rgba(15, 58, 138, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOUTONS
+   ═══════════════════════════════════════════════════════════════ */
+button, .btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border: 1px solid var(--vol-gris-bord);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--vol-noir);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.01em;
+}
+button:hover, .btn:hover {
+  border-color: var(--vol-bleu);
+  color: var(--vol-bleu);
+}
+/* Bouton primaire bleu */
+button.btn-primary, .btn-primary {
+  background: var(--vol-bleu);
+  border-color: var(--vol-bleu);
+  color: #fff;
+}
+button.btn-primary:hover, .btn-primary:hover {
+  background: var(--vol-bleu-clair);
+  border-color: var(--vol-bleu-clair);
+  color: #fff;
+}
+/* Bouton accent ambre = action principale d'impression / export */
+button.btn-warning, .btn-warning {
+  background: var(--vol-ambre) !important;
+  border-color: var(--vol-ambre) !important;
+  color: var(--vol-noir) !important;
+  font-weight: 700 !important;
+}
+button.btn-warning:hover, .btn-warning:hover {
+  background: var(--vol-ambre-clair) !important;
+  border-color: var(--vol-ambre-clair) !important;
+}
+/* Bouton danger */
+button.btn-danger, .btn-danger {
+  background: var(--vol-danger);
+  border-color: var(--vol-danger);
+  color: #fff;
+}
+button.btn-danger:hover, .btn-danger:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TABLEAUX
+   ═══════════════════════════════════════════════════════════════ */
+table { border-collapse: collapse; }
+table th {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IMPRESSION
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  .main-header { background: var(--vol-bleu) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .nav { display: none !important; }
+}
