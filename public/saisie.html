@@ -435,21 +435,46 @@ async function pinValider() {
    CHANTIERS PRÉVISIONNELS
 ═══════════════════════════ */
 function chargerChantiersPrev() {
-  const date    = document.getElementById('date-saisie').value;
-  const moisStr = date.substring(0, 7); // "YYYY-MM"
-  const prev    = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+  const date = document.getElementById('date-saisie').value;
+  if (!date) return;
 
-  // Trouver l'année et le mois
-  const [annee, mois] = moisStr.split('-').map(Number);
-  const cleAnnee = annee.toString();
-  const cleMois  = (mois - 1).toString();
+  // Chercher les chantiers du salarié ce jour dans le planning (heuresdata)
+  const heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const dateKey  = date.replace(/-/g, '_');
+  const salarieId = _salarie?.id;
 
   _chantiersP = [];
-  if (prev[cleAnnee] && prev[cleAnnee][cleMois] && prev[cleAnnee][cleMois].chantiers) {
-    _chantiersP = prev[cleAnnee][cleMois].chantiers
-      .filter(c => c.client && c.client.trim())
-      .map(c => ({ nom: c.client.trim(), hPrevues: c.hPrevues || 0 }));
+
+  // Parcourir heuresdata pour ce salarié et cette date
+  const chantiersTrouves = new Map();
+  for (const k in heures) {
+    if (!k.startsWith(String(salarieId) + dateKey)) continue;
+    if (k.endsWith('abs')) continue;
+    const entry = heures[k];
+    const nomChantier = (entry?.chantier || '').trim();
+    if (!nomChantier || nomChantier.toLowerCase() === 'absence') continue;
+    const h = parseFloat(entry?.heures) || 0;
+    if (h <= 0) continue;
+    if (!chantiersTrouves.has(nomChantier)) {
+      chantiersTrouves.set(nomChantier, h);
+    }
   }
+
+  // Si pas de chantiers dans le planning du jour, chercher dans le prévisionnel du mois
+  if (chantiersTrouves.size === 0) {
+    const moisStr  = date.substring(0, 7);
+    const [annee, mois] = moisStr.split('-').map(Number);
+    const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+    const cleAnnee = annee.toString();
+    const cleMois  = (mois - 1).toString();
+    if (prev[cleAnnee]?.[cleMois]?.chantiers) {
+      prev[cleAnnee][cleMois].chantiers
+        .filter(c => c.client && c.client.trim())
+        .forEach(c => chantiersTrouves.set(c.client.trim(), c.hPrevues || 0));
+    }
+  }
+
+  _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   rendrePrev();
