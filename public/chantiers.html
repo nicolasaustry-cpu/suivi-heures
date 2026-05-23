@@ -702,13 +702,18 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 165px;width:165px;">`;
+    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 165px;width:165px;overflow:clip;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
-    html += `<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">`;
+    html += `<table style="width:165px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
+    html += `<colgroup>
+      <col style="width:90px;">
+      <col style="width:38px;">
+      <col style="width:37px;">
+    </colgroup>`;
     html += `<thead><tr class="tr-chantier-header">
-      <th style="text-align:left;padding:4px 5px;font-size:0.96rem;">Client</th>
-      <th style="text-align:right;padding:4px 5px;width:38px;font-size:0.96rem;">H.</th>
-      <th style="width:30px;font-size:0.96rem;"></th>
+      <th style="text-align:left;padding:4px 5px;font-size:0.88rem;">Client</th>
+      <th style="text-align:right;padding:4px 5px;font-size:0.88rem;">H.</th>
+      <th style="font-size:0.88rem;"></th>
     </tr></thead><tbody id="tbody-ch-${annee}_${mi}">`;
 
     // Lignes saisies
