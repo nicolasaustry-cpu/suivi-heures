@@ -12,7 +12,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; background: #fff; }
@@ -1121,43 +1121,55 @@ function genererQRCode() {
     return;
   }
 
-  // Générer le QR dans un canvas
-  container.innerHTML = '<canvas id="qr-cnv"></canvas>';
-  const cnv = document.getElementById('qr-cnv');
   if (typeof QRCode === 'undefined') {
-    container.innerHTML = '<div class="qr-vide">Librairie QR non chargée.</div>';
+    container.innerHTML = '<div class="qr-vide">Librairie QR non chargée.<br><small>Vérifiez votre connexion internet.</small></div>';
     return;
   }
-  QRCode.toCanvas(cnv, getURLqr(code), {
-    width: 220,
-    margin: 1,
-    errorCorrectionLevel: 'M',
-    color: { dark: '#0f3a8a', light: '#ffffff' }
-  }, err => {
-    if (err) {
-      console.error(err);
-      container.innerHTML = '<div class="qr-vide">Erreur QR : ' + err.message + '</div>';
-    }
-  });
+
+  // qrcodejs (davidshimjs) : on lui donne une div vide et il y injecte un <img> + <canvas>
+  container.innerHTML = '';
+  try {
+    new QRCode(container, {
+      text: getURLqr(code),
+      width: 220,
+      height: 220,
+      colorDark:  '#0f3a8a',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch (e) {
+    container.innerHTML = '<div class="qr-vide">Erreur QR : ' + e.message + '</div>';
+    return;
+  }
 
   if (entNom)  entNom.textContent  = getNomEntreprise();
   if (codeAff) { codeAff.textContent = code; codeAff.style.display = 'inline-block'; }
 }
 
+function getQRImageDataURL() {
+  // qrcodejs ajoute soit un <canvas> soit une <img> dans le container
+  const container = document.getElementById('qr-canvas');
+  if (!container) return null;
+  const cnv = container.querySelector('canvas');
+  if (cnv) return cnv.toDataURL('image/png');
+  const img = container.querySelector('img');
+  if (img && img.src) return img.src;
+  return null;
+}
+
 function telechargerQRCode() {
-  const cnv = document.getElementById('qr-cnv');
-  if (!cnv) { alert('QR non disponible'); return; }
+  const dataUrl = getQRImageDataURL();
+  if (!dataUrl) { alert('QR non disponible'); return; }
   const link = document.createElement('a');
   const code = getCodeEntreprise() || 'qrcode';
   link.download = `QR-SuivHeures-${code}.png`;
-  link.href = cnv.toDataURL('image/png');
+  link.href = dataUrl;
   link.click();
 }
 
 function imprimerQRCode() {
-  const cnv = document.getElementById('qr-cnv');
-  if (!cnv) { alert('QR non disponible'); return; }
-  const dataUrl = cnv.toDataURL('image/png');
+  const dataUrl = getQRImageDataURL();
+  if (!dataUrl) { alert('QR non disponible'); return; }
   const code = getCodeEntreprise() || '';
   const ent  = getNomEntreprise() || '';
 
