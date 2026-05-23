@@ -206,6 +206,26 @@
   }
   .time-sep { font-size: 1.2rem; color: #9ca3af; padding-bottom: 6px; }
 
+  /* Bouton "Départ maintenant" */
+  .btn-maintenant {
+    width: 100%; padding: 9px 10px;
+    background: #0f3a8a; color: #fff;
+    border: none; border-radius: 6px;
+    font-size: 0.85rem; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-bottom: 6px;
+    transition: background 0.15s;
+  }
+  .btn-maintenant:hover, .btn-maintenant:active { background: #1e4fa8; }
+  .btn-maintenant .heure-actuelle {
+    background: rgba(255,255,255,0.15);
+    padding: 2px 8px; border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Cacher le bouton quand le départ est déjà rempli */
+  .btn-maintenant.depart-rempli { opacity: 0.55; }
+
   .duree-badge {
     background: #eff6ff; color: #1d4ed8;
     border-radius: 6px; padding: 4px 10px;
@@ -784,6 +804,35 @@ function chargerChantiersPrev() {
 }
 
 /* ═══════════════════════════
+   HEURE COURANTE (arrondie 5 min)
+═══════════════════════════ */
+function getHeureMaintenant() {
+  const d = new Date();
+  let h = d.getHours();
+  let m = Math.round(d.getMinutes() / 5) * 5;
+  if (m === 60) { m = 0; h = (h + 1) % 24; }
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function definirDepartMaintenant(source, ref) {
+  const h = getHeureMaintenant();
+  if (source === 'prev') {
+    majSaisiePrev(ref, 'depart', h);
+  } else {
+    majAjout(parseInt(ref), 'depart', h);
+  }
+}
+
+/* Rafraîchir l'heure affichée sur les boutons "Maintenant" toutes les minutes,
+   sans tout re-rendre (pour ne pas perdre le focus d'un champ en cours de saisie). */
+setInterval(() => {
+  const h = getHeureMaintenant();
+  document.querySelectorAll('.btn-maintenant .heure-actuelle').forEach(el => {
+    el.textContent = h;
+  });
+}, 60000);
+
+/* ═══════════════════════════
    RENDU CHANTIERS PRÉVUS
 ═══════════════════════════ */
 function rendrePrev() {
@@ -792,9 +841,12 @@ function rendrePrev() {
     cont.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;font-style:italic;text-align:center;padding:0.5rem 0;">Aucun chantier prévu ce mois</p>';
     return;
   }
+  const heureNow = getHeureMaintenant();
   cont.innerHTML = _chantiersP.map((c, i) => {
     const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0 };
     const duree = calcDuree(s.arrivee, s.depart);
+    const departRempli = !!s.depart;
+    const nomEscaped = c.nom.replace(/'/g, "\\'");
     return `<div class="chantier-card previsionnel">
       <div class="chantier-header">
         <div class="chantier-nom">${c.nom}</div>
@@ -803,21 +855,24 @@ function rendrePrev() {
       <div class="time-row">
         <div class="time-block">
           <label>Arrivée</label>
-          <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${c.nom}','arrivee',this.value)">
+          <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${nomEscaped}','arrivee',this.value)">
         </div>
         <div class="time-sep">→</div>
         <div class="time-block">
           <label>Départ</label>
-          <input type="time" value="${s.depart}" onchange="majSaisiePrev('${c.nom}','depart',this.value)">
+          <input type="time" value="${s.depart}" onchange="majSaisiePrev('${nomEscaped}','depart',this.value)">
         </div>
       </div>
+      <button class="btn-maintenant${departRempli ? ' depart-rempli' : ''}" onclick="definirDepartMaintenant('prev','${nomEscaped}')">
+        🕐 Départ maintenant <span class="heure-actuelle">${heureNow}</span>
+      </button>
       <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
       <div class="depl-row">
         <label>🚗 Déplacement</label>
         <div class="stepper">
-          <div class="step-btn" onclick="majDepl('prev','${c.nom}',-15)">−</div>
+          <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',-15)">−</div>
           <span class="step-val" id="depl-prev-${c.nom.replace(/\s/g,'_')}">${s.depl}</span>
-          <div class="step-btn" onclick="majDepl('prev','${c.nom}',15)">+</div>
+          <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',15)">+</div>
         </div>
         <span class="step-unite">min</span>
       </div>
@@ -840,8 +895,10 @@ function rendreAjout() {
   const cont = document.getElementById('liste-ajout');
   document.getElementById('nb-ajout').textContent = _chantiersA.length;
   if (!_chantiersA.length) { cont.innerHTML = ''; return; }
+  const heureNow = getHeureMaintenant();
   cont.innerHTML = _chantiersA.map((c, i) => {
     const duree = calcDuree(c.arrivee, c.depart);
+    const departRempli = !!c.depart;
     return `<div class="chantier-card ajoute">
       <div class="chantier-header">
         <div class="chantier-nom libre">${c.nom}</div>
@@ -858,6 +915,9 @@ function rendreAjout() {
           <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
         </div>
       </div>
+      <button class="btn-maintenant${departRempli ? ' depart-rempli' : ''}" onclick="definirDepartMaintenant('ajout','${i}')">
+        🕐 Départ maintenant <span class="heure-actuelle">${heureNow}</span>
+      </button>
       <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
       <div class="depl-row">
         <label>🚗 Déplacement</label>
