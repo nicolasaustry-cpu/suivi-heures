@@ -74,10 +74,10 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 1000;
     background: #f4f6f8;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    border-bottom: 1px solid #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    border-bottom: 2px solid #cbd5e1;
   }
   #sticky-headers-bar #sticky-scrollbar {
     position: static;
@@ -734,7 +734,7 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;overflow:hidden;flex:0 0 auto;min-width:220px;">`;
+    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;overflow:hidden;flex:0 0 auto;min-width:165px;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">`;
     html += `<thead><tr class="tr-chantier-header">
@@ -752,7 +752,7 @@ function rendreChantiers() {
         <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
           <div style="display:flex;align-items:center;gap:4px;">
             <input value="${ch.client||''}" placeholder=""
-              style="border:none;background:transparent;font-size:0.96rem;font-family:inherit;min-width:120px;"
+              style="border:none;background:transparent;font-size:0.96rem;font-family:inherit;min-width:90px;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
             ${badge}
@@ -866,10 +866,21 @@ function gererStickyHeaders() {
   const bar = document.getElementById('sticky-headers-bar');
   if (!inner || !bar) return;
 
-  const rect = inner.getBoundingClientRect();
-  // Afficher la barre si le haut des tableaux est au-dessus du viewport
-  // et que le bas est encore visible
-  const doitAfficher = rect.top < 0 && rect.bottom > 100;
+  // Trouver le premier bandeau mois et vérifier sa position
+  const premierBandeau = inner.querySelector('.bloc-mois-header');
+  if (!premierBandeau) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  const rectBandeau = premierBandeau.getBoundingClientRect();
+  const rectInner = inner.getBoundingClientRect();
+
+  // Afficher la barre si :
+  // - le premier bandeau mois est sorti du viewport (top négatif)
+  // - et le bas du conteneur est encore visible (sinon plus de chantiers à scroller)
+  const doitAfficher = rectBandeau.top < 0 && rectInner.bottom > 100;
+
   if (doitAfficher) {
     if (bar.style.display !== 'block') {
       bar.style.display = 'block';
@@ -910,12 +921,16 @@ window.addEventListener('DOMContentLoaded', () => {
   if (stickyScrollBar) stickyScrollBar.addEventListener('scroll', () => syncFrom(stickyScrollBar));
 
   // Détection du scroll vertical pour afficher/masquer la barre flottante
+  // On écoute window + document (pour couvrir tous les contextes)
   window.addEventListener('scroll', gererStickyHeaders, { passive: true });
+  document.addEventListener('scroll', gererStickyHeaders, { passive: true, capture: true });
   window.addEventListener('resize', () => {
     syncScrollbarMiroir();
     reconstruireStickyHeaders();
     gererStickyHeaders();
   });
+  // Appel initial après chargement complet (au cas où la page est déjà scrollée au chargement)
+  setTimeout(gererStickyHeaders, 100);
 });
 
 /* Wrapper : majLigne depuis oninput (lit data-uid) */
