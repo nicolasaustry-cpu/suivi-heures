@@ -696,12 +696,22 @@ function rendreSynthese() {
 }
 
 /* ── TABLEAUX CHANTIERS PAR MOIS ── */
-const NB_LIGNES_VIERGES = 10;
+const NB_LIGNES_VIERGES_SUPPLEMENTAIRES = 2; // marge pour saisir de nouveaux chantiers
 
 function rendreChantiers() {
   const cont = document.getElementById('section-chantiers');
   const liste = getMoisAffichage();
   let html = '';
+
+  // Calcul du nombre max de chantiers sur l'ensemble des mois affichés
+  let maxChantiers = 0;
+  liste.forEach(({ annee, mois: mi }) => {
+    const dm = getDataMois(annee, mi);
+    const nb = (dm.chantiers || []).length;
+    if (nb > maxChantiers) maxChantiers = nb;
+  });
+  // Le nombre total de lignes par mois = max + marge pour saisir
+  const nbLignesParMois = maxChantiers + NB_LIGNES_VIERGES_SUPPLEMENTAIRES;
 
   let _idxBloc = 0;
   liste.forEach(({ annee, mois: mi, isHors }) => {
@@ -709,8 +719,8 @@ function rendreChantiers() {
     const dm       = getDataMois(annee, mi);
     const chantiers = dm.chantiers || [];
 
-    // Compléter jusqu'à NB_LIGNES_VIERGES lignes (saisies + vierges)
-    const nbVierges = Math.max(0, NB_LIGNES_VIERGES - chantiers.length);
+    // Compléter jusqu'à nbLignesParMois (alignement sur le mois le plus rempli)
+    const nbVierges = Math.max(0, nbLignesParMois - chantiers.length);
 
     const bgHeader  = isHors ? '#64748b' : '#2563eb';
     const labelAnnee = isHors ? ` ${annee}` : '';
