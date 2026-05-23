@@ -176,16 +176,15 @@
   .tr-chantier:hover td { background: #eff6ff; }
 
   /* Ligne avec chantier déjà planifié dans le planning */
-  .tr-chantier.planifie td { background: #f0fdf4; }
-  .tr-chantier.planifie:hover td { background: #dcfce7; }
-  .badge-planifie {
-    display: inline-block;
-    background: #16a34a; color: #fff;
-    font-size: 0.62rem; font-weight: 700;
-    padding: 1px 6px; border-radius: 999px;
-    margin-left: 4px;
-    vertical-align: middle;
-    letter-spacing: 0.02em;
+  .tr-chantier.planifie td { background: #dcfce7; }
+  .tr-chantier.planifie:hover td { background: #bbf7d0; }
+  .coche-planifie {
+    color: #16a34a;
+    font-weight: 900;
+    font-size: 1rem;
+    margin-left: 2px;
+    line-height: 1;
+    flex-shrink: 0;
   }
 
   /* Boutons ajout/suppression chantier */
@@ -702,13 +701,13 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 225px;width:225px;overflow:clip;">`;
+    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 180px;width:180px;overflow:clip;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
-    html += `<table style="width:225px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
+    html += `<table style="width:180px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
-      <col style="width:150px;">
-      <col style="width:38px;">
-      <col style="width:37px;">
+      <col style="width:95px;">
+      <col style="width:45px;">
+      <col style="width:40px;">
     </colgroup>`;
     html += `<thead><tr class="tr-chantier-header">
       <th style="text-align:left;padding:4px 5px;font-size:0.88rem;">Client</th>
@@ -720,20 +719,20 @@ function rendreChantiers() {
     chantiers.forEach((ch, ci) => {
       const isPlanifie = estPlannifie(ch.client);
       const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
-      const badge   = isPlanifie ? '<span class="badge-planifie">planifié</span>' : '';
+      const coche   = isPlanifie ? '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>' : '';
       html += `<tr class="${classes}">
-        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
-          <div style="display:flex;align-items:center;gap:4px;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder=""
-              style="border:none;background:transparent;font-size:0.88rem;font-family:inherit;min-width:90px;"
+              style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
-            ${badge}
+            ${coche}
           </div>
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <input type="number" min="0" step="0.5" value="${ch.hPrevues||''}" placeholder=""
-            style="width:36px;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
+            style="width:100%;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="hPrevues" data-nav="hPrevues"
             onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
