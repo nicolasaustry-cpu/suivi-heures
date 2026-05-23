@@ -9,6 +9,30 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <style>
 
+  /* ══ LAYOUT PLEINE HAUTEUR FIGÉ (style Excel) ══
+     Le body fait exactement la hauteur de la fenêtre, rien ne déborde.
+     Seule la zone des chantiers est scrollable verticalement. */
+  html, body {
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+  /* La zone figée du haut (header, nav, indicateurs) garde sa taille naturelle */
+  body > .zone-figee {
+    flex: 0 0 auto;
+  }
+  /* La section chantiers prend tout l'espace restant */
+  body > .chantiers-section {
+    flex: 1 1 auto;
+    min-height: 0; /* hack flexbox indispensable pour overflow */
+    display: flex;
+    flex-direction: column;
+  }
+
   /* ══ TABLEAU INDICATEURS (figé, pas de scroll) ══ */
   .prev-wrapper {
     overflow-x: visible;
@@ -22,13 +46,14 @@
     width: 100%;
   }
 
-  /* ══ ZONE CHANTIERS AVEC SCROLL HORIZONTAL ══ */
+  /* ══ ZONE CHANTIERS - SEULE ZONE SCROLLABLE ══ */
   .chantiers-scroll {
     overflow-x: auto;
-    overflow-y: visible;
-    margin-top: 1rem;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0.5rem;
     border-top: 2px solid #e2e8f0;
-    padding-top: 0.5rem;
   }
   .chantiers-inner {
     display: flex;
@@ -407,13 +432,13 @@
   </section>
 </div>
 
-<!-- Tableaux chantiers : scroll horizontal indépendant, défile avec la page -->
-<section style="margin-top:0;padding-top:0.5rem;">
-  <!-- Scrollbar horizontale sticky (apparaît entre les mois et la ligne Client/H. -->
-  <div class="chantiers-scroll-top" id="chantiers-scroll-top">
-    <div class="chantiers-scroll-top-inner" id="chantiers-scroll-top-inner"></div>
-  </div>
+<!-- Tableaux chantiers : seule zone scrollable verticalement -->
+<section class="chantiers-section" style="margin-top:0;">
+  <!-- Scrollbar horizontale sticky en haut de la zone -->
   <div class="chantiers-scroll" id="chantiers-scroll-bottom">
+    <div class="chantiers-scroll-top" id="chantiers-scroll-top">
+      <div class="chantiers-scroll-top-inner" id="chantiers-scroll-top-inner"></div>
+    </div>
     <div class="chantiers-inner" id="section-chantiers"></div>
   </div>
 </section>
