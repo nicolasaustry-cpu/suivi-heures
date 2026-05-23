@@ -880,8 +880,10 @@ function getStatsChantier(nomChantier) {
     const d = heuresAll[k];
     if (!d || !d.chantier || !d.heures) continue;
     if (normaliserChantier(d.chantier) !== ref) continue;
-    // Clé : {id_salarie}_{YYYY}_{MM}_{DD}chN (sans underscore avant chN)
-    const m = k.match(/^(\d+)_(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    // Clé : {id}{YYYY}_{MM}_{DD}ch{N}
+    // L'id est un timestamp (13 chiffres aujourd'hui), suivi directement de l'année.
+    // On le découpe en repérant l'année 4 chiffres + _MM_DD ch{N} en fin.
+    const m = k.match(/^(\d+?)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
     if (!m) continue;
     const idSal = m[1];
     const dateStr = `${m[2]}-${m[3]}-${m[4]}`;
