@@ -246,6 +246,32 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Ligne champ heure + bouton côte à côte */
+  .pointage-row {
+    display: flex; gap: 6px; align-items: stretch;
+  }
+  .pointage-input { flex: 1; display: flex; flex-direction: column; }
+  .pointage-input label {
+    font-size: 0.65rem; color: #64748b; font-weight: 600;
+    margin-bottom: 2px; letter-spacing: 0.04em;
+  }
+  .pointage-input input[type="time"] {
+    width: 100%; padding: 10px 4px;
+    border: 1px solid #cbd5e1; border-radius: 6px;
+    font-size: 1.05rem; font-weight: 700;
+    text-align: center; background: #fff; color: #0f172a;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+  }
+  /* Bouton dans une pointage-row : compact, à droite du champ */
+  .pointage-row .btn-pointage {
+    width: auto;
+    padding: 0 14px;
+    align-self: stretch;
+    margin-top: 16px; /* aligné avec le bas du champ (à cause du label au-dessus) */
+    font-size: 0.88rem;
+  }
+
   /* Lien rattrapage */
   .rattrapage-zone {
     text-align: center; padding: 12px 0;
@@ -986,17 +1012,32 @@ function definirDepartMaintenant(source, ref) {
   }
 }
 
-/* Rafraîchir l'heure affichée et les durées en cours toutes les 60 secondes. */
-setInterval(() => {
-  const h = getHeureMaintenant();
-  document.querySelectorAll('.btn-maintenant .heure-actuelle, .heure-now').forEach(el => {
-    el.textContent = h;
+/* Rafraîchir l'heure et les durées toutes les 60 secondes.
+   On rafraîchit aussi les champs heure pré-remplis (arrivée/départ) UNIQUEMENT
+   si l'utilisateur ne les a pas modifiés (data-proposee == value actuelle). */
+let _heureProposeeActuelle = '';
+function majHeureProposeeInputs() {
+  const nouvelleH = getHeureMaintenant();
+  document.querySelectorAll('input[id^="input-arrivee-"], input[id^="input-depart-"]').forEach(el => {
+    // Si pas encore de marqueur, on initialise
+    if (!el.dataset.proposee) el.dataset.proposee = el.value;
+    // On ne met à jour que si la valeur n'a pas été modifiée par l'utilisateur
+    if (el.value === el.dataset.proposee) {
+      el.value = nouvelleH;
+      el.dataset.proposee = nouvelleH;
+    }
   });
+  _heureProposeeActuelle = nouvelleH;
+}
+
+setInterval(() => {
   // Mettre à jour les durées écoulées sur les chantiers en cours
   document.querySelectorAll('.duree-encours').forEach(el => {
     const arrivee = el.dataset.arrivee;
     if (arrivee) el.textContent = dureeEcoulee(arrivee);
   });
+  // Rafraîchir les heures pré-remplies dans les champs input
+  majHeureProposeeInputs();
 }, 60000);
 
 /* ═══════════════════════════
@@ -1004,7 +1045,13 @@ setInterval(() => {
 ═══════════════════════════ */
 
 function demarrerChantier(source, ref) {
-  const heure = getHeureMaintenant();
+  // Lire l'heure depuis le champ input (qui est pré-rempli avec l'heure courante)
+  const inputId = source === 'prev'
+    ? `input-arrivee-prev-${ref.replace(/[^a-zA-Z0-9]/g,'_')}`
+    : `input-arrivee-ajout-${ref}`;
+  const inputEl = document.getElementById(inputId);
+  const heure = (inputEl && inputEl.value) || getHeureMaintenant();
+
   if (source === 'prev') {
     if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
     _saisiesPrev[ref].arrivee = heure;
@@ -1021,10 +1068,16 @@ function demarrerChantier(source, ref) {
 }
 
 function terminerChantier(source, ref) {
-  // On ouvre d'abord le popup déplacement.
-  // L'enregistrement de l'heure de fin et l'envoi se font à la confirmation.
-  _popupContext = { source, ref };
-  ouvrirPopupDeplacement();
+  // Lire l'heure depuis le champ input (pré-rempli avec l'heure courante)
+  const inputId = source === 'prev'
+    ? `input-depart-prev-${ref.replace(/[^a-zA-Z0-9]/g,'_')}`
+    : `input-depart-ajout-${ref}`;
+  const inputEl = document.getElementById(inputId);
+  const heureFin = (inputEl && inputEl.value) || getHeureMaintenant();
+
+  // On stocke l'heure de fin dans le contexte du popup, validée à la confirmation.
+  _popupContext = { source, ref, heureFin };
+  ouvrirPopupDeplacement(heureFin);
 }
 
 /* ═══════════════════════════
@@ -1032,11 +1085,10 @@ function terminerChantier(source, ref) {
 ═══════════════════════════ */
 let _popupDepl = 0;
 
-function ouvrirPopupDeplacement() {
+function ouvrirPopupDeplacement(heureFin) {
   _popupDepl = 0;
   document.getElementById('popup-depl-val').textContent = '0 min';
   document.getElementById('popup-depl-titre').textContent = 'Fin du chantier';
-  const heureFin = getHeureMaintenant();
   document.getElementById('popup-depl-sous').innerHTML =
     `Heure de fin : <strong>${heureFin}</strong><br>Temps de déplacement vers le prochain chantier ?`;
   document.getElementById('popup-depl-overlay').classList.add('open');
@@ -1054,8 +1106,7 @@ function ajusterPopupDepl(delta) {
 
 async function confirmerPopupDeplacement() {
   if (!_popupContext) return;
-  const { source, ref } = _popupContext;
-  const heureFin = getHeureMaintenant();
+  const { source, ref, heureFin } = _popupContext;
 
   // Enregistrer le départ + déplacement + état terminé
   let chantierData = null;
@@ -1204,31 +1255,50 @@ function rendrePrev() {
     }
 
     if (etat === 'en-cours') {
+      const idDepart = `input-depart-prev-${c.nom.replace(/[^a-zA-Z0-9]/g,'_')}`;
       return `<div class="chantier-card en-cours">
         <div class="chantier-header">
           <div class="chantier-nom">${c.nom}</div>
           <span class="tag-encours">🟢 EN COURS</span>
         </div>
         <div class="info-encours">
-          Démarré à ${s.arrivee} · <span class="duree-encours" data-arrivee="${s.arrivee}">${dureeEcoulee(s.arrivee)}</span>
+          Arrivé à <strong>${s.arrivee}</strong> · <span class="duree-encours" data-arrivee="${s.arrivee}">${dureeEcoulee(s.arrivee)}</span>
         </div>
-        <button class="btn-pointage btn-terminer" onclick="terminerChantier('prev','${nomEscaped}')">
-          ⏹ Terminer <span class="heure-now">${heureNow}</span>
-        </button>
+        <div class="pointage-row">
+          <div class="pointage-input">
+            <label>DÉPART</label>
+            <input type="time" id="${idDepart}" value="${heureNow}">
+          </div>
+          <button class="btn-pointage btn-terminer" onclick="terminerChantier('prev','${nomEscaped}')">
+            ⏹ Terminer
+          </button>
+        </div>
       </div>`;
     }
 
     // État : à démarrer
     const desactive = enCours && enCours !== c.nom;
+    const idArrivee = `input-arrivee-prev-${c.nom.replace(/[^a-zA-Z0-9]/g,'_')}`;
     return `<div class="chantier-card previsionnel${desactive ? ' disabled-pointage' : ''}">
       <div class="chantier-header">
         <div class="chantier-nom">${c.nom}</div>
         <span class="tag-prev">Prévu</span>
       </div>
-      <button class="btn-pointage btn-demarrer" ${desactive ? 'disabled' : ''} onclick="demarrerChantier('prev','${nomEscaped}')">
-        ▶ Démarrer ${desactive ? '' : `<span class="heure-now">${heureNow}</span>`}
-      </button>
-      ${desactive ? '<div style="text-align:center;font-size:0.72rem;color:#6b7280;margin-top:6px;font-style:italic;">Terminez le chantier en cours d\'abord</div>' : ''}
+      ${desactive ? `
+        <div style="text-align:center;font-size:0.78rem;color:#6b7280;padding:8px;font-style:italic;">
+          Terminez le chantier en cours d'abord
+        </div>
+      ` : `
+        <div class="pointage-row">
+          <div class="pointage-input">
+            <label>ARRIVÉE</label>
+            <input type="time" id="${idArrivee}" value="${heureNow}">
+          </div>
+          <button class="btn-pointage btn-demarrer" onclick="demarrerChantier('prev','${nomEscaped}')">
+            ▶ Démarrer
+          </button>
+        </div>
+      `}
     </div>`;
   }).join('');
 }
@@ -1332,32 +1402,51 @@ function rendreAjout() {
     }
 
     if (etat === 'en-cours') {
+      const idDepart = `input-depart-ajout-${i}`;
       return `<div class="chantier-card en-cours">
         <div class="chantier-header">
           <div class="chantier-nom libre">${c.nom}</div>
           <span class="tag-encours">🟢 EN COURS</span>
         </div>
         <div class="info-encours">
-          Démarré à ${c.arrivee} · <span class="duree-encours" data-arrivee="${c.arrivee}">${dureeEcoulee(c.arrivee)}</span>
+          Arrivé à <strong>${c.arrivee}</strong> · <span class="duree-encours" data-arrivee="${c.arrivee}">${dureeEcoulee(c.arrivee)}</span>
         </div>
-        <button class="btn-pointage btn-terminer" onclick="terminerChantier('ajout','${i}')">
-          ⏹ Terminer <span class="heure-now">${heureNow}</span>
-        </button>
+        <div class="pointage-row">
+          <div class="pointage-input">
+            <label>DÉPART</label>
+            <input type="time" id="${idDepart}" value="${heureNow}">
+          </div>
+          <button class="btn-pointage btn-terminer" onclick="terminerChantier('ajout','${i}')">
+            ⏹ Terminer
+          </button>
+        </div>
       </div>`;
     }
 
     // État : à démarrer
     const refKey = '_ajout_' + i;
     const desactive = enCours && enCours !== refKey;
+    const idArrivee = `input-arrivee-ajout-${i}`;
     return `<div class="chantier-card ajoute${desactive ? ' disabled-pointage' : ''}">
       <div class="chantier-header">
         <div class="chantier-nom libre">${c.nom}</div>
         <button class="btn-suppr" onclick="supprimerAjout(${i})">✕</button>
       </div>
-      <button class="btn-pointage btn-demarrer" ${desactive ? 'disabled' : ''} onclick="demarrerChantier('ajout','${i}')">
-        ▶ Démarrer ${desactive ? '' : `<span class="heure-now">${heureNow}</span>`}
-      </button>
-      ${desactive ? '<div style="text-align:center;font-size:0.72rem;color:#6b7280;margin-top:6px;font-style:italic;">Terminez le chantier en cours d\'abord</div>' : ''}
+      ${desactive ? `
+        <div style="text-align:center;font-size:0.78rem;color:#6b7280;padding:8px;font-style:italic;">
+          Terminez le chantier en cours d'abord
+        </div>
+      ` : `
+        <div class="pointage-row">
+          <div class="pointage-input">
+            <label>ARRIVÉE</label>
+            <input type="time" id="${idArrivee}" value="${heureNow}">
+          </div>
+          <button class="btn-pointage btn-demarrer" onclick="demarrerChantier('ajout','${i}')">
+            ▶ Démarrer
+          </button>
+        </div>
+      `}
     </div>`;
   }).join('');
 }
