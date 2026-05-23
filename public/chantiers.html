@@ -36,12 +36,12 @@
   /* ══ TABLEAU INDICATEURS (figé, pas de scroll) ══ */
   .prev-wrapper {
     overflow-x: visible;
-    margin-top: 1rem;
+    margin-top: 0.3rem;
   }
 
   table.prev-table {
     border-collapse: collapse;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     table-layout: fixed;
     width: 100%;
   }
@@ -62,38 +62,10 @@
     width: max-content;
   }
 
-  /* ══ SCROLLBAR HORIZONTALE (en haut des tableaux, sticky) ══ */
-  .chantiers-scroll-top {
-    overflow-x: auto;
-    overflow-y: hidden;
-    height: 16px;
-    position: sticky;
-    top: 0;
-    z-index: 35;
-    background: #f4f6f8;
-  }
-  .chantiers-scroll-top::-webkit-scrollbar {
-    height: 12px;
-  }
-  .chantiers-scroll-top::-webkit-scrollbar-track {
-    background: #e2e8f0;
-  }
-  .chantiers-scroll-top::-webkit-scrollbar-thumb {
-    background: #94a3b8;
-    border-radius: 6px;
-    border: 2px solid #e2e8f0;
-  }
-  .chantiers-scroll-top::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
-  }
-  .chantiers-scroll-top-inner {
-    height: 1px;
-  }
-
-  /* ══ EN-TÊTES STICKY ══ */
+  /* ══ EN-TÊTES STICKY (dans la zone scrollable) ══ */
   .bloc-mois-header {
     position: sticky;
-    top: 16px; /* sous la scrollbar */
+    top: 0;
     z-index: 30;
     background: #2563eb;
     color: #fff;
@@ -106,7 +78,7 @@
 
   .tr-chantier-header th {
     position: sticky;
-    top: 47px; /* 16 (scrollbar) + 31 (bandeau mois) */
+    top: 31px; /* sous bandeau mois (~31px) */
     z-index: 25;
     background: #f1f5f9;
   }
@@ -124,7 +96,7 @@
   table.prev-table th,
   table.prev-table td {
     border: 1px solid #cbd5e1;
-    padding: 4px 6px;
+    padding: 2px 6px;
     text-align: center;
     white-space: nowrap;
     vertical-align: middle;
@@ -434,11 +406,7 @@
 
 <!-- Tableaux chantiers : seule zone scrollable verticalement -->
 <section class="chantiers-section" style="margin-top:0;">
-  <!-- Scrollbar horizontale sticky en haut de la zone -->
   <div class="chantiers-scroll" id="chantiers-scroll-bottom">
-    <div class="chantiers-scroll-top" id="chantiers-scroll-top">
-      <div class="chantiers-scroll-top-inner" id="chantiers-scroll-top-inner"></div>
-    </div>
     <div class="chantiers-inner" id="section-chantiers"></div>
   </div>
 </section>
@@ -734,7 +702,7 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 165px;width:165px;">`;
+    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 165px;width:165px;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">`;
     html += `<thead><tr class="tr-chantier-header">
@@ -749,22 +717,22 @@ function rendreChantiers() {
       const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
       const badge   = isPlanifie ? '<span class="badge-planifie">planifié</span>' : '';
       html += `<tr class="${classes}">
-        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">
           <div style="display:flex;align-items:center;gap:4px;">
             <input value="${ch.client||''}" placeholder=""
-              style="border:none;background:transparent;font-size:0.96rem;font-family:inherit;min-width:90px;"
+              style="border:none;background:transparent;font-size:0.88rem;font-family:inherit;min-width:90px;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
             ${badge}
           </div>
         </td>
-        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <input type="number" min="0" step="0.5" value="${ch.hPrevues||''}" placeholder=""
-            style="width:36px;border:none;background:transparent;font-size:0.96rem;text-align:right;font-family:inherit;"
+            style="width:36px;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="hPrevues" data-nav="hPrevues"
             onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
-        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
           <button class="btn-copy-row" onclick="ouvrirModaleCopie(${annee},${mi},${ci})" title="Copier">⧉</button>
           <button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>
         </td>
@@ -774,19 +742,19 @@ function rendreChantiers() {
     // Lignes vierges
     for (let v = 0; v < nbVierges; v++) {
       html += `<tr class="tr-chantier">
-        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <input placeholder=""
-            style="width:100%;border:none;background:transparent;font-size:0.96rem;font-family:inherit;"
+            style="width:100%;border:none;background:transparent;font-size:0.88rem;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-champ="client" data-nav="client"
             onblur="ajouterVierge(this)" onkeydown="navEnTree(event,this)">
         </td>
-        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <input type="number" min="0" step="0.5" placeholder=""
-            style="width:36px;border:none;background:transparent;font-size:0.96rem;text-align:right;font-family:inherit;"
+            style="width:36px;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-champ="hPrevues" data-nav="hPrevues"
             onblur="ajouterVierge(this)" onkeydown="navEnTree(event,this)">
         </td>
-        <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;"></td>
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;"></td>
       </tr>`;
     }
 
@@ -805,34 +773,7 @@ function rendreChantiers() {
   });
 
   cont.innerHTML = html;
-  syncScrollbarMiroir();
 }
-
-/* Synchronise la largeur du scrollbar miroir en haut avec la largeur réelle du contenu. */
-function syncScrollbarMiroir() {
-  const inner = document.getElementById('section-chantiers');
-  const miroirInner = document.getElementById('chantiers-scroll-top-inner');
-  if (!inner || !miroirInner) return;
-  miroirInner.style.width = inner.scrollWidth + 'px';
-}
-
-/* Lie les 2 scrollbars (haut sticky + bas natif) : si on bouge l'une, l'autre suit. */
-window.addEventListener('DOMContentLoaded', () => {
-  const top = document.getElementById('chantiers-scroll-top');
-  const bottom = document.getElementById('chantiers-scroll-bottom');
-  if (!top || !bottom) return;
-  let syncing = false;
-  function syncFrom(source) {
-    if (syncing) return;
-    syncing = true;
-    if (top !== source) top.scrollLeft = source.scrollLeft;
-    if (bottom !== source) bottom.scrollLeft = source.scrollLeft;
-    requestAnimationFrame(() => { syncing = false; });
-  }
-  top.addEventListener('scroll', () => syncFrom(top));
-  bottom.addEventListener('scroll', () => syncFrom(bottom));
-  window.addEventListener('resize', syncScrollbarMiroir);
-});
 
 /* Wrapper : majLigne depuis oninput (lit data-uid) */
 function majLigneInput(input) {
