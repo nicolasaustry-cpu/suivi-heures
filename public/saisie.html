@@ -187,6 +187,139 @@
   .chantier-card.previsionnel { background: #eff6ff; border-color: #bfdbfe; }
   .chantier-card.ajoute { background: #f9fafb; }
 
+  /* États du mode pointage */
+  .chantier-card.en-cours {
+    background: #f0fdf4; border: 2px solid #16a34a;
+  }
+  .chantier-card.termine {
+    background: #fafbfc; border-color: #d1d5db; opacity: 0.85;
+  }
+  .chantier-card.disabled-pointage {
+    opacity: 0.55;
+  }
+
+  /* Tags d'état */
+  .tag-encours {
+    font-size: 0.68rem; color: #fff; background: #16a34a;
+    padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
+    font-weight: 700; letter-spacing: 0.02em;
+  }
+  .tag-termine {
+    font-size: 0.68rem; color: #15803d; background: #dcfce7;
+    padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  /* Infos chantier en cours */
+  .info-encours {
+    font-size: 0.78rem; color: #15803d; font-weight: 600;
+    margin: 4px 0 8px; text-align: center;
+  }
+  .info-encours .duree-encours { font-size: 0.95rem; }
+  .info-termine {
+    font-size: 0.85rem; color: #374151; font-weight: 600;
+    margin: 6px 0; text-align: center;
+  }
+  .info-termine .duree-tot { color: #0f172a; font-weight: 800; }
+
+  /* Boutons pointage */
+  .btn-pointage {
+    width: 100%; padding: 12px;
+    border: none; border-radius: 8px;
+    font-size: 0.95rem; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .btn-pointage:active { transform: scale(0.98); }
+  .btn-demarrer { background: #16a34a; color: #fff; }
+  .btn-demarrer:hover { background: #15803d; }
+  .btn-demarrer:disabled {
+    background: #d1d5db; color: #6b7280; cursor: not-allowed;
+  }
+  .btn-terminer { background: #dc2626; color: #fff; }
+  .btn-terminer:hover { background: #b91c1c; }
+
+  .btn-pointage .heure-now {
+    background: rgba(255,255,255,0.18);
+    padding: 2px 8px; border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Lien rattrapage */
+  .rattrapage-zone {
+    text-align: center; padding: 12px 0;
+    border-top: 1px dashed #cbd5e1;
+    margin-top: 1.2rem;
+  }
+  .rattrapage-zone a {
+    font-size: 0.82rem; color: #0f3a8a;
+    text-decoration: underline; cursor: pointer;
+  }
+  .rattrapage-banner {
+    background: #fef3c7; border: 1px solid #f59e0b;
+    border-radius: 6px; padding: 8px 12px;
+    font-size: 0.8rem; color: #92400e;
+    margin-bottom: 0.8rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .rattrapage-banner button {
+    background: #f59e0b; color: #0f172a;
+    border: 0; padding: 4px 10px; border-radius: 4px;
+    font-size: 0.75rem; font-weight: 700; cursor: pointer;
+  }
+
+  /* Popup déplacement (modal léger) */
+  .popup-depl-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+    z-index: 500; display: none; align-items: center; justify-content: center;
+    padding: 1.5rem;
+  }
+  .popup-depl-overlay.open { display: flex; }
+  .popup-depl {
+    background: #fff; border-radius: 14px;
+    width: 100%; max-width: 340px;
+    padding: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  }
+  .popup-depl-titre {
+    font-size: 1rem; font-weight: 800; color: #0f172a;
+    margin-bottom: 4px; text-align: center;
+  }
+  .popup-depl-sous {
+    font-size: 0.82rem; color: #64748b;
+    margin-bottom: 1rem; text-align: center;
+  }
+  .popup-depl-stepper {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; padding: 14px 0;
+    background: #f8fafc; border-radius: 10px;
+    margin-bottom: 1rem;
+  }
+  .popup-depl-stepper button {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid #cbd5e1; background: #fff;
+    font-size: 1.4rem; font-weight: 700; cursor: pointer;
+    color: #0f3a8a;
+  }
+  .popup-depl-stepper button:active { background: #eff6ff; }
+  .popup-depl-val {
+    font-size: 1.7rem; font-weight: 800; color: #0f3a8a;
+    min-width: 90px; text-align: center;
+  }
+  .popup-depl-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+  .popup-depl-actions button {
+    padding: 12px; border-radius: 8px; font-weight: 700;
+    border: 0; cursor: pointer; font-size: 0.92rem;
+  }
+  .popup-depl-cancel {
+    background: #f3f4f6; color: #374151;
+  }
+  .popup-depl-confirm {
+    background: #16a34a; color: #fff;
+  }
+  .popup-depl-confirm:hover { background: #15803d; }
+
   .chantier-header {
     display: flex; align-items: center;
     justify-content: space-between; margin-bottom: 0.6rem;
@@ -499,17 +632,45 @@
     <button class="btn-add" onclick="ouvrirModalAjout()">+ Ajouter un chantier</button>
   </div>
 
+  <!-- Bandeau Mode Rattrapage (caché par défaut) -->
+  <div class="rattrapage-banner" id="rattrapage-banner" style="display:none;">
+    <span>📝 Mode rattrapage : saisie manuelle complète</span>
+    <button onclick="desactiverRattrapage()">Revenir au pointage</button>
+  </div>
+
   <!-- Total + Envoyer -->
   <div class="section">
     <div class="total-bar">
       <span class="total-lbl">Total du jour</span>
       <span class="total-val" id="total-jour">0 h 00</span>
     </div>
-    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerChantier()">
+    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerChantier()" style="display:none;">
       ✉ Envoyer ce chantier
     </button>
   </div>
 
+  <!-- Zone lien rattrapage (mode pointage uniquement) -->
+  <div class="rattrapage-zone" id="rattrapage-zone">
+    <a onclick="activerRattrapage()">📝 Oublié de pointer ? Saisir manuellement</a>
+  </div>
+
+</div>
+
+<!-- ── POPUP DÉPLACEMENT ── -->
+<div class="popup-depl-overlay" id="popup-depl-overlay">
+  <div class="popup-depl">
+    <div class="popup-depl-titre" id="popup-depl-titre">Fin du chantier</div>
+    <div class="popup-depl-sous" id="popup-depl-sous">Temps de déplacement ?</div>
+    <div class="popup-depl-stepper">
+      <button onclick="ajusterPopupDepl(-5)">−</button>
+      <div class="popup-depl-val" id="popup-depl-val">0 min</div>
+      <button onclick="ajusterPopupDepl(5)">+</button>
+    </div>
+    <div class="popup-depl-actions">
+      <button class="popup-depl-cancel" onclick="fermerPopupDeplacement()">Annuler</button>
+      <button class="popup-depl-confirm" onclick="confirmerPopupDeplacement()">✓ Valider et envoyer</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── MODAL AJOUT CHANTIER ── -->
@@ -531,8 +692,10 @@
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
 let _chantiersA = [];   // chantiers ajoutés
-let _saisiesPrev= {};   // { nomChantier: { arrivee, depart, depl } }
+let _saisiesPrev= {};   // { nomChantier: { arrivee, depart, depl, etat } }
 let _selModal   = null; // chantier sélectionné dans la modal
+let _modeRattrapage = false; // true = ancien mode saisie manuelle complète
+let _popupContext = null;    // { source: 'prev'|'ajout', ref: string|number }
 
 /* ═══════════════════════════
    INIT
@@ -823,14 +986,184 @@ function definirDepartMaintenant(source, ref) {
   }
 }
 
-/* Rafraîchir l'heure affichée sur les boutons "Maintenant" toutes les minutes,
-   sans tout re-rendre (pour ne pas perdre le focus d'un champ en cours de saisie). */
+/* Rafraîchir l'heure affichée et les durées en cours toutes les 60 secondes. */
 setInterval(() => {
   const h = getHeureMaintenant();
-  document.querySelectorAll('.btn-maintenant .heure-actuelle').forEach(el => {
+  document.querySelectorAll('.btn-maintenant .heure-actuelle, .heure-now').forEach(el => {
     el.textContent = h;
   });
+  // Mettre à jour les durées écoulées sur les chantiers en cours
+  document.querySelectorAll('.duree-encours').forEach(el => {
+    const arrivee = el.dataset.arrivee;
+    if (arrivee) el.textContent = dureeEcoulee(arrivee);
+  });
 }, 60000);
+
+/* ═══════════════════════════
+   MODE POINTAGE : Démarrer / Terminer
+═══════════════════════════ */
+
+function demarrerChantier(source, ref) {
+  const heure = getHeureMaintenant();
+  if (source === 'prev') {
+    if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
+    _saisiesPrev[ref].arrivee = heure;
+    _saisiesPrev[ref].etat = 'en-cours';
+  } else {
+    const i = parseInt(ref);
+    if (!_chantiersA[i]) return;
+    _chantiersA[i].arrivee = heure;
+    _chantiersA[i].etat = 'en-cours';
+  }
+  rendrePrev();
+  rendreAjout();
+  majTotal();
+}
+
+function terminerChantier(source, ref) {
+  // On ouvre d'abord le popup déplacement.
+  // L'enregistrement de l'heure de fin et l'envoi se font à la confirmation.
+  _popupContext = { source, ref };
+  ouvrirPopupDeplacement();
+}
+
+/* ═══════════════════════════
+   POPUP DÉPLACEMENT
+═══════════════════════════ */
+let _popupDepl = 0;
+
+function ouvrirPopupDeplacement() {
+  _popupDepl = 0;
+  document.getElementById('popup-depl-val').textContent = '0 min';
+  document.getElementById('popup-depl-titre').textContent = 'Fin du chantier';
+  const heureFin = getHeureMaintenant();
+  document.getElementById('popup-depl-sous').innerHTML =
+    `Heure de fin : <strong>${heureFin}</strong><br>Temps de déplacement vers le prochain chantier ?`;
+  document.getElementById('popup-depl-overlay').classList.add('open');
+}
+
+function fermerPopupDeplacement() {
+  document.getElementById('popup-depl-overlay').classList.remove('open');
+  _popupContext = null;
+}
+
+function ajusterPopupDepl(delta) {
+  _popupDepl = Math.max(0, _popupDepl + delta);
+  document.getElementById('popup-depl-val').textContent = _popupDepl + ' min';
+}
+
+async function confirmerPopupDeplacement() {
+  if (!_popupContext) return;
+  const { source, ref } = _popupContext;
+  const heureFin = getHeureMaintenant();
+
+  // Enregistrer le départ + déplacement + état terminé
+  let chantierData = null;
+  if (source === 'prev') {
+    if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
+    _saisiesPrev[ref].depart = heureFin;
+    _saisiesPrev[ref].depl   = _popupDepl;
+    _saisiesPrev[ref].etat   = 'termine';
+    chantierData = {
+      nom: ref,
+      heureArrivee: _saisiesPrev[ref].arrivee,
+      heureDepart:  heureFin,
+      dureeMin:     calcMinutes(_saisiesPrev[ref].arrivee, heureFin),
+      deplacement:  _popupDepl,
+      isPrevisionnel: true
+    };
+  } else {
+    const i = parseInt(ref);
+    if (!_chantiersA[i]) return;
+    _chantiersA[i].depart = heureFin;
+    _chantiersA[i].depl   = _popupDepl;
+    _chantiersA[i].etat   = 'termine';
+    chantierData = {
+      nom: _chantiersA[i].nom,
+      heureArrivee: _chantiersA[i].arrivee,
+      heureDepart:  heureFin,
+      dureeMin:     calcMinutes(_chantiersA[i].arrivee, heureFin),
+      deplacement:  _popupDepl,
+      isPrevisionnel: false
+    };
+  }
+
+  fermerPopupDeplacement();
+  rendrePrev();
+  rendreAjout();
+  majTotal();
+
+  // Envoi immédiat au serveur
+  await envoyerChantierUnique(chantierData);
+}
+
+async function envoyerChantierUnique(chantier) {
+  const date = document.getElementById('date-saisie').value;
+  if (!date) return;
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+
+  try {
+    const r = await fetch('/api/saisies/envoyer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeEmploye,
+        salarieId:  _salarie.id,
+        salarieNom: _salarie.nom,
+        date, chantier
+      })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      afficherNotifSaisie(`✓ ${chantier.nom} envoyé`, '#16a34a');
+    } else {
+      afficherNotifSaisie(`⚠ Erreur sur ${chantier.nom}`, '#dc2626');
+    }
+  } catch (e) {
+    afficherNotifSaisie(`⚠ Hors ligne — sera renvoyé`, '#f59e0b');
+  }
+}
+
+function afficherNotifSaisie(texte, couleur) {
+  const div = document.createElement('div');
+  div.textContent = texte;
+  Object.assign(div.style, {
+    position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+    background: couleur, color: '#fff', padding: '10px 20px',
+    borderRadius: '8px', fontWeight: '700', fontSize: '0.9rem',
+    zIndex: '600', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', transition: 'opacity 0.5s'
+  });
+  document.body.appendChild(div);
+  setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 500); }, 2500);
+}
+
+/* ═══════════════════════════
+   MODE RATTRAPAGE (ancien mode complet)
+═══════════════════════════ */
+function activerRattrapage() {
+  _modeRattrapage = true;
+  rendrePrev();
+  rendreAjout();
+  // Cacher le lien rattrapage, montrer le bandeau et le bouton Envoyer
+  const lien = document.getElementById('rattrapage-zone');
+  if (lien) lien.style.display = 'none';
+  const banner = document.getElementById('rattrapage-banner');
+  if (banner) banner.style.display = 'flex';
+  const btnEnv = document.getElementById('btn-envoyer');
+  if (btnEnv) btnEnv.style.display = '';
+}
+
+function desactiverRattrapage() {
+  _modeRattrapage = false;
+  rendrePrev();
+  rendreAjout();
+  const lien = document.getElementById('rattrapage-zone');
+  if (lien) lien.style.display = '';
+  const banner = document.getElementById('rattrapage-banner');
+  if (banner) banner.style.display = 'none';
+  const btnEnv = document.getElementById('btn-envoyer');
+  if (btnEnv) btnEnv.style.display = 'none';
+}
 
 /* ═══════════════════════════
    RENDU CHANTIERS PRÉVUS
@@ -841,43 +1174,119 @@ function rendrePrev() {
     cont.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;font-style:italic;text-align:center;padding:0.5rem 0;">Aucun chantier prévu ce mois</p>';
     return;
   }
+
   const heureNow = getHeureMaintenant();
+  // Y a-t-il un chantier en cours ? Si oui, on désactive les boutons des autres.
+  const enCours = chantierEnCours();
+  // En mode rattrapage, on revient à l'ancien affichage
+  if (_modeRattrapage) {
+    cont.innerHTML = _chantiersP.map((c, i) => rendreCarteRattrapagePrev(c, i)).join('');
+    return;
+  }
+
   cont.innerHTML = _chantiersP.map((c, i) => {
-    const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0 };
-    const duree = calcDuree(s.arrivee, s.depart);
-    const departRempli = !!s.depart;
+    const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0, etat: 'a-demarrer' };
+    const etat = s.etat || (s.depart ? 'termine' : (s.arrivee ? 'en-cours' : 'a-demarrer'));
     const nomEscaped = c.nom.replace(/'/g, "\\'");
-    return `<div class="chantier-card previsionnel">
+
+    if (etat === 'termine') {
+      const dureeMin = calcMinutes(s.arrivee, s.depart);
+      return `<div class="chantier-card termine">
+        <div class="chantier-header">
+          <div class="chantier-nom">${c.nom}</div>
+          <span class="tag-termine">✓ TERMINÉ</span>
+        </div>
+        <div class="info-termine">
+          ${s.arrivee} → ${s.depart} · <span class="duree-tot">${Math.floor(dureeMin/60)}h${String(dureeMin%60).padStart(2,'0')}</span>
+          ${(s.depl > 0) ? ` · 🚗 ${s.depl} min` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (etat === 'en-cours') {
+      return `<div class="chantier-card en-cours">
+        <div class="chantier-header">
+          <div class="chantier-nom">${c.nom}</div>
+          <span class="tag-encours">🟢 EN COURS</span>
+        </div>
+        <div class="info-encours">
+          Démarré à ${s.arrivee} · <span class="duree-encours" data-arrivee="${s.arrivee}">${dureeEcoulee(s.arrivee)}</span>
+        </div>
+        <button class="btn-pointage btn-terminer" onclick="terminerChantier('prev','${nomEscaped}')">
+          ⏹ Terminer <span class="heure-now">${heureNow}</span>
+        </button>
+      </div>`;
+    }
+
+    // État : à démarrer
+    const desactive = enCours && enCours !== c.nom;
+    return `<div class="chantier-card previsionnel${desactive ? ' disabled-pointage' : ''}">
       <div class="chantier-header">
         <div class="chantier-nom">${c.nom}</div>
         <span class="tag-prev">Prévu</span>
       </div>
-      <div class="time-row">
-        <div class="time-block">
-          <label>Arrivée</label>
-          <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${nomEscaped}','arrivee',this.value)">
-        </div>
-        <div class="time-sep">→</div>
-        <div class="time-block">
-          <label>Départ</label>
-          <input type="time" value="${s.depart}" onchange="majSaisiePrev('${nomEscaped}','depart',this.value)">
-        </div>
-      </div>
-      <button class="btn-maintenant${departRempli ? ' depart-rempli' : ''}" onclick="definirDepartMaintenant('prev','${nomEscaped}')">
-        🕐 Départ maintenant <span class="heure-actuelle">${heureNow}</span>
+      <button class="btn-pointage btn-demarrer" ${desactive ? 'disabled' : ''} onclick="demarrerChantier('prev','${nomEscaped}')">
+        ▶ Démarrer ${desactive ? '' : `<span class="heure-now">${heureNow}</span>`}
       </button>
-      <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
-      <div class="depl-row">
-        <label>🚗 Déplacement</label>
-        <div class="stepper">
-          <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',-15)">−</div>
-          <span class="step-val" id="depl-prev-${c.nom.replace(/\s/g,'_')}">${s.depl}</span>
-          <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',15)">+</div>
-        </div>
-        <span class="step-unite">min</span>
-      </div>
+      ${desactive ? '<div style="text-align:center;font-size:0.72rem;color:#6b7280;margin-top:6px;font-style:italic;">Terminez le chantier en cours d\'abord</div>' : ''}
     </div>`;
   }).join('');
+}
+
+/* Rendu en mode rattrapage (ancien comportement) */
+function rendreCarteRattrapagePrev(c, i) {
+  const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0 };
+  const duree = calcDuree(s.arrivee, s.depart);
+  const nomEscaped = c.nom.replace(/'/g, "\\'");
+  return `<div class="chantier-card previsionnel">
+    <div class="chantier-header">
+      <div class="chantier-nom">${c.nom}</div>
+      <span class="tag-prev">Prévu</span>
+    </div>
+    <div class="time-row">
+      <div class="time-block">
+        <label>Arrivée</label>
+        <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${nomEscaped}','arrivee',this.value)">
+      </div>
+      <div class="time-sep">→</div>
+      <div class="time-block">
+        <label>Départ</label>
+        <input type="time" value="${s.depart}" onchange="majSaisiePrev('${nomEscaped}','depart',this.value)">
+      </div>
+    </div>
+    <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
+    <div class="depl-row">
+      <label>🚗 Déplacement</label>
+      <div class="stepper">
+        <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',-15)">−</div>
+        <span class="step-val" id="depl-prev-${c.nom.replace(/\s/g,'_')}">${s.depl || 0}</span>
+        <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',15)">+</div>
+      </div>
+      <span class="step-unite">min</span>
+    </div>
+  </div>`;
+}
+
+function chantierEnCours() {
+  // Retourne le nom du chantier en cours (prev) ou l'index (ajout), ou null
+  for (const nom in _saisiesPrev) {
+    if (_saisiesPrev[nom].etat === 'en-cours') return nom;
+  }
+  for (let i = 0; i < _chantiersA.length; i++) {
+    if (_chantiersA[i].etat === 'en-cours') return '_ajout_' + i;
+  }
+  return null;
+}
+
+function dureeEcoulee(heureDebut) {
+  if (!heureDebut) return '';
+  const [h, m] = heureDebut.split(':').map(Number);
+  const debutMin = h * 60 + m;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const ecart = nowMin - debutMin;
+  if (ecart < 0) return '';
+  return `${Math.floor(ecart / 60)}h${String(ecart % 60).padStart(2,'0')}`;
 }
 
 function majSaisiePrev(nom, champ, val) {
@@ -895,41 +1304,94 @@ function rendreAjout() {
   const cont = document.getElementById('liste-ajout');
   document.getElementById('nb-ajout').textContent = _chantiersA.length;
   if (!_chantiersA.length) { cont.innerHTML = ''; return; }
+
   const heureNow = getHeureMaintenant();
+  const enCours = chantierEnCours();
+
+  // En mode rattrapage, ancien affichage
+  if (_modeRattrapage) {
+    cont.innerHTML = _chantiersA.map((c, i) => rendreCarteRattrapageAjout(c, i)).join('');
+    return;
+  }
+
   cont.innerHTML = _chantiersA.map((c, i) => {
-    const duree = calcDuree(c.arrivee, c.depart);
-    const departRempli = !!c.depart;
-    return `<div class="chantier-card ajoute">
+    const etat = c.etat || (c.depart ? 'termine' : (c.arrivee ? 'en-cours' : 'a-demarrer'));
+
+    if (etat === 'termine') {
+      const dureeMin = calcMinutes(c.arrivee, c.depart);
+      return `<div class="chantier-card termine">
+        <div class="chantier-header">
+          <div class="chantier-nom libre">${c.nom}</div>
+          <span class="tag-termine">✓ TERMINÉ</span>
+        </div>
+        <div class="info-termine">
+          ${c.arrivee} → ${c.depart} · <span class="duree-tot">${Math.floor(dureeMin/60)}h${String(dureeMin%60).padStart(2,'0')}</span>
+          ${(c.depl > 0) ? ` · 🚗 ${c.depl} min` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (etat === 'en-cours') {
+      return `<div class="chantier-card en-cours">
+        <div class="chantier-header">
+          <div class="chantier-nom libre">${c.nom}</div>
+          <span class="tag-encours">🟢 EN COURS</span>
+        </div>
+        <div class="info-encours">
+          Démarré à ${c.arrivee} · <span class="duree-encours" data-arrivee="${c.arrivee}">${dureeEcoulee(c.arrivee)}</span>
+        </div>
+        <button class="btn-pointage btn-terminer" onclick="terminerChantier('ajout','${i}')">
+          ⏹ Terminer <span class="heure-now">${heureNow}</span>
+        </button>
+      </div>`;
+    }
+
+    // État : à démarrer
+    const refKey = '_ajout_' + i;
+    const desactive = enCours && enCours !== refKey;
+    return `<div class="chantier-card ajoute${desactive ? ' disabled-pointage' : ''}">
       <div class="chantier-header">
         <div class="chantier-nom libre">${c.nom}</div>
         <button class="btn-suppr" onclick="supprimerAjout(${i})">✕</button>
       </div>
-      <div class="time-row">
-        <div class="time-block">
-          <label>Arrivée</label>
-          <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)">
-        </div>
-        <div class="time-sep">→</div>
-        <div class="time-block">
-          <label>Départ</label>
-          <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
-        </div>
-      </div>
-      <button class="btn-maintenant${departRempli ? ' depart-rempli' : ''}" onclick="definirDepartMaintenant('ajout','${i}')">
-        🕐 Départ maintenant <span class="heure-actuelle">${heureNow}</span>
+      <button class="btn-pointage btn-demarrer" ${desactive ? 'disabled' : ''} onclick="demarrerChantier('ajout','${i}')">
+        ▶ Démarrer ${desactive ? '' : `<span class="heure-now">${heureNow}</span>`}
       </button>
-      <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
-      <div class="depl-row">
-        <label>🚗 Déplacement</label>
-        <div class="stepper">
-          <div class="step-btn" onclick="majDepl('ajout',${i},-15)">−</div>
-          <span class="step-val" id="depl-ajout-${i}">${c.depl}</span>
-          <div class="step-btn" onclick="majDepl('ajout',${i},15)">+</div>
-        </div>
-        <span class="step-unite">min</span>
-      </div>
+      ${desactive ? '<div style="text-align:center;font-size:0.72rem;color:#6b7280;margin-top:6px;font-style:italic;">Terminez le chantier en cours d\'abord</div>' : ''}
     </div>`;
   }).join('');
+}
+
+/* Rendu en mode rattrapage (ancien comportement) */
+function rendreCarteRattrapageAjout(c, i) {
+  const duree = calcDuree(c.arrivee, c.depart);
+  return `<div class="chantier-card ajoute">
+    <div class="chantier-header">
+      <div class="chantier-nom libre">${c.nom}</div>
+      <button class="btn-suppr" onclick="supprimerAjout(${i})">✕</button>
+    </div>
+    <div class="time-row">
+      <div class="time-block">
+        <label>Arrivée</label>
+        <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)">
+      </div>
+      <div class="time-sep">→</div>
+      <div class="time-block">
+        <label>Départ</label>
+        <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
+      </div>
+    </div>
+    <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
+    <div class="depl-row">
+      <label>🚗 Déplacement</label>
+      <div class="stepper">
+        <div class="step-btn" onclick="majDepl('ajout',${i},-15)">−</div>
+        <span class="step-val" id="depl-ajout-${i}">${c.depl || 0}</span>
+        <div class="step-btn" onclick="majDepl('ajout',${i},15)">+</div>
+      </div>
+      <span class="step-unite">min</span>
+    </div>
+  </div>`;
 }
 
 function majAjout(i, champ, val) {
@@ -1040,7 +1502,7 @@ function validerAjout() {
   const libre = document.getElementById('input-libre').value.trim();
   const nom   = libre || _selModal;
   if (!nom) { alert('Choisissez ou saisissez un chantier'); return; }
-  _chantiersA.push({ nom, arrivee: '', depart: '', depl: 0 });
+  _chantiersA.push({ nom, arrivee: '', depart: '', depl: 0, etat: 'a-demarrer' });
   rendreAjout();
   majTotal();
   fermerModal();
