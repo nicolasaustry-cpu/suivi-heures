@@ -378,6 +378,18 @@ table th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 400 !important;
+}
+.fexc-item span,
+.fexc-dropdown label,
+.fexc-dropdown label span {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 400 !important;
+  color: var(--vol-noir) !important;
+  font-size: 12px !important;
 }
 .fexc-item:hover { background: #eff6ff; }
 .fexc-item input[type="checkbox"] {
@@ -386,10 +398,11 @@ table th {
   cursor: pointer;
 }
 .fexc-item-all {
-  font-weight: 600;
+  font-weight: 700 !important;
   border-bottom: 1px solid var(--vol-gris-bord);
   background: var(--vol-gris-card);
 }
+.fexc-item-all span { font-weight: 700 !important; }
 .fexc-empty {
   padding: 14px 12px;
   font-size: 12px;

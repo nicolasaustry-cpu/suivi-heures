@@ -112,6 +112,22 @@ window.FiltreExcel = (function () {
 
     // Actions
     dd.querySelector('.fexc-btn-ok').addEventListener('click', () => {
+      // Comportement type Excel : si l'utilisateur a tapé une recherche,
+      // on considère qu'il veut cibler uniquement les éléments trouvés.
+      // On enlève donc du set tous les items NON-visibles.
+      const filtre = search.value.trim();
+      if (filtre) {
+        const f = normaliser(filtre);
+        const visiblesValues = new Set(
+          cfg.items
+            .filter(it => normaliser(it.label).includes(f))
+            .map(it => it.value)
+        );
+        // Retirer du set tout ce qui n'est pas visible
+        [...selectedSet].forEach(v => {
+          if (!visiblesValues.has(v)) selectedSet.delete(v);
+        });
+      }
       cfg.onApply(selectedSet);
       fermer();
     });
