@@ -12,6 +12,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; background: #fff; }
@@ -39,14 +40,21 @@
   @media (min-width: 600px) {
     body { background: #e2e8f0; min-height: 100vh; }
     .nav-desktop { display: flex; }
+    /* Conteneur flex pour téléphone + panneau QR côte à côte */
+    .desktop-stage {
+      display: flex; gap: 2.5rem; justify-content: center; align-items: flex-start;
+      padding: 1.5rem 1rem 2rem;
+      flex-wrap: wrap;
+    }
     .phone-wrap {
       width: 390px;
-      margin: 1.5rem auto 2rem;
+      margin: 0;
       border-radius: 36px;
       overflow: hidden;
       box-shadow: 0 0 0 8px #222, 0 20px 50px rgba(0,0,0,0.3);
       position: relative;
       min-height: 700px;
+      flex-shrink: 0;
     }
     /* PIN en position absolute dans le cadre */
     .phone-wrap .pin-screen {
@@ -54,7 +62,79 @@
       inset: 0 !important;
       z-index: 300;
     }
+
+    /* Panneau QR à droite du téléphone */
+    .qr-panel {
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 22px;
+      width: 300px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .qr-panel h3 {
+      margin: 0 0 4px;
+      color: #0f3a8a;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .qr-panel .qr-soustitre {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 16px;
+    }
+    .qr-panel #qr-canvas {
+      width: 220px; height: 220px;
+      margin: 0 auto 14px;
+      background: #fff;
+      padding: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-sizing: content-box;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qr-panel #qr-canvas img,
+    .qr-panel #qr-canvas canvas { width: 100% !important; height: 100% !important; display: block; }
+    .qr-panel .qr-entreprise {
+      font-size: 14px; font-weight: 700; color: #0f3a8a;
+    }
+    .qr-panel .qr-code-affichage {
+      font-size: 11px; color: #475569; font-family: monospace;
+      background: #f8fafc; padding: 4px 10px; border-radius: 4px;
+      display: inline-block; margin-top: 4px; margin-bottom: 14px;
+    }
+    .qr-panel .qr-btn {
+      display: block; width: 100%;
+      padding: 10px 14px; margin-bottom: 6px;
+      border-radius: 6px; font-weight: 700; font-size: 13px;
+      cursor: pointer; border: 0;
+    }
+    .qr-panel .qr-btn-print {
+      background: #f59e0b; color: #0f172a;
+    }
+    .qr-panel .qr-btn-print:hover { background: #fcd34d; }
+    .qr-panel .qr-btn-dl {
+      background: transparent; color: #475569;
+      border: 1px solid #cbd5e1; font-weight: 600;
+    }
+    .qr-panel .qr-btn-dl:hover { background: #f8fafc; }
+    .qr-panel .qr-help {
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 11px; color: #64748b; text-align: left; line-height: 1.5;
+    }
+    .qr-panel .qr-help strong { color: #0f172a; display: block; margin-bottom: 4px; }
+    .qr-panel .qr-vide {
+      padding: 30px 14px; color: #64748b; font-size: 12px; font-style: italic;
+    }
   }
+  /* Cacher le QR en mobile */
+  .qr-panel { display: none; }
+  @media (min-width: 600px) { .qr-panel { display: block; } }
 
   /* ── HEADER ── */
   header {
@@ -290,6 +370,9 @@
   </div>
 </div>
 
+<!-- Conteneur desktop : téléphone + QR code côte à côte -->
+<div class="desktop-stage">
+
 <div class="phone-wrap">
 
 <!-- ── ÉCRAN PIN ── -->
@@ -460,6 +543,17 @@ window.addEventListener('DOMContentLoaded', () => {
     if (btnSortie) btnSortie.style.display = 'block';
   }
 
+  // ─── QR CODE : détection du paramètre ?code=XXX dans l'URL ───
+  // Si présent, on mémorise le code entreprise pour sauter directement à l'étape PIN
+  const urlParams = new URLSearchParams(window.location.search);
+  const codeFromQR = urlParams.get('code');
+  if (codeFromQR) {
+    const codeClean = codeFromQR.trim().toUpperCase();
+    localStorage.setItem('saisie_codeEmploye', codeClean);
+    // Nettoyer l'URL (pour éviter qu'un rafraîchissement bookmarke le code visible)
+    history.replaceState(null, '', window.location.pathname);
+  }
+
   // Si code employé mémorisé → reconnecter automatiquement sans redemander
   const codeMemorize = localStorage.getItem('saisie_codeEmploye');
   if (codeMemorize) {
@@ -468,6 +562,11 @@ window.addEventListener('DOMContentLoaded', () => {
     // Pas de code mémorisé → afficher l'écran de connexion
     document.getElementById('pin-screen').style.display = 'flex';
     chargerSalaries();
+  }
+
+  // Générer le QR code (desktop uniquement)
+  if (window.innerWidth >= 600) {
+    genererQRCode();
   }
 });
 
@@ -508,6 +607,7 @@ async function reconnecterAuto(codeEmploye) {
       localStorage.removeItem('saisie_salarie');
       document.getElementById('pin-screen').style.display = 'flex';
       chargerSalaries();
+      if (window.innerWidth >= 600) genererQRCode();
     }
   } catch {
     // Hors ligne → restaurer si salarié mémorisé
@@ -554,6 +654,7 @@ async function validerCodeEntreprise() {
     localStorage.setItem('salariesdata', JSON.stringify(d.salaries || []));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+    if (window.innerWidth >= 600) genererQRCode();
 
     // Passer à l'étape PIN
     document.getElementById('etape-code').style.display = 'none';
@@ -988,6 +1089,127 @@ async function envoyerChantier() {
     alert('Erreur lors de l\'envoi');
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   QR CODE D'ACTIVATION (desktop uniquement)
+   ═══════════════════════════════════════════════════════════════ */
+function getCodeEntreprise() {
+  return localStorage.getItem('saisie_codeEmploye') || '';
+}
+function getNomEntreprise() {
+  try {
+    const e = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    return e.nom || '';
+  } catch { return ''; }
+}
+function getURLqr(code) {
+  // URL absolue vers la page de saisie avec le code en paramètre
+  return `${window.location.origin}/saisie.html?code=${encodeURIComponent(code)}`;
+}
+
+function genererQRCode() {
+  const code = getCodeEntreprise();
+  const container = document.getElementById('qr-canvas');
+  const entNom = document.getElementById('qr-entreprise');
+  const codeAff = document.getElementById('qr-code-affichage');
+  if (!container) return;
+
+  if (!code) {
+    container.innerHTML = '<div class="qr-vide">Configurez le code entreprise pour générer le QR.</div>';
+    if (entNom) entNom.textContent = '';
+    if (codeAff) codeAff.style.display = 'none';
+    return;
+  }
+
+  // Générer le QR dans un canvas
+  container.innerHTML = '<canvas id="qr-cnv"></canvas>';
+  const cnv = document.getElementById('qr-cnv');
+  if (typeof QRCode === 'undefined') {
+    container.innerHTML = '<div class="qr-vide">Librairie QR non chargée.</div>';
+    return;
+  }
+  QRCode.toCanvas(cnv, getURLqr(code), {
+    width: 220,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+    color: { dark: '#0f3a8a', light: '#ffffff' }
+  }, err => {
+    if (err) {
+      console.error(err);
+      container.innerHTML = '<div class="qr-vide">Erreur QR : ' + err.message + '</div>';
+    }
+  });
+
+  if (entNom)  entNom.textContent  = getNomEntreprise();
+  if (codeAff) { codeAff.textContent = code; codeAff.style.display = 'inline-block'; }
+}
+
+function telechargerQRCode() {
+  const cnv = document.getElementById('qr-cnv');
+  if (!cnv) { alert('QR non disponible'); return; }
+  const link = document.createElement('a');
+  const code = getCodeEntreprise() || 'qrcode';
+  link.download = `QR-SuivHeures-${code}.png`;
+  link.href = cnv.toDataURL('image/png');
+  link.click();
+}
+
+function imprimerQRCode() {
+  const cnv = document.getElementById('qr-cnv');
+  if (!cnv) { alert('QR non disponible'); return; }
+  const dataUrl = cnv.toDataURL('image/png');
+  const code = getCodeEntreprise() || '';
+  const ent  = getNomEntreprise() || '';
+
+  const w = window.open('', '_blank', 'width=600,height=800');
+  w.document.write(`<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>QR Suiv'Heures - ${ent}</title>
+  <style>
+    @page { size: A6; margin: 8mm; }
+    body {
+      font-family: -apple-system, Arial, sans-serif;
+      margin: 0; padding: 12mm 6mm;
+      text-align: center; color: #0f172a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .marque  { font-size: 10pt; color: #f59e0b; font-weight: 700; letter-spacing: 0.15em; }
+    .titre   { font-size: 18pt; font-weight: 700; color: #0f3a8a; margin: 2mm 0 1mm; }
+    .baseline{ font-size: 9pt; color: #475569; font-style: italic; margin-bottom: 6mm; }
+    .qr      { padding: 4mm; border: 1px solid #cbd5e1; border-radius: 4mm; display: inline-block; }
+    .qr img  { display: block; width: 50mm; height: 50mm; }
+    .ent     { font-size: 13pt; font-weight: 700; margin-top: 5mm; color: #0f3a8a; }
+    .code    { font-size: 9pt; color: #64748b; font-family: monospace;
+               background: #f8fafc; padding: 1mm 3mm; border-radius: 2mm; display: inline-block; margin-top: 1mm; }
+    .instr   { margin-top: 5mm; font-size: 8pt; color: #475569; line-height: 1.5; max-width: 80mm; }
+    .instr strong { color: #0f172a; }
+    .pied    { margin-top: 6mm; font-size: 7pt; color: #94a3b8; }
+    @media print { body { padding: 6mm; } }
+  </style>
+</head>
+<body>
+  <div class="marque">VOLITIS</div>
+  <div class="titre">Suiv'Heures</div>
+  <div class="baseline">La gestion des heures, simplement</div>
+  <div class="qr"><img src="${dataUrl}" alt="QR"></div>
+  <div class="ent">${ent}</div>
+  ${code ? `<div class="code">${code}</div>` : ''}
+  <div class="instr">
+    <strong>Comment vous connecter ?</strong><br>
+    ① Ouvrez l'appareil photo de votre téléphone<br>
+    ② Visez ce QR code pour le scanner<br>
+    ③ Touchez la notification pour ouvrir l'application
+  </div>
+  <div class="pied">suiv-heures.volitis.net</div>
+  <script>
+    window.onload = () => { setTimeout(() => { window.print(); }, 300); };
+  <\/script>
+</body>
+</html>`);
+  w.document.close();
+}
 </script>
 <script>
 // Service Worker uniquement sur mobile
@@ -1000,5 +1222,26 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 }
 </script>
 </div><!-- fin phone-wrap -->
+
+<!-- Panneau QR Code (desktop uniquement, masqué en mobile via CSS) -->
+<aside class="qr-panel">
+  <h3>QR Code d'activation</h3>
+  <div class="qr-soustitre">À scanner avec un smartphone</div>
+  <div id="qr-canvas">
+    <div class="qr-vide">Configurez le code entreprise pour générer le QR.</div>
+  </div>
+  <div class="qr-entreprise" id="qr-entreprise"></div>
+  <div class="qr-code-affichage" id="qr-code-affichage" style="display:none;"></div>
+  <button class="qr-btn qr-btn-print" onclick="imprimerQRCode()">🖨 Imprimer le QR Code</button>
+  <button class="qr-btn qr-btn-dl"    onclick="telechargerQRCode()">⤓ Télécharger l'image</button>
+  <div class="qr-help">
+    <strong>Comment ça marche ?</strong>
+    ① Le salarié scanne le QR avec l'appareil photo de son téléphone<br>
+    ② La page Suiv'Heures s'ouvre avec le code entreprise déjà saisi<br>
+    ③ Il choisit son nom et tape son code PIN
+  </div>
+</aside>
+
+</div><!-- fin desktop-stage -->
 </body>
 </html>
