@@ -129,6 +129,19 @@
   .tr-chantier:nth-child(even) td { background: #f8fafc; }
   .tr-chantier:hover td { background: #eff6ff; }
 
+  /* Ligne avec chantier déjà planifié dans le planning */
+  .tr-chantier.planifie td { background: #f0fdf4; }
+  .tr-chantier.planifie:hover td { background: #dcfce7; }
+  .badge-planifie {
+    display: inline-block;
+    background: #16a34a; color: #fff;
+    font-size: 0.62rem; font-weight: 700;
+    padding: 1px 6px; border-radius: 999px;
+    margin-left: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+  }
+
   /* Boutons ajout/suppression chantier */
   .btn-add-row {
     margin-top: 0.5rem;
@@ -400,6 +413,29 @@ const CLE_DATA  = 'previsionnel_data';
 ═══════════════════════════════ */
 let anneeActive = new Date().getFullYear();
 let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrevues}] } } }
+let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
+
+/* ═══════════════════════════════
+   CHANTIERS PLANNIFIÉS (depuis heuresdata)
+═══════════════════════════════ */
+function chargerChantiersPlannifies() {
+  chantiersPlannifies = new Set();
+  try {
+    const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+    Object.values(heures).forEach(entry => {
+      if (entry && entry.chantier && entry.chantier.trim()) {
+        chantiersPlannifies.add(entry.chantier.trim().toLowerCase());
+      }
+    });
+  } catch (e) {
+    console.warn('Impossible de lire heuresdata', e);
+  }
+}
+
+function estPlannifie(nomClient) {
+  if (!nomClient) return false;
+  return chantiersPlannifies.has(nomClient.trim().toLowerCase());
+}
 
 /* ═══════════════════════════════
    INIT
@@ -420,8 +456,18 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   chargerData();
+  chargerChantiersPlannifies();
   remplirSelectAnnee();
   chargerAnnee();
+});
+
+// Rafraîchir la coloration quand l'utilisateur revient sur l'onglet
+// (cas : il modifie le planning dans un autre onglet et revient ici)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    chargerChantiersPlannifies();
+    if (typeof rendreChantiers === 'function') rendreChantiers();
+  }
 });
 
 /* ═══════════════════════════════
@@ -612,12 +658,18 @@ function rendreChantiers() {
 
     // Lignes saisies
     chantiers.forEach((ch, ci) => {
-      html += `<tr class="tr-chantier">
+      const isPlanifie = estPlannifie(ch.client);
+      const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
+      const badge   = isPlanifie ? '<span class="badge-planifie">planifié</span>' : '';
+      html += `<tr class="${classes}">
         <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
-          <input value="${ch.client||''}" placeholder=""
-            style="width:100%;border:none;background:transparent;font-size:0.96rem;font-family:inherit;"
-            data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
-            onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
+          <div style="display:flex;align-items:center;gap:2px;">
+            <input value="${ch.client||''}" placeholder=""
+              style="flex:1;min-width:0;border:none;background:transparent;font-size:0.96rem;font-family:inherit;"
+              data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
+              onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
+            ${badge}
+          </div>
         </td>
         <td style="padding:2px 3px;border-bottom:1px solid #f1f5f9;">
           <input type="number" min="0" step="0.5" value="${ch.hPrevues||''}" placeholder=""
