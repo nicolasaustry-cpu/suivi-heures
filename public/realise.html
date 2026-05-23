@@ -127,33 +127,13 @@
       <!-- Filtre salariés -->
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Salariés :</label><br>
-        <div class="filtre-container">
-          <div class="filtre-btn" id="btn-sal" onclick="toggleFiltre('sal')">Tous ▼</div>
-          <div class="filtre-dropdown" id="dropdown-sal">
-            <input type="text" placeholder="Rechercher" oninput="rechercherItem('sal',this.value)">
-            <label class="select-all">
-              <input type="checkbox" id="cb-sal-tous" checked onchange="cocherTous('sal',this.checked)">
-              (Sélectionner tout)
-            </label>
-            <div id="liste-sal"></div>
-          </div>
-        </div>
+        <div class="filtre-btn" id="btn-sal" onclick="ouvrirFiltreSal(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.9rem;min-width:120px;user-select:none;display:inline-block;">Tous ▼</div>
       </div>
 
       <!-- Filtre chantiers -->
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Chantiers :</label><br>
-        <div class="filtre-container">
-          <div class="filtre-btn" id="btn-ch" onclick="toggleFiltre('ch')">Tous ▼</div>
-          <div class="filtre-dropdown" id="dropdown-ch">
-            <input type="text" placeholder="Rechercher" oninput="rechercherItem('ch',this.value)">
-            <label class="select-all">
-              <input type="checkbox" id="cb-ch-tous" checked onchange="cocherTous('ch',this.checked)">
-              (Sélectionner tout)
-            </label>
-            <div id="liste-ch"></div>
-          </div>
-        </div>
+        <div class="filtre-btn" id="btn-ch" onclick="ouvrirFiltreCh(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.9rem;min-width:120px;user-select:none;display:inline-block;">Tous ▼</div>
       </div>
 
       <div style="align-self:flex-end;">
@@ -203,6 +183,7 @@
   <div id="contenu-realise"></div>
 </div>
 
+<script src="assets/filtre-excel.js"></script>
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
 <script>
@@ -264,68 +245,50 @@ async function chargerRealise() {
   _cochésSal = new Set(_tousSals);
   _cochesCh  = new Set(_tousChs);
 
-  remplirFiltre('sal', _tousSals);
-  remplirFiltre('ch',  _tousChs);
+  majBtnFiltre('sal');
+  majBtnFiltre('ch');
   afficherRealise();
 }
 
-/* ══ FILTRES ══ */
-function toggleFiltre(type) {
-  const dd = document.getElementById('dropdown-' + type);
-  document.querySelectorAll('.filtre-dropdown').forEach(d => {
-    if (d !== dd) d.classList.remove('open');
+/* ══ FILTRES style Excel ══ */
+function ouvrirFiltreSal(btn) {
+  FiltreExcel.ouvrir({
+    button: btn,
+    items: _tousSals.map(v => ({ value: v, label: v })),
+    selected: _cochésSal,
+    onApply: (sel) => {
+      _cochésSal = sel;
+      majBtnFiltre('sal');
+      afficherRealise();
+    }
   });
-  dd.classList.toggle('open');
-  setTimeout(ajusterMarginTop, 10);
 }
 
-function remplirFiltre(type, valeurs) {
-  const cont = document.getElementById('liste-' + type);
-  const coches = type === 'sal' ? _cochésSal : _cochesCh;
-  cont.innerHTML = valeurs.map(v => `
-    <label>
-      <input type="checkbox" ${coches.has(v) ? 'checked' : ''}
-        onchange="majFiltre('${type}','${v.replace(/'/g,"\\'")}',this.checked)">
-      ${v}
-    </label>`).join('');
-}
-
-function rechercherItem(type, terme) {
-  const valeurs = type === 'sal' ? _tousSals : _tousChs;
-  const coches  = type === 'sal' ? _cochésSal : _cochesCh;
-  const t = terme.toLowerCase();
-  const cont = document.getElementById('liste-' + type);
-  cont.innerHTML = valeurs.filter(v => v.toLowerCase().includes(t)).map(v => `
-    <label>
-      <input type="checkbox" ${coches.has(v) ? 'checked' : ''}
-        onchange="majFiltre('${type}','${v.replace(/'/g,"\\'")}',this.checked)">
-      ${v}
-    </label>`).join('');
-}
-
-function majFiltre(type, val, coche) {
-  const coches = type === 'sal' ? _cochésSal : _cochesCh;
-  if (coche) coches.add(val); else coches.delete(val);
-  majBtnFiltre(type);
-  afficherRealise();
-}
-
-function cocherTous(type, coche) {
-  const valeurs = type === 'sal' ? _tousSals : _tousChs;
-  const coches  = type === 'sal' ? _cochésSal : _cochesCh;
-  valeurs.forEach(v => { if (coche) coches.add(v); else coches.delete(v); });
-  remplirFiltre(type, valeurs);
-  majBtnFiltre(type);
-  afficherRealise();
+function ouvrirFiltreCh(btn) {
+  FiltreExcel.ouvrir({
+    button: btn,
+    items: _tousChs.map(v => ({ value: v, label: v })),
+    selected: _cochesCh,
+    onApply: (sel) => {
+      _cochesCh = sel;
+      majBtnFiltre('ch');
+      afficherRealise();
+    }
+  });
 }
 
 function majBtnFiltre(type) {
   const btn    = document.getElementById('btn-' + type);
+  if (!btn) return;
   const coches = type === 'sal' ? _cochésSal : _cochesCh;
   const tous   = type === 'sal' ? _tousSals  : _tousChs;
-  btn.textContent = (coches.size === tous.length) ? 'Tous ▼' : coches.size + ' sél. ▼';
-  btn.style.color = (coches.size === tous.length) ? '' : '#2563eb';
-  btn.style.fontWeight = (coches.size === tous.length) ? '' : '700';
+  const items  = tous.map(v => ({ value: v, label: v }));
+  btn.textContent = FiltreExcel.libelle(coches, tous.length, items) + ' ▼';
+  if (coches.size === tous.length || coches.size === 0) {
+    btn.classList.remove('fexc-active');
+  } else {
+    btn.classList.add('fexc-active');
+  }
 }
 
 /* ══ AFFICHAGE ══ */

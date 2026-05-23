@@ -298,20 +298,6 @@
 
 </div>
 
-<!-- Dropdown filtre -->
-<div class="col-filtre-dropdown" id="col-filtre-dropdown">
-  <div class="dd-search"><input type="text" id="dd-search-input" placeholder="Rechercher..." oninput="rechercherDD(this.value)"></div>
-  <div class="dd-actions">
-    <span onclick="ddCocherTous(true)">Tout sélectionner</span>
-    <span onclick="ddCocherTous(false)">Tout désélectionner</span>
-  </div>
-  <div class="dd-list" id="dd-list"></div>
-  <div class="dd-footer">
-    <button class="btn-effacer" onclick="ddEffacer()">Effacer</button>
-    <button class="btn-appliquer" onclick="ddAppliquer()">OK</button>
-  </div>
-</div>
-
 <script>
 const entreprise = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
 </script>
@@ -324,7 +310,6 @@ let lignesReal  = []; // saisies salariés (réalisées)
 let prevVisible = [], realVisible = [];
 
 const filtresActifs = { salarie: null, chantier: null };
-let ddColonne = null, ddValeursPossibles = [], ddSelection = new Set();
 
 const triEtat = {
   prev: { col: 'date', asc: true },
@@ -367,14 +352,6 @@ function ajusterHauteur() {
   detail.style.marginTop = h + 'px';
   detail.style.height    = (window.innerHeight - h) + 'px';
 }
-
-document.addEventListener('click', e => {
-  const dd  = document.getElementById('col-filtre-dropdown');
-  const btn = ddColonne ? document.getElementById('btn-' + ddColonne) : null;
-  if (!dd.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
-    dd.classList.remove('open'); ddColonne = null;
-  }
-});
 
 /* ═══════════════════════════
    ANNÉES
@@ -589,62 +566,48 @@ function trierPar(type, col) {
 }
 
 /* ═══════════════════════════
-   DROPDOWN FILTRE
+   DROPDOWN FILTRE (style Excel via module)
 ═══════════════════════════ */
 function ouvrirFiltre(col, event) {
-  event.stopPropagation();
-  const dd = document.getElementById('col-filtre-dropdown');
-  if (ddColonne === col && dd.classList.contains('open')) { dd.classList.remove('open'); ddColonne = null; return; }
-  ddColonne = col;
+  if (event && event.stopPropagation) event.stopPropagation();
+  const btn = document.getElementById('btn-' + col);
+  if (!btn) return;
+
+  // Calcul des valeurs disponibles, croisé avec le filtre de l'autre colonne
   const toutesLignes = [...lignesPrev, ...lignesReal];
   const autreCol = col === 'salarie' ? 'chantier' : 'salarie';
-  const lf = filtresActifs[autreCol] ? toutesLignes.filter(l => filtresActifs[autreCol].has(l[autreCol])) : toutesLignes;
-  const valeurs = [...new Set(lf.map(l => l[col]))].sort((a,b) => a.localeCompare(b,'fr',{sensitivity:'base'}));
-  ddValeursPossibles = valeurs;
-  ddSelection = filtresActifs[col] ? new Set(filtresActifs[col]) : new Set(valeurs);
-  document.getElementById('dd-search-input').value = '';
-  remplirDD(valeurs, '');
-  const btn = document.getElementById('btn-' + col);
-  const rect = btn.getBoundingClientRect();
-  dd.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
-  dd.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 250) + 'px';
-  dd.classList.add('open');
-}
+  const lf = filtresActifs[autreCol]
+    ? toutesLignes.filter(l => filtresActifs[autreCol].has(l[autreCol]))
+    : toutesLignes;
+  const valeurs = [...new Set(lf.map(l => l[col]))]
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
-function remplirDD(valeurs, terme) {
-  const list = document.getElementById('dd-list');
-  const t = terme.toLowerCase();
-  list.innerHTML = '';
-  valeurs.filter(v => v.toLowerCase().includes(t)).forEach(v => {
-    const lbl = document.createElement('label');
-    const cb  = document.createElement('input');
-    cb.type = 'checkbox'; cb.checked = ddSelection.has(v);
-    cb.addEventListener('change', () => { if (cb.checked) ddSelection.add(v); else ddSelection.delete(v); });
-    lbl.appendChild(cb); lbl.appendChild(document.createTextNode(' ' + v));
-    list.appendChild(lbl);
+  const selection = filtresActifs[col]
+    ? new Set(filtresActifs[col])
+    : new Set(valeurs);
+
+  FiltreExcel.ouvrir({
+    button: btn,
+    items: valeurs.map(v => ({ value: v, label: v })),
+    selected: selection,
+    onApply: (sel) => {
+      // Si tout est sélectionné, on annule le filtre
+      filtresActifs[col] = valeurs.every(v => sel.has(v)) ? null : sel;
+      // Mettre à jour le label du bouton
+      const items = valeurs.map(v => ({ value: v, label: v }));
+      if (!filtresActifs[col]) {
+        btn.textContent = 'Tous ▼';
+        btn.classList.remove('fexc-active');
+      } else {
+        btn.textContent = FiltreExcel.libelle(filtresActifs[col], valeurs.length, items) + ' ▼';
+        btn.classList.add('fexc-active');
+      }
+      appliquerEtAfficher();
+    }
   });
 }
-
-function rechercherDD(t) { remplirDD(ddValeursPossibles, t); }
-
-function ddCocherTous(c) {
-  const t = document.getElementById('dd-search-input').value.toLowerCase();
-  ddValeursPossibles.filter(v => v.toLowerCase().includes(t)).forEach(v => { if (c) ddSelection.add(v); else ddSelection.delete(v); });
-  remplirDD(ddValeursPossibles, document.getElementById('dd-search-input').value);
-}
-
-function ddAppliquer() {
-  filtresActifs[ddColonne] = ddValeursPossibles.every(v => ddSelection.has(v)) ? null : new Set(ddSelection);
-  document.getElementById('col-filtre-dropdown').classList.remove('open'); ddColonne = null;
-  appliquerEtAfficher();
-}
-
-function ddEffacer() {
-  filtresActifs[ddColonne] = null;
-  document.getElementById('col-filtre-dropdown').classList.remove('open'); ddColonne = null;
-  appliquerEtAfficher();
-}
 </script>
+<script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
 </body>
 </html>

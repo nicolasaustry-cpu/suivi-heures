@@ -177,16 +177,7 @@
       <!-- Filtre salariés -->
       <div>
         <label>Salariés :</label><br>
-        <div class="filtre-container">
-          <div class="filtre-btn" onclick="toggleFiltre()">Tous ▼</div>
-          <div class="filtre-dropdown" id="filtreDropdown">
-            <input type="text" placeholder="Rechercher" oninput="rechercherSalarie(this.value)">
-            <label class="select-all">
-              <input type="checkbox" id="cbTous" checked onchange="cocherTous(this.checked)"> (Sélectionner tout)
-            </label>
-            <div id="listeSalaries"></div>
-          </div>
-        </div>
+        <div class="filtre-btn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;display:inline-block;min-width:140px;user-select:none;">Tous ▼</div>
       </div>
 
       <!-- Semaine à imprimer -->
@@ -283,66 +274,38 @@ function ajusterMarginTop() {
   }
 }
 
-/* ====== FILTRE SALARIÉS ====== */
+/* ====== FILTRE SALARIÉS (style Excel) ====== */
 function initFiltre() {
-  const liste = document.getElementById('listeSalaries');
-  liste.innerHTML = '';
   salariesCoches.clear();
-
-  salaries.forEach(s => {
-    salariesCoches.add(s.id);
-    const label = document.createElement('label');
-    label.dataset.nom = (s.prenom + ' ' + s.nom).toLowerCase();
-    label.innerHTML = `<input type="checkbox" checked data-id="${s.id}" onchange="majFiltre()"> ${s.prenom} ${s.nom}`;
-    liste.appendChild(label);
-  });
-
-  document.getElementById('cbTous').checked = true;
+  salaries.forEach(s => salariesCoches.add(s.id));
   majBoutonFiltre();
 }
 
-function toggleFiltre() {
-  document.getElementById('filtreDropdown').classList.toggle('open');
-}
-
-document.addEventListener('click', function(e) {
-  const container = document.querySelector('.filtre-container');
-  if (container && !container.contains(e.target)) {
-    document.getElementById('filtreDropdown').classList.remove('open');
-  }
-});
-
-function rechercherSalarie(terme) {
-  const t = terme.toLowerCase();
-  document.querySelectorAll('#listeSalaries label').forEach(lbl => {
-    lbl.style.display = lbl.dataset.nom.includes(t) ? 'block' : 'none';
+function ouvrirFiltreSalaries(btn) {
+  const items = salaries.map(s => ({ value: s.id, label: s.prenom + ' ' + s.nom }));
+  FiltreExcel.ouvrir({
+    button: btn,
+    items: items,
+    selected: salariesCoches,
+    onApply: (selectedSet) => {
+      salariesCoches = selectedSet;
+      majBoutonFiltre();
+      genererPlanning();
+    }
   });
-}
-
-function cocherTous(checked) {
-  document.querySelectorAll('#listeSalaries input[type="checkbox"]').forEach(cb => {
-    cb.checked = checked;
-  });
-  majFiltre();
-}
-
-function majFiltre() {
-  salariesCoches.clear();
-  let tousCoches = true;
-  document.querySelectorAll('#listeSalaries input[type="checkbox"]').forEach(cb => {
-    if (cb.checked) salariesCoches.add(parseInt(cb.dataset.id));
-    else tousCoches = false;
-  });
-  document.getElementById('cbTous').checked = tousCoches;
-  majBoutonFiltre();
-  genererPlanning();
 }
 
 function majBoutonFiltre() {
-  const btn = document.querySelector('.filtre-btn');
-  const nb = salariesCoches.size;
+  const btn = document.getElementById('btn-filtre-salaries');
+  if (!btn) return;
   const total = salaries.length;
-  btn.textContent = (nb === 0 || nb === total) ? 'Tous ▼' : nb + ' salarié' + (nb > 1 ? 's' : '') + ' ▼';
+  const items = salaries.map(s => ({ value: s.id, label: s.prenom + ' ' + s.nom }));
+  btn.textContent = FiltreExcel.libelle(salariesCoches, total, items) + ' ▼';
+  if (salariesCoches.size === total || salariesCoches.size === 0) {
+    btn.classList.remove('fexc-active');
+  } else {
+    btn.classList.add('fexc-active');
+  }
 }
 
 /* ====== JAUGE CIRCULAIRE ====== */
@@ -832,6 +795,7 @@ function majMoisImpression() {
   printMois.textContent = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 </script>
+<script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
 </body>
 </html>

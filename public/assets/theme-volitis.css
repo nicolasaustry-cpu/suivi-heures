@@ -326,3 +326,111 @@ table th {
   .main-header { background: var(--vol-bleu) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .nav { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   FILTRE STYLE EXCEL
+   ═══════════════════════════════════════════════════════════════ */
+.fexc-dropdown {
+  position: absolute;
+  z-index: 10000;
+  width: 260px;
+  background: #fff;
+  border: 1px solid var(--vol-gris-bord);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fexc-search-zone {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--vol-gris-bord);
+  background: var(--vol-gris-card);
+}
+.fexc-search {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--vol-gris-bord);
+  border-radius: 3px;
+  font-size: 12px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.fexc-search:focus {
+  outline: none;
+  border-color: var(--vol-bleu);
+  box-shadow: 0 0 0 2px rgba(15, 58, 138, 0.15);
+}
+.fexc-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+.fexc-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vol-noir);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fexc-item:hover { background: #eff6ff; }
+.fexc-item input[type="checkbox"] {
+  flex-shrink: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.fexc-item-all {
+  font-weight: 600;
+  border-bottom: 1px solid var(--vol-gris-bord);
+  background: var(--vol-gris-card);
+}
+.fexc-empty {
+  padding: 14px 12px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--vol-gris-mute);
+  text-align: center;
+}
+.fexc-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--vol-gris-bord);
+  background: var(--vol-gris-card);
+  justify-content: flex-end;
+}
+.fexc-btn-ok, .fexc-btn-cancel {
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+}
+.fexc-btn-ok {
+  background: var(--vol-bleu);
+  color: #fff;
+  border: 1px solid var(--vol-bleu);
+}
+.fexc-btn-ok:hover { background: var(--vol-bleu-clair); }
+.fexc-btn-cancel {
+  background: #fff;
+  color: var(--vol-gris-texte);
+  border: 1px solid var(--vol-gris-bord);
+}
+.fexc-btn-cancel:hover { background: var(--vol-gris-card); }
+
+/* Bouton-déclencheur stylé quand des filtres sont actifs */
+.filtre-btn.fexc-active {
+  border-color: var(--vol-bleu) !important;
+  color: var(--vol-bleu) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 0 1px rgba(15, 58, 138, 0.25);
+}
