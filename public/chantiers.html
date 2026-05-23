@@ -37,22 +37,21 @@
     width: max-content;
   }
 
-  /* ══ SCROLLBAR MIROIR ══
-     Placée juste au-dessus des tableaux. Aussi clonée dans la barre flottante. */
+  /* ══ SCROLLBAR HORIZONTALE (en haut des tableaux, sticky) ══ */
   .chantiers-scroll-top {
     overflow-x: auto;
     overflow-y: hidden;
     height: 16px;
-    z-index: 70;
+    position: sticky;
+    top: 0;
+    z-index: 35;
     background: #f4f6f8;
-    border-radius: 4px;
   }
   .chantiers-scroll-top::-webkit-scrollbar {
     height: 12px;
   }
   .chantiers-scroll-top::-webkit-scrollbar-track {
     background: #e2e8f0;
-    border-radius: 6px;
   }
   .chantiers-scroll-top::-webkit-scrollbar-thumb {
     background: #94a3b8;
@@ -66,27 +65,11 @@
     height: 1px;
   }
 
-  /* ══ BARRE FLOTTANTE D'EN-TÊTES (sticky en JS) ══
-     Apparait collée en haut de l'écran quand on scrolle vers le bas
-     et que les bandeaux mois originaux sortent du viewport */
-  #sticky-headers-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 9999;
-    background: #ffffff;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-    border-bottom: 2px solid #1e40af;
-  }
-  #sticky-headers-bar #sticky-scrollbar {
-    position: static;
-    border-radius: 0;
-    background: #f1f5f9;
-  }
-  /* On désactive le sticky natif des bandeaux mois et en-têtes
-     (on gère tout en JS avec la barre fixed maintenant) */
+  /* ══ EN-TÊTES STICKY ══ */
   .bloc-mois-header {
+    position: sticky;
+    top: 16px; /* sous la scrollbar */
+    z-index: 30;
     background: #2563eb;
     color: #fff;
     font-weight: 700;
@@ -95,7 +78,11 @@
     white-space: nowrap;
   }
   .bloc-mois-header.hors-annee { background: #64748b; }
+
   .tr-chantier-header th {
+    position: sticky;
+    top: 47px; /* 16 (scrollbar) + 31 (bandeau mois) */
+    z-index: 25;
     background: #f1f5f9;
   }
 
@@ -420,21 +407,9 @@
   </section>
 </div>
 
-<!-- Barre flottante avec en-têtes mois clonés (visible quand on scrolle vers le bas) -->
-<div id="sticky-headers-bar" style="display:none;">
-  <!-- Scrollbar miroir intégrée -->
-  <div class="chantiers-scroll-top" id="sticky-scrollbar">
-    <div class="chantiers-scroll-top-inner" id="sticky-scrollbar-inner"></div>
-  </div>
-  <!-- Conteneur scrollable horizontal qui contient les clones -->
-  <div id="sticky-headers-scroll" style="overflow-x:hidden;overflow-y:hidden;">
-    <div id="sticky-headers-inner" style="display:flex;flex-direction:row;flex-wrap:nowrap;width:max-content;"></div>
-  </div>
-</div>
-
 <!-- Tableaux chantiers : scroll horizontal indépendant, défile avec la page -->
 <section style="margin-top:0;padding-top:0.5rem;">
-  <!-- Scrollbar miroir en haut, sticky, pour scroll facile sans aller en bas -->
+  <!-- Scrollbar horizontale sticky (apparaît entre les mois et la ligne Client/H. -->
   <div class="chantiers-scroll-top" id="chantiers-scroll-top">
     <div class="chantiers-scroll-top-inner" id="chantiers-scroll-top-inner"></div>
   </div>
@@ -734,7 +709,7 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;overflow:hidden;flex:0 0 165px;width:165px;">`;
+    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 165px;width:165px;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">`;
     html += `<thead><tr class="tr-chantier-header">
@@ -806,134 +781,32 @@ function rendreChantiers() {
 
   cont.innerHTML = html;
   syncScrollbarMiroir();
-  reconstruireStickyHeaders();
 }
 
-/* Synchronise la largeur du scrollbar miroir en haut avec la largeur réelle
-   du contenu du scroll. À appeler après chaque rendu. */
+/* Synchronise la largeur du scrollbar miroir en haut avec la largeur réelle du contenu. */
 function syncScrollbarMiroir() {
   const inner = document.getElementById('section-chantiers');
   const miroirInner = document.getElementById('chantiers-scroll-top-inner');
-  const stickyMiroirInner = document.getElementById('sticky-scrollbar-inner');
-  if (!inner) return;
-  const largeur = inner.scrollWidth;
-  if (miroirInner) miroirInner.style.width = largeur + 'px';
-  if (stickyMiroirInner) stickyMiroirInner.style.width = largeur + 'px';
+  if (!inner || !miroirInner) return;
+  miroirInner.style.width = inner.scrollWidth + 'px';
 }
 
-/* ═══════════════════════════════════════════════════════
-   BARRE FLOTTANTE D'EN-TÊTES (sticky JS)
-   Clone les bandeaux mois + en-têtes colonnes dans une barre fixée en haut
-   quand on scrolle vers le bas.
-═══════════════════════════════════════════════════════ */
-
-function reconstruireStickyHeaders() {
-  const inner = document.getElementById('section-chantiers');
-  const cloneCont = document.getElementById('sticky-headers-inner');
-  if (!inner || !cloneCont) return;
-
-  cloneCont.innerHTML = '';
-  // Pour chaque bloc mois, on clone son bandeau et son thead
-  const blocs = inner.children;
-  for (let i = 0; i < blocs.length; i++) {
-    const bloc = blocs[i];
-    const largeurBloc = bloc.getBoundingClientRect().width;
-
-    const bandeauOrig = bloc.querySelector('.bloc-mois-header');
-    const theadOrig   = bloc.querySelector('thead');
-    if (!bandeauOrig || !theadOrig) continue;
-
-    // Construire le clone : un div bloc + bandeau cloné + table avec thead cloné
-    const cloneBloc = document.createElement('div');
-    cloneBloc.style.cssText = `flex:0 0 auto;width:${largeurBloc}px;border-right:1px solid #e5e7eb;background:${bloc.style.background || '#fff'};box-sizing:border-box;`;
-
-    // Clone du bandeau mois
-    const bandeauClone = bandeauOrig.cloneNode(true);
-    cloneBloc.appendChild(bandeauClone);
-
-    // Clone de la table avec uniquement le thead (pour conserver les bonnes largeurs de colonnes)
-    const tableClone = document.createElement('table');
-    tableClone.style.cssText = 'width:100%;border-collapse:collapse;font-size:0.98rem;table-layout:fixed;';
-    tableClone.appendChild(theadOrig.cloneNode(true));
-    cloneBloc.appendChild(tableClone);
-
-    cloneCont.appendChild(cloneBloc);
-  }
-}
-
-function gererStickyHeaders() {
-  const inner = document.getElementById('section-chantiers');
-  const bar = document.getElementById('sticky-headers-bar');
-  if (!inner || !bar) return;
-
-  const premierBandeau = inner.querySelector('.bloc-mois-header');
-  if (!premierBandeau) {
-    bar.style.display = 'none';
-    return;
-  }
-
-  // Calculer où s'arrête la zone fixe en haut (header + nav)
-  // pour placer la barre flottante juste en-dessous
-  const nav = document.querySelector('.nav');
-  const topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom) : 0;
-
-  const rectBandeau = premierBandeau.getBoundingClientRect();
-  const rectInner = inner.getBoundingClientRect();
-
-  // Afficher la barre si le premier bandeau mois est caché par le header+nav
-  const doitAfficher = rectBandeau.top < topOffset && rectInner.bottom > topOffset + 50;
-
-  if (doitAfficher) {
-    bar.style.top = topOffset + 'px';
-    if (bar.style.display !== 'block') {
-      bar.style.display = 'block';
-      reconstruireStickyHeaders();
-    }
-    syncStickyHeadersScroll();
-  } else {
-    bar.style.display = 'none';
-  }
-}
-
-function syncStickyHeadersScroll() {
-  const bottom = document.getElementById('chantiers-scroll-bottom');
-  const stickyScroll = document.getElementById('sticky-headers-scroll');
-  if (!bottom || !stickyScroll) return;
-  stickyScroll.scrollLeft = bottom.scrollLeft;
-}
-
-/* Lie les scrollbars : si on bouge l'une, les autres suivent */
+/* Lie les 2 scrollbars (haut sticky + bas natif) : si on bouge l'une, l'autre suit. */
 window.addEventListener('DOMContentLoaded', () => {
   const top = document.getElementById('chantiers-scroll-top');
   const bottom = document.getElementById('chantiers-scroll-bottom');
-  const stickyScrollBar = document.getElementById('sticky-scrollbar');
   if (!top || !bottom) return;
-
   let syncing = false;
   function syncFrom(source) {
     if (syncing) return;
     syncing = true;
     if (top !== source) top.scrollLeft = source.scrollLeft;
     if (bottom !== source) bottom.scrollLeft = source.scrollLeft;
-    if (stickyScrollBar && stickyScrollBar !== source) stickyScrollBar.scrollLeft = source.scrollLeft;
-    syncStickyHeadersScroll();
     requestAnimationFrame(() => { syncing = false; });
   }
   top.addEventListener('scroll', () => syncFrom(top));
   bottom.addEventListener('scroll', () => syncFrom(bottom));
-  if (stickyScrollBar) stickyScrollBar.addEventListener('scroll', () => syncFrom(stickyScrollBar));
-
-  // Détection du scroll vertical pour afficher/masquer la barre flottante
-  // On écoute window + document (pour couvrir tous les contextes)
-  window.addEventListener('scroll', gererStickyHeaders, { passive: true });
-  document.addEventListener('scroll', gererStickyHeaders, { passive: true, capture: true });
-  window.addEventListener('resize', () => {
-    syncScrollbarMiroir();
-    reconstruireStickyHeaders();
-    gererStickyHeaders();
-  });
-  // Appel initial après chargement complet (au cas où la page est déjà scrollée au chargement)
-  setTimeout(gererStickyHeaders, 100);
+  window.addEventListener('resize', syncScrollbarMiroir);
 });
 
 /* Wrapper : majLigne depuis oninput (lit data-uid) */
