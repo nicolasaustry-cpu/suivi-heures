@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -74,10 +74,10 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 1000;
-    background: #f4f6f8;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    border-bottom: 2px solid #cbd5e1;
+    z-index: 9999;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    border-bottom: 2px solid #1e40af;
   }
   #sticky-headers-bar #sticky-scrollbar {
     position: static;
@@ -734,7 +734,7 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;overflow:hidden;flex:0 0 auto;min-width:165px;">`;
+    html += `<div style="background:${_bgBloc};border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;overflow:hidden;flex:0 0 165px;width:165px;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
     html += `<table style="width:100%;border-collapse:collapse;font-size:0.98rem;">`;
     html += `<thead><tr class="tr-chantier-header">
@@ -866,22 +866,25 @@ function gererStickyHeaders() {
   const bar = document.getElementById('sticky-headers-bar');
   if (!inner || !bar) return;
 
-  // Trouver le premier bandeau mois et vérifier sa position
   const premierBandeau = inner.querySelector('.bloc-mois-header');
   if (!premierBandeau) {
     bar.style.display = 'none';
     return;
   }
 
+  // Calculer où s'arrête la zone fixe en haut (header + nav)
+  // pour placer la barre flottante juste en-dessous
+  const nav = document.querySelector('.nav');
+  const topOffset = nav ? Math.ceil(nav.getBoundingClientRect().bottom) : 0;
+
   const rectBandeau = premierBandeau.getBoundingClientRect();
   const rectInner = inner.getBoundingClientRect();
 
-  // Afficher la barre si :
-  // - le premier bandeau mois est sorti du viewport (top négatif)
-  // - et le bas du conteneur est encore visible (sinon plus de chantiers à scroller)
-  const doitAfficher = rectBandeau.top < 0 && rectInner.bottom > 100;
+  // Afficher la barre si le premier bandeau mois est caché par le header+nav
+  const doitAfficher = rectBandeau.top < topOffset && rectInner.bottom > topOffset + 50;
 
   if (doitAfficher) {
+    bar.style.top = topOffset + 'px';
     if (bar.style.display !== 'block') {
       bar.style.display = 'block';
       reconstruireStickyHeaders();
