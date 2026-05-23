@@ -80,6 +80,58 @@
     padding:4px; white-space:nowrap;
   }
 
+  /* ===== TOOLTIP INFO CHANTIER ===== */
+  .chantier-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: #0f3a8a;
+    color: #fff;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    pointer-events: none;
+    max-width: 260px;
+    min-width: 200px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .chantier-tooltip.visible { opacity: 1; }
+  .chantier-tooltip .ct-nom {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fcd34d;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+  .chantier-tooltip .ct-total {
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .chantier-tooltip .ct-total strong { font-size: 1rem; color: #fff; }
+  .chantier-tooltip .ct-label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 4px 0 2px;
+  }
+  .chantier-tooltip .ct-sal {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0;
+  }
+  .chantier-tooltip .ct-sal-nom  { color: rgba(255,255,255,0.92); }
+  .chantier-tooltip .ct-sal-h    { color: #fcd34d; font-weight: 600; }
+  .chantier-tooltip .ct-periode  {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.65);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
   /* ===== IMPRESSION ===== */
   @media print {
     @page { size: A4 landscape; margin: 10mm; }
@@ -794,6 +846,157 @@ function majMoisImpression() {
   const d = new Date(moisVal + '-01');
   printMois.textContent = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
+
+/* ════════════════════════════════════════════════
+   TOOLTIP INFO CHANTIER (au survol d'un nom)
+   ════════════════════════════════════════════════ */
+let _tooltipEl = null;
+let _tooltipTimer = null;
+
+function getTooltipEl() {
+  if (!_tooltipEl) {
+    _tooltipEl = document.createElement('div');
+    _tooltipEl.className = 'chantier-tooltip';
+    document.body.appendChild(_tooltipEl);
+  }
+  return _tooltipEl;
+}
+
+/** Agrège les heures pour un nom de chantier donné, toutes années confondues. */
+function getStatsChantier(nomChantier) {
+  if (!nomChantier) return null;
+  const ref = normaliserChantier(nomChantier);
+  if (!ref) return null;
+
+  const heuresAll = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const salariesAll = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const salById = Object.fromEntries(salariesAll.map(s => [s.id, s.prenom + ' ' + s.nom]));
+
+  let total = 0;
+  const parSalarie = new Map();   // id -> heures
+  let dateMin = null, dateMax = null;
+
+  for (const k in heuresAll) {
+    const d = heuresAll[k];
+    if (!d || !d.chantier || !d.heures) continue;
+    if (normaliserChantier(d.chantier) !== ref) continue;
+    // Clé : {id_salarie}_{YYYY}_{MM}_{DD}chN (sans underscore avant chN)
+    const m = k.match(/^(\d+)_(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m) continue;
+    const idSal = m[1];
+    const dateStr = `${m[2]}-${m[3]}-${m[4]}`;
+    const h = parseFloat(d.heures) || 0;
+    total += h;
+    parSalarie.set(idSal, (parSalarie.get(idSal) || 0) + h);
+    if (!dateMin || dateStr < dateMin) dateMin = dateStr;
+    if (!dateMax || dateStr > dateMax) dateMax = dateStr;
+  }
+
+  const liste = [...parSalarie.entries()]
+    .map(([id, h]) => ({ nom: salById[id] || ('Salarié #' + id), heures: h }))
+    .sort((a, b) => b.heures - a.heures);
+
+  return { total, liste, dateMin, dateMax };
+}
+
+/** Normalise un nom de chantier pour comparaison (casse, espaces, accents). */
+function normaliserChantier(s) {
+  return (s || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function formatHeures(h) {
+  if (!h) return '0h';
+  const heures = Math.floor(h);
+  const min = Math.round((h - heures) * 60);
+  if (min === 0) return heures + 'h';
+  return heures + 'h' + String(min).padStart(2, '0');
+}
+
+function formatDateFr(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function montrerTooltipChantier(input) {
+  const nom = (input.value || '').trim();
+  if (!nom) { cacherTooltip(); return; }
+
+  const stats = getStatsChantier(nom);
+  if (!stats || stats.total === 0) { cacherTooltip(); return; }
+
+  const el = getTooltipEl();
+  let html = `<div class="ct-nom">${escapeHtml(nom)}</div>`;
+  html += `<div class="ct-total">Total planifié : <strong>${formatHeures(stats.total)}</strong></div>`;
+  if (stats.liste.length > 0) {
+    html += '<div class="ct-label">Salariés intervenus</div>';
+    stats.liste.forEach(s => {
+      html += `<div class="ct-sal">
+        <span class="ct-sal-nom">${escapeHtml(s.nom)}</span>
+        <span class="ct-sal-h">${formatHeures(s.heures)}</span>
+      </div>`;
+    });
+  }
+  if (stats.dateMin && stats.dateMax) {
+    html += `<div class="ct-periode">Du ${formatDateFr(stats.dateMin)} au ${formatDateFr(stats.dateMax)}</div>`;
+  }
+  el.innerHTML = html;
+
+  // Positionner près de l'input
+  const r = input.getBoundingClientRect();
+  el.style.visibility = 'hidden';
+  el.classList.add('visible');
+  const tt = el.getBoundingClientRect();
+  let top  = r.bottom + 6;
+  let left = r.left;
+  if (top + tt.height > window.innerHeight - 10) top = r.top - tt.height - 6;
+  if (left + tt.width  > window.innerWidth  - 10) left = window.innerWidth - tt.width - 10;
+  if (left < 6) left = 6;
+  el.style.top  = top + 'px';
+  el.style.left = left + 'px';
+  el.style.visibility = 'visible';
+}
+
+function cacherTooltip() {
+  if (_tooltipTimer) { clearTimeout(_tooltipTimer); _tooltipTimer = null; }
+  if (_tooltipEl) _tooltipEl.classList.remove('visible');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+/* Délégation d'événements sur tout le wrapper du planning. */
+document.addEventListener('DOMContentLoaded', () => {
+  const wrap = document.getElementById('planning-wrapper');
+  if (!wrap) return;
+  wrap.addEventListener('mouseover', e => {
+    const t = e.target;
+    if (t.tagName === 'INPUT' && t.id && t.id.endsWith('chantier')) {
+      // Délai léger pour ne pas spammer
+      if (_tooltipTimer) clearTimeout(_tooltipTimer);
+      _tooltipTimer = setTimeout(() => montrerTooltipChantier(t), 350);
+    }
+  });
+  wrap.addEventListener('mouseout', e => {
+    const t = e.target;
+    if (t.tagName === 'INPUT' && t.id && t.id.endsWith('chantier')) {
+      cacherTooltip();
+    }
+  });
+  // Cacher aussi à la frappe ou au focus pour ne pas gêner la saisie
+  wrap.addEventListener('input', e => {
+    if (e.target.tagName === 'INPUT') cacherTooltip();
+  });
+  wrap.addEventListener('focusin', e => {
+    if (e.target.tagName === 'INPUT' && e.target.id && e.target.id.endsWith('chantier')) {
+      cacherTooltip();
+    }
+  });
+});
 </script>
 <script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
