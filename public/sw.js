@@ -1,6 +1,6 @@
 /* =======================================
    SERVICE WORKER – Suiv'Heures Saisie
-   v3 — Auto-update intelligent
+   v3 — Auto-update intelligent 
    ======================================= */
 
 // La version est basée sur la date de build (mise à jour à chaque déploiement)

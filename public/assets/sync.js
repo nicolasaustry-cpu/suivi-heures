@@ -1,6 +1,6 @@
 /* =====================================================
    SYNC.JS – Synchronisation localStorage ↔ MongoDB
-   Gestion licences Standard / Plus
+   Gestion licences Standard / Plus 
 ===================================================== */
 
 const SYNC = (() => {
