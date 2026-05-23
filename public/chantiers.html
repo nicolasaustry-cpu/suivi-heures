@@ -171,6 +171,12 @@
     padding: 5px 6px;
   }
 
+  /* Hauteur fixe pour toutes les lignes (alignement parfait entre mois) */
+  .tr-chantier { height: 22px; }
+  .tr-chantier td { vertical-align: middle; }
+  .tr-total { height: 26px; }
+  .tr-total td { vertical-align: middle; }
+
   .tr-chantier td { background: #fff; }
   .tr-chantier:nth-child(even) td { background: #f8fafc; }
   .tr-chantier:hover td { background: #eff6ff; }
@@ -764,9 +770,10 @@ function rendreChantiers() {
 
     // Ligne total
     const totH = chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+    const totTxt = totH > 0 ? (Number.isInteger(totH) ? totH + 'h' : totH.toFixed(1).replace('.0','') + 'h') : '—';
     html += `<tr class="tr-total">
-      <td style="padding:4px 5px;font-size:0.96rem;">Total</td>
-      <td style="padding:4px 5px;text-align:right;font-size:0.96rem;" id="tot-ch-${annee}_${mi}">${totH > 0 ? totH.toFixed(1) + ' h' : '—'}</td>
+      <td style="padding:3px 5px;font-size:0.88rem;font-weight:700;">Total</td>
+      <td style="padding:3px 5px;text-align:right;font-size:0.88rem;font-weight:700;white-space:nowrap;" id="tot-ch-${annee}_${mi}">${totTxt}</td>
       <td></td>
     </tr>`;
 
