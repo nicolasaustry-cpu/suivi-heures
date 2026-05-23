@@ -172,10 +172,20 @@
   }
 
   /* Hauteur fixe pour toutes les lignes (alignement parfait entre mois) */
-  .tr-chantier { height: 22px; }
-  .tr-chantier td { vertical-align: middle; }
-  .tr-total { height: 26px; }
-  .tr-total td { vertical-align: middle; }
+  .tr-chantier td {
+    height: 22px;
+    line-height: 1;
+    vertical-align: middle;
+  }
+  .tr-total td {
+    height: 26px;
+    line-height: 1;
+    vertical-align: middle;
+  }
+  .coche-planifie {
+    font-size: 0.95rem !important;
+    line-height: 1 !important;
+  }
 
   .tr-chantier td { background: #fff; }
   .tr-chantier:nth-child(even) td { background: #f8fafc; }
@@ -211,8 +221,8 @@
     border: none;
     color: #dc2626;
     cursor: pointer;
-    font-size: 1rem;
-    padding: 0 4px;
+    font-size: 0.85rem;
+    padding: 0 2px;
     line-height: 1;
   }
   .btn-copy-row {
@@ -221,9 +231,8 @@
     color: #2563eb;
     cursor: pointer;
     font-size: 0.85rem;
-    padding: 0 3px;
+    padding: 0 2px;
     line-height: 1;
-    title: "Copier vers d'autres mois";
   }
   .btn-copy-row:hover { color: #1d4ed8; }
 
@@ -707,11 +716,11 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 180px;width:180px;overflow:clip;">`;
+    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 251px;width:251px;overflow:clip;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
-    html += `<table style="width:180px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
+    html += `<table style="width:251px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
-      <col style="width:95px;">
+      <col style="width:166px;">
       <col style="width:45px;">
       <col style="width:40px;">
     </colgroup>`;
