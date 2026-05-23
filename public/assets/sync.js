@@ -262,7 +262,7 @@ const SYNC = (() => {
   }
 
   return {
-    init, connecter, sauvegarderTout, afficherNotif,
+    init, connecter, sauvegarderTout, declencherSauvegarde, afficherNotif,
     estConnecte: () => !!_token,
     getClientId: () => _clientId,
     getType:     () => _type,
