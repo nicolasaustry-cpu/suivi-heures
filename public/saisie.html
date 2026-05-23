@@ -1835,13 +1835,62 @@ function imprimerQRCode() {
 }
 </script>
 <script>
-// Service Worker uniquement sur mobile
+// Service Worker — détection automatique de nouvelle version
 if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('Service Worker enregistré'))
+      .then(reg => {
+        console.log('Service Worker enregistré');
+
+        // Vérifier les mises à jour toutes les 5 minutes
+        setInterval(() => reg.update(), 5 * 60 * 1000);
+
+        // Détecter quand une nouvelle version est en attente
+        reg.addEventListener('updatefound', () => {
+          const nouveauSW = reg.installing;
+          if (!nouveauSW) return;
+          nouveauSW.addEventListener('statechange', () => {
+            if (nouveauSW.state === 'installed' && navigator.serviceWorker.controller) {
+              // Une nouvelle version est installée et prête. On l'active immédiatement.
+              nouveauSW.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      })
       .catch(e => console.warn('Service Worker erreur :', e));
+
+    // Écouter le message d'activation d'une nouvelle version
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'SW_UPDATED') {
+        afficherBandeauMaj();
+      }
+    });
+
+    // Recharger automatiquement quand le SW change de contrôleur (nouvelle version active)
+    let dejaRecharge = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (dejaRecharge) return;
+      dejaRecharge = true;
+      // Petit délai pour que le bandeau soit visible avant le reload
+      setTimeout(() => window.location.reload(), 100);
+    });
   });
+}
+
+function afficherBandeauMaj() {
+  if (document.getElementById('bandeau-maj')) return; // déjà affiché
+  const div = document.createElement('div');
+  div.id = 'bandeau-maj';
+  div.innerHTML = '🔄 Nouvelle version chargée…';
+  Object.assign(div.style, {
+    position: 'fixed', top: '0', left: '0', right: '0',
+    background: '#16a34a', color: '#fff',
+    padding: '10px', textAlign: 'center', fontWeight: '700',
+    fontSize: '0.9rem', zIndex: '9999',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+  });
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3000);
 }
 </script>
 </div><!-- fin phone-wrap -->
