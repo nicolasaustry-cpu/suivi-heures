@@ -935,15 +935,25 @@ function ouvrirModaleCopie(annee, mi, ci) {
 
   _copieSource = { annee, mi, ci, chantier: { ...ch } };
 
+  const hDispo = parseFloat(ch.hPrevues) || 0;
+
   // Titre
   document.getElementById('modale-titre').textContent =
     'Reporter : ' + (ch.client || 'Chantier sans nom');
 
-  // Info source
+  // Info source : avec heures prévues affichées
   const moisSrc = MOIS_FULL[mi] + (_copieSource.annee !== anneeActive ? ' ' + _copieSource.annee : '');
   document.getElementById('modale-source-info').innerHTML =
     `<strong>${ch.client || '—'}</strong>` +
-    `<span style="color:#6b7280;font-size:0.82rem;margin-left:8px;">Source : ${moisSrc}</span>`;
+    `<span style="color:#6b7280;font-size:0.82rem;margin-left:8px;">Source : ${moisSrc}</span>` +
+    `<div style="margin-top:6px;font-size:0.88rem;">` +
+      `<span style="color:#374151;">Heures prévues sur ce mois : </span>` +
+      `<strong style="color:#2563eb;">${hDispo} h</strong>` +
+    `</div>` +
+    `<div id="modale-recap" style="margin-top:4px;font-size:0.82rem;color:#6b7280;">` +
+      `À reporter : <strong id="modale-total-reporte">0</strong> h ` +
+      `&nbsp;·&nbsp; Reste sur le mois source : <strong id="modale-reste">${hDispo}</strong> h` +
+    `</div>`;
 
   // Tableau mois avec case à cocher (décochée par défaut) + champ heures
   const liste = getMoisAffichage();
@@ -967,7 +977,7 @@ function ouvrirModaleCopie(annee, mi, ci) {
     cb.type = 'checkbox';
     cb.id   = uid;
     if (isSource) cb.disabled = true;
-    cb.addEventListener('change', () => toggleHeureMois(huid, cb.checked));
+    cb.addEventListener('change', () => { toggleHeureMois(huid, cb.checked); majRecapReport(); });
     tdCb.appendChild(cb);
 
     // Cellule libellé mois
@@ -986,6 +996,7 @@ function ouvrirModaleCopie(annee, mi, ci) {
     inp.placeholder = 'h';
     inp.disabled    = true;
     inp.style.cssText = 'width:80px;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;text-align:right;font-size:0.85rem;font-family:inherit;background:#f9fafb;';
+    inp.addEventListener('input', majRecapReport);
     tdH.appendChild(inp);
 
     tr.append(tdCb, tdLabel, tdH);
@@ -1006,6 +1017,38 @@ function toggleHeureMois(huid, checked) {
 function fermerModale() {
   document.getElementById('modale-copie').classList.remove('open');
   _copieSource = null;
+}
+
+function majRecapReport() {
+  if (!_copieSource) return;
+  const hDispo = parseFloat(_copieSource.chantier.hPrevues) || 0;
+  const liste  = getMoisAffichage();
+  let total = 0;
+  liste.forEach(({ annee, mois }) => {
+    const cb  = document.getElementById('dest_' + annee + '_' + mois);
+    const inp = document.getElementById('h_' + annee + '_' + mois);
+    if (!cb || !cb.checked || cb.disabled) return;
+    total += parseFloat(inp?.value) || 0;
+  });
+  const reste = hDispo - total;
+  const totalEl = document.getElementById('modale-total-reporte');
+  const resteEl = document.getElementById('modale-reste');
+  const recapEl = document.getElementById('modale-recap');
+  if (totalEl) totalEl.textContent = total;
+  if (resteEl) {
+    resteEl.textContent = reste;
+    resteEl.style.color = reste < 0 ? '#dc2626' : (reste === 0 ? '#16a34a' : '');
+  }
+  if (recapEl) {
+    recapEl.style.color = reste < 0 ? '#dc2626' : '#6b7280';
+  }
+  // Bloquer le bouton Reporter en cas de dépassement
+  const btn = document.querySelector('.btn-modale-copier');
+  if (btn) {
+    btn.disabled = (reste < 0);
+    btn.style.opacity = (reste < 0) ? '0.5' : '';
+    btn.style.cursor  = (reste < 0) ? 'not-allowed' : 'pointer';
+  }
 }
 
 function executerCopie() {
@@ -1033,26 +1076,52 @@ function executerCopie() {
 
   // Diminuer les heures du chantier source du total reporté
   const dmSrc = getDataMois(srcAnnee, srcMi);
+  let hOrig = 0;
   if (dmSrc.chantiers && dmSrc.chantiers[srcCi]) {
-    const hOrig = parseFloat(dmSrc.chantiers[srcCi].hPrevues) || 0;
-    dmSrc.chantiers[srcCi].hPrevues = Math.max(0, hOrig - totalReporte);
+    hOrig = parseFloat(dmSrc.chantiers[srcCi].hPrevues) || 0;
+  }
+  // Refus si on tente de reporter plus que ce qui est disponible
+  if (totalReporte > hOrig) {
+    alert(`Impossible : vous tentez de reporter ${totalReporte} h mais le chantier source n'en a que ${hOrig} h.`);
+    return;
+  }
+  const resteSource = hOrig - totalReporte;
+
+  if (dmSrc.chantiers && dmSrc.chantiers[srcCi]) {
+    if (resteSource <= 0) {
+      // Tout est reporté → on supprime le chantier source
+      dmSrc.chantiers.splice(srcCi, 1);
+    } else {
+      dmSrc.chantiers[srcCi].hPrevues = resteSource;
+    }
   }
 
-  // Ajouter le chantier sur les mois de destination
+  // Ajouter (ou fusionner) le chantier sur les mois de destination
+  const clientNom = (ch.client || '').trim();
   destinations.forEach(({ annee, mois, h }) => {
     const dm = getDataMois(annee, mois);
     if (!dm.chantiers) dm.chantiers = [];
-    dm.chantiers.push({ client: ch.client || '', hPrevues: h });
+    // Fusion : si un chantier de même nom de client existe déjà sur ce mois, on cumule
+    const exist = clientNom
+      ? dm.chantiers.find(c => (c.client || '').trim() === clientNom)
+      : null;
+    if (exist) {
+      exist.hPrevues = (parseFloat(exist.hPrevues) || 0) + h;
+    } else {
+      dm.chantiers.push({ client: ch.client || '', hPrevues: h });
+    }
   });
 
   sauverData();
   fermerModale();
   rendreChantiers();
-  majLigne(srcAnnee + '_' + srcMi);
+  // majLigne sur la source uniquement si elle existe encore
+  if (resteSource > 0) majLigne(srcAnnee + '_' + srcMi);
   destinations.forEach(({ annee, mois }) => majLigne(annee + '_' + mois));
 
+  const supprMsg = resteSource <= 0 ? ' · chantier source supprimé' : '';
   const msg = document.createElement('div');
-  msg.textContent = '\u2714 Reporté sur ' + destinations.length + ' mois (-' + totalReporte + ' h sur la source)';
+  msg.textContent = '\u2714 Reporté sur ' + destinations.length + ' mois (-' + totalReporte + ' h sur la source' + supprMsg + ')';
   Object.assign(msg.style, {
     position:'fixed', bottom:'1.5rem', right:'1.5rem',
     background:'#16a34a', color:'#fff', padding:'10px 20px',
