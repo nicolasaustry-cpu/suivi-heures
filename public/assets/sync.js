@@ -10,6 +10,7 @@ const SYNC = (() => {
   let _clientId = null;
   let _type     = null; // "standard" ou "plus"
   let _syncTimer = null;
+  let _deconnexionEnCours = false;
   const SYNC_DELAY = 2000;
 
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
@@ -22,6 +23,30 @@ const SYNC = (() => {
   const PAGES_PLUS = ['realise.html'];
   // Pages totalement libres (pas de vérification licence)
   const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
+
+  /* ── Intercepteur global fetch : détecte les 401/403 sur /api/* (hors saisie mobile)
+     et déclenche une déconnexion propre. Ne fait rien pour les routes /api/saisies/*
+     qui utilisent le code employé et non le JWT licence. ── */
+  const _fetchOriginal = window.fetch.bind(window);
+  window.fetch = async function(input, init) {
+    const url = typeof input === 'string' ? input : (input?.url || '');
+    const res = await _fetchOriginal(input, init);
+    const estApi    = url.includes('/api/');
+    const estSaisie = url.includes('/api/saisies/');
+    if (estApi && !estSaisie && (res.status === 401 || res.status === 403) && !_deconnexionEnCours) {
+      _deconnexionEnCours = true;
+      console.warn('Session expirée → déconnexion');
+      localStorage.removeItem('syncToken');
+      localStorage.removeItem('syncClientId');
+      localStorage.removeItem('syncType');
+      // Garder licenceCode pour pré-remplir le champ
+      if (!PAGES_LIBRES_TOTAL.includes(pageActuelle())) {
+        afficherNotif('⚠ Session expirée, reconnectez-vous', '#dc2626');
+        setTimeout(() => { window.location.href = '/index.html?erreur=licence'; }, 1500);
+      }
+    }
+    return res;
+  };
 
   function pageActuelle() {
     return window.location.pathname.split('/').pop() || 'index.html';

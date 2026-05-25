@@ -24,7 +24,12 @@ app.use("/api/data",    dataRoutes);
 app.use("/api/admin",   adminRoutes);
 app.use("/api/saisies", saisiesRoutes);
 
-app.get("*", (req, res) => {
+// Fallback SPA : uniquement pour les requêtes qui ne sont pas /api et
+// qui ne ciblent pas un fichier statique avec extension. Évite que GET /api/inexistant
+// ou GET /favicon-inexistant.png renvoient le HTML de index.html.
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/"))      return res.status(404).json({ ok: false, message: "Route API inconnue" });
+  if (path.extname(req.path))            return res.status(404).send("Fichier introuvable");
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 

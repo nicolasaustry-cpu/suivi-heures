@@ -90,6 +90,10 @@ function afficherSalaries() {
   liste.forEach((s, i) => {
     const idx = salaries.indexOf(s);
     const h = s.heuresParJour || {};
+    // PIN : si c'est un hash bcrypt, on n'affiche jamais la valeur
+    const pinEstHash = typeof s.pin === 'string' && s.pin.startsWith('$2');
+    const pinPlaceholder = pinEstHash ? '••••' : '----';
+    const pinValAttr     = pinEstHash ? '' : (s.pin || '');
     tb.innerHTML += `
       <tr>
         <td>${s.prenom}</td>
@@ -107,14 +111,17 @@ function afficherSalaries() {
         <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">
-          <input type="text" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
+          <input type="text" id="pin-${s.id}" maxlength="4" value="${pinValAttr}" placeholder="${pinPlaceholder}"
             autocomplete="new-password" name="pin_${s.id}_${Date.now()}"
+            ${pinEstHash ? 'title="PIN défini et sécurisé. Saisissez un nouveau PIN pour le remplacer."' : ''}
             style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;-webkit-text-security:disc;"
             onchange="majPIN(${s.id}, this.value)"
-            onfocus="this.setAttribute('type','text')"
-            data-pin="true">
+            onfocus="this.setAttribute('type','text');if(this.dataset.locked==='1'){this.value='';this.dataset.locked='0';}"
+            data-pin="true" data-locked="${pinEstHash ? '1' : '0'}">
           <span onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
             style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>
+          <span onclick="reinitialiserPIN(${s.id}, '${(s.prenom + ' ' + s.nom).replace(/'/g, "\\'")}')" title="Réinitialiser le PIN (génère un nouveau hash sécurisé)"
+            style="cursor:pointer;font-size:1rem;margin-left:3px;color:#2563eb;user-select:none;">🔑</span>
         </td>
         <td style="white-space:nowrap;">
           <button class="btn btn-primary" style="padding:3px 8px;font-size:0.8rem;" onclick="ouvrirModifSalarie(${s.id})">✏</button>
@@ -205,6 +212,47 @@ function togglePIN(id) {
     input.style.webkitTextSecurity = 'disc';
   } else {
     input.style.webkitTextSecurity = 'none';
+  }
+}
+
+async function reinitialiserPIN(id, nomComplet) {
+  const pin = prompt(`Nouveau PIN à 4 chiffres pour ${nomComplet} :`);
+  if (pin === null) return; // Annulé
+  if (!/^\d{4}$/.test(pin)) {
+    alert("Le PIN doit être composé de 4 chiffres exactement.");
+    return;
+  }
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+              || localStorage.getItem('syncToken');
+  if (!token) { alert("Vous devez être connecté avec une licence active."); return; }
+
+  try {
+    const r = await fetch('/api/data/reset-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ salarieId: id, pin })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert("Erreur : " + (d.message || "réinitialisation échouée")); return; }
+
+    // Recharger les salariés depuis le serveur pour récupérer le nouveau hash
+    // (et éviter que la sync renvoie l'ancien PIN clair en local)
+    try {
+      const rd = await fetch('/api/data', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const dd = await rd.json();
+      if (dd.ok && dd.data) {
+        salaries = dd.data.salaries || [];
+        // Mise à jour discrète du localStorage : on utilise setItem patché c'est OK,
+        // les données viennent du serveur donc rien à re-uploader d'intéressant
+        localStorage.setItem('salariesdata', JSON.stringify(salaries));
+      }
+    } catch (_) {}
+    afficherSalaries();
+    alert(`✔ PIN de ${nomComplet} réinitialisé et sécurisé.`);
+  } catch (e) {
+    alert("Erreur réseau : " + e.message);
   }
 }
 

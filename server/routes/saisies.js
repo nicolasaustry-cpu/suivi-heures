@@ -1,4 +1,5 @@
 import express from "express";
+import bcrypt from "bcryptjs";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Saisie from "../models/saisies.js";
 
@@ -19,13 +20,63 @@ router.post("/connect", async (req, res) => {
     });
     if (!doc) return res.status(404).json({ ok: false, message: "Code employé invalide" });
 
+    // ⚠️ Ne JAMAIS renvoyer les PIN au client. On les strippe avant envoi.
+    const salariesSansPin = (doc.salaries || []).map(s => {
+      const { pin, ...reste } = s.toObject ? s.toObject() : s;
+      return reste;
+    });
+
     res.json({
       ok: true,
       clientId:     doc.clientId,
-      salaries:     doc.salaries     || [],
+      salaries:     salariesSansPin,
       previsionnel: doc.previsionnel || {},
       heures:       doc.heures       || {}
     });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Authentification PIN salarié (par code employé, sans token licence) ──
+   Le PIN est vérifié côté serveur. Compatibilité legacy : si le PIN est
+   stocké en clair (4 chiffres), on le hashe automatiquement après vérification. */
+router.post("/auth-pin", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const pin       = (req.body.pin || "").toString().trim();
+
+    if (!codeEmp || !salarieId || !pin)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    if (!/^\d{4}$/.test(pin))
+      return res.status(400).json({ ok: false, message: "PIN invalide" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal || !sal.pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
+
+    const estHash = typeof sal.pin === "string" && sal.pin.startsWith("$2");
+    let ok = false;
+    if (estHash) {
+      ok = await bcrypt.compare(pin, sal.pin);
+    } else {
+      // Legacy : comparaison en clair, puis migration vers hash si OK
+      ok = (sal.pin === pin);
+      if (ok) {
+        sal.pin = await bcrypt.hash(pin, 10);
+        // Mongoose : Donnees.salaries est un Array générique, il faut signaler la modif
+        doc.markModified("salaries");
+        await doc.save();
+      }
+    }
+
+    if (!ok) return res.status(401).json({ ok: false, message: "PIN incorrect" });
+    res.json({ ok: true, salarieId: sal.id, nom: `${sal.prenom} ${sal.nom}` });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

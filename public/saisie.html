@@ -616,25 +616,37 @@ async function pinValider() {
   if (!salarieId) { errEl.textContent = 'Choisissez votre nom'; _pinSaisi = ''; majDots(); return; }
   if (_pinSaisi.length < 4) { errEl.textContent = 'Saisissez 4 chiffres'; return; }
 
-  // Vérification locale via localStorage (PIN stocké dans salariesdata)
-  const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
-  const sal  = sals.find(s => s.id == salarieId);
-  if (!sal) { errEl.textContent = 'Salarié introuvable'; _pinSaisi = ''; majDots(); return; }
-  if (!sal.pin || sal.pin !== _pinSaisi) {
-    errEl.textContent = 'Code PIN incorrect';
-    _pinSaisi = '';
-    majDots();
-    // Vibration sur mobile
-    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  if (!codeEmploye) {
+    errEl.textContent = 'Code employé manquant';
+    _pinSaisi = ''; majDots();
     return;
   }
 
-  _salarie = { id: sal.id, nom: `${sal.prenom} ${sal.nom}` };
-  localStorage.setItem('saisie_salarie', JSON.stringify(_salarie));
-  document.getElementById('nom-salarie').textContent = _salarie.nom;
-  document.getElementById('pin-screen').style.display = 'none';
-  document.getElementById('ecran-saisie').style.display = 'block';
-  chargerChantiersPrev();
+  try {
+    const r = await fetch('/api/saisies/auth-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye, salarieId, pin: _pinSaisi })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      errEl.textContent = d.message || 'Code PIN incorrect';
+      _pinSaisi = ''; majDots();
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      return;
+    }
+
+    _salarie = { id: d.salarieId, nom: d.nom };
+    localStorage.setItem('saisie_salarie', JSON.stringify(_salarie));
+    document.getElementById('nom-salarie').textContent = _salarie.nom;
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('ecran-saisie').style.display = 'block';
+    chargerChantiersPrev();
+  } catch (e) {
+    errEl.textContent = 'Erreur réseau, réessayez';
+    _pinSaisi = ''; majDots();
+  }
 }
 
 /* ═══════════════════════════
