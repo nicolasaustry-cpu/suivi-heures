@@ -135,6 +135,13 @@ const SYNC = (() => {
         return false;
       }
 
+      // Si on change de client, purger les anciennes données pour éviter qu'elles
+      // restent affichées le temps que le nouveau client charge ses propres données.
+      const ancienClient = localStorage.getItem('syncClientId');
+      if (ancienClient && ancienClient !== d.clientId) {
+        CLES.forEach(k => localStorage.removeItem(k));
+      }
+
       _token    = d.token;
       _clientId = d.clientId;
       _type     = d.type || 'standard';
@@ -146,6 +153,12 @@ const SYNC = (() => {
       majStatutLicence(true);
       majNav();
       await chargerDonnees();
+      // Forcer le rechargement de la page pour que tous les écrans
+      // (rendus à partir du localStorage) repartent sur les bonnes données.
+      if (ancienClient && ancienClient !== d.clientId) {
+        location.reload();
+        return true;
+      }
       return true;
     } catch {
       majStatutLicence(true, 'local');
