@@ -36,10 +36,12 @@
       width: 390px;
       margin: 1.5rem auto 2rem;
       border-radius: 36px;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
       box-shadow: 0 0 0 8px #222, 0 20px 50px rgba(0,0,0,0.3);
       position: relative;
       min-height: 700px;
+      max-height: 90vh;
     }
     /* PIN en position absolute dans le cadre */
     .phone-wrap .pin-screen {
@@ -270,8 +272,8 @@
   .saisie-sticky {
     position: sticky; top: 0; z-index: 50;
     background: #fff; padding: 0.6rem 0.8rem;
-    border-bottom: 1px solid #e5e7eb;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    border-bottom: 2px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   }
   .saisie-sticky .sal-nom { font-size: 1rem; font-weight: 700; color: #2563eb; }
