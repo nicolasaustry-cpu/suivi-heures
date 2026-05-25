@@ -349,3 +349,26 @@ body.readonly button[onclick="activerLicence()"] {
   /* Éviter coupure d'un bloc journée */
   .jour-block { page-break-inside: avoid; break-inside: avoid; }
 }
+
+/* ── Input PIN salarié (saisie sécurisée sans déclencher les gestionnaires de mots de passe) ── */
+.pin-input {
+  width: 56px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 3px 4px;
+  font-size: 0.9rem;
+}
+/* Masquage CSS : remplace l'affichage par des disques, sans toucher au type="text" */
+.pin-input.pin-masque {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+/* Fallback navigateurs très anciens : font qui remplace par des caractères opaques */
+@supports not (-webkit-text-security: disc) {
+  .pin-input.pin-masque {
+    font-family: text-security-disc, "password", -webkit-pictograph;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 0 #000;
+  }
+}

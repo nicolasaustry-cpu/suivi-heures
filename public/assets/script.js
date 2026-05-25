@@ -107,9 +107,10 @@ function afficherSalaries() {
         <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">
-          <input type="password" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
-            autocomplete="new-password" name="pin_${s.id}_${Date.now()}" inputmode="numeric"
-            style="width:56px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:3px 4px;font-size:0.9rem;"
+          <input type="text" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
+            autocomplete="off" name="pin_${s.id}_${Date.now()}" inputmode="numeric"
+            readonly onfocus="this.removeAttribute('readonly')"
+            class="pin-input pin-masque"
             onchange="majPIN(${s.id}, this.value)"
             data-pin="true">
           <span id="oeil-${s.id}" onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
@@ -200,11 +201,11 @@ function togglePIN(id) {
   const input = document.getElementById('pin-' + id);
   if (!input) return;
   const icone = document.getElementById('oeil-' + id);
-  if (input.type === 'password') {
-    input.type = 'text';
+  if (input.classList.contains('pin-masque')) {
+    input.classList.remove('pin-masque');
     if (icone) icone.textContent = '🙈';
   } else {
-    input.type = 'password';
+    input.classList.add('pin-masque');
     if (icone) icone.textContent = '👁';
   }
 }
