@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -8,30 +8,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Suiv'Heures">
-  <meta name="theme-color" content="#0f3a8a">
+  <meta name="theme-color" content="#2563eb">
   <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
-  <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; background: #fff; }
 
   /* Bandeau navigation desktop */
   .nav-desktop {
-    display: none; width: 100%; background: #0f3a8a;
-    padding: 0.7rem 1rem; align-items: center;
-    gap: 1rem; border-bottom: 3px solid #f59e0b;
-    box-sizing: border-box;
+    display: none; width: 100%; background: #1e3a8a;
+    padding: 0.5rem 1rem; align-items: center;
+    gap: 1rem; flex-wrap: wrap; justify-content: center;
   }
   .nav-desktop a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.85rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
   .nav-desktop a:hover { background: rgba(255,255,255,0.15); color: #fff; }
-  .nav-desktop .nav-identite { display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-right: auto; }
-  .nav-desktop .nav-identite img { width: 38px; height: 38px; background: #fff; border-radius: 6px; padding: 3px; box-sizing: border-box; }
-  .nav-desktop .nav-titres { display: flex; flex-direction: column; line-height: 1.15; }
-  .nav-desktop .nav-marque { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.7); letter-spacing: 0.1em; text-transform: uppercase; }
-  .nav-desktop .nav-nom { font-size: 15px; font-weight: 700; color: #fff; }
-  .nav-desktop .nav-baseline { font-size: 10px; color: rgba(255,255,255,0.75); font-style: italic; }
+  .nav-desktop .nav-titre { color: #fff; font-weight: 800; font-size: 0.95rem; margin-right: 0.5rem; }
 
   /* Cadre téléphone */
   .phone-wrap { width: 100%; }
@@ -40,21 +32,14 @@
   @media (min-width: 600px) {
     body { background: #e2e8f0; min-height: 100vh; }
     .nav-desktop { display: flex; }
-    /* Conteneur flex pour téléphone + panneau QR côte à côte */
-    .desktop-stage {
-      display: flex; gap: 2.5rem; justify-content: center; align-items: flex-start;
-      padding: 1.5rem 1rem 2rem;
-      flex-wrap: wrap;
-    }
     .phone-wrap {
       width: 390px;
-      margin: 0;
+      margin: 1.5rem auto 2rem;
       border-radius: 36px;
       overflow: hidden;
       box-shadow: 0 0 0 8px #222, 0 20px 50px rgba(0,0,0,0.3);
       position: relative;
       min-height: 700px;
-      flex-shrink: 0;
     }
     /* PIN en position absolute dans le cadre */
     .phone-wrap .pin-screen {
@@ -62,96 +47,16 @@
       inset: 0 !important;
       z-index: 300;
     }
-
-    /* Panneau QR à droite du téléphone */
-    .qr-panel {
-      background: #fff;
-      border: 1px solid #cbd5e1;
-      border-radius: 12px;
-      padding: 22px;
-      width: 300px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      text-align: center;
-      flex-shrink: 0;
-    }
-    .qr-panel h3 {
-      margin: 0 0 4px;
-      color: #0f3a8a;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .qr-panel .qr-soustitre {
-      font-size: 11px;
-      color: #64748b;
-      margin-bottom: 16px;
-    }
-    .qr-panel #qr-canvas {
-      width: 220px; height: 220px;
-      margin: 0 auto 14px;
-      background: #fff;
-      padding: 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      box-sizing: content-box;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .qr-panel #qr-canvas img,
-    .qr-panel #qr-canvas canvas { width: 100% !important; height: 100% !important; display: block; }
-    .qr-panel .qr-entreprise {
-      font-size: 14px; font-weight: 700; color: #0f3a8a;
-    }
-    .qr-panel .qr-code-affichage {
-      font-size: 11px; color: #475569; font-family: monospace;
-      background: #f8fafc; padding: 4px 10px; border-radius: 4px;
-      display: inline-block; margin-top: 4px; margin-bottom: 14px;
-    }
-    .qr-panel .qr-btn {
-      display: block; width: 100%;
-      padding: 10px 14px; margin-bottom: 6px;
-      border-radius: 6px; font-weight: 700; font-size: 13px;
-      cursor: pointer; border: 0;
-    }
-    .qr-panel .qr-btn-print {
-      background: #f59e0b; color: #0f172a;
-    }
-    .qr-panel .qr-btn-print:hover { background: #fcd34d; }
-    .qr-panel .qr-btn-dl {
-      background: transparent; color: #475569;
-      border: 1px solid #cbd5e1; font-weight: 600;
-    }
-    .qr-panel .qr-btn-dl:hover { background: #f8fafc; }
-    .qr-panel .qr-help {
-      margin-top: 16px; padding-top: 14px;
-      border-top: 1px solid #e5e7eb;
-      font-size: 11px; color: #64748b; text-align: left; line-height: 1.5;
-    }
-    .qr-panel .qr-help strong { color: #0f172a; display: block; margin-bottom: 4px; }
-    .qr-panel .qr-vide {
-      padding: 30px 14px; color: #64748b; font-size: 12px; font-style: italic;
-    }
   }
-  /* Cacher le QR en mobile */
-  .qr-panel { display: none; }
-  @media (min-width: 600px) { .qr-panel { display: block; } }
 
   /* ── HEADER ── */
   header {
-    background: #0f3a8a; color: #fff;
-    padding: 0.6rem 0.9rem;
+    background: #2563eb; color: #fff;
+    padding: 0.8rem 1rem;
     display: flex; align-items: center; gap: 0.8rem;
     position: sticky; top: 0; z-index: 100;
-    border-bottom: 2px solid #f59e0b;
   }
-  header .header-logo {
-    width: 32px; height: 32px;
-    background: #fff; border-radius: 5px; padding: 2px;
-    box-sizing: border-box; flex-shrink: 0;
-  }
-  header .header-titres { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
-  header .header-titres .header-marque { font-size: 8px; font-weight: 600; color: rgba(255,255,255,0.65); letter-spacing: 0.1em; text-transform: uppercase; }
-  header h1 { font-size: 0.95rem; font-weight: 700; text-align: left; margin: 0; flex: 1; }
+  header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; text-align: center; }
   .back-btn { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; padding: 0; }
 
   /* ── SECTIONS ── */
@@ -187,165 +92,6 @@
   .chantier-card.previsionnel { background: #eff6ff; border-color: #bfdbfe; }
   .chantier-card.ajoute { background: #f9fafb; }
 
-  /* États du mode pointage */
-  .chantier-card.en-cours {
-    background: #f0fdf4; border: 2px solid #16a34a;
-  }
-  .chantier-card.termine {
-    background: #fafbfc; border-color: #d1d5db; opacity: 0.85;
-  }
-  .chantier-card.disabled-pointage {
-    opacity: 0.55;
-  }
-
-  /* Tags d'état */
-  .tag-encours {
-    font-size: 0.68rem; color: #fff; background: #16a34a;
-    padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
-    font-weight: 700; letter-spacing: 0.02em;
-  }
-  .tag-termine {
-    font-size: 0.68rem; color: #15803d; background: #dcfce7;
-    padding: 2px 7px; border-radius: 999px; flex-shrink: 0;
-    font-weight: 700;
-  }
-
-  /* Infos chantier en cours */
-  .info-encours {
-    font-size: 0.78rem; color: #15803d; font-weight: 600;
-    margin: 4px 0 8px; text-align: center;
-  }
-  .info-encours .duree-encours { font-size: 0.95rem; }
-  .info-termine {
-    font-size: 0.85rem; color: #374151; font-weight: 600;
-    margin: 6px 0; text-align: center;
-  }
-  .info-termine .duree-tot { color: #0f172a; font-weight: 800; }
-
-  /* Boutons pointage */
-  .btn-pointage {
-    width: 100%; padding: 12px;
-    border: none; border-radius: 8px;
-    font-size: 0.95rem; font-weight: 700;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    transition: background 0.15s, transform 0.05s;
-  }
-  .btn-pointage:active { transform: scale(0.98); }
-  .btn-demarrer { background: #16a34a; color: #fff; }
-  .btn-demarrer:hover { background: #15803d; }
-  .btn-demarrer:disabled {
-    background: #d1d5db; color: #6b7280; cursor: not-allowed;
-  }
-  .btn-terminer { background: #dc2626; color: #fff; }
-  .btn-terminer:hover { background: #b91c1c; }
-
-  .btn-pointage .heure-now {
-    background: rgba(255,255,255,0.18);
-    padding: 2px 8px; border-radius: 4px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Ligne champ heure + bouton côte à côte */
-  .pointage-row {
-    display: flex; gap: 6px; align-items: stretch;
-  }
-  .pointage-input { flex: 1; display: flex; flex-direction: column; }
-  .pointage-input label {
-    font-size: 0.65rem; color: #64748b; font-weight: 600;
-    margin-bottom: 2px; letter-spacing: 0.04em;
-  }
-  .pointage-input input[type="time"] {
-    width: 100%; padding: 10px 4px;
-    border: 1px solid #cbd5e1; border-radius: 6px;
-    font-size: 1.05rem; font-weight: 700;
-    text-align: center; background: #fff; color: #0f172a;
-    box-sizing: border-box;
-    -webkit-appearance: none;
-  }
-  /* Bouton dans une pointage-row : compact, à droite du champ */
-  .pointage-row .btn-pointage {
-    width: auto;
-    padding: 0 14px;
-    align-self: stretch;
-    margin-top: 16px; /* aligné avec le bas du champ (à cause du label au-dessus) */
-    font-size: 0.88rem;
-  }
-
-  /* Lien rattrapage */
-  .rattrapage-zone {
-    text-align: center; padding: 12px 0;
-    border-top: 1px dashed #cbd5e1;
-    margin-top: 1.2rem;
-  }
-  .rattrapage-zone a {
-    font-size: 0.82rem; color: #0f3a8a;
-    text-decoration: underline; cursor: pointer;
-  }
-  .rattrapage-banner {
-    background: #fef3c7; border: 1px solid #f59e0b;
-    border-radius: 6px; padding: 8px 12px;
-    font-size: 0.8rem; color: #92400e;
-    margin-bottom: 0.8rem;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .rattrapage-banner button {
-    background: #f59e0b; color: #0f172a;
-    border: 0; padding: 4px 10px; border-radius: 4px;
-    font-size: 0.75rem; font-weight: 700; cursor: pointer;
-  }
-
-  /* Popup déplacement (modal léger) */
-  .popup-depl-overlay {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.55);
-    z-index: 500; display: none; align-items: center; justify-content: center;
-    padding: 1.5rem;
-  }
-  .popup-depl-overlay.open { display: flex; }
-  .popup-depl {
-    background: #fff; border-radius: 14px;
-    width: 100%; max-width: 340px;
-    padding: 20px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-  }
-  .popup-depl-titre {
-    font-size: 1rem; font-weight: 800; color: #0f172a;
-    margin-bottom: 4px; text-align: center;
-  }
-  .popup-depl-sous {
-    font-size: 0.82rem; color: #64748b;
-    margin-bottom: 1rem; text-align: center;
-  }
-  .popup-depl-stepper {
-    display: flex; align-items: center; justify-content: center;
-    gap: 16px; padding: 14px 0;
-    background: #f8fafc; border-radius: 10px;
-    margin-bottom: 1rem;
-  }
-  .popup-depl-stepper button {
-    width: 44px; height: 44px; border-radius: 50%;
-    border: 1px solid #cbd5e1; background: #fff;
-    font-size: 1.4rem; font-weight: 700; cursor: pointer;
-    color: #0f3a8a;
-  }
-  .popup-depl-stepper button:active { background: #eff6ff; }
-  .popup-depl-val {
-    font-size: 1.7rem; font-weight: 800; color: #0f3a8a;
-    min-width: 90px; text-align: center;
-  }
-  .popup-depl-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
-  .popup-depl-actions button {
-    padding: 12px; border-radius: 8px; font-weight: 700;
-    border: 0; cursor: pointer; font-size: 0.92rem;
-  }
-  .popup-depl-cancel {
-    background: #f3f4f6; color: #374151;
-  }
-  .popup-depl-confirm {
-    background: #16a34a; color: #fff;
-  }
-  .popup-depl-confirm:hover { background: #15803d; }
-
   .chantier-header {
     display: flex; align-items: center;
     justify-content: space-between; margin-bottom: 0.6rem;
@@ -364,26 +110,6 @@
     text-align: center; background: #fff; color: #222;
   }
   .time-sep { font-size: 1.2rem; color: #9ca3af; padding-bottom: 6px; }
-
-  /* Bouton "Départ maintenant" */
-  .btn-maintenant {
-    width: 100%; padding: 9px 10px;
-    background: #0f3a8a; color: #fff;
-    border: none; border-radius: 6px;
-    font-size: 0.85rem; font-weight: 700;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    margin-bottom: 6px;
-    transition: background 0.15s;
-  }
-  .btn-maintenant:hover, .btn-maintenant:active { background: #1e4fa8; }
-  .btn-maintenant .heure-actuelle {
-    background: rgba(255,255,255,0.15);
-    padding: 2px 8px; border-radius: 4px;
-    font-variant-numeric: tabular-nums;
-  }
-  /* Cacher le bouton quand le départ est déjà rempli */
-  .btn-maintenant.depart-rempli { opacity: 0.55; }
 
   .duree-badge {
     background: #eff6ff; color: #1d4ed8;
@@ -456,25 +182,12 @@
   /* ── PIN ── */
   /* PIN : toujours plein écran */
   .pin-screen {
-    position: fixed; inset: 0; background: #0f3a8a; z-index: 300;
+    position: fixed; inset: 0; background: #2563eb; z-index: 300;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 2rem;
   }
-  .pin-identite {
-    display: flex; flex-direction: column; align-items: center;
-    margin-bottom: 1.5rem;
-  }
-  .pin-identite img { width: 88px; height: 88px; background: #fff; border-radius: 14px; padding: 6px; box-sizing: border-box; margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
-  .pin-identite .pin-marque { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7); letter-spacing: 0.15em; text-transform: uppercase; }
-  .pin-identite .pin-nom { font-size: 26px; font-weight: 700; color: #fff; margin-top: 2px; }
-  .pin-identite .pin-baseline { font-size: 12px; color: rgba(255,255,255,0.75); font-style: italic; margin-top: 4px; }
-  .pin-identite::after {
-    content: ""; display: block;
-    width: 50px; height: 3px; background: #f59e0b; border-radius: 2px;
-    margin-top: 12px;
-  }
-  .pin-screen h2 { display: none; }
-  .pin-screen p  { color: rgba(255,255,255,0.85); font-size: 0.88rem; margin-bottom: 1.5rem; text-align:center; }
+  .pin-screen h2 { color: #fff; font-size: 1.2rem; margin-bottom: 0.5rem; }
+  .pin-screen p  { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-bottom: 1.5rem; text-align:center; }
   .pin-screen select {
     width: 100%; padding: 12px; border-radius: 8px; border: none;
     font-size: 1rem; margin-bottom: 1rem; background: #fff;
@@ -509,59 +222,25 @@
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn-envoyer:disabled { background: #9ca3af; cursor: not-allowed; }
-
-  /* ── HEADER + NAV DESKTOP (réutilise theme-volitis.css) ─────
-     Cachés en mode mobile, affichés ≥ 600px */
-  .desktop-only { display: none; }
-  @media (min-width: 600px) {
-    .desktop-only { display: block; }
-  }
   </style>
-  <link rel="stylesheet" href="assets/theme-volitis.css">
 </head>
 <body>
 
-<!-- Header + Nav identiques aux autres pages (visibles desktop uniquement) -->
-<div class="desktop-only">
-  <header class="main-header">
-    <div class="vol-identite">
-      <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
-      <div class="vol-titres">
-        <span class="vol-marque">VOLITIS</span>
-        <span class="vol-nom">Suiv'Heures</span>
-        <span class="vol-baseline">La gestion des heures, simplement</span>
-      </div>
-    </div>
-    <h1 class="page-title">Saisie mobile</h1>
-    <div class="vol-droite">
-      <div class="entreprise-nom" id="entreprise-nom"></div>
-      <div id="licence-status"></div>
-    </div>
-  </header>
-  <div class="nav">
-    <a href="index.html">Entreprise</a>
-    <a href="salaries.html">Salariés</a>
-    <a href="chantiers.html">Prévisionnel</a>
-    <a href="planning.html">Planning</a>
-    <a href="saisie.html" class="nav-plus active">Saisie mobile</a>
-    <a href="realise.html" class="nav-plus">Planning réalisé</a>
-    <a href="rapports.html" class="nav-plus">Rapports</a>
-  </div>
+<!-- Bandeau navigation (visible sur desktop uniquement) -->
+<div class="nav-desktop">
+  <span class="nav-titre">Suiv'Heures</span>
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  <a href="realise.html">Planning réalisé</a>
 </div>
-
-<!-- Conteneur desktop : téléphone + QR code côte à côte -->
-<div class="desktop-stage">
 
 <div class="phone-wrap">
 
 <!-- ── ÉCRAN PIN ── -->
 <div class="pin-screen" id="pin-screen" style="display:none;">
-  <div class="pin-identite">
-    <img src="assets/suivheures-logo.svg" alt="Suiv'Heures">
-    <span class="pin-marque">VOLITIS</span>
-    <span class="pin-nom">Suiv'Heures</span>
-    <span class="pin-baseline">La gestion des heures, simplement</span>
-  </div>
   <h2>Suiv'Heures</h2>
   <p id="pin-subtitle">Identifiez-vous pour saisir vos heures</p>
 
@@ -612,7 +291,6 @@
 <div id="ecran-saisie" style="display:none;padding-bottom:2rem;">
 
   <header>
-    <img src="assets/suivheures-logo.svg" alt="Suiv'Heures" class="header-logo">
     <h1>Saisie journalière</h1>
     <div style="display:flex;gap:6px;align-items:center;">
 
@@ -658,45 +336,17 @@
     <button class="btn-add" onclick="ouvrirModalAjout()">+ Ajouter un chantier</button>
   </div>
 
-  <!-- Bandeau Mode Rattrapage (caché par défaut) -->
-  <div class="rattrapage-banner" id="rattrapage-banner" style="display:none;">
-    <span>📝 Mode rattrapage : saisie manuelle complète</span>
-    <button onclick="desactiverRattrapage()">Revenir au pointage</button>
-  </div>
-
   <!-- Total + Envoyer -->
   <div class="section">
     <div class="total-bar">
       <span class="total-lbl">Total du jour</span>
       <span class="total-val" id="total-jour">0 h 00</span>
     </div>
-    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerChantier()" style="display:none;">
+    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerChantier()">
       ✉ Envoyer ce chantier
     </button>
   </div>
 
-  <!-- Zone lien rattrapage (mode pointage uniquement) -->
-  <div class="rattrapage-zone" id="rattrapage-zone">
-    <a onclick="activerRattrapage()">📝 Oublié de pointer ? Saisir manuellement</a>
-  </div>
-
-</div>
-
-<!-- ── POPUP DÉPLACEMENT ── -->
-<div class="popup-depl-overlay" id="popup-depl-overlay">
-  <div class="popup-depl">
-    <div class="popup-depl-titre" id="popup-depl-titre">Fin du chantier</div>
-    <div class="popup-depl-sous" id="popup-depl-sous">Temps de déplacement ?</div>
-    <div class="popup-depl-stepper">
-      <button onclick="ajusterPopupDepl(-5)">−</button>
-      <div class="popup-depl-val" id="popup-depl-val">0 min</div>
-      <button onclick="ajusterPopupDepl(5)">+</button>
-    </div>
-    <div class="popup-depl-actions">
-      <button class="popup-depl-cancel" onclick="fermerPopupDeplacement()">Annuler</button>
-      <button class="popup-depl-confirm" onclick="confirmerPopupDeplacement()">✓ Valider et envoyer</button>
-    </div>
-  </div>
 </div>
 
 <!-- ── MODAL AJOUT CHANTIER ── -->
@@ -718,28 +368,14 @@
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
 let _chantiersA = [];   // chantiers ajoutés
-let _saisiesPrev= {};   // { nomChantier: { arrivee, depart, depl, etat } }
+let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
+let _deplJournee = 0;  // Déplacement global de la journée
 let _selModal   = null; // chantier sélectionné dans la modal
-let _modeRattrapage = false; // true = ancien mode saisie manuelle complète
-let _popupContext = null;    // { source: 'prev'|'ajout', ref: string|number }
 
 /* ═══════════════════════════
    INIT
 ═══════════════════════════ */
 window.addEventListener('DOMContentLoaded', () => {
-  // Alimenter le header desktop (nom entreprise + licence)
-  try {
-    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
-    const elNom = document.getElementById('entreprise-nom');
-    if (elNom && ent.nom) elNom.textContent = ent.nom;
-    const elLic = document.getElementById('licence-status');
-    if (elLic) {
-      const code = localStorage.getItem('licenceCode');
-      elLic.textContent = code ? '✓ Licence active' : '⚠ Aucune licence';
-      if (!code) elLic.dataset.licence = '0';
-    }
-  } catch (e) { /* ignore */ }
-
   // Date par défaut = aujourd'hui
   const today = new Date();
   const dd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -752,17 +388,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (btnSortie) btnSortie.style.display = 'block';
   }
 
-  // ─── QR CODE : détection du paramètre ?code=XXX dans l'URL ───
-  // Si présent, on mémorise le code entreprise pour sauter directement à l'étape PIN
-  const urlParams = new URLSearchParams(window.location.search);
-  const codeFromQR = urlParams.get('code');
-  if (codeFromQR) {
-    const codeClean = codeFromQR.trim().toUpperCase();
-    localStorage.setItem('saisie_codeEmploye', codeClean);
-    // Nettoyer l'URL (pour éviter qu'un rafraîchissement bookmarke le code visible)
-    history.replaceState(null, '', window.location.pathname);
-  }
-
   // Si code employé mémorisé → reconnecter automatiquement sans redemander
   const codeMemorize = localStorage.getItem('saisie_codeEmploye');
   if (codeMemorize) {
@@ -771,11 +396,6 @@ window.addEventListener('DOMContentLoaded', () => {
     // Pas de code mémorisé → afficher l'écran de connexion
     document.getElementById('pin-screen').style.display = 'flex';
     chargerSalaries();
-  }
-
-  // Générer le QR code (desktop uniquement)
-  if (window.innerWidth >= 600) {
-    genererQRCode();
   }
 });
 
@@ -816,7 +436,6 @@ async function reconnecterAuto(codeEmploye) {
       localStorage.removeItem('saisie_salarie');
       document.getElementById('pin-screen').style.display = 'flex';
       chargerSalaries();
-      if (window.innerWidth >= 600) genererQRCode();
     }
   } catch {
     // Hors ligne → restaurer si salarié mémorisé
@@ -863,7 +482,6 @@ async function validerCodeEntreprise() {
     localStorage.setItem('salariesdata', JSON.stringify(d.salaries || []));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
-    if (window.innerWidth >= 600) genererQRCode();
 
     // Passer à l'étape PIN
     document.getElementById('etape-code').style.display = 'none';
@@ -944,6 +562,13 @@ async function pinValider() {
 /* ═══════════════════════════
    CHANTIERS PRÉVISIONNELS
 ═══════════════════════════ */
+function majDeplJournee(delta) {
+  _deplJournee = Math.max(0, _deplJournee + delta);
+  const el = document.getElementById('depl-journee');
+  if (el) el.textContent = _deplJournee;
+  majTotal();
+}
+
 function chargerChantiersPrev() {
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
@@ -993,230 +618,6 @@ function chargerChantiersPrev() {
 }
 
 /* ═══════════════════════════
-   HEURE COURANTE (arrondie 5 min)
-═══════════════════════════ */
-function getHeureMaintenant() {
-  const d = new Date();
-  let h = d.getHours();
-  let m = Math.round(d.getMinutes() / 5) * 5;
-  if (m === 60) { m = 0; h = (h + 1) % 24; }
-  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-}
-
-function definirDepartMaintenant(source, ref) {
-  const h = getHeureMaintenant();
-  if (source === 'prev') {
-    majSaisiePrev(ref, 'depart', h);
-  } else {
-    majAjout(parseInt(ref), 'depart', h);
-  }
-}
-
-/* Rafraîchir l'heure et les durées toutes les 60 secondes.
-   On rafraîchit aussi les champs heure pré-remplis (arrivée/départ) UNIQUEMENT
-   si l'utilisateur ne les a pas modifiés (data-proposee == value actuelle). */
-let _heureProposeeActuelle = '';
-function majHeureProposeeInputs() {
-  const nouvelleH = getHeureMaintenant();
-  document.querySelectorAll('input[id^="input-arrivee-"], input[id^="input-depart-"]').forEach(el => {
-    // Si pas encore de marqueur, on initialise
-    if (!el.dataset.proposee) el.dataset.proposee = el.value;
-    // On ne met à jour que si la valeur n'a pas été modifiée par l'utilisateur
-    if (el.value === el.dataset.proposee) {
-      el.value = nouvelleH;
-      el.dataset.proposee = nouvelleH;
-    }
-  });
-  _heureProposeeActuelle = nouvelleH;
-}
-
-setInterval(() => {
-  // Mettre à jour les durées écoulées sur les chantiers en cours
-  document.querySelectorAll('.duree-encours').forEach(el => {
-    const arrivee = el.dataset.arrivee;
-    if (arrivee) el.textContent = dureeEcoulee(arrivee);
-  });
-  // Rafraîchir les heures pré-remplies dans les champs input
-  majHeureProposeeInputs();
-}, 60000);
-
-/* ═══════════════════════════
-   MODE POINTAGE : Démarrer / Terminer
-═══════════════════════════ */
-
-function demarrerChantier(source, ref) {
-  // Lire l'heure depuis le champ input (qui est pré-rempli avec l'heure courante)
-  const inputId = source === 'prev'
-    ? `input-arrivee-prev-${ref.replace(/[^a-zA-Z0-9]/g,'_')}`
-    : `input-arrivee-ajout-${ref}`;
-  const inputEl = document.getElementById(inputId);
-  const heure = (inputEl && inputEl.value) || getHeureMaintenant();
-
-  if (source === 'prev') {
-    if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
-    _saisiesPrev[ref].arrivee = heure;
-    _saisiesPrev[ref].etat = 'en-cours';
-  } else {
-    const i = parseInt(ref);
-    if (!_chantiersA[i]) return;
-    _chantiersA[i].arrivee = heure;
-    _chantiersA[i].etat = 'en-cours';
-  }
-  rendrePrev();
-  rendreAjout();
-  majTotal();
-}
-
-function terminerChantier(source, ref) {
-  // Lire l'heure depuis le champ input (pré-rempli avec l'heure courante)
-  const inputId = source === 'prev'
-    ? `input-depart-prev-${ref.replace(/[^a-zA-Z0-9]/g,'_')}`
-    : `input-depart-ajout-${ref}`;
-  const inputEl = document.getElementById(inputId);
-  const heureFin = (inputEl && inputEl.value) || getHeureMaintenant();
-
-  // On stocke l'heure de fin dans le contexte du popup, validée à la confirmation.
-  _popupContext = { source, ref, heureFin };
-  ouvrirPopupDeplacement(heureFin);
-}
-
-/* ═══════════════════════════
-   POPUP DÉPLACEMENT
-═══════════════════════════ */
-let _popupDepl = 0;
-
-function ouvrirPopupDeplacement(heureFin) {
-  _popupDepl = 0;
-  document.getElementById('popup-depl-val').textContent = '0 min';
-  document.getElementById('popup-depl-titre').textContent = 'Fin du chantier';
-  document.getElementById('popup-depl-sous').innerHTML =
-    `Heure de fin : <strong>${heureFin}</strong><br>Temps de déplacement vers le prochain chantier ?`;
-  document.getElementById('popup-depl-overlay').classList.add('open');
-}
-
-function fermerPopupDeplacement() {
-  document.getElementById('popup-depl-overlay').classList.remove('open');
-  _popupContext = null;
-}
-
-function ajusterPopupDepl(delta) {
-  _popupDepl = Math.max(0, _popupDepl + delta);
-  document.getElementById('popup-depl-val').textContent = _popupDepl + ' min';
-}
-
-async function confirmerPopupDeplacement() {
-  if (!_popupContext) return;
-  const { source, ref, heureFin } = _popupContext;
-
-  // Enregistrer le départ + déplacement + état terminé
-  let chantierData = null;
-  if (source === 'prev') {
-    if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
-    _saisiesPrev[ref].depart = heureFin;
-    _saisiesPrev[ref].depl   = _popupDepl;
-    _saisiesPrev[ref].etat   = 'termine';
-    chantierData = {
-      nom: ref,
-      heureArrivee: _saisiesPrev[ref].arrivee,
-      heureDepart:  heureFin,
-      dureeMin:     calcMinutes(_saisiesPrev[ref].arrivee, heureFin),
-      deplacement:  _popupDepl,
-      isPrevisionnel: true
-    };
-  } else {
-    const i = parseInt(ref);
-    if (!_chantiersA[i]) return;
-    _chantiersA[i].depart = heureFin;
-    _chantiersA[i].depl   = _popupDepl;
-    _chantiersA[i].etat   = 'termine';
-    chantierData = {
-      nom: _chantiersA[i].nom,
-      heureArrivee: _chantiersA[i].arrivee,
-      heureDepart:  heureFin,
-      dureeMin:     calcMinutes(_chantiersA[i].arrivee, heureFin),
-      deplacement:  _popupDepl,
-      isPrevisionnel: false
-    };
-  }
-
-  fermerPopupDeplacement();
-  rendrePrev();
-  rendreAjout();
-  majTotal();
-
-  // Envoi immédiat au serveur
-  await envoyerChantierUnique(chantierData);
-}
-
-async function envoyerChantierUnique(chantier) {
-  const date = document.getElementById('date-saisie').value;
-  if (!date) return;
-  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
-
-  try {
-    const r = await fetch('/api/saisies/envoyer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        codeEmploye,
-        salarieId:  _salarie.id,
-        salarieNom: _salarie.nom,
-        date, chantier
-      })
-    });
-    const d = await r.json();
-    if (d.ok) {
-      afficherNotifSaisie(`✓ ${chantier.nom} envoyé`, '#16a34a');
-    } else {
-      afficherNotifSaisie(`⚠ Erreur sur ${chantier.nom}`, '#dc2626');
-    }
-  } catch (e) {
-    afficherNotifSaisie(`⚠ Hors ligne — sera renvoyé`, '#f59e0b');
-  }
-}
-
-function afficherNotifSaisie(texte, couleur) {
-  const div = document.createElement('div');
-  div.textContent = texte;
-  Object.assign(div.style, {
-    position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-    background: couleur, color: '#fff', padding: '10px 20px',
-    borderRadius: '8px', fontWeight: '700', fontSize: '0.9rem',
-    zIndex: '600', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', transition: 'opacity 0.5s'
-  });
-  document.body.appendChild(div);
-  setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 500); }, 2500);
-}
-
-/* ═══════════════════════════
-   MODE RATTRAPAGE (ancien mode complet)
-═══════════════════════════ */
-function activerRattrapage() {
-  _modeRattrapage = true;
-  rendrePrev();
-  rendreAjout();
-  // Cacher le lien rattrapage, montrer le bandeau et le bouton Envoyer
-  const lien = document.getElementById('rattrapage-zone');
-  if (lien) lien.style.display = 'none';
-  const banner = document.getElementById('rattrapage-banner');
-  if (banner) banner.style.display = 'flex';
-  const btnEnv = document.getElementById('btn-envoyer');
-  if (btnEnv) btnEnv.style.display = '';
-}
-
-function desactiverRattrapage() {
-  _modeRattrapage = false;
-  rendrePrev();
-  rendreAjout();
-  const lien = document.getElementById('rattrapage-zone');
-  if (lien) lien.style.display = '';
-  const banner = document.getElementById('rattrapage-banner');
-  if (banner) banner.style.display = 'none';
-  const btnEnv = document.getElementById('btn-envoyer');
-  if (btnEnv) btnEnv.style.display = 'none';
-}
-
-/* ═══════════════════════════
    RENDU CHANTIERS PRÉVUS
 ═══════════════════════════ */
 function rendrePrev() {
@@ -1225,138 +626,37 @@ function rendrePrev() {
     cont.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;font-style:italic;text-align:center;padding:0.5rem 0;">Aucun chantier prévu ce mois</p>';
     return;
   }
-
-  const heureNow = getHeureMaintenant();
-  // Y a-t-il un chantier en cours ? Si oui, on désactive les boutons des autres.
-  const enCours = chantierEnCours();
-  // En mode rattrapage, on revient à l'ancien affichage
-  if (_modeRattrapage) {
-    cont.innerHTML = _chantiersP.map((c, i) => rendreCarteRattrapagePrev(c, i)).join('');
-    return;
-  }
-
   cont.innerHTML = _chantiersP.map((c, i) => {
-    const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0, etat: 'a-demarrer' };
-    const etat = s.etat || (s.depart ? 'termine' : (s.arrivee ? 'en-cours' : 'a-demarrer'));
-    const nomEscaped = c.nom.replace(/'/g, "\\'");
-
-    if (etat === 'termine') {
-      const dureeMin = calcMinutes(s.arrivee, s.depart);
-      return `<div class="chantier-card termine">
-        <div class="chantier-header">
-          <div class="chantier-nom">${c.nom}</div>
-          <span class="tag-termine">✓ TERMINÉ</span>
-        </div>
-        <div class="info-termine">
-          ${s.arrivee} → ${s.depart} · <span class="duree-tot">${Math.floor(dureeMin/60)}h${String(dureeMin%60).padStart(2,'0')}</span>
-          ${(s.depl > 0) ? ` · 🚗 ${s.depl} min` : ''}
-        </div>
-      </div>`;
-    }
-
-    if (etat === 'en-cours') {
-      const idDepart = `input-depart-prev-${c.nom.replace(/[^a-zA-Z0-9]/g,'_')}`;
-      return `<div class="chantier-card en-cours">
-        <div class="chantier-header">
-          <div class="chantier-nom">${c.nom}</div>
-          <span class="tag-encours">🟢 EN COURS</span>
-        </div>
-        <div class="info-encours">
-          Arrivé à <strong>${s.arrivee}</strong> · <span class="duree-encours" data-arrivee="${s.arrivee}">${dureeEcoulee(s.arrivee)}</span>
-        </div>
-        <div class="pointage-row">
-          <div class="pointage-input">
-            <label>DÉPART</label>
-            <input type="time" id="${idDepart}" value="${heureNow}">
-          </div>
-          <button class="btn-pointage btn-terminer" onclick="terminerChantier('prev','${nomEscaped}')">
-            ⏹ Terminer
-          </button>
-        </div>
-      </div>`;
-    }
-
-    // État : à démarrer
-    const desactive = enCours && enCours !== c.nom;
-    const idArrivee = `input-arrivee-prev-${c.nom.replace(/[^a-zA-Z0-9]/g,'_')}`;
-    return `<div class="chantier-card previsionnel${desactive ? ' disabled-pointage' : ''}">
+    const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0 };
+    const duree = calcDuree(s.arrivee, s.depart);
+    return `<div class="chantier-card previsionnel">
       <div class="chantier-header">
         <div class="chantier-nom">${c.nom}</div>
         <span class="tag-prev">Prévu</span>
       </div>
-      ${desactive ? `
-        <div style="text-align:center;font-size:0.78rem;color:#6b7280;padding:8px;font-style:italic;">
-          Terminez le chantier en cours d'abord
+      <div class="depl-row">
+        <label>🚗 Déplacement depuis chantier précédent</label>
+        <div class="stepper">
+          <div class="step-btn" onclick="majDepl('prev','${c.nom}',-15)">−</div>
+          <span class="step-val" id="depl-prev-${c.nom.replace(/\s/g,'_')}">${s.depl}</span>
+          <div class="step-btn" onclick="majDepl('prev','${c.nom}',15)">+</div>
         </div>
-      ` : `
-        <div class="pointage-row">
-          <div class="pointage-input">
-            <label>ARRIVÉE</label>
-            <input type="time" id="${idArrivee}" value="${heureNow}">
-          </div>
-          <button class="btn-pointage btn-demarrer" onclick="demarrerChantier('prev','${nomEscaped}')">
-            ▶ Démarrer
-          </button>
+        <span class="step-unite">min</span>
+      </div>
+      <div class="time-row">
+        <div class="time-block">
+          <label>Arrivée</label>
+          <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${c.nom}','arrivee',this.value)">
         </div>
-      `}
+        <div class="time-sep">→</div>
+        <div class="time-block">
+          <label>Départ</label>
+          <input type="time" value="${s.depart}" onchange="majSaisiePrev('${c.nom}','depart',this.value)">
+        </div>
+      </div>
+      <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
     </div>`;
   }).join('');
-}
-
-/* Rendu en mode rattrapage (ancien comportement) */
-function rendreCarteRattrapagePrev(c, i) {
-  const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0 };
-  const duree = calcDuree(s.arrivee, s.depart);
-  const nomEscaped = c.nom.replace(/'/g, "\\'");
-  return `<div class="chantier-card previsionnel">
-    <div class="chantier-header">
-      <div class="chantier-nom">${c.nom}</div>
-      <span class="tag-prev">Prévu</span>
-    </div>
-    <div class="time-row">
-      <div class="time-block">
-        <label>Arrivée</label>
-        <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${nomEscaped}','arrivee',this.value)">
-      </div>
-      <div class="time-sep">→</div>
-      <div class="time-block">
-        <label>Départ</label>
-        <input type="time" value="${s.depart}" onchange="majSaisiePrev('${nomEscaped}','depart',this.value)">
-      </div>
-    </div>
-    <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
-    <div class="depl-row">
-      <label>🚗 Déplacement</label>
-      <div class="stepper">
-        <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',-15)">−</div>
-        <span class="step-val" id="depl-prev-${c.nom.replace(/\s/g,'_')}">${s.depl || 0}</span>
-        <div class="step-btn" onclick="majDepl('prev','${nomEscaped}',15)">+</div>
-      </div>
-      <span class="step-unite">min</span>
-    </div>
-  </div>`;
-}
-
-function chantierEnCours() {
-  // Retourne le nom du chantier en cours (prev) ou l'index (ajout), ou null
-  for (const nom in _saisiesPrev) {
-    if (_saisiesPrev[nom].etat === 'en-cours') return nom;
-  }
-  for (let i = 0; i < _chantiersA.length; i++) {
-    if (_chantiersA[i].etat === 'en-cours') return '_ajout_' + i;
-  }
-  return null;
-}
-
-function dureeEcoulee(heureDebut) {
-  if (!heureDebut) return '';
-  const [h, m] = heureDebut.split(':').map(Number);
-  const debutMin = h * 60 + m;
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const ecart = nowMin - debutMin;
-  if (ecart < 0) return '';
-  return `${Math.floor(ecart / 60)}h${String(ecart % 60).padStart(2,'0')}`;
 }
 
 function majSaisiePrev(nom, champ, val) {
@@ -1374,113 +674,36 @@ function rendreAjout() {
   const cont = document.getElementById('liste-ajout');
   document.getElementById('nb-ajout').textContent = _chantiersA.length;
   if (!_chantiersA.length) { cont.innerHTML = ''; return; }
-
-  const heureNow = getHeureMaintenant();
-  const enCours = chantierEnCours();
-
-  // En mode rattrapage, ancien affichage
-  if (_modeRattrapage) {
-    cont.innerHTML = _chantiersA.map((c, i) => rendreCarteRattrapageAjout(c, i)).join('');
-    return;
-  }
-
   cont.innerHTML = _chantiersA.map((c, i) => {
-    const etat = c.etat || (c.depart ? 'termine' : (c.arrivee ? 'en-cours' : 'a-demarrer'));
-
-    if (etat === 'termine') {
-      const dureeMin = calcMinutes(c.arrivee, c.depart);
-      return `<div class="chantier-card termine">
-        <div class="chantier-header">
-          <div class="chantier-nom libre">${c.nom}</div>
-          <span class="tag-termine">✓ TERMINÉ</span>
-        </div>
-        <div class="info-termine">
-          ${c.arrivee} → ${c.depart} · <span class="duree-tot">${Math.floor(dureeMin/60)}h${String(dureeMin%60).padStart(2,'0')}</span>
-          ${(c.depl > 0) ? ` · 🚗 ${c.depl} min` : ''}
-        </div>
-      </div>`;
-    }
-
-    if (etat === 'en-cours') {
-      const idDepart = `input-depart-ajout-${i}`;
-      return `<div class="chantier-card en-cours">
-        <div class="chantier-header">
-          <div class="chantier-nom libre">${c.nom}</div>
-          <span class="tag-encours">🟢 EN COURS</span>
-        </div>
-        <div class="info-encours">
-          Arrivé à <strong>${c.arrivee}</strong> · <span class="duree-encours" data-arrivee="${c.arrivee}">${dureeEcoulee(c.arrivee)}</span>
-        </div>
-        <div class="pointage-row">
-          <div class="pointage-input">
-            <label>DÉPART</label>
-            <input type="time" id="${idDepart}" value="${heureNow}">
-          </div>
-          <button class="btn-pointage btn-terminer" onclick="terminerChantier('ajout','${i}')">
-            ⏹ Terminer
-          </button>
-        </div>
-      </div>`;
-    }
-
-    // État : à démarrer
-    const refKey = '_ajout_' + i;
-    const desactive = enCours && enCours !== refKey;
-    const idArrivee = `input-arrivee-ajout-${i}`;
-    return `<div class="chantier-card ajoute${desactive ? ' disabled-pointage' : ''}">
+    const duree = calcDuree(c.arrivee, c.depart);
+    return `<div class="chantier-card ajoute">
       <div class="chantier-header">
         <div class="chantier-nom libre">${c.nom}</div>
         <button class="btn-suppr" onclick="supprimerAjout(${i})">✕</button>
       </div>
-      ${desactive ? `
-        <div style="text-align:center;font-size:0.78rem;color:#6b7280;padding:8px;font-style:italic;">
-          Terminez le chantier en cours d'abord
+      <div class="depl-row">
+        <label>🚗 Déplacement depuis chantier précédent</label>
+        <div class="stepper">
+          <div class="step-btn" onclick="majDepl('ajout',${i},-15)">−</div>
+          <span class="step-val" id="depl-ajout-${i}">${c.depl}</span>
+          <div class="step-btn" onclick="majDepl('ajout',${i},15)">+</div>
         </div>
-      ` : `
-        <div class="pointage-row">
-          <div class="pointage-input">
-            <label>ARRIVÉE</label>
-            <input type="time" id="${idArrivee}" value="${heureNow}">
-          </div>
-          <button class="btn-pointage btn-demarrer" onclick="demarrerChantier('ajout','${i}')">
-            ▶ Démarrer
-          </button>
+        <span class="step-unite">min</span>
+      </div>
+      <div class="time-row">
+        <div class="time-block">
+          <label>Arrivée</label>
+          <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)">
         </div>
-      `}
+        <div class="time-sep">→</div>
+        <div class="time-block">
+          <label>Départ</label>
+          <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
+        </div>
+      </div>
+      <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
     </div>`;
   }).join('');
-}
-
-/* Rendu en mode rattrapage (ancien comportement) */
-function rendreCarteRattrapageAjout(c, i) {
-  const duree = calcDuree(c.arrivee, c.depart);
-  return `<div class="chantier-card ajoute">
-    <div class="chantier-header">
-      <div class="chantier-nom libre">${c.nom}</div>
-      <button class="btn-suppr" onclick="supprimerAjout(${i})">✕</button>
-    </div>
-    <div class="time-row">
-      <div class="time-block">
-        <label>Arrivée</label>
-        <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)">
-      </div>
-      <div class="time-sep">→</div>
-      <div class="time-block">
-        <label>Départ</label>
-        <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
-      </div>
-    </div>
-    <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
-    <div class="depl-row">
-      <label>🚗 Déplacement</label>
-      <div class="stepper">
-        <div class="step-btn" onclick="majDepl('ajout',${i},-15)">−</div>
-        <span class="step-val" id="depl-ajout-${i}">${c.depl || 0}</span>
-        <div class="step-btn" onclick="majDepl('ajout',${i},15)">+</div>
-      </div>
-      <span class="step-unite">min</span>
-    </div>
-  </div>`;
 }
 
 function majAjout(i, champ, val) {
@@ -1591,7 +814,7 @@ function validerAjout() {
   const libre = document.getElementById('input-libre').value.trim();
   const nom   = libre || _selModal;
   if (!nom) { alert('Choisissez ou saisissez un chantier'); return; }
-  _chantiersA.push({ nom, arrivee: '', depart: '', depl: 0, etat: 'a-demarrer' });
+  _chantiersA.push({ nom, arrivee: '', depart: '', depl: 0 });
   rendreAjout();
   majTotal();
   fermerModal();
@@ -1700,220 +923,17 @@ async function envoyerChantier() {
     alert('Erreur lors de l\'envoi');
   }
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   QR CODE D'ACTIVATION (desktop uniquement)
-   ═══════════════════════════════════════════════════════════════ */
-function getCodeEntreprise() {
-  return localStorage.getItem('saisie_codeEmploye') || '';
-}
-function getNomEntreprise() {
-  try {
-    const e = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
-    return e.nom || '';
-  } catch { return ''; }
-}
-function getURLqr(code) {
-  // URL absolue vers la page de saisie avec le code en paramètre
-  return `${window.location.origin}/saisie.html?code=${encodeURIComponent(code)}`;
-}
-
-function genererQRCode() {
-  const code = getCodeEntreprise();
-  const container = document.getElementById('qr-canvas');
-  const entNom = document.getElementById('qr-entreprise');
-  const codeAff = document.getElementById('qr-code-affichage');
-  if (!container) return;
-
-  if (!code) {
-    container.innerHTML = '<div class="qr-vide">Configurez le code entreprise pour générer le QR.</div>';
-    if (entNom) entNom.textContent = '';
-    if (codeAff) codeAff.style.display = 'none';
-    return;
-  }
-
-  if (typeof QRCode === 'undefined') {
-    container.innerHTML = '<div class="qr-vide">Librairie QR non chargée.<br><small>Vérifiez votre connexion internet.</small></div>';
-    return;
-  }
-
-  // qrcodejs (davidshimjs) : on lui donne une div vide et il y injecte un <img> + <canvas>
-  container.innerHTML = '';
-  try {
-    new QRCode(container, {
-      text: getURLqr(code),
-      width: 220,
-      height: 220,
-      colorDark:  '#0f3a8a',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } catch (e) {
-    container.innerHTML = '<div class="qr-vide">Erreur QR : ' + e.message + '</div>';
-    return;
-  }
-
-  if (entNom)  entNom.textContent  = getNomEntreprise();
-  if (codeAff) { codeAff.textContent = code; codeAff.style.display = 'inline-block'; }
-}
-
-function getQRImageDataURL() {
-  // qrcodejs ajoute soit un <canvas> soit une <img> dans le container
-  const container = document.getElementById('qr-canvas');
-  if (!container) return null;
-  const cnv = container.querySelector('canvas');
-  if (cnv) return cnv.toDataURL('image/png');
-  const img = container.querySelector('img');
-  if (img && img.src) return img.src;
-  return null;
-}
-
-function telechargerQRCode() {
-  const dataUrl = getQRImageDataURL();
-  if (!dataUrl) { alert('QR non disponible'); return; }
-  const link = document.createElement('a');
-  const code = getCodeEntreprise() || 'qrcode';
-  link.download = `QR-SuivHeures-${code}.png`;
-  link.href = dataUrl;
-  link.click();
-}
-
-function imprimerQRCode() {
-  const dataUrl = getQRImageDataURL();
-  if (!dataUrl) { alert('QR non disponible'); return; }
-  const code = getCodeEntreprise() || '';
-  const ent  = getNomEntreprise() || '';
-
-  const w = window.open('', '_blank', 'width=600,height=800');
-  w.document.write(`<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <title>QR Suiv'Heures - ${ent}</title>
-  <style>
-    @page { size: A6; margin: 8mm; }
-    body {
-      font-family: -apple-system, Arial, sans-serif;
-      margin: 0; padding: 12mm 6mm;
-      text-align: center; color: #0f172a;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-    }
-    .marque  { font-size: 10pt; color: #f59e0b; font-weight: 700; letter-spacing: 0.15em; }
-    .titre   { font-size: 18pt; font-weight: 700; color: #0f3a8a; margin: 2mm 0 1mm; }
-    .baseline{ font-size: 9pt; color: #475569; font-style: italic; margin-bottom: 6mm; }
-    .qr      { padding: 4mm; border: 1px solid #cbd5e1; border-radius: 4mm; display: inline-block; }
-    .qr img  { display: block; width: 50mm; height: 50mm; }
-    .ent     { font-size: 13pt; font-weight: 700; margin-top: 5mm; color: #0f3a8a; }
-    .code    { font-size: 9pt; color: #64748b; font-family: monospace;
-               background: #f8fafc; padding: 1mm 3mm; border-radius: 2mm; display: inline-block; margin-top: 1mm; }
-    .instr   { margin-top: 5mm; font-size: 8pt; color: #475569; line-height: 1.5; max-width: 80mm; }
-    .instr strong { color: #0f172a; }
-    .pied    { margin-top: 6mm; font-size: 7pt; color: #94a3b8; }
-    @media print { body { padding: 6mm; } }
-  </style>
-</head>
-<body>
-  <div class="marque">VOLITIS</div>
-  <div class="titre">Suiv'Heures</div>
-  <div class="baseline">La gestion des heures, simplement</div>
-  <div class="qr"><img src="${dataUrl}" alt="QR"></div>
-  <div class="ent">${ent}</div>
-  ${code ? `<div class="code">${code}</div>` : ''}
-  <div class="instr">
-    <strong>Comment vous connecter ?</strong><br>
-    ① Ouvrez l'appareil photo de votre téléphone<br>
-    ② Visez ce QR code pour le scanner<br>
-    ③ Touchez la notification pour ouvrir l'application
-  </div>
-  <div class="pied">suiv-heures.volitis.net</div>
-  <script>
-    window.onload = () => { setTimeout(() => { window.print(); }, 300); };
-  <\/script>
-</body>
-</html>`);
-  w.document.close();
-}
 </script>
 <script>
-// Service Worker — détection automatique de nouvelle version
+// Service Worker uniquement sur mobile
 if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('Service Worker enregistré');
-
-        // Vérifier les mises à jour toutes les 5 minutes
-        setInterval(() => reg.update(), 5 * 60 * 1000);
-
-        // Détecter quand une nouvelle version est en attente
-        reg.addEventListener('updatefound', () => {
-          const nouveauSW = reg.installing;
-          if (!nouveauSW) return;
-          nouveauSW.addEventListener('statechange', () => {
-            if (nouveauSW.state === 'installed' && navigator.serviceWorker.controller) {
-              // Une nouvelle version est installée et prête. On l'active immédiatement.
-              nouveauSW.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        });
-      })
+      .then(() => console.log('Service Worker enregistré'))
       .catch(e => console.warn('Service Worker erreur :', e));
-
-    // Écouter le message d'activation d'une nouvelle version
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'SW_UPDATED') {
-        afficherBandeauMaj();
-      }
-    });
-
-    // Recharger automatiquement quand le SW change de contrôleur (nouvelle version active)
-    let dejaRecharge = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (dejaRecharge) return;
-      dejaRecharge = true;
-      // Petit délai pour que le bandeau soit visible avant le reload
-      setTimeout(() => window.location.reload(), 100);
-    });
   });
-}
-
-function afficherBandeauMaj() {
-  if (document.getElementById('bandeau-maj')) return; // déjà affiché
-  const div = document.createElement('div');
-  div.id = 'bandeau-maj';
-  div.innerHTML = '🔄 Nouvelle version chargée…';
-  Object.assign(div.style, {
-    position: 'fixed', top: '0', left: '0', right: '0',
-    background: '#16a34a', color: '#fff',
-    padding: '10px', textAlign: 'center', fontWeight: '700',
-    fontSize: '0.9rem', zIndex: '9999',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-  });
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 3000);
 }
 </script>
 </div><!-- fin phone-wrap -->
-
-<!-- Panneau QR Code (desktop uniquement, masqué en mobile via CSS) -->
-<aside class="qr-panel">
-  <h3>QR Code d'activation</h3>
-  <div class="qr-soustitre">À scanner avec un smartphone</div>
-  <div id="qr-canvas">
-    <div class="qr-vide">Configurez le code entreprise pour générer le QR.</div>
-  </div>
-  <div class="qr-entreprise" id="qr-entreprise"></div>
-  <div class="qr-code-affichage" id="qr-code-affichage" style="display:none;"></div>
-  <button class="qr-btn qr-btn-print" onclick="imprimerQRCode()">🖨 Imprimer le QR Code</button>
-  <button class="qr-btn qr-btn-dl"    onclick="telechargerQRCode()">⤓ Télécharger l'image</button>
-  <div class="qr-help">
-    <strong>Comment ça marche ?</strong>
-    ① Le salarié scanne le QR avec l'appareil photo de son téléphone<br>
-    ② La page Suiv'Heures s'ouvre avec le code entreprise déjà saisi<br>
-    ③ Il choisit son nom et tape son code PIN
-  </div>
-</aside>
-
-</div><!-- fin desktop-stage -->
 </body>
 </html>
