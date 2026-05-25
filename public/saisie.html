@@ -56,10 +56,18 @@
     background: #2563eb; color: #fff;
     padding: 0.8rem 1rem;
     display: flex; align-items: center; gap: 0.8rem;
-    position: sticky; top: 0; z-index: 100;
   }
   header h1 { font-size: 1.1rem; font-weight: 700; flex: 1; text-align: center; }
   .back-btn { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; padding: 0; }
+
+  /* ── EN-TÊTE FIGÉ (bandeau bleu + bloc nom/date) ── */
+  .entete-fixe {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  }
 
   /* ── SECTIONS ── */
   .section {
@@ -273,7 +281,6 @@
     background: #fff;
     padding: 0.6rem 0.8rem;
     border-bottom: 2px solid #e5e7eb;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
     flex-shrink: 0;
   }
@@ -365,31 +372,34 @@
 <!-- ── ÉCRAN SAISIE ── -->
 <div id="ecran-saisie" style="display:none;padding-bottom:2rem;">
 
-  <header>
-    <h1>Saisie journalière</h1>
-    <div style="display:flex;gap:6px;align-items:center;">
+  <!-- Bloc figé : bandeau bleu + nom/date -->
+  <div class="entete-fixe">
+    <header>
+      <h1>Saisie journalière</h1>
+      <div style="display:flex;gap:6px;align-items:center;">
 
-      <button id="btn-sortie" onclick="window.location.href='index.html'"
-        style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
-               border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;">
-        ← Sortir
-      </button>
-      <button onclick="seDeconnecter()"
-        style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
-               border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
-        ⏻ Déconnexion
-      </button>
-    </div>
-  </header>
+        <button id="btn-sortie" onclick="window.location.href='index.html'"
+          style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
+                 border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;">
+          ← Sortir
+        </button>
+        <button onclick="seDeconnecter()"
+          style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
+                 border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
+          ⏻ Déconnexion
+        </button>
+      </div>
+    </header>
 
-  <!-- Salarié + Date (fixe) -->
-  <div class="saisie-info" id="saisie-sticky">
-    <div>
-      <div class="sal-nom" id="nom-salarie"></div>
-      <div class="sal-date" id="date-affichee"></div>
+    <!-- Salarié + Date (fixe) -->
+    <div class="saisie-info" id="saisie-sticky">
+      <div>
+        <div class="sal-nom" id="nom-salarie"></div>
+        <div class="sal-date" id="date-affichee"></div>
+      </div>
+      <input type="date" id="date-saisie" style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;font-size:0.85rem;background:#f9fafb;">
     </div>
-    <input type="date" id="date-saisie" style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;font-size:0.85rem;background:#f9fafb;">
-  </div>
+  </div><!-- fin entete-fixe -->
 
   <!-- Zone scrollable -->
   <div class="saisie-scroll">
