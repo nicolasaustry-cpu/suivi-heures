@@ -210,6 +210,63 @@ function togglePIN(id) {
   }
 }
 
+/* Enregistrer tous les PIN d'un coup : lit chaque case, valide les 4 chiffres,
+   met à jour le tableau salaries[], pousse immédiatement au serveur. */
+async function enregistrerTousPINs() {
+  const btn = document.getElementById('btn-enregistrer-pins');
+  if (!btn) return;
+  const txtOrigine = btn.textContent;
+
+  // Collecter et valider
+  const inputs = document.querySelectorAll('input[data-pin="true"]');
+  let nbValides = 0, nbVides = 0, nbInvalides = 0;
+  inputs.forEach(input => {
+    const id  = parseInt(input.id.replace('pin-', ''));
+    const val = (input.value || '').trim();
+    const sal = salaries.find(s => s.id === id);
+    if (!sal) return;
+    if (val === '') {
+      sal.pin = '';
+      nbVides++;
+    } else if (/^\d{4}$/.test(val)) {
+      sal.pin = val;
+      nbValides++;
+    } else {
+      nbInvalides++;
+    }
+  });
+
+  if (nbInvalides > 0) {
+    alert(`⚠ ${nbInvalides} PIN incorrect(s) — un PIN doit comporter exactement 4 chiffres. Corrigez avant d'enregistrer.`);
+    return;
+  }
+
+  // Sauvegarder localement et pousser au serveur sans attendre le debounce
+  localStorage.setItem('salariesdata', JSON.stringify(salaries));
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Enregistrement...';
+
+  let ok = false;
+  if (typeof SYNC !== 'undefined' && SYNC.sauvegarderTout) {
+    try { await SYNC.sauvegarderTout(); ok = true; } catch (_) {}
+  }
+
+  btn.disabled = false;
+  if (ok) {
+    btn.textContent = `✔ ${nbValides} PIN enregistré${nbValides > 1 ? 's' : ''}`;
+    btn.style.background = '#16a34a';
+  } else {
+    btn.textContent = '⚠ Erreur réseau';
+    btn.style.background = '#dc2626';
+  }
+  setTimeout(() => {
+    btn.textContent = txtOrigine;
+    btn.style.background = '';
+    afficherSalaries();
+  }, 2200);
+}
+
 /* ===========================================
    AJOUT / SUPPRESSION DE SALARIÉ
    =========================================== */
