@@ -643,7 +643,7 @@ function rendrePrev() {
     return `<div class="chantier-card previsionnel">
       <div class="chantier-header">
         <div class="chantier-nom">${c.nom}</div>
-        <span class="tag-prev">Prévu</span>
+        ${s.envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>' : '<span class="tag-prev">Prévu</span>'}
       </div>
       <div class="depl-row">
         <label>🚗 Déplacement depuis chantier précédent</label>
@@ -664,6 +664,10 @@ function rendrePrev() {
           <label>Départ</label>
           <input type="time" value="${s.depart}" onchange="majSaisiePrev('${c.nom}','depart',this.value)">
         </div>
+        <button onclick="envoyerUnChantierPrev('${c.nom.replace(/'/g,"\'")}')"
+          style="flex-shrink:0;padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;align-self:flex-end;">
+          ✔ Envoyer
+        </button>
       </div>
       <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
     </div>`;
@@ -690,7 +694,7 @@ function rendreAjout() {
     return `<div class="chantier-card ajoute">
       <div class="chantier-header">
         <div class="chantier-nom libre">${c.nom}</div>
-        <button class="btn-suppr" onclick="supprimerAjout(${i})">✕</button>
+        ${c.envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>' : '<button class="btn-suppr" onclick="supprimerAjout('+i+')">✕</button>'}
       </div>
       <div class="depl-row">
         <label>🚗 Déplacement depuis chantier précédent</label>
@@ -711,6 +715,10 @@ function rendreAjout() {
           <label>Départ</label>
           <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
         </div>
+        <button onclick="envoyerUnChantierAjout(${i})"
+          style="flex-shrink:0;padding:8px 12px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;align-self:flex-end;">
+          ✔ Envoyer
+        </button>
       </div>
       <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
     </div>`;
@@ -855,6 +863,72 @@ function seDeconnecter() {
 }
 
 
+
+/* ── Envoyer un chantier prévu individuel ── */
+async function envoyerUnChantierPrev(nom) {
+  const date = document.getElementById('date-saisie').value;
+  if (!date) { alert('Choisissez une date'); return; }
+  const s = _saisiesPrev[nom] || {};
+  if (!s.arrivee || !s.depart) { alert('Saisissez l\'heure d\'arrivée et de départ'); return; }
+  const chantier = {
+    nom,
+    heureArrivee:  s.arrivee,
+    heureDepart:   s.depart,
+    dureeMin:      calcMinutes(s.arrivee, s.depart),
+    deplacement:   s.depl || 0,
+    isPrevisionnel: true
+  };
+  await _envoyerChantier(chantier, date);
+  // Marquer comme envoyé
+  _saisiesPrev[nom] = { ...s, envoye: true };
+  rendrePrev();
+  majTotal();
+}
+
+/* ── Envoyer un chantier ajouté individuel ── */
+async function envoyerUnChantierAjout(i) {
+  const date = document.getElementById('date-saisie').value;
+  if (!date) { alert('Choisissez une date'); return; }
+  const ch = _chantiersA[i];
+  if (!ch) return;
+  if (!ch.arrivee || !ch.depart) { alert('Saisissez l\'heure d\'arrivée et de départ'); return; }
+  const chantier = {
+    nom:           ch.nom,
+    heureArrivee:  ch.arrivee,
+    heureDepart:   ch.depart,
+    dureeMin:      calcMinutes(ch.arrivee, ch.depart),
+    deplacement:   ch.depl || 0,
+    isPrevisionnel: false
+  };
+  await _envoyerChantier(chantier, date);
+  // Marquer comme envoyé
+  _chantiersA[i].envoye = true;
+  rendreAjout();
+  majTotal();
+}
+
+/* ── Fonction commune d'envoi d'un chantier ── */
+async function _envoyerChantier(chantier, date) {
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  try {
+    const r = await fetch('/api/saisies/envoyer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeEmploye,
+        salarieId:  _salarie.id,
+        salarieNom: _salarie.nom,
+        date, chantier
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    return true;
+  } catch(e) {
+    alert('Erreur envoi : ' + e.message);
+    return false;
+  }
+}
 
 async function envoyerChantier() {
   const date = document.getElementById('date-saisie').value;
