@@ -702,7 +702,7 @@ function majDateAffichee(val) {
   el.textContent = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
 }
 
-function chargerChantiersPrev() {
+async function chargerChantiersPrev() {
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
 
@@ -713,10 +713,10 @@ function chargerChantiersPrev() {
   const salarieId = _salarie?.id;
 
   _chantiersP = [];
+  // On RÉINITIALISE pas _saisiesPrev / _chantiersA ici : ils sont remis à zéro
+  // au changement de date / déconnexion. Au premier appel après login, ils sont vides.
 
   // On ne retient QUE les chantiers planifiés pour CE salarié à CETTE date.
-  // Un chantier compte dès qu'il a un nom (les heures ne sont pas obligatoires).
-  // Pas de fallback sur le prévisionnel du mois : on respecte strictement le planning.
   const chantiersTrouves = new Map();
   const prefixe = String(salarieId) + dateKey;
   for (const k in heures) {
@@ -735,14 +735,59 @@ function chargerChantiersPrev() {
 
   // Pré-remplir l'heure d'arrivée avec l'heure actuelle pour chaque chantier
   const now = new Date();
-  const hh  = String(now.getHours()).padStart(2,'0');
-  const mm  = String(now.getMinutes()).padStart(2,'0');
-  const heureNow = hh + ':' + mm;
+  const heureNow = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   _chantiersP.forEach(ch => {
     if (!_saisiesPrev[ch.nom]) {
       _saisiesPrev[ch.nom] = { arrivee: heureNow, depart: '', depl: 0 };
     }
   });
+
+  // ── RESTAURATION DES SAISIES DÉJÀ ENVOYÉES POUR CE JOUR ──
+  // Si le salarié revient sur l'app après avoir déjà cliqué OK plus tôt,
+  // on récupère ses chantiers déjà saisis et on préremplit l'écran.
+  try {
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    if (codeEmploye && salarieId) {
+      const r = await fetch('/api/saisies/mobile-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye, salarieId, date })
+      });
+      const d = await r.json();
+      if (d.ok && d.saisie && Array.isArray(d.saisie.chantiers)) {
+        d.saisie.chantiers.forEach(c => {
+          const nom = (c.nom || '').trim();
+          if (!nom) return;
+          // Trouver si ce chantier est dans le planning ou pas
+          const estPlanifie = _chantiersP.some(p => p.nom === nom);
+          if (estPlanifie) {
+            // Préremplir la saisie prévue
+            _saisiesPrev[nom] = {
+              arrivee: c.heureArrivee || '',
+              depart:  c.heureDepart  || '',
+              depl:    c.deplacement  || 0,
+              synchronise: true,
+              dejaEnvoye: true
+            };
+          } else {
+            // Chantier ajouté librement précédemment : on l'ajoute aux chantiers libres
+            if (!_chantiersA.some(a => a.nom === nom)) {
+              _chantiersA.push({
+                nom,
+                arrivee: c.heureArrivee || '',
+                depart:  c.heureDepart  || '',
+                depl:    c.deplacement  || 0,
+                synchronise: true,
+                dejaEnvoye: true
+              });
+            }
+          }
+        });
+      }
+    }
+  } catch (_) {
+    // Hors ligne : on garde l'état local existant
+  }
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   rendrePrev();
@@ -774,9 +819,10 @@ function rendrePrev() {
     nomEl.textContent = ch.nom;
     header.appendChild(nomEl);
     const badge = document.createElement('span');
-    if (s.envoye) {
+    const dejaSauve = s.envoye || s.dejaEnvoye || s.synchronise;
+    if (dejaSauve) {
       badge.style.cssText = 'background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;';
-      badge.textContent = '✔ Envoyé';
+      badge.textContent = '✔ Enregistré';
     } else {
       badge.className = 'tag-prev';
       badge.textContent = 'Prévu';
@@ -807,7 +853,7 @@ function rendrePrev() {
     arrInput.id = 'arr-' + nomId;
     arrInput.value = s.arrivee || '';
     const arrBtn = document.createElement('button');
-    arrBtn.className = 'btn-valider-heure';
+    arrBtn.className = 'btn-valider-heure' + (s.arrivee && dejaSauve ? ' valide' : '');
     arrBtn.textContent = '✔ OK';
     arrBtn.dataset.nom = ch.nom;
     arrBtn.dataset.champ = 'arrivee';
@@ -830,7 +876,7 @@ function rendrePrev() {
     depInput.id = 'dep-' + nomId;
     depInput.value = s.depart || '';
     const depBtn = document.createElement('button');
-    depBtn.className = 'btn-valider-heure';
+    depBtn.className = 'btn-valider-heure' + (s.depart && dejaSauve ? ' valide' : '');
     depBtn.textContent = '✔ OK';
     depBtn.dataset.nom = ch.nom;
     depBtn.dataset.champ = 'depart';
@@ -848,11 +894,11 @@ function rendrePrev() {
     dureeBadge.textContent = duree || 'À saisir';
     div.appendChild(dureeBadge);
 
-    // Ligne 5 : bouton envoyer
-    if (s.envoye) {
+    // Ligne 5 : bouton envoyer (caché si déjà sauvegardé puisque chaque OK envoie déjà)
+    if (dejaSauve) {
       const env = document.createElement('div');
       env.className = 'envoye-badge';
-      env.textContent = '✔ Chantier envoyé';
+      env.textContent = '✔ Chantier enregistré';
       div.appendChild(env);
     } else {
       const envBtn = document.createElement('button');
@@ -889,6 +935,7 @@ function rendreAjout() {
 
   const items = _chantiersA.map((ch, i) => {
     const duree = calcDuree(ch.arrivee, ch.depart);
+    const dejaSauve = ch.envoye || ch.dejaEnvoye || ch.synchronise;
     const div   = document.createElement('div');
     div.className = 'chantier-card ajoute';
 
@@ -899,10 +946,10 @@ function rendreAjout() {
     nomEl.className = 'chantier-nom libre';
     nomEl.textContent = ch.nom;
     header.appendChild(nomEl);
-    if (ch.envoye) {
+    if (dejaSauve) {
       const badge = document.createElement('span');
       badge.style.cssText = 'background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;';
-      badge.textContent = '✔ Envoyé';
+      badge.textContent = '✔ Enregistré';
       header.appendChild(badge);
     } else {
       const suppr = document.createElement('button');
@@ -928,18 +975,20 @@ function rendreAjout() {
     // Ligne 3 : arrivée + OK
     const arrLigne = document.createElement('div');
     arrLigne.className = 'heure-ligne';
+    const clsArrOK = 'btn-valider-heure' + (ch.arrivee && dejaSauve ? ' valide' : '');
     arrLigne.innerHTML = '<span class="heure-label">Arrivée</span>'
       + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '">'
-      + '<button class="btn-valider-heure" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
+      + '<button class="' + clsArrOK + '" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(arrLigne);
 
     // Ligne 4 : départ + OK
     const depLigne = document.createElement('div');
     depLigne.className = 'heure-ligne';
     const depBtnVis = ch.arrivee ? '' : 'display:none;';
+    const clsDepOK = 'btn-valider-heure' + (ch.depart && dejaSauve ? ' valide' : '');
     depLigne.innerHTML = '<span class="heure-label">Départ</span>'
       + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
-      + '<button class="btn-valider-heure" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
+      + '<button class="' + clsDepOK + '" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(depLigne);
 
     // Durée
@@ -949,10 +998,10 @@ function rendreAjout() {
     div.appendChild(dureeBadge);
 
     // Ligne 5 : bouton envoyer
-    if (ch.envoye) {
+    if (dejaSauve) {
       const env = document.createElement('div');
       env.className = 'envoye-badge';
-      env.textContent = '✔ Chantier envoyé';
+      env.textContent = '✔ Chantier enregistré';
       div.appendChild(env);
     } else {
       const envBtn = document.createElement('button');

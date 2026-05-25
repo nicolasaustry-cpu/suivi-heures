@@ -122,6 +122,29 @@ router.post("/envoyer", async (req, res) => {
   }
 });
 
+/* ── Récupérer les saisies déjà envoyées d'un salarié pour une date donnée
+   (route mobile : utilise le code employé, pas de token licence) ── */
+router.post("/mobile-day", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const date      = req.body.date; // "YYYY-MM-DD"
+
+    if (!codeEmp || !salarieId || !date)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
+    res.json({ ok: true, saisie: saisie || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Authentification salarié par PIN ── */
 router.post("/auth", verifyToken, async (req, res) => {
   try {
