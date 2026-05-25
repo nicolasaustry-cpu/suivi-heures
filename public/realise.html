@@ -421,7 +421,7 @@ function afficherRealise() {
     const jourPrevStr = jourPrevuMin > 0
       ? Math.floor(jourPrevuMin/60) + 'h' + String(jourPrevuMin%60).padStart(2,'0') : '—';
 
-    return `<div class="jour-block">
+    return `<div class="jour-block" data-date="${date}">
       <div class="jour-titre">
         <span>${label.charAt(0).toUpperCase() + label.slice(1)}</span>
         <span class="jour-total">Total : ${jth}h${String(jtm).padStart(2,'0')}</span>
@@ -463,6 +463,40 @@ function afficherRealise() {
   // Mettre à jour la jauge et les totaux
   majJauge(grandTotalMin, grandDeplMin, grandPrevuMin);
   setTimeout(ajusterMarginTop, 50);
+
+  // Scroll auto vers le jour du jour (ou le plus proche si pas de saisie aujourd'hui)
+  setTimeout(scrollVersAujourdhui, 100);
+}
+
+/* Scroll vers le bloc du jour courant (sinon le plus proche dans le mois affiché) */
+function scrollVersAujourdhui() {
+  const blocs = document.querySelectorAll('#contenu-realise .jour-block');
+  if (!blocs.length) return;
+
+  const auj = new Date();
+  const ajdStr = `${auj.getFullYear()}-${String(auj.getMonth()+1).padStart(2,'0')}-${String(auj.getDate()).padStart(2,'0')}`;
+
+  // Vérifier qu'on est bien sur le mois en cours, sinon ne rien faire
+  const moisAffiche = document.getElementById('moisRealise').value;
+  if (!moisAffiche || !ajdStr.startsWith(moisAffiche)) return;
+
+  // Trouver le bloc exact, sinon le bloc dont la date est <= aujourd'hui le plus récent
+  let cible = null;
+  let meilleureDate = '';
+  blocs.forEach(b => {
+    const d = b.dataset.date;
+    if (!d) return;
+    if (d === ajdStr) cible = b;
+    if (!cible && d <= ajdStr && d > meilleureDate) meilleureDate = d;
+  });
+  if (!cible) cible = [...blocs].find(b => b.dataset.date === meilleureDate);
+  if (!cible) cible = blocs[0]; // fallback : premier bloc du mois
+
+  // Scroll en tenant compte de la barre fixe en haut
+  const bar = document.getElementById('top-bar');
+  const offset = (bar?.offsetHeight || 0) + 8;
+  const y = cible.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: y, behavior: 'smooth' });
 }
 
 /* ══ SEUILS (gérés sur la page Entreprise) ══ */
