@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -36,12 +36,12 @@
       width: 390px;
       margin: 1.5rem auto 2rem;
       border-radius: 36px;
-      overflow-x: hidden;
-      overflow-y: auto;
+      overflow: hidden;
       box-shadow: 0 0 0 8px #222, 0 20px 50px rgba(0,0,0,0.3);
       position: relative;
-      min-height: 700px;
-      max-height: 90vh;
+      height: 780px;
+      display: flex;
+      flex-direction: column;
     }
     /* PIN en position absolute dans le cadre */
     .phone-wrap .pin-screen {
@@ -268,16 +268,35 @@
     color: #15803d; font-weight: 700; font-size: 0.9rem;
   }
 
-  /* ── HEADER STICKY ── */
-  .saisie-sticky {
-    position: sticky; top: 0; z-index: 50;
-    background: #fff; padding: 0.6rem 0.8rem;
+  /* ── INFO SALARIÉ FIXE ── */
+  .saisie-info {
+    background: #fff;
+    padding: 0.6rem 0.8rem;
     border-bottom: 2px solid #e5e7eb;
     box-shadow: 0 2px 8px rgba(0,0,0,0.10);
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    flex-shrink: 0;
   }
-  .saisie-sticky .sal-nom { font-size: 1rem; font-weight: 700; color: #2563eb; }
-  .saisie-sticky .sal-date { font-size: 0.85rem; color: #6b7280; font-weight: 600; }
+  .saisie-info .sal-nom { font-size: 1rem; font-weight: 700; color: #2563eb; }
+  .saisie-info .sal-date { font-size: 0.85rem; color: #6b7280; font-weight: 600; }
+
+  /* ── ZONE SCROLLABLE ── */
+  .saisie-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── ECRAN SAISIE EN FLEX COLUMN ── */
+  #ecran-saisie {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  @media (max-width: 599px) {
+    #ecran-saisie { height: 100vh; }
+    .saisie-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  }
   </style>
 </head>
 <body>
@@ -363,14 +382,17 @@
     </div>
   </header>
 
-  <!-- Salarié + Date (sticky) -->
-  <div class="saisie-sticky" id="saisie-sticky">
+  <!-- Salarié + Date (fixe) -->
+  <div class="saisie-info" id="saisie-sticky">
     <div>
       <div class="sal-nom" id="nom-salarie"></div>
       <div class="sal-date" id="date-affichee"></div>
     </div>
     <input type="date" id="date-saisie" style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;font-size:0.85rem;background:#f9fafb;">
   </div>
+
+  <!-- Zone scrollable -->
+  <div class="saisie-scroll">
 
   <!-- Chantiers prévus -->
   <div class="section">
@@ -398,6 +420,7 @@
 
   </div>
 
+  </div><!-- fin saisie-scroll -->
 </div>
 
 <!-- ── MODAL AJOUT CHANTIER ── -->
