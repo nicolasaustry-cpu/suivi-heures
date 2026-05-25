@@ -611,6 +611,17 @@ function chargerChantiersPrev() {
 
   _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
 
+  // Pré-remplir l'heure d'arrivée avec l'heure actuelle pour chaque chantier
+  const now = new Date();
+  const hh  = String(now.getHours()).padStart(2,'0');
+  const mm  = String(now.getMinutes()).padStart(2,'0');
+  const heureNow = hh + ':' + mm;
+  _chantiersP.forEach(ch => {
+    if (!_saisiesPrev[ch.nom]) {
+      _saisiesPrev[ch.nom] = { arrivee: heureNow, depart: '', depl: 0 };
+    }
+  });
+
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   rendrePrev();
   rendreAjout();
@@ -814,7 +825,10 @@ function validerAjout() {
   const libre = document.getElementById('input-libre').value.trim();
   const nom   = libre || _selModal;
   if (!nom) { alert('Choisissez ou saisissez un chantier'); return; }
-  _chantiersA.push({ nom, arrivee: '', depart: '', depl: 0 });
+  const nowA = new Date();
+  const hhA  = String(nowA.getHours()).padStart(2,'0');
+  const mmA  = String(nowA.getMinutes()).padStart(2,'0');
+  _chantiersA.push({ nom, arrivee: hhA + ':' + mmA, depart: '', depl: 0 });
   rendreAjout();
   majTotal();
   fermerModal();
