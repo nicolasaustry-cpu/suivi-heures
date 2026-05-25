@@ -226,39 +226,56 @@
   /* ── HORAIRES EN BLOC ── */
   .heure-ligne {
     display: flex; align-items: center; gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
   }
   .heure-label {
-    font-size: 0.8rem; color: #6b7280; font-weight: 600;
-    width: 55px; flex-shrink: 0;
+    font-size: 0.85rem; color: #6b7280; font-weight: 700;
+    width: 60px; flex-shrink: 0;
   }
   .heure-input {
-    flex: 1; padding: 10px 8px; border: 1px solid #d1d5db;
-    border-radius: 8px; font-size: 1.1rem; font-weight: 700;
+    flex: 1; padding: 12px 8px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: 1.15rem; font-weight: 700;
     text-align: center; background: #fff; color: #222;
   }
   .heure-input:focus { border-color: #2563eb; outline: none; }
   .btn-valider-heure {
-    padding: 10px 18px; background: #2563eb; color: #fff;
+    padding: 12px 16px; background: #2563eb; color: #fff;
     border: none; border-radius: 8px; font-size: 1rem;
     font-weight: 700; cursor: pointer; white-space: nowrap;
-    flex-shrink: 0;
+    flex-shrink: 0; min-width: 70px;
   }
-  .btn-valider-heure:active { background: #1d4ed8; }
+  .btn-valider-heure.valide { background: #16a34a; }
+  .btn-valider-heure:active { opacity: 0.85; }
+  .depl-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 10px 12px;
+    margin-bottom: 14px;
+  }
   .btn-envoyer-chantier {
-    width: 100%; padding: 12px; margin-top: 4px;
+    width: 100%; padding: 14px; margin-top: 6px;
     border: none; border-radius: 8px; font-size: 1rem;
     font-weight: 700; cursor: pointer; color: #fff;
+    background: #16a34a;
   }
-  .btn-envoyer-chantier.prev { background: #2563eb; }
-  .btn-envoyer-chantier.ajout { background: #16a34a; }
   .btn-envoyer-chantier:active { opacity: 0.85; }
   .envoye-badge {
-    width: 100%; padding: 10px; margin-top: 4px;
+    width: 100%; padding: 12px; margin-top: 6px;
     background: #f0fdf4; border: 1px solid #86efac;
     border-radius: 8px; text-align: center;
     color: #15803d; font-weight: 700; font-size: 0.9rem;
   }
+
+  /* ── HEADER STICKY ── */
+  .saisie-sticky {
+    position: sticky; top: 0; z-index: 50;
+    background: #fff; padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .saisie-sticky .sal-nom { font-size: 1rem; font-weight: 700; color: #2563eb; }
+  .saisie-sticky .sal-date { font-size: 0.85rem; color: #6b7280; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -344,16 +361,13 @@
     </div>
   </header>
 
-  <!-- Salarié + Date -->
-  <div class="section">
-    <div class="field">
-      <label>Salarié</label>
-      <div id="nom-salarie" style="font-size:1rem;font-weight:700;color:#2563eb;padding:8px 0;"></div>
+  <!-- Salarié + Date (sticky) -->
+  <div class="saisie-sticky" id="saisie-sticky">
+    <div>
+      <div class="sal-nom" id="nom-salarie"></div>
+      <div class="sal-date" id="date-affichee"></div>
     </div>
-    <div class="field">
-      <label>Date</label>
-      <input type="date" id="date-saisie">
-    </div>
+    <input type="date" id="date-saisie" style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;font-size:0.85rem;background:#f9fafb;">
   </div>
 
   <!-- Chantiers prévus -->
@@ -415,7 +429,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const today = new Date();
   const dd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('date-saisie').value = dd;
-  document.getElementById('date-saisie').addEventListener('change', chargerChantiersPrev);
+  majDateAffichee(dd);
+  document.getElementById('date-saisie').addEventListener('change', function() {
+    majDateAffichee(this.value);
+    chargerChantiersPrev();
+  });
 
   // Afficher le bouton Sortie uniquement sur desktop
   if (window.innerWidth >= 600) {
@@ -604,6 +622,13 @@ function majDeplJournee(delta) {
   majTotal();
 }
 
+function majDateAffichee(val) {
+  const el = document.getElementById('date-affichee');
+  if (!el || !val) return;
+  const d = new Date(val + 'T00:00:00');
+  el.textContent = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+}
+
 function chargerChantiersPrev() {
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
@@ -749,6 +774,7 @@ function rendrePrev() {
     depBtn.dataset.champ = 'depart';
     depBtn.dataset.inputId = 'dep-' + nomId;
     depBtn.onclick = function() { validerHeurePrevData(this); };
+    if (!s.arrivee) depBtn.style.display = 'none'; // masqué si arrivée pas validée
     depLigne.appendChild(depLabel);
     depLigne.appendChild(depInput);
     depLigne.appendChild(depBtn);
@@ -848,9 +874,10 @@ function rendreAjout() {
     // Ligne 4 : départ + OK
     const depLigne = document.createElement('div');
     depLigne.className = 'heure-ligne';
+    const depBtnVis = ch.arrivee ? '' : 'display:none;';
     depLigne.innerHTML = '<span class="heure-label">Départ</span>'
       + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
-      + '<button class="btn-valider-heure" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
+      + '<button class="btn-valider-heure" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(depLigne);
 
     // Durée
@@ -1023,23 +1050,56 @@ function seDeconnecter() {
 
 /* ── Validation des heures ── */
 function validerHeurePrevData(btn) {
-  const nom = btn.dataset.nom;
+  const nom   = btn.dataset.nom;
   const champ = btn.dataset.champ;
-  const val = document.getElementById(btn.dataset.inputId)?.value;
+  const val   = document.getElementById(btn.dataset.inputId)?.value;
   if (!val) return;
   if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
   _saisiesPrev[nom][champ] = val;
-  rendrePrev();
+  // Passer le bouton en vert
+  btn.classList.add('valide');
+  // Si arrivée validée → afficher bouton OK du départ
+  if (champ === 'arrivee') {
+    const card = btn.closest('.chantier-card');
+    if (card) {
+      const depBtn = card.querySelectorAll('.btn-valider-heure')[1];
+      if (depBtn) depBtn.style.display = '';
+    }
+  }
+  // Mettre à jour durée sans rerender complet
+  const s = _saisiesPrev[nom];
+  const duree = calcDuree(s.arrivee, s.depart);
+  const card = btn.closest('.chantier-card');
+  if (card) {
+    const badge = card.querySelector('.duree-badge');
+    if (badge) { badge.textContent = duree || 'À saisir'; badge.className = 'duree-badge' + (duree ? '' : ' vide'); }
+  }
   majTotal();
 }
 
 function validerHeureAjoutData(btn) {
-  const i = parseInt(btn.dataset.idx);
+  const i     = parseInt(btn.dataset.idx);
   const champ = btn.dataset.champ;
-  const val = document.getElementById(btn.dataset.input)?.value;
+  const val   = document.getElementById(btn.dataset.input)?.value;
   if (!val) return;
   _chantiersA[i][champ] = val;
-  rendreAjout();
+  // Passer le bouton en vert
+  btn.classList.add('valide');
+  // Si arrivée validée → afficher bouton OK du départ
+  if (champ === 'arrivee') {
+    const card = btn.closest('.chantier-card');
+    if (card) {
+      const depBtn = card.querySelectorAll('.btn-valider-heure')[1];
+      if (depBtn) depBtn.style.display = '';
+    }
+  }
+  // Mettre à jour durée
+  const duree = calcDuree(_chantiersA[i].arrivee, _chantiersA[i].depart);
+  const card = btn.closest('.chantier-card');
+  if (card) {
+    const badge = card.querySelector('.duree-badge');
+    if (badge) { badge.textContent = duree || 'À saisir'; badge.className = 'duree-badge' + (duree ? '' : ' vide'); }
+  }
   majTotal();
 }
 
