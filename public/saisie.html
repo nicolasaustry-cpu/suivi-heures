@@ -379,9 +379,7 @@
       <span class="total-lbl">Total du jour</span>
       <span class="total-val" id="total-jour">0 h 00</span>
     </div>
-    <button class="btn-envoyer" id="btn-envoyer" onclick="envoyerChantier()">
-      ✉ Envoyer ce chantier
-    </button>
+
   </div>
 
 </div>
@@ -674,50 +672,49 @@ function rendrePrev() {
     cont.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;font-style:italic;text-align:center;padding:0.5rem 0;">Aucun chantier prévu ce mois</p>';
     return;
   }
-  cont.innerHTML = _chantiersP.map((c, i) => {
-    const s = _saisiesPrev[c.nom] || { arrivee: '', depart: '', depl: 0 };
+  cont.innerHTML = _chantiersP.map((ch, i) => {
+    const s   = _saisiesPrev[ch.nom] || { arrivee: '', depart: '', depl: 0 };
+    const nom = ch.nom;
+    const nomId = nom.replace(/\s/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
     const duree = calcDuree(s.arrivee, s.depart);
-    return `<div class="chantier-card previsionnel">
-      <div class="chantier-header">
-        <div class="chantier-nom">${c.nom}</div>
-        ${s.envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>' : '<span class="tag-prev">Prévu</span>'}
-      </div>
-      <div class="depl-row">
-        <label>🚗 Déplacement depuis chantier précédent</label>
-        <div class="stepper">
-          <div class="step-btn" onclick="majDepl('prev','${c.nom}',-15)">−</div>
-          <span class="step-val" id="depl-prev-${c.nom.replace(/\s/g,'_')}">${s.depl}</span>
-          <div class="step-btn" onclick="majDepl('prev','${c.nom}',15)">+</div>
-        </div>
-        <span class="step-unite">min</span>
-      </div>
-      <div class="time-row">
-        <div class="time-block">
-          <label>Arrivée</label>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${c.nom}','arrivee',this.value)"
-              style="flex:1;">
-            <button onclick="majSaisiePrev('${c.nom}','arrivee',this.previousElementSibling.value)"
-              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
-          </div>
-        </div>
-        <div class="time-sep">→</div>
-        <div class="time-block">
-          <label>Départ</label>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="time" value="${s.depart}" onchange="majSaisiePrev('${c.nom}','depart',this.value)"
-              style="flex:1;">
-            <button onclick="majSaisiePrev('${c.nom}','depart',this.previousElementSibling.value)"
-              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
-          </div>
-        </div>
-        <button onclick="envoyerUnChantierPrev('${c.nom.replace(/'/g,"\'")}')"
-          style="flex-shrink:0;min-width:80px;min-height:44px;padding:0 12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;align-self:flex-end;">
-          ✔ Envoyer
-        </button>
-      </div>
-      <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
-    </div>`;
+    const envoye = s.envoye || false;
+
+    return '<div class="chantier-card previsionnel">'
+      // Ligne 1 : nom
+      + '<div class="chantier-header">'
+      + '<div class="chantier-nom">' + nom + '</div>'
+      + (envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>' : '<span class="tag-prev">Prévu</span>')
+      + '</div>'
+      // Ligne 2 : déplacement
+      + '<div class="depl-row">'
+      + '<label>🚚 Déplacement depuis chantier précédent</label>'
+      + '<div class="stepper">'
+      + '<div class="step-btn" onclick="majDepl('prev','' + nom + '',-15)">−</div>'
+      + '<span class="step-val" id="depl-prev-' + nomId + '">' + (s.depl || 0) + '</span>'
+      + '<div class="step-btn" onclick="majDepl('prev','' + nom + '',15)">+</div>'
+      + '</div>'
+      + '<span class="step-unite">min</span>'
+      + '</div>'
+      // Ligne 3 : heure arrivée + bouton OK
+      + '<div class="heure-ligne">'
+      + '<span class="heure-label">Arrivée</span>'
+      + '<input class="heure-input" type="time" id="arr-' + nomId + '" value="' + (s.arrivee || '') + '">'
+      + '<button class="btn-valider-heure" onclick="validerHeurePrev('' + nom + '','arrivee','arr-' + nomId + '')">✔ OK</button>'
+      + '</div>'
+      // Ligne 4 : heure départ + bouton OK
+      + '<div class="heure-ligne">'
+      + '<span class="heure-label">Départ</span>'
+      + '<input class="heure-input" type="time" id="dep-' + nomId + '" value="' + (s.depart || '') + '">'
+      + '<button class="btn-valider-heure" onclick="validerHeurePrev('' + nom + '','depart','dep-' + nomId + '')">✔ OK</button>'
+      + '</div>'
+      // Durée calculée
+      + '<div class="duree-badge ' + (duree ? '' : 'vide') + '">' + (duree || 'À saisir') + '</div>'
+      // Ligne 5 : bouton Envoyer
+      + (envoye
+          ? '<div class="envoye-badge">✔ Chantier envoyé</div>'
+          : '<button class="btn-envoyer-chantier prev" onclick="envoyerUnChantierPrev('' + nom + '')">✉ Envoyer ce chantier</button>'
+        )
+      + '</div>';
   }).join('');
 }
 
@@ -736,47 +733,47 @@ function rendreAjout() {
   const cont = document.getElementById('liste-ajout');
   document.getElementById('nb-ajout').textContent = _chantiersA.length;
   if (!_chantiersA.length) { cont.innerHTML = ''; return; }
-  cont.innerHTML = _chantiersA.map((c, i) => {
-    const duree = calcDuree(c.arrivee, c.depart);
-    return `<div class="chantier-card ajoute">
-      <div class="chantier-header">
-        <div class="chantier-nom libre">${c.nom}</div>
-        ${c.envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>' : '<button class="btn-suppr" onclick="supprimerAjout('+i+')">✕</button>'}
-      </div>
-      <div class="depl-row">
-        <label>🚗 Déplacement depuis chantier précédent</label>
-        <div class="stepper">
-          <div class="step-btn" onclick="majDepl('ajout',${i},-15)">−</div>
-          <span class="step-val" id="depl-ajout-${i}">${c.depl}</span>
-          <div class="step-btn" onclick="majDepl('ajout',${i},15)">+</div>
-        </div>
-        <span class="step-unite">min</span>
-      </div>
-      <div class="time-row">
-        <div class="time-block">
-          <label>Arrivée</label>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)" style="flex:1;">
-            <button onclick="majAjout(${i},'arrivee',this.previousElementSibling.value)"
-              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
-          </div>
-        </div>
-        <div class="time-sep">→</div>
-        <div class="time-block">
-          <label>Départ</label>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)" style="flex:1;">
-            <button onclick="majAjout(${i},'depart',this.previousElementSibling.value)"
-              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
-          </div>
-        </div>
-        <button onclick="envoyerUnChantierAjout(${i})"
-          style="flex-shrink:0;min-width:80px;min-height:44px;padding:0 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;align-self:flex-end;">
-          ✔ Envoyer
-        </button>
-      </div>
-      <div class="duree-badge ${duree ? '' : 'vide'}">${duree || 'À saisir'}</div>
-    </div>`;
+  cont.innerHTML = _chantiersA.map((ch, i) => {
+    const duree  = calcDuree(ch.arrivee, ch.depart);
+    const envoye = ch.envoye || false;
+
+    return '<div class="chantier-card ajoute">'
+      // Ligne 1 : nom
+      + '<div class="chantier-header">'
+      + '<div class="chantier-nom libre">' + ch.nom + '</div>'
+      + (envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>'
+                : '<button class="btn-suppr" onclick="supprimerAjout(' + i + ')">✕</button>')
+      + '</div>'
+      // Ligne 2 : déplacement
+      + '<div class="depl-row">'
+      + '<label>🚚 Déplacement depuis chantier précédent</label>'
+      + '<div class="stepper">'
+      + '<div class="step-btn" onclick="majDepl('ajout',' + i + ',-15)">−</div>'
+      + '<span class="step-val" id="depl-ajout-' + i + '">' + (ch.depl || 0) + '</span>'
+      + '<div class="step-btn" onclick="majDepl('ajout',' + i + ',15)">+</div>'
+      + '</div>'
+      + '<span class="step-unite">min</span>'
+      + '</div>'
+      // Ligne 3 : heure arrivée + bouton OK
+      + '<div class="heure-ligne">'
+      + '<span class="heure-label">Arrivée</span>'
+      + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '">'
+      + '<button class="btn-valider-heure" onclick="validerHeureAjout(' + i + ','arrivee','arr-ajout-' + i + '')">✔ OK</button>'
+      + '</div>'
+      // Ligne 4 : heure départ + bouton OK
+      + '<div class="heure-ligne">'
+      + '<span class="heure-label">Départ</span>'
+      + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
+      + '<button class="btn-valider-heure" onclick="validerHeureAjout(' + i + ','depart','dep-ajout-' + i + '')">✔ OK</button>'
+      + '</div>'
+      // Durée calculée
+      + '<div class="duree-badge ' + (duree ? '' : 'vide') + '">' + (duree || 'À saisir') + '</div>'
+      // Ligne 5 : bouton Envoyer
+      + (envoye
+          ? '<div class="envoye-badge">✔ Chantier envoyé</div>'
+          : '<button class="btn-envoyer-chantier ajout" onclick="envoyerUnChantierAjout(' + i + ')">✉ Envoyer ce chantier</button>'
+        )
+      + '</div>';
   }).join('');
 }
 
