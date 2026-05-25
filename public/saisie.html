@@ -222,6 +222,43 @@
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn-envoyer:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  /* ── HORAIRES EN BLOC ── */
+  .heure-ligne {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 8px;
+  }
+  .heure-label {
+    font-size: 0.8rem; color: #6b7280; font-weight: 600;
+    width: 55px; flex-shrink: 0;
+  }
+  .heure-input {
+    flex: 1; padding: 10px 8px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: 1.1rem; font-weight: 700;
+    text-align: center; background: #fff; color: #222;
+  }
+  .heure-input:focus { border-color: #2563eb; outline: none; }
+  .btn-valider-heure {
+    padding: 10px 18px; background: #2563eb; color: #fff;
+    border: none; border-radius: 8px; font-size: 1rem;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-valider-heure:active { background: #1d4ed8; }
+  .btn-envoyer-chantier {
+    width: 100%; padding: 12px; margin-top: 4px;
+    border: none; border-radius: 8px; font-size: 1rem;
+    font-weight: 700; cursor: pointer; color: #fff;
+  }
+  .btn-envoyer-chantier.prev { background: #2563eb; }
+  .btn-envoyer-chantier.ajout { background: #16a34a; }
+  .btn-envoyer-chantier:active { opacity: 0.85; }
+  .envoye-badge {
+    width: 100%; padding: 10px; margin-top: 4px;
+    background: #f0fdf4; border: 1px solid #86efac;
+    border-radius: 8px; text-align: center;
+    color: #15803d; font-weight: 700; font-size: 0.9rem;
+  }
   </style>
 </head>
 <body>
@@ -657,15 +694,25 @@ function rendrePrev() {
       <div class="time-row">
         <div class="time-block">
           <label>Arrivée</label>
-          <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${c.nom}','arrivee',this.value)">
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="time" value="${s.arrivee}" onchange="majSaisiePrev('${c.nom}','arrivee',this.value)"
+              style="flex:1;">
+            <button onclick="majSaisiePrev('${c.nom}','arrivee',this.previousElementSibling.value)"
+              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
+          </div>
         </div>
         <div class="time-sep">→</div>
         <div class="time-block">
           <label>Départ</label>
-          <input type="time" value="${s.depart}" onchange="majSaisiePrev('${c.nom}','depart',this.value)">
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="time" value="${s.depart}" onchange="majSaisiePrev('${c.nom}','depart',this.value)"
+              style="flex:1;">
+            <button onclick="majSaisiePrev('${c.nom}','depart',this.previousElementSibling.value)"
+              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
+          </div>
         </div>
         <button onclick="envoyerUnChantierPrev('${c.nom.replace(/'/g,"\'")}')"
-          style="flex-shrink:0;padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;align-self:flex-end;">
+          style="flex-shrink:0;min-width:80px;min-height:44px;padding:0 12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;align-self:flex-end;">
           ✔ Envoyer
         </button>
       </div>
@@ -708,15 +755,23 @@ function rendreAjout() {
       <div class="time-row">
         <div class="time-block">
           <label>Arrivée</label>
-          <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)">
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="time" value="${c.arrivee}" onchange="majAjout(${i},'arrivee',this.value)" style="flex:1;">
+            <button onclick="majAjout(${i},'arrivee',this.previousElementSibling.value)"
+              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
+          </div>
         </div>
         <div class="time-sep">→</div>
         <div class="time-block">
           <label>Départ</label>
-          <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)">
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="time" value="${c.depart}" onchange="majAjout(${i},'depart',this.value)" style="flex:1;">
+            <button onclick="majAjout(${i},'depart',this.previousElementSibling.value)"
+              style="min-width:44px;min-height:44px;padding:0;background:#0369a1;color:#fff;border:none;border-radius:8px;font-size:1.2rem;font-weight:700;cursor:pointer;">✔</button>
+          </div>
         </div>
         <button onclick="envoyerUnChantierAjout(${i})"
-          style="flex-shrink:0;padding:8px 12px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;align-self:flex-end;">
+          style="flex-shrink:0;min-width:80px;min-height:44px;padding:0 12px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;align-self:flex-end;">
           ✔ Envoyer
         </button>
       </div>
@@ -863,6 +918,24 @@ function seDeconnecter() {
 }
 
 
+
+/* ── Validation des heures ── */
+function validerHeurePrev(nom, champ, inputId) {
+  const val = document.getElementById(inputId)?.value;
+  if (!val) return;
+  if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
+  _saisiesPrev[nom][champ] = val;
+  rendrePrev();
+  majTotal();
+}
+
+function validerHeureAjout(i, champ, inputId) {
+  const val = document.getElementById(inputId)?.value;
+  if (!val) return;
+  _chantiersA[i][champ] = val;
+  rendreAjout();
+  majTotal();
+}
 
 /* ── Envoyer un chantier prévu individuel ── */
 async function envoyerUnChantierPrev(nom) {
