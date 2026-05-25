@@ -672,51 +672,116 @@ function rendrePrev() {
     cont.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;font-style:italic;text-align:center;padding:0.5rem 0;">Aucun chantier prévu ce mois</p>';
     return;
   }
-  cont.innerHTML = _chantiersP.map((ch, i) => {
-    const s   = _saisiesPrev[ch.nom] || { arrivee: '', depart: '', depl: 0 };
-    const nom = ch.nom;
-    const nomId = nom.replace(/\s/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+  const items = _chantiersP.map((ch, i) => {
+    const s     = _saisiesPrev[ch.nom] || { arrivee: '', depart: '', depl: 0 };
+    const nomId = 'prev_' + i;
     const duree = calcDuree(s.arrivee, s.depart);
-    const envoye = s.envoye || false;
+    const div   = document.createElement('div');
+    div.className = 'chantier-card previsionnel';
 
-    return '<div class="chantier-card previsionnel">'
-      // Ligne 1 : nom
-      + '<div class="chantier-header">'
-      + '<div class="chantier-nom">' + nom + '</div>'
-      + (envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>' : '<span class="tag-prev">Prévu</span>')
-      + '</div>'
-      // Ligne 2 : déplacement
-      + '<div class="depl-row">'
-      + '<label>🚚 Déplacement depuis chantier précédent</label>'
+    // Ligne 1 : nom + badge
+    const header = document.createElement('div');
+    header.className = 'chantier-header';
+    const nomEl = document.createElement('div');
+    nomEl.className = 'chantier-nom';
+    nomEl.textContent = ch.nom;
+    header.appendChild(nomEl);
+    const badge = document.createElement('span');
+    if (s.envoye) {
+      badge.style.cssText = 'background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;';
+      badge.textContent = '✔ Envoyé';
+    } else {
+      badge.className = 'tag-prev';
+      badge.textContent = 'Prévu';
+    }
+    header.appendChild(badge);
+    div.appendChild(header);
+
+    // Ligne 2 : déplacement
+    const deplRow = document.createElement('div');
+    deplRow.className = 'depl-row';
+    deplRow.innerHTML = '<label>🚚 Déplacement depuis chantier précédent</label>'
       + '<div class="stepper">'
-      + '<div class="step-btn" onclick="majDepl('prev','' + nom + '',-15)">−</div>'
-      + '<span class="step-val" id="depl-prev-' + nomId + '">' + (s.depl || 0) + '</span>'
-      + '<div class="step-btn" onclick="majDepl('prev','' + nom + '',15)">+</div>'
-      + '</div>'
-      + '<span class="step-unite">min</span>'
-      + '</div>'
-      // Ligne 3 : heure arrivée + bouton OK
-      + '<div class="heure-ligne">'
-      + '<span class="heure-label">Arrivée</span>'
-      + '<input class="heure-input" type="time" id="arr-' + nomId + '" value="' + (s.arrivee || '') + '">'
-      + '<button class="btn-valider-heure" onclick="validerHeurePrev('' + nom + '','arrivee','arr-' + nomId + '')">✔ OK</button>'
-      + '</div>'
-      // Ligne 4 : heure départ + bouton OK
-      + '<div class="heure-ligne">'
-      + '<span class="heure-label">Départ</span>'
-      + '<input class="heure-input" type="time" id="dep-' + nomId + '" value="' + (s.depart || '') + '">'
-      + '<button class="btn-valider-heure" onclick="validerHeurePrev('' + nom + '','depart','dep-' + nomId + '')">✔ OK</button>'
-      + '</div>'
-      // Durée calculée
-      + '<div class="duree-badge ' + (duree ? '' : 'vide') + '">' + (duree || 'À saisir') + '</div>'
-      // Ligne 5 : bouton Envoyer
-      + (envoye
-          ? '<div class="envoye-badge">✔ Chantier envoyé</div>'
-          : '<button class="btn-envoyer-chantier prev" onclick="envoyerUnChantierPrev('' + nom + '')">✉ Envoyer ce chantier</button>'
-        )
-      + '</div>';
-  }).join('');
+      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="-15" onclick="majDeplData(this)">−</div>'
+      + '<span class="step-val" id="depl-' + nomId + '">' + (s.depl || 0) + '</span>'
+      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="15" onclick="majDeplData(this)">+</div>'
+      + '</div><span class="step-unite">min</span>';
+    div.appendChild(deplRow);
+
+    // Ligne 3 : arrivée + OK
+    const arrLigne = document.createElement('div');
+    arrLigne.className = 'heure-ligne';
+    const arrLabel = document.createElement('span');
+    arrLabel.className = 'heure-label';
+    arrLabel.textContent = 'Arrivée';
+    const arrInput = document.createElement('input');
+    arrInput.className = 'heure-input';
+    arrInput.type = 'time';
+    arrInput.id = 'arr-' + nomId;
+    arrInput.value = s.arrivee || '';
+    const arrBtn = document.createElement('button');
+    arrBtn.className = 'btn-valider-heure';
+    arrBtn.textContent = '✔ OK';
+    arrBtn.dataset.nom = ch.nom;
+    arrBtn.dataset.champ = 'arrivee';
+    arrBtn.dataset.inputId = 'arr-' + nomId;
+    arrBtn.onclick = function() { validerHeurePrevData(this); };
+    arrLigne.appendChild(arrLabel);
+    arrLigne.appendChild(arrInput);
+    arrLigne.appendChild(arrBtn);
+    div.appendChild(arrLigne);
+
+    // Ligne 4 : départ + OK
+    const depLigne = document.createElement('div');
+    depLigne.className = 'heure-ligne';
+    const depLabel = document.createElement('span');
+    depLabel.className = 'heure-label';
+    depLabel.textContent = 'Départ';
+    const depInput = document.createElement('input');
+    depInput.className = 'heure-input';
+    depInput.type = 'time';
+    depInput.id = 'dep-' + nomId;
+    depInput.value = s.depart || '';
+    const depBtn = document.createElement('button');
+    depBtn.className = 'btn-valider-heure';
+    depBtn.textContent = '✔ OK';
+    depBtn.dataset.nom = ch.nom;
+    depBtn.dataset.champ = 'depart';
+    depBtn.dataset.inputId = 'dep-' + nomId;
+    depBtn.onclick = function() { validerHeurePrevData(this); };
+    depLigne.appendChild(depLabel);
+    depLigne.appendChild(depInput);
+    depLigne.appendChild(depBtn);
+    div.appendChild(depLigne);
+
+    // Durée
+    const dureeBadge = document.createElement('div');
+    dureeBadge.className = 'duree-badge' + (duree ? '' : ' vide');
+    dureeBadge.textContent = duree || 'À saisir';
+    div.appendChild(dureeBadge);
+
+    // Ligne 5 : bouton envoyer
+    if (s.envoye) {
+      const env = document.createElement('div');
+      env.className = 'envoye-badge';
+      env.textContent = '✔ Chantier envoyé';
+      div.appendChild(env);
+    } else {
+      const envBtn = document.createElement('button');
+      envBtn.className = 'btn-envoyer-chantier prev';
+      envBtn.textContent = '✉ Envoyer ce chantier';
+      envBtn.dataset.nom = ch.nom;
+      envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.nom); };
+      div.appendChild(envBtn);
+    }
+
+    return div;
+  });
+
+  cont.innerHTML = '';
+  items.forEach(el => cont.appendChild(el));
 }
+
 
 function majSaisiePrev(nom, champ, val) {
   if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
@@ -733,49 +798,89 @@ function rendreAjout() {
   const cont = document.getElementById('liste-ajout');
   document.getElementById('nb-ajout').textContent = _chantiersA.length;
   if (!_chantiersA.length) { cont.innerHTML = ''; return; }
-  cont.innerHTML = _chantiersA.map((ch, i) => {
-    const duree  = calcDuree(ch.arrivee, ch.depart);
-    const envoye = ch.envoye || false;
 
-    return '<div class="chantier-card ajoute">'
-      // Ligne 1 : nom
-      + '<div class="chantier-header">'
-      + '<div class="chantier-nom libre">' + ch.nom + '</div>'
-      + (envoye ? '<span style="background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;">✔ Envoyé</span>'
-                : '<button class="btn-suppr" onclick="supprimerAjout(' + i + ')">✕</button>')
-      + '</div>'
-      // Ligne 2 : déplacement
-      + '<div class="depl-row">'
-      + '<label>🚚 Déplacement depuis chantier précédent</label>'
+  const items = _chantiersA.map((ch, i) => {
+    const duree = calcDuree(ch.arrivee, ch.depart);
+    const div   = document.createElement('div');
+    div.className = 'chantier-card ajoute';
+
+    // Ligne 1 : nom + suppr
+    const header = document.createElement('div');
+    header.className = 'chantier-header';
+    const nomEl = document.createElement('div');
+    nomEl.className = 'chantier-nom libre';
+    nomEl.textContent = ch.nom;
+    header.appendChild(nomEl);
+    if (ch.envoye) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;';
+      badge.textContent = '✔ Envoyé';
+      header.appendChild(badge);
+    } else {
+      const suppr = document.createElement('button');
+      suppr.className = 'btn-suppr';
+      suppr.textContent = '✕';
+      suppr.dataset.idx = i;
+      suppr.onclick = function() { supprimerAjout(parseInt(this.dataset.idx)); };
+      header.appendChild(suppr);
+    }
+    div.appendChild(header);
+
+    // Ligne 2 : déplacement
+    const deplRow = document.createElement('div');
+    deplRow.className = 'depl-row';
+    deplRow.innerHTML = '<label>🚚 Déplacement depuis chantier précédent</label>'
       + '<div class="stepper">'
-      + '<div class="step-btn" onclick="majDepl('ajout',' + i + ',-15)">−</div>'
+      + '<div class="step-btn" data-type="ajout" data-idx="' + i + '" data-delta="-15" onclick="majDeplData(this)">−</div>'
       + '<span class="step-val" id="depl-ajout-' + i + '">' + (ch.depl || 0) + '</span>'
-      + '<div class="step-btn" onclick="majDepl('ajout',' + i + ',15)">+</div>'
-      + '</div>'
-      + '<span class="step-unite">min</span>'
-      + '</div>'
-      // Ligne 3 : heure arrivée + bouton OK
-      + '<div class="heure-ligne">'
-      + '<span class="heure-label">Arrivée</span>'
+      + '<div class="step-btn" data-type="ajout" data-idx="' + i + '" data-delta="15" onclick="majDeplData(this)">+</div>'
+      + '</div><span class="step-unite">min</span>';
+    div.appendChild(deplRow);
+
+    // Ligne 3 : arrivée + OK
+    const arrLigne = document.createElement('div');
+    arrLigne.className = 'heure-ligne';
+    arrLigne.innerHTML = '<span class="heure-label">Arrivée</span>'
       + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '">'
-      + '<button class="btn-valider-heure" onclick="validerHeureAjout(' + i + ','arrivee','arr-ajout-' + i + '')">✔ OK</button>'
-      + '</div>'
-      // Ligne 4 : heure départ + bouton OK
-      + '<div class="heure-ligne">'
-      + '<span class="heure-label">Départ</span>'
+      + '<button class="btn-valider-heure" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
+    div.appendChild(arrLigne);
+
+    // Ligne 4 : départ + OK
+    const depLigne = document.createElement('div');
+    depLigne.className = 'heure-ligne';
+    depLigne.innerHTML = '<span class="heure-label">Départ</span>'
       + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
-      + '<button class="btn-valider-heure" onclick="validerHeureAjout(' + i + ','depart','dep-ajout-' + i + '')">✔ OK</button>'
-      + '</div>'
-      // Durée calculée
-      + '<div class="duree-badge ' + (duree ? '' : 'vide') + '">' + (duree || 'À saisir') + '</div>'
-      // Ligne 5 : bouton Envoyer
-      + (envoye
-          ? '<div class="envoye-badge">✔ Chantier envoyé</div>'
-          : '<button class="btn-envoyer-chantier ajout" onclick="envoyerUnChantierAjout(' + i + ')">✉ Envoyer ce chantier</button>'
-        )
-      + '</div>';
-  }).join('');
+      + '<button class="btn-valider-heure" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
+    div.appendChild(depLigne);
+
+    // Durée
+    const dureeBadge = document.createElement('div');
+    dureeBadge.className = 'duree-badge' + (duree ? '' : ' vide');
+    dureeBadge.textContent = duree || 'À saisir';
+    div.appendChild(dureeBadge);
+
+    // Ligne 5 : bouton envoyer
+    if (ch.envoye) {
+      const env = document.createElement('div');
+      env.className = 'envoye-badge';
+      env.textContent = '✔ Chantier envoyé';
+      div.appendChild(env);
+    } else {
+      const envBtn = document.createElement('button');
+      envBtn.className = 'btn-envoyer-chantier ajout';
+      envBtn.textContent = '✉ Envoyer ce chantier';
+      envBtn.dataset.idx = i;
+      envBtn.onclick = function() { envoyerUnChantierAjout(parseInt(this.dataset.idx)); };
+      div.appendChild(envBtn);
+    }
+
+    return div;
+  });
+
+  cont.innerHTML = '';
+  items.forEach(el => cont.appendChild(el));
 }
+
 
 function majAjout(i, champ, val) {
   _chantiersA[i][champ] = val;
@@ -917,8 +1022,10 @@ function seDeconnecter() {
 
 
 /* ── Validation des heures ── */
-function validerHeurePrev(nom, champ, inputId) {
-  const val = document.getElementById(inputId)?.value;
+function validerHeurePrevData(btn) {
+  const nom = btn.dataset.nom;
+  const champ = btn.dataset.champ;
+  const val = document.getElementById(btn.dataset.inputId)?.value;
   if (!val) return;
   if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
   _saisiesPrev[nom][champ] = val;
@@ -926,11 +1033,29 @@ function validerHeurePrev(nom, champ, inputId) {
   majTotal();
 }
 
-function validerHeureAjout(i, champ, inputId) {
-  const val = document.getElementById(inputId)?.value;
+function validerHeureAjoutData(btn) {
+  const i = parseInt(btn.dataset.idx);
+  const champ = btn.dataset.champ;
+  const val = document.getElementById(btn.dataset.input)?.value;
   if (!val) return;
   _chantiersA[i][champ] = val;
   rendreAjout();
+  majTotal();
+}
+
+function majDeplData(btn) {
+  const delta = parseInt(btn.dataset.delta);
+  const type  = btn.dataset.type;
+  if (type === 'prev') {
+    const nom = btn.dataset.nom;
+    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
+    _saisiesPrev[nom].depl = Math.max(0, (_saisiesPrev[nom].depl || 0) + delta);
+    rendrePrev();
+  } else {
+    const i = parseInt(btn.dataset.idx);
+    _chantiersA[i].depl = Math.max(0, (_chantiersA[i].depl || 0) + delta);
+    rendreAjout();
+  }
   majTotal();
 }
 
