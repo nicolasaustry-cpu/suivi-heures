@@ -1096,7 +1096,7 @@ function seDeconnecter() {
 
 
 /* ── Validation des heures ── */
-function validerHeurePrevData(btn) {
+async function validerHeurePrevData(btn) {
   const nom   = btn.dataset.nom;
   const champ = btn.dataset.champ;
   const val   = document.getElementById(btn.dataset.inputId)?.value;
@@ -1122,9 +1122,38 @@ function validerHeurePrevData(btn) {
     if (badge) { badge.textContent = duree || 'À saisir'; badge.className = 'duree-badge' + (duree ? '' : ' vide'); }
   }
   majTotal();
+
+  // Envoi serveur progressif : à chaque OK on pousse l'état actuel
+  const date = document.getElementById('date-saisie').value;
+  if (!date) return;
+  const ancienTxt = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  const chantier = {
+    nom,
+    heureArrivee: s.arrivee || '',
+    heureDepart:  s.depart  || '',
+    dureeMin:     calcMinutes(s.arrivee, s.depart),
+    deplacement:  s.depl || 0,
+    isPrevisionnel: true
+  };
+  const ok = await _envoyerChantier(chantier, date);
+  btn.disabled = false;
+  if (ok) {
+    btn.textContent = '✔ OK';
+    _saisiesPrev[nom].synchronise = true;
+  } else {
+    btn.textContent = '⚠ Réessayer';
+    btn.classList.remove('valide');
+    btn.style.background = '#dc2626';
+    setTimeout(() => {
+      btn.textContent = ancienTxt;
+      btn.style.background = '';
+    }, 2500);
+  }
 }
 
-function validerHeureAjoutData(btn) {
+async function validerHeureAjoutData(btn) {
   const i     = parseInt(btn.dataset.idx);
   const champ = btn.dataset.champ;
   const val   = document.getElementById(btn.dataset.input)?.value;
@@ -1148,6 +1177,36 @@ function validerHeureAjoutData(btn) {
     if (badge) { badge.textContent = duree || 'À saisir'; badge.className = 'duree-badge' + (duree ? '' : ' vide'); }
   }
   majTotal();
+
+  // Envoi serveur progressif
+  const date = document.getElementById('date-saisie').value;
+  if (!date) return;
+  const ch = _chantiersA[i];
+  const ancienTxt = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  const chantier = {
+    nom:           ch.nom,
+    heureArrivee:  ch.arrivee || '',
+    heureDepart:   ch.depart  || '',
+    dureeMin:      calcMinutes(ch.arrivee, ch.depart),
+    deplacement:   ch.depl || 0,
+    isPrevisionnel: false
+  };
+  const ok = await _envoyerChantier(chantier, date);
+  btn.disabled = false;
+  if (ok) {
+    btn.textContent = '✔ OK';
+    _chantiersA[i].synchronise = true;
+  } else {
+    btn.textContent = '⚠ Réessayer';
+    btn.classList.remove('valide');
+    btn.style.background = '#dc2626';
+    setTimeout(() => {
+      btn.textContent = ancienTxt;
+      btn.style.background = '';
+    }, 2500);
+  }
 }
 
 function majDeplData(btn) {
@@ -1224,10 +1283,8 @@ async function _envoyerChantier(chantier, date) {
       })
     });
     const d = await r.json();
-    if (!d.ok) throw new Error(d.message);
-    return true;
+    return d.ok === true;
   } catch(e) {
-    alert('Erreur envoi : ' + e.message);
     return false;
   }
 }

@@ -1,5 +1,4 @@
 import express from "express";
-import bcrypt from "bcryptjs";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Saisie from "../models/saisies.js";
 
@@ -39,8 +38,8 @@ router.post("/connect", async (req, res) => {
 });
 
 /* ── Authentification PIN salarié (par code employé, sans token licence) ──
-   Le PIN est vérifié côté serveur. Compatibilité legacy : si le PIN est
-   stocké en clair (4 chiffres), on le hashe automatiquement après vérification. */
+   Vérification serveur en clair. Les PIN restent en clair côté MongoDB
+   mais ne sont jamais envoyés au navigateur (cf. route /connect). */
 router.post("/auth-pin", async (req, res) => {
   try {
     const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
@@ -60,29 +59,18 @@ router.post("/auth-pin", async (req, res) => {
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
     if (!sal || !sal.pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
 
-    const estHash = typeof sal.pin === "string" && sal.pin.startsWith("$2");
-    let ok = false;
-    if (estHash) {
-      ok = await bcrypt.compare(pin, sal.pin);
-    } else {
-      // Legacy : comparaison en clair, puis migration vers hash si OK
-      ok = (sal.pin === pin);
-      if (ok) {
-        sal.pin = await bcrypt.hash(pin, 10);
-        // Mongoose : Donnees.salaries est un Array générique, il faut signaler la modif
-        doc.markModified("salaries");
-        await doc.save();
-      }
-    }
+    if (String(sal.pin) !== pin)
+      return res.status(401).json({ ok: false, message: "PIN incorrect" });
 
-    if (!ok) return res.status(401).json({ ok: false, message: "PIN incorrect" });
     res.json({ ok: true, salarieId: sal.id, nom: `${sal.prenom} ${sal.nom}` });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
 });
 
-/* ── Envoyer un chantier (avec code employé) – s'ajoute à la journée ── */
+/* ── Envoyer un chantier (avec code employé) ──
+   Upsert par nom : si le chantier existe déjà pour ce jour/salarié, on le met à jour
+   (permet la saisie progressive : arrivée seule, puis départ, etc.) */
 router.post("/envoyer", async (req, res) => {
   try {
     const { codeEmploye, salarieId, salarieNom, date, chantier } = req.body;
@@ -100,16 +88,29 @@ router.post("/envoyer", async (req, res) => {
     let saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
 
     if (!saisie) {
-      // Créer une nouvelle saisie pour ce jour
       saisie = new Saisie({
         clientId: doc.clientId, salarieId, salarieNom, date,
         chantiers: [chantier],
-        totalMin: chantier.dureeMin + (chantier.deplacement || 0),
+        totalMin: (chantier.dureeMin || 0) + (chantier.deplacement || 0),
         statut: "envoyee"
       });
     } else {
-      // Ajouter le chantier à la saisie existante
-      saisie.chantiers.push(chantier);
+      // Chercher si un chantier de même nom existe déjà ce jour-là
+      const idx = saisie.chantiers.findIndex(c => (c.nom || "").trim() === (chantier.nom || "").trim());
+      if (idx >= 0) {
+        // Fusionner : on ne remplace que les champs fournis (non vides)
+        const existant = saisie.chantiers[idx];
+        saisie.chantiers[idx] = {
+          nom:            chantier.nom            || existant.nom,
+          heureArrivee:   chantier.heureArrivee   || existant.heureArrivee || "",
+          heureDepart:    chantier.heureDepart    || existant.heureDepart  || "",
+          dureeMin:       chantier.dureeMin       != null ? chantier.dureeMin       : (existant.dureeMin       || 0),
+          deplacement:    chantier.deplacement    != null ? chantier.deplacement    : (existant.deplacement    || 0),
+          isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false)
+        };
+      } else {
+        saisie.chantiers.push(chantier);
+      }
       saisie.totalMin = saisie.chantiers.reduce((s, c) => s + (c.dureeMin || 0) + (c.deplacement || 0), 0);
       saisie.updatedAt = new Date();
     }
