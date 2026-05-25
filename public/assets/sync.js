@@ -72,10 +72,13 @@ const SYNC = (() => {
     _type     = localStorage.getItem('syncType');
 
     // Pages totalement libres : pas de vérification d'accès, mais si l'utilisateur
-    // est déjà connecté (token présent), on met quand même à jour la nav pour afficher
-    // les onglets correspondant à sa licence (Plus = Saisie mobile, Planning réalisé, …).
+    // est déjà connecté (token présent), on met quand même à jour la nav et le badge
+    // de licence pour refléter sa licence (Plus = Saisie mobile, Planning réalisé, …).
     if (PAGES_LIBRES_TOTAL.includes(pageActuelle())) {
-      if (_token && _type) majNav();
+      if (_token && _type) {
+        majStatutLicence(true);
+        majNav();
+      }
       return;
     }
 
