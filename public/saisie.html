@@ -465,8 +465,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const dd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('date-saisie').value = dd;
   majDateAffichee(dd);
-  document.getElementById('date-saisie').addEventListener('change', function() {
+  document.getElementById('date-saisie').addEventListener('change', async function() {
     majDateAffichee(this.value);
+    // Réinitialiser les saisies du chantier précédent : on change de jour
+    _saisiesPrev = {};
+    _chantiersA  = [];
+    await rafraichirDonneesServeur();
     chargerChantiersPrev();
   });
 
@@ -595,6 +599,28 @@ function chargerSalaries() {
   });
 }
 
+/* ── Rafraîchir les données depuis le serveur (heuresdata, prévisionnel, salariés)
+   sans redemander le PIN. Utile au changement de date pour récupérer le planning
+   à jour si le patron l'a modifié pendant la session. ── */
+async function rafraichirDonneesServeur() {
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  if (!codeEmploye) return;
+  try {
+    const r = await fetch('/api/saisies/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye })
+    });
+    const d = await r.json();
+    if (!d.ok) return;
+    if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
+    if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
+    if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+  } catch (_) {
+    // Hors ligne : on garde les données locales, pas grave
+  }
+}
+
 /* ═══════════════════════════
    AUTHENTIFICATION PIN
 ═══════════════════════════ */
@@ -681,38 +707,27 @@ function chargerChantiersPrev() {
   if (!date) return;
 
   // Chercher les chantiers du salarié ce jour dans le planning (heuresdata)
+  // Format des clés (cf. planning.html) : `${salarieId}${YYYY_MM_DD}ch${1..5}`
   const heures   = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   const dateKey  = date.replace(/-/g, '_');
   const salarieId = _salarie?.id;
 
   _chantiersP = [];
 
-  // Parcourir heuresdata pour ce salarié et cette date
+  // On ne retient QUE les chantiers planifiés pour CE salarié à CETTE date.
+  // Un chantier compte dès qu'il a un nom (les heures ne sont pas obligatoires).
+  // Pas de fallback sur le prévisionnel du mois : on respecte strictement le planning.
   const chantiersTrouves = new Map();
+  const prefixe = String(salarieId) + dateKey;
   for (const k in heures) {
-    if (!k.startsWith(String(salarieId) + dateKey)) continue;
+    if (!k.startsWith(prefixe)) continue;
     if (k.endsWith('abs')) continue;
     const entry = heures[k];
     const nomChantier = (entry?.chantier || '').trim();
     if (!nomChantier || nomChantier.toLowerCase() === 'absence') continue;
-    const h = parseFloat(entry?.heures) || 0;
-    if (h <= 0) continue;
     if (!chantiersTrouves.has(nomChantier)) {
+      const h = parseFloat(entry?.heures) || 0;
       chantiersTrouves.set(nomChantier, h);
-    }
-  }
-
-  // Si pas de chantiers dans le planning du jour, chercher dans le prévisionnel du mois
-  if (chantiersTrouves.size === 0) {
-    const moisStr  = date.substring(0, 7);
-    const [annee, mois] = moisStr.split('-').map(Number);
-    const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
-    const cleAnnee = annee.toString();
-    const cleMois  = (mois - 1).toString();
-    if (prev[cleAnnee]?.[cleMois]?.chantiers) {
-      prev[cleAnnee][cleMois].chantiers
-        .filter(c => c.client && c.client.trim())
-        .forEach(c => chantiersTrouves.set(c.client.trim(), c.hPrevues || 0));
     }
   }
 
