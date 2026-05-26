@@ -23,9 +23,10 @@
   <div class="vol-droite">
     <div class="entreprise-nom" id="entreprise-nom"></div>
     <div id="licence-status"></div>
-    <div style="margin-top:4px;">
-      <a href="#" onclick="seDeconnecter(event)" style="color:rgba(255,255,255,0.7);font-size:0.72rem;text-decoration:underline;">Changer de licence</a>
-    </div>
+    <button onclick="seDeconnecter(event)"
+      style="margin-top:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+      ⏻ Déconnexion
+    </button>
   </div>
 </header>
 
@@ -209,7 +210,7 @@ window.addEventListener('DOMContentLoaded', chargerSeuilsJauge);
   // Déconnexion : vide tout le cache local et revient à l'accueil
   window.seDeconnecter = function(ev) {
     if (ev) ev.preventDefault();
-    if (!confirm("Se déconnecter et changer de licence ?\n\nVos données serveur ne seront pas affectées.")) return;
+    if (!confirm("Se déconnecter ?\n\nVos données serveur ne seront pas affectées.")) return;
     localStorage.clear();
     location.href = '/index.html';
   };
