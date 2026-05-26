@@ -11,6 +11,8 @@
   <meta name="theme-color" content="#2563eb">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <!-- Lib QR code (chargée uniquement sur PC pour générer le QR de partage aux salariés) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; background: #fff; }
@@ -28,13 +30,21 @@
   /* Cadre téléphone */
   .phone-wrap { width: 100%; }
 
-  /* Desktop : centrer dans un cadre téléphone */
+  /* Desktop : centrer dans un cadre téléphone + panneau QR à droite */
   @media (min-width: 600px) {
     body { background: #e2e8f0; min-height: 100vh; }
     .nav-desktop { display: flex; }
+    .desktop-layout {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      padding: 1.5rem 1rem 2rem;
+    }
     .phone-wrap {
       width: 390px;
-      margin: 1.5rem auto 2rem;
+      margin: 0;
       border-radius: 36px;
       overflow: hidden;
       box-shadow: 0 0 0 8px #222, 0 20px 50px rgba(0,0,0,0.3);
@@ -43,12 +53,64 @@
       display: flex;
       flex-direction: column;
     }
-    /* PIN en position absolute dans le cadre */
     .phone-wrap .pin-screen {
       position: absolute !important;
       inset: 0 !important;
       z-index: 300;
     }
+    /* Panneau QR à droite du téléphone */
+    .qr-panel {
+      width: 280px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .qr-panel h3 {
+      color: #2563eb;
+      font-size: 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .qr-panel p.aide {
+      color: #6b7280;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+    #qr-canvas-wrap { display: flex; justify-content: center; padding: 0.5rem 0; }
+    #qr-canvas-wrap canvas { border: 1px solid #e5e7eb; border-radius: 8px; }
+    .qr-panel .url-affichee {
+      font-size: 0.7rem;
+      color: #6b7280;
+      word-break: break-all;
+      padding: 0.5rem;
+      background: #f9fafb;
+      border-radius: 6px;
+      margin-top: 0.8rem;
+    }
+    .qr-panel button {
+      margin-top: 0.8rem;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+    .qr-panel button:hover { background: #1d4ed8; }
+  }
+  /* Mobile : on cache complètement le panneau QR (il n'a aucun sens sur mobile) */
+  @media (max-width: 599px) {
+    .qr-panel { display: none !important; }
+  }
+  /* Impression : seulement la zone d'impression spéciale */
+  @media print {
+    body * { visibility: hidden; }
+    #zone-impression-qr { display: block !important; visibility: visible; position: absolute; top: 0; left: 0; width: 100%; padding: 2cm; text-align: center; }
+    #zone-impression-qr * { visibility: visible; }
   }
 
   /* ── HEADER ── */
@@ -319,6 +381,7 @@
   <a href="realise.html">Planning réalisé</a>
 </div>
 
+<div class="desktop-layout">
 <div class="phone-wrap">
 
 <!-- ── ÉCRAN PIN ── -->
@@ -487,7 +550,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Si code employé mémorisé → reconnecter automatiquement sans redemander
   const codeMemorize = localStorage.getItem('saisie_codeEmploye');
-  if (codeMemorize) {
+  // Si le QR vient d'être scanné, l'URL contient ?code=XXX → on l'utilise comme code mémorisé
+  const codeURL = new URLSearchParams(location.search).get('code');
+  if (codeURL && !codeMemorize) {
+    localStorage.setItem('saisie_codeEmploye', codeURL.toUpperCase());
+    // Nettoyer l'URL pour ne pas laisser le code visible dans l'historique navigateur
+    history.replaceState({}, '', location.pathname);
+    reconnecterAuto(codeURL.toUpperCase());
+  } else if (codeMemorize) {
     reconnecterAuto(codeMemorize);
   } else {
     // Pas de code mémorisé → afficher l'écran de connexion
@@ -518,6 +588,13 @@ async function reconnecterAuto(codeEmploye) {
       localStorage.setItem('salariesdata', JSON.stringify(fusionne));
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+
+      // Afficher le QR de partage (PC uniquement, lib chargée en defer)
+      const codeAct = localStorage.getItem('saisie_codeEmploye');
+      if (codeAct) {
+        if (typeof QRCode !== 'undefined') afficherQR(codeAct);
+        else window.addEventListener('load', () => afficherQR(codeAct), { once: true });
+      }
 
       // Vérifier si un salarié était déjà connecté
       const salMemorize = localStorage.getItem('saisie_salarie');
@@ -594,6 +671,10 @@ async function validerCodeEntreprise() {
     localStorage.setItem('salariesdata', JSON.stringify(fusionne2));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+
+    // Afficher le QR de partage (PC uniquement)
+    if (typeof QRCode !== 'undefined') afficherQR(codeEmploye);
+    else window.addEventListener('load', () => afficherQR(codeEmploye), { once: true });
 
     // Passer à l'étape PIN
     document.getElementById('etape-code').style.display = 'none';
@@ -1168,6 +1249,46 @@ function validerAjout() {
 /* ═══════════════════════════
    ENVOI
 ═══════════════════════════ */
+/* Génère le QR code à côté du cadre téléphone (PC uniquement).
+   Appelé dès qu'un code employé est validé. Encode l'URL absolue de l'app
+   avec le paramètre ?code=XXX. Le scan du QR ouvre directement l'app
+   sur le téléphone du salarié avec le code pré-rempli. */
+function afficherQR(codeEmploye) {
+  if (window.innerWidth < 600) return;            // pas de QR sur mobile
+  if (typeof QRCode === 'undefined') return;      // lib pas encore chargée
+  const panel = document.getElementById('qr-panel');
+  const wrap  = document.getElementById('qr-canvas-wrap');
+  const urlEl = document.getElementById('qr-url-text');
+  if (!panel || !wrap) return;
+
+  const url = `${location.origin}/saisie.html?code=${encodeURIComponent(codeEmploye)}`;
+  wrap.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  QRCode.toCanvas(canvas, url, { width: 200, margin: 1 }, err => {
+    if (err) console.error('QR error:', err);
+  });
+  if (urlEl) urlEl.textContent = url;
+  panel.style.display = 'block';
+
+  // Préparer la zone d'impression (cachée à l'écran, visible en impression)
+  const printCode = document.getElementById('qr-print-code');
+  const printUrl  = document.getElementById('qr-print-url');
+  const printTgt  = document.getElementById('qr-print-target');
+  if (printCode) printCode.textContent = codeEmploye;
+  if (printUrl)  printUrl.textContent  = url;
+  if (printTgt) {
+    printTgt.innerHTML = '';
+    const c2 = document.createElement('canvas');
+    printTgt.appendChild(c2);
+    QRCode.toCanvas(c2, url, { width: 300, margin: 2 });
+  }
+}
+
+function imprimerQR() {
+  window.print();
+}
+
 /* Changer d'entreprise : efface le code employé mémorisé et toutes les données
    locales liées, puis recharge la page pour repartir sur le formulaire initial.
    Utile pour basculer entre plusieurs comptes clients (administrateur Volitis). */
@@ -1489,5 +1610,25 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 }
 </script>
 </div><!-- fin phone-wrap -->
+
+<!-- ── PANNEAU QR (PC uniquement, masqué tant qu'aucun code employé n'est saisi) ── -->
+<div class="qr-panel" id="qr-panel" style="display:none;">
+  <h3>📱 Partager aux salariés</h3>
+  <p class="aide">Vos salariés scannent ce QR code pour ouvrir l'app sur leur téléphone, code employé déjà rempli.</p>
+  <div id="qr-canvas-wrap"></div>
+  <div class="url-affichee" id="qr-url-text"></div>
+  <button onclick="imprimerQR()">🖨️ Imprimer</button>
+</div>
+
+</div><!-- fin desktop-layout -->
+
+<!-- Zone pour l'impression (cachée à l'écran, visible en impression) -->
+<div id="zone-impression-qr" style="display:none;">
+  <h1 style="font-size:24pt;margin-bottom:1cm;">Accès à l'application Suiv'Heures</h1>
+  <p style="font-size:14pt;margin-bottom:1cm;color:#555;">Scannez ce QR code avec votre téléphone</p>
+  <div id="qr-print-target" style="display:flex;justify-content:center;margin:1cm 0;"></div>
+  <p id="qr-print-url" style="font-size:11pt;color:#888;margin-top:1cm;word-break:break-all;"></p>
+  <p style="font-size:11pt;color:#888;margin-top:0.5cm;">Code employé : <strong id="qr-print-code"></strong></p>
+</div>
 </body>
 </html>
