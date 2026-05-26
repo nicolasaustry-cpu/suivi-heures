@@ -506,7 +506,16 @@ async function reconnecterAuto(codeEmploye) {
     const d = await r.json();
     if (d.ok) {
       localStorage.setItem('saisie_clientId', d.clientId);
-      localStorage.setItem('salariesdata', JSON.stringify(d.salaries || []));
+      // ⚠ Le serveur strippe les PIN par sécurité avant l'envoi. Si on écrit
+      // directement d.salaries dans 'salariesdata', on perd les PIN côté patron
+      // (qui partagent la même clé localStorage et sync.js les pousserait au
+      // serveur, effaçant les PIN). On fusionne en gardant les PIN locaux.
+      const ancienne = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+      const fusionne = (d.salaries || []).map(s => {
+        const exist = ancienne.find(a => String(a.id) === String(s.id));
+        return exist && exist.pin ? { ...s, pin: exist.pin } : s;
+      });
+      localStorage.setItem('salariesdata', JSON.stringify(fusionne));
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
 
@@ -576,7 +585,13 @@ async function validerCodeEntreprise() {
     // Stocker le code employé et les données nécessaires (pas de token licence)
     localStorage.setItem('saisie_codeEmploye', codeEmploye);
     localStorage.setItem('saisie_clientId',    d.clientId);
-    localStorage.setItem('salariesdata', JSON.stringify(d.salaries || []));
+    // Préserver les PIN locaux (le serveur ne les renvoie pas — cf. /connect)
+    const ancienne2 = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const fusionne2 = (d.salaries || []).map(s => {
+      const exist = ancienne2.find(a => String(a.id) === String(s.id));
+      return exist && exist.pin ? { ...s, pin: exist.pin } : s;
+    });
+    localStorage.setItem('salariesdata', JSON.stringify(fusionne2));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
 
@@ -618,7 +633,15 @@ async function rafraichirDonneesServeur() {
     });
     const d = await r.json();
     if (!d.ok) return;
-    if (d.salaries)     localStorage.setItem('salariesdata',      JSON.stringify(d.salaries));
+    if (d.salaries) {
+      // Préserver les PIN locaux (le serveur strippe les PIN dans /connect)
+      const ancienne3 = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+      const fusionne3 = d.salaries.map(s => {
+        const exist = ancienne3.find(a => String(a.id) === String(s.id));
+        return exist && exist.pin ? { ...s, pin: exist.pin } : s;
+      });
+      localStorage.setItem('salariesdata', JSON.stringify(fusionne3));
+    }
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
   } catch (_) {
