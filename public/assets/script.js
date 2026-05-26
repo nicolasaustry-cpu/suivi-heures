@@ -374,3 +374,21 @@ window.addEventListener("storage", (e) => {
     afficherSalaries();
   }
 });
+
+/* Quand SYNC.chargerDonnees() finit (cas typique : on arrive sur la page avant
+   que les données serveur soient là), on relit toutes les variables globales
+   et on rafraîchit les vues. */
+window.addEventListener("donnees-chargees", () => {
+  entreprise   = JSON.parse(localStorage.getItem("entreprisedata")   || "{}");
+  salaries     = JSON.parse(localStorage.getItem("salariesdata")     || "[]");
+  if (typeof afficherSalaries === "function" && document.querySelector("#table-salaries")) {
+    afficherSalaries();
+  }
+  if (typeof initEntreprise === "function" && document.getElementById("nom-entreprise")) {
+    // Recharger nom + code employé sans réécrire les inputs si l'utilisateur tape
+    const inpNom  = document.getElementById("nom-entreprise");
+    const inpCode = document.getElementById("code-employe");
+    if (inpNom  && !inpNom.matches(":focus")  && entreprise.nom)         inpNom.value  = entreprise.nom;
+    if (inpCode && !inpCode.matches(":focus") && entreprise.codeEmploye) inpCode.value = entreprise.codeEmploye;
+  }
+});
