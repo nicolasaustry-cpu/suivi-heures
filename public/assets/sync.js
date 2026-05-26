@@ -289,10 +289,22 @@ const SYNC = (() => {
     if (!el) return;
     if (actif) {
       const badge = _type === 'plus' ? ' <span style="background:#fbbf24;color:#78350f;border-radius:999px;padding:1px 6px;font-size:0.7rem;font-weight:700;">PLUS</span>' : '';
-      el.innerHTML = `<span style="color:#86efac;font-size:0.85rem;">✔ Licence active${badge}</span>`;
+      el.innerHTML =
+        `<div><span style="color:#86efac;font-size:0.85rem;">✔ Licence active${badge}</span></div>` +
+        `<button onclick="SYNC.seDeconnecter()" title="Se déconnecter et changer de licence" ` +
+        `style="margin-top:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;">` +
+        `⏻ Déconnexion</button>`;
     } else {
       el.innerHTML = `<span style="color:#fca5a5;font-size:0.85rem;">⚠ ${message || 'Licence invalide'}</span>`;
     }
+  }
+
+  // Déconnexion : vide tout le cache local et revient à l'accueil.
+  // Exposée via SYNC.seDeconnecter() pour être appelée depuis le bouton injecté.
+  function seDeconnecter() {
+    if (!confirm("Se déconnecter ?\n\nVos données serveur ne seront pas affectées.")) return;
+    localStorage.clear();
+    location.href = '/index.html';
   }
 
   function afficherNotif(texte, couleur = '#16a34a') {
@@ -309,7 +321,7 @@ const SYNC = (() => {
   }
 
   return {
-    init, connecter, sauvegarderTout, declencherSauvegarde, afficherNotif,
+    init, connecter, sauvegarderTout, declencherSauvegarde, afficherNotif, seDeconnecter,
     estConnecte: () => !!_token,
     getClientId: () => _clientId,
     getType:     () => _type,

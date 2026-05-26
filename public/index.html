@@ -23,10 +23,6 @@
   <div class="vol-droite">
     <div class="entreprise-nom" id="entreprise-nom"></div>
     <div id="licence-status"></div>
-    <button onclick="seDeconnecter(event)"
-      style="margin-top:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;">
-      ⏻ Déconnexion
-    </button>
   </div>
 </header>
 
@@ -205,14 +201,6 @@ window.addEventListener('DOMContentLoaded', chargerSeuilsJauge);
     } else {
       alert("Code licence invalide ou expiré.");
     }
-  };
-
-  // Déconnexion : vide tout le cache local et revient à l'accueil
-  window.seDeconnecter = function(ev) {
-    if (ev) ev.preventDefault();
-    if (!confirm("Se déconnecter ?\n\nVos données serveur ne seront pas affectées.")) return;
-    localStorage.clear();
-    location.href = '/index.html';
   };
   });
 </script>

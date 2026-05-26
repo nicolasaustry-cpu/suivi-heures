@@ -11,6 +11,9 @@
   <meta name="theme-color" content="#2563eb">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <!-- CSS communs (cohérence avec les autres pages) -->
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
   <!-- Lib QR code (chargée uniquement sur PC pour générer le QR de partage aux salariés) -->
   <script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
@@ -33,7 +36,8 @@
   /* Desktop : centrer dans un cadre téléphone + panneau QR à droite */
   @media (min-width: 600px) {
     body { background: #e2e8f0; min-height: 100vh; }
-    .nav-desktop { display: flex; }
+    .nav-desktop { display: none; }            /* ancien bandeau, remplacé par .header-desktop */
+    .header-desktop { display: block; }
     .desktop-layout {
       display: flex;
       gap: 2rem;
@@ -43,15 +47,16 @@
       padding: 1.5rem 1rem 2rem;
     }
     .phone-wrap {
-      width: 390px;
+      width: 300px;
       margin: 0;
-      border-radius: 36px;
+      border-radius: 28px;
       overflow: hidden;
-      box-shadow: 0 0 0 8px #222, 0 20px 50px rgba(0,0,0,0.3);
+      box-shadow: 0 0 0 6px #222, 0 16px 40px rgba(0,0,0,0.3);
       position: relative;
-      height: 780px;
+      height: 600px;
       display: flex;
       flex-direction: column;
+      transform-origin: top center;
     }
     .phone-wrap .pin-screen {
       position: absolute !important;
@@ -79,7 +84,7 @@
       margin-bottom: 1rem;
     }
     #qr-canvas-wrap { display: flex; justify-content: center; padding: 0.5rem 0; }
-    #qr-canvas-wrap canvas { border: 1px solid #e5e7eb; border-radius: 8px; }
+    #qr-canvas-wrap svg { width: 200px; height: 200px; }
     .qr-panel .url-affichee {
       font-size: 0.7rem;
       color: #6b7280;
@@ -102,9 +107,10 @@
     }
     .qr-panel button:hover { background: #1d4ed8; }
   }
-  /* Mobile : on cache complètement le panneau QR (il n'a aucun sens sur mobile) */
+  /* Mobile : pas de header desktop, pas de QR panel */
   @media (max-width: 599px) {
-    .qr-panel { display: none !important; }
+    .header-desktop { display: none !important; }
+    .qr-panel       { display: none !important; }
   }
   /* Impression : seulement la zone d'impression spéciale */
   @media print {
@@ -444,15 +450,33 @@
   </div>
 </div>
 
-<!-- Bandeau navigation (visible sur desktop uniquement) -->
-<div class="nav-desktop">
-  <span class="nav-titre">Suiv'Heures</span>
-  <a href="index.html">Entreprise</a>
-  <a href="salaries.html">Salariés</a>
-  <a href="chantiers.html">Prévisionnel</a>
-  <a href="planning.html">Planning</a>
-  <a href="rapports.html">Rapports</a>
-  <a href="realise.html">Planning réalisé</a>
+<!-- Header standard (style cohérent avec les autres pages, PC uniquement via .header-desktop) -->
+<div class="header-desktop">
+  <header class="main-header">
+    <div class="vol-identite">
+      <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+      <div class="vol-titres">
+        <span class="vol-marque">VOLITIS</span>
+        <span class="vol-nom">Suiv'Heures</span>
+        <span class="vol-baseline">La gestion des heures, simplement</span>
+      </div>
+    </div>
+    <h1 class="page-title">Saisie mobile</h1>
+    <div class="vol-droite">
+      <div class="entreprise-nom" id="entreprise-nom"></div>
+      <div id="licence-status"></div>
+    </div>
+  </header>
+
+  <div class="nav">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+    <a href="realise.html">Planning réalisé</a>
+    <a href="saisie.html" class="active">Saisie mobile</a>
+  </div>
 </div>
 
 <div class="desktop-layout">
