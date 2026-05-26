@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <title>Rapports – Suiv'Heures</title>
   <link rel="stylesheet" href="assets/style.css">
+  <!-- Librairies d'export (CDN, chargées de manière différée) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.0/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
 
   /* ══ BARRE FIXE ══ */
@@ -189,6 +193,27 @@
     <div class="filtre-item">
       <label>Chantier(s)</label>
       <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
+    </div>
+    <div class="filtre-item" style="margin-left:auto;">
+      <label>&nbsp;</label>
+      <div style="display:flex;gap:0.4rem;">
+        <button onclick="exporterExcel()" title="Exporter au format Excel"
+          style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">📊 Excel</button>
+        <button onclick="exporterPDF()" title="Exporter au format PDF"
+          style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">📄 PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Période personnalisée (cachée par défaut) -->
+  <div style="text-align:center;background:#fff;padding:4px 1rem 6px;border-bottom:1px solid #e5e7eb;">
+    <a href="#" onclick="togglePeriode(event)" id="lien-periode" style="font-size:0.76rem;color:#6b7280;text-decoration:underline;">Période personnalisée pour l'export ▾</a>
+    <div id="zone-periode" style="display:none;gap:0.6rem;justify-content:center;align-items:center;flex-wrap:wrap;">
+      <span style="font-size:0.82rem;color:#6b7280;">Du</span>
+      <input type="date" id="periode-debut" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;">
+      <span style="font-size:0.82rem;color:#6b7280;">au</span>
+      <input type="date" id="periode-fin" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;">
+      <button onclick="effacerPeriode()" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:0.8rem;cursor:pointer;">Effacer</button>
     </div>
   </div>
 </div>
@@ -605,6 +630,220 @@ function ouvrirFiltre(col, event) {
       appliquerEtAfficher();
     }
   });
+}
+
+/* ═══════════════════════════
+   EXPORT EXCEL / PDF
+═══════════════════════════ */
+function togglePeriode(ev) {
+  ev.preventDefault();
+  const z = document.getElementById('zone-periode');
+  const lien = document.getElementById('lien-periode');
+  if (z.style.display === 'none' || !z.style.display) {
+    z.style.display = 'flex';
+    lien.textContent = 'Période personnalisée pour l\'export ▴';
+  } else {
+    z.style.display = 'none';
+    lien.textContent = 'Période personnalisée pour l\'export ▾';
+  }
+}
+
+function effacerPeriode() {
+  document.getElementById('periode-debut').value = '';
+  document.getElementById('periode-fin').value   = '';
+}
+
+/* Détermine la période exportée :
+   - si periode-debut + periode-fin renseignés → on filtre lignesPrev/Real sur ces dates
+   - sinon → on prend le mois affiché (lignesPrev et lignesReal en l'état) */
+function lignesAExporter() {
+  const dDeb = document.getElementById('periode-debut').value;
+  const dFin = document.getElementById('periode-fin').value;
+  let prev = prevVisible, real = realVisible;
+  let libelle;
+  // Helper pour obtenir une string YYYY-MM-DD à partir d'une Date OU d'une string
+  const isoOf = l => {
+    if (typeof l.date === 'string') return l.date;
+    const d = l.date;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  if (dDeb && dFin) {
+    const filtreDate = l => { const s = isoOf(l); return s >= dDeb && s <= dFin; };
+    prev = prevVisible.filter(filtreDate);
+    real = realVisible.filter(filtreDate);
+    libelle = `Période du ${formaterDateFR(dDeb)} au ${formaterDateFR(dFin)}`;
+  } else {
+    const mois = document.getElementById('filtreMonth').value;
+    const an   = document.getElementById('filtreAnnee').value;
+    if (an && !mois)      libelle = `Année ${an}`;
+    else if (mois)        libelle = `Mois ${moisLibelle(mois)}`;
+    else                  libelle = 'Toutes périodes';
+  }
+  // Normaliser le champ date en YYYY-MM-DD pour les exports
+  prev = prev.map(l => ({ ...l, date: isoOf(l) }));
+  real = real.map(l => ({ ...l, date: isoOf(l) }));
+  return { prev, real, libelle };
+}
+
+function formaterDateFR(d) {
+  if (!d) return '';
+  const [a, m, j] = d.split('-');
+  return `${j}/${m}/${a}`;
+}
+function moisLibelle(yyyymm) {
+  const noms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const [a, m] = yyyymm.split('-');
+  return `${noms[parseInt(m)-1]} ${a}`;
+}
+
+function genererSyntheseParSalarie(lignes) {
+  const map = {};
+  lignes.forEach(l => { map[l.salarie] = (map[l.salarie] || 0) + l.heures; });
+  return Object.keys(map).sort((a,b) => a.localeCompare(b,'fr'))
+    .map(s => ({ salarie: s, heures: map[s] }));
+}
+
+/* ── EXCEL ── */
+function exporterExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('Bibliothèque Excel en cours de chargement, réessayez dans une seconde.');
+    return;
+  }
+  const { prev, real, libelle } = lignesAExporter();
+  const wb = XLSX.utils.book_new();
+
+  // Feuille 1 : Synthèse
+  const synthPrev = genererSyntheseParSalarie(prev);
+  const synthReal = genererSyntheseParSalarie(real);
+  const totalPrev = synthPrev.reduce((s,r) => s + r.heures, 0);
+  const totalReal = synthReal.reduce((s,r) => s + r.heures, 0);
+  const synthRows = [
+    ['Rapport Suiv\'Heures', '', '', ''],
+    [libelle, '', '', ''],
+    [],
+    ['Synthèse PRÉVUE', '', 'Synthèse RÉALISÉE', ''],
+    ['Salarié', 'Heures', 'Salarié', 'Heures']
+  ];
+  const maxLen = Math.max(synthPrev.length, synthReal.length);
+  for (let i = 0; i < maxLen; i++) {
+    synthRows.push([
+      synthPrev[i]?.salarie || '',
+      synthPrev[i] ? Number(synthPrev[i].heures.toFixed(2)) : '',
+      synthReal[i]?.salarie || '',
+      synthReal[i] ? Number(synthReal[i].heures.toFixed(2)) : ''
+    ]);
+  }
+  synthRows.push(['TOTAL', Number(totalPrev.toFixed(2)), 'TOTAL', Number(totalReal.toFixed(2))]);
+  const wsSynth = XLSX.utils.aoa_to_sheet(synthRows);
+  wsSynth['!cols'] = [{wch:22},{wch:10},{wch:22},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsSynth, 'Synthèse');
+
+  // Feuille 2 : Détail prévu
+  const detailPrevRows = [['Date', 'Salarié', 'Chantier', 'Heures']];
+  prev.forEach(l => detailPrevRows.push([l.date, l.salarie, l.chantier, Number(l.heures.toFixed(2))]));
+  const wsP = XLSX.utils.aoa_to_sheet(detailPrevRows);
+  wsP['!cols'] = [{wch:12},{wch:22},{wch:28},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsP, 'Détail prévu');
+
+  // Feuille 3 : Détail réalisé
+  const detailRealRows = [['Date', 'Salarié', 'Chantier', 'Heures']];
+  real.forEach(l => detailRealRows.push([l.date, l.salarie, l.chantier, Number(l.heures.toFixed(2))]));
+  const wsR = XLSX.utils.aoa_to_sheet(detailRealRows);
+  wsR['!cols'] = [{wch:12},{wch:22},{wch:28},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsR, 'Détail réalisé');
+
+  const nomFichier = `Rapport_${libelle.replace(/[^a-zA-Z0-9_\-]/g,'_')}.xlsx`;
+  XLSX.writeFile(wb, nomFichier);
+}
+
+/* ── PDF ── */
+function exporterPDF() {
+  if (typeof window.jspdf === 'undefined') {
+    alert('Bibliothèque PDF en cours de chargement, réessayez dans une seconde.');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const { prev, real, libelle } = lignesAExporter();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  // En-tête
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text("Rapport Suiv'Heures", 14, 18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(11);
+  doc.text(libelle, 14, 25);
+
+  // Synthèse côte à côte
+  const synthPrev = genererSyntheseParSalarie(prev);
+  const synthReal = genererSyntheseParSalarie(real);
+  const totalPrev = synthPrev.reduce((s,r) => s + r.heures, 0);
+  const totalReal = synthReal.reduce((s,r) => s + r.heures, 0);
+
+  doc.autoTable({
+    startY: 32,
+    head: [['Salarié', 'Prévu (h)']],
+    body: synthPrev.map(r => [r.salarie, r.heures.toFixed(2)])
+      .concat([['TOTAL', totalPrev.toFixed(2)]]),
+    margin: { left: 14, right: 105 },
+    headStyles: { fillColor: [29, 78, 216] },
+    foot: undefined,
+    didParseCell: data => {
+      if (data.row.index === synthPrev.length && data.section === 'body') {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [219, 234, 254];
+      }
+    }
+  });
+  const yEnd1 = doc.lastAutoTable.finalY;
+
+  doc.autoTable({
+    startY: 32,
+    head: [['Salarié', 'Réalisé (h)']],
+    body: synthReal.map(r => [r.salarie, r.heures.toFixed(2)])
+      .concat([['TOTAL', totalReal.toFixed(2)]]),
+    margin: { left: 110, right: 14 },
+    headStyles: { fillColor: [21, 128, 61] },
+    didParseCell: data => {
+      if (data.row.index === synthReal.length && data.section === 'body') {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [220, 252, 231];
+      }
+    }
+  });
+  const yEnd2 = doc.lastAutoTable.finalY;
+
+  // Détail prévu (nouvelle page si peu de place)
+  doc.addPage();
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text("Détail prévu", 14, 16);
+  doc.autoTable({
+    startY: 22,
+    head: [['Date', 'Salarié', 'Chantier', 'Heures']],
+    body: prev.map(l => [formaterDateFR(l.date), l.salarie, l.chantier, l.heures.toFixed(2)]),
+    headStyles: { fillColor: [29, 78, 216] },
+    styles: { fontSize: 9 }
+  });
+
+  doc.addPage();
+  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text("Détail réalisé", 14, 16);
+  doc.autoTable({
+    startY: 22,
+    head: [['Date', 'Salarié', 'Chantier', 'Heures']],
+    body: real.map(l => [formaterDateFR(l.date), l.salarie, l.chantier, l.heures.toFixed(2)]),
+    headStyles: { fillColor: [21, 128, 61] },
+    styles: { fontSize: 9 }
+  });
+
+  // Pied : pagination
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica','italic'); doc.setFontSize(8);
+    doc.text(`Page ${i} / ${pages}`, doc.internal.pageSize.getWidth() - 24, doc.internal.pageSize.getHeight() - 8);
+  }
+
+  const nomFichier = `Rapport_${libelle.replace(/[^a-zA-Z0-9_\-]/g,'_')}.pdf`;
+  doc.save(nomFichier);
 }
 </script>
 <script src="assets/filtre-excel.js"></script>
