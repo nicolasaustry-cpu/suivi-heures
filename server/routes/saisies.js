@@ -58,9 +58,7 @@ router.post("/auth-pin", async (req, res) => {
 
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
     if (!sal || !sal.pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
-
-    if (String(sal.pin) !== pin)
-      return res.status(401).json({ ok: false, message: "PIN incorrect" });
+    if (String(sal.pin) !== pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
 
     res.json({ ok: true, salarieId: sal.id, nom: `${sal.prenom} ${sal.nom}` });
   } catch (err) {
@@ -220,6 +218,75 @@ router.patch("/:id/valider", verifyToken, async (req, res) => {
       { new: true }
     );
     if (!saisie) return res.status(404).json({ ok: false });
+    res.json({ ok: true, saisie });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Modifier un chantier d'une saisie (patron uniquement) ── */
+router.patch("/:id/chantier/:idx", verifyToken, async (req, res) => {
+  try {
+    const saisie = await Saisie.findById(req.params.id);
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    if (saisie.clientId !== req.user.clientId)
+      return res.status(403).json({ ok: false, message: "Accès refusé" });
+
+    const idx = parseInt(req.params.idx);
+    if (isNaN(idx) || idx < 0 || idx >= saisie.chantiers.length)
+      return res.status(400).json({ ok: false, message: "Index chantier invalide" });
+
+    const c = saisie.chantiers[idx];
+    const body = req.body || {};
+    if (body.nom != null)          c.nom          = String(body.nom).trim();
+    if (body.heureArrivee != null) c.heureArrivee = String(body.heureArrivee);
+    if (body.heureDepart != null)  c.heureDepart  = String(body.heureDepart);
+    if (body.deplacement != null)  c.deplacement  = parseInt(body.deplacement) || 0;
+
+    // Recalculer dureeMin si les heures changent
+    if (c.heureArrivee && c.heureDepart) {
+      const [h1, m1] = c.heureArrivee.split(':').map(Number);
+      const [h2, m2] = c.heureDepart.split(':').map(Number);
+      c.dureeMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1));
+    } else {
+      c.dureeMin = 0;
+    }
+
+    // Recalculer totalMin de la saisie
+    saisie.totalMin = saisie.chantiers.reduce((sum, x) => sum + (x.dureeMin || 0) + (x.deplacement || 0), 0);
+    saisie.updatedAt = new Date();
+    await saisie.save();
+    res.json({ ok: true, saisie });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Supprimer un chantier d'une saisie (patron uniquement).
+   Si c'est le dernier chantier, supprime toute la saisie. ── */
+router.delete("/:id/chantier/:idx", verifyToken, async (req, res) => {
+  try {
+    const saisie = await Saisie.findById(req.params.id);
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    if (saisie.clientId !== req.user.clientId)
+      return res.status(403).json({ ok: false, message: "Accès refusé" });
+
+    const idx = parseInt(req.params.idx);
+    if (isNaN(idx) || idx < 0 || idx >= saisie.chantiers.length)
+      return res.status(400).json({ ok: false, message: "Index chantier invalide" });
+
+    saisie.chantiers.splice(idx, 1);
+
+    if (saisie.chantiers.length === 0) {
+      // Plus aucun chantier : on supprime la saisie complète
+      await saisie.deleteOne();
+      return res.json({ ok: true, supprimee: true });
+    }
+
+    // Recalculer totalMin
+    saisie.totalMin = saisie.chantiers.reduce((sum, x) => sum + (x.dureeMin || 0) + (x.deplacement || 0), 0);
+    saisie.updatedAt = new Date();
+    await saisie.save();
     res.json({ ok: true, saisie });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

@@ -82,7 +82,43 @@
     .top-bar { position:static; box-shadow:none; }
     .no-print { display:none !important; }
     #planning-wrapper { margin-top:0 !important; }
+    .col-actions, th.col-actions { display:none !important; }
   }
+
+  /* Colonne Actions et boutons */
+  .col-actions { width:80px; text-align:center; white-space:nowrap; }
+  .btn-action {
+    background:transparent; border:1px solid transparent; border-radius:6px;
+    padding:3px 8px; cursor:pointer; font-size:0.9rem; margin:0 1px;
+    transition: background 0.15s;
+  }
+  .btn-action:hover { background:#eff6ff; border-color:#bfdbfe; }
+  .btn-action.btn-del:hover { background:#fef2f2; border-color:#fecaca; }
+
+  /* Modale d'édition */
+  .modale-edit-bg {
+    position:fixed; inset:0; background:rgba(0,0,0,0.5);
+    z-index:1000; display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .modale-edit {
+    background:#fff; border-radius:12px; max-width:480px; width:100%;
+    padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.3);
+  }
+  .modale-edit h3 { color:#2563eb; margin-bottom:1rem; font-size:1.1rem; }
+  .modale-edit .champ { margin-bottom:1rem; }
+  .modale-edit label { display:block; font-size:0.85rem; color:#6b7280; margin-bottom:4px; font-weight:600; }
+  .modale-edit input[type=text], .modale-edit input[type=time], .modale-edit input[type=number] {
+    width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.95rem;
+  }
+  .modale-edit .deux-cols { display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; }
+  .modale-edit .actions { display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.5rem; }
+  .modale-edit button {
+    border:none; border-radius:6px; padding:8px 16px; font-weight:700; cursor:pointer; font-size:0.9rem;
+  }
+  .modale-edit .btn-annuler { background:#f3f4f6; color:#374151; }
+  .modale-edit .btn-valider { background:#16a34a; color:#fff; }
+  .modale-edit .btn-valider:hover { background:#15803d; }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -362,6 +398,10 @@ function afficherRealise() {
         salTotalMin += c.dureeMin;
         salDeplMin  += c.deplacement || 0;
 
+        const idxC = (s.chantiers || []).indexOf(c);
+        const actions = c.isPrevisionnel ? '<span style="color:#d1d5db;">—</span>'
+          : `<button class="btn-action btn-edit" title="Modifier" data-sid="${s._id}" data-idx="${idxC}" onclick="ouvrirEditChantier(this)">✏</button>
+             <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">🗑</button>`;
         rows += `<tr>
           <td class="col-sal">${s.salarieNom}</td>
           <td class="col-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
@@ -371,6 +411,7 @@ function afficherRealise() {
           <td class="col-tot">${th}h${String(tm).padStart(2,'0')}</td>
           <td class="col-tot" style="color:#9ca3af;">—</td>
           <td class="col-tot" style="color:#9ca3af;">—</td>
+          <td class="col-actions">${actions}</td>
         </tr>`;
       });
 
@@ -393,6 +434,7 @@ function afficherRealise() {
           <td class="col-tot">${sth}h${String(stm).padStart(2,'0')}</td>
           <td class="col-tot">${salPrevStr}</td>
           <td class="col-tot" style="color:${salEcartColor};">${salEcartStr}</td>
+          <td class="col-actions"></td>
         </tr>`;
       }
 
@@ -436,7 +478,7 @@ function afficherRealise() {
           <th class="col-tot">Réalisé</th>
           <th class="col-tot">Prévu</th>
           <th class="col-tot">Écart</th>
-
+          <th class="col-actions">Actions</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         <tfoot>
@@ -447,6 +489,7 @@ function afficherRealise() {
             <td class="col-tot">${jth}h${String(jtm).padStart(2,'0')}</td>
             <td class="col-tot">${jourPrevStr}</td>
             <td class="col-tot" style="color:${jourEcartColor};">${jourEcartStr}</td>
+            <td class="col-actions"></td>
           </tr>
         </tfoot>
       </table>
@@ -466,6 +509,80 @@ function afficherRealise() {
 
   // Scroll auto vers le jour du jour (ou le plus proche si pas de saisie aujourd'hui)
   setTimeout(scrollVersAujourdhui, 100);
+}
+
+/* ═══════════════════════════
+   ÉDITION / SUPPRESSION D'UN CHANTIER (patron uniquement)
+═══════════════════════════ */
+let _edition = null; // { sid, idx }
+
+function ouvrirEditChantier(btn) {
+  const sid = btn.dataset.sid;
+  const idx = parseInt(btn.dataset.idx);
+  const saisie = _saisies.find(s => String(s._id) === String(sid));
+  if (!saisie) { alert('Saisie introuvable'); return; }
+  const c = saisie.chantiers?.[idx];
+  if (!c) { alert('Chantier introuvable'); return; }
+
+  _edition = { sid, idx };
+  document.getElementById('me-nom').value  = c.nom || '';
+  document.getElementById('me-arr').value  = c.heureArrivee || '';
+  document.getElementById('me-dep').value  = c.heureDepart || '';
+  document.getElementById('me-depl').value = c.deplacement || 0;
+  document.getElementById('modale-edit').style.display = 'flex';
+}
+
+function fermerEditChantier() {
+  document.getElementById('modale-edit').style.display = 'none';
+  _edition = null;
+}
+
+async function enregistrerEditChantier() {
+  if (!_edition) return;
+  const { sid, idx } = _edition;
+  const nom  = document.getElementById('me-nom').value.trim();
+  const arr  = document.getElementById('me-arr').value;
+  const dep  = document.getElementById('me-dep').value;
+  const depl = parseInt(document.getElementById('me-depl').value) || 0;
+  if (!nom) { alert('Le nom du chantier est obligatoire.'); return; }
+  if (arr && dep && arr >= dep) { alert('L\'heure de départ doit être après l\'heure d\'arrivée.'); return; }
+
+  try {
+    const token = localStorage.getItem('syncToken');
+    const r = await fetch(`/api/saisies/${sid}/chantier/${idx}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ nom, heureArrivee: arr, heureDepart: dep, deplacement: depl })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert('Erreur : ' + (d.message || 'modification refusée')); return; }
+    fermerEditChantier();
+    await chargerRealise();
+  } catch (e) {
+    alert('Erreur réseau, vérifiez votre connexion.');
+  }
+}
+
+async function supprimerChantierSaisie(btn) {
+  const sid = btn.dataset.sid;
+  const idx = parseInt(btn.dataset.idx);
+  const saisie = _saisies.find(s => String(s._id) === String(sid));
+  const c = saisie?.chantiers?.[idx];
+  const nomCh = c?.nom || 'ce chantier';
+  if (!confirm(`Supprimer définitivement le chantier « ${nomCh} » ?\n\nCette action ne peut pas être annulée.`)) return;
+
+  try {
+    const token = localStorage.getItem('syncToken');
+    const r = await fetch(`/api/saisies/${sid}/chantier/${idx}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) { alert('Erreur : ' + (d.message || 'suppression refusée')); return; }
+    await chargerRealise();
+  } catch (e) {
+    alert('Erreur réseau, vérifiez votre connexion.');
+  }
 }
 
 /* Scroll vers le bloc du jour courant (sinon le plus proche dans le mois affiché) */
@@ -576,5 +693,34 @@ function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
 
 
 </script>
+<!-- Modale d'édition d'un chantier -->
+<div class="modale-edit-bg" id="modale-edit" style="display:none;" onclick="if(event.target===this)fermerEditChantier();">
+  <div class="modale-edit">
+    <h3 id="modale-edit-titre">Modifier le chantier</h3>
+    <div class="champ">
+      <label>Nom du chantier</label>
+      <input type="text" id="me-nom">
+    </div>
+    <div class="deux-cols">
+      <div class="champ">
+        <label>Heure d'arrivée</label>
+        <input type="time" id="me-arr">
+      </div>
+      <div class="champ">
+        <label>Heure de départ</label>
+        <input type="time" id="me-dep">
+      </div>
+    </div>
+    <div class="champ">
+      <label>Déplacement (minutes)</label>
+      <input type="number" id="me-depl" min="0" max="600" step="15">
+    </div>
+    <div class="actions">
+      <button class="btn-annuler" onclick="fermerEditChantier()">Annuler</button>
+      <button class="btn-valider" onclick="enregistrerEditChantier()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
