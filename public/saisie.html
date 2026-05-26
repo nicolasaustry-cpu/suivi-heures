@@ -367,6 +367,11 @@
   </div>
 
   <div class="pin-error" id="pin-error"></div>
+
+  <!-- Lien discret pour basculer vers une autre entreprise (changer de code employé) -->
+  <div style="margin-top:1.5rem;text-align:center;">
+    <a href="#" onclick="changerEntreprise(event)" style="color:rgba(255,255,255,0.55);font-size:0.75rem;text-decoration:underline;">Changer d'entreprise</a>
+  </div>
 </div>
 
 <!-- ── ÉCRAN SAISIE ── -->
@@ -1140,6 +1145,21 @@ function validerAjout() {
 /* ═══════════════════════════
    ENVOI
 ═══════════════════════════ */
+/* Changer d'entreprise : efface le code employé mémorisé et toutes les données
+   locales liées, puis recharge la page pour repartir sur le formulaire initial.
+   Utile pour basculer entre plusieurs comptes clients (administrateur Volitis). */
+function changerEntreprise(ev) {
+  if (ev) ev.preventDefault();
+  if (!confirm("Changer d'entreprise ?\n\nLe code employé actuel sera oublié sur ce téléphone, vous devrez en saisir un nouveau.")) return;
+  // Effacer tout ce qui est mémorisé côté mobile
+  localStorage.removeItem('saisie_codeEmploye');
+  localStorage.removeItem('saisie_salarie');
+  localStorage.removeItem('salariesdata');
+  localStorage.removeItem('heuresdata');
+  localStorage.removeItem('previsionnel_data');
+  location.reload();
+}
+
 function seDeconnecter() {
   // Effacer le salarié mémorisé
   localStorage.removeItem('saisie_salarie');
