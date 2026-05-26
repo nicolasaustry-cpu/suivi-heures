@@ -12,7 +12,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <!-- Lib QR code (chargée uniquement sur PC pour générer le QR de partage aux salariés) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; background: #fff; }
@@ -592,7 +592,7 @@ async function reconnecterAuto(codeEmploye) {
       // Afficher le QR de partage (PC uniquement, lib chargée en defer)
       const codeAct = localStorage.getItem('saisie_codeEmploye');
       if (codeAct) {
-        if (typeof QRCode !== 'undefined') afficherQR(codeAct);
+        if (typeof qrcode !== 'undefined') afficherQR(codeAct);
         else window.addEventListener('load', () => afficherQR(codeAct), { once: true });
       }
 
@@ -673,7 +673,7 @@ async function validerCodeEntreprise() {
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
 
     // Afficher le QR de partage (PC uniquement)
-    if (typeof QRCode !== 'undefined') afficherQR(codeEmploye);
+    if (typeof qrcode !== 'undefined') afficherQR(codeEmploye);
     else window.addEventListener('load', () => afficherQR(codeEmploye), { once: true });
 
     // Passer à l'étape PIN
@@ -1254,35 +1254,36 @@ function validerAjout() {
    avec le paramètre ?code=XXX. Le scan du QR ouvre directement l'app
    sur le téléphone du salarié avec le code pré-rempli. */
 function afficherQR(codeEmploye) {
-  if (window.innerWidth < 600) return;            // pas de QR sur mobile
-  if (typeof QRCode === 'undefined') return;      // lib pas encore chargée
+  if (window.innerWidth < 600) return;          // pas de QR sur mobile
+  if (typeof qrcode === 'undefined') {
+    // Lib pas encore chargée, on retentera après load
+    window.addEventListener('load', () => afficherQR(codeEmploye), { once: true });
+    return;
+  }
   const panel = document.getElementById('qr-panel');
   const wrap  = document.getElementById('qr-canvas-wrap');
   const urlEl = document.getElementById('qr-url-text');
   if (!panel || !wrap) return;
 
   const url = `${location.origin}/saisie.html?code=${encodeURIComponent(codeEmploye)}`;
-  wrap.innerHTML = '';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  QRCode.toCanvas(canvas, url, { width: 200, margin: 1 }, err => {
-    if (err) console.error('QR error:', err);
-  });
+
+  // Générer le QR avec qrcode-generator (API : qrcode(typeNumber, errorCorrectionLevel))
+  const qr = qrcode(0, 'M');      // 0 = auto, M = correction moyenne
+  qr.addData(url);
+  qr.make();
+  // createSvgTag(cellSize, margin)
+  wrap.innerHTML = qr.createSvgTag(5, 1);
+
   if (urlEl) urlEl.textContent = url;
   panel.style.display = 'block';
 
-  // Préparer la zone d'impression (cachée à l'écran, visible en impression)
+  // Préparer aussi la zone d'impression (plus grosse)
   const printCode = document.getElementById('qr-print-code');
   const printUrl  = document.getElementById('qr-print-url');
   const printTgt  = document.getElementById('qr-print-target');
   if (printCode) printCode.textContent = codeEmploye;
   if (printUrl)  printUrl.textContent  = url;
-  if (printTgt) {
-    printTgt.innerHTML = '';
-    const c2 = document.createElement('canvas');
-    printTgt.appendChild(c2);
-    QRCode.toCanvas(c2, url, { width: 300, margin: 2 });
-  }
+  if (printTgt)  printTgt.innerHTML    = qr.createSvgTag(8, 2);
 }
 
 function imprimerQR() {
