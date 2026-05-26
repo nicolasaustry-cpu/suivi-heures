@@ -1115,8 +1115,9 @@ function executerCopie() {
   sauverData();
   fermerModale();
   rendreChantiers();
-  // majLigne sur la source uniquement si elle existe encore
-  if (resteSource > 0) majLigne(srcAnnee + '_' + srcMi);
+  // Toujours rafraîchir les indicateurs du haut (H. devis / Écart h. / %), même si
+  // le chantier source a totalement disparu — les agrégats du mois changent.
+  majLigne(srcAnnee + '_' + srcMi);
   destinations.forEach(({ annee, mois }) => majLigne(annee + '_' + mois));
 
   const supprMsg = resteSource <= 0 ? ' · chantier source supprimé' : '';
