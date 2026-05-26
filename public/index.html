@@ -118,10 +118,22 @@
 </section>
 
 <script>
+function _getEntreprise() {
+  try { return JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch { return {}; }
+}
+function _setEntrepriseField(jaugeObj) {
+  const ent = _getEntreprise();
+  ent.jauge = jaugeObj;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+}
+
 function chargerSeuilsJauge() {
-  const r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
-  const o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
-  const f = localStorage.getItem('jaugeFige') === '1';
+  const ent = _getEntreprise();
+  const j   = ent.jauge || {};
+  // Fallback : anciennes clés séparées (pour migration douce)
+  const r = (j.rouge  != null ? j.rouge  : parseInt(localStorage.getItem('jaugeRouge')))  || 33;
+  const o = (j.orange != null ? j.orange : parseInt(localStorage.getItem('jaugeOrange'))) || 66;
+  const f = j.fige != null ? !!j.fige : (localStorage.getItem('jaugeFige') === '1');
   document.getElementById('seuilRouge').value  = r;
   document.getElementById('seuilOrange').value = o;
   document.getElementById('seuilFige').checked = f;
@@ -138,6 +150,9 @@ function sauverSeuilsJauge() {
   const f = document.getElementById('seuilFige').checked;
   document.getElementById('seuilRouge').disabled  = f;
   document.getElementById('seuilOrange').disabled = f;
+  // Stocker dans entreprisedata pour que la sync auto les pousse au serveur
+  _setEntrepriseField({ rouge: r, orange: o, fige: f });
+  // Garder aussi les anciennes clés (autres pages les lisent encore peut-être)
   localStorage.setItem('jaugeRouge',  r);
   localStorage.setItem('jaugeOrange', o);
   localStorage.setItem('jaugeFige',   f ? '1' : '0');
@@ -159,6 +174,7 @@ function arcPath(pctFrom, pctTo) {
   return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A 40 40 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 window.addEventListener('DOMContentLoaded', chargerSeuilsJauge);
+window.addEventListener('donnees-chargees', chargerSeuilsJauge);
 </script>
 
 <!-- Script unique en bas de page -->

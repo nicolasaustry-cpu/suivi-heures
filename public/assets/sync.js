@@ -114,6 +114,7 @@ const SYNC = (() => {
       }
       _type = d.type || 'standard';
       localStorage.setItem('syncType', _type);
+      if (d.nomClient) localStorage.setItem('syncNomClient', d.nomClient);
       verifierAccesPlus();
       majStatutLicence(true);
       majNav();
@@ -150,6 +151,9 @@ const SYNC = (() => {
       localStorage.setItem('syncClientId', _clientId);
       localStorage.setItem('syncType',     _type);
       localStorage.setItem('licenceCode',  code);
+      // Mémoriser le nom du client tel que défini lors de la création de la licence
+      // → permet de pré-remplir le nom de l'entreprise si vide à la 1ʳᵉ connexion
+      if (d.nomClient) localStorage.setItem('syncNomClient', d.nomClient);
 
       majStatutLicence(true);
       majNav();
@@ -198,7 +202,12 @@ const SYNC = (() => {
           afficherNotif('✔ Données synchronisées', '#16a34a');
         } else {
           // Données d'un autre client — ne pas écraser le serveur, charger depuis le serveur
-          localStorage.setItem('entreprisedata',    JSON.stringify(serveur.entreprise || {}));
+          const entServeur = serveur.entreprise || {};
+          if (!entServeur.nom) {
+            const nomClient = localStorage.getItem('syncNomClient');
+            if (nomClient) entServeur.nom = nomClient;
+          }
+          localStorage.setItem('entreprisedata',    JSON.stringify(entServeur));
           localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries   || []));
           localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures     || {}));
           localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers  || []));
@@ -207,7 +216,15 @@ const SYNC = (() => {
         }
       } else {
         // Toujours écraser le localStorage avec les données du serveur
-        localStorage.setItem('entreprisedata',    JSON.stringify(serveur.entreprise || {}));
+        const entServeur = serveur.entreprise || {};
+        // Si le serveur n'a pas encore de nom mais qu'on connaît le nom du client
+        // (saisi à la création de la licence), pré-remplir pour éviter à l'utilisateur
+        // de retaper.
+        if (!entServeur.nom) {
+          const nomClient = localStorage.getItem('syncNomClient');
+          if (nomClient) entServeur.nom = nomClient;
+        }
+        localStorage.setItem('entreprisedata',    JSON.stringify(entServeur));
         localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries   || []));
         localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures     || {}));
         localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers  || []));

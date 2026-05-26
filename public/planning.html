@@ -365,8 +365,13 @@ function majBoutonFiltre() {
    Ici on les lit en lecture seule depuis le localStorage. */
 
 function getSeuilsJauge() {
-  const r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
-  const o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
+  let r, o;
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    if (ent.jauge) { r = ent.jauge.rouge; o = ent.jauge.orange; }
+  } catch (_) {}
+  if (r == null) r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
+  if (o == null) o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
   return {
     rouge:  Math.max(0, Math.min(100, r)),
     orange: Math.max(0, Math.min(100, o))
