@@ -179,6 +179,23 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Liste des mois (YYYY-MM) ayant au moins une saisie pour ce client.
+   ⚠ DOIT être déclarée AVANT /:mois (sinon Express matchera /:mois avec mois="mois-list") */
+router.get("/mois-list", verifyToken, async (req, res) => {
+  try {
+    const saisies = await Saisie.find({ clientId: req.user.clientId }, "date").lean();
+    const mois = new Set();
+    saisies.forEach(s => {
+      if (typeof s.date === 'string' && s.date.length >= 7) {
+        mois.add(s.date.substring(0, 7));  // 'YYYY-MM'
+      }
+    });
+    res.json({ ok: true, mois: [...mois].sort() });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Récupérer les saisies d'un mois ── */
 router.get("/:mois", verifyToken, async (req, res) => {
   try {

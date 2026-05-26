@@ -178,13 +178,7 @@
   <div class="zone-filtres">
     <div class="filtre-item">
       <label>Mois</label>
-      <input type="month" id="filtreMonth" onchange="genererRapport()">
-    </div>
-    <div class="filtre-item">
-      <label>Année</label>
-      <select id="filtreAnnee" onchange="genererRapport()">
-        <option value="">Toutes</option>
-      </select>
+      <div class="filtre-btn" id="btn-mois" onclick="ouvrirFiltreMois(event)">Tous ▼</div>
     </div>
     <div class="filtre-item">
       <label>Salarié(s)</label>
@@ -355,14 +349,10 @@ window.addEventListener('DOMContentLoaded', () => {
     licEl.style.background = code ? 'rgba(134,239,172,0.25)' : 'rgba(252,165,165,0.25)';
   }
 
-  remplirAnnees();
-
-  // Mois en cours par défaut dans le filtre
-  const moisInput = document.getElementById('filtreMonth');
-  if (moisInput && !moisInput.value) {
-    const now = new Date();
-    moisInput.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  }
+  // Sélection par défaut = mois en cours
+  const now = new Date();
+  _moisSelection = new Set([`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`]);
+  majLibelleMois();
 
   genererRapport();
   ajusterHauteur();
@@ -379,23 +369,81 @@ function ajusterHauteur() {
 }
 
 /* ═══════════════════════════
-   ANNÉES
+   SÉLECTION MULTI-MOIS
 ═══════════════════════════ */
-function remplirAnnees() {
-  const h = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-  const annees = new Set();
-  for (const k in h) { const m = k.match(/(\d{4})_\d{2}_\d{2}/); if (m) annees.add(m[1]); }
-  const sel = document.getElementById('filtreAnnee');
-  [...annees].sort((a,b) => b-a).forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a; opt.textContent = a; sel.appendChild(opt);
+let _moisSelection = new Set();   // Set de 'YYYY-MM'
+
+const NOMS_MOIS_FR = ['Janv.','Févr.','Mars','Avril','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
+function libelleMoisCourt(yyyyMM) {
+  const [a, m] = yyyyMM.split('-');
+  return NOMS_MOIS_FR[parseInt(m)-1] + ' ' + a;
+}
+
+/* Retourne la liste triée chronologiquement des mois 'YYYY-MM' ayant au moins une donnée
+   (heures prévues dans heuresdata OU saisies réalisées récupérées depuis le serveur). */
+async function getMoisAvecDonnees() {
+  const mois = new Set();
+  // Mois ayant des heures prévues (localStorage)
+  const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  for (const k in heures) {
+    const m = k.match(/(\d{4})_(\d{2})_\d{2}/);
+    if (m && heures[k] && (parseFloat(heures[k].heures) > 0 || heures[k].chantier)) {
+      mois.add(`${m[1]}-${m[2]}`);
+    }
+  }
+  // Mois ayant des saisies réalisées (serveur)
+  try {
+    const token = localStorage.getItem('syncToken');
+    if (token) {
+      const r = await fetch('/api/saisies/mois-list', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (r.ok) {
+        const d = await r.json();
+        (d.mois || []).forEach(m => mois.add(m));
+      }
+    }
+  } catch (_) {}
+  // Toujours inclure le mois en cours pour permettre de saisir
+  const now = new Date();
+  mois.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+  return [...mois].sort();   // ordre chronologique
+}
+
+function majLibelleMois() {
+  const btn = document.getElementById('btn-mois');
+  if (!btn) return;
+  if (_moisSelection.size === 0) {
+    btn.textContent = 'Aucun ▼';
+    btn.classList.remove('fexc-active');
+  } else {
+    const arr = [..._moisSelection].sort();
+    if (arr.length === 1) btn.textContent = libelleMoisCourt(arr[0]) + ' ▼';
+    else                  btn.textContent = arr.length + ' mois sélectionnés ▼';
+    btn.classList.add('fexc-active');
+  }
+}
+
+async function ouvrirFiltreMois(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
+  const btn = document.getElementById('btn-mois');
+  if (!btn) return;
+  const moisDispo = await getMoisAvecDonnees();
+  const items = moisDispo.map(m => ({ value: m, label: libelleMoisCourt(m) }));
+  FiltreExcel.ouvrir({
+    button: btn,
+    items,
+    selected: new Set(_moisSelection),
+    onApply: (sel) => {
+      _moisSelection = new Set(sel);
+      majLibelleMois();
+      genererRapport();
+    }
   });
 }
 
 /* ═══════════════════════════
    EXTRACTION PRÉVUES (planning localStorage)
 ═══════════════════════════ */
-function extrairePrev(filtreMois, filtreAnnee) {
+function extrairePrev() {
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   const heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
   const indexSal = {};
@@ -416,8 +464,7 @@ function extrairePrev(filtreMois, filtreAnnee) {
     if (isNaN(d)) continue;
     const annee   = d.getFullYear().toString();
     const moisStr = `${annee}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if (filtreMois  && moisStr !== filtreMois)  continue;
-    if (filtreAnnee && annee   !== filtreAnnee) continue;
+    if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
     lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h });
@@ -426,34 +473,36 @@ function extrairePrev(filtreMois, filtreAnnee) {
 }
 
 /* ═══════════════════════════
-   EXTRACTION RÉALISÉES (saisies serveur)
+   EXTRACTION RÉALISÉES (saisies serveur, multi-mois)
 ═══════════════════════════ */
-async function extraireReal(filtreMois) {
-  if (!filtreMois) return [];
+async function extraireReal() {
+  if (_moisSelection.size === 0) return [];
   try {
     const token = localStorage.getItem('syncToken');
     if (!token) return [];
-    const r = await fetch(`/api/saisies/${filtreMois}`, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const d = await r.json();
-    if (!d.ok) return [];
-
     const lignes = [];
-    d.saisies.forEach(s => {
-      (s.chantiers || []).forEach(c => {
-        if (!c.dureeMin) return;
-        const dt = new Date(s.date + 'T00:00:00');
-        lignes.push({
-          date:      dt,
-          dateStr:   dt.toLocaleDateString('fr-FR'),
-          salarie:   s.salarieNom,
-          salarieId: String(s.salarieId),
-          chantier:  c.nom,
-          heures:    parseFloat((c.dureeMin / 60).toFixed(2))
+    // Boucle sur chaque mois sélectionné, l'API ne renvoie qu'un mois à la fois
+    for (const mois of _moisSelection) {
+      const r = await fetch(`/api/saisies/${mois}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (!d.ok) continue;
+      d.saisies.forEach(s => {
+        (s.chantiers || []).forEach(c => {
+          if (!c.dureeMin) return;
+          const dt = new Date(s.date + 'T00:00:00');
+          lignes.push({
+            date:      dt,
+            dateStr:   dt.toLocaleDateString('fr-FR'),
+            salarie:   s.salarieNom,
+            salarieId: String(s.salarieId),
+            chantier:  c.nom,
+            heures:    parseFloat((c.dureeMin / 60).toFixed(2))
+          });
         });
       });
-    });
+    }
     return lignes;
   } catch { return []; }
 }
@@ -462,11 +511,8 @@ async function extraireReal(filtreMois) {
    GÉNÉRATION GLOBALE
 ═══════════════════════════ */
 async function genererRapport() {
-  const filtreMois  = document.getElementById('filtreMonth').value;
-  const filtreAnnee = document.getElementById('filtreAnnee').value;
-
-  lignesPrev = extrairePrev(filtreMois, filtreAnnee);
-  lignesReal = await extraireReal(filtreMois);
+  lignesPrev = extrairePrev();
+  lignesReal = await extraireReal();
 
   filtresActifs.salarie  = null;
   filtresActifs.chantier = null;
@@ -672,12 +718,13 @@ function lignesAExporter() {
     prev = prevVisible.filter(filtreDate);
     real = realVisible.filter(filtreDate);
     libelle = `Période du ${formaterDateFR(dDeb)} au ${formaterDateFR(dFin)}`;
+  } else if (_moisSelection.size === 0) {
+    libelle = 'Toutes périodes';
+  } else if (_moisSelection.size === 1) {
+    libelle = `Mois ${moisLibelle([..._moisSelection][0])}`;
   } else {
-    const mois = document.getElementById('filtreMonth').value;
-    const an   = document.getElementById('filtreAnnee').value;
-    if (an && !mois)      libelle = `Année ${an}`;
-    else if (mois)        libelle = `Mois ${moisLibelle(mois)}`;
-    else                  libelle = 'Toutes périodes';
+    const arr = [..._moisSelection].sort();
+    libelle = `${arr.length} mois (${moisLibelle(arr[0])} → ${moisLibelle(arr[arr.length-1])})`;
   }
   // Normaliser le champ date en YYYY-MM-DD pour les exports
   prev = prev.map(l => ({ ...l, date: isoOf(l) }));

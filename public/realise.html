@@ -161,7 +161,7 @@
       <!-- Mois -->
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Mois :</label><br>
-        <input type="month" id="moisRealise" onchange="chargerRealise()">
+        <div class="filtre-btn" id="btn-mois" onclick="ouvrirFiltreMois(event)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.9rem;min-width:120px;user-select:none;display:inline-block;">Tous ▼</div>
       </div>
 
       <!-- Filtre salariés -->
@@ -233,6 +233,63 @@ let _cochésSal = new Set();
 let _cochesCh  = new Set();
 let _tousSals  = [];
 let _tousChs   = [];
+let _moisSelection = new Set();   // Set de 'YYYY-MM'
+
+/* ══ SÉLECTION MULTI-MOIS ══ */
+const NOMS_MOIS_FR = ['Janv.','Févr.','Mars','Avril','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
+function libelleMoisCourt(yyyyMM) {
+  const [a, m] = yyyyMM.split('-');
+  return NOMS_MOIS_FR[parseInt(m)-1] + ' ' + a;
+}
+
+function majLibelleMois() {
+  const btn = document.getElementById('btn-mois');
+  if (!btn) return;
+  if (_moisSelection.size === 0) {
+    btn.textContent = 'Aucun ▼';
+  } else if (_moisSelection.size === 1) {
+    btn.textContent = libelleMoisCourt([..._moisSelection][0]) + ' ▼';
+  } else {
+    btn.textContent = _moisSelection.size + ' mois sélectionnés ▼';
+  }
+}
+
+/* Liste des mois ayant des données = saisies serveur + mois courant */
+async function getMoisAvecDonnees() {
+  const mois = new Set();
+  try {
+    const token = localStorage.getItem('syncToken');
+    if (token) {
+      const r = await fetch('/api/saisies/mois-list', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (r.ok) {
+        const d = await r.json();
+        (d.mois || []).forEach(m => mois.add(m));
+      }
+    }
+  } catch (_) {}
+  // Toujours inclure le mois en cours
+  const now = new Date();
+  mois.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+  return [...mois].sort();
+}
+
+async function ouvrirFiltreMois(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
+  const btn = document.getElementById('btn-mois');
+  if (!btn) return;
+  const moisDispo = await getMoisAvecDonnees();
+  const items = moisDispo.map(m => ({ value: m, label: libelleMoisCourt(m) }));
+  FiltreExcel.ouvrir({
+    button: btn,
+    items,
+    selected: new Set(_moisSelection),
+    onApply: (sel) => {
+      _moisSelection = new Set(sel);
+      majLibelleMois();
+      chargerRealise();
+    }
+  });
+}
 
 /* ══ INIT ══ */
 window.addEventListener('DOMContentLoaded', () => {
@@ -241,9 +298,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
 
+  // Sélection mois par défaut = mois en cours
   const now = new Date();
-  document.getElementById('moisRealise').value =
-    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  _moisSelection = new Set([`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`]);
+  majLibelleMois();
 
   ajusterMarginTop();
   window.addEventListener('resize', ajusterMarginTop);
@@ -265,19 +323,23 @@ function ajusterMarginTop() {
 
 /* ══ CHARGEMENT ══ */
 async function chargerRealise() {
-  const mois  = document.getElementById('moisRealise').value;
-  if (!mois) return;
+  if (!_moisSelection || _moisSelection.size === 0) { _saisies = []; afficherRealise(); return; }
 
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken()) || localStorage.getItem('syncToken');
   if (!token) { _saisies = []; afficherRealise(); return; }
 
-  try {
-    const r = await fetch(`/api/saisies/${mois}`, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const d = await r.json();
-    _saisies = d.ok ? d.saisies : [];
-  } catch { _saisies = []; }
+  // Boucle sur chaque mois sélectionné (l'API ne renvoie qu'un mois à la fois)
+  const tout = [];
+  for (const mois of _moisSelection) {
+    try {
+      const r = await fetch(`/api/saisies/${mois}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (d.ok && d.saisies) tout.push(...d.saisies);
+    } catch (_) {}
+  }
+  _saisies = tout;
 
   // Construire les listes de filtres
   _tousSals = [...new Set(_saisies.map(s => s.salarieNom))].sort();
@@ -598,10 +660,10 @@ function scrollVersAujourdhui() {
 
   const auj = new Date();
   const ajdStr = `${auj.getFullYear()}-${String(auj.getMonth()+1).padStart(2,'0')}-${String(auj.getDate()).padStart(2,'0')}`;
+  const moisAuj = ajdStr.substring(0, 7);
 
-  // Vérifier qu'on est bien sur le mois en cours, sinon ne rien faire
-  const moisAffiche = document.getElementById('moisRealise').value;
-  if (!moisAffiche || !ajdStr.startsWith(moisAffiche)) return;
+  // Le scroll auto n'a de sens que si le mois courant est dans la sélection
+  if (!_moisSelection || !_moisSelection.has(moisAuj)) return;
 
   // Trouver le bloc exact, sinon le bloc dont la date est <= aujourd'hui le plus récent
   let cible = null;
