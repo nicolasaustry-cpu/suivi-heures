@@ -115,6 +115,7 @@ const SYNC = (() => {
       _type = d.type || 'standard';
       localStorage.setItem('syncType', _type);
       verifierAccesPlus();
+      majStatutLicence(true);
       majNav();
       await chargerDonnees();
     } catch {
