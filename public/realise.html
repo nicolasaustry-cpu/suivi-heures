@@ -88,12 +88,16 @@
   /* Colonne Actions et boutons */
   .col-actions { width:80px; text-align:center; white-space:nowrap; }
   .btn-action {
-    background:transparent; border:1px solid transparent; border-radius:6px;
-    padding:3px 8px; cursor:pointer; font-size:0.9rem; margin:0 1px;
-    transition: background 0.15s;
+    background:#fff; border:1px solid #e5e7eb; border-radius:6px;
+    padding:4px 7px; cursor:pointer; margin:0 1px;
+    display:inline-flex; align-items:center; justify-content:center;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    vertical-align: middle;
   }
-  .btn-action:hover { background:#eff6ff; border-color:#bfdbfe; }
-  .btn-action.btn-del:hover { background:#fef2f2; border-color:#fecaca; }
+  .btn-action svg { display:block; }
+  .btn-edit:hover { background:#fef9c3; border-color:#eab308; transform: scale(1.08); }
+  .btn-del:hover  { background:#fee2e2; border-color:#dc2626; transform: scale(1.08); }
+  .btn-action:active { transform: scale(0.95); }
 
   /* Modale d'édition */
   .modale-edit-bg {
@@ -399,9 +403,11 @@ function afficherRealise() {
         salDeplMin  += c.deplacement || 0;
 
         const idxC = (s.chantiers || []).indexOf(c);
+        const iconCrayon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="#eab308" stroke="#a16207" stroke-width="1.2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+        const iconPoubelle = `<svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626" stroke="#991b1b" stroke-width="0.8"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`;
         const actions = c.isPrevisionnel ? '<span style="color:#d1d5db;">—</span>'
-          : `<button class="btn-action btn-edit" title="Modifier" data-sid="${s._id}" data-idx="${idxC}" onclick="ouvrirEditChantier(this)">✏</button>
-             <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">🗑</button>`;
+          : `<button class="btn-action btn-edit" title="Modifier" data-sid="${s._id}" data-idx="${idxC}" onclick="ouvrirEditChantier(this)">${iconCrayon}</button>
+             <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">${iconPoubelle}</button>`;
         rows += `<tr>
           <td class="col-sal">${s.salarieNom}</td>
           <td class="col-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
