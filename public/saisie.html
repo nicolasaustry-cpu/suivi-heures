@@ -113,7 +113,55 @@
     #zone-impression-qr * { visibility: visible; }
   }
 
-  /* ── HEADER ── */
+  /* ── Bandeau d'installation PWA (en haut de page, hors phone-wrap) ── */
+  .install-banner {
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+    color: #fff;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    position: relative;
+    z-index: 500;
+  }
+  .install-banner-icone { font-size: 1.6rem; flex-shrink: 0; }
+  .install-banner-texte { flex: 1; }
+  .install-banner-titre { font-weight: 700; font-size: 0.95rem; margin-bottom: 2px; }
+  .install-banner-sous  { font-size: 0.8rem; opacity: 0.9; line-height: 1.3; }
+  .install-banner-btn {
+    background: #fff; color: #1d4ed8; border: none;
+    border-radius: 8px; padding: 8px 16px;
+    font-weight: 700; font-size: 0.88rem; cursor: pointer;
+    flex-shrink: 0;
+  }
+  .install-banner-btn:hover { background: #f1f5f9; }
+  .install-banner-fermer {
+    background: transparent; border: none; color: #fff;
+    font-size: 1.4rem; cursor: pointer; opacity: 0.7;
+    padding: 0 4px;
+  }
+  .install-banner-fermer:hover { opacity: 1; }
+  /* Modal instructions iOS */
+  .ios-modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .ios-modal {
+    background: #fff; border-radius: 14px;
+    max-width: 360px; width: 100%;
+    padding: 24px 20px;
+    text-align: left;
+    color: #1f2937;
+  }
+  .ios-modal h3 { color: #2563eb; margin-bottom: 12px; font-size: 1.1rem; text-align: center; }
+  .ios-modal ol { padding-left: 22px; margin: 12px 0; }
+  .ios-modal ol li { margin: 8px 0; font-size: 0.9rem; line-height: 1.4; }
+  .ios-modal .icone-action { display: inline-block; padding: 2px 8px; background: #e0f2fe; border-radius: 4px; color: #0369a1; font-weight: 700; margin: 0 2px; }
+  .ios-modal button { width: 100%; margin-top: 14px; background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 10px; font-weight: 700; cursor: pointer; }
   header {
     background: #2563eb; color: #fff;
     padding: 0.8rem 1rem;
@@ -369,6 +417,32 @@
   </style>
 </head>
 <body>
+
+<!-- ── BANDEAU D'INSTALLATION PWA (caché par défaut, affiché par JS si conditions OK) ── -->
+<div class="install-banner" id="install-banner" style="display:none;">
+  <div class="install-banner-icone">📲</div>
+  <div class="install-banner-texte">
+    <div class="install-banner-titre">Installer l'app Suiv'Heures</div>
+    <div class="install-banner-sous" id="install-banner-sous">Pour un accès rapide depuis votre écran d'accueil</div>
+  </div>
+  <button class="install-banner-btn" id="install-banner-btn" onclick="declencherInstall()">Installer</button>
+  <button class="install-banner-fermer" onclick="masquerInstall()" title="Plus tard">×</button>
+</div>
+
+<!-- ── MODAL D'INSTRUCTIONS iOS (Safari ne permet pas l'install programmatique) ── -->
+<div class="ios-modal-bg" id="ios-modal" style="display:none;" onclick="if(event.target===this)this.style.display='none';">
+  <div class="ios-modal">
+    <h3>📲 Installer sur votre iPhone</h3>
+    <p style="font-size:0.88rem;color:#6b7280;">Pour ajouter Suiv'Heures à votre écran d'accueil :</p>
+    <ol>
+      <li>Touchez l'icône <span class="icone-action">⬆️ Partager</span> en bas de Safari</li>
+      <li>Faites défiler et touchez <span class="icone-action">Sur l'écran d'accueil</span></li>
+      <li>Touchez <span class="icone-action">Ajouter</span> en haut à droite</li>
+    </ol>
+    <p style="font-size:0.82rem;color:#6b7280;text-align:center;margin-top:8px;">L'app apparaîtra comme une vraie application 👍</p>
+    <button onclick="document.getElementById('ios-modal').style.display='none';">J'ai compris</button>
+  </div>
+</div>
 
 <!-- Bandeau navigation (visible sur desktop uniquement) -->
 <div class="nav-desktop">
@@ -1289,6 +1363,96 @@ function afficherQR(codeEmploye) {
 function imprimerQR() {
   window.print();
 }
+
+/* ═══════════════════════════
+   INSTALLATION PWA
+═══════════════════════════ */
+let _installPrompt = null;
+
+function estEnAppInstallee() {
+  // Si la page tourne en mode "standalone" → l'app est déjà installée
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+}
+
+function estIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+function dernierDismiss() {
+  const v = localStorage.getItem('installDismiss');
+  return v ? parseInt(v) : 0;
+}
+
+function dismissExpire() {
+  const j7 = 7 * 24 * 3600 * 1000;
+  return (Date.now() - dernierDismiss()) > j7;
+}
+
+function masquerInstall() {
+  document.getElementById('install-banner').style.display = 'none';
+  localStorage.setItem('installDismiss', Date.now());
+}
+
+function afficherInstall() {
+  if (estEnAppInstallee()) return;
+  if (!dismissExpire())    return;
+  const banniere = document.getElementById('install-banner');
+  const btn      = document.getElementById('install-banner-btn');
+  const sous     = document.getElementById('install-banner-sous');
+  if (!banniere) return;
+
+  if (estIOS()) {
+    sous.textContent = 'Touchez "Installer" pour voir la procédure (Safari iPhone)';
+    btn.textContent = 'Installer';
+  } else if (_installPrompt) {
+    sous.textContent = 'Pour un accès rapide depuis votre écran d\'accueil';
+    btn.textContent = 'Installer';
+  } else {
+    // Pas iOS, pas de prompt natif disponible → on cache le bouton mais pas la bannière
+    // (l'utilisateur peut encore "ajouter à l'écran d'accueil" via le menu navigateur)
+    return;
+  }
+  banniere.style.display = 'flex';
+}
+
+async function declencherInstall() {
+  if (estIOS()) {
+    document.getElementById('ios-modal').style.display = 'flex';
+    return;
+  }
+  if (!_installPrompt) {
+    alert('Installation non disponible sur ce navigateur. Utilisez le menu du navigateur pour "Ajouter à l\'écran d\'accueil".');
+    return;
+  }
+  _installPrompt.prompt();
+  const choix = await _installPrompt.userChoice;
+  _installPrompt = null;
+  document.getElementById('install-banner').style.display = 'none';
+  if (choix.outcome === 'accepted') {
+    localStorage.removeItem('installDismiss');
+  } else {
+    localStorage.setItem('installDismiss', Date.now());
+  }
+}
+
+// Chrome/Edge/Android : capture de l'événement
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  afficherInstall();
+});
+
+// Au chargement : si iOS (où beforeinstallprompt n'existe pas) et pas déjà installé, afficher quand même
+window.addEventListener('load', () => {
+  if (estIOS() && !estEnAppInstallee()) afficherInstall();
+});
+
+// Si l'app vient d'être installée
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').style.display = 'none';
+  localStorage.removeItem('installDismiss');
+});
 
 /* Changer d'entreprise : efface le code employé mémorisé et toutes les données
    locales liées, puis recharge la page pour repartir sur le formulaire initial.
