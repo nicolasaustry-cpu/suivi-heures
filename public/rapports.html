@@ -153,28 +153,20 @@
   .synth-realise-tableau {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
-  /* Tableau Synthèse réalisée : limite la hauteur à ~4 lignes, scroll au-delà.
-     On rend le tbody scrollable en passant tbody / thead / tfoot en display block. */
-  .synth-realise-tableau .synth-table {
-    display: block;
-  }
-  .synth-realise-tableau .synth-table thead,
-  .synth-realise-tableau .synth-table tbody,
-  .synth-realise-tableau .synth-table tfoot {
-    display: block;
-    width: 100%;
-  }
-  .synth-realise-tableau .synth-table thead tr,
-  .synth-realise-tableau .synth-table tbody tr,
-  .synth-realise-tableau .synth-table tfoot tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-  }
-  .synth-realise-tableau .synth-table tbody {
-    max-height: calc(4 * 2.1rem);   /* 4 lignes * hauteur ligne approx */
+  /* Wrapper scrollable autour du tableau Synthèse réalisée : limite à ~4 lignes */
+  .synth-realise-tableau .synth-scroll {
+    max-height: calc(4 * 2.1rem + 2.2rem);   /* 4 lignes + en-tête */
     overflow-y: auto;
+  }
+  /* Conserver le sticky pour thead et tfoot pendant le scroll */
+  .synth-realise-tableau .synth-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f0fdf4;
+    z-index: 2;
   }
   .synth-prevu-encart {
     flex: 0 0 110px;
@@ -315,15 +307,17 @@
       <div class="synth-titre realise" id="synth-titre-real">Tous chantiers</div>
       <div class="synth-realise-flex">
         <div class="synth-realise-tableau">
-          <table class="synth-table realise">
-            <colgroup>
-              <col class="col-sal-synth">
-              <col class="col-h-synth">
-            </colgroup>
-            <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
-            <tbody id="tbody-synth-real"></tbody>
-            <tfoot><tr><td>Total</td><td id="total-synth-real">0 h</td></tr></tfoot>
-          </table>
+          <div class="synth-scroll">
+            <table class="synth-table realise">
+              <colgroup>
+                <col class="col-sal-synth">
+                <col class="col-h-synth">
+              </colgroup>
+              <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
+              <tbody id="tbody-synth-real"></tbody>
+              <tfoot><tr><td>Total</td><td id="total-synth-real">0 h</td></tr></tfoot>
+            </table>
+          </div>
           <p class="msg-vide" id="vide-synth-real" style="display:none;">Aucune donnée</p>
         </div>
         <!-- Encart "Heures prévues" : visible seulement si un filtre chantier est appliqué -->
