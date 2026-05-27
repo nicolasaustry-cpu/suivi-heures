@@ -285,7 +285,7 @@
     <!-- Synthèse PRÉVUE -->
     <div class="rapport-card">
       <div class="rapport-card-header prevu">
-        <h3>Synthèse Heures Prévues</h3>
+        <h3>Synthèse Heures Planifiées</h3>
         <span class="badge-nb prevu" id="badge-synth-prev">0 h</span>
       </div>
       <div class="synth-titre prevu" id="synth-titre-prev">Tous les chantiers</div>
@@ -325,7 +325,7 @@
         </div>
         <!-- Encart "Heures prévues" : visible seulement si un filtre chantier est appliqué -->
         <div class="synth-prevu-encart" id="synth-prevu-encart" style="display:none;">
-          <div class="encart-titre">Heures prévues</div>
+          <div class="encart-titre">Heures planifiées</div>
           <div class="encart-valeur" id="encart-prevu-total">0 h</div>
           <div class="encart-sous" id="encart-prevu-sous"></div>
         </div>
@@ -339,7 +339,7 @@
     <!-- Détail PRÉVU -->
     <div class="rapport-card">
       <div class="rapport-card-header prevu">
-        <h3>Détail Heures Prévues</h3>
+        <h3>Détail Heures Planifiées</h3>
         <span class="badge-nb prevu" id="badge-det-prev">0 ligne</span>
       </div>
       <table class="detail-table prevu">
@@ -907,7 +907,7 @@ function exporterExcel() {
   prev.forEach(l => detailPrevRows.push([l.date, l.salarie, l.chantier, Number(l.heures.toFixed(2))]));
   const wsP = XLSX.utils.aoa_to_sheet(detailPrevRows);
   wsP['!cols'] = [{wch:12},{wch:22},{wch:28},{wch:10}];
-  XLSX.utils.book_append_sheet(wb, wsP, 'Détail Heures Prévues');
+  XLSX.utils.book_append_sheet(wb, wsP, 'Détail Heures Planifiées');
 
   // Feuille 3 : Détail réalisé
   const detailRealRows = [['Date', 'Salarié', 'Chantier', 'Heures']];
@@ -978,7 +978,7 @@ function exporterPDF() {
   // Détail prévu (nouvelle page si peu de place)
   doc.addPage();
   doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text("Détail Heures Prévues", 14, 16);
+  doc.text("Détail Heures Planifiées", 14, 16);
   doc.autoTable({
     startY: 22,
     head: [['Date', 'Salarié', 'Chantier', 'Heures']],
