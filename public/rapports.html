@@ -146,13 +146,15 @@
   /* Layout Synthèse réalisée + encart Heures prévues côte à côte */
   .synth-realise-flex {
     display: flex;
-    align-items: stretch;
-    gap: 0.6rem;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.5rem;
     padding: 0.4rem;
   }
   .synth-realise-tableau {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 360px;
     display: flex;
     flex-direction: column;
   }
