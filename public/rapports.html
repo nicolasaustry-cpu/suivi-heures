@@ -142,6 +142,75 @@
 
   @media print { .top-bar { position:static; } #contenu-detail { height:auto !important; overflow:visible; } }
   @media (max-width: 900px) { .grille-rapport { grid-template-columns:1fr; } }
+
+  /* Layout Synthèse réalisée + encart Heures prévues côte à côte */
+  .synth-realise-flex {
+    display: flex;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 0.4rem;
+  }
+  .synth-realise-tableau {
+    flex: 1;
+    min-width: 0;
+  }
+  /* Tableau Synthèse réalisée : limite la hauteur à ~4 lignes, scroll au-delà.
+     On rend le tbody scrollable en passant tbody / thead / tfoot en display block. */
+  .synth-realise-tableau .synth-table {
+    display: block;
+  }
+  .synth-realise-tableau .synth-table thead,
+  .synth-realise-tableau .synth-table tbody,
+  .synth-realise-tableau .synth-table tfoot {
+    display: block;
+    width: 100%;
+  }
+  .synth-realise-tableau .synth-table thead tr,
+  .synth-realise-tableau .synth-table tbody tr,
+  .synth-realise-tableau .synth-table tfoot tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .synth-realise-tableau .synth-table tbody {
+    max-height: calc(4 * 2.1rem);   /* 4 lignes * hauteur ligne approx */
+    overflow-y: auto;
+  }
+  .synth-prevu-encart {
+    flex: 0 0 110px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 0.7rem 0.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .synth-prevu-encart .encart-titre {
+    font-size: 0.72rem;
+    color: #1d4ed8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .synth-prevu-encart .encart-valeur {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #1d4ed8;
+    font-variant-numeric: tabular-nums;
+  }
+  .synth-prevu-encart .encart-sous {
+    font-size: 0.68rem;
+    color: #64748b;
+    line-height: 1.2;
+  }
+  @media (max-width: 600px) {
+    .synth-realise-flex { flex-direction: column; }
+    .synth-prevu-encart { flex: 0 0 auto; }
+  }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -244,16 +313,26 @@
         <span class="badge-nb realise" id="badge-synth-real">0 h</span>
       </div>
       <div class="synth-titre realise" id="synth-titre-real">Tous chantiers</div>
-      <table class="synth-table realise">
-        <colgroup>
-          <col class="col-sal-synth">
-          <col class="col-h-synth">
-        </colgroup>
-        <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
-        <tbody id="tbody-synth-real"></tbody>
-        <tfoot><tr><td>Total</td><td id="total-synth-real">0 h</td></tr></tfoot>
-      </table>
-      <p class="msg-vide" id="vide-synth-real" style="display:none;">Aucune donnée</p>
+      <div class="synth-realise-flex">
+        <div class="synth-realise-tableau">
+          <table class="synth-table realise">
+            <colgroup>
+              <col class="col-sal-synth">
+              <col class="col-h-synth">
+            </colgroup>
+            <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
+            <tbody id="tbody-synth-real"></tbody>
+            <tfoot><tr><td>Total</td><td id="total-synth-real">0 h</td></tr></tfoot>
+          </table>
+          <p class="msg-vide" id="vide-synth-real" style="display:none;">Aucune donnée</p>
+        </div>
+        <!-- Encart "Heures prévues" : visible seulement si un filtre chantier est appliqué -->
+        <div class="synth-prevu-encart" id="synth-prevu-encart" style="display:none;">
+          <div class="encart-titre">Heures prévues</div>
+          <div class="encart-valeur" id="encart-prevu-total">0 h</div>
+          <div class="encart-sous" id="encart-prevu-sous"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -532,8 +611,49 @@ function appliquerEtAfficher() {
   afficherSynthese('real', realVisible);
   afficherDetail('prev', prevVisible);
   afficherDetail('real', realVisible);
+  majEncartPrevus();
   majBoutons();
   setTimeout(ajusterHauteur, 50);
+}
+
+/* Encart "Heures prévues" à droite de la Synthèse réalisée.
+   N'apparaît QUE si un filtre chantier est appliqué (filtresActifs.chantier ≠ null).
+   Affiche la somme des heures prévues (page Prévisionnel) pour les chantiers cochés,
+   tous mois confondus. */
+function majEncartPrevus() {
+  const encart = document.getElementById('synth-prevu-encart');
+  if (!encart) return;
+  const f = filtresActifs.chantier;
+  if (!f || f.size === 0) {
+    encart.style.display = 'none';
+    return;
+  }
+  // Structure réelle (cf. chantiers.html) :
+  // { '2026': { '0': {chantiers:[{client, hPrevues}]}, '1': {…}, … }, '2027': {…} }
+  let totalH = 0;
+  try {
+    const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+    for (const annee in data) {
+      const mois12 = data[annee];
+      if (!mois12) continue;
+      for (const m in mois12) {
+        const liste = mois12[m]?.chantiers;
+        if (!Array.isArray(liste)) continue;
+        liste.forEach(c => {
+          if (c && c.client && f.has(c.client)) {
+            totalH += parseFloat(c.hPrevues) || 0;
+          }
+        });
+      }
+    }
+  } catch (_) {}
+  const heures = Math.floor(totalH);
+  const mins   = Math.round((totalH - heures) * 60);
+  document.getElementById('encart-prevu-total').textContent =
+    mins > 0 ? `${heures} h ${String(mins).padStart(2,'0')}` : `${heures} h`;
+  document.getElementById('encart-prevu-sous').textContent =
+    f.size === 1 ? '1 chantier' : f.size + ' chantiers';
+  encart.style.display = 'flex';
 }
 
 function filtrer(lignes) {
