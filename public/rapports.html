@@ -163,11 +163,12 @@
     max-height: calc(4 * 2.1rem + 2.2rem);   /* 4 lignes + en-tête */
     overflow-y: auto;
   }
-  /* Conserver le sticky pour thead et tfoot pendant le scroll */
-  .synth-realise-tableau .synth-table thead th {
+  /* Conserver le sticky pour thead pendant le scroll, avec fond opaque qui correspond à la couleur de fond du thead */
+  .synth-realise-tableau .synth-table.realise thead th {
     position: sticky;
     top: 0;
-    background: #f0fdf4;
+    background: #16a34a !important;
+    color: #fff !important;
     z-index: 2;
   }
   .synth-prevu-encart {
@@ -284,10 +285,10 @@
     <!-- Synthèse PRÉVUE -->
     <div class="rapport-card">
       <div class="rapport-card-header prevu">
-        <h3>Synthèse prévue</h3>
+        <h3>Synthèse Heures Prévues</h3>
         <span class="badge-nb prevu" id="badge-synth-prev">0 h</span>
       </div>
-      <div class="synth-titre prevu" id="synth-titre-prev">Tous chantiers</div>
+      <div class="synth-titre prevu" id="synth-titre-prev">Tous les chantiers</div>
       <table class="synth-table prevu">
         <colgroup>
           <col class="col-sal-synth">
@@ -303,10 +304,10 @@
     <!-- Synthèse RÉALISÉE -->
     <div class="rapport-card">
       <div class="rapport-card-header realise">
-        <h3>Synthèse réalisée</h3>
+        <h3>Synthèse Heures Réalisées</h3>
         <span class="badge-nb realise" id="badge-synth-real">0 h</span>
       </div>
-      <div class="synth-titre realise" id="synth-titre-real">Tous chantiers</div>
+      <div class="synth-titre realise" id="synth-titre-real">Tous les chantiers</div>
       <div class="synth-realise-flex">
         <div class="synth-realise-tableau">
           <div class="synth-scroll">
@@ -338,7 +339,7 @@
     <!-- Détail PRÉVU -->
     <div class="rapport-card">
       <div class="rapport-card-header prevu">
-        <h3>Détail prévu</h3>
+        <h3>Détail Heures Prévues</h3>
         <span class="badge-nb prevu" id="badge-det-prev">0 ligne</span>
       </div>
       <table class="detail-table prevu">
@@ -365,7 +366,7 @@
     <!-- Détail RÉALISÉ -->
     <div class="rapport-card">
       <div class="rapport-card-header realise">
-        <h3>Détail réalisé</h3>
+        <h3>Détail Heures Réalisées</h3>
         <span class="badge-nb realise" id="badge-det-real">0 ligne</span>
       </div>
       <table class="detail-table realise">
@@ -683,7 +684,7 @@ function afficherSynthese(type, lignes) {
   const titreEl  = document.getElementById('synth-titre-' + type);
 
   const chActifs = filtresActifs.chantier;
-  titreEl.textContent = (chActifs && chActifs.size === 1) ? [...chActifs][0] : 'Tous chantiers';
+  titreEl.textContent = (chActifs && chActifs.size === 1) ? [...chActifs][0] : 'Tous les chantiers';
 
   if (!lignes.length) {
     tbody.innerHTML = '';
@@ -906,14 +907,14 @@ function exporterExcel() {
   prev.forEach(l => detailPrevRows.push([l.date, l.salarie, l.chantier, Number(l.heures.toFixed(2))]));
   const wsP = XLSX.utils.aoa_to_sheet(detailPrevRows);
   wsP['!cols'] = [{wch:12},{wch:22},{wch:28},{wch:10}];
-  XLSX.utils.book_append_sheet(wb, wsP, 'Détail prévu');
+  XLSX.utils.book_append_sheet(wb, wsP, 'Détail Heures Prévues');
 
   // Feuille 3 : Détail réalisé
   const detailRealRows = [['Date', 'Salarié', 'Chantier', 'Heures']];
   real.forEach(l => detailRealRows.push([l.date, l.salarie, l.chantier, Number(l.heures.toFixed(2))]));
   const wsR = XLSX.utils.aoa_to_sheet(detailRealRows);
   wsR['!cols'] = [{wch:12},{wch:22},{wch:28},{wch:10}];
-  XLSX.utils.book_append_sheet(wb, wsR, 'Détail réalisé');
+  XLSX.utils.book_append_sheet(wb, wsR, 'Détail Heures Réalisées');
 
   const nomFichier = `Rapport_${libelle.replace(/[^a-zA-Z0-9_\-]/g,'_')}.xlsx`;
   XLSX.writeFile(wb, nomFichier);
@@ -977,7 +978,7 @@ function exporterPDF() {
   // Détail prévu (nouvelle page si peu de place)
   doc.addPage();
   doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text("Détail prévu", 14, 16);
+  doc.text("Détail Heures Prévues", 14, 16);
   doc.autoTable({
     startY: 22,
     head: [['Date', 'Salarié', 'Chantier', 'Heures']],
@@ -988,7 +989,7 @@ function exporterPDF() {
 
   doc.addPage();
   doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text("Détail réalisé", 14, 16);
+  doc.text("Détail Heures Réalisées", 14, 16);
   doc.autoTable({
     startY: 22,
     head: [['Date', 'Salarié', 'Chantier', 'Heures']],
