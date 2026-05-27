@@ -926,6 +926,33 @@ function formatDateFr(iso) {
   return `${d}/${m}/${y}`;
 }
 
+/** Retourne la somme des heures prévues (devis) pour ce chantier
+   sur l'ensemble du prévisionnel (toutes années / tous mois confondus).
+   Compare les noms de chantier de manière souple (sans casse / espaces / accents). */
+function getTotalDevisChantier(nom) {
+  if (!nom) return 0;
+  const cible = normaliserChantier(nom);
+  let total = 0;
+  try {
+    const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+    // Structure : { '2026': { '0': {chantiers:[{client, hPrevues}]}, '1': {…}, … }, '2027': {…} }
+    for (const annee in data) {
+      const mois12 = data[annee];
+      if (!mois12) continue;
+      for (const m in mois12) {
+        const liste = mois12[m]?.chantiers;
+        if (!Array.isArray(liste)) continue;
+        liste.forEach(c => {
+          if (c && c.client && normaliserChantier(c.client) === cible) {
+            total += parseFloat(c.hPrevues) || 0;
+          }
+        });
+      }
+    }
+  } catch (_) {}
+  return total;
+}
+
 function montrerTooltipChantier(input) {
   const nom = (input.value || '').trim();
   if (!nom) { cacherTooltip(); return; }
@@ -935,6 +962,10 @@ function montrerTooltipChantier(input) {
 
   const el = getTooltipEl();
   let html = `<div class="ct-nom">${escapeHtml(nom)}</div>`;
+  const totalDevis = getTotalDevisChantier(nom);
+  if (totalDevis > 0) {
+    html += `<div class="ct-total" style="color:#1d4ed8;">Total devis : <strong>${formatHeures(totalDevis)}</strong></div>`;
+  }
   html += `<div class="ct-total">Total planifié : <strong>${formatHeures(stats.total)}</strong></div>`;
   if (stats.liste.length > 0) {
     html += '<div class="ct-label">Salariés intervenus</div>';
