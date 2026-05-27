@@ -82,9 +82,10 @@
   .synth-table col.col-h-synth   { width:90px; }
   .synth-table th { padding:5px 10px; font-weight:700; text-align:left; }
   .synth-table th:last-child { text-align:right; }
-  .synth-table.prevu  thead { background:#2563eb; }
-  .synth-table.realise thead { background:#16a34a; }
-  .synth-table thead th { color:#fff; }
+  /* Forcer le fond opaque sur les <th> car certains contextes (sticky, parents flex) 
+     font disparaître le fond du <thead> et rendent les en-têtes blancs illisibles */
+  .synth-table.prevu  thead th { background:#2563eb; color:#fff; }
+  .synth-table.realise thead th { background:#16a34a; color:#fff; }
   .synth-table.prevu  tbody tr { background:#f0f7ff; }
   .synth-table.realise tbody tr { background:#f0fdf4; }
   .synth-table.prevu  tbody tr:nth-child(even) { background:#dbeafe; }
