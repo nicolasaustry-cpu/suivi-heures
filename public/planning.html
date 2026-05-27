@@ -964,7 +964,10 @@ function montrerTooltipChantier(input) {
   let html = `<div class="ct-nom">${escapeHtml(nom)}</div>`;
   const totalDevis = getTotalDevisChantier(nom);
   if (totalDevis > 0) {
-    html += `<div class="ct-total" style="color:#1d4ed8;">Total devis : <strong>${formatHeures(totalDevis)}</strong></div>`;
+    // Si le planifié dépasse le devis : alerte rouge sur la valeur, sinon affichage standard blanc
+    const depasse = stats.total > totalDevis;
+    const couleurValeur = depasse ? '#ef4444' : '#fff';
+    html += `<div class="ct-total" style="color:#fff;">Total devis : <strong style="color:${couleurValeur};">${formatHeures(totalDevis)}</strong></div>`;
   }
   html += `<div class="ct-total">Total planifié : <strong>${formatHeures(stats.total)}</strong></div>`;
   if (stats.liste.length > 0) {
