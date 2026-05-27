@@ -513,8 +513,26 @@
     border: 1.5px solid #fed7aa !important;
     border-radius: 12px !important;
     padding: 10px 12px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
   }
-  .depl-row label { color: #92400e !important; font-weight: 600; }
+  .depl-row label {
+    color: #92400e !important;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: none !important;
+    text-align: left;
+  }
+  .depl-row .stepper {
+    justify-content: center !important;
+    gap: 14px !important;
+  }
+  .depl-row .step-unite {
+    margin-left: 4px;
+  }
   .step-btn {
     width: 36px !important;
     height: 36px !important;
@@ -550,15 +568,18 @@
     background: #fff !important;
   }
 
-  /* Bouton OK validation heure */
+  /* Bouton OK validation heure : orange par défaut, vert une fois validé */
   .btn-valider-heure {
-    background: #16a34a !important;
+    background: #f97316 !important;
     border-radius: 12px !important;
     min-width: 64px !important;
     padding: 12px 18px !important;
+    box-shadow: 0 2px 6px rgba(249,115,22,0.25);
+  }
+  .btn-valider-heure.valide {
+    background: #16a34a !important;
     box-shadow: 0 2px 6px rgba(22,163,74,0.25);
   }
-  .btn-valider-heure.valide { background: #15803d !important; }
   .btn-valider-heure:active { transform: scale(0.95); }
 
   /* Bouton "Ajouter un chantier" */
@@ -586,12 +607,13 @@
     font-weight: 800;
   }
 
-  /* Bouton envoi chantier */
+  /* Bouton envoi chantier : orange par défaut (devient "✔ Chantier enregistré" vert après clic) */
   .btn-envoyer-chantier {
     border-radius: 12px !important;
-    background: #16a34a !important;
-    box-shadow: 0 3px 8px rgba(22,163,74,0.25);
+    background: #f97316 !important;
+    box-shadow: 0 3px 8px rgba(249,115,22,0.25);
   }
+  .btn-envoyer-chantier:active { transform: scale(0.98); }
   .envoye-badge {
     background: #dcfce7 !important;
     border: 1.5px solid #86efac !important;
