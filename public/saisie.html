@@ -420,6 +420,273 @@
     #ecran-saisie { height: 100vh; }
     .saisie-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   }
+
+  /* ═══════════════════════════════════════════════════════════════
+     STYLE SOLAIRE — design pensé pour les ouvriers sur chantier
+     Lisibilité plein soleil, gros boutons, couleurs chaudes
+     ─────────────────────────────────────────────────────────────── */
+
+  /* Fond général chaleureux */
+  body { background: #fffaf0; }
+
+  /* Header de la saisie (bandeau orange) */
+  #ecran-saisie header {
+    background: #f97316;
+    padding: 0.9rem 1rem;
+  }
+  #ecran-saisie header h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  /* Boutons du header (Sortir / Déconnexion) */
+  #ecran-saisie header button {
+    background: rgba(255,255,255,0.25) !important;
+    border: 1px solid rgba(255,255,255,0.5) !important;
+    border-radius: 10px !important;
+  }
+
+  /* Bandeau salarié + date */
+  .saisie-info {
+    background: #fff;
+    border-bottom: 3px solid #fed7aa;
+  }
+  .saisie-info .sal-nom  { color: #c2410c; font-size: 1.05rem; }
+  .saisie-info .sal-date { color: #92400e; }
+  .saisie-info input[type="date"] {
+    border: 1.5px solid #fed7aa !important;
+    border-radius: 10px !important;
+    background: #fff7ed !important;
+    color: #c2410c !important;
+    font-weight: 600;
+  }
+
+  /* Sections (cartes blanches arrondies) */
+  .section {
+    margin: 0.6rem 0.8rem;
+    border-radius: 16px;
+    border: 1px solid #fed7aa;
+    box-shadow: 0 1px 6px rgba(249,115,22,0.08);
+  }
+  .section-title {
+    color: #c2410c;
+    font-size: 0.82rem;
+  }
+
+  /* Badges sections (Prévus / Ajoutés) */
+  .badge-prev {
+    background: #fed7aa !important;
+    color: #9a3412 !important;
+  }
+  .badge-plus {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+  }
+
+  /* Carte de chantier */
+  .chantier-card {
+    border-radius: 14px !important;
+    border: 1.5px solid #fed7aa !important;
+    padding: 1rem !important;
+    margin-bottom: 0.7rem !important;
+    background: #fff !important;
+  }
+  .chantier-card.previsionnel { background: #fffbeb !important; }
+  .chantier-nom {
+    color: #c2410c !important;
+    font-size: 1rem !important;
+  }
+  .chantier-nom.libre { color: #1f2937 !important; }
+  .tag-prev {
+    background: #fed7aa !important;
+    color: #9a3412 !important;
+    font-weight: 600 !important;
+  }
+  .btn-suppr {
+    color: #dc2626 !important;
+    font-size: 1.2rem !important;
+  }
+
+  /* Stepper du déplacement */
+  .depl-row {
+    background: #fff7ed !important;
+    border: 1.5px solid #fed7aa !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+  }
+  .depl-row label { color: #92400e !important; font-weight: 600; }
+  .step-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: #fed7aa !important;
+    border: none !important;
+    color: #c2410c !important;
+    font-size: 1.3rem !important;
+    font-weight: 700;
+  }
+  .step-btn:active { background: #fdba74 !important; transform: scale(0.92); }
+  .step-val {
+    color: #c2410c !important;
+    font-size: 1.1rem !important;
+    font-weight: 700;
+  }
+  .step-unite { color: #92400e !important; }
+
+  /* Inputs d'heure */
+  .heure-label {
+    color: #92400e !important;
+    font-weight: 700;
+  }
+  .heure-input {
+    background: #fef3c7 !important;
+    border: 1.5px solid #fde68a !important;
+    border-radius: 12px !important;
+    color: #92400e !important;
+    font-size: 1.2rem !important;
+  }
+  .heure-input:focus {
+    border-color: #f97316 !important;
+    background: #fff !important;
+  }
+
+  /* Bouton OK validation heure */
+  .btn-valider-heure {
+    background: #16a34a !important;
+    border-radius: 12px !important;
+    min-width: 64px !important;
+    padding: 12px 18px !important;
+    box-shadow: 0 2px 6px rgba(22,163,74,0.25);
+  }
+  .btn-valider-heure.valide { background: #15803d !important; }
+  .btn-valider-heure:active { transform: scale(0.95); }
+
+  /* Bouton "Ajouter un chantier" */
+  .btn-add {
+    border: 2px dashed #f97316 !important;
+    color: #f97316 !important;
+    background: #fff !important;
+    border-radius: 14px !important;
+    padding: 14px !important;
+    font-size: 0.95rem !important;
+  }
+  .btn-add:active { background: #fff7ed !important; }
+
+  /* Total du jour */
+  .total-bar {
+    background: #fef3c7 !important;
+    border: 2px solid #fde68a !important;
+    border-radius: 14px !important;
+    padding: 14px 16px !important;
+  }
+  .total-lbl { color: #92400e !important; font-size: 0.95rem; font-weight: 600; }
+  .total-val {
+    color: #c2410c !important;
+    font-size: 1.4rem !important;
+    font-weight: 800;
+  }
+
+  /* Bouton envoi chantier */
+  .btn-envoyer-chantier {
+    border-radius: 12px !important;
+    background: #16a34a !important;
+    box-shadow: 0 3px 8px rgba(22,163,74,0.25);
+  }
+  .envoye-badge {
+    background: #dcfce7 !important;
+    border: 1.5px solid #86efac !important;
+    border-radius: 12px !important;
+    color: #166534 !important;
+  }
+
+  /* Modale Ajout chantier */
+  .modal-box {
+    border-radius: 20px 20px 0 0 !important;
+    padding: 1.4rem !important;
+  }
+  .modal-title { color: #c2410c !important; font-size: 1.1rem !important; }
+  .suggestion-item {
+    border-radius: 12px !important;
+    border: 1.5px solid #fed7aa !important;
+  }
+  .suggestion-item:hover, .suggestion-item.selected {
+    background: #fff7ed !important;
+    border-color: #f97316 !important;
+    color: #c2410c !important;
+  }
+  .input-libre {
+    border-radius: 12px !important;
+    border: 1.5px solid #fed7aa !important;
+    background: #fff7ed !important;
+  }
+  .btn-modal-ok {
+    background: #f97316 !important;
+    border-radius: 12px !important;
+  }
+  .btn-modal-cancel {
+    border-radius: 12px !important;
+    border-color: #fed7aa !important;
+  }
+
+  /* ── PIN SCREEN ── */
+  .pin-screen {
+    background: linear-gradient(160deg, #f97316 0%, #ea580c 100%) !important;
+  }
+  .pin-screen h2 {
+    font-size: 1.5rem !important;
+    font-weight: 800;
+    color: #fff;
+  }
+  .pin-screen p { color: rgba(255,255,255,0.92) !important; }
+  .pin-screen select {
+    border-radius: 12px !important;
+    background: #fff !important;
+    border: none !important;
+    color: #c2410c !important;
+    font-weight: 600 !important;
+    padding: 14px !important;
+  }
+  .pin-screen #etape-code input,
+  .pin-screen #etape-code button {
+    border-radius: 12px !important;
+  }
+  .pin-screen #etape-code input { color: #c2410c !important; font-weight: 600; }
+  .pin-screen #btn-code-entreprise { background: #fef3c7 !important; color: #c2410c !important; }
+  .pin-dot {
+    width: 16px !important; height: 16px !important;
+    border-color: rgba(255,255,255,0.7) !important;
+  }
+  .pin-dot.filled { background: #fef3c7 !important; border-color: #fef3c7 !important; }
+  .pin-key {
+    background: rgba(255,255,255,0.22) !important;
+    border-radius: 14px !important;
+    font-size: 1.5rem !important;
+    padding: 18px !important;
+  }
+  .pin-key:active, .pin-key:hover {
+    background: rgba(255,255,255,0.35) !important;
+    transform: scale(0.95);
+  }
+
+  /* Bandeau installation PWA */
+  .install-banner {
+    background: linear-gradient(135deg, #ea580c 0%, #f97316 100%) !important;
+  }
+  .install-banner-btn { color: #c2410c !important; }
+
+  /* Modale iOS (instructions installation) */
+  .ios-modal h3 { color: #c2410c !important; }
+  .ios-modal .icone-action {
+    background: #fed7aa !important;
+    color: #9a3412 !important;
+  }
+  .ios-modal button {
+    background: #f97316 !important;
+    border-radius: 12px !important;
+  }
+
+  /* Bandeau bleu Volitis (header desktop) reste bleu — pas de surcharge */
+  /* Panneau QR sur PC reste sobre — pas de surcharge */
   </style>
 </head>
 <body>
