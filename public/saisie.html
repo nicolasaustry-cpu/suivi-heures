@@ -1761,6 +1761,14 @@ function validerAjout() {
   rendreAjout();
   majTotal();
   fermerModal();
+  // Défiler l'écran vers la carte nouvellement ajoutée (la dernière du conteneur)
+  setTimeout(() => {
+    const cont = document.getElementById('liste-ajout');
+    const cartes = cont?.querySelectorAll('.chantier-card');
+    if (cartes && cartes.length) {
+      cartes[cartes.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 80);
 }
 
 /* ═══════════════════════════
