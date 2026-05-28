@@ -1456,12 +1456,21 @@ function rendrePrev() {
     dureeBadge.textContent = duree || 'À saisir';
     div.appendChild(dureeBadge);
 
-    // Ligne 5 : bouton Pause + bouton Envoyer (caché si déjà sauvegardé)
+    // Ligne 5 : si déjà sauvegardé, badge + bouton Pause (pour ajuster la pause après coup)
     if (dejaSauve) {
+      const barre = document.createElement('div');
+      barre.className = 'barre-actions';
+      const pauseBtn = document.createElement('button');
+      pauseBtn.className = 'btn-pause' + (s.pause > 0 ? ' actif' : '');
+      pauseBtn.textContent = '🍽️ Pause';
+      pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Chantier enregistré';
-      div.appendChild(env);
+      env.style.flex = '1';
+      barre.appendChild(pauseBtn);
+      barre.appendChild(env);
+      div.appendChild(barre);
     } else {
       const barre = document.createElement('div');
       barre.className = 'barre-actions';
@@ -1581,12 +1590,21 @@ function rendreAjout() {
     dureeBadge.textContent = duree || 'À saisir';
     div.appendChild(dureeBadge);
 
-    // Ligne 5 : bouton Pause + bouton Envoyer
+    // Ligne 5 : si déjà sauvegardé, badge + bouton Pause (pour ajuster après coup)
     if (dejaSauve) {
+      const barre = document.createElement('div');
+      barre.className = 'barre-actions';
+      const pauseBtn = document.createElement('button');
+      pauseBtn.className = 'btn-pause' + (ch.pause > 0 ? ' actif' : '');
+      pauseBtn.textContent = '🍽️ Pause';
+      pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Chantier enregistré';
-      div.appendChild(env);
+      env.style.flex = '1';
+      barre.appendChild(pauseBtn);
+      barre.appendChild(env);
+      div.appendChild(barre);
     } else {
       const barre = document.createElement('div');
       barre.className = 'barre-actions';
@@ -2036,21 +2054,53 @@ function togglePause(pauseRow, btn) {
   btn.classList.toggle('actif', !visible);
 }
 
-/* Stepper de la pause (± 15 min). Recalcule durée et total. */
-function majPauseData(btn) {
+/* Stepper de la pause (± 15 min). Met à jour en place sans re-render
+   (un re-render refermerait un chantier déjà synchronisé). Renvoie au serveur. */
+async function majPauseData(btn) {
   const delta = parseInt(btn.dataset.delta);
   const type  = btn.dataset.type;
+  const card  = btn.closest('.chantier-card');
+
+  let s, nom, idx;
   if (type === 'pause-prev') {
-    const nom = btn.dataset.nom;
+    nom = btn.dataset.nom;
     if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
     _saisiesPrev[nom].pause = Math.max(0, (_saisiesPrev[nom].pause || 0) + delta);
-    rendrePrev();
+    s = _saisiesPrev[nom];
   } else {
-    const i = parseInt(btn.dataset.idx);
-    _chantiersA[i].pause = Math.max(0, (_chantiersA[i].pause || 0) + delta);
-    rendreAjout();
+    idx = parseInt(btn.dataset.idx);
+    _chantiersA[idx].pause = Math.max(0, (_chantiersA[idx].pause || 0) + delta);
+    s = _chantiersA[idx];
   }
+
+  // Mettre à jour la valeur affichée du stepper (sans re-render)
+  const valEl = card?.querySelector('.pause-row .step-val');
+  if (valEl) valEl.textContent = s.pause;
+
+  // Recalculer la durée affichée
+  const duree = calcDuree(s.arrivee, s.depart, s.pause);
+  const badge = card?.querySelector('.duree-badge');
+  if (badge) { badge.textContent = duree || 'À saisir'; badge.className = 'duree-badge' + (duree ? '' : ' vide'); }
+
   majTotal();
+
+  // Si le chantier a déjà été envoyé (arrivée + départ validés), renvoyer la maj au serveur
+  const dejaSauve = s.envoye || s.dejaEnvoye || s.synchronise;
+  if (dejaSauve && s.arrivee && s.depart) {
+    const date = document.getElementById('date-saisie').value;
+    if (date) {
+      const chantier = {
+        nom: (type === 'pause-prev') ? nom : s.nom,
+        heureArrivee: s.arrivee || '',
+        heureDepart:  s.depart  || '',
+        dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
+        pause:        s.pause || 0,
+        deplacement:  s.depl || 0,
+        isPrevisionnel: (type === 'pause-prev')
+      };
+      await _envoyerChantier(chantier, date);
+    }
+  }
 }
 
 /* ── Envoyer un chantier prévu individuel ── */
