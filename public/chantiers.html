@@ -1169,10 +1169,39 @@ function navEnTree(event, input) {
   const tr    = input.closest('tr');
   if (!tr) return;
 
+  // Identifiants pour retrouver la ligne après un éventuel re-rendu du tableau
+  const annee = input.dataset.annee;
+  const mi    = input.dataset.mi;
+
   if (nav === 'client') {
-    // Entrée sur Client → aller sur Heures de la même ligne
-    const hInput = tr.querySelector('input[data-nav="hPrevues"]');
-    if (hInput) { hInput.focus(); hInput.select(); }
+    // Si on est sur une ligne VIERGE (sans data-ci) et qu'on tape un client, le onblur
+    // va déclencher ajouterVierge() qui re-rend tout. Il faut donc attendre le re-rendu
+    // et retrouver le bon input "heures" via les attributs data.
+    const estVierge = !tr.querySelector('input[data-nav="client"]').dataset.ci;
+
+    if (estVierge) {
+      // Déclencher le onblur (qui appelle ajouterVierge → rendreChantiers)
+      input.dispatchEvent(new Event('blur', { bubbles: true }));
+      // Attendre le re-rendu, puis trouver l'input "heures" du chantier nouvellement créé
+      setTimeout(() => {
+        // Le nouveau chantier est le DERNIER chantier du mois (ajouterVierge fait push)
+        const tbody  = document.querySelector('tbody.tbody-' + annee + '-' + mi)
+                    || document.querySelector('[data-tb="' + annee + '_' + mi + '"]');
+        // Fallback : on cherche tous les inputs hPrevues de ce mois/année, le dernier
+        const tousH = document.querySelectorAll(
+          'input[data-nav="hPrevues"][data-annee="' + annee + '"][data-mi="' + mi + '"][data-ci]'
+        );
+        if (tousH.length) {
+          const dernier = tousH[tousH.length - 1];
+          dernier.focus();
+          dernier.select();
+        }
+      }, 60);
+    } else {
+      // Ligne existante : aller directement sur l'input heures de la même ligne
+      const hInput = tr.querySelector('input[data-nav="hPrevues"]');
+      if (hInput) { hInput.focus(); hInput.select(); }
+    }
 
   } else if (nav === 'hPrevues') {
     // Entrée sur Heures → aller sur Client de la ligne suivante
