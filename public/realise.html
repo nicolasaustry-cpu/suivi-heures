@@ -307,6 +307,18 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', ajusterMarginTop);
   chargerRealise();
 
+  // Quand les données serveur arrivent (salaries, previsionnel…), recharger pour
+  // que la colonne "Prévu" se calcule correctement sans rafraîchissement manuel.
+  window.addEventListener('donnees-chargees', () => {
+    _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const ent2 = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    if (ent2.nom) {
+      const nomEl = document.getElementById('entreprise-nom');
+      if (nomEl) nomEl.textContent = ent2.nom;
+    }
+    chargerRealise();
+  });
+
   // Fermer dropdowns si clic extérieur
   document.addEventListener('click', e => {
     if (!e.target.closest('.filtre-container')) {
