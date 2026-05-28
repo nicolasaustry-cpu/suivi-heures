@@ -361,6 +361,25 @@
   }
   .leg-item { display: flex; align-items: center; gap: 4px; }
   .leg-color { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
+  /* Masquer les flèches up/down natives des inputs numériques (échelle graduelle indésirable)
+     dans le tableau chantiers/prévisionnel. Saisie libre uniquement. */
+  .tr-chantier input[type="number"]::-webkit-outer-spin-button,
+  .tr-chantier input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .tr-chantier input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  /* Empêcher les inputs du tableau de déborder de leur colonne :
+     box-sizing inclut le padding dans la largeur, et l'input ne peut plus dépasser sa cellule */
+  .tr-chantier input {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  .tr-chantier td { overflow: hidden; }
+
   </style>
 </head>
 <body>
