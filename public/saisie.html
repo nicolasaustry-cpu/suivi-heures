@@ -567,6 +567,8 @@
   .heure-label {
     color: #92400e !important;
     font-weight: 700;
+    width: 58px !important;
+    flex-shrink: 0 !important;
   }
   .heure-input {
     background: #fef3c7 !important;
@@ -584,8 +586,11 @@
   .btn-valider-heure {
     background: #f97316 !important;
     border-radius: 12px !important;
-    min-width: 64px !important;
-    padding: 12px 18px !important;
+    width: 70px !important;
+    min-width: 70px !important;
+    padding: 12px 0 !important;
+    text-align: center !important;
+    flex-shrink: 0 !important;
     box-shadow: 0 2px 6px rgba(249,115,22,0.25);
   }
   .btn-valider-heure.valide {
@@ -748,19 +753,49 @@
     color: #fff;
     border-color: #1d4ed8;
   }
-  /* Encart pause : repris du style déplacement mais en bleu */
-  .pause-row {
-    background: #eff6ff !important;
-    border: 1.5px solid #bfdbfe !important;
-  }
-  .pause-row label { color: #1d4ed8 !important; }
-  .pause-row .step-btn {
-    background: #bfdbfe !important;
+  /* Pause en ligne (même grille qu'Arrivée/Départ) */
+  .pause-ligne { align-items: center; }
+  .pause-label {
     color: #1d4ed8 !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.78rem !important;
   }
-  .pause-row .step-btn:active { background: #93c5fd !important; }
-  .pause-row .step-val  { color: #1d4ed8 !important; }
-  .pause-row .step-unite { color: #1d4ed8 !important; }
+  .pause-label .ico-repas {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    background: #fff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .pause-zone {
+    flex: 1;
+    background: #eff6ff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .pause-zone .step-btn {
+    background: #1d4ed8 !important;
+    color: #fff !important;
+    width: 30px; height: 30px;
+  }
+  .pause-zone .step-btn:active { background: #1e40af !important; }
+  .pause-zone .step-val  { color: #1d4ed8 !important; font-weight: 700; }
+  .pause-zone .step-unite { color: #1d4ed8 !important; }
+  /* Le bouton OK pause hérite de .btn-valider-heure mais reste bleu jusqu'à validation */
+  .btn-valider-pause { background: #2563eb !important; box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important; }
+  .btn-valider-pause.valide { background: #16a34a !important; }
   </style>
 </head>
 <body>
@@ -1313,6 +1348,7 @@ async function chargerChantiersPrev() {
               depart:  c.heureDepart  || '',
               depl:    c.deplacement  || 0,
               pause:   c.pause        || 0,
+              pauseValidee: (c.pause || 0) > 0,
               synchronise: true,
               dejaEnvoye: true
             };
@@ -1325,6 +1361,7 @@ async function chargerChantiersPrev() {
                 depart:  c.heureDepart  || '',
                 depl:    c.deplacement  || 0,
                 pause:   c.pause        || 0,
+                pauseValidee: (c.pause || 0) > 0,
                 synchronise: true,
                 dejaEnvoye: true
               });
@@ -1413,6 +1450,21 @@ function rendrePrev() {
     arrLigne.appendChild(arrBtn);
     div.appendChild(arrLigne);
 
+    // Pause : ligne alignée sur la même grille qu'Arrivée/Départ (label + zone + OK)
+    const pauseRow = document.createElement('div');
+    pauseRow.className = 'heure-ligne pause-ligne';
+    pauseRow.style.display = (s.pause > 0) ? 'flex' : 'none';
+    pauseRow.innerHTML =
+        '<span class="heure-label pause-label"><span class="ico-repas">🍽️</span>Pause</span>'
+      + '<div class="pause-zone">'
+      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
+      + '<span class="step-val" id="pause-' + nomId + '">' + (s.pause || 0) + '</span>'
+      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="15" onclick="majPauseData(this)">+</div>'
+      + '<span class="step-unite">min</span>'
+      + '</div>'
+      + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-nom="' + ch.nom + '" onclick="validerPause(this)">✔ OK</button>';
+    div.appendChild(pauseRow);
+
     // Ligne 4 : départ + OK
     const depLigne = document.createElement('div');
     depLigne.className = 'heure-ligne';
@@ -1436,19 +1488,6 @@ function rendrePrev() {
     depLigne.appendChild(depInput);
     depLigne.appendChild(depBtn);
     div.appendChild(depLigne);
-
-    // Encart Pause (caché par défaut, affiché via le bouton 🍽️ Pause)
-    const pauseRow = document.createElement('div');
-    pauseRow.className = 'depl-row pause-row';
-    pauseRow.style.display = (s.pause > 0) ? 'flex' : 'none';
-    pauseRow.innerHTML = '<label>🍽️ Pause (déduite du total)</label>'
-      + '<div class="stepper">'
-      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
-      + '<span class="step-val" id="pause-' + nomId + '">' + (s.pause || 0) + '</span>'
-      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="15" onclick="majPauseData(this)">+</div>'
-      + '<span class="step-unite">min</span>'
-      + '</div>';
-    div.appendChild(pauseRow);
 
     // Durée
     const dureeBadge = document.createElement('div');
@@ -1561,6 +1600,21 @@ function rendreAjout() {
       + '<button class="' + clsArrOK + '" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(arrLigne);
 
+    // Pause : ligne alignée sur la même grille qu'Arrivée/Départ
+    const pauseRow = document.createElement('div');
+    pauseRow.className = 'heure-ligne pause-ligne';
+    pauseRow.style.display = (ch.pause > 0) ? 'flex' : 'none';
+    pauseRow.innerHTML =
+        '<span class="heure-label pause-label"><span class="ico-repas">🍽️</span>Pause</span>'
+      + '<div class="pause-zone">'
+      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
+      + '<span class="step-val" id="pause-ajout-' + i + '">' + (ch.pause || 0) + '</span>'
+      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="15" onclick="majPauseData(this)">+</div>'
+      + '<span class="step-unite">min</span>'
+      + '</div>'
+      + '<button class="btn-valider-heure btn-valider-pause' + (ch.pauseValidee ? ' valide' : '') + '" data-type="pause-ajout" data-idx="' + i + '" onclick="validerPause(this)">✔ OK</button>';
+    div.appendChild(pauseRow);
+
     // Ligne 4 : départ + OK
     const depLigne = document.createElement('div');
     depLigne.className = 'heure-ligne';
@@ -1570,19 +1624,6 @@ function rendreAjout() {
       + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
       + '<button class="' + clsDepOK + '" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(depLigne);
-
-    // Encart Pause (caché par défaut)
-    const pauseRow = document.createElement('div');
-    pauseRow.className = 'depl-row pause-row';
-    pauseRow.style.display = (ch.pause > 0) ? 'flex' : 'none';
-    pauseRow.innerHTML = '<label>🍽️ Pause (déduite du total)</label>'
-      + '<div class="stepper">'
-      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
-      + '<span class="step-val" id="pause-ajout-' + i + '">' + (ch.pause || 0) + '</span>'
-      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="15" onclick="majPauseData(this)">+</div>'
-      + '<span class="step-unite">min</span>'
-      + '</div>';
-    div.appendChild(pauseRow);
 
     // Durée
     const dureeBadge = document.createElement('div');
@@ -2054,28 +2095,34 @@ function togglePause(pauseRow, btn) {
   btn.classList.toggle('actif', !visible);
 }
 
-/* Stepper de la pause (± 15 min). Met à jour en place sans re-render
-   (un re-render refermerait un chantier déjà synchronisé). Renvoie au serveur. */
-async function majPauseData(btn) {
+/* Stepper de la pause (± 15 min). Met à jour l'affichage en place (sans re-render
+   pour ne pas refermer un chantier déjà synchronisé). L'envoi se fait via le bouton ✔ OK. */
+function majPauseData(btn) {
   const delta = parseInt(btn.dataset.delta);
   const type  = btn.dataset.type;
   const card  = btn.closest('.chantier-card');
 
-  let s, nom, idx;
+  let s;
   if (type === 'pause-prev') {
-    nom = btn.dataset.nom;
+    const nom = btn.dataset.nom;
     if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
     _saisiesPrev[nom].pause = Math.max(0, (_saisiesPrev[nom].pause || 0) + delta);
+    _saisiesPrev[nom].pauseValidee = false;
     s = _saisiesPrev[nom];
   } else {
-    idx = parseInt(btn.dataset.idx);
-    _chantiersA[idx].pause = Math.max(0, (_chantiersA[idx].pause || 0) + delta);
-    s = _chantiersA[idx];
+    const i = parseInt(btn.dataset.idx);
+    _chantiersA[i].pause = Math.max(0, (_chantiersA[i].pause || 0) + delta);
+    _chantiersA[i].pauseValidee = false;
+    s = _chantiersA[i];
   }
 
-  // Mettre à jour la valeur affichée du stepper (sans re-render)
+  // Mettre à jour la valeur affichée du stepper
   const valEl = card?.querySelector('.pause-row .step-val');
   if (valEl) valEl.textContent = s.pause;
+
+  // Le bouton OK de la pause repasse en "non validé" (orange) puisque la valeur a changé
+  const okPause = card?.querySelector('.btn-valider-pause');
+  if (okPause) okPause.classList.remove('valide');
 
   // Recalculer la durée affichée
   const duree = calcDuree(s.arrivee, s.depart, s.pause);
@@ -2083,23 +2130,55 @@ async function majPauseData(btn) {
   if (badge) { badge.textContent = duree || 'À saisir'; badge.className = 'duree-badge' + (duree ? '' : ' vide'); }
 
   majTotal();
+}
 
-  // Si le chantier a déjà été envoyé (arrivée + départ validés), renvoyer la maj au serveur
-  const dejaSauve = s.envoye || s.dejaEnvoye || s.synchronise;
-  if (dejaSauve && s.arrivee && s.depart) {
-    const date = document.getElementById('date-saisie').value;
-    if (date) {
-      const chantier = {
-        nom: (type === 'pause-prev') ? nom : s.nom,
-        heureArrivee: s.arrivee || '',
-        heureDepart:  s.depart  || '',
-        dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
-        pause:        s.pause || 0,
-        deplacement:  s.depl || 0,
-        isPrevisionnel: (type === 'pause-prev')
-      };
-      await _envoyerChantier(chantier, date);
-    }
+/* Valider la pause indépendamment (bouton ✔ OK de l'encart pause).
+   Fonctionne même si le départ n'est pas encore saisi : on enregistre l'état actuel
+   du chantier au serveur avec la pause. */
+async function validerPause(btn) {
+  const type = btn.dataset.type;
+  const card = btn.closest('.chantier-card');
+  let s, nom;
+  if (type === 'pause-prev') {
+    nom = btn.dataset.nom;
+    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
+    s = _saisiesPrev[nom];
+  } else {
+    const i = parseInt(btn.dataset.idx);
+    s = _chantiersA[i];
+    nom = s.nom;
+  }
+
+  // Il faut au moins l'arrivée pour pouvoir enregistrer
+  if (!s.arrivee) { alert("Validez d'abord l'heure d'arrivée."); return; }
+
+  btn.classList.add('valide');
+  s.pauseValidee = true;
+
+  // Envoyer l'état actuel au serveur (départ éventuellement vide)
+  const date = document.getElementById('date-saisie').value;
+  if (!date) { alert('Choisissez une date'); return; }
+  const ancienTxt = btn.textContent;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  const chantier = {
+    nom,
+    heureArrivee: s.arrivee || '',
+    heureDepart:  s.depart  || '',
+    dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
+    pause:        s.pause || 0,
+    deplacement:  s.depl || 0,
+    isPrevisionnel: (type === 'pause-prev')
+  };
+  const ok = await _envoyerChantier(chantier, date);
+  btn.disabled = false;
+  if (ok) {
+    btn.textContent = '✔ OK';
+    s.synchronise = true;
+  } else {
+    btn.textContent = '⚠';
+    btn.classList.remove('valide');
+    setTimeout(() => { btn.textContent = ancienTxt; }, 2000);
   }
 }
 
