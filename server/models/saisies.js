@@ -4,8 +4,9 @@ const saisieChantierSchema = new mongoose.Schema({
   nom:          { type: String, required: true },
   heureArrivee: { type: String, default: "" },  // "HH:MM"
   heureDepart:  { type: String, default: "" },  // "HH:MM"
-  dureeMin:     { type: Number, default: 0 },   // durée en minutes calculée
+  dureeMin:     { type: Number, default: 0 },   // durée en minutes (pause déjà déduite)
   deplacement:  { type: Number, default: 0 },   // temps déplacement en minutes
+  pause:        { type: Number, default: 0 },   // temps de pause en minutes (déduit de la durée)
   isPrevisionnel: { type: Boolean, default: false }
 }, { _id: false });
 

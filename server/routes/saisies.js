@@ -104,6 +104,7 @@ router.post("/envoyer", async (req, res) => {
           heureDepart:    chantier.heureDepart    || existant.heureDepart  || "",
           dureeMin:       chantier.dureeMin       != null ? chantier.dureeMin       : (existant.dureeMin       || 0),
           deplacement:    chantier.deplacement    != null ? chantier.deplacement    : (existant.deplacement    || 0),
+          pause:          chantier.pause          != null ? chantier.pause          : (existant.pause          || 0),
           isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false)
         };
       } else {
@@ -259,12 +260,13 @@ router.patch("/:id/chantier/:idx", verifyToken, async (req, res) => {
     if (body.heureArrivee != null) c.heureArrivee = String(body.heureArrivee);
     if (body.heureDepart != null)  c.heureDepart  = String(body.heureDepart);
     if (body.deplacement != null)  c.deplacement  = parseInt(body.deplacement) || 0;
+    if (body.pause != null)        c.pause        = parseInt(body.pause) || 0;
 
-    // Recalculer dureeMin si les heures changent
+    // Recalculer dureeMin (pause déduite) si les heures changent
     if (c.heureArrivee && c.heureDepart) {
       const [h1, m1] = c.heureArrivee.split(':').map(Number);
       const [h2, m2] = c.heureDepart.split(':').map(Number);
-      c.dureeMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1));
+      c.dureeMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1) - (c.pause || 0));
     } else {
       c.dureeMin = 0;
     }

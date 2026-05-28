@@ -69,6 +69,7 @@
   .col-ch   { }
   /* Les 6 colonnes Horaires / Durée / Déplacement / Réalisé / Prévu / Écart ont la même largeur */
   .col-h, .col-depl, .col-tot { width:110px; min-width:110px; text-align:center; }
+  .col-pause { width:80px; min-width:80px; text-align:center; color:#1d4ed8; }
   .col-depl { color:#92400e; }
   .col-tot  { font-weight:700; color:#2563eb; }
 
@@ -506,6 +507,7 @@ function afficherRealise() {
           <td class="col-sal">${s.salarieNom}</td>
           <td class="col-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
           <td class="col-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
+          <td class="col-pause">${c.pause ? c.pause + ' min' : '—'}</td>
           <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>
           <td class="col-depl">${c.deplacement ? c.deplacement + ' min' : '—'}</td>
           <td class="col-tot">${th}h${String(tm).padStart(2,'0')}</td>
@@ -528,7 +530,7 @@ function afficherRealise() {
           ? Math.floor(salPrevuMin/60) + 'h' + String(salPrevuMin%60).padStart(2,'0') : '—';
         const sth = Math.floor(salRealMin/60), stm = salRealMin%60;
         rows += `<tr class="ligne-total-sal">
-          <td colspan="3" style="text-align:left;font-size:0.78rem;">Total ${s.salarieNom}</td>
+          <td colspan="4" style="text-align:left;font-size:0.78rem;">Total ${s.salarieNom}</td>
           <td class="col-h">${Math.floor(salTotalMin/60)}h${String(salTotalMin%60).padStart(2,'0')}</td>
           <td class="col-depl">${salDeplMin ? salDeplMin + ' min' : '—'}</td>
           <td class="col-tot">${sth}h${String(stm).padStart(2,'0')}</td>
@@ -573,6 +575,7 @@ function afficherRealise() {
           <th class="col-sal">Salarié</th>
           <th class="col-ch">Chantier</th>
           <th class="col-h">Horaires</th>
+          <th class="col-pause">Pause</th>
           <th class="col-h">Durée</th>
           <th class="col-depl">Déplacement</th>
           <th class="col-tot">Réalisé</th>
@@ -583,7 +586,7 @@ function afficherRealise() {
         <tbody>${rows}</tbody>
         <tfoot>
           <tr class="ligne-total">
-            <td colspan="3" style="text-align:left;">Total journée</td>
+            <td colspan="4" style="text-align:left;">Total journée</td>
             <td class="col-h">${Math.floor(jourTotalMin/60)}h${String(jourTotalMin%60).padStart(2,'0')}</td>
             <td class="col-depl">${jourDeplMin ? jourDeplMin + ' min' : '—'}</td>
             <td class="col-tot">${jth}h${String(jtm).padStart(2,'0')}</td>

@@ -721,6 +721,46 @@
 
   /* Bandeau bleu Volitis (header desktop) reste bleu — pas de surcharge */
   /* Panneau QR sur PC reste sobre — pas de surcharge */
+
+  /* Barre d'actions (bouton Pause + bouton Envoyer côte à côte) */
+  .barre-actions {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    margin-top: 4px;
+  }
+  .barre-actions .btn-envoyer-chantier { flex: 1; margin: 0 !important; }
+  .btn-pause {
+    flex: 0 0 auto;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 0 16px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-pause:active { transform: scale(0.96); }
+  .btn-pause.actif {
+    background: #1d4ed8;
+    color: #fff;
+    border-color: #1d4ed8;
+  }
+  /* Encart pause : repris du style déplacement mais en bleu */
+  .pause-row {
+    background: #eff6ff !important;
+    border: 1.5px solid #bfdbfe !important;
+  }
+  .pause-row label { color: #1d4ed8 !important; }
+  .pause-row .step-btn {
+    background: #bfdbfe !important;
+    color: #1d4ed8 !important;
+  }
+  .pause-row .step-btn:active { background: #93c5fd !important; }
+  .pause-row .step-val  { color: #1d4ed8 !important; }
+  .pause-row .step-unite { color: #1d4ed8 !important; }
   </style>
 </head>
 <body>
@@ -1272,6 +1312,7 @@ async function chargerChantiersPrev() {
               arrivee: c.heureArrivee || '',
               depart:  c.heureDepart  || '',
               depl:    c.deplacement  || 0,
+              pause:   c.pause        || 0,
               synchronise: true,
               dejaEnvoye: true
             };
@@ -1283,6 +1324,7 @@ async function chargerChantiersPrev() {
                 arrivee: c.heureArrivee || '',
                 depart:  c.heureDepart  || '',
                 depl:    c.deplacement  || 0,
+                pause:   c.pause        || 0,
                 synchronise: true,
                 dejaEnvoye: true
               });
@@ -1313,7 +1355,7 @@ function rendrePrev() {
   const items = _chantiersP.map((ch, i) => {
     const s     = _saisiesPrev[ch.nom] || { arrivee: '', depart: '', depl: 0 };
     const nomId = 'prev_' + i;
-    const duree = calcDuree(s.arrivee, s.depart);
+    const duree = calcDuree(s.arrivee, s.depart, s.pause);
     const div   = document.createElement('div');
     div.className = 'chantier-card previsionnel';
 
@@ -1395,25 +1437,46 @@ function rendrePrev() {
     depLigne.appendChild(depBtn);
     div.appendChild(depLigne);
 
+    // Encart Pause (caché par défaut, affiché via le bouton 🍽️ Pause)
+    const pauseRow = document.createElement('div');
+    pauseRow.className = 'depl-row pause-row';
+    pauseRow.style.display = (s.pause > 0) ? 'flex' : 'none';
+    pauseRow.innerHTML = '<label>🍽️ Pause (déduite du total)</label>'
+      + '<div class="stepper">'
+      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
+      + '<span class="step-val" id="pause-' + nomId + '">' + (s.pause || 0) + '</span>'
+      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="15" onclick="majPauseData(this)">+</div>'
+      + '<span class="step-unite">min</span>'
+      + '</div>';
+    div.appendChild(pauseRow);
+
     // Durée
     const dureeBadge = document.createElement('div');
     dureeBadge.className = 'duree-badge' + (duree ? '' : ' vide');
     dureeBadge.textContent = duree || 'À saisir';
     div.appendChild(dureeBadge);
 
-    // Ligne 5 : bouton envoyer (caché si déjà sauvegardé puisque chaque OK envoie déjà)
+    // Ligne 5 : bouton Pause + bouton Envoyer (caché si déjà sauvegardé)
     if (dejaSauve) {
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Chantier enregistré';
       div.appendChild(env);
     } else {
+      const barre = document.createElement('div');
+      barre.className = 'barre-actions';
+      const pauseBtn = document.createElement('button');
+      pauseBtn.className = 'btn-pause' + (s.pause > 0 ? ' actif' : '');
+      pauseBtn.textContent = '🍽️ Pause';
+      pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
       envBtn.textContent = '✉ Envoyer ce chantier';
       envBtn.dataset.nom = ch.nom;
       envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.nom); };
-      div.appendChild(envBtn);
+      barre.appendChild(pauseBtn);
+      barre.appendChild(envBtn);
+      div.appendChild(barre);
     }
 
     return div;
@@ -1427,7 +1490,7 @@ function rendrePrev() {
 function majSaisiePrev(nom, champ, val) {
   if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
   _saisiesPrev[nom][champ] = val;
-  const duree = calcDuree(_saisiesPrev[nom].arrivee, _saisiesPrev[nom].depart);
+  const duree = calcDuree(_saisiesPrev[nom].arrivee, _saisiesPrev[nom].depart, _saisiesPrev[nom].pause);
   rendrePrev();
   majTotal();
 }
@@ -1441,7 +1504,7 @@ function rendreAjout() {
   if (!_chantiersA.length) { cont.innerHTML = ''; return; }
 
   const items = _chantiersA.map((ch, i) => {
-    const duree = calcDuree(ch.arrivee, ch.depart);
+    const duree = calcDuree(ch.arrivee, ch.depart, ch.pause);
     const dejaSauve = ch.envoye || ch.dejaEnvoye || ch.synchronise;
     const div   = document.createElement('div');
     div.className = 'chantier-card ajoute';
@@ -1499,25 +1562,46 @@ function rendreAjout() {
       + '<button class="' + clsDepOK + '" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(depLigne);
 
+    // Encart Pause (caché par défaut)
+    const pauseRow = document.createElement('div');
+    pauseRow.className = 'depl-row pause-row';
+    pauseRow.style.display = (ch.pause > 0) ? 'flex' : 'none';
+    pauseRow.innerHTML = '<label>🍽️ Pause (déduite du total)</label>'
+      + '<div class="stepper">'
+      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
+      + '<span class="step-val" id="pause-ajout-' + i + '">' + (ch.pause || 0) + '</span>'
+      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="15" onclick="majPauseData(this)">+</div>'
+      + '<span class="step-unite">min</span>'
+      + '</div>';
+    div.appendChild(pauseRow);
+
     // Durée
     const dureeBadge = document.createElement('div');
     dureeBadge.className = 'duree-badge' + (duree ? '' : ' vide');
     dureeBadge.textContent = duree || 'À saisir';
     div.appendChild(dureeBadge);
 
-    // Ligne 5 : bouton envoyer
+    // Ligne 5 : bouton Pause + bouton Envoyer
     if (dejaSauve) {
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Chantier enregistré';
       div.appendChild(env);
     } else {
+      const barre = document.createElement('div');
+      barre.className = 'barre-actions';
+      const pauseBtn = document.createElement('button');
+      pauseBtn.className = 'btn-pause' + (ch.pause > 0 ? ' actif' : '');
+      pauseBtn.textContent = '🍽️ Pause';
+      pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier ajout';
       envBtn.textContent = '✉ Envoyer ce chantier';
       envBtn.dataset.idx = i;
       envBtn.onclick = function() { envoyerUnChantierAjout(parseInt(this.dataset.idx)); };
-      div.appendChild(envBtn);
+      barre.appendChild(pauseBtn);
+      barre.appendChild(envBtn);
+      div.appendChild(barre);
     }
 
     return div;
@@ -1560,30 +1644,30 @@ function majDepl(type, ref, delta) {
 /* ═══════════════════════════
    CALCULS
 ═══════════════════════════ */
-function calcDuree(arrivee, depart) {
+function calcDuree(arrivee, depart, pause) {
   if (!arrivee || !depart) return '';
   const [ah, am] = arrivee.split(':').map(Number);
   const [dh, dm] = depart.split(':').map(Number);
-  let diff = (dh * 60 + dm) - (ah * 60 + am);
+  let diff = (dh * 60 + dm) - (ah * 60 + am) - (parseInt(pause) || 0);
   if (diff <= 0) return '';
   return `${Math.floor(diff / 60)} h ${String(diff % 60).padStart(2,'0')}`;
 }
 
-function calcMinutes(arrivee, depart) {
+function calcMinutes(arrivee, depart, pause) {
   if (!arrivee || !depart) return 0;
   const [ah, am] = arrivee.split(':').map(Number);
   const [dh, dm] = depart.split(':').map(Number);
-  return Math.max(0, (dh * 60 + dm) - (ah * 60 + am));
+  return Math.max(0, (dh * 60 + dm) - (ah * 60 + am) - (parseInt(pause) || 0));
 }
 
 function majTotal() {
   let total = 0;
   _chantiersP.forEach(c => {
     const s = _saisiesPrev[c.nom] || {};
-    total += calcMinutes(s.arrivee, s.depart) + (s.depl || 0);
+    total += calcMinutes(s.arrivee, s.depart, s.pause) + (s.depl || 0);
   });
   _chantiersA.forEach(c => {
-    total += calcMinutes(c.arrivee, c.depart) + (c.depl || 0);
+    total += calcMinutes(c.arrivee, c.depart, c.pause) + (c.depl || 0);
   });
   document.getElementById('total-jour').textContent =
     `${Math.floor(total / 60)} h ${String(total % 60).padStart(2,'0')}`;
@@ -1833,7 +1917,7 @@ async function validerHeurePrevData(btn) {
   }
   // Mettre à jour durée sans rerender complet
   const s = _saisiesPrev[nom];
-  const duree = calcDuree(s.arrivee, s.depart);
+  const duree = calcDuree(s.arrivee, s.depart, s.pause);
   const card = btn.closest('.chantier-card');
   if (card) {
     const badge = card.querySelector('.duree-badge');
@@ -1851,7 +1935,8 @@ async function validerHeurePrevData(btn) {
     nom,
     heureArrivee: s.arrivee || '',
     heureDepart:  s.depart  || '',
-    dureeMin:     calcMinutes(s.arrivee, s.depart),
+    dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
+    pause:        s.pause || 0,
     deplacement:  s.depl || 0,
     isPrevisionnel: true
   };
@@ -1888,7 +1973,7 @@ async function validerHeureAjoutData(btn) {
     }
   }
   // Mettre à jour durée
-  const duree = calcDuree(_chantiersA[i].arrivee, _chantiersA[i].depart);
+  const duree = calcDuree(_chantiersA[i].arrivee, _chantiersA[i].depart, _chantiersA[i].pause);
   const card = btn.closest('.chantier-card');
   if (card) {
     const badge = card.querySelector('.duree-badge');
@@ -1907,7 +1992,8 @@ async function validerHeureAjoutData(btn) {
     nom:           ch.nom,
     heureArrivee:  ch.arrivee || '',
     heureDepart:   ch.depart  || '',
-    dureeMin:      calcMinutes(ch.arrivee, ch.depart),
+    dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
+        pause:         ch.pause || 0,
     deplacement:   ch.depl || 0,
     isPrevisionnel: false
   };
@@ -1943,6 +2029,30 @@ function majDeplData(btn) {
   majTotal();
 }
 
+/* Afficher/masquer l'encart pause via le bouton 🍽️ Pause */
+function togglePause(pauseRow, btn) {
+  const visible = pauseRow.style.display !== 'none';
+  pauseRow.style.display = visible ? 'none' : 'flex';
+  btn.classList.toggle('actif', !visible);
+}
+
+/* Stepper de la pause (± 15 min). Recalcule durée et total. */
+function majPauseData(btn) {
+  const delta = parseInt(btn.dataset.delta);
+  const type  = btn.dataset.type;
+  if (type === 'pause-prev') {
+    const nom = btn.dataset.nom;
+    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
+    _saisiesPrev[nom].pause = Math.max(0, (_saisiesPrev[nom].pause || 0) + delta);
+    rendrePrev();
+  } else {
+    const i = parseInt(btn.dataset.idx);
+    _chantiersA[i].pause = Math.max(0, (_chantiersA[i].pause || 0) + delta);
+    rendreAjout();
+  }
+  majTotal();
+}
+
 /* ── Envoyer un chantier prévu individuel ── */
 async function envoyerUnChantierPrev(nom) {
   const date = document.getElementById('date-saisie').value;
@@ -1953,7 +2063,8 @@ async function envoyerUnChantierPrev(nom) {
     nom,
     heureArrivee:  s.arrivee,
     heureDepart:   s.depart,
-    dureeMin:      calcMinutes(s.arrivee, s.depart),
+    dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
+        pause:         s.pause || 0,
     deplacement:   s.depl || 0,
     isPrevisionnel: true
   };
@@ -1975,7 +2086,8 @@ async function envoyerUnChantierAjout(i) {
     nom:           ch.nom,
     heureArrivee:  ch.arrivee,
     heureDepart:   ch.depart,
-    dureeMin:      calcMinutes(ch.arrivee, ch.depart),
+    dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
+        pause:         ch.pause || 0,
     deplacement:   ch.depl || 0,
     isPrevisionnel: false
   };
@@ -2021,7 +2133,8 @@ async function envoyerChantier() {
         nom:           ch.nom,
         heureArrivee:  s.arrivee,
         heureDepart:   s.depart,
-        dureeMin:      calcMinutes(s.arrivee, s.depart),
+        dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
+        pause:         s.pause || 0,
         deplacement:   s.depl || 0,
         isPrevisionnel: true
       });
@@ -2034,7 +2147,8 @@ async function envoyerChantier() {
         nom:           ch.nom,
         heureArrivee:  ch.arrivee || '',
         heureDepart:   ch.depart  || '',
-        dureeMin:      calcMinutes(ch.arrivee, ch.depart),
+        dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
+        pause:         ch.pause || 0,
         deplacement:   ch.depl || 0,
         isPrevisionnel: false
       });
