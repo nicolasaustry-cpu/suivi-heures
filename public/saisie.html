@@ -753,47 +753,16 @@
     color: #fff;
     border-color: #1d4ed8;
   }
-  /* Pause en ligne (même grille qu'Arrivée/Départ) */
-  .pause-ligne { align-items: center; }
-  .pause-label {
+  /* Pause : même structure qu'Arrivée/Départ */
+  .pause-label { color: #1d4ed8 !important; }
+  .pause-select {
+    background: #eff6ff !important;
+    border: 1.5px solid #bfdbfe !important;
     color: #1d4ed8 !important;
-    display: flex !important;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    font-size: 0.78rem !important;
+    font-weight: 700;
+    cursor: pointer;
   }
-  .pause-label .ico-repas {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px; height: 22px;
-    background: #fff;
-    border: 1.5px solid #bfdbfe;
-    border-radius: 50%;
-    font-size: 0.8rem;
-    flex-shrink: 0;
-  }
-  .pause-zone {
-    flex: 1;
-    background: #eff6ff;
-    border: 1.5px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-  .pause-zone .step-btn {
-    background: #1d4ed8 !important;
-    color: #fff !important;
-    width: 30px; height: 30px;
-  }
-  .pause-zone .step-btn:active { background: #1e40af !important; }
-  .pause-zone .step-val  { color: #1d4ed8 !important; font-weight: 700; }
-  .pause-zone .step-unite { color: #1d4ed8 !important; }
-  /* Le bouton OK pause hérite de .btn-valider-heure mais reste bleu jusqu'à validation */
+  /* Le bouton OK pause reste bleu jusqu'à validation, puis vert */
   .btn-valider-pause { background: #2563eb !important; box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important; }
   .btn-valider-pause.valide { background: #16a34a !important; }
   </style>
@@ -1450,18 +1419,19 @@ function rendrePrev() {
     arrLigne.appendChild(arrBtn);
     div.appendChild(arrLigne);
 
-    // Pause : ligne alignée sur la même grille qu'Arrivée/Départ (label + zone + OK)
+    // Pause : même structure qu'Arrivée/Départ (label + menu déroulant + OK)
     const pauseRow = document.createElement('div');
     pauseRow.className = 'heure-ligne pause-ligne';
     pauseRow.style.display = (s.pause > 0) ? 'flex' : 'none';
+    let optsP = '';
+    for (let m = 0; m <= 150; m += 15) {
+      const h = Math.floor(m / 60), mm = m % 60;
+      const label = h + 'h' + String(mm).padStart(2, '0');
+      optsP += '<option value="' + m + '"' + ((s.pause || 0) === m ? ' selected' : '') + '>' + label + '</option>';
+    }
     pauseRow.innerHTML =
-        '<span class="heure-label pause-label"><span class="ico-repas">🍽️</span>Pause</span>'
-      + '<div class="pause-zone">'
-      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
-      + '<span class="step-val" id="pause-' + nomId + '">' + (s.pause || 0) + '</span>'
-      + '<div class="step-btn" data-type="pause-prev" data-nom="' + ch.nom + '" data-delta="15" onclick="majPauseData(this)">+</div>'
-      + '<span class="step-unite">min</span>'
-      + '</div>'
+        '<span class="heure-label pause-label">🍽️ Pause</span>'
+      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-nom="' + ch.nom + '">' + optsP + '</select>'
       + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-nom="' + ch.nom + '" onclick="validerPause(this)">✔ OK</button>';
     div.appendChild(pauseRow);
 
@@ -1503,6 +1473,7 @@ function rendrePrev() {
       pauseBtn.className = 'btn-pause' + (s.pause > 0 ? ' actif' : '');
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
+      if (s.pause > 0) pauseBtn.style.display = "none";
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Chantier enregistré';
@@ -1517,6 +1488,7 @@ function rendrePrev() {
       pauseBtn.className = 'btn-pause' + (s.pause > 0 ? ' actif' : '');
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
+      if (s.pause > 0) pauseBtn.style.display = "none";
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
       envBtn.textContent = '✉ Envoyer ce chantier';
@@ -1600,18 +1572,19 @@ function rendreAjout() {
       + '<button class="' + clsArrOK + '" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(arrLigne);
 
-    // Pause : ligne alignée sur la même grille qu'Arrivée/Départ
+    // Pause : même structure qu'Arrivée/Départ (label + menu déroulant + OK)
     const pauseRow = document.createElement('div');
     pauseRow.className = 'heure-ligne pause-ligne';
     pauseRow.style.display = (ch.pause > 0) ? 'flex' : 'none';
+    let optsPa = '';
+    for (let m = 0; m <= 150; m += 15) {
+      const h = Math.floor(m / 60), mm = m % 60;
+      const label = h + 'h' + String(mm).padStart(2, '0');
+      optsPa += '<option value="' + m + '"' + ((ch.pause || 0) === m ? ' selected' : '') + '>' + label + '</option>';
+    }
     pauseRow.innerHTML =
-        '<span class="heure-label pause-label"><span class="ico-repas">🍽️</span>Pause</span>'
-      + '<div class="pause-zone">'
-      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="-15" onclick="majPauseData(this)">−</div>'
-      + '<span class="step-val" id="pause-ajout-' + i + '">' + (ch.pause || 0) + '</span>'
-      + '<div class="step-btn" data-type="pause-ajout" data-idx="' + i + '" data-delta="15" onclick="majPauseData(this)">+</div>'
-      + '<span class="step-unite">min</span>'
-      + '</div>'
+        '<span class="heure-label pause-label">🍽️ Pause</span>'
+      + '<select class="heure-input pause-select" id="pause-ajout-' + i + '" onchange="majPauseSelect(this)" data-type="pause-ajout" data-idx="' + i + '">' + optsPa + '</select>'
       + '<button class="btn-valider-heure btn-valider-pause' + (ch.pauseValidee ? ' valide' : '') + '" data-type="pause-ajout" data-idx="' + i + '" onclick="validerPause(this)">✔ OK</button>';
     div.appendChild(pauseRow);
 
@@ -1639,6 +1612,7 @@ function rendreAjout() {
       pauseBtn.className = 'btn-pause' + (ch.pause > 0 ? ' actif' : '');
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
+      if (ch.pause > 0) pauseBtn.style.display = "none";
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Chantier enregistré';
@@ -1653,6 +1627,7 @@ function rendreAjout() {
       pauseBtn.className = 'btn-pause' + (ch.pause > 0 ? ' actif' : '');
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
+      if (ch.pause > 0) pauseBtn.style.display = "none";
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier ajout';
       envBtn.textContent = '✉ Envoyer ce chantier';
@@ -2093,34 +2068,33 @@ function togglePause(pauseRow, btn) {
   const visible = pauseRow.style.display !== 'none';
   pauseRow.style.display = visible ? 'none' : 'flex';
   btn.classList.toggle('actif', !visible);
+  // Quand la ligne pause est affichée, masquer le bouton "Pause" du bas (redondant).
+  // Quand on la masque, on le réaffiche.
+  btn.style.display = visible ? '' : 'none';
 }
 
-/* Stepper de la pause (± 15 min). Met à jour l'affichage en place (sans re-render
-   pour ne pas refermer un chantier déjà synchronisé). L'envoi se fait via le bouton ✔ OK. */
-function majPauseData(btn) {
-  const delta = parseInt(btn.dataset.delta);
-  const type  = btn.dataset.type;
-  const card  = btn.closest('.chantier-card');
+/* Changement de la durée de pause via le menu déroulant.
+   Met à jour la donnée, recalcule la durée affichée et le total. Repasse le OK en non-validé. */
+function majPauseSelect(sel) {
+  const type = sel.dataset.type;
+  const mins = parseInt(sel.value) || 0;
+  const card = sel.closest('.chantier-card');
 
   let s;
   if (type === 'pause-prev') {
-    const nom = btn.dataset.nom;
+    const nom = sel.dataset.nom;
     if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
-    _saisiesPrev[nom].pause = Math.max(0, (_saisiesPrev[nom].pause || 0) + delta);
+    _saisiesPrev[nom].pause = mins;
     _saisiesPrev[nom].pauseValidee = false;
     s = _saisiesPrev[nom];
   } else {
-    const i = parseInt(btn.dataset.idx);
-    _chantiersA[i].pause = Math.max(0, (_chantiersA[i].pause || 0) + delta);
+    const i = parseInt(sel.dataset.idx);
+    _chantiersA[i].pause = mins;
     _chantiersA[i].pauseValidee = false;
     s = _chantiersA[i];
   }
 
-  // Mettre à jour la valeur affichée du stepper
-  const valEl = card?.querySelector('.pause-row .step-val');
-  if (valEl) valEl.textContent = s.pause;
-
-  // Le bouton OK de la pause repasse en "non validé" (orange) puisque la valeur a changé
+  // Le bouton OK pause repasse en non-validé (bleu) puisque la valeur a changé
   const okPause = card?.querySelector('.btn-valider-pause');
   if (okPause) okPause.classList.remove('valide');
 
