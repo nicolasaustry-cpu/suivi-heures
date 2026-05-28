@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <!-- PWA : manifest pour permettre l'installation comme application (PC et mobile) -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f3a8a">
 </head>
 <body>
 
@@ -219,6 +222,17 @@ window.addEventListener('donnees-chargees', chargerSeuilsJauge);
     }
   };
   });
+</script>
+
+<!-- PWA : enregistrement du Service Worker pour permettre l'installation comme app -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('Service Worker enregistré (PWA prête)'))
+      .catch(e => console.warn('Service Worker erreur :', e));
+  });
+}
 </script>
 
 </body>
