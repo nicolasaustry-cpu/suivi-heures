@@ -469,12 +469,74 @@ function getChantiersPrevisionnel() {
   return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
-/* Construit le HTML d'un <datalist> à partir des chantiers du prévisionnel. */
-function genDatalistChantiers() {
-  const options = getChantiersPrevisionnel()
-    .map(nom => `<option value="${nom.replace(/"/g, '&quot;')}">`)
-    .join('');
-  return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
+/* Échappe une valeur pour un attribut HTML. */
+function escAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* Construit les <option> du menu déroulant Chantier :
+   - ligne vide (annuler)
+   - chantiers du prévisionnel (mois en cours + 3)
+   - la valeur déjà enregistrée si elle n'est pas dans la liste (pour ne rien perdre)
+   - ligne "Autre…" pour saisir un nom libre */
+function genOptionsChantier(valeurActuelle) {
+  const v = (valeurActuelle || '').trim();
+  const liste = getChantiersPrevisionnel();
+  const dansListe = liste.some(n => n.toLowerCase() === v.toLowerCase());
+
+  let opt = `<option value="">— (vide) —</option>`;
+
+  // Valeur actuelle hors prévisionnel : on l'ajoute pour la conserver
+  if (v && !dansListe) {
+    opt += `<option value="${escAttr(v)}" selected>${escAttr(v)}</option>`;
+  }
+
+  liste.forEach(nom => {
+    const sel = (v && nom.toLowerCase() === v.toLowerCase()) ? ' selected' : '';
+    opt += `<option value="${escAttr(nom)}"${sel}>${escAttr(nom)}</option>`;
+  });
+
+  opt += `<option value="__autre__">Autre… (saisir un nom)</option>`;
+  return opt;
+}
+
+/* Retourne la valeur courante du chantier pour une clé donnée :
+   soit le champ libre (s'il est visible), soit la valeur du menu. */
+function getValeurChantier(k) {
+  const libre = document.getElementById(k + 'chantierLibre');
+  if (libre && libre.style.display !== 'none') return libre.value.trim();
+  const sel = document.getElementById(k + 'chantier');
+  if (!sel) return '';
+  return sel.value === '__autre__' ? '' : sel.value;
+}
+
+/* Changement dans le menu déroulant Chantier. */
+function onChangeChantier(sel) {
+  const k = sel.dataset.cle;
+  const libre = document.getElementById(k + 'chantierLibre');
+  const hSel = document.getElementById(k + 'h');
+  const h = hSel ? hSel.value : 0;
+
+  if (sel.value === '__autre__') {
+    // Afficher le champ libre pour saisir un nom hors prévisionnel
+    if (libre) {
+      libre.style.display = 'block';
+      libre.value = '';
+      libre.focus();
+    }
+    return; // on attend la saisie libre avant d'enregistrer
+  }
+
+  // Choix normal (ou ligne vide) : masquer le champ libre et enregistrer
+  if (libre) { libre.style.display = 'none'; libre.value = ''; }
+  saveHeure(k, sel.value, h);
+}
+
+/* Saisie dans le champ libre "Autre…". */
+function onSaisieLibreChantier(k, valeur) {
+  const hSel = document.getElementById(k + 'h');
+  const h = hSel ? hSel.value : 0;
+  saveHeure(k, valeur.trim(), h);
 }
 
 function genererPlanning() {
@@ -557,11 +619,15 @@ function genererPlanning() {
         const data = heures[k] || { chantier: '', heures: 0 };
         total += parseFloat(data.heures) || 0;
         row += `<td style="border:1px solid #ccc;padding:2px;">
-          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:165px;"
-            list="liste-chantiers-prev" autocomplete="off"
-            oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+          <select id="${k}chantier" class="ch-select" data-cle="${k}" style="width:165px;"
+            onchange="onChangeChantier(this)">
+            ${genOptionsChantier(data.chantier)}
+          </select>
+          <input id="${k}chantierLibre" class="ch-libre" placeholder="Nom du chantier..." style="width:165px;display:none;margin-top:2px;"
+            value="" autocomplete="off"
+            oninput="onSaisieLibreChantier('${k}',this.value)">
           <select id="${k}h" style="width:58px;"
-            onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
+            onchange="saveHeure('${k}',getValeurChantier('${k}'),this.value)">
             ${genOptionsHeures(data.heures)}
           </select>
         </td>`;
@@ -595,8 +661,7 @@ function genererPlanning() {
   }
 
   // Injection unique dans le DOM (x26 fois plus rapide que += dans la boucle)
-  // Le <datalist> en tête alimente l'autocomplétion des cases Chantier.
-  cont.innerHTML = genDatalistChantiers() + htmlTotal;
+  cont.innerHTML = htmlTotal;
 
   // Remplir Prévu et Écart après injection
   joursData.forEach(({ dateStr, lignesData }) => {
@@ -664,13 +729,14 @@ function majCouleursChantiers() {
   // Cache des couleurs par chantier (évite de recalculer pour chaque case)
   const couleurParChantier = new Map(); // clé normalisée -> couleur
 
-  document.querySelectorAll('#planning-wrapper input[id$="chantier"]').forEach(input => {
-    const k   = input.id.replace(/chantier$/, '');
-    const sel = document.getElementById(k + 'h');
-    if (!sel) return;
+  // Parcourt chaque menu déroulant Chantier (.ch-select)
+  document.querySelectorAll('#planning-wrapper select.ch-select').forEach(selCh => {
+    const k   = selCh.dataset.cle;
+    const selH = document.getElementById(k + 'h');
+    if (!selH) return;
 
-    const nom = (input.value || '').trim();
-    if (!nom) { sel.style.background = NEUTRE; return; }
+    const nom = getValeurChantier(k);
+    if (!nom) { selH.style.background = NEUTRE; return; }
 
     const cible = normaliserChantier(nom);
     let couleur = couleurParChantier.get(cible);
@@ -686,7 +752,7 @@ function majCouleursChantiers() {
       }
       couleurParChantier.set(cible, couleur);
     }
-    sel.style.background = couleur;
+    selH.style.background = couleur;
   });
 }
 
@@ -1138,32 +1204,31 @@ function escapeHtml(s) {
   })[c]);
 }
 
+/* Vrai si l'élément est une case Chantier (menu déroulant ou champ libre). */
+function estCaseChantier(t) {
+  return t && (t.classList?.contains('ch-select') || t.classList?.contains('ch-libre'));
+}
+
 /* Délégation d'événements sur tout le wrapper du planning. */
 document.addEventListener('DOMContentLoaded', () => {
   const wrap = document.getElementById('planning-wrapper');
   if (!wrap) return;
   wrap.addEventListener('mouseover', e => {
     const t = e.target;
-    if (t.tagName === 'INPUT' && t.id && t.id.endsWith('chantier')) {
+    if (estCaseChantier(t) && t.value && t.value !== '__autre__') {
       // Délai léger pour ne pas spammer
       if (_tooltipTimer) clearTimeout(_tooltipTimer);
       _tooltipTimer = setTimeout(() => montrerTooltipChantier(t), 350);
     }
   });
   wrap.addEventListener('mouseout', e => {
-    const t = e.target;
-    if (t.tagName === 'INPUT' && t.id && t.id.endsWith('chantier')) {
-      cacherTooltip();
-    }
+    if (estCaseChantier(e.target)) cacherTooltip();
   });
-  // Cacher aussi à la frappe ou au focus pour ne pas gêner la saisie
-  wrap.addEventListener('input', e => {
-    if (e.target.tagName === 'INPUT') cacherTooltip();
-  });
+  // Cacher dès qu'on interagit, pour ne pas gêner la sélection/saisie
+  wrap.addEventListener('input', () => cacherTooltip());
+  wrap.addEventListener('change', () => cacherTooltip());
   wrap.addEventListener('focusin', e => {
-    if (e.target.tagName === 'INPUT' && e.target.id && e.target.id.endsWith('chantier')) {
-      cacherTooltip();
-    }
+    if (estCaseChantier(e.target)) cacherTooltip();
   });
 });
 </script>
