@@ -482,7 +482,7 @@ function genererPlanning() {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const safeDate = dateStr.replace(/-/g, '_');
 
-    let htmlJour = `<div class="jour-block">`;
+    let htmlJour = `<div class="jour-block" data-date="${dateStr}">`;
     htmlJour += `<h3 style="background:#dbeafe;padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
     htmlJour += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.3rem;">
       <thead><tr style="background:#e2e8f0;">
@@ -571,6 +571,41 @@ function genererPlanning() {
 
   majTotauxGlobaux();
   ajusterMarginTop();
+
+  // Placer la date du jour en haut de l'écran (uniquement si le mois affiché
+  // est le mois courant). Sinon on ne touche pas au défilement.
+  defilerVersAujourdhui(moisSel);
+}
+
+// Fait défiler la page pour amener le bloc du jour (ou le jour ouvré le plus
+// proche ≤ aujourd'hui) juste sous la barre supérieure fixe.
+function defilerVersAujourdhui(moisSel) {
+  const now = new Date();
+  const moisCourant = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  if (moisSel !== moisCourant) return;
+
+  const cont = document.getElementById('planning-wrapper');
+  if (!cont) return;
+  const blocs = [...cont.querySelectorAll('.jour-block[data-date]')];
+  if (!blocs.length) return;
+
+  const aujStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  // Bloc du jour exact, sinon dernier bloc dont la date est ≤ aujourd'hui
+  let cible = blocs.find(b => b.dataset.date === aujStr);
+  if (!cible) {
+    const passes = blocs.filter(b => b.dataset.date <= aujStr);
+    cible = passes.length ? passes[passes.length - 1] : blocs[0];
+  }
+
+  const topBar = document.querySelector('.top-bar');
+  const decal  = (topBar ? topBar.offsetHeight : 0) + 12;
+
+  // Léger délai pour laisser le layout se stabiliser (marginTop venant d'être posée)
+  setTimeout(() => {
+    const y = cible.getBoundingClientRect().top + window.pageYOffset - decal;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }, 80);
 }
 
 /* ====== SAUVEGARDE TEMPS RÉEL ====== */
