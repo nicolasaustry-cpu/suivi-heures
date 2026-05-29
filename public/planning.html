@@ -922,6 +922,18 @@ document.addEventListener('DOMContentLoaded', () => {
   ajusterMarginTop();
 });
 
+// Au retour sur la page (navigation arrière ou restauration depuis le cache
+// navigateur/PWA), DOMContentLoaded ne se redéclenche pas toujours. On réapplique
+// alors le défilement vers la date du jour.
+window.addEventListener('pageshow', (e) => {
+  // e.persisted = true si la page vient du cache (bfcache). On replace dans tous les cas.
+  const moisEl = document.getElementById('moisPlanning');
+  if (moisEl && moisEl.value) {
+    // Petit délai pour laisser le navigateur restaurer la mise en page
+    setTimeout(() => defilerVersAujourdhui(moisEl.value), 120);
+  }
+});
+
 function majMoisImpression() {
   const moisVal = document.getElementById('moisPlanning').value;
   const printMois = document.getElementById('print-mois');
