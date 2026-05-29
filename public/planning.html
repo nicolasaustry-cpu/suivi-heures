@@ -517,9 +517,9 @@ function genererPlanning() {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const safeDate = dateStr.replace(/-/g, '_');
 
-    // Bandeau orange clair pour la date du jour, bleu clair pour les autres jours
+    // Bandeau bleu soutenu pour la date du jour, bleu clair pour les autres jours
     const estAujourdhui = (dateStr === _aujStr);
-    const fondJour = estAujourdhui ? '#fed7aa' : '#dbeafe';
+    const fondJour = estAujourdhui ? '#93c5fd' : '#dbeafe';
 
     let htmlJour = `<div class="jour-block" data-date="${dateStr}">`;
     htmlJour += `<h3 style="background:${fondJour};padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
@@ -1039,7 +1039,7 @@ function getTotalDevisChantier(nom) {
    Toutes les cases d'un même chantier reçoivent la même couleur. */
 function majCouleursChantiers() {
   const ORANGE = '#fed7aa';   // orange clair
-  const ROUGE  = '#fecaca';   // rouge clair
+  const ROUGE  = '#f87171';   // rouge plus soutenu
   const NEUTRE = '';          // pas de couleur
 
   // Cache des couleurs par chantier (évite de recalculer pour chaque case)
