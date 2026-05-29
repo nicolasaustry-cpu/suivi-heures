@@ -472,6 +472,10 @@ function genererPlanning() {
     sortie: s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null
   }));
 
+  // Date du jour (format YYYY-MM-DD) pour mettre en évidence son bandeau
+  const _ajd = new Date();
+  const _aujStr = `${_ajd.getFullYear()}-${String(_ajd.getMonth()+1).padStart(2,'0')}-${String(_ajd.getDate()).padStart(2,'0')}`;
+
   let htmlTotal = '';         // accumuler tout le HTML
   const joursData = [];       // pour remplir prévu/écart après injection
 
@@ -482,8 +486,12 @@ function genererPlanning() {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const safeDate = dateStr.replace(/-/g, '_');
 
+    // Bandeau orange clair pour la date du jour, bleu clair pour les autres jours
+    const estAujourdhui = (dateStr === _aujStr);
+    const fondJour = estAujourdhui ? '#fed7aa' : '#dbeafe';
+
     let htmlJour = `<div class="jour-block" data-date="${dateStr}">`;
-    htmlJour += `<h3 style="background:#dbeafe;padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
+    htmlJour += `<h3 style="background:${fondJour};padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
     htmlJour += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.3rem;">
       <thead><tr style="background:#e2e8f0;">
         <th style="border:1px solid #ccc;width:150px;">Salariés</th>
