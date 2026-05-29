@@ -526,11 +526,11 @@ function genererPlanning() {
     htmlJour += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.3rem;">
       <thead><tr style="background:#e2e8f0;">
         <th style="border:1px solid #ccc;width:150px;">Salariés</th>
-        <th style="border:1px solid #ccc;width:210px;">Ch 1</th>
-        <th style="border:1px solid #ccc;width:210px;">Ch 2</th>
-        <th style="border:1px solid #ccc;width:210px;">Ch 3</th>
-        <th style="border:1px solid #ccc;width:210px;">Ch 4</th>
-        <th style="border:1px solid #ccc;width:210px;">Ch 5</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch 1</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch 2</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch 3</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch 4</th>
+        <th style="border:1px solid #ccc;width:200px;">Ch 5</th>
         <th style="border:1px solid #ccc;width:55px;">Total</th>
         <th class="col-abs"   style="border:1px solid #ccc;width:55px;">Abs.</th>
         <th class="col-prevu" style="border:1px solid #ccc;width:55px;">Prévu</th>
@@ -557,13 +557,18 @@ function genererPlanning() {
         const data = heures[k] || { chantier: '', heures: 0 };
         total += parseFloat(data.heures) || 0;
         row += `<td style="border:1px solid #ccc;padding:2px;">
-          <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:165px;"
-            list="liste-chantiers-prev" autocomplete="off"
-            oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
-          <select id="${k}h" style="width:58px;"
-            onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
-            ${genOptionsHeures(data.heures)}
-          </select>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:116px;flex:0 0 auto;"
+              list="liste-chantiers-prev" autocomplete="off"
+              oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
+            <button type="button" class="btn-vider-ch no-print" title="Vider ce chantier" aria-label="Vider ce chantier"
+              onclick="viderChantier('${k}')"
+              style="width:22px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;color:#dc2626;border-radius:4px;cursor:pointer;font-weight:700;line-height:1;flex:0 0 auto;">✕</button>
+            <select id="${k}h" style="width:54px;flex:0 0 auto;"
+              onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
+              ${genOptionsHeures(data.heures)}
+            </select>
+          </div>
         </td>`;
       }
 
@@ -691,6 +696,16 @@ function majCouleursChantiers() {
 }
 
 /* ====== SAUVEGARDE TEMPS RÉEL ====== */
+/* Vide le nom du chantier d'une case (les heures sont conservées). */
+function viderChantier(k) {
+  const input = document.getElementById(k + 'chantier');
+  if (!input) return;
+  input.value = '';
+  const hSel = document.getElementById(k + 'h');
+  saveHeure(k, '', hSel ? hSel.value : 0);
+  input.focus();
+}
+
 function saveHeure(k, ch, h) {
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   localStorage.setItem('heuresdata', JSON.stringify(heures));
@@ -863,10 +878,10 @@ function imprimerSemaine() {
 
   // Calcul du facteur de zoom : on agrandit le tableau proportionnellement
   // à la largeur "perdue" par les colonnes décochées, +50% pour bien remplir.
-  // Largeur d'origine = 150 (Salariés) + 5×210 (Ch) + 55 (Total) = 1255 px
-  // Largeur restante  = 150 + nbChCoches×210 + 55
-  const LARG_ORIG = 1255;
-  const largRestante = 150 + nbChCoches * 210 + 55;
+  // Largeur d'origine = 150 (Salariés) + 5×200 (Ch) + 55 (Total) = 1205 px
+  // Largeur restante  = 150 + nbChCoches×200 + 55
+  const LARG_ORIG = 1205;
+  const largRestante = 150 + nbChCoches * 200 + 55;
   let zoom = nbChCoches > 0 ? (LARG_ORIG / largRestante) : 1;
   // Bonus +50% : seulement quand des colonnes sont masquées
   if (nbChCoches > 0 && nbChCoches < 5) zoom *= 1.5;
