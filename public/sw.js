@@ -1,12 +1,14 @@
 /* =======================================
-   SERVICE WORKER – Suiv'Heures Saisie
-   Ne cache PAS saisie.html pour toujours
-   avoir la dernière version
+   SERVICE WORKER – Suiv'Heures
+   Stratégie :
+   - Pages HTML + API : RÉSEAU D'ABORD (toujours la dernière version,
+     repli sur le cache uniquement si hors-ligne)
+   - Ressources statiques (CSS, JS, icônes) : cache d'abord
    ======================================= */
 
-const CACHE_NAME = 'suivheures-v3';
+const CACHE_NAME = 'suivheures-v4';
 
-// Fichiers à mettre en cache (PAS saisie.html)
+// Ressources statiques pré-mises en cache (PAS les pages .html)
 const FICHIERS_CACHE = [
   '/assets/style.css',
   '/assets/icon-192.png',
@@ -21,7 +23,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-/* ── Activation : nettoyage ── */
+/* ── Activation : nettoyage des anciens caches ── */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -33,22 +35,44 @@ self.addEventListener('activate', event => {
 
 /* ── Interception ── */
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // API et saisie.html → toujours depuis le réseau (jamais en cache)
-  if (url.pathname.startsWith('/api/') || url.pathname.includes('saisie.html')) {
+  // Détecte une navigation vers une page HTML
+  const estPageHTML =
+    event.request.mode === 'navigate' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname === '/';
+
+  // Fichiers JS de l'application (hors CDN externe) : réseau d'abord aussi,
+  // pour qu'une mise à jour de sync.js / script.js soit prise en compte tout de suite.
+  const estJsApp =
+    url.origin === self.location.origin && url.pathname.endsWith('.js');
+
+  // Pages HTML + API + JS de l'app → RÉSEAU D'ABORD (toujours la dernière version)
+  if (url.pathname.startsWith('/api/') || estPageHTML || estJsApp) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request)
+        .then(response => {
+          // Mémorise une copie pour le mode hors-ligne
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request)) // repli hors-ligne
     );
     return;
   }
 
-  // Autres ressources : cache en priorité
+  // Autres ressources statiques : cache d'abord
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        if (response.ok && event.request.method === 'GET') {
+        if (response && response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
