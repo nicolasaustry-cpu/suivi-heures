@@ -446,6 +446,37 @@ function genOptionsHeures(v) {
   return opt;
 }
 
+/* Récupère les noms de chantiers du prévisionnel pour le mois en cours
+   et les 3 mois suivants (gère le passage d'année). Retourne une liste
+   de noms uniques, triés. */
+function getChantiersPrevisionnel() {
+  const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+  const noms = new Set();
+  const now  = new Date();
+  let an  = now.getFullYear();
+  let moi = now.getMonth(); // 0-11
+
+  for (let i = 0; i < 4; i++) {           // mois en cours + 3 suivants
+    const moisData = prev?.[an]?.[moi];
+    if (moisData && Array.isArray(moisData.chantiers)) {
+      moisData.chantiers.forEach(c => {
+        if (c.client && c.client.trim()) noms.add(c.client.trim());
+      });
+    }
+    moi++;
+    if (moi > 11) { moi = 0; an++; }      // passage à l'année suivante
+  }
+  return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+/* Construit le HTML d'un <datalist> à partir des chantiers du prévisionnel. */
+function genDatalistChantiers() {
+  const options = getChantiersPrevisionnel()
+    .map(nom => `<option value="${nom.replace(/"/g, '&quot;')}">`)
+    .join('');
+  return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
+}
+
 function genererPlanning() {
   salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
@@ -527,6 +558,7 @@ function genererPlanning() {
         total += parseFloat(data.heures) || 0;
         row += `<td style="border:1px solid #ccc;padding:2px;">
           <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:165px;"
+            list="liste-chantiers-prev" autocomplete="off"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:58px;"
             onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
@@ -563,7 +595,8 @@ function genererPlanning() {
   }
 
   // Injection unique dans le DOM (x26 fois plus rapide que += dans la boucle)
-  cont.innerHTML = htmlTotal;
+  // Le <datalist> en tête alimente l'autocomplétion des cases Chantier.
+  cont.innerHTML = genDatalistChantiers() + htmlTotal;
 
   // Remplir Prévu et Écart après injection
   joursData.forEach(({ dateStr, lignesData }) => {
