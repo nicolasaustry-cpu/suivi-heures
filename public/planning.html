@@ -199,7 +199,7 @@
     <div class="vol-titres">
       <span class="vol-marque">VOLITIS</span>
       <span class="vol-nom">Suiv'Heures</span>
-      <span class="vol-baseline">La gestion des heures, simplement</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
     </div>
   </div>
   <h1 class="page-title">Planning</h1>
@@ -446,37 +446,6 @@ function genOptionsHeures(v) {
   return opt;
 }
 
-/* Récupère les noms de chantiers du prévisionnel pour le mois en cours
-   et les 3 mois suivants (gère le passage d'année). Retourne une liste
-   de noms uniques, triés. */
-function getChantiersPrevisionnel() {
-  const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
-  const noms = new Set();
-  const now  = new Date();
-  let an  = now.getFullYear();
-  let moi = now.getMonth(); // 0-11
-
-  for (let i = 0; i < 4; i++) {           // mois en cours + 3 suivants
-    const moisData = prev?.[an]?.[moi];
-    if (moisData && Array.isArray(moisData.chantiers)) {
-      moisData.chantiers.forEach(c => {
-        if (c.client && c.client.trim()) noms.add(c.client.trim());
-      });
-    }
-    moi++;
-    if (moi > 11) { moi = 0; an++; }      // passage à l'année suivante
-  }
-  return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
-}
-
-/* Construit le HTML d'un <datalist> à partir des chantiers du prévisionnel. */
-function genDatalistChantiers() {
-  const options = getChantiersPrevisionnel()
-    .map(nom => `<option value="${nom.replace(/"/g, '&quot;')}">`)
-    .join('');
-  return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
-}
-
 function genererPlanning() {
   salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
@@ -503,10 +472,6 @@ function genererPlanning() {
     sortie: s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null
   }));
 
-  // Date du jour (format YYYY-MM-DD) pour mettre en évidence son bandeau
-  const _ajd = new Date();
-  const _aujStr = `${_ajd.getFullYear()}-${String(_ajd.getMonth()+1).padStart(2,'0')}-${String(_ajd.getDate()).padStart(2,'0')}`;
-
   let htmlTotal = '';         // accumuler tout le HTML
   const joursData = [];       // pour remplir prévu/écart après injection
 
@@ -517,12 +482,8 @@ function genererPlanning() {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const safeDate = dateStr.replace(/-/g, '_');
 
-    // Bandeau bleu soutenu pour la date du jour, bleu clair pour les autres jours
-    const estAujourdhui = (dateStr === _aujStr);
-    const fondJour = estAujourdhui ? '#93c5fd' : '#dbeafe';
-
-    let htmlJour = `<div class="jour-block" data-date="${dateStr}">`;
-    htmlJour += `<h3 style="background:${fondJour};padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
+    let htmlJour = `<div class="jour-block">`;
+    htmlJour += `<h3 style="background:#dbeafe;padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
     htmlJour += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.3rem;">
       <thead><tr style="background:#e2e8f0;">
         <th style="border:1px solid #ccc;width:150px;">Salariés</th>
@@ -558,7 +519,6 @@ function genererPlanning() {
         total += parseFloat(data.heures) || 0;
         row += `<td style="border:1px solid #ccc;padding:2px;">
           <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:165px;"
-            list="liste-chantiers-prev" autocomplete="off"
             oninput="saveHeure('${k}',this.value,document.getElementById('${k}h').value)">
           <select id="${k}h" style="width:58px;"
             onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
@@ -595,8 +555,7 @@ function genererPlanning() {
   }
 
   // Injection unique dans le DOM (x26 fois plus rapide que += dans la boucle)
-  // Le <datalist> en tête alimente l'autocomplétion des cases Chantier.
-  cont.innerHTML = genDatalistChantiers() + htmlTotal;
+  cont.innerHTML = htmlTotal;
 
   // Remplir Prévu et Écart après injection
   joursData.forEach(({ dateStr, lignesData }) => {
@@ -612,42 +571,6 @@ function genererPlanning() {
 
   majTotauxGlobaux();
   ajusterMarginTop();
-  majCouleursChantiers();
-
-  // Placer la date du jour en haut de l'écran (uniquement si le mois affiché
-  // est le mois courant). Sinon on ne touche pas au défilement.
-  defilerVersAujourdhui(moisSel);
-}
-
-// Fait défiler la page pour amener le bloc du jour (ou le jour ouvré le plus
-// proche ≤ aujourd'hui) juste sous la barre supérieure fixe.
-function defilerVersAujourdhui(moisSel) {
-  const now = new Date();
-  const moisCourant = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  if (moisSel !== moisCourant) return;
-
-  const cont = document.getElementById('planning-wrapper');
-  if (!cont) return;
-  const blocs = [...cont.querySelectorAll('.jour-block[data-date]')];
-  if (!blocs.length) return;
-
-  const aujStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-
-  // Bloc du jour exact, sinon dernier bloc dont la date est ≤ aujourd'hui
-  let cible = blocs.find(b => b.dataset.date === aujStr);
-  if (!cible) {
-    const passes = blocs.filter(b => b.dataset.date <= aujStr);
-    cible = passes.length ? passes[passes.length - 1] : blocs[0];
-  }
-
-  const topBar = document.querySelector('.top-bar');
-  const decal  = (topBar ? topBar.offsetHeight : 0) + 12;
-
-  // Léger délai pour laisser le layout se stabiliser (marginTop venant d'être posée)
-  setTimeout(() => {
-    const y = cible.getBoundingClientRect().top + window.pageYOffset - decal;
-    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-  }, 80);
 }
 
 /* ====== SAUVEGARDE TEMPS RÉEL ====== */
@@ -658,7 +581,6 @@ function saveHeure(k, ch, h) {
   const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
   if (!match) return;
   majTotalLigne(match[1], match[2].replace(/_/g, '-'));
-  majCouleursChantiers();
 }
 
 function majTotalLigne(salarieId, dateStr) {
@@ -922,18 +844,6 @@ document.addEventListener('DOMContentLoaded', () => {
   ajusterMarginTop();
 });
 
-// Au retour sur la page (navigation arrière ou restauration depuis le cache
-// navigateur/PWA), DOMContentLoaded ne se redéclenche pas toujours. On réapplique
-// alors le défilement vers la date du jour.
-window.addEventListener('pageshow', (e) => {
-  // e.persisted = true si la page vient du cache (bfcache). On replace dans tous les cas.
-  const moisEl = document.getElementById('moisPlanning');
-  if (moisEl && moisEl.value) {
-    // Petit délai pour laisser le navigateur restaurer la mise en page
-    setTimeout(() => defilerVersAujourdhui(moisEl.value), 120);
-  }
-});
-
 function majMoisImpression() {
   const moisVal = document.getElementById('moisPlanning').value;
   const printMois = document.getElementById('print-mois');
@@ -1041,46 +951,6 @@ function getTotalDevisChantier(nom) {
     }
   } catch (_) {}
   return total;
-}
-
-/* Colore les cases "heure" du planning selon la consommation par rapport
-   au prévisionnel (devis), pour CHAQUE chantier :
-   - orange : total planifié du chantier > 90 % des heures prévues
-   - rouge  : total planifié du chantier > heures prévues
-   - aucune couleur : chantier absent du prévisionnel (0 h prévues)
-   Toutes les cases d'un même chantier reçoivent la même couleur. */
-function majCouleursChantiers() {
-  const ORANGE = '#fed7aa';   // orange clair
-  const ROUGE  = '#f87171';   // rouge plus soutenu
-  const NEUTRE = '';          // pas de couleur
-
-  // Cache des couleurs par chantier (évite de recalculer pour chaque case)
-  const couleurParChantier = new Map(); // clé normalisée -> couleur
-
-  document.querySelectorAll('#planning-wrapper input[id$="chantier"]').forEach(input => {
-    const k   = input.id.replace(/chantier$/, '');
-    const sel = document.getElementById(k + 'h');
-    if (!sel) return;
-
-    const nom = (input.value || '').trim();
-    if (!nom) { sel.style.background = NEUTRE; return; }
-
-    const cible = normaliserChantier(nom);
-    let couleur = couleurParChantier.get(cible);
-    if (couleur === undefined) {
-      const devis = getTotalDevisChantier(nom);
-      if (devis <= 0) {
-        couleur = NEUTRE;                       // pas de prévisionnel → neutre
-      } else {
-        const planifie = getStatsChantier(nom)?.total || 0;
-        if (planifie > devis)            couleur = ROUGE;
-        else if (planifie > 0.9 * devis) couleur = ORANGE;
-        else                             couleur = NEUTRE;
-      }
-      couleurParChantier.set(cible, couleur);
-    }
-    sel.style.background = couleur;
-  });
 }
 
 function montrerTooltipChantier(input) {

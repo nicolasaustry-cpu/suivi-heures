@@ -803,7 +803,7 @@
       <div class="vol-titres">
         <span class="vol-marque">VOLITIS</span>
         <span class="vol-nom">Suiv'Heures</span>
-        <span class="vol-baseline">La gestion des heures, simplement</span>
+        <span class="vol-baseline">La gestion des heures, tout simplement !</span>
       </div>
     </div>
     <h1 class="page-title">Saisie mobile</h1>
@@ -947,7 +947,7 @@
   <div class="modal-box">
     <div class="modal-title">Ajouter un chantier</div>
     <div class="suggestions-list" id="suggestions-list"></div>
-    <input type="text" class="input-libre" id="input-libre" placeholder="Nom du chantier...">
+    <input type="text" class="input-libre" id="input-libre" placeholder="Ou saisir un nom libre...">
     <button class="btn-modal-ok" onclick="validerAjout()">Ajouter</button>
     <button class="btn-modal-cancel" onclick="fermerModal()">Annuler</button>
   </div>
@@ -1714,13 +1714,29 @@ function ouvrirModalAjout() {
   _selModal = null;
   document.getElementById('input-libre').value = '';
 
-  // Liste de suggestions désactivée : on ne propose plus les chantiers du prévisionnel.
-  // Le nom du chantier est saisi librement dans le champ texte.
+  // Suggestions : chantiers prévisionnels non encore ajoutés
+  const dejaDans = new Set([
+    ..._chantiersP.map(c => c.nom),
+    ..._chantiersA.map(c => c.nom)
+  ]);
+  const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+  const suggestions = new Set();
+  Object.values(prev).forEach(annee => {
+    Object.values(annee).forEach(mois => {
+      (mois.chantiers || []).forEach(c => {
+        if (c.client && c.client.trim()) suggestions.add(c.client.trim());
+      });
+    });
+  });
+
   const cont = document.getElementById('suggestions-list');
-  if (cont) cont.innerHTML = '';
+  const items = [...suggestions].filter(s => !dejaDans.has(s));
+  cont.innerHTML = items.map(s => `
+    <div class="suggestion-item" onclick="selSuggestion(this,'${s.replace(/'/g,"\\'")}')">
+      <span class="ico">🏗</span> ${s}
+    </div>`).join('');
 
   document.getElementById('modal-ajout').classList.add('open');
-  setTimeout(() => document.getElementById('input-libre')?.focus(), 50);
 }
 
 function selSuggestion(el, nom) {
@@ -1737,7 +1753,7 @@ function fermerModal() {
 function validerAjout() {
   const libre = document.getElementById('input-libre').value.trim();
   const nom   = libre || _selModal;
-  if (!nom) { alert('Saisissez le nom du chantier'); return; }
+  if (!nom) { alert('Choisissez ou saisissez un chantier'); return; }
   const nowA = new Date();
   const hhA  = String(nowA.getHours()).padStart(2,'0');
   const mmA  = String(nowA.getMinutes()).padStart(2,'0');

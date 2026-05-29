@@ -392,7 +392,7 @@
     <div class="vol-titres">
       <span class="vol-marque">VOLITIS</span>
       <span class="vol-nom">Suiv'Heures</span>
-      <span class="vol-baseline">La gestion des heures, simplement</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
     </div>
   </div>
   <h1 class="page-title">Prévisionnel</h1>
@@ -538,13 +538,6 @@ window.addEventListener('DOMContentLoaded', () => {
   chargerChantiersPlannifies();
   remplirSelectAnnee();
   chargerAnnee();
-});
-
-// Au retour sur la page (navigation arrière ou restauration depuis le cache
-// navigateur/PWA), DOMContentLoaded ne se redéclenche pas toujours. On replace
-// alors le mois en cours au centre de l'écran.
-window.addEventListener('pageshow', () => {
-  setTimeout(centrerMoisCourant, 120);
 });
 
 // Rafraîchir la coloration quand l'utilisateur revient sur l'onglet
@@ -753,7 +746,7 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 297px;width:297px;overflow:clip;">`;
+    html += `<div style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 297px;width:297px;overflow:clip;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
     html += `<table style="width:297px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
@@ -830,28 +823,6 @@ function rendreChantiers() {
   });
 
   cont.innerHTML = html;
-  centrerMoisCourant();
-}
-
-/* Centre horizontalement la colonne du mois en cours dans la zone scrollable.
-   Ne fait rien si le mois courant n'est pas affiché (autre année consultée). */
-function centrerMoisCourant() {
-  const scroll = document.getElementById('chantiers-scroll-bottom');
-  if (!scroll) return;
-
-  const now = new Date();
-  const cle = `${now.getFullYear()}-${now.getMonth()}`; // ex : "2026-4" pour mai 2026
-  // On vise en priorité le bloc du mois courant appartenant à l'année active
-  // (data-hors="0"), sinon n'importe quel bloc de ce mois.
-  let bloc = scroll.querySelector(`[data-mois-bloc="${cle}"][data-hors="0"]`)
-          || scroll.querySelector(`[data-mois-bloc="${cle}"]`);
-  if (!bloc) return;
-
-  // Léger délai pour laisser le layout se stabiliser après l'injection HTML
-  setTimeout(() => {
-    const cible = bloc.offsetLeft - (scroll.clientWidth / 2) + (bloc.offsetWidth / 2);
-    scroll.scrollTo({ left: Math.max(0, cible), behavior: 'smooth' });
-  }, 80);
 }
 
 /* Wrapper : majLigne depuis oninput (lit data-uid) */
