@@ -612,6 +612,7 @@ function genererPlanning() {
 
   majTotauxGlobaux();
   ajusterMarginTop();
+  majCouleursChantiers();
 
   // Placer la date du jour en haut de l'écran (uniquement si le mois affiché
   // est le mois courant). Sinon on ne touche pas au défilement.
@@ -657,6 +658,7 @@ function saveHeure(k, ch, h) {
   const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
   if (!match) return;
   majTotalLigne(match[1], match[2].replace(/_/g, '-'));
+  majCouleursChantiers();
 }
 
 function majTotalLigne(salarieId, dateStr) {
@@ -1027,6 +1029,46 @@ function getTotalDevisChantier(nom) {
     }
   } catch (_) {}
   return total;
+}
+
+/* Colore les cases "heure" du planning selon la consommation par rapport
+   au prévisionnel (devis), pour CHAQUE chantier :
+   - orange : total planifié du chantier > 90 % des heures prévues
+   - rouge  : total planifié du chantier > heures prévues
+   - aucune couleur : chantier absent du prévisionnel (0 h prévues)
+   Toutes les cases d'un même chantier reçoivent la même couleur. */
+function majCouleursChantiers() {
+  const ORANGE = '#fed7aa';   // orange clair
+  const ROUGE  = '#fecaca';   // rouge clair
+  const NEUTRE = '';          // pas de couleur
+
+  // Cache des couleurs par chantier (évite de recalculer pour chaque case)
+  const couleurParChantier = new Map(); // clé normalisée -> couleur
+
+  document.querySelectorAll('#planning-wrapper input[id$="chantier"]').forEach(input => {
+    const k   = input.id.replace(/chantier$/, '');
+    const sel = document.getElementById(k + 'h');
+    if (!sel) return;
+
+    const nom = (input.value || '').trim();
+    if (!nom) { sel.style.background = NEUTRE; return; }
+
+    const cible = normaliserChantier(nom);
+    let couleur = couleurParChantier.get(cible);
+    if (couleur === undefined) {
+      const devis = getTotalDevisChantier(nom);
+      if (devis <= 0) {
+        couleur = NEUTRE;                       // pas de prévisionnel → neutre
+      } else {
+        const planifie = getStatsChantier(nom)?.total || 0;
+        if (planifie > devis)            couleur = ROUGE;
+        else if (planifie > 0.9 * devis) couleur = ORANGE;
+        else                             couleur = NEUTRE;
+      }
+      couleurParChantier.set(cible, couleur);
+    }
+    sel.style.background = couleur;
+  });
 }
 
 function montrerTooltipChantier(input) {
