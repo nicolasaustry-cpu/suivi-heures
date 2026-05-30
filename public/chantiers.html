@@ -684,6 +684,7 @@ function rendreSynthese() {
         html += `<td class="td-saisie" style="${bgHors}">
           <input type="number" min="0" step="0.5" value="${val}"
             data-annee="${annee}" data-mois="${mois}" data-cle="${l.cle}" data-uid="${uid}"
+            onfocus="this.select()" onmouseup="return false"
             onchange="majValeur(this)" oninput="majLigneInput(this)">
         </td>`;
 
@@ -786,6 +787,7 @@ function rendreChantiers() {
           <input type="number" min="0" step="0.5" value="${ch.hPrevues||''}" placeholder=""
             style="width:100%;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="hPrevues" data-nav="hPrevues"
+            onfocus="this.select()" onmouseup="return false"
             onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
@@ -808,6 +810,7 @@ function rendreChantiers() {
           <input type="number" min="0" step="0.5" placeholder=""
             style="width:36px;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-champ="hPrevues" data-nav="hPrevues"
+            onfocus="this.select()" onmouseup="return false"
             onblur="ajouterVierge(this)" onkeydown="navEnTree(event,this)">
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;"></td>
