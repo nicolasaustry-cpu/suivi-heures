@@ -492,6 +492,7 @@ const CLE_DATA  = 'previsionnel_data';
 ═══════════════════════════════ */
 let anneeActive = new Date().getFullYear();
 let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrevues}] } } }
+let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fois (à l'ouverture)
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
 
 /* ═══════════════════════════════
@@ -833,7 +834,12 @@ function rendreChantiers() {
   });
 
   cont.innerHTML = html;
-  centrerMoisCourant();
+  // Centrage uniquement à la première ouverture de la page : ensuite, on laisse
+  // l'utilisateur sur le mois où il saisit (pas de recentrage après chaque saisie).
+  if (!_dejaCentre) {
+    _dejaCentre = true;
+    centrerMoisCourant();
+  }
 }
 
 /* Centre horizontalement la colonne du mois en cours dans la zone scrollable.
