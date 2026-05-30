@@ -306,12 +306,10 @@ function ajouterSalarie() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
-  ["hLun","hMar","hMer","hJeu","hVen"].forEach(id => {
+  ["hLun","hMar","hMer","hJeu","hVen","hSam"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.value = "8";
+    if (el) el.value = "0";
   });
-  const hSam = document.getElementById("hSam");
-  if (hSam) hSam.value = "0";
 
   localStorage.setItem("majPlanning", Date.now().toString());
   alert("Salarié ajouté !");

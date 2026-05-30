@@ -27,7 +27,7 @@
     <div class="vol-titres">
       <span class="vol-marque">VOLITIS</span>
       <span class="vol-nom">Suiv'Heures</span>
-      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+      <span class="vol-baseline">La gestion des heures, simplement</span>
     </div>
   </div>
   <h1 class="page-title">Salariés</h1>
@@ -69,16 +69,18 @@
               <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Jeu</th>
               <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Ven</th>
               <th style="padding:3px 6px;background:#f0fdf4;border:1px solid #ccc;font-size:0.82rem;">Sam</th>
+              <th style="padding:3px 6px;background:#dcfce7;border:1px solid #ccc;font-size:0.82rem;font-weight:700;">Total</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hLun" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
-              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMar" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
-              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMer" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
-              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hJeu" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
-              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hVen" value="8" step="0.5" min="0" max="12" style="width:52px;"></td>
-              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hSam" value="0" step="0.5" min="0" max="12" style="width:52px;"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hLun" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMar" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMer" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hJeu" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hVen" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+              <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hSam" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+              <td style="border:1px solid #ccc;padding:3px;text-align:center;background:#f0fdf4;font-weight:700;color:#15803d;"><span id="totalHeuresAjout">0</span> h</td>
             </tr>
           </tbody>
         </table>
@@ -136,6 +138,18 @@
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
 <script>
+  // Calcule et affiche le total des heures/jour dans le formulaire d'ajout
+  function majTotalHeuresAjout() {
+    const ids = ['hLun','hMar','hMer','hJeu','hVen','hSam'];
+    let total = 0;
+    ids.forEach(id => {
+      const v = parseFloat(document.getElementById(id)?.value);
+      if (!isNaN(v)) total += v;
+    });
+    const span = document.getElementById('totalHeuresAjout');
+    if (span) span.textContent = (Math.round(total * 100) / 100);
+  }
+
   function majMessageVide() {
     const liste = JSON.parse(localStorage.getItem('salariesdata') || '[]');
     document.getElementById('no-salarie').style.display  = liste.length === 0 ? '' : 'none';
@@ -147,6 +161,16 @@
   // Appel initial
   window.addEventListener('donnees-chargees', majMessageVide);
   majMessageVide();
+  majTotalHeuresAjout();
+
+  // Après un clic sur "+ Ajouter le salarié", le formulaire est réinitialisé
+  // par ajouterSalarie() : on recalcule le total juste après pour le réafficher.
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (btn && /Ajouter le salari/i.test(btn.textContent)) {
+      setTimeout(majTotalHeuresAjout, 50);
+    }
+  });
 
   window.addEventListener('storage', () => majMessageVide());
 </script>
