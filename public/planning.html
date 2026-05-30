@@ -159,9 +159,15 @@
     body.hide-ch4 .jour-block table td:nth-child(5) { display:none !important; }
     body.hide-ch5 .jour-block table th:nth-child(6),
     body.hide-ch5 .jour-block table td:nth-child(6) { display:none !important; }
-    /* En-tête impression */
+    /* En-tête impression : on ne garde que le nom de l'entreprise.
+       Préfixe html body pour dépasser la spécificité de theme-volitis.css
+       (chargé après, qui force body .main-header / body .nav en display:flex !important). */
     #entete-impression { display:flex !important; }
-    .main-header { display:none !important; }
+    html body header.main-header,
+    html body .main-header,
+    html body .nav,
+    html body div.nav,
+    html body .fixed-tools { display:none !important; }
   }
   #entete-impression {
     display: none;
@@ -175,15 +181,6 @@
     font-size: 1.1rem;
     font-weight: 800;
     color: #2563eb;
-  }
-  #entete-impression .ent-titre {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #374151;
-  }
-  #entete-impression .ent-mois {
-    font-size: 0.9rem;
-    color: #6b7280;
   }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
@@ -305,8 +302,6 @@
 <!-- En-tête visible uniquement à l'impression -->
 <div id="entete-impression">
   <div class="ent-nom" id="print-nom-entreprise"></div>
-  <div class="ent-titre">Planning – <span id="print-mois"></span></div>
-  <div class="ent-mois">Outil Suiv'Heures – Volitis</div>
 </div>
 
 <!-- Décalage pour la barre fixe (calculé en JS après rendu) -->
