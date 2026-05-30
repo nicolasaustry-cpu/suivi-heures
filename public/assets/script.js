@@ -89,10 +89,13 @@ function afficherSalaries() {
     : salaries;
   liste.forEach((s, i) => {
     const idx = salaries.indexOf(s);
-    const h = s.heuresParJour || {};
+    const h = (s.alternance ? s.heuresParJourA : s.heuresParJour) || {};
+    const badgeAlt = s.alternance
+      ? ' <span title="Alterne semaine A / B" style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">⇄ A/B</span>'
+      : '';
     tb.innerHTML += `
       <tr>
-        <td>${s.prenom}</td>
+        <td>${s.prenom}${badgeAlt}</td>
         <td>${s.nom}</td>
         <td>${s.dateEntree || ""}</td>
         <td>
@@ -128,8 +131,10 @@ function afficherSalaries() {
 function ouvrirModifSalarie(id) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
-  const h = sal.heuresParJour || {};
   const jours = ['lun','mar','mer','jeu','ven','sam'];
+  const hA = (sal.alternance ? sal.heuresParJourA : sal.heuresParJour) || {};
+  const hB = sal.heuresParJourB || {};
+  const alternance = !!sal.alternance;
 
   let modale = document.getElementById('modale-modif-sal');
   if (!modale) {
@@ -139,42 +144,120 @@ function ouvrirModifSalarie(id) {
     document.body.appendChild(modale);
   }
 
-  // Construire les inputs sans template imbriqué
-  let inputsHTML = '';
-  jours.forEach(function(j) {
-    const label = j.charAt(0).toUpperCase() + j.slice(1);
-    const val   = h[j] !== undefined ? h[j] : 0;
-    inputsHTML += '<div style="text-align:center;">'
-      + '<label style="font-size:0.78rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">' + label + '</label>'
-      + '<input type="number" id="modif-' + j + '" value="' + val + '" min="0" max="12" step="0.5"'
-      + ' style="width:100%;text-align:center;border:1px solid #d1d5db;border-radius:6px;padding:5px 2px;font-size:0.9rem;">'
-      + '</div>';
-  });
+  // Génère une grille d'inputs (préfixe d'id : 'modif-' ou 'modifB-')
+  function grilleInputs(prefixe, valeurs) {
+    let html = '';
+    jours.forEach(function(j) {
+      const label = j.charAt(0).toUpperCase() + j.slice(1);
+      const val   = valeurs[j] !== undefined ? valeurs[j] : 0;
+      html += '<div style="text-align:center;">'
+        + '<label style="font-size:0.78rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">' + label + '</label>'
+        + '<input type="number" id="' + prefixe + j + '" value="' + val + '" min="0" max="12" step="0.5"'
+        + ' style="width:100%;text-align:center;border:1px solid #d1d5db;border-radius:6px;padding:5px 2px;font-size:0.9rem;">'
+        + '</div>';
+    });
+    return html;
+  }
 
-  modale.innerHTML = '<div style="background:#fff;border-radius:12px;padding:1.5rem;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">'
+  modale.innerHTML = '<div style="background:#fff;border-radius:12px;padding:1.5rem;width:520px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2);">'
     + '<h3 style="margin:0 0 1rem;color:#374151;">✏ Modifier ' + sal.prenom + ' ' + sal.nom + '</h3>'
-    + '<p style="font-size:0.85rem;color:#6b7280;margin-bottom:0.8rem;">Heures contractuelles par jour</p>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.8rem;">'
+    + '<input type="checkbox" id="modif-alt" ' + (alternance ? 'checked' : '') + ' onchange="toggleAltModif()" style="width:auto;"> Ce salarié alterne deux semaines (A / B)</label>'
+    + '<p id="modif-labelA" style="font-size:0.85rem;color:#6b7280;margin:0 0 0.5rem;">' + (alternance ? 'Semaine A' : 'Heures contractuelles par jour') + '</p>'
     + '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem;">'
-    + inputsHTML
+    + grilleInputs('modif-', hA)
     + '</div>'
-    + '<div style="display:flex;gap:0.8rem;justify-content:flex-end;">'
-    + '<button class="btn" onclick="document.getElementById(\'modale-modif-sal\').style.display=\'none\'"'
-    + ' style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>'
+    + '<div id="modif-blocB" style="display:' + (alternance ? 'block' : 'none') + ';">'
+    + '<p style="font-size:0.85rem;color:#6b7280;margin:0 0 0.5rem;">Semaine B</p>'
+    + '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem;">'
+    + grilleInputs('modifB-', hB)
+    + '</div>'
+    + '<p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 0.3rem;">Bascules d\'alternance</p>'
+    + '<p style="font-size:0.78rem;color:#6b7280;margin:0 0 0.4rem;">À partir de chaque date (un lundi), la semaine indiquée s\'applique, puis l\'alternance se poursuit.</p>'
+    + '<div id="modif-listeBascules"></div>'
+    + '<button type="button" class="btn" onclick="ajouterBasculeModif()" style="background:#e0e7ff;color:#3730a3;padding:4px 10px;font-size:0.8rem;margin-top:0.3rem;">+ Ajouter une bascule</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem;">'
+    + '<button class="btn" onclick="document.getElementById(\'modale-modif-sal\').style.display=\'none\'" style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>'
     + '<button class="btn btn-success" onclick="sauverModifSalarie(' + id + ')" style="padding:7px 16px;">✔ Sauvegarder</button>'
     + '</div></div>';
+
+  // Pré-remplir les bascules existantes
+  const bascules = Array.isArray(sal.bascules) ? sal.bascules : [];
+  if (bascules.length) {
+    bascules.forEach(b => ajouterBasculeModif(b.date, b.semaine));
+  } else if (alternance) {
+    ajouterBasculeModif();
+  }
 
   modale.style.display = 'flex';
   modale.onclick = function(e) { if (e.target === modale) modale.style.display = 'none'; };
 }
 
+// Affiche/masque la grille B + bascules dans la modale d'édition
+function toggleAltModif() {
+  const actif = document.getElementById('modif-alt')?.checked;
+  document.getElementById('modif-blocB').style.display = actif ? 'block' : 'none';
+  document.getElementById('modif-labelA').textContent = actif ? 'Semaine A' : 'Heures contractuelles par jour';
+  if (actif && document.querySelectorAll('#modif-listeBascules .bascule-ligne').length === 0) {
+    ajouterBasculeModif();
+  }
+}
+
+// Ajoute une ligne de bascule dans la modale d'édition
+function ajouterBasculeModif(date, semaine) {
+  const cont = document.getElementById('modif-listeBascules');
+  if (!cont) return;
+  const div = document.createElement('div');
+  div.className = 'bascule-ligne';
+  div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+  div.innerHTML =
+    '<span style="font-size:0.8rem;color:#374151;">À partir du</span>'
+    + '<input type="date" class="bascule-date" value="' + (date || '') + '" style="width:140px;">'
+    + '<span style="font-size:0.8rem;color:#374151;">→ semaine</span>'
+    + '<select class="bascule-semaine" style="width:60px;">'
+    + '<option value="A"' + (semaine === 'B' ? '' : ' selected') + '>A</option>'
+    + '<option value="B"' + (semaine === 'B' ? ' selected' : '') + '>B</option>'
+    + '</select>'
+    + '<button type="button" class="btn" onclick="this.parentElement.remove()" style="background:#fee2e2;color:#991b1b;padding:2px 8px;font-size:0.8rem;">✖</button>';
+  cont.appendChild(div);
+}
+
 function sauverModifSalarie(id) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
-  if (!sal.heuresParJour) sal.heuresParJour = {};
-  ['lun','mar','mer','jeu','ven','sam'].forEach(j => {
-    const val = parseFloat(document.getElementById('modif-' + j)?.value) || 0;
-    sal.heuresParJour[j] = val;
-  });
+  const jours = ['lun','mar','mer','jeu','ven','sam'];
+  const lire = (prefixe) => {
+    const g = {};
+    jours.forEach(j => { g[j] = parseFloat(document.getElementById(prefixe + j)?.value) || 0; });
+    return g;
+  };
+
+  const alternance = document.getElementById('modif-alt')?.checked || false;
+  const grilleA = lire('modif-');
+
+  if (alternance) {
+    sal.alternance = true;
+    sal.heuresParJourA = grilleA;
+    sal.heuresParJourB = lire('modifB-');
+    sal.heuresParJour  = grilleA; // compatibilité (= semaine A)
+    const bascules = [];
+    document.querySelectorAll('#modif-listeBascules .bascule-ligne').forEach(l => {
+      const d = l.querySelector('.bascule-date')?.value;
+      const s = l.querySelector('.bascule-semaine')?.value || 'A';
+      if (d) bascules.push({ date: d, semaine: s });
+    });
+    bascules.sort((a, b) => a.date.localeCompare(b.date));
+    sal.bascules = bascules;
+  } else {
+    // Salarié non alternant : on nettoie les éventuelles données d'alternance
+    sal.alternance = false;
+    sal.heuresParJour = grilleA;
+    delete sal.heuresParJourA;
+    delete sal.heuresParJourB;
+    delete sal.bascules;
+  }
+
   localStorage.setItem('salariesdata', JSON.stringify(salaries));
   document.getElementById('modale-modif-sal').style.display = 'none';
   afficherSalaries();
@@ -280,21 +363,32 @@ function ajouterSalarie() {
     return;
   }
 
+  const lireGrille = (suffixe) => ({
+    lun: parseFloat(document.getElementById("hLun" + suffixe)?.value) || 0,
+    mar: parseFloat(document.getElementById("hMar" + suffixe)?.value) || 0,
+    mer: parseFloat(document.getElementById("hMer" + suffixe)?.value) || 0,
+    jeu: parseFloat(document.getElementById("hJeu" + suffixe)?.value) || 0,
+    ven: parseFloat(document.getElementById("hVen" + suffixe)?.value) || 0,
+    sam: parseFloat(document.getElementById("hSam" + suffixe)?.value) || 0,
+  });
+
+  const alternance = document.getElementById("altCheck")?.checked || false;
+
   const nouveau = {
     id: Date.now(),
     prenom,
     nom,
     dateEntree,
     dateSortie: "",
-    heuresParJour: {
-      lun: parseFloat(document.getElementById("hLun").value) || 0,
-      mar: parseFloat(document.getElementById("hMar").value) || 0,
-      mer: parseFloat(document.getElementById("hMer").value) || 0,
-      jeu: parseFloat(document.getElementById("hJeu").value) || 0,
-      ven: parseFloat(document.getElementById("hVen").value) || 0,
-      sam: parseFloat(document.getElementById("hSam").value) || 0,
-    },
+    heuresParJour: lireGrille(""),   // toujours renseigné (= semaine A si alternance)
   };
+
+  if (alternance) {
+    nouveau.alternance     = true;
+    nouveau.heuresParJourA = lireGrille("");
+    nouveau.heuresParJourB = lireGrille("B");
+    nouveau.bascules       = (typeof lireBascules === "function") ? lireBascules() : [];
+  }
 
   salaries.push(nouveau);
   localStorage.setItem("salariesdata", JSON.stringify(salaries));

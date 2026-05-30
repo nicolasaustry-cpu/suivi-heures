@@ -59,7 +59,12 @@
 
       <!-- Heures contractuelles -->
       <div>
-        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Heures / jour</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.4rem;">
+          <input type="checkbox" id="altCheck" onchange="toggleAlternance()" style="width:auto;">
+          Ce salarié alterne deux semaines (A / B)
+        </label>
+
+        <label id="labelGrilleA" style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Heures / jour</label>
         <table style="width:auto;border-collapse:collapse;">
           <thead>
             <tr>
@@ -84,6 +89,43 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Grille semaine B (masquée par défaut) -->
+        <div id="blocGrilleB" style="display:none;margin-top:0.6rem;">
+          <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Semaine B</label>
+          <table style="width:auto;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="padding:3px 6px;background:#fffbeb;border:1px solid #ccc;font-size:0.82rem;">Lun</th>
+                <th style="padding:3px 6px;background:#fffbeb;border:1px solid #ccc;font-size:0.82rem;">Mar</th>
+                <th style="padding:3px 6px;background:#fffbeb;border:1px solid #ccc;font-size:0.82rem;">Mer</th>
+                <th style="padding:3px 6px;background:#fffbeb;border:1px solid #ccc;font-size:0.82rem;">Jeu</th>
+                <th style="padding:3px 6px;background:#fffbeb;border:1px solid #ccc;font-size:0.82rem;">Ven</th>
+                <th style="padding:3px 6px;background:#fffbeb;border:1px solid #ccc;font-size:0.82rem;">Sam</th>
+                <th style="padding:3px 6px;background:#fef3c7;border:1px solid #ccc;font-size:0.82rem;font-weight:700;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hLunB" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+                <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMarB" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+                <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hMerB" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+                <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hJeuB" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+                <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hVenB" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+                <td style="border:1px solid #ccc;padding:3px;"><input type="number" id="hSamB" value="0" step="0.5" min="0" max="12" style="width:52px;" oninput="majTotalHeuresAjout()"></td>
+                <td style="border:1px solid #ccc;padding:3px;text-align:center;background:#fffbeb;font-weight:700;color:#92400e;"><span id="totalHeuresAjoutB">0</span> h</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Bascules (masquées par défaut) -->
+        <div id="blocBascules" style="display:none;margin-top:0.6rem;">
+          <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Bascules d'alternance</label>
+          <p style="font-size:0.78rem;color:#6b7280;margin:0 0 0.3rem;">À partir de chaque date (un lundi), indiquez quelle semaine s'applique. L'alternance se poursuit ensuite automatiquement.</p>
+          <div id="listeBascules"></div>
+          <button type="button" class="btn" onclick="ajouterBasculeLigne()" style="background:#e0e7ff;color:#3730a3;padding:4px 10px;font-size:0.8rem;margin-top:0.3rem;">+ Ajouter une bascule</button>
+        </div>
       </div>
 
       <!-- Bouton -->
@@ -140,14 +182,61 @@
 <script>
   // Calcule et affiche le total des heures/jour dans le formulaire d'ajout
   function majTotalHeuresAjout() {
-    const ids = ['hLun','hMar','hMer','hJeu','hVen','hSam'];
-    let total = 0;
-    ids.forEach(id => {
-      const v = parseFloat(document.getElementById(id)?.value);
-      if (!isNaN(v)) total += v;
+    const calc = (suffixe) => {
+      let total = 0;
+      ['hLun','hMar','hMer','hJeu','hVen','hSam'].forEach(id => {
+        const v = parseFloat(document.getElementById(id + suffixe)?.value);
+        if (!isNaN(v)) total += v;
+      });
+      return Math.round(total * 100) / 100;
+    };
+    const spanA = document.getElementById('totalHeuresAjout');
+    if (spanA) spanA.textContent = calc('');
+    const spanB = document.getElementById('totalHeuresAjoutB');
+    if (spanB) spanB.textContent = calc('B');
+  }
+
+  // Affiche/masque la grille B et les bascules selon la case "alternance"
+  function toggleAlternance() {
+    const actif = document.getElementById('altCheck')?.checked;
+    document.getElementById('blocGrilleB').style.display = actif ? '' : 'none';
+    document.getElementById('blocBascules').style.display = actif ? '' : 'none';
+    document.getElementById('labelGrilleA').textContent = actif ? 'Semaine A' : 'Heures / jour';
+    if (actif && document.querySelectorAll('#listeBascules .bascule-ligne').length === 0) {
+      ajouterBasculeLigne(); // au moins une bascule par défaut
+    }
+  }
+
+  // Ajoute une ligne de bascule (date + semaine A/B)
+  function ajouterBasculeLigne(date, semaine) {
+    const cont = document.getElementById('listeBascules');
+    if (!cont) return;
+    const div = document.createElement('div');
+    div.className = 'bascule-ligne';
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+    div.innerHTML =
+      '<span style="font-size:0.8rem;color:#374151;">À partir du</span>'
+      + '<input type="date" class="bascule-date" value="' + (date || '') + '" style="width:140px;">'
+      + '<span style="font-size:0.8rem;color:#374151;">→ semaine</span>'
+      + '<select class="bascule-semaine" style="width:60px;">'
+      + '<option value="A"' + (semaine === 'B' ? '' : ' selected') + '>A</option>'
+      + '<option value="B"' + (semaine === 'B' ? ' selected' : '') + '>B</option>'
+      + '</select>'
+      + '<button type="button" class="btn" onclick="this.parentElement.remove()" style="background:#fee2e2;color:#991b1b;padding:2px 8px;font-size:0.8rem;">✖</button>';
+    cont.appendChild(div);
+  }
+
+  // Lit les bascules saisies → tableau [{date, semaine}] (dates non vides, triées)
+  function lireBascules() {
+    const lignes = document.querySelectorAll('#listeBascules .bascule-ligne');
+    const arr = [];
+    lignes.forEach(l => {
+      const date = l.querySelector('.bascule-date')?.value;
+      const sem  = l.querySelector('.bascule-semaine')?.value || 'A';
+      if (date) arr.push({ date, semaine: sem });
     });
-    const span = document.getElementById('totalHeuresAjout');
-    if (span) span.textContent = (Math.round(total * 100) / 100);
+    arr.sort((a, b) => a.date.localeCompare(b.date));
+    return arr;
   }
 
   function majMessageVide() {
@@ -164,11 +253,20 @@
   majTotalHeuresAjout();
 
   // Après un clic sur "+ Ajouter le salarié", le formulaire est réinitialisé
-  // par ajouterSalarie() : on recalcule le total juste après pour le réafficher.
+  // par ajouterSalarie() : on recalcule le total et on remet à zéro l'alternance.
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (btn && /Ajouter le salari/i.test(btn.textContent)) {
-      setTimeout(majTotalHeuresAjout, 50);
+      setTimeout(() => {
+        // Décocher l'alternance, vider grille B et bascules
+        const chk = document.getElementById('altCheck');
+        if (chk && chk.checked) { chk.checked = false; toggleAlternance(); }
+        ['hLunB','hMarB','hMerB','hJeuB','hVenB','hSamB'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.value = '0';
+        });
+        const lb = document.getElementById('listeBascules'); if (lb) lb.innerHTML = '';
+        majTotalHeuresAjout();
+      }, 50);
     }
   });
 

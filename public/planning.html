@@ -477,6 +477,65 @@ function genDatalistChantiers() {
   return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
 }
 
+/* ─── ALTERNANCE SEMAINE A / B ───────────────────────────────
+   Un salarié "alternant" possède :
+     s.alternance = true
+     s.heuresParJourA = { lun..sam }   (semaine A)
+     s.heuresParJourB = { lun..sam }   (semaine B)
+     s.bascules = [ { date:'YYYY-MM-DD' (un lundi), semaine:'A'|'B' }, ... ]
+   Un salarié classique garde s.heuresParJour (inchangé). */
+
+/* Retourne le lundi (00:00) de la semaine contenant la date d. */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();                 // 0=dim,1=lun,...
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+
+/* Nombre de semaines entières entre deux lundis (>=0). */
+function nbSemainesEntre(lundiRef, lundiCible) {
+  const ms = lundiCible - lundiRef;
+  return Math.round(ms / (7 * 24 * 3600 * 1000));
+}
+
+/* Détermine si la date d tombe en semaine 'A' ou 'B' pour ce salarié,
+   d'après la dernière bascule applicable (date <= lundi de la semaine de d). */
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';     // par défaut A si aucune bascule
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+
+  const lundiCible = lundiDeLaSemaine(d);
+  // Dernière bascule dont la date (un lundi) est <= lundi de la semaine cible
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    // Avant la première bascule : on prend la 1re et on rétro-alterne
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb); // positif, cible avant lb
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+
+/* Renvoie la grille d'heures applicable à ce salarié pour la date d,
+   en tenant compte de l'alternance si elle est activée. */
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return s.heuresParJour || {};
+}
+
 function genererPlanning() {
   salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
@@ -544,13 +603,16 @@ function genererPlanning() {
     salsAvecDates.forEach(({ s, entree: e, sortie: srt }) => {
       if (d < e || (srt && d > srt)) return;
 
-      const hp    = s.heuresParJour || {};
+      const hp    = grilleHeuresPourDate(s, d);
       const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
       const prevu = hp[cle] || 0;
 
       let total = 0;
+      const badgeAB = s.alternance
+        ? ` <span style="display:inline-block;background:${semaineAB(s,d)==='A'?'#dbeafe':'#fef3c7'};color:${semaineAB(s,d)==='A'?'#1e40af':'#92400e'};border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;" title="Semaine ${semaineAB(s,d)}">${semaineAB(s,d)}</span>`
+        : '';
       let row = `<tr data-salarie="${s.id}" data-date="${dateStr}">
-        <td style="font-weight:bold;border:1px solid #ccc;padding:3px 5px;">${s.prenom} ${s.nom}</td>`;
+        <td style="font-weight:bold;border:1px solid #ccc;padding:3px 5px;">${s.prenom} ${s.nom}${badgeAB}</td>`;
 
       for (let i = 1; i <= 5; i++) {
         const k    = `${s.id}${safeDate}ch${i}`;
@@ -733,7 +795,8 @@ function majTotalLigne(salarieId, dateStr) {
 
   const jour  = new Date(dateStr).getDay();
   const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][jour];
-  const prevu = sal.heuresParJour?.[cle] || 0;
+  const dObj  = new Date(dateStr + 'T00:00:00');
+  const prevu = (grilleHeuresPourDate(sal, dObj))[cle] || 0;
   const ecart = total - prevu + abs;
 
   tr.querySelector('.cell-total').textContent = total.toFixed(1);
@@ -751,7 +814,7 @@ function majTotalLigne(salarieId, dateStr) {
     const idSal  = row.dataset.salarie;
     const salRow = salaries.find(s => s.id == idSal);
     if (!salRow) return;
-    const prevuRow = salRow.heuresParJour?.[cle] || 0;
+    const prevuRow = (grilleHeuresPourDate(salRow, dObj))[cle] || 0;
     const totalRow = parseFloat(row.querySelector('.cell-total')?.textContent) || 0;
     const absRow   = parseFloat(row.querySelector("select[data-type='abs']")?.value) || 0;
     const ecartRow = totalRow - prevuRow + absRow;
