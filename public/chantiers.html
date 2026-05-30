@@ -876,6 +876,11 @@ function majChantierInput(input) {
 function ajouterVierge(input) {
   const val   = input.value.trim();
   if (!val) return;
+  // Garde-fou anti-doublon : navEnTree déclenche un blur "simulé" puis le focus
+  // change, ce qui provoque un second blur réel. Sans ce verrou, le chantier
+  // serait ajouté deux fois.
+  if (input.dataset.ajoutEnCours === '1') return;
+  input.dataset.ajoutEnCours = '1';
   const annee = parseInt(input.dataset.annee);
   const mi    = parseInt(input.dataset.mi);
   const champ = input.dataset.champ;
