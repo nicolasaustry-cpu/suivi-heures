@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Administration – Suiv'Heures</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; background: #f4f6f8; color: #222; }
@@ -370,6 +371,10 @@ function afficherLicences(liste) {
         </button>
       </td>
       <td style="white-space:nowrap;">
+        <button class="btn btn-success" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
+          onclick="exporterFinLicence('${l.codeClient}')" title="Exporter toutes les données de ce client (Excel)">
+          📦 Export
+        </button>
         <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
           onclick="toggleLicence('${l.codeClient}')">
           ${l.actif ? '⏸ Désactiver' : '▶ Activer'}
@@ -436,6 +441,116 @@ async function supprimerLicence(code) {
     await chargerStats();
     await chargerLicences();
   } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+/* ── EXPORT FIN DE LICENCE (Excel complet) ── */
+const _JOURS = ['dim','lun','mar','mer','jeu','ven','sam'];
+const _JOURS_LBL = {lun:'Lun',mar:'Mar',mer:'Mer',jeu:'Jeu',ven:'Ven',sam:'Sam',dim:'Dim'};
+
+async function exporterFinLicence(code) {
+  if (typeof XLSX === 'undefined') {
+    alert('Bibliothèque Excel en cours de chargement, réessayez dans une seconde.');
+    return;
+  }
+  try {
+    msg('Préparation de l\'export…');
+    const r = await fetch(API + '/api/admin/export/' + code, { headers: auth() });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'Erreur serveur');
+
+    const wb = XLSX.utils.book_new();
+    const nomEntreprise = (d.entreprise && d.entreprise.nom) ? d.entreprise.nom : code;
+
+    // 1) Feuille Informations
+    const info = [
+      ['Export de fin de licence — Suiv\'Heures'],
+      [],
+      ['Code client', d.code],
+      ['Entreprise', nomEntreprise],
+      ['Email', d.licence?.email || ''],
+      ['Type de licence', d.licence?.type === 'plus' ? 'Plus' : 'Standard'],
+      ['Date d\'expiration', d.licence?.dateExpiration ? new Date(d.licence.dateExpiration).toLocaleDateString('fr-FR') : ''],
+      ['Date de l\'export', new Date().toLocaleString('fr-FR')],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(info), 'Informations');
+
+    // 2) Feuille Salariés (avec heures par jour ; gère l'alternance A/B)
+    const salHead = ['Prénom','Nom','Date entrée','Date sortie','Alternance','Semaine','Lun','Mar','Mer','Jeu','Ven','Sam','Total'];
+    const salRows = [salHead];
+    (d.salaries || []).forEach(s => {
+      const ligneGrille = (libelle, g) => {
+        g = g || {};
+        const vals = ['lun','mar','mer','jeu','ven','sam'].map(j => g[j] || 0);
+        const tot = vals.reduce((a,b)=>a+(parseFloat(b)||0),0);
+        return [s.prenom||'', s.nom||'', s.dateEntree||'', s.dateSortie||'',
+                s.alternance?'Oui':'Non', libelle, ...vals, tot];
+      };
+      if (s.alternance) {
+        salRows.push(ligneGrille('Semaine A', s.heuresParJourA));
+        salRows.push(ligneGrille('Semaine B', s.heuresParJourB));
+      } else {
+        salRows.push(ligneGrille('—', s.heuresParJour));
+      }
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(salRows), 'Salariés');
+
+    // 3) Feuille Prévisionnel (devis par mois)
+    const prevHead = ['Année','Mois','Chantier (client)','Heures prévues (devis)'];
+    const prevRows = [prevHead];
+    const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const prev = d.previsionnel || {};
+    Object.keys(prev).sort().forEach(annee => {
+      const mois12 = prev[annee] || {};
+      Object.keys(mois12).sort((a,b)=>(+a)-(+b)).forEach(mi => {
+        (mois12[mi]?.chantiers || []).forEach(c => {
+          if (c && c.client) prevRows.push([annee, moisNoms[+mi]||mi, c.client, c.hPrevues || 0]);
+        });
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prevRows), 'Prévisionnel (devis)');
+
+    // 4) Feuille Planning (heures planifiées par salarié/jour/chantier)
+    // heures = { "{id}{YYYY}_{MM}_{DD}ch{N}": {chantier, heures}, "...abs": {...} }
+    const salById = {};
+    (d.salaries || []).forEach(s => { salById[s.id] = (s.prenom||'') + ' ' + (s.nom||''); });
+    const planHead = ['Date','Salarié','Chantier','Heures'];
+    const planRows = [planHead];
+    const heures = d.heures || {};
+    Object.keys(heures).forEach(k => {
+      const m = k.match(/^(\d+?)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (!m) return;
+      const v = heures[k];
+      if (!v || (!v.chantier && !v.heures)) return;
+      const idSal = m[1];
+      const date = `${m[4]}/${m[3]}/${m[2]}`;
+      planRows.push([date, salById[idSal] || ('#'+idSal), v.chantier || '', v.heures || 0]);
+    });
+    planRows.sort((a,b) => (a===planHead?-1:0) || 0);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(planRows), 'Planning (planifié)');
+
+    // 5) Feuille Planning réalisé (saisies mobiles)
+    const realHead = ['Date','Salarié','Chantier','Arrivée','Départ','Pause (min)','Déplacement (min)','Durée (h)'];
+    const realRows = [realHead];
+    (d.saisies || []).forEach(s => {
+      (s.chantiers || []).forEach(c => {
+        realRows.push([
+          s.date, s.salarieNom || ('#'+s.salarieId), c.nom || '',
+          c.heureArrivee || '', c.heureDepart || '',
+          c.pause || 0, c.deplacement || 0,
+          ((c.dureeMin || 0) / 60).toFixed(2)
+        ]);
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(realRows), 'Planning réalisé');
+
+    // Nom de fichier
+    const today = new Date().toISOString().slice(0,10);
+    const safe = nomEntreprise.replace(/[^a-zA-Z0-9_-]/g,'_');
+    XLSX.writeFile(wb, `Export_FinLicence_${safe}_${today}.xlsx`);
+    msg('✔ Export généré pour ' + nomEntreprise);
+  } catch (e) {
+    alert('Erreur lors de l\'export : ' + e.message);
+  }
 }
 
 /* ── UTILITAIRES ── */

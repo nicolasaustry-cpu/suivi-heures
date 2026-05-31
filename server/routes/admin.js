@@ -86,4 +86,36 @@ router.get("/stats", verifyToken, verifyAdmin, async (req, res) => {
   res.json({ ok: true, total, actifs, expires });
 });
 
+// ── Export complet "fin de licence" d'un client (toutes les données) ──
+router.get("/export/:code", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const licence = await Licence.findOne({ codeClient: code });
+    const donnees = await Donnees.findOne({ clientId: code });
+    // Planning réalisé : toutes les saisies du client, triées par date puis salarié
+    const Saisie = (await import("../models/saisies.js")).default;
+    const saisies = await Saisie.find({ clientId: code }).sort({ date: 1, salarieId: 1 });
+
+    res.json({
+      ok: true,
+      code,
+      licence: licence ? {
+        nomClient: licence.nomClient,
+        email: licence.email,
+        type: licence.type,
+        dateExpiration: licence.dateExpiration,
+        actif: licence.actif
+      } : null,
+      entreprise:   donnees?.entreprise   || {},
+      salaries:     donnees?.salaries     || [],
+      heures:       donnees?.heures       || {},   // planning prévisionnel (cases)
+      chantiers:    donnees?.chantiers    || [],
+      previsionnel: donnees?.previsionnel || {},
+      saisies:      saisies || []                   // planning réalisé
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 export default router;
