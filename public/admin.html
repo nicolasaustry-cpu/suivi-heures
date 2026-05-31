@@ -192,6 +192,57 @@
       <p id="no-licence" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune licence.</p>
     </div>
 
+    <!-- Gestion de l'aide / chatbot (Q/R) -->
+    <div class="section" style="margin-top:1.5rem;">
+      <h2>💬 Aide en ligne (chatbot) — Questions / Réponses</h2>
+      <p style="font-size:0.85rem;color:#6b7280;margin:0.3rem 0 0.8rem;">
+        Ces questions/réponses alimentent la bulle d'aide « ? » visible par les clients sur les pages de gestion.
+        Mettez-les à jour ici quand le mode d'emploi évolue : c'est immédiat, sans redéploiement.
+      </p>
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem;">
+        <button class="btn btn-success" onclick="ouvrirEditFaq()">+ Ajouter une question</button>
+        <button class="btn btn-primary" onclick="chargerFaqs()">↺ Actualiser</button>
+        <button class="btn btn-warning" onclick="seedFaqs()" title="Crée la base de départ si elle est vide">⚙ Initialiser la base de départ</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:160px;">Thème</th>
+            <th>Question</th>
+            <th style="width:120px;text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-faq"></tbody>
+      </table>
+      <p id="no-faq" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune question pour le moment. Cliquez sur « Initialiser la base de départ » pour créer les questions types.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modale ajout / modification d'une Q/R -->
+<div id="modale-faq" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:1.5rem;width:560px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    <h2 style="margin:0 0 1rem;font-size:1rem;color:#374151;" id="faq-titre">Ajouter une question</h2>
+    <input type="hidden" id="faq-id">
+    <div style="display:flex;flex-direction:column;gap:0.8rem;">
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Thème</label>
+        <input id="faq-theme" placeholder="Ex : Planning" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Question</label>
+        <input id="faq-question" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Réponse</label>
+        <textarea id="faq-reponse" rows="4" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:inherit;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem;">
+      <button class="btn btn-warning" onclick="fermerEditFaq()" style="padding:7px 16px;">Annuler</button>
+      <button class="btn btn-success" onclick="sauverFaq()" style="padding:7px 16px;">✔ Enregistrer</button>
+    </div>
   </div>
 </div>
 
@@ -270,6 +321,7 @@ async function afficherAdmin() {
   document.getElementById('ecran-admin').style.display = 'block';
   await chargerStats();
   await chargerLicences();
+  await chargerFaqs();
 
   // Date expiration par défaut : dans 1 an
   const d = new Date();
@@ -636,6 +688,101 @@ async function consulterClient(code) {
   } catch (e) {
     msg('Erreur : ' + e.message, '#dc2626');
   }
+}
+/* ── GESTION DES Q/R DU CHATBOT ── */
+let _faqs = [];
+
+async function chargerFaqs() {
+  try {
+    const r = await fetch(API + '/api/faq', { headers: auth() });
+    const d = await r.json();
+    _faqs = (d && d.ok && Array.isArray(d.faqs)) ? d.faqs : [];
+    rendreFaqs();
+  } catch (e) {
+    msg('Erreur chargement aide : ' + e.message, '#dc2626');
+  }
+}
+
+function rendreFaqs() {
+  const tb = document.getElementById('tbody-faq');
+  const vide = document.getElementById('no-faq');
+  tb.innerHTML = '';
+  if (!_faqs.length) { vide.style.display = ''; return; }
+  vide.style.display = 'none';
+  _faqs.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span style="background:#eff6ff;color:#1e40af;border-radius:999px;padding:2px 10px;font-size:0.76rem;font-weight:700;">'
+      + escAdmin(f.theme || 'Général') + '</span></td>'
+      + '<td>' + escAdmin(f.question) + '</td>'
+      + '<td style="text-align:center;white-space:nowrap;">'
+      + '<button class="btn btn-warning" style="padding:3px 9px;font-size:0.78rem;" onclick="ouvrirEditFaq(\'' + f._id + '\')">✏</button> '
+      + '<button class="btn btn-danger" style="padding:3px 9px;font-size:0.78rem;" onclick="supprimerFaq(\'' + f._id + '\')">✕</button>'
+      + '</td>';
+    tb.appendChild(tr);
+  });
+}
+
+function escAdmin(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function ouvrirEditFaq(id) {
+  const f = id ? _faqs.find(x => x._id === id) : null;
+  document.getElementById('faq-titre').textContent = f ? 'Modifier la question' : 'Ajouter une question';
+  document.getElementById('faq-id').value       = f ? f._id : '';
+  document.getElementById('faq-theme').value    = f ? (f.theme || '') : '';
+  document.getElementById('faq-question').value = f ? f.question : '';
+  document.getElementById('faq-reponse').value  = f ? f.reponse : '';
+  document.getElementById('modale-faq').style.display = 'flex';
+}
+
+function fermerEditFaq() {
+  document.getElementById('modale-faq').style.display = 'none';
+}
+
+async function sauverFaq() {
+  const id       = document.getElementById('faq-id').value;
+  const theme    = document.getElementById('faq-theme').value.trim() || 'Général';
+  const question = document.getElementById('faq-question').value.trim();
+  const reponse  = document.getElementById('faq-reponse').value.trim();
+  if (!question || !reponse) { alert('La question et la réponse sont obligatoires.'); return; }
+  try {
+    const url    = id ? (API + '/api/faq/' + id) : (API + '/api/faq');
+    const method = id ? 'PUT' : 'POST';
+    const r = await fetch(url, {
+      method,
+      headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme, question, reponse })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'Erreur');
+    fermerEditFaq();
+    msg('✔ Question enregistrée');
+    await chargerFaqs();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function supprimerFaq(id) {
+  if (!confirm('Supprimer cette question ?')) return;
+  try {
+    const r = await fetch(API + '/api/faq/' + id, { method: 'DELETE', headers: auth() });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'Erreur');
+    msg('✔ Question supprimée');
+    await chargerFaqs();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function seedFaqs() {
+  if (!confirm('Créer la base de questions de départ ? (sans effet si des questions existent déjà)')) return;
+  try {
+    const r = await fetch(API + '/api/faq/seed', { method: 'POST', headers: auth() });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'Erreur');
+    msg('✔ ' + (d.message || 'Base initialisée'));
+    await chargerFaqs();
+  } catch (e) { alert('Erreur : ' + e.message); }
 }
 </script>
 </body>
