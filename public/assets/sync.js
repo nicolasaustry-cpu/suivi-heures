@@ -137,11 +137,14 @@ const SYNC = (() => {
         return false;
       }
 
-      // Si on change de client, purger les anciennes données pour éviter qu'elles
-      // restent affichées le temps que le nouveau client charge ses propres données.
+      // Cloisonnement strict entre licences : si les données locales présentes
+      // n'appartiennent pas au client qui se connecte, on les purge AVANT tout
+      // affichage, pour ne jamais montrer les salariés/plannings d'une autre licence.
       const ancienClient = localStorage.getItem('syncClientId');
-      if (ancienClient && ancienClient !== d.clientId) {
+      const changementClient = ancienClient !== d.clientId; // couvre aussi ancienClient == null
+      if (changementClient) {
         CLES.forEach(k => localStorage.removeItem(k));
+        localStorage.removeItem('syncNomClient');
       }
 
       _token    = d.token;
@@ -158,9 +161,9 @@ const SYNC = (() => {
       majStatutLicence(true);
       majNav();
       await chargerDonnees();
-      // Forcer le rechargement de la page pour que tous les écrans
-      // (rendus à partir du localStorage) repartent sur les bonnes données.
-      if (ancienClient && ancienClient !== d.clientId) {
+      // En cas de changement de client, on recharge la page pour que tous les
+      // écrans (rendus à partir du localStorage) repartent sur les bonnes données.
+      if (changementClient) {
         location.reload();
         return true;
       }
