@@ -59,6 +59,8 @@
       .aide-item.ouvert .aide-q { font-weight: 700; color: ${BLEU_FONCE}; }
       #aide-vide { padding: 20px 16px; color: #9ca3af; font-size: 0.85rem; text-align: center; }
       #aide-pied { padding: 8px 16px; font-size: 0.74rem; color: #9ca3af; border-top: 1px solid #f3f4f6; text-align: center; }
+      #aide-pied a { color: ${BLEU}; font-weight: 700; text-decoration: none; }
+      #aide-pied a:hover { text-decoration: underline; }
     `;
     const style = document.createElement('style');
     style.id = 'aide-styles';
@@ -82,7 +84,7 @@
       + '<button class="fermer" aria-label="Fermer" onclick="document.getElementById(\'aide-panneau\').classList.remove(\'ouvert\')">×</button></div>'
       + '<input id="aide-recherche" type="text" placeholder="Rechercher une question…">'
       + '<div id="aide-liste"></div>'
-      + '<div id="aide-pied">Vous ne trouvez pas ? Contactez Volitis.</div>';
+      + '<div id="aide-pied">Vous ne trouvez pas ? <a href="mailto:contact@volitis.net">Contactez Volitis</a>.</div>';
 
     document.body.appendChild(bulle);
     document.body.appendChild(panneau);
@@ -110,7 +112,7 @@
       const d = await r.json();
       _faqs = (d && d.ok && Array.isArray(d.faqs)) ? d.faqs : [];
       _charge = true;
-      rendreListe('');
+      rendreListe('');   // recherche vide → affiche l'invitation, pas toute la liste
     } catch (e) {
       liste.innerHTML = '<div id="aide-vide">Aide momentanément indisponible.</div>';
     }
@@ -121,13 +123,20 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
-  // ── Afficher la liste (filtrée par le texte de recherche) ──
+  // ── Afficher uniquement les résultats correspondant à la recherche ──
   function rendreListe(filtre) {
     const liste = document.getElementById('aide-liste');
-    const items = _faqs.filter(f => {
-      if (!filtre) return true;
-      return (f.question + ' ' + f.reponse + ' ' + (f.theme || '')).toLowerCase().includes(filtre);
-    });
+
+    // Tant qu'aucune recherche n'est saisie, on n'affiche pas les questions :
+    // on invite l'utilisateur à taper sa question.
+    if (!filtre) {
+      liste.innerHTML = '<div id="aide-vide">Tapez un mot-clé ci-dessus pour trouver une réponse (ex. « planning », « PIN », « export »…).</div>';
+      return;
+    }
+
+    const items = _faqs.filter(f =>
+      (f.question + ' ' + f.reponse + ' ' + (f.theme || '')).toLowerCase().includes(filtre)
+    );
     if (!items.length) {
       liste.innerHTML = '<div id="aide-vide">Aucune réponse trouvée pour cette recherche.</div>';
       return;
