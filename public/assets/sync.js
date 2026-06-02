@@ -1,32 +1,40 @@
 /* =====================================================
-   SYNC.JS – Synchronisation localStorage ↔ MongoDB
-   Gestion licences Standard / Plus 
+   SYNC.JS – Synchronisation localStorage <-> MongoDB
+   Règles (réécriture du 02/06/2026) :
+   - Le SERVEUR fait référence. Toute modification d'une session client est
+     poussée immédiatement au serveur ; les autres appareils lisent le serveur.
+   - Sauvegarde fiable : envoi immédiat (faible coalescence) + envoi de sécurité
+     avant que la page soit quittée/masquée (rien n'est perdu, PIN compris).
+   - Au chargement, on ne remplace le local par le serveur QUE si aucune
+     sauvegarde n'est en attente (jamais d'écrasement d'une saisie récente).
+   - Cloisonnement strict par licence.
+   - Session ADMIN = LECTURE SEULE : aucune écriture vers le serveur.
 ===================================================== */
 
 const SYNC = (() => {
 
+  // Version visible (pour savoir ce qui tourne réellement en ligne)
+  const VERSION = 'v2026.06.02-sync1';
+
   const API = '';
   let _token    = null;
   let _clientId = null;
-  let _type     = null; // "standard" ou "plus"
+  let _type     = null;            // "standard" ou "plus"
+  let _modeAdmin = false;          // true = consultation admin (lecture seule)
   let _syncTimer = null;
+  let _pendingSave = false;        // une modification locale attend d'être poussée
   let _deconnexionEnCours = false;
-  const SYNC_DELAY = 2000;
+
+  // Coalescence courte : regroupe quelques frappes rapprochées sans fragiliser.
+  const SAVE_DELAY = 400;
 
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
 
-  // Pages accessibles sans licence
   const PAGES_LIBRES = ['index.html', '/', ''];
-
-  // Pages réservées Licence +
-  // saisie.html est accessible sans licence (auth par PIN salarié)
   const PAGES_PLUS = ['realise.html'];
-  // Pages totalement libres (pas de vérification licence)
   const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
 
-  /* ── Intercepteur global fetch : détecte les 401/403 sur /api/* (hors saisie mobile)
-     et déclenche une déconnexion propre. Ne fait rien pour les routes /api/saisies/*
-     qui utilisent le code employé et non le JWT licence. ── */
+  /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
   const _fetchOriginal = window.fetch.bind(window);
   window.fetch = async function(input, init) {
     const url = typeof input === 'string' ? input : (input?.url || '');
@@ -39,7 +47,6 @@ const SYNC = (() => {
       localStorage.removeItem('syncToken');
       localStorage.removeItem('syncClientId');
       localStorage.removeItem('syncType');
-      // Garder licenceCode pour pré-remplir le champ
       if (!PAGES_LIBRES_TOTAL.includes(pageActuelle())) {
         afficherNotif('⚠ Session expirée, reconnectez-vous', '#dc2626');
         setTimeout(() => { window.location.href = '/index.html?erreur=licence'; }, 1500);
@@ -71,14 +78,14 @@ const SYNC = (() => {
     _clientId = localStorage.getItem('syncClientId');
     _type     = localStorage.getItem('syncType');
 
-    // Pages totalement libres : pas de vérification d'accès, mais si l'utilisateur
-    // est déjà connecté (token présent), on met quand même à jour la nav et le badge
-    // de licence pour refléter sa licence (Plus = Saisie mobile, Planning réalisé, …).
+    // Mode admin (consultation d'un client) = lecture seule
+    const params = new URLSearchParams(window.location.search);
+    _modeAdmin = params.get('admin') === '1';
+
+    afficherVersion();
+
     if (PAGES_LIBRES_TOTAL.includes(pageActuelle())) {
-      if (_token && _type) {
-        majStatutLicence(true);
-        majNav();
-      }
+      if (_token && _type) { majStatutLicence(true); majNav(); }
       return;
     }
 
@@ -137,14 +144,14 @@ const SYNC = (() => {
         return false;
       }
 
-      // Cloisonnement strict entre licences : si les données locales présentes
-      // n'appartiennent pas au client qui se connecte, on les purge AVANT tout
-      // affichage, pour ne jamais montrer les salariés/plannings d'une autre licence.
+      // Cloisonnement strict : si le client diffère de celui mémorisé (y compris
+      // si aucun n'était mémorisé), on purge le local AVANT tout affichage.
       const ancienClient = localStorage.getItem('syncClientId');
-      const changementClient = ancienClient !== d.clientId; // couvre aussi ancienClient == null
+      const changementClient = ancienClient !== d.clientId;
       if (changementClient) {
         CLES.forEach(k => localStorage.removeItem(k));
         localStorage.removeItem('syncNomClient');
+        _pendingSave = false;
       }
 
       _token    = d.token;
@@ -154,19 +161,13 @@ const SYNC = (() => {
       localStorage.setItem('syncClientId', _clientId);
       localStorage.setItem('syncType',     _type);
       localStorage.setItem('licenceCode',  code);
-      // Mémoriser le nom du client tel que défini lors de la création de la licence
-      // → permet de pré-remplir le nom de l'entreprise si vide à la 1ʳᵉ connexion
       if (d.nomClient) localStorage.setItem('syncNomClient', d.nomClient);
 
       majStatutLicence(true);
       majNav();
       await chargerDonnees();
-      // En cas de changement de client, on recharge la page pour que tous les
-      // écrans (rendus à partir du localStorage) repartent sur les bonnes données.
-      if (changementClient) {
-        location.reload();
-        return true;
-      }
+
+      if (changementClient) { location.reload(); return true; }
       return true;
     } catch {
       majStatutLicence(true, 'local');
@@ -174,6 +175,9 @@ const SYNC = (() => {
     }
   }
 
+  /* ── Chargement depuis le serveur (référence) ──
+     On NE remplace PAS le local si une sauvegarde est en attente (_pendingSave),
+     afin de ne jamais écraser une saisie récente non encore synchronisée. */
   async function chargerDonnees() {
     try {
       const r = await fetch(API + '/api/data', {
@@ -181,144 +185,134 @@ const SYNC = (() => {
       });
       const d = await r.json();
       if (!d.ok) return;
+      const serveur = d.data || {};
 
-      const serveur = d.data;
+      const aDesDonneesServeur = (serveur.salaries?.length > 0)
+        || Object.keys(serveur.heures || {}).length > 0;
       const aDesDonneesLocales = CLES.some(cle => {
         const local = localStorage.getItem(cle);
         if (!local) return false;
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) return parsed.length > 0;
-        return Object.keys(parsed).length > 0;
+        try {
+          const parsed = JSON.parse(local);
+          return Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0;
+        } catch { return false; }
       });
-      const aDesDonneesServeur = serveur.salaries?.length > 0
-        || Object.keys(serveur.heures || {}).length > 0;
+      const localClientId = localStorage.getItem('syncClientId');
 
-      // Vérifier si on est en mode admin (consultation d'un client)
-      const urlParams = new URLSearchParams(window.location.search);
-      const modeAdmin = urlParams.get('admin') === '1';
-
-      if (aDesDonneesLocales && !aDesDonneesServeur && !modeAdmin) {
-        // Seulement sauvegarder si ce ne sont PAS des données d'un autre client
-        const localClientId = localStorage.getItem('syncClientId');
-        if (localClientId === _clientId) {
-          await sauvegarderTout();
-          afficherNotif('✔ Données synchronisées', '#16a34a');
-        } else {
-          // Données d'un autre client — ne pas écraser le serveur, charger depuis le serveur
-          const entServeur = serveur.entreprise || {};
-          if (!entServeur.nom) {
-            const nomClient = localStorage.getItem('syncNomClient');
-            if (nomClient) entServeur.nom = nomClient;
-          }
-          localStorage.setItem('entreprisedata',    JSON.stringify(entServeur));
-          localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries   || []));
-          localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures     || {}));
-          localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers  || []));
-          localStorage.setItem('previsionnel_data', JSON.stringify(serveur.previsionnel || {}));
-          window.dispatchEvent(new Event('donnees-chargees'));
-        }
-      } else {
-        // Toujours écraser le localStorage avec les données du serveur
-        const entServeur = serveur.entreprise || {};
-        // Si le serveur n'a pas encore de nom mais qu'on connaît le nom du client
-        // (saisi à la création de la licence), pré-remplir pour éviter à l'utilisateur
-        // de retaper.
-        if (!entServeur.nom) {
-          const nomClient = localStorage.getItem('syncNomClient');
-          if (nomClient) entServeur.nom = nomClient;
-        }
-        localStorage.setItem('entreprisedata',    JSON.stringify(entServeur));
-        localStorage.setItem('salariesdata',      JSON.stringify(serveur.salaries   || []));
-        localStorage.setItem('heuresdata',        JSON.stringify(serveur.heures     || {}));
-        localStorage.setItem('chantiersdata',     JSON.stringify(serveur.chantiers  || []));
-        localStorage.setItem('previsionnel_data', JSON.stringify(serveur.previsionnel || {}));
+      // Cas 1 : une modification locale attend d'être poussée → on garde le local
+      // (il est plus récent et sera envoyé au serveur). Pas d'écrasement.
+      if (_pendingSave && !_modeAdmin) {
         window.dispatchEvent(new Event('donnees-chargees'));
+        return;
       }
+
+      // Cas 2 : le local a des données, le serveur est vide, même client, hors admin
+      // → première synchronisation : on pousse le local vers le serveur.
+      if (aDesDonneesLocales && !aDesDonneesServeur && !_modeAdmin && localClientId === _clientId) {
+        await sauvegarderTout();
+        afficherNotif('✔ Données synchronisées', '#16a34a');
+        window.dispatchEvent(new Event('donnees-chargees'));
+        return;
+      }
+
+      // Cas 3 (par défaut) : le SERVEUR fait référence → on remplace le local.
+      const entServeur = serveur.entreprise || {};
+      if (!entServeur.nom) {
+        const nomClient = localStorage.getItem('syncNomClient');
+        if (nomClient) entServeur.nom = nomClient;
+      }
+      ecrireLocalSansDeclencher('entreprisedata',    JSON.stringify(entServeur));
+      ecrireLocalSansDeclencher('salariesdata',      JSON.stringify(serveur.salaries     || []));
+      ecrireLocalSansDeclencher('heuresdata',        JSON.stringify(serveur.heures       || {}));
+      ecrireLocalSansDeclencher('chantiersdata',     JSON.stringify(serveur.chantiers    || []));
+      ecrireLocalSansDeclencher('previsionnel_data', JSON.stringify(serveur.previsionnel || {}));
+      window.dispatchEvent(new Event('donnees-chargees'));
     } catch {
       console.warn('Impossible de charger les données du serveur');
     }
   }
 
+  /* Écrit dans le localStorage SANS redéclencher une sauvegarde serveur
+     (sinon le chargement depuis le serveur relancerait une écriture en boucle). */
+  let _ecritureInterne = false;
+  function ecrireLocalSansDeclencher(cle, valeur) {
+    _ecritureInterne = true;
+    _setItemOriginal(cle, valeur);
+    _ecritureInterne = false;
+  }
+
+  /* ── Déclenchement d'une sauvegarde (immédiate, faible coalescence) ── */
   function declencherSauvegarde() {
+    if (_modeAdmin) return;          // admin = lecture seule
     if (!_token) return;
+    _pendingSave = true;
     clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(sauvegarderTout, SYNC_DELAY);
+    _syncTimer = setTimeout(sauvegarderTout, SAVE_DELAY);
+  }
+
+  function construirePayload() {
+    return {
+      entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
+      salaries:     JSON.parse(localStorage.getItem('salariesdata')      || '[]'),
+      heures:       JSON.parse(localStorage.getItem('heuresdata')        || '{}'),
+      chantiers:    JSON.parse(localStorage.getItem('chantiersdata')     || '[]'),
+      previsionnel: JSON.parse(localStorage.getItem('previsionnel_data') || '{}'),
+    };
   }
 
   async function sauvegarderTout() {
+    if (_modeAdmin) return;          // admin = lecture seule
     if (!_token) return;
-    try {
-      const payload = {
-        entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
-        salaries:     JSON.parse(localStorage.getItem('salariesdata')      || '[]'),
-        heures:       JSON.parse(localStorage.getItem('heuresdata')        || '{}'),
-        chantiers:    JSON.parse(localStorage.getItem('chantiersdata')     || '[]'),
-        previsionnel: JSON.parse(localStorage.getItem('previsionnel_data') || '{}'),
-      };
-      await fetch(API + '/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
-        body: JSON.stringify(payload)
-      });
-    } catch {
-      console.warn('Sauvegarde échouée');
-    }
-  }
-
-  // Intercepter localStorage.setItem
-  const _setItemOriginal = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(cle, valeur) {
-    _setItemOriginal(cle, valeur);
-    if (CLES.includes(cle)) declencherSauvegarde();
-  };
-
-  // Pousser immédiatement toute sauvegarde encore en attente (anti-rebond) avant
-  // que la page ne soit quittée, masquée ou rechargée. Évite de perdre une saisie
-  // récente non encore synchronisée — par exemple un code PIN tout juste tapé,
-  // ce qui rendrait la connexion mobile de l'ouvrier impossible.
-  function flushSauvegarde() {
-    if (!_token) return;
-    if (!_syncTimer) return;            // rien en attente
     clearTimeout(_syncTimer);
     _syncTimer = null;
     try {
-      const payload = {
-        entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
-        salaries:     JSON.parse(localStorage.getItem('salariesdata')      || '[]'),
-        heures:       JSON.parse(localStorage.getItem('heuresdata')        || '{}'),
-        chantiers:    JSON.parse(localStorage.getItem('chantiersdata')     || '[]'),
-        previsionnel: JSON.parse(localStorage.getItem('previsionnel_data') || '{}'),
-      };
-      // keepalive : autorise la requête à se terminer même si la page se ferme.
+      const res = await fetch(API + '/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
+        body: JSON.stringify(construirePayload())
+      });
+      if (res.ok) _pendingSave = false;
+    } catch {
+      console.warn('Sauvegarde échouée (sera retentée)');
+    }
+  }
+
+  /* Envoi de sécurité avant de quitter/masquer la page : garantit qu'une saisie
+     récente (ex. PIN) atteint le serveur même si on quitte avant la coalescence. */
+  function flushSauvegarde() {
+    if (_modeAdmin || !_token || !_pendingSave) return;
+    clearTimeout(_syncTimer);
+    _syncTimer = null;
+    try {
       fetch(API + '/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(construirePayload()),
         keepalive: true
-      }).catch(() => {});
-    } catch (_) {}
+      }).then(() => { _pendingSave = false; }).catch(() => {});
+    } catch {}
   }
   window.addEventListener('pagehide', flushSauvegarde);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSauvegarde();
   });
 
-  // Mettre à jour la navigation selon le type de licence
+  // Intercepter localStorage.setItem : toute écriture applicative déclenche une sauvegarde
+  const _setItemOriginal = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(cle, valeur) {
+    _setItemOriginal(cle, valeur);
+    if (!_ecritureInterne && CLES.includes(cle)) declencherSauvegarde();
+  };
+
+  // Navigation selon le type de licence
   function majNav() {
     const nav = document.querySelector('.nav') || document.querySelector('nav');
     if (!nav) return;
-
-    // Supprimer les liens Plus existants pour éviter les doublons
     nav.querySelectorAll('.nav-plus').forEach(el => el.remove());
-
     const page = pageActuelle();
-
     if (_type === 'plus') {
-      // Licence Plus : retirer Rapports de sa position actuelle et le remettre en fin
       const rapportsLink = nav.querySelector('a[href="rapports.html"]');
       if (rapportsLink) rapportsLink.remove();
-
-      // Ajouter Saisie mobile + Planning réalisé + Rapports en fin
       const liens = [
         { href: 'saisie.html',  label: 'Saisie mobile' },
         { href: 'realise.html', label: 'Planning réalisé' },
@@ -326,9 +320,7 @@ const SYNC = (() => {
       ];
       liens.forEach(l => {
         const a = document.createElement('a');
-        a.href = l.href;
-        a.textContent = l.label;
-        a.className = 'nav-plus';
+        a.href = l.href; a.textContent = l.label; a.className = 'nav-plus';
         if (l.href === page) a.classList.add('active');
         nav.appendChild(a);
       });
@@ -350,8 +342,21 @@ const SYNC = (() => {
     }
   }
 
-  // Déconnexion : vide tout le cache local et revient à l'accueil.
-  // Exposée via SYNC.seDeconnecter() pour être appelée depuis le bouton injecté.
+  // Petit indicateur de version, discret, en bas à gauche (présent sur toutes les pages)
+  function afficherVersion() {
+    if (document.getElementById('sync-version')) return;
+    const ajoute = () => {
+      if (!document.body || document.getElementById('sync-version')) return;
+      const tag = document.createElement('div');
+      tag.id = 'sync-version';
+      tag.textContent = VERSION + (_modeAdmin ? ' (admin)' : '');
+      tag.style.cssText = 'position:fixed;bottom:4px;left:6px;z-index:9997;font-size:10px;color:#9ca3af;opacity:0.6;font-family:monospace;pointer-events:none;';
+      document.body.appendChild(tag);
+    };
+    if (document.body) ajoute();
+    else window.addEventListener('DOMContentLoaded', ajoute);
+  }
+
   function seDeconnecter() {
     if (!confirm("Se déconnecter ?\n\nVos données serveur ne seront pas affectées.")) return;
     localStorage.clear();
@@ -372,8 +377,11 @@ const SYNC = (() => {
   }
 
   return {
-    init, connecter, sauvegarderTout, declencherSauvegarde, afficherNotif, seDeconnecter,
+    VERSION,
+    init, connecter, sauvegarderTout, declencherSauvegarde, flushSauvegarde,
+    afficherNotif, seDeconnecter,
     estConnecte: () => !!_token,
+    estAdmin:    () => _modeAdmin,
     getClientId: () => _clientId,
     getType:     () => _type,
     getToken:    () => _token,
@@ -393,12 +401,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const clientNom   = sessionStorage.getItem('clientNom') || clientCode;
     const clientType  = sessionStorage.getItem('clientType') || 'standard';
     if (clientToken && clientId) {
-      // Vider localStorage et charger les données du client consulté
       const keysToKeep = ['admin_token'];
       Object.keys(localStorage).forEach(k => {
         if (!keysToKeep.includes(k)) localStorage.removeItem(k);
       });
-      // Stocker le token du client dans localStorage pour cette session
       localStorage.setItem('syncToken',    clientToken);
       localStorage.setItem('syncClientId', clientId);
       localStorage.setItem('syncType',     clientType);
@@ -406,7 +412,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const banniere = document.createElement('div');
       banniere.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:700;font-size:0.85rem;';
-      banniere.innerHTML = `👁 Mode consultation admin – Client : <strong>${clientNom}</strong> &nbsp;|&nbsp; <a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
+      banniere.innerHTML = `👁 Mode consultation admin (lecture seule) – Client : <strong>${clientNom}</strong> &nbsp;|&nbsp; <a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
       document.body.prepend(banniere);
     }
   }
