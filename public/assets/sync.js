@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.06.02-sync2';
+  const VERSION = 'v2026.06.02-sync3';
 
   const API = '';
   let _token    = null;

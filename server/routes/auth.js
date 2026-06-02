@@ -16,14 +16,14 @@ router.post("/login", async (req, res) => {
       return res.status(403).json({ ok: false, message: "Licence expirée" });
 
     const token = jwt.sign(
-      { clientId: licence.codeClient, nomClient: licence.nomClient, role: "client", type: licence.type },
+      { clientId: code, nomClient: licence.nomClient, role: "client", type: licence.type },
       process.env.JWT_SECRET,
       { expiresIn: "30d" }
     );
 
     res.json({
       ok: true, token,
-      clientId:   licence.codeClient,
+      clientId:   code,
       nomClient:  licence.nomClient,
       type:       licence.type,
       expiration: licence.dateExpiration

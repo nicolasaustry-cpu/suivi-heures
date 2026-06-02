@@ -91,10 +91,21 @@ router.get("/export/:code", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
     const licence = await Licence.findOne({ codeClient: code });
-    const donnees = await Donnees.findOne({ clientId: code });
-    // Planning réalisé : toutes les saisies du client, triées par date puis salarié
+    let donnees = await Donnees.findOne({ clientId: code });
+    // Compatibilité : document éventuellement enregistré dans une autre casse
+    if (!donnees) {
+      const tous = await Donnees.find({});
+      donnees = tous.find(d => (d.clientId || "").toUpperCase() === code) || null;
+    }
+    // Planning réalisé : saisies du client, quelle que soit la casse du clientId
     const Saisie = (await import("../models/saisies.js")).default;
-    const saisies = await Saisie.find({ clientId: code }).sort({ date: 1, salarieId: 1 });
+    let saisies = await Saisie.find({ clientId: code }).sort({ date: 1, salarieId: 1 });
+    if (!saisies || saisies.length === 0) {
+      const toutesSaisies = await Saisie.find({});
+      saisies = toutesSaisies
+        .filter(s => (s.clientId || "").toUpperCase() === code)
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    }
 
     res.json({
       ok: true,
