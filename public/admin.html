@@ -2,7 +2,6 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Administration – Suiv'Heures</title>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -528,14 +527,15 @@ async function exporterFinLicence(code) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(info), 'Informations');
 
     // 2) Feuille Salariés (avec heures par jour ; gère l'alternance A/B)
-    const salHead = ['Prénom','Nom','Date entrée','Date sortie','Alternance','Semaine','Lun','Mar','Mer','Jeu','Ven','Sam','Total'];
+    // La colonne PIN permet de vérifier que le code mobile est bien enregistré côté serveur.
+    const salHead = ['Prénom','Nom','PIN','Date entrée','Date sortie','Alternance','Semaine','Lun','Mar','Mer','Jeu','Ven','Sam','Total'];
     const salRows = [salHead];
     (d.salaries || []).forEach(s => {
       const ligneGrille = (libelle, g) => {
         g = g || {};
         const vals = ['lun','mar','mer','jeu','ven','sam'].map(j => g[j] || 0);
         const tot = vals.reduce((a,b)=>a+(parseFloat(b)||0),0);
-        return [s.prenom||'', s.nom||'', s.dateEntree||'', s.dateSortie||'',
+        return [s.prenom||'', s.nom||'', s.pin || '(aucun)', s.dateEntree||'', s.dateSortie||'',
                 s.alternance?'Oui':'Non', libelle, ...vals, tot];
       };
       if (s.alternance) {
