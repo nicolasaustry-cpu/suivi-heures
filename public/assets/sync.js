@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.06.02-sync1';
+  const VERSION = 'v2026.06.02-sync2';
 
   const API = '';
   let _token    = null;
@@ -78,9 +78,11 @@ const SYNC = (() => {
     _clientId = localStorage.getItem('syncClientId');
     _type     = localStorage.getItem('syncType');
 
-    // Mode admin (consultation d'un client) = lecture seule
+    // Mode admin (consultation d'un client) = lecture seule.
+    // Détecté via l'URL (1re page) OU via sessionStorage (pages suivantes du même onglet).
     const params = new URLSearchParams(window.location.search);
-    _modeAdmin = params.get('admin') === '1';
+    _modeAdmin = params.get('admin') === '1'
+              || sessionStorage.getItem('adminConsult') === '1';
 
     afficherVersion();
 
@@ -395,6 +397,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const clientCode = params.get('client');
   const modeAdmin  = params.get('admin') === '1';
 
+  // Entrée en consultation depuis l'admin (1re page, avec les paramètres d'URL)
   if (modeAdmin && clientCode) {
     const clientToken = sessionStorage.getItem('clientToken');
     const clientId    = sessionStorage.getItem('clientId');
@@ -409,13 +412,39 @@ window.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('syncClientId', clientId);
       localStorage.setItem('syncType',     clientType);
       localStorage.setItem('licenceCode',  clientCode);
-
-      const banniere = document.createElement('div');
-      banniere.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:700;font-size:0.85rem;';
-      banniere.innerHTML = `👁 Mode consultation admin (lecture seule) – Client : <strong>${clientNom}</strong> &nbsp;|&nbsp; <a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
-      document.body.prepend(banniere);
+      // Mémoriser, pour CET onglet uniquement, qu'on est en consultation admin :
+      // le bandeau et la lecture seule persisteront sur toutes les pages suivantes.
+      sessionStorage.setItem('adminConsult', '1');
+      sessionStorage.setItem('adminConsultNom', clientNom);
     }
+  }
+
+  // Bandeau orange de consultation : affiché sur TOUTES les pages tant que le flag
+  // est présent dans cet onglet (évite toute confusion avec une session patron).
+  if (sessionStorage.getItem('adminConsult') === '1') {
+    afficherBanniereConsultation(sessionStorage.getItem('adminConsultNom') || '');
   }
 
   SYNC.init();
 });
+
+// Crée (sans doublon) le bandeau de consultation admin en haut de la page.
+function afficherBanniereConsultation(clientNom) {
+  if (document.getElementById('banniere-admin-consult')) return;
+  const banniere = document.createElement('div');
+  banniere.id = 'banniere-admin-consult';
+  banniere.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:700;font-size:0.85rem;box-shadow:0 2px 6px rgba(0,0,0,0.25);';
+  banniere.innerHTML = `👁 Mode consultation admin (lecture seule) – Client : <strong>${clientNom}</strong> &nbsp;|&nbsp; ` +
+    `<a href="#" onclick="SYNC_quitterConsultation(event)" style="color:#000;text-decoration:underline;">Quitter la consultation</a> &nbsp;|&nbsp; ` +
+    `<a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
+  document.body.prepend(banniere);
+}
+
+// Quitter proprement la consultation : efface le mode pour cet onglet et revient à l'admin.
+function SYNC_quitterConsultation(ev) {
+  if (ev) ev.preventDefault();
+  sessionStorage.removeItem('adminConsult');
+  sessionStorage.removeItem('adminConsultNom');
+  localStorage.clear();
+  location.href = '/admin.html';
+}
