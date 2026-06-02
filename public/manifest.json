@@ -2,7 +2,7 @@
   "name": "Suiv'Heures · Volitis",
   "short_name": "Suiv'Heures",
   "description": "La gestion des heures, simplement — par Volitis",
-  "start_url": "/",
+  "start_url": "/saisie.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f3a8a",
