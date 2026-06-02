@@ -272,6 +272,37 @@ const SYNC = (() => {
     if (CLES.includes(cle)) declencherSauvegarde();
   };
 
+  // Pousser immédiatement toute sauvegarde encore en attente (anti-rebond) avant
+  // que la page ne soit quittée, masquée ou rechargée. Évite de perdre une saisie
+  // récente non encore synchronisée — par exemple un code PIN tout juste tapé,
+  // ce qui rendrait la connexion mobile de l'ouvrier impossible.
+  function flushSauvegarde() {
+    if (!_token) return;
+    if (!_syncTimer) return;            // rien en attente
+    clearTimeout(_syncTimer);
+    _syncTimer = null;
+    try {
+      const payload = {
+        entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
+        salaries:     JSON.parse(localStorage.getItem('salariesdata')      || '[]'),
+        heures:       JSON.parse(localStorage.getItem('heuresdata')        || '{}'),
+        chantiers:    JSON.parse(localStorage.getItem('chantiersdata')     || '[]'),
+        previsionnel: JSON.parse(localStorage.getItem('previsionnel_data') || '{}'),
+      };
+      // keepalive : autorise la requête à se terminer même si la page se ferme.
+      fetch(API + '/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(() => {});
+    } catch (_) {}
+  }
+  window.addEventListener('pagehide', flushSauvegarde);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushSauvegarde();
+  });
+
   // Mettre à jour la navigation selon le type de licence
   function majNav() {
     const nav = document.querySelector('.nav') || document.querySelector('nav');
