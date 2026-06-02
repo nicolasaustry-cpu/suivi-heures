@@ -6,13 +6,12 @@
    - Ressources statiques (CSS, JS, icônes) : cache d'abord
    ======================================= */
 
-const CACHE_NAME = 'suivheures-v4';
+const CACHE_NAME = 'suivheures-v5';
 
-// Ressources statiques pré-mises en cache (PAS les pages .html)
+// Ressources statiques pré-mises en cache (PAS les pages .html, PAS le manifest)
 const FICHIERS_CACHE = [
   '/assets/style.css',
-  '/assets/icon-192.png',
-  '/manifest.json'
+  '/assets/icon-192.png'
 ];
 
 /* ── Installation ── */
@@ -50,8 +49,13 @@ self.addEventListener('fetch', event => {
   const estJsApp =
     url.origin === self.location.origin && url.pathname.endsWith('.js');
 
-  // Pages HTML + API + JS de l'app → RÉSEAU D'ABORD (toujours la dernière version)
-  if (url.pathname.startsWith('/api/') || estPageHTML || estJsApp) {
+  // Le manifest doit toujours venir du réseau : sinon une ancienne version
+  // (mauvais start_url) resterait en cache et l'app installée ouvrirait la
+  // mauvaise page au lancement.
+  const estManifest = url.pathname.endsWith('manifest.json');
+
+  // Pages HTML + API + JS de l'app + manifest → RÉSEAU D'ABORD (toujours la dernière version)
+  if (url.pathname.startsWith('/api/') || estPageHTML || estJsApp || estManifest) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
