@@ -79,6 +79,13 @@ function toggleFiltrePresents() {
   afficherSalaries();
 }
 
+/* Affiche une date stockée en ISO (AAAA-MM-JJ) au format français JJ/MM/AAAA. */
+function fmtDateFr(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
 function afficherSalaries() {
   const tb = document.querySelector("#table-salaries tbody");
   if (!tb) return;
@@ -121,7 +128,7 @@ function afficherSalaries() {
       <tr>
         <td>${s.prenom}${badgeAlt}</td>
         <td>${s.nom}</td>
-        <td>${s.dateEntree || ""}</td>
+        <td>${fmtDateFr(s.dateEntree)}</td>
         <td>
           <input type="date" value="${s.dateSortie || ""}"
                  onchange="majDateSortie(${s.id}, this.value)"
