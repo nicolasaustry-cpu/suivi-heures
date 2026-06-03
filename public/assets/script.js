@@ -93,6 +93,30 @@ function afficherSalaries() {
     const badgeAlt = s.alternance
       ? ' <span title="Alterne semaine A / B" style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">⇄ A/B</span>'
       : '';
+    const estAdmin = (typeof SYNC !== 'undefined' && SYNC.estAdmin && SYNC.estAdmin());
+    const pinPose  = !!(s.pin && String(s.pin).trim());
+    let pinCell;
+    if (pinPose) {
+      // PIN posé → verrouillé (lecture seule + cadenas). Œil pour révéler, Réinit. pour changer (patron).
+      pinCell =
+          `<input type="text" id="pin-${s.id}" value="${s.pin}" class="pin-input pin-masque" readonly disabled `
+        + `style="background:#f3f4f6;cursor:not-allowed;width:64px;" title="PIN verrouillé">`
+        + `<span title="PIN verrouillé" style="margin-left:3px;color:#9ca3af;">🔒</span>`
+        + `<span id="oeil-${s.id}" onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN" style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>`
+        + (estAdmin ? '' :
+            `<button onclick="reinitialiserPIN(${s.id})" title="Réinitialiser ce PIN" `
+          + `style="margin-left:6px;background:#fff;color:#b45309;border:1px solid #fcd34d;border-radius:6px;padding:2px 7px;font-size:0.72rem;font-weight:600;cursor:pointer;white-space:nowrap;">↻ Réinit.</button>`);
+    } else if (estAdmin) {
+      pinCell = `<span style="color:#9ca3af;">(aucun)</span>`;
+    } else {
+      // PIN vide → saisissable (première pose uniquement)
+      pinCell =
+          `<input type="text" id="pin-${s.id}" maxlength="4" value="" placeholder="----" `
+        + `autocomplete="off" name="pin_${s.id}_${Date.now()}" inputmode="numeric" `
+        + `readonly onfocus="this.removeAttribute('readonly')" class="pin-input pin-masque" `
+        + `onchange="majPIN(${s.id}, this.value)" data-pin="true">`
+        + `<span id="oeil-${s.id}" onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN" style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>`;
+    }
     tb.innerHTML += `
       <tr>
         <td>${s.prenom}${badgeAlt}</td>
@@ -109,16 +133,7 @@ function afficherSalaries() {
         <td id="h-jeu-${s.id}" style="text-align:center;">${h.jeu ?? 0}</td>
         <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
-        <td style="white-space:nowrap;">
-          <input type="text" id="pin-${s.id}" maxlength="4" value="${s.pin || ''}" placeholder="----"
-            autocomplete="off" name="pin_${s.id}_${Date.now()}" inputmode="numeric"
-            readonly onfocus="this.removeAttribute('readonly')"
-            class="pin-input pin-masque"
-            onchange="majPIN(${s.id}, this.value)"
-            data-pin="true">
-          <span id="oeil-${s.id}" onclick="togglePIN(${s.id})" title="Afficher/Masquer le PIN"
-            style="cursor:pointer;font-size:1rem;margin-left:3px;color:#6b7280;user-select:none;">👁</span>
-        </td>
+        <td style="white-space:nowrap;">${pinCell}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-primary" style="padding:3px 8px;font-size:0.8rem;" onclick="ouvrirModifSalarie(${s.id})">✏</button>
           <button class="btn btn-danger" style="padding:3px 8px;font-size:0.8rem;" onclick="supprimerSalarie(${idx})">✖</button>
@@ -275,9 +290,45 @@ function majDateSortie(id, nouvelleDate) {
 function majPIN(id, pin) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
-  if (pin && !/^\d{4}$/.test(pin)) { alert("Le PIN doit être composé de 4 chiffres."); return; }
-  sal.pin = pin;
+  const v = (pin || '').trim();
+  if (v === '') return;                     // case vide : on ne touche pas (pas d'effacement accidentel)
+  if (!/^\d{4}$/.test(v)) { alert("Le PIN doit être composé de 4 chiffres."); return; }
+  if (sal.pin && String(sal.pin).trim()) {  // déjà posé : verrouillé
+    alert("Ce PIN est déjà posé et verrouillé. Utilisez « ↻ Réinit. » pour le changer.");
+    afficherSalaries();
+    return;
+  }
+  sal.pin = v;
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
+}
+
+/* Réinitialiser un PIN verrouillé (patron uniquement) : confirmation systématique,
+   puis nouveau PIN (ou vide pour effacer) via la route serveur dédiée. */
+async function reinitialiserPIN(id) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  const nom = `${sal.prenom || ''} ${sal.nom || ''}`.trim();
+  if (!confirm(`Réinitialiser le PIN de ${nom} ?\nL'ancien code ne fonctionnera plus.`)) return;
+  let nouveau = prompt(`Nouveau PIN à 4 chiffres pour ${nom}\n(laisser vide pour effacer le PIN) :`, '');
+  if (nouveau === null) return;                          // annulé
+  nouveau = (nouveau || '').trim();
+  if (nouveau && !/^\d{4}$/.test(nouveau)) { alert("Le PIN doit comporter exactement 4 chiffres."); return; }
+  try {
+    const token = (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : (localStorage.getItem('syncToken') || '');
+    const r = await fetch('/api/data/reset-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ salarieId: id, pin: nouveau })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert('Échec de la réinitialisation : ' + (d.message || '')); return; }
+    sal.pin = nouveau;
+    localStorage.setItem('salariesdata', JSON.stringify(salaries));
+    afficherSalaries();
+    alert(nouveau ? '✔ PIN réinitialisé.' : '✔ PIN effacé.');
+  } catch (e) {
+    alert('Erreur réseau lors de la réinitialisation.');
+  }
 }
 
 function togglePIN(id) {
@@ -308,9 +359,9 @@ async function enregistrerTousPINs() {
     const val = (input.value || '').trim();
     const sal = salaries.find(s => s.id === id);
     if (!sal) return;
+    if (sal.pin && String(sal.pin).trim()) return;   // déjà posé : verrouillé, on ne touche pas
     if (val === '') {
-      sal.pin = '';
-      nbVides++;
+      nbVides++;                                       // vide : on n'efface PAS
     } else if (/^\d{4}$/.test(val)) {
       sal.pin = val;
       nbValides++;
