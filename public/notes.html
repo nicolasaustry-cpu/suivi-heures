@@ -182,10 +182,10 @@ function rendre() {
     return `<div class="note-card">
       <div class="nc-head">
         <span class="nc-chantier">${echap(n.chantier)}</span>
-        <span class="nc-date">${echap(n.dateStr)}</span>
       </div>
       <div class="nc-meta">
         <span>👤 ${echap(n.salarie)}</span>
+        <span>📅 ${echap(n.dateStr)}</span>
         ${horaire ? `<span>🕐 ${echap(horaire)} ${dur}</span>` : ''}
       </div>
       <div class="nc-texte">${echap(n.note)}</div>
