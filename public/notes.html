@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Notes – Suiv'Heures</title>
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     .filtres-notes { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem; }
@@ -37,9 +38,19 @@
 <body>
 
 <header class="main-header">
-  <div class="entreprise-nom" id="entreprise-nom"></div>
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
   <h1 class="page-title">Notes de chantier</h1>
-  <div id="licence-status"></div>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
 </header>
 
 <div class="nav">
