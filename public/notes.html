@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    .filtres-notes { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem; }
+    .filtres-notes label { font-size:0.85rem; font-weight:600; display:block; margin-bottom:3px; }
+    .filtres-notes select,
+    .filtres-notes input[type=month],
+    .filtres-notes input[type=text] {
+      padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem;
+    }
+    .barre-outils { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem; }
+    .btn-outil { padding:7px 14px; border:none; border-radius:6px; font-weight:700; font-size:0.85rem; cursor:pointer; }
+    .btn-print { background:#f59e0b; color:#000; }
+    .btn-xlsx  { background:#16a34a; color:#fff; }
+    .nc-count { font-size:0.82rem; color:#6b7280; margin-bottom:0.6rem; }
+    .note-card { border:1px solid #e5e7eb; border-radius:12px; padding:13px 15px; margin-bottom:12px; background:#fff; }
+    .note-card .nc-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .note-card .nc-chantier { font-weight:700; font-size:1.02rem; color:#111827; }
+    .note-card .nc-date { font-size:0.82rem; color:#6b7280; white-space:nowrap; }
+    .note-card .nc-meta { display:flex; flex-wrap:wrap; gap:16px; margin:6px 0 10px; font-size:0.82rem; color:#6b7280; }
+    .note-card .nc-meta .dur { color:#15803d; font-weight:600; }
+    .note-card .nc-texte { font-size:0.95rem; color:#374151; line-height:1.5; background:#f9fafb; border-left:3px solid #16a34a; border-radius:0 8px 8px 0; padding:10px 12px; white-space:pre-wrap; word-break:break-word; }
+    .nc-vide { text-align:center; color:#9ca3af; font-size:0.9rem; padding:2rem; }
+    @media print {
+      .main-header, .nav, .filtres-notes, .barre-outils, #licence-status { display:none !important; }
+      .note-card { break-inside: avoid; }
+      body { background:#fff; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="main-header">
+  <div class="entreprise-nom" id="entreprise-nom"></div>
+  <h1 class="page-title">Notes de chantier</h1>
+  <div id="licence-status"></div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<section>
+  <div class="filtres-notes">
+    <div>
+      <label>Mois</label>
+      <input type="month" id="filtreMonth" onchange="chargerNotes()">
+    </div>
+    <div>
+      <label>Intervenant</label>
+      <select id="filtreSalarie" onchange="rendre()"><option value="">Tous</option></select>
+    </div>
+    <div>
+      <label>Chantier</label>
+      <select id="filtreChantier" onchange="rendre()"><option value="">Tous</option></select>
+    </div>
+    <div style="flex:1;min-width:180px;">
+      <label>Recherche</label>
+      <input type="text" id="rech" placeholder="Rechercher dans les notes…" oninput="rendre()" style="width:100%;box-sizing:border-box;">
+    </div>
+  </div>
+
+  <div class="barre-outils">
+    <button class="btn-outil btn-print" onclick="window.print()">🖨 Imprimer</button>
+    <button class="btn-outil btn-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
+  </div>
+
+  <div class="nc-count" id="nc-count"></div>
+  <div id="liste-notes"></div>
+  <div class="nc-vide" id="nc-vide" style="display:none;">Aucune note pour cette sélection.</div>
+</section>
+
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+let _notes = [];   // { date, dateObj, dateStr, salarie, chantier, arrivee, depart, dureeMin, note }
+
+function echap(t) {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDuree(min) {
+  if (!min) return '';
+  return Math.floor(min/60) + ' h ' + String(min%60).padStart(2,'0');
+}
+function fmtDateLong(d) {
+  return d.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
+}
+
+async function chargerNotes() {
+  const mois  = document.getElementById('filtreMonth').value;
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null;
+  if (!mois || !token) return;
+  try {
+    const r = await fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    const saisies = d.ok ? (d.saisies || []) : [];
+    _notes = [];
+    saisies.forEach(s => {
+      (s.chantiers || []).forEach(c => {
+        const note = (c.note || '').trim();
+        if (!note) return;
+        const dObj = new Date(s.date + 'T00:00:00');
+        _notes.push({
+          date:     s.date,
+          dateObj:  dObj,
+          dateStr:  fmtDateLong(dObj),
+          salarie:  s.salarieNom || '',
+          chantier: c.nom || '',
+          arrivee:  c.heureArrivee || '',
+          depart:   c.heureDepart  || '',
+          dureeMin: c.dureeMin || 0,
+          note:     note
+        });
+      });
+    });
+    // Plus récente en premier (puis par intervenant)
+    _notes.sort((a, b) => (b.dateObj - a.dateObj) || a.salarie.localeCompare(b.salarie));
+    majFiltres();
+    rendre();
+  } catch (e) {
+    _notes = [];
+    rendre();
+  }
+}
+
+function majFiltres() {
+  const selSal = document.getElementById('filtreSalarie');
+  const selCh  = document.getElementById('filtreChantier');
+  const valSal = selSal.value, valCh = selCh.value;
+  const sals = [...new Set(_notes.map(n => n.salarie).filter(Boolean))].sort();
+  const chs  = [...new Set(_notes.map(n => n.chantier).filter(Boolean))].sort();
+  selSal.innerHTML = '<option value="">Tous</option>' + sals.map(s => `<option value="${echap(s)}">${echap(s)}</option>`).join('');
+  selCh.innerHTML  = '<option value="">Tous</option>' + chs.map(c => `<option value="${echap(c)}">${echap(c)}</option>`).join('');
+  if (sals.includes(valSal)) selSal.value = valSal;
+  if (chs.includes(valCh))   selCh.value  = valCh;
+}
+
+function notesFiltrees() {
+  const fSal = document.getElementById('filtreSalarie').value;
+  const fCh  = document.getElementById('filtreChantier').value;
+  const q    = (document.getElementById('rech').value || '').toLowerCase().trim();
+  return _notes.filter(n => {
+    if (fSal && n.salarie  !== fSal) return false;
+    if (fCh  && n.chantier !== fCh)  return false;
+    if (q && !((n.note + ' ' + n.chantier + ' ' + n.salarie).toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+function rendre() {
+  const liste = notesFiltrees();
+  const cont  = document.getElementById('liste-notes');
+  const vide  = document.getElementById('nc-vide');
+  document.getElementById('nc-count').textContent =
+    liste.length ? (liste.length + ' note' + (liste.length > 1 ? 's' : '')) : '';
+  if (!liste.length) { cont.innerHTML = ''; vide.style.display = 'block'; return; }
+  vide.style.display = 'none';
+  cont.innerHTML = liste.map(n => {
+    const horaire = (n.arrivee && n.depart) ? (n.arrivee + ' – ' + n.depart) : '';
+    const dur = n.dureeMin ? `<span class="dur">(${fmtDuree(n.dureeMin)})</span>` : '';
+    return `<div class="note-card">
+      <div class="nc-head">
+        <span class="nc-chantier">${echap(n.chantier)}</span>
+        <span class="nc-date">${echap(n.dateStr)}</span>
+      </div>
+      <div class="nc-meta">
+        <span>👤 ${echap(n.salarie)}</span>
+        ${horaire ? `<span>🕐 ${echap(horaire)} ${dur}</span>` : ''}
+      </div>
+      <div class="nc-texte">${echap(n.note)}</div>
+    </div>`;
+  }).join('');
+}
+
+function exporterXlsx() {
+  if (typeof XLSX === 'undefined') { alert('Module Excel non chargé, réessayez dans un instant.'); return; }
+  const liste = notesFiltrees();
+  if (!liste.length) { alert('Aucune note à exporter.'); return; }
+  const rows = [['Date', 'Intervenant', 'Chantier', 'Arrivée', 'Départ', 'Durée', 'Note']];
+  liste.forEach(n => rows.push([
+    n.date, n.salarie, n.chantier, n.arrivee, n.depart, fmtDuree(n.dureeMin), n.note
+  ]));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch:12 }, { wch:20 }, { wch:24 }, { wch:9 }, { wch:9 }, { wch:10 }, { wch:60 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Notes');
+  const mois = document.getElementById('filtreMonth').value || 'notes';
+  XLSX.writeFile(wb, `Notes_${mois}.xlsx`);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  const now = new Date();
+  document.getElementById('filtreMonth').value =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  chargerNotes();
+});
+window.addEventListener('donnees-chargees', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  if (!_notes.length) chargerNotes();
+});
+</script>
+</body>
+</html>

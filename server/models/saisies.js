@@ -7,6 +7,7 @@ const saisieChantierSchema = new mongoose.Schema({
   dureeMin:     { type: Number, default: 0 },   // durée en minutes (pause déjà déduite)
   deplacement:  { type: Number, default: 0 },   // temps déplacement en minutes
   pause:        { type: Number, default: 0 },   // temps de pause en minutes (déduit de la durée)
+  note:         { type: String, default: "" },   // note libre du chantier (saisie/dictée mobile)
   isPrevisionnel: { type: Boolean, default: false }
 }, { _id: false });
 

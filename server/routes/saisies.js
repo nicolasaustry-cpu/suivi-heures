@@ -105,6 +105,7 @@ router.post("/envoyer", async (req, res) => {
           dureeMin:       chantier.dureeMin       != null ? chantier.dureeMin       : (existant.dureeMin       || 0),
           deplacement:    chantier.deplacement    != null ? chantier.deplacement    : (existant.deplacement    || 0),
           pause:          chantier.pause          != null ? chantier.pause          : (existant.pause          || 0),
+          note:           chantier.note           != null ? chantier.note           : (existant.note           || ""),
           isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false)
         };
       } else {

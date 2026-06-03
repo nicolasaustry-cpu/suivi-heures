@@ -765,6 +765,37 @@
   /* Le bouton OK pause reste bleu jusqu'à validation, puis vert */
   .btn-valider-pause { background: #2563eb !important; box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important; }
   .btn-valider-pause.valide { background: #16a34a !important; }
+
+  /* ── Barre d'actions v2 : [Pause][Note] puis [Envoyer] pleine largeur ── */
+  .barre-actions-v2 { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .barre-actions-v2 .ligne-pn { display: flex; gap: 8px; }
+  .barre-actions-v2 .ligne-pn > button { flex: 1; padding: 11px 8px; }
+  .barre-actions-v2 .btn-envoyer-chantier { width: 100%; margin: 0 !important; }
+  .btn-note {
+    background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; border-radius: 12px;
+    font-weight: 700; font-size: 0.9rem; cursor: pointer; white-space: nowrap;
+  }
+  .btn-note:active { transform: scale(0.96); }
+  .btn-note.actif { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+
+  /* ── Fenêtre Note ── */
+  .note-textarea {
+    width: 100%; min-height: 150px; padding: 12px; border: 1.5px solid #d1d5db;
+    border-radius: 12px; font-size: 1rem; line-height: 1.5; font-family: inherit;
+    box-sizing: border-box; resize: vertical; margin-bottom: 0.5rem;
+  }
+  .note-hint { font-size: 0.72rem; color: #9ca3af; margin: 0 2px 0.9rem; }
+  .note-actions { display: flex; gap: 10px; }
+  .btn-dicter {
+    flex: 0 0 auto; background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe;
+    border-radius: 12px; padding: 12px 16px; font-weight: 700; font-size: 0.95rem;
+    cursor: pointer; white-space: nowrap;
+  }
+  .btn-dicter.ecoute { background: #dbeafe; }
+  .btn-valider-note {
+    flex: 1; padding: 12px; background: #16a34a; color: #fff; border: none;
+    border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer;
+  }
   </style>
 </head>
 <body>
@@ -950,6 +981,21 @@
     <input type="text" class="input-libre" id="input-libre" placeholder="Nom du chantier...">
     <button class="btn-modal-ok" onclick="validerAjout()">Ajouter</button>
     <button class="btn-modal-cancel" onclick="fermerModal()">Annuler</button>
+  </div>
+</div>
+
+<!-- ── FENÊTRE NOTE DE CHANTIER ── -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal-box">
+    <div class="modal-title">📝 Note du chantier</div>
+    <div id="note-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
+    <textarea class="note-textarea" id="note-texte" placeholder="Saisir une note, ou dicter…"></textarea>
+    <div class="note-hint">Astuce : le micro du clavier fonctionne aussi sur tous les téléphones.</div>
+    <div class="note-actions">
+      <button class="btn-dicter" id="btn-dicter" onclick="dicterNote()">🎤 <span id="dicter-label">Dicter</span></button>
+      <button class="btn-valider-note" onclick="validerNote()">✔ Valider</button>
+    </div>
+    <button class="btn-modal-cancel" onclick="fermerNote()" style="margin-top:10px;">Annuler</button>
   </div>
 </div>
 
@@ -1483,18 +1529,30 @@ function rendrePrev() {
       div.appendChild(barre);
     } else {
       const barre = document.createElement('div');
-      barre.className = 'barre-actions';
+      barre.className = 'barre-actions-v2';
+
+      const lignePN = document.createElement('div');
+      lignePN.className = 'ligne-pn';
       const pauseBtn = document.createElement('button');
       pauseBtn.className = 'btn-pause' + (s.pause > 0 ? ' actif' : '');
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       if (s.pause > 0) pauseBtn.style.display = "none";
+      const noteBtn = document.createElement('button');
+      const aNote = !!(s.note && s.note.trim());
+      noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
+      noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom); };
+      lignePN.appendChild(pauseBtn);
+      lignePN.appendChild(noteBtn);
+
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
       envBtn.textContent = '✉ Envoyer ce chantier';
       envBtn.dataset.nom = ch.nom;
       envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.nom); };
-      barre.appendChild(pauseBtn);
+
+      barre.appendChild(lignePN);
       barre.appendChild(envBtn);
       div.appendChild(barre);
     }
@@ -1622,18 +1680,30 @@ function rendreAjout() {
       div.appendChild(barre);
     } else {
       const barre = document.createElement('div');
-      barre.className = 'barre-actions';
+      barre.className = 'barre-actions-v2';
+
+      const lignePN = document.createElement('div');
+      lignePN.className = 'ligne-pn';
       const pauseBtn = document.createElement('button');
       pauseBtn.className = 'btn-pause' + (ch.pause > 0 ? ' actif' : '');
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       if (ch.pause > 0) pauseBtn.style.display = "none";
+      const noteBtn = document.createElement('button');
+      const aNote = !!(ch.note && ch.note.trim());
+      noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
+      noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
+      noteBtn.onclick = function() { ouvrirNote('ajout', i); };
+      lignePN.appendChild(pauseBtn);
+      lignePN.appendChild(noteBtn);
+
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier ajout';
       envBtn.textContent = '✉ Envoyer ce chantier';
       envBtn.dataset.idx = i;
       envBtn.onclick = function() { envoyerUnChantierAjout(parseInt(this.dataset.idx)); };
-      barre.appendChild(pauseBtn);
+
+      barre.appendChild(lignePN);
       barre.appendChild(envBtn);
       div.appendChild(barre);
     }
@@ -2149,6 +2219,82 @@ async function validerPause(btn) {
 }
 
 /* ── Envoyer un chantier prévu individuel ── */
+/* ═══════════════════════════
+   NOTE DE CHANTIER
+═══════════════════════════ */
+let _noteCible = null;            // { type:'prev'|'ajout', ref }
+let _noteRecognition = null;
+let _noteEnEcoute = false;
+
+function ouvrirNote(type, ref) {
+  _noteCible = { type, ref };
+  let nom = '', noteActuelle = '';
+  if (type === 'prev') {
+    if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
+    nom = ref;
+    noteActuelle = _saisiesPrev[ref].note || '';
+  } else {
+    const ch = _chantiersA[ref];
+    if (!ch) return;
+    nom = ch.nom;
+    noteActuelle = ch.note || '';
+  }
+  document.getElementById('note-chantier-nom').textContent = nom;
+  document.getElementById('note-texte').value = noteActuelle;
+  document.getElementById('modal-note').classList.add('open');
+  setTimeout(() => document.getElementById('note-texte').focus(), 50);
+}
+
+function fermerNote() {
+  arreterDictee();
+  document.getElementById('modal-note').classList.remove('open');
+  _noteCible = null;
+}
+
+function validerNote() {
+  if (!_noteCible) { fermerNote(); return; }
+  const val = (document.getElementById('note-texte').value || '').trim();
+  if (_noteCible.type === 'prev') {
+    if (!_saisiesPrev[_noteCible.ref]) _saisiesPrev[_noteCible.ref] = { arrivee: '', depart: '', depl: 0 };
+    _saisiesPrev[_noteCible.ref].note = val;
+  } else if (_chantiersA[_noteCible.ref]) {
+    _chantiersA[_noteCible.ref].note = val;
+  }
+  fermerNote();
+  rendrePrev();
+  rendreAjout();
+}
+
+function arreterDictee() {
+  if (_noteRecognition && _noteEnEcoute) { try { _noteRecognition.stop(); } catch (e) {} }
+  _noteEnEcoute = false;
+  const lbl = document.getElementById('dicter-label');
+  const btn = document.getElementById('btn-dicter');
+  if (lbl) lbl.textContent = 'Dicter';
+  if (btn) btn.classList.remove('ecoute');
+}
+
+function dicterNote() {
+  const SR  = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('btn-dicter');
+  const lbl = document.getElementById('dicter-label');
+  if (!SR) { alert('La dictée vocale n\'est pas disponible sur ce navigateur. Utilisez le micro du clavier de votre téléphone.'); return; }
+  if (_noteEnEcoute) { arreterDictee(); return; }
+  _noteRecognition = new SR();
+  _noteRecognition.lang = 'fr-FR';
+  _noteRecognition.interimResults = false;
+  _noteRecognition.onresult = function(e) {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    const ta = document.getElementById('note-texte');
+    ta.value = (ta.value ? ta.value.trim() + ' ' : '') + t;
+  };
+  _noteRecognition.onend   = arreterDictee;
+  _noteRecognition.onerror = arreterDictee;
+  try { _noteRecognition.start(); _noteEnEcoute = true; lbl.textContent = 'Écoute…'; btn.classList.add('ecoute'); }
+  catch (e) { arreterDictee(); }
+}
+
 async function envoyerUnChantierPrev(nom) {
   const date = document.getElementById('date-saisie').value;
   if (!date) { alert('Choisissez une date'); return; }
@@ -2161,6 +2307,7 @@ async function envoyerUnChantierPrev(nom) {
     dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
         pause:         s.pause || 0,
     deplacement:   s.depl || 0,
+    note:          s.note || '',
     isPrevisionnel: true
   };
   await _envoyerChantier(chantier, date);
@@ -2184,6 +2331,7 @@ async function envoyerUnChantierAjout(i) {
     dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
         pause:         ch.pause || 0,
     deplacement:   ch.depl || 0,
+    note:          ch.note || '',
     isPrevisionnel: false
   };
   await _envoyerChantier(chantier, date);
@@ -2231,6 +2379,7 @@ async function envoyerChantier() {
         dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
         pause:         s.pause || 0,
         deplacement:   s.depl || 0,
+        note:          s.note || '',
         isPrevisionnel: true
       });
     }
@@ -2245,6 +2394,7 @@ async function envoyerChantier() {
         dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
         pause:         ch.pause || 0,
         deplacement:   ch.depl || 0,
+        note:          ch.note || '',
         isPrevisionnel: false
       });
     }
