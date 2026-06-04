@@ -69,10 +69,21 @@ router.post("/auth-pin", async (req, res) => {
 /* ── Envoyer un chantier (avec code employé) ──
    Upsert par nom : si le chantier existe déjà pour ce jour/salarié, on le met à jour
    (permet la saisie progressive : arrivée seule, puis départ, etc.) */
+/* Assainit les photos d'un chantier : images data-URL uniquement, ≤ ~675 Ko chacune, 3 max.
+   Renvoie null si rien n'a été envoyé (pour ne pas écraser l'existant à la fusion). */
+function assainirPhotos(p) {
+  if (p == null) return null;
+  if (!Array.isArray(p)) return [];
+  return p
+    .filter(x => typeof x === "string" && x.startsWith("data:image/") && x.length <= 900000)
+    .slice(0, 3);
+}
+
 router.post("/envoyer", async (req, res) => {
   try {
     const { codeEmploye, salarieId, salarieNom, date, chantier } = req.body;
     const codeEmp = (codeEmploye || "").trim().toUpperCase();
+    if (chantier) chantier.photos = assainirPhotos(chantier.photos);
 
     const Donnees = (await import("../models/donnees.js")).default;
     const docs = await Donnees.find({});
@@ -106,6 +117,7 @@ router.post("/envoyer", async (req, res) => {
           deplacement:    chantier.deplacement    != null ? chantier.deplacement    : (existant.deplacement    || 0),
           pause:          chantier.pause          != null ? chantier.pause          : (existant.pause          || 0),
           note:           chantier.note           != null ? chantier.note           : (existant.note           || ""),
+          photos:         chantier.photos         != null ? chantier.photos         : (existant.photos         || []),
           isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false)
         };
       } else {

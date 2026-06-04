@@ -8,6 +8,7 @@ const saisieChantierSchema = new mongoose.Schema({
   deplacement:  { type: Number, default: 0 },   // temps déplacement en minutes
   pause:        { type: Number, default: 0 },   // temps de pause en minutes (déduit de la durée)
   note:         { type: String, default: "" },   // note libre du chantier (saisie/dictée mobile)
+  photos:       { type: [String], default: [] }, // photos compressées (data URL JPEG, 3 max)
   isPrevisionnel: { type: Boolean, default: false }
 }, { _id: false });
 

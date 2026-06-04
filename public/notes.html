@@ -28,8 +28,12 @@
     .note-card .nc-meta .dur { color:#15803d; font-weight:600; }
     .note-card .nc-texte { font-size:0.95rem; color:#374151; line-height:1.5; background:#f9fafb; border-left:3px solid #16a34a; border-radius:0 8px 8px 0; padding:10px 12px; white-space:pre-wrap; word-break:break-word; }
     .nc-vide { text-align:center; color:#9ca3af; font-size:0.9rem; padding:2rem; }
+    .nc-photos { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .nc-photos img { width:74px; height:74px; object-fit:cover; border-radius:10px; cursor:zoom-in; display:block; border:1px solid #e5e7eb; }
+    #photo-zoom { display:none; position:fixed; inset:0; background:rgba(17,24,39,0.8); z-index:300; align-items:center; justify-content:center; cursor:zoom-out; }
+    #photo-zoom img { max-width:92vw; max-height:90vh; border-radius:12px; }
     @media print {
-      .main-header, .nav, .filtres-notes, .barre-outils, #licence-status { display:none !important; }
+      .main-header, .nav, .filtres-notes, .barre-outils, #licence-status, #photo-zoom { display:none !important; }
       .note-card { break-inside: avoid; }
       body { background:#fff; }
     }
@@ -91,6 +95,8 @@
   <div class="nc-vide" id="nc-vide" style="display:none;">Aucune note pour cette sélection.</div>
 </section>
 
+<div id="photo-zoom" onclick="this.style.display='none'"><img id="photo-zoom-img" alt="photo"></div>
+
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script>
@@ -130,7 +136,8 @@ async function chargerNotes() {
           arrivee:  c.heureArrivee || '',
           depart:   c.heureDepart  || '',
           dureeMin: c.dureeMin || 0,
-          note:     note
+          note:     note,
+          photos:   Array.isArray(c.photos) ? c.photos.filter(ph => typeof ph === 'string' && ph.startsWith('data:image/')) : []
         });
       });
     });
@@ -189,20 +196,29 @@ function rendre() {
         ${horaire ? `<span>🕐 ${echap(horaire)} ${dur}</span>` : ''}
       </div>
       <div class="nc-texte">${echap(n.note)}</div>
+      ${n.photos && n.photos.length
+        ? `<div class="nc-photos">${n.photos.map((p, i) => `<img src="${p.replace(/"/g, '&quot;')}" alt="photo ${i + 1}" onclick="zoomPhoto(this.src)">`).join('')}</div>`
+        : ''}
     </div>`;
   }).join('');
+}
+
+function zoomPhoto(src) {
+  document.getElementById('photo-zoom-img').src = src;
+  document.getElementById('photo-zoom').style.display = 'flex';
 }
 
 function exporterXlsx() {
   if (typeof XLSX === 'undefined') { alert('Module Excel non chargé, réessayez dans un instant.'); return; }
   const liste = notesFiltrees();
   if (!liste.length) { alert('Aucune note à exporter.'); return; }
-  const rows = [['Date', 'Intervenant', 'Chantier', 'Arrivée', 'Départ', 'Durée', 'Note']];
+  const rows = [['Date', 'Intervenant', 'Chantier', 'Arrivée', 'Départ', 'Durée', 'Note', 'Photos']];
   liste.forEach(n => rows.push([
-    n.date, n.salarie, n.chantier, n.arrivee, n.depart, fmtDuree(n.dureeMin), n.note
+    n.date, n.salarie, n.chantier, n.arrivee, n.depart, fmtDuree(n.dureeMin), n.note,
+    (n.photos && n.photos.length) ? (n.photos.length + ' photo(s)') : ''
   ]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch:12 }, { wch:20 }, { wch:24 }, { wch:9 }, { wch:9 }, { wch:10 }, { wch:60 }];
+  ws['!cols'] = [{ wch:12 }, { wch:20 }, { wch:24 }, { wch:9 }, { wch:9 }, { wch:10 }, { wch:60 }, { wch:11 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Notes');
   const mois = document.getElementById('filtreMonth').value || 'notes';
