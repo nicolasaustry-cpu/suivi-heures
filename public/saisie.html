@@ -1378,6 +1378,8 @@ async function chargerChantiersPrev() {
               depl:    c.deplacement  || 0,
               pause:   c.pause        || 0,
               pauseValidee: (c.pause || 0) > 0,
+              note:    c.note || '',
+              photos:  Array.isArray(c.photos) ? c.photos : [],
               synchronise: true,
               dejaEnvoye: true
             };
@@ -1391,6 +1393,8 @@ async function chargerChantiersPrev() {
                 depl:    c.deplacement  || 0,
                 pause:   c.pause        || 0,
                 pauseValidee: (c.pause || 0) > 0,
+                note:    c.note || '',
+                photos:  Array.isArray(c.photos) ? c.photos : [],
                 synchronise: true,
                 dejaEnvoye: true
               });
@@ -1556,7 +1560,7 @@ function rendrePrev() {
       const aNote = !!((s.note && s.note.trim()) || (s.photos && s.photos.length));
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
-      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom); };
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
 
@@ -1707,7 +1711,7 @@ function rendreAjout() {
       const aNote = !!((ch.note && ch.note.trim()) || (ch.photos && ch.photos.length));
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
-      noteBtn.onclick = function() { ouvrirNote('ajout', i); };
+      noteBtn.onclick = function() { ouvrirNote('ajout', i, this); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
 
@@ -2048,6 +2052,8 @@ async function validerHeurePrevData(btn) {
     dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
     pause:        s.pause || 0,
     deplacement:  s.depl || 0,
+    note:         s.note,
+    photos:       s.photos,
     isPrevisionnel: true
   };
   const ok = await _envoyerChantier(chantier, date);
@@ -2105,6 +2111,8 @@ async function validerHeureAjoutData(btn) {
     dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
         pause:         ch.pause || 0,
     deplacement:   ch.depl || 0,
+    note:          ch.note,
+    photos:        ch.photos,
     isPrevisionnel: false
   };
   const ok = await _envoyerChantier(chantier, date);
@@ -2218,6 +2226,8 @@ async function validerPause(btn) {
     dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
     pause:        s.pause || 0,
     deplacement:  s.depl || 0,
+    note:         s.note,
+    photos:       s.photos,
     isPrevisionnel: (type === 'pause-prev')
   };
   const ok = await _envoyerChantier(chantier, date);
@@ -2240,8 +2250,8 @@ let _noteCible = null;            // { type:'prev'|'ajout', ref }
 let _noteRecognition = null;
 let _noteEnEcoute = false;
 
-function ouvrirNote(type, ref) {
-  _noteCible = { type, ref };
+function ouvrirNote(type, ref, btn) {
+  _noteCible = { type, ref, btn: btn || null };
   let nom = '', noteActuelle = '';
   if (type === 'prev') {
     if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
@@ -2270,18 +2280,34 @@ function fermerNote() {
 
 function validerNote() {
   if (!_noteCible) { fermerNote(); return; }
-  const val = (document.getElementById('note-texte').value || '').trim();
-  if (_noteCible.type === 'prev') {
-    if (!_saisiesPrev[_noteCible.ref]) _saisiesPrev[_noteCible.ref] = { arrivee: '', depart: '', depl: 0 };
-    _saisiesPrev[_noteCible.ref].note   = val;
-    _saisiesPrev[_noteCible.ref].photos = _notePhotos.slice();
-  } else if (_chantiersA[_noteCible.ref]) {
-    _chantiersA[_noteCible.ref].note   = val;
-    _chantiersA[_noteCible.ref].photos = _notePhotos.slice();
+  const cible = _noteCible;
+  const val   = (document.getElementById('note-texte').value || '').trim();
+  const fotos = _notePhotos.slice();
+  let s = null, nom = '';
+  if (cible.type === 'prev') {
+    if (!_saisiesPrev[cible.ref]) _saisiesPrev[cible.ref] = { arrivee: '', depart: '', depl: 0 };
+    s = _saisiesPrev[cible.ref];
+    nom = cible.ref;
+  } else if (_chantiersA[cible.ref]) {
+    s = _chantiersA[cible.ref];
+    nom = s.nom || '';
   }
+  if (s) { s.note = val; s.photos = fotos; }
   fermerNote();
-  rendrePrev();
-  rendreAjout();
+  // Mise à jour ciblée du bouton uniquement : on ne re-rend PAS la carte,
+  // sinon un chantier déjà synchronisé basculerait visuellement en « enregistré ».
+  if (cible.btn) {
+    const aNote = !!(val || fotos.length);
+    cible.btn.className   = 'btn-note' + (aNote ? ' actif' : '');
+    cible.btn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
+  }
+  // Chantier déjà parti au serveur (envoi progressif) : pousser la note/photos
+  // tout de suite, sinon elles ne partiraient jamais. La fusion serveur préserve les heures.
+  if (s && nom && (s.envoye || s.dejaEnvoye || s.synchronise)) {
+    const dateEl = document.getElementById('date-saisie');
+    const date = dateEl ? dateEl.value : '';
+    if (date) _envoyerChantier({ nom, note: s.note, photos: s.photos, isPrevisionnel: (cible.type === 'prev') }, date);
+  }
 }
 
 function arreterDictee() {
@@ -2396,8 +2422,8 @@ async function envoyerUnChantierPrev(nom) {
     dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
         pause:         s.pause || 0,
     deplacement:   s.depl || 0,
-    note:          s.note || '',
-    photos:        s.photos || [],
+    note:          s.note,
+    photos:        s.photos,
     isPrevisionnel: true
   };
   await _envoyerChantier(chantier, date);
@@ -2421,8 +2447,8 @@ async function envoyerUnChantierAjout(i) {
     dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
         pause:         ch.pause || 0,
     deplacement:   ch.depl || 0,
-    note:          ch.note || '',
-    photos:        ch.photos || [],
+    note:          ch.note,
+    photos:        ch.photos,
     isPrevisionnel: false
   };
   await _envoyerChantier(chantier, date);
@@ -2470,8 +2496,8 @@ async function envoyerChantier() {
         dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
         pause:         s.pause || 0,
         deplacement:   s.depl || 0,
-        note:          s.note || '',
-        photos:        s.photos || [],
+        note:          s.note,
+        photos:        s.photos,
         isPrevisionnel: true
       });
     }
@@ -2486,8 +2512,8 @@ async function envoyerChantier() {
         dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
         pause:         ch.pause || 0,
         deplacement:   ch.depl || 0,
-        note:          ch.note || '',
-        photos:        ch.photos || [],
+        note:          ch.note,
+        photos:        ch.photos,
         isPrevisionnel: false
       });
     }
