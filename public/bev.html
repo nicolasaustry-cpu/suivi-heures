@@ -35,12 +35,14 @@
     .sig-box .lbl { font-size:0.85rem; font-weight:600; color:#374151; }
     .sig-box .sub { font-size:0.75rem; color:#9ca3af; margin-top:4px; }
     .bev-vide { text-align:center; color:#9ca3af; padding:2rem; }
+    #zone { max-width: 780px; }
     @page { size: A4 portrait; margin: 12mm; }
     @media print {
       .no-print { display:none !important; }
       body header.main-header, body .main-header, body .nav { display:none !important; }
       body { background:#fff; }
       section { margin:0; }
+      #zone { max-width: none; }
       .bev-titre-doc { display:block; text-align:center; margin-bottom:0.8rem; }
       table.bev { font-size:0.7rem; break-inside:avoid; page-break-inside:avoid; }
       table.bev td, table.bev th { padding:1px 5px; }
