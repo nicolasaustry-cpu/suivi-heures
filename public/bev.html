@@ -21,7 +21,9 @@
     .bev-titre-doc .td-ent { font-size:1.15rem; font-weight:700; }
     .bev-titre-doc .td-bord { font-size:1rem; font-weight:700; margin-top:3px; }
     .bev-titre-doc .td-sal { font-size:0.95rem; margin-top:3px; }
-    table.bev { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    table.bev { width:auto; margin:0 auto; border-collapse:collapse; font-size:0.85rem; }
+    table.bev th:nth-child(n+2), table.bev td:nth-child(n+2) { width:80px; }
+    table.bev input { width:62px; }
     table.bev th { background:#1d4ed8; color:#fff; font-weight:500; padding:7px 8px; text-align:right; }
     table.bev th:first-child { text-align:left; }
     table.bev td { padding:5px 8px; text-align:right; border-bottom:1px solid #f1f5f9; }
@@ -39,7 +41,7 @@
     @page { size: A4 portrait; margin: 12mm; }
     @media print {
       .no-print { display:none !important; }
-      body header.main-header, body .main-header, body .nav { display:none !important; }
+      body header.main-header, body .main-header, body .nav, body div.nav { display:none !important; }
       body { background:#fff; }
       section { margin:0; }
       #zone { max-width: none; }
