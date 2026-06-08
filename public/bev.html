@@ -32,11 +32,15 @@
     .sig-box .lbl { font-size:0.85rem; font-weight:600; color:#374151; }
     .sig-box .sub { font-size:0.75rem; color:#9ca3af; margin-top:4px; }
     .bev-vide { text-align:center; color:#9ca3af; padding:2rem; }
+    @page { size: A4 portrait; margin: 12mm; }
     @media print {
       .no-print { display:none !important; }
-      .bev-titre-doc { display:block; text-align:center; font-size:1.1rem; font-weight:700; margin-bottom:0.5rem; }
       body { background:#fff; }
+      section { margin:0; }
+      .bev-titre-doc { display:block; text-align:center; font-size:1.05rem; font-weight:700; margin-bottom:0.8rem; }
+      table.bev { width:auto; margin:0 auto; break-inside:avoid; page-break-inside:avoid; font-size:0.78rem; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .signatures { break-inside:avoid; page-break-inside:avoid; margin-top:1.5rem; }
     }
   </style>
 </head>
@@ -51,7 +55,7 @@
       <span class="vol-baseline">La gestion des heures, tout simplement !</span>
     </div>
   </div>
-  <h1 class="page-title">BEV</h1>
+  <h1 class="page-title">Bordereau d'Eléments Variables</h1>
   <div class="vol-droite">
     <div class="entreprise-nom" id="entreprise-nom"></div>
     <div id="licence-status"></div>
@@ -103,6 +107,9 @@
 <script>
 let _vue = 'mois';
 let _salaries = [];
+const MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+function moisLabel(ym) { const p = ym.split('-'); return MOIS_NOMS[parseInt(p[1])-1] + '-' + p[0]; }
+function nomEntreprise() { try { return (JSON.parse(localStorage.getItem('entreprisedata')||'{}').nom) || ''; } catch(e){ return ''; } }
 
 /* ── Helpers calendrier / alternance (repris du planning) ── */
 function lundiDeLaSemaine(d) {
@@ -210,7 +217,7 @@ async function chargerMois() {
   if (!sal || !ym || !token) { zone.innerHTML = '<div class="bev-vide">Sélectionnez un salarié et un mois.</div>'; return; }
 
   document.getElementById('titre-doc').textContent =
-    'BEV — ' + sal.prenom + ' ' + sal.nom + ' — ' + ym;
+    'Bordereau d\'Eléments Variables — ' + (nomEntreprise() ? nomEntreprise() + ' — ' : '') + sal.prenom + ' ' + sal.nom + ' — ' + moisLabel(ym);
 
   let saisies = [], retenues = {}, valide = false;
   try {
@@ -304,7 +311,7 @@ async function chargerAnnee() {
   const zone = document.getElementById('zone');
   if (!sal || !an || !token) { zone.innerHTML = '<div class="bev-vide">Sélectionnez un salarié et une année.</div>'; return; }
 
-  document.getElementById('titre-doc').textContent = 'BEV — ' + sal.prenom + ' ' + sal.nom + ' — Année ' + an;
+  document.getElementById('titre-doc').textContent = 'Bordereau d\'Eléments Variables — ' + (nomEntreprise() ? nomEntreprise() + ' — ' : '') + sal.prenom + ' ' + sal.nom + ' — Année ' + an;
   zone.innerHTML = '<div class="bev-vide">Calcul en cours…</div>';
 
   const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
