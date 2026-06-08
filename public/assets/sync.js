@@ -31,7 +31,7 @@ const SYNC = (() => {
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
 
   const PAGES_LIBRES = ['index.html', '/', ''];
-  const PAGES_PLUS = ['realise.html', 'notes.html'];
+  const PAGES_PLUS = ['realise.html', 'notes.html', 'bev.html'];
   const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
 
   /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
@@ -320,6 +320,7 @@ const SYNC = (() => {
         { href: 'realise.html', label: 'Planning réalisé' },
         { href: 'notes.html',   label: 'Notes' },
         { href: 'rapports.html', label: 'Rapports' },
+        { href: 'bev.html',     label: 'BEV' },
       ];
       liens.forEach(l => {
         const a = document.createElement('a');

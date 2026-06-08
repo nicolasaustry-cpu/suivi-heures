@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BEV – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <style>
+    .bev-controls { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem; }
+    .bev-controls label { font-size:0.8rem; font-weight:600; display:block; margin-bottom:3px; color:#374151; }
+    .bev-controls select, .bev-controls input { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
+    .vue-toggle button { padding:6px 14px; border:1px solid #d1d5db; background:#fff; font-size:0.85rem; cursor:pointer; }
+    .vue-toggle button:first-child { border-radius:6px 0 0 6px; }
+    .vue-toggle button:last-child { border-radius:0 6px 6px 0; border-left:none; }
+    .vue-toggle button.actif { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+    .btn-outil { padding:7px 14px; border:none; border-radius:6px; font-weight:700; font-size:0.85rem; cursor:pointer; }
+    .btn-print { background:#f59e0b; color:#000; }
+    .btn-save  { background:#16a34a; color:#fff; }
+    .bev-titre-doc { display:none; }
+    table.bev { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    table.bev th { background:#1d4ed8; color:#fff; font-weight:500; padding:7px 8px; text-align:right; }
+    table.bev th:first-child { text-align:left; }
+    table.bev td { padding:5px 8px; text-align:right; border-bottom:1px solid #f1f5f9; }
+    table.bev td:first-child { text-align:left; }
+    table.bev tr.we td { background:#fafafa; color:#9ca3af; }
+    table.bev tfoot td { border-top:2px solid #cbd5e1; font-weight:700; padding:9px 8px; }
+    table.bev input { width:64px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; }
+    .pos { color:#16a34a; } .neg { color:#dc2626; } .nul { color:#9ca3af; }
+    .signatures { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:2rem; }
+    .sig-box { border:1px solid #94a3b8; border-radius:8px; padding:12px 14px; min-height:110px; }
+    .sig-box .lbl { font-size:0.85rem; font-weight:600; color:#374151; }
+    .sig-box .sub { font-size:0.75rem; color:#9ca3af; margin-top:4px; }
+    .bev-vide { text-align:center; color:#9ca3af; padding:2rem; }
+    @media print {
+      .no-print { display:none !important; }
+      .bev-titre-doc { display:block; text-align:center; font-size:1.1rem; font-weight:700; margin-bottom:0.5rem; }
+      body { background:#fff; }
+      table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="main-header no-print">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
+  <h1 class="page-title">BEV</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav no-print">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<section>
+  <div class="bev-controls no-print">
+    <div class="vue-toggle">
+      <label>Vue</label>
+      <div>
+        <button id="btn-vue-mois" class="actif" onclick="changerVue('mois')">Mois</button>
+        <button id="btn-vue-annee" onclick="changerVue('annee')">Année</button>
+      </div>
+    </div>
+    <div>
+      <label>Salarié</label>
+      <select id="sel-salarie" onchange="rafraichir()"></select>
+    </div>
+    <div id="bloc-mois">
+      <label>Mois</label>
+      <input type="month" id="sel-mois" onchange="rafraichir()">
+    </div>
+    <div id="bloc-annee" style="display:none;">
+      <label>Année</label>
+      <input type="number" id="sel-annee" min="2020" max="2100" step="1" onchange="rafraichir()" style="width:90px;">
+    </div>
+    <button class="btn-outil btn-print" onclick="window.print()"><i class="ti ti-printer"></i> Imprimer</button>
+    <button class="btn-outil btn-save no-print" id="btn-save" onclick="enregistrer()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
+    <label class="no-print" id="lbl-valide" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#374151;">
+      <input type="checkbox" id="chk-valide" style="width:auto;"> Mois validé
+    </label>
+  </div>
+
+  <div class="bev-titre-doc" id="titre-doc"></div>
+  <div id="zone"></div>
+</section>
+
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+let _vue = 'mois';
+let _salaries = [];
+
+/* ── Helpers calendrier / alternance (repris du planning) ── */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function nbSemainesEntre(lundiRef, lundiCible) {
+  const ms = lundiCible - lundiRef;
+  return Math.round(ms / (7 * 24 * 3600 * 1000));
+}
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+  const lundiCible = lundiDeLaSemaine(d);
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb);
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return s.heuresParJour || {};
+}
+
+/* ── Utilitaires ── */
+const JOURS_KEYS = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];   // getDay() 1..6
+function r2(x) { return Math.round(x * 100) / 100; }
+function fmt(x) { return r2(x).toFixed(2); }
+function cle(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function labelJour(d) {
+  return d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+function classeEcart(x) { return x > 0 ? 'pos' : (x < 0 ? 'neg' : 'nul'); }
+function signe(x) { x = r2(x); return x > 0 ? '+' + fmt(x) : fmt(x); }
+function getToken() { return (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null; }
+function dansContrat(sal, d) {
+  if (sal.dateEntree && cle(d) < sal.dateEntree) return false;
+  if (sal.dateSortie && cle(d) > sal.dateSortie) return false;
+  return true;
+}
+
+/* Réalisé (heures décimales) par date pour un salarié, à partir des saisies d'un mois. */
+function realiseParJour(saisies, salarieId) {
+  const map = {};
+  (saisies || []).forEach(s => {
+    if (String(s.salarieId) !== String(salarieId)) return;
+    let min = 0;
+    (s.chantiers || []).forEach(c => { min += (c.dureeMin || 0); });
+    map[s.date] = (map[s.date] || 0) + min / 60;
+  });
+  return map;
+}
+
+/* Construit les lignes jour par jour d'un mois (ym = "YYYY-MM"). */
+function lignesDuMois(sal, ym, saisies, retenues) {
+  const [an, mo] = ym.split('-').map(Number);
+  const realMap = realiseParJour(saisies, sal.id);
+  const nbJours = new Date(an, mo, 0).getDate();
+  const lignes = [];
+  for (let j = 1; j <= nbJours; j++) {
+    const d = new Date(an, mo - 1, j);
+    const k = cle(d);
+    const key = JOURS_KEYS[d.getDay()];
+    let prevu = 0;
+    if (key && dansContrat(sal, d)) {
+      const grille = grilleHeuresPourDate(sal, d);
+      prevu = Number(grille[key]) || 0;
+    }
+    const real   = r2(realMap[k] || 0);
+    const retenu = (retenues && retenues[k] != null) ? Number(retenues[k]) : real;
+    lignes.push({
+      date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
+      prevu: r2(prevu), real: real, retenu: r2(retenu),
+      ecart: r2(real - prevu), ecartV: r2(retenu - prevu)
+    });
+  }
+  return lignes;
+}
+
+/* ── Vue mensuelle ── */
+async function chargerMois() {
+  const sal = _salaries.find(s => String(s.id) === document.getElementById('sel-salarie').value);
+  const ym  = document.getElementById('sel-mois').value;
+  const token = getToken();
+  const zone = document.getElementById('zone');
+  if (!sal || !ym || !token) { zone.innerHTML = '<div class="bev-vide">Sélectionnez un salarié et un mois.</div>'; return; }
+
+  document.getElementById('titre-doc').textContent =
+    'BEV — ' + sal.prenom + ' ' + sal.nom + ' — ' + ym;
+
+  let saisies = [], retenues = {}, valide = false;
+  try {
+    const [rs, rb] = await Promise.all([
+      fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
+      fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
+    ]);
+    saisies  = rs.ok ? (rs.saisies || []) : [];
+    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; }
+  } catch (e) {}
+
+  document.getElementById('chk-valide').checked = valide;
+  const lignes = lignesDuMois(sal, ym, saisies, retenues);
+  let tp=0, tr=0, tret=0;
+  let corps = '';
+  lignes.forEach(l => {
+    tp += l.prevu; tr += l.real; tret += l.retenu;
+    corps += '<tr' + (l.we ? ' class="we"' : '') + '>' +
+      '<td>' + l.label + '</td>' +
+      '<td>' + fmt(l.prevu) + '</td>' +
+      '<td>' + fmt(l.real) + '</td>' +
+      '<td class="' + classeEcart(l.ecart) + '">' + signe(l.ecart) + '</td>' +
+      '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
+      '<td class="ecv ' + classeEcart(l.ecartV) + '">' + signe(l.ecartV) + '</td>' +
+    '</tr>';
+  });
+  const tec = r2(tr - tp), tecv = r2(tret - tp);
+  document.getElementById('zone').innerHTML =
+    '<table class="bev"><thead><tr>' +
+      '<th>Jour</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th>' +
+    '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
+    '<tfoot><tr><td>Totaux</td><td>' + fmt(tp) + '</td><td>' + fmt(tr) + '</td>' +
+      '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
+      '<td id="t-ret">' + fmt(tret) + '</td>' +
+      '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td></tr></tfoot></table>' +
+    '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
+    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
+
+  document.getElementById('corps').addEventListener('input', recalcMois);
+}
+
+function recalcMois() {
+  const rows = document.querySelectorAll('#corps tr');
+  let tret = 0, tp = 0;
+  rows.forEach(row => {
+    const inp = row.querySelector('.ret');
+    const prevu = parseFloat(inp.dataset.prevu) || 0;
+    const ret = parseFloat(inp.value) || 0;
+    const ecv = r2(ret - prevu);
+    const cell = row.querySelector('.ecv');
+    cell.textContent = signe(ecv); cell.className = 'ecv ' + classeEcart(ecv);
+    row.querySelector('.ret-print').textContent = fmt(ret);
+    tret += ret; tp += prevu;
+  });
+  document.getElementById('t-ret').textContent = fmt(tret);
+  const tecv = r2(tret - tp);
+  const tc = document.getElementById('t-ecv');
+  tc.textContent = signe(tecv); tc.className = classeEcart(tecv);
+}
+
+async function enregistrer() {
+  if (_vue !== 'mois') return;
+  const sal = _salaries.find(s => String(s.id) === document.getElementById('sel-salarie').value);
+  const ym  = document.getElementById('sel-mois').value;
+  const token = getToken();
+  if (!sal || !ym || !token) return;
+  const retenues = {};
+  document.querySelectorAll('#corps .ret').forEach(inp => {
+    retenues[inp.dataset.date] = parseFloat(inp.value) || 0;
+  });
+  const valide = document.getElementById('chk-valide').checked;
+  const btn = document.getElementById('btn-save');
+  const ancien = btn.innerHTML; btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    const r = await fetch('/api/bev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide })
+    });
+    const d = await r.json();
+    btn.innerHTML = d.ok ? '<i class="ti ti-check"></i> Enregistré' : '⚠ Échec';
+  } catch (e) { btn.innerHTML = '⚠ Erreur'; }
+  setTimeout(() => { btn.innerHTML = ancien; btn.disabled = false; }, 1800);
+}
+
+/* ── Vue annuelle ── */
+async function chargerAnnee() {
+  const sal = _salaries.find(s => String(s.id) === document.getElementById('sel-salarie').value);
+  const an  = parseInt(document.getElementById('sel-annee').value);
+  const token = getToken();
+  const zone = document.getElementById('zone');
+  if (!sal || !an || !token) { zone.innerHTML = '<div class="bev-vide">Sélectionnez un salarié et une année.</div>'; return; }
+
+  document.getElementById('titre-doc').textContent = 'BEV — ' + sal.prenom + ' ' + sal.nom + ' — Année ' + an;
+  zone.innerHTML = '<div class="bev-vide">Calcul en cours…</div>';
+
+  const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const reqs = [];
+  for (let m = 1; m <= 12; m++) {
+    const ym = an + '-' + String(m).padStart(2, '0');
+    reqs.push(Promise.all([
+      fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => ({})),
+      fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => ({}))
+    ]));
+  }
+  const res = await Promise.all(reqs);
+
+  let corps = '', TP=0, TR=0, TRET=0;
+  res.forEach((paire, idx) => {
+    const ym = an + '-' + String(idx+1).padStart(2, '0');
+    const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
+    const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
+    const lignes = lignesDuMois(sal, ym, saisies, retenues);
+    let p=0, r=0, ret=0;
+    lignes.forEach(l => { p += l.prevu; r += l.real; ret += l.retenu; });
+    TP += p; TR += r; TRET += ret;
+    const ec = r2(r - p), ecv = r2(ret - p);
+    corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
+      '<td class="' + classeEcart(ec) + '">' + signe(ec) + '</td><td>' + fmt(ret) + '</td>' +
+      '<td class="' + classeEcart(ecv) + '">' + signe(ecv) + '</td></tr>';
+  });
+  const TEC = r2(TR - TP), TECV = r2(TRET - TP);
+  zone.innerHTML =
+    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th></tr></thead>' +
+    '<tbody>' + corps + '</tbody>' +
+    '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
+      '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td><td>' + fmt(TRET) + '</td>' +
+      '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td></tr></tfoot></table>' +
+    '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
+    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
+}
+
+/* ── Pilotage ── */
+function changerVue(v) {
+  _vue = v;
+  document.getElementById('btn-vue-mois').classList.toggle('actif', v === 'mois');
+  document.getElementById('btn-vue-annee').classList.toggle('actif', v === 'annee');
+  document.getElementById('bloc-mois').style.display  = (v === 'mois')  ? 'block' : 'none';
+  document.getElementById('bloc-annee').style.display = (v === 'annee') ? 'block' : 'none';
+  document.getElementById('btn-save').style.display   = (v === 'mois')  ? 'inline-block' : 'none';
+  document.getElementById('lbl-valide').style.display = (v === 'mois')  ? 'flex' : 'none';
+  rafraichir();
+}
+function rafraichir() {
+  if (_vue === 'mois') chargerMois(); else chargerAnnee();
+}
+function remplirSalaries() {
+  _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const sel = document.getElementById('sel-salarie');
+  const courant = sel.value;
+  sel.innerHTML = _salaries.map(s => `<option value="${s.id}">${(s.prenom||'')+' '+(s.nom||'')}</option>`).join('');
+  if (_salaries.some(s => String(s.id) === courant)) sel.value = courant;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  const now = new Date();
+  document.getElementById('sel-mois').value  = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('sel-annee').value = now.getFullYear();
+  remplirSalaries();
+  rafraichir();
+});
+window.addEventListener('donnees-chargees', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  remplirSalaries();
+  rafraichir();
+});
+</script>
+</body>
+</html>

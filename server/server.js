@@ -9,6 +9,7 @@ import dataRoutes   from "./routes/data.js";
 import adminRoutes  from "./routes/admin.js";
 import saisiesRoutes from "./routes/saisies.js";
 import faqRoutes    from "./routes/faq.js";
+import bevRoutes    from "./routes/bev.js";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use("/api/data",    dataRoutes);
 app.use("/api/admin",   adminRoutes);
 app.use("/api/saisies", saisiesRoutes);
 app.use("/api/faq",     faqRoutes);
+app.use("/api/bev",     bevRoutes);
 
 // Endpoint de santé : vérifie l'état du serveur et de la base.
 // Utile pour le monitoring (UptimeRobot…) et le diagnostic de panne.
