@@ -30,7 +30,9 @@
     table.bev tfoot td { border-top:2px solid #cbd5e1; font-weight:700; padding:9px 8px; }
     table.bev input { width:64px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; }
     .pos { color:#16a34a; } .neg { color:#dc2626; } .nul { color:#9ca3af; }
-    .signatures { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:2rem; }
+    .bev-layout { display:flex; gap:20px; align-items:flex-start; }
+    .bev-tablewrap { flex:1 1 auto; min-width:0; }
+    .signatures { display:flex; flex-direction:column; gap:16px; flex:0 0 210px; }
     .sig-box { border:1px solid #94a3b8; border-radius:8px; padding:12px 14px; min-height:110px; }
     .sig-box .lbl { font-size:0.85rem; font-weight:600; color:#374151; }
     .sig-box .sub { font-size:0.75rem; color:#9ca3af; margin-top:4px; }
@@ -41,10 +43,14 @@
       body header.main-header, body .main-header, body .nav { display:none !important; }
       body { background:#fff; }
       section { margin:0; }
-      .bev-titre-doc { display:block; text-align:center; margin-bottom:1rem; }
-      table.bev { width:auto; margin:0 auto; break-inside:avoid; page-break-inside:avoid; font-size:0.78rem; }
+      .bev-titre-doc { display:block; text-align:center; margin-bottom:0.8rem; }
+      .bev-layout { gap:14px; break-inside:avoid; page-break-inside:avoid; }
+      .signatures { flex:0 0 165px; }
+      .sig-box { min-height:120px; }
+      table.bev { font-size:0.72rem; break-inside:avoid; page-break-inside:avoid; }
+      table.bev td, table.bev th { padding:2px 5px; }
+      table.bev tfoot td { padding:4px 5px; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      .signatures { break-inside:avoid; page-break-inside:avoid; margin-top:1.5rem; }
     }
   </style>
 </head>
@@ -252,15 +258,15 @@ async function chargerMois() {
   });
   const tec = r2(tr - tp), tecv = r2(tret - tp);
   document.getElementById('zone').innerHTML =
-    '<table class="bev"><thead><tr>' +
+    '<div class="bev-layout"><div class="bev-tablewrap"><table class="bev"><thead><tr>' +
       '<th>Jour</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td><td>' + fmt(tp) + '</td><td>' + fmt(tr) + '</td>' +
       '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
       '<td id="t-ret">' + fmt(tret) + '</td>' +
-      '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td></tr></tfoot></table>' +
+      '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td></tr></tfoot></table></div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
-    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
+    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div></div>';
 
   document.getElementById('corps').addEventListener('input', recalcMois);
 }
@@ -350,13 +356,13 @@ async function chargerAnnee() {
   });
   const TEC = r2(TR - TP), TECV = r2(TRET - TP);
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th></tr></thead>' +
+    '<div class="bev-layout"><div class="bev-tablewrap"><table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
       '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td><td>' + fmt(TRET) + '</td>' +
-      '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td></tr></tfoot></table>' +
+      '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td></tr></tfoot></table></div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
-    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
+    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div></div>';
 }
 
 /* ── Pilotage ── */
