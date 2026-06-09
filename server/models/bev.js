@@ -9,6 +9,7 @@ const bevSchema = new mongoose.Schema({
   mois:      { type: String, required: true },     // "YYYY-MM"
   retenues:  { type: Object, default: {} },
   reporte:   { type: Number, default: 0 },
+  evenements:{ type: Object, default: {} },
   valide:    { type: Boolean, default: false },
   updatedAt: { type: Date,   default: Date.now }
 });
