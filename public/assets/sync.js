@@ -285,6 +285,17 @@ const SYNC = (() => {
     if (_modeAdmin || !_token || !_pendingSave) return;
     clearTimeout(_syncTimer);
     _syncTimer = null;
+    // sendBeacon : seul transport fiable au déchargement sur Safari/iOS.
+    // Le jeton voyage dans le corps (sendBeacon n'autorise pas les en-têtes),
+    // le serveur accepte ce repli via req.body._token.
+    if (navigator.sendBeacon) {
+      try {
+        const corps = JSON.stringify(Object.assign({ _token: _token }, construirePayload()));
+        const blob  = new Blob([corps], { type: 'application/json' });
+        if (navigator.sendBeacon(API + '/api/data', blob)) { _pendingSave = false; return; }
+      } catch (e) {}
+    }
+    // Repli : fetch keepalive (Chrome/Firefox).
     try {
       fetch(API + '/api/data', {
         method: 'POST',
