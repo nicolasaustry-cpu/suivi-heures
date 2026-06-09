@@ -648,7 +648,7 @@ function genererPlanning() {
         </tr>`;
 
       lignes += row;
-      lignesData.push({ salarieId: s.id, prevu, ec });
+      lignesData.push({ salarieId: s.id, prevuReduit: prevu - abs, ec });
     });
 
     htmlJour += lignes + '</tbody></table></div>';
@@ -662,10 +662,10 @@ function genererPlanning() {
 
   // Remplir Prévu et Écart après injection
   joursData.forEach(({ dateStr, lignesData }) => {
-    lignesData.forEach(({ salarieId, prevu, ec }) => {
+    lignesData.forEach(({ salarieId, prevuReduit, ec }) => {
       const tr = cont.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
       if (!tr) return;
-      tr.querySelector('.cell-prevu').textContent = prevu.toFixed(1);
+      tr.querySelector('.cell-prevu').textContent = prevuReduit.toFixed(1);
       const ecCell = tr.querySelector('.cell-ecart');
       ecCell.textContent = (ec >= 0 ? '+' : '') + ec.toFixed(1);
       ecCell.style.color = ec < 0 ? 'red' : 'green';
@@ -817,7 +817,7 @@ function majTotalLigne(salarieId, dateStr) {
     const prevuCell = row.querySelector('.cell-prevu');
     const ecCell    = row.querySelector('.cell-ecart');
     if (jourADesHeures) {
-      prevuCell.textContent  = prevuRow.toFixed(1);
+      prevuCell.textContent  = (prevuRow - absRow).toFixed(1);
       ecCell.textContent     = (ecartRow >= 0 ? '+' : '') + ecartRow.toFixed(1);
       ecCell.style.color     = ecartRow < 0 ? 'red' : 'green';
     } else {
