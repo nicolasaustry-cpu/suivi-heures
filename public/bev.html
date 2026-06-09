@@ -38,6 +38,10 @@
     .sig-box .lbl { font-size:0.85rem; font-weight:600; color:#374151; }
     .sig-box .sub { font-size:0.75rem; color:#9ca3af; margin-top:4px; }
     .bev-vide { text-align:center; color:#9ca3af; padding:2rem; }
+    .bev-encart { margin:1.2rem auto 0; border-collapse:collapse; font-size:0.85rem; }
+    .bev-encart th { background:#475569; color:#fff; font-weight:500; padding:7px 14px; }
+    .bev-encart td { padding:6px 14px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
+    .bev-encart input { width:80px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; font-weight:600; }
     #zone { max-width: 780px; margin: 0 auto; }
     @page { size: A4 portrait; margin: 12mm; }
     @media print {
@@ -118,6 +122,7 @@
 <script src="assets/aide.js"></script>
 <script>
 let _vue = 'mois';
+let _ecartMois = 0;
 let _salaries = [];
 const MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 function moisLabel(ym) { const p = ym.split('-'); return MOIS_NOMS[parseInt(p[1])-1] + '-' + p[0]; }
@@ -235,14 +240,14 @@ async function chargerMois() {
     '<div class="td-bord">Bordereau d\'Eléments Variables — ' + moisLabel(ym) + '</div>' +
     '<div class="td-sal">' + sal.prenom + ' ' + sal.nom + '</div>';
 
-  let saisies = [], retenues = {}, valide = false;
+  let saisies = [], retenues = {}, valide = false, reporte = 0;
   try {
     const [rs, rb] = await Promise.all([
       fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
       fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
     ]);
     saisies  = rs.ok ? (rs.saisies || []) : [];
-    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; }
+    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; }
   } catch (e) {}
 
   document.getElementById('chk-valide').checked = valide;
@@ -273,10 +278,15 @@ async function chargerMois() {
       '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
       '<td id="t-ret">' + fmt(tret) + '</td>' +
       '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td></tr></tfoot></table>' +
+    '<table class="bev-encart"><thead><tr><th>Écart d\'heures</th><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th></tr></thead>' +
+    '<tbody><tr><td id="enc-ecart"></td><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td></tr></tbody></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 
+  _ecartMois = tecv;
   document.getElementById('corps').addEventListener('input', recalcMois);
+  document.getElementById('enc-reporte').addEventListener('input', majEncart);
+  majEncart();
 }
 
 function recalcMois() {
@@ -297,6 +307,19 @@ function recalcMois() {
   const tecv = r2(tret - tp);
   const tc = document.getElementById('t-ecv');
   tc.textContent = signe(tecv); tc.className = classeEcart(tecv);
+  _ecartMois = tecv;
+  majEncart();
+}
+
+function majEncart() {
+  const el = document.getElementById('enc-reporte');
+  if (!el) return;
+  const rep  = parseFloat(el.value) || 0;
+  const paye = r2(_ecartMois - rep);
+  const e = document.getElementById('enc-ecart');
+  e.textContent = signe(_ecartMois); e.className = classeEcart(_ecartMois);
+  const p = document.getElementById('enc-paye');
+  p.textContent = signe(paye); p.className = classeEcart(paye);
 }
 
 async function enregistrer() {
@@ -310,13 +333,15 @@ async function enregistrer() {
     retenues[inp.dataset.date] = parseFloat(inp.value) || 0;
   });
   const valide = document.getElementById('chk-valide').checked;
+  const repEl = document.getElementById('enc-reporte');
+  const reporte = repEl ? (parseFloat(repEl.value) || 0) : 0;
   const btn = document.getElementById('btn-save');
   const ancien = btn.innerHTML; btn.disabled = true; btn.textContent = 'Enregistrement…';
   try {
     const r = await fetch('/api/bev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide })
+      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide, reporte })
     });
     const d = await r.json();
     btn.innerHTML = d.ok ? '<i class="ti ti-check"></i> Enregistré' : '⚠ Échec';
@@ -349,31 +374,34 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let corps = '', TP=0, TR=0, TRET=0;
+  let corps = '', TP=0, TR=0, TRET=0, TPAYE=0, TREPORTE=0;
   res.forEach((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
     const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
+    const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
     let p=0, r=0, ret=0, moisPasse=false;
     lignes.forEach(l => { if (l.passe) { p += l.prevu; r += l.real; ret += l.retenu; moisPasse = true; } });
     if (!moisPasse) {
-      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td></tr>';
+      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
       return;
     }
-    TP += p; TR += r; TRET += ret;
-    const ec = r2(r - p), ecv = r2(ret - p);
+    const ec = r2(r - p), ecv = r2(ret - p), paye = r2(ecv - reporte);
+    TP += p; TR += r; TRET += ret; TPAYE += paye; TREPORTE += reporte;
     corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
       '<td class="' + classeEcart(ec) + '">' + signe(ec) + '</td><td>' + fmt(ret) + '</td>' +
-      '<td class="' + classeEcart(ecv) + '">' + signe(ecv) + '</td></tr>';
+      '<td class="' + classeEcart(ecv) + '">' + signe(ecv) + '</td>' +
+      '<td class="' + classeEcart(paye) + '">' + signe(paye) + '</td><td>' + fmt(reporte) + '</td></tr>';
   });
   const TEC = r2(TR - TP), TECV = r2(TRET - TP);
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th>Écart payé</th><th>Écart reporté</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
       '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td><td>' + fmt(TRET) + '</td>' +
-      '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td></tr></tfoot></table>' +
+      '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td>' +
+      '<td class="' + classeEcart(TPAYE) + '">' + signe(TPAYE) + '</td><td>' + fmt(TREPORTE) + '</td></tr></tfoot></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 }
