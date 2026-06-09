@@ -29,6 +29,7 @@
     table.bev td { padding:5px 8px; text-align:right; border-bottom:1px solid #f1f5f9; }
     table.bev td:first-child { text-align:left; }
     table.bev tr.we td { background:#fafafa; color:#9ca3af; }
+    table.bev tr.futur td { color:#cbd5e1; }
     table.bev tfoot td { border-top:2px solid #cbd5e1; font-weight:700; padding:9px 8px; }
     table.bev input { width:64px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; }
     .pos { color:#16a34a; } .neg { color:#dc2626; } .nul { color:#9ca3af; }
@@ -249,13 +250,17 @@ async function chargerMois() {
   let tp=0, tr=0, tret=0;
   let corps = '';
   lignes.forEach(l => {
-    if (l.passe) { tp += l.prevu; tr += l.real; tret += l.retenu; }
+    if (!l.passe) {
+      corps += '<tr class="futur' + (l.we ? ' we' : '') + '"><td>' + l.label + '</td><td></td><td></td><td></td><td></td><td></td></tr>';
+      return;
+    }
+    tp += l.prevu; tr += l.real; tret += l.retenu;
     corps += '<tr' + (l.we ? ' class="we"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.prevu) + '</td>' +
       '<td>' + fmt(l.real) + '</td>' +
       '<td class="' + classeEcart(l.ecart) + '">' + signe(l.ecart) + '</td>' +
-      '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" data-passe="' + (l.passe ? 1 : 0) + '" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
+      '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" data-passe="1" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
       '<td class="ecv ' + classeEcart(l.ecartV) + '">' + signe(l.ecartV) + '</td>' +
     '</tr>';
   });
@@ -279,6 +284,7 @@ function recalcMois() {
   let tret = 0, tp = 0;
   rows.forEach(row => {
     const inp = row.querySelector('.ret');
+    if (!inp) return;
     const prevu = parseFloat(inp.dataset.prevu) || 0;
     const ret = parseFloat(inp.value) || 0;
     const ecv = r2(ret - prevu);
@@ -349,8 +355,12 @@ async function chargerAnnee() {
     const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
-    let p=0, r=0, ret=0;
-    lignes.forEach(l => { if (l.passe) { p += l.prevu; r += l.real; ret += l.retenu; } });
+    let p=0, r=0, ret=0, moisPasse=false;
+    lignes.forEach(l => { if (l.passe) { p += l.prevu; r += l.real; ret += l.retenu; moisPasse = true; } });
+    if (!moisPasse) {
+      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td></tr>';
+      return;
+    }
     TP += p; TR += r; TRET += ret;
     const ec = r2(r - p), ecv = r2(ret - p);
     corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
