@@ -568,7 +568,7 @@ async function extraireReal() {
       if (!d.ok) continue;
       d.saisies.forEach(s => {
         (s.chantiers || []).forEach(c => {
-          if (!c.dureeMin) return;
+          if (!c.dureeMin && !c.deplacement) return;
           const dt = new Date(s.date + 'T00:00:00');
           lignes.push({
             date:      dt,
@@ -576,7 +576,7 @@ async function extraireReal() {
             salarie:   s.salarieNom,
             salarieId: String(s.salarieId),
             chantier:  c.nom,
-            heures:    parseFloat((c.dureeMin / 60).toFixed(2))
+            heures:    parseFloat((((c.dureeMin || 0) + (c.deplacement || 0)) / 60).toFixed(2))
           });
         });
       });
