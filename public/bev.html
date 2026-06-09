@@ -121,6 +121,7 @@ let _salaries = [];
 const MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 function moisLabel(ym) { const p = ym.split('-'); return MOIS_NOMS[parseInt(p[1])-1] + '-' + p[0]; }
 function nomEntreprise() { try { return (JSON.parse(localStorage.getItem('entreprisedata')||'{}').nom) || ''; } catch(e){ return ''; } }
+const AUJOURDHUI = cle(new Date());
 
 /* ── Helpers calendrier / alternance (repris du planning) ── */
 function lundiDeLaSemaine(d) {
@@ -212,6 +213,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const retenu = (retenues && retenues[k] != null) ? Number(retenues[k]) : real;
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
+      passe: (k < AUJOURDHUI),
       prevu: r2(prevu), real: real, retenu: r2(retenu),
       ecart: r2(real - prevu), ecartV: r2(retenu - prevu)
     });
@@ -247,13 +249,13 @@ async function chargerMois() {
   let tp=0, tr=0, tret=0;
   let corps = '';
   lignes.forEach(l => {
-    tp += l.prevu; tr += l.real; tret += l.retenu;
+    if (l.passe) { tp += l.prevu; tr += l.real; tret += l.retenu; }
     corps += '<tr' + (l.we ? ' class="we"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.prevu) + '</td>' +
       '<td>' + fmt(l.real) + '</td>' +
       '<td class="' + classeEcart(l.ecart) + '">' + signe(l.ecart) + '</td>' +
-      '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
+      '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" data-passe="' + (l.passe ? 1 : 0) + '" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
       '<td class="ecv ' + classeEcart(l.ecartV) + '">' + signe(l.ecartV) + '</td>' +
     '</tr>';
   });
@@ -283,7 +285,7 @@ function recalcMois() {
     const cell = row.querySelector('.ecv');
     cell.textContent = signe(ecv); cell.className = 'ecv ' + classeEcart(ecv);
     row.querySelector('.ret-print').textContent = fmt(ret);
-    tret += ret; tp += prevu;
+    if (inp.dataset.passe === '1') { tret += ret; tp += prevu; }
   });
   document.getElementById('t-ret').textContent = fmt(tret);
   const tecv = r2(tret - tp);
@@ -348,7 +350,7 @@ async function chargerAnnee() {
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
     let p=0, r=0, ret=0;
-    lignes.forEach(l => { p += l.prevu; r += l.real; ret += l.retenu; });
+    lignes.forEach(l => { if (l.passe) { p += l.prevu; r += l.real; ret += l.retenu; } });
     TP += p; TR += r; TRET += ret;
     const ec = r2(r - p), ecv = r2(ret - p);
     corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
