@@ -17,6 +17,7 @@
     .btn-outil { padding:7px 14px; border:none; border-radius:6px; font-weight:700; font-size:0.85rem; cursor:pointer; }
     .btn-print { background:#f59e0b; color:#000; }
     .btn-save  { background:#16a34a; color:#fff; }
+    .btn-refresh { background:#3b82f6; color:#fff; }
     .bev-titre-doc { display:none; }
     .bev-titre-doc .td-ent { font-size:1.15rem; font-weight:700; }
     .bev-titre-doc .td-bord { font-size:1rem; font-weight:700; margin-top:3px; }
@@ -109,6 +110,7 @@
       <label>Année</label>
       <input type="number" id="sel-annee" min="2020" max="2100" step="1" onchange="rafraichir()" style="width:90px;">
     </div>
+    <button class="btn-outil btn-refresh" onclick="location.reload()"><i class="ti ti-refresh"></i> Rafraîchir</button>
     <button class="btn-outil btn-print" onclick="window.print()"><i class="ti ti-printer"></i> Imprimer</button>
     <button class="btn-outil btn-save no-print" id="btn-save" onclick="enregistrer()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
     <label class="no-print" id="lbl-valide" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#374151;">

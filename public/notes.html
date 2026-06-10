@@ -19,6 +19,7 @@
     .btn-outil { padding:7px 14px; border:none; border-radius:6px; font-weight:700; font-size:0.85rem; cursor:pointer; }
     .btn-print { background:#f59e0b; color:#000; }
     .btn-xlsx  { background:#16a34a; color:#fff; }
+    .btn-refresh { background:#3b82f6; color:#fff; }
     .nc-count { font-size:0.82rem; color:#6b7280; margin-bottom:0.6rem; }
     .note-card { border:1px solid #e5e7eb; border-radius:12px; padding:13px 15px; margin-bottom:12px; background:#fff; }
     .note-card .nc-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
@@ -86,6 +87,7 @@
   </div>
 
   <div class="barre-outils">
+    <button class="btn-outil btn-refresh" onclick="location.reload()">↻ Rafraîchir</button>
     <button class="btn-outil btn-print" onclick="window.print()">🖨 Imprimer</button>
     <button class="btn-outil btn-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
   </div>
