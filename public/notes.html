@@ -22,7 +22,7 @@
     .btn-refresh { background:#3b82f6; color:#fff; }
     .nc-count { font-size:0.82rem; color:#6b7280; margin-bottom:0.6rem; }
     .note-card { border:1px solid #e5e7eb; border-radius:12px; padding:13px 15px; margin-bottom:12px; background:#fff; }
-    .note-card .nc-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+    .note-card .nc-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .note-card .nc-chantier { font-weight:700; font-size:1.02rem; color:#111827; }
     .note-card .nc-date { font-size:0.82rem; color:#6b7280; white-space:nowrap; }
     .note-card .nc-meta { display:flex; flex-wrap:wrap; gap:16px; margin:6px 0 10px; font-size:0.82rem; color:#6b7280; }
@@ -33,8 +33,15 @@
     .nc-photos img { width:74px; height:74px; object-fit:cover; border-radius:10px; cursor:zoom-in; display:block; border:1px solid #e5e7eb; }
     #photo-zoom { display:none; position:fixed; inset:0; background:rgba(17,24,39,0.8); z-index:300; align-items:center; justify-content:center; cursor:zoom-out; }
     #photo-zoom img { max-width:92vw; max-height:90vh; border-radius:12px; }
+    .nc-actions { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+    .nc-realise { font-size:0.85rem; color:#374151; font-weight:600; display:flex; align-items:center; gap:5px; cursor:pointer; user-select:none; }
+    .nc-realise input { width:16px; height:16px; cursor:pointer; }
+    .btn-suppr { background:#fee2e2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; padding:4px 9px; cursor:pointer; font-size:0.95rem; line-height:1; }
+    .btn-suppr:hover { background:#fecaca; }
+    .note-card.faite { opacity:0.6; }
+    .note-card.faite .nc-texte { text-decoration:line-through; }
     @media print {
-      .main-header, .nav, .filtres-notes, .barre-outils, #licence-status, #photo-zoom { display:none !important; }
+      .main-header, .nav, .filtres-notes, .barre-outils, .nc-actions, #licence-status, #photo-zoom { display:none !important; }
       .note-card { break-inside: avoid; }
       body { background:#fff; }
     }
@@ -131,6 +138,8 @@ async function chargerNotes() {
         const dObj = new Date(s.date + 'T00:00:00');
         _notes.push({
           date:     s.date,
+          salarieId: s.salarieId,
+          faite:    !!c.noteFaite,
           dateObj:  dObj,
           dateStr:  fmtDateLong(dObj),
           salarie:  s.salarieNom || '',
@@ -188,9 +197,13 @@ function rendre() {
   cont.innerHTML = liste.map(n => {
     const horaire = (n.arrivee && n.depart) ? (n.arrivee + ' – ' + n.depart) : '';
     const dur = n.dureeMin ? `<span class="dur">(${fmtDuree(n.dureeMin)})</span>` : '';
-    return `<div class="note-card">
+    return `<div class="note-card${n.faite ? ' faite' : ''}" data-date="${n.date}" data-sal="${n.salarieId}" data-ch="${echap(n.chantier)}">
       <div class="nc-head">
         <span class="nc-chantier">${echap(n.chantier)}</span>
+        <div class="nc-actions no-print">
+          <label class="nc-realise"><input type="checkbox" class="chk-realise"${n.faite ? ' checked' : ''}> Réalisé</label>
+          <button class="btn-suppr" title="Supprimer la note">🗑</button>
+        </div>
       </div>
       <div class="nc-meta">
         <span>👤 ${echap(n.salarie)}</span>
@@ -203,6 +216,41 @@ function rendre() {
         : ''}
     </div>`;
   }).join('');
+
+  cont.querySelectorAll('.note-card').forEach(card => {
+    const date = card.dataset.date, sal = card.dataset.sal, ch = card.dataset.ch;
+    const cb = card.querySelector('.chk-realise');
+    if (cb) cb.addEventListener('change', e => basculerRealise(date, sal, ch, e.target.checked, card));
+    const bs = card.querySelector('.btn-suppr');
+    if (bs) bs.addEventListener('click', () => supprimerNote(date, sal, ch, card));
+  });
+}
+
+async function postSaisieNote(url, body) {
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null;
+  if (!token) return false;
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(body) });
+    const d = await r.json();
+    return d.ok === true;
+  } catch (e) { return false; }
+}
+
+async function basculerRealise(date, sal, ch, faite, card) {
+  const ok = await postSaisieNote('/api/saisies/note-statut', { date, salarieId: sal, chantier: ch, faite });
+  if (!ok) { alert('Échec de la mise à jour.'); const cb = card.querySelector('.chk-realise'); if (cb) cb.checked = !faite; return; }
+  const n = _notes.find(x => x.date === date && String(x.salarieId) === String(sal) && x.chantier === ch);
+  if (n) n.faite = faite;
+  card.classList.toggle('faite', faite);
+}
+
+async function supprimerNote(date, sal, ch, card) {
+  if (!confirm('Supprimer cette note ? (les heures du chantier sont conservées)')) return;
+  const ok = await postSaisieNote('/api/saisies/note-supprimer', { date, salarieId: sal, chantier: ch });
+  if (!ok) { alert('Échec de la suppression.'); return; }
+  _notes = _notes.filter(x => !(x.date === date && String(x.salarieId) === String(sal) && x.chantier === ch));
+  majFiltres();
+  rendre();
 }
 
 function zoomPhoto(src) {

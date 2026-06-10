@@ -325,4 +325,49 @@ router.delete("/:id/chantier/:idx", verifyToken, async (req, res) => {
   }
 });
 
+// Marquer / démarquer une note comme « réalisée »
+router.post("/note-statut", verifyToken, async (req, res) => {
+  try {
+    const clientId  = req.user.clientId;
+    const { date, chantier } = req.body;
+    const salarieId = Number(req.body.salarieId);
+    const faite = !!req.body.faite;
+    if (!date || !chantier || !salarieId)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    const saisie = await Saisie.findOne({ clientId, salarieId, date });
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    const c = (saisie.chantiers || []).find(x => x.nom === chantier);
+    if (!c) return res.status(404).json({ ok: false, message: "Chantier introuvable" });
+    c.noteFaite = faite;
+    saisie.markModified("chantiers");
+    await saisie.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// Supprimer une note : vide le texte + photos, conserve les heures du chantier
+router.post("/note-supprimer", verifyToken, async (req, res) => {
+  try {
+    const clientId  = req.user.clientId;
+    const { date, chantier } = req.body;
+    const salarieId = Number(req.body.salarieId);
+    if (!date || !chantier || !salarieId)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    const saisie = await Saisie.findOne({ clientId, salarieId, date });
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    const c = (saisie.chantiers || []).find(x => x.nom === chantier);
+    if (!c) return res.status(404).json({ ok: false, message: "Chantier introuvable" });
+    c.note = "";
+    c.photos = [];
+    c.noteFaite = false;
+    saisie.markModified("chantiers");
+    await saisie.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 export default router;
