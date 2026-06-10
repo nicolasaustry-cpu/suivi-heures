@@ -31,7 +31,7 @@ const SYNC = (() => {
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
 
   const PAGES_LIBRES = ['index.html', '/', ''];
-  const PAGES_PLUS = ['realise.html', 'notes.html', 'bev.html'];
+  const PAGES_PLUS = ['realise.html', 'notes.html'];
   const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
 
   /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
@@ -339,6 +339,14 @@ const SYNC = (() => {
         if (l.href === page) a.classList.add('active');
         nav.appendChild(a);
       });
+    } else {
+      // Standard : BEV accessible aussi (après Rapports)
+      if (!nav.querySelector('a[href="bev.html"]')) {
+        const a = document.createElement('a');
+        a.href = 'bev.html'; a.textContent = 'BEV'; a.className = 'nav-plus';
+        if (page === 'bev.html') a.classList.add('active');
+        nav.appendChild(a);
+      }
     }
   }
 
