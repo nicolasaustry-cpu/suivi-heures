@@ -206,10 +206,37 @@ function realiseParJour(saisies, salarieId) {
   return map;
 }
 
+/* Licence : Plus = réalisé (saisies) ; Standard = planifié (Planning). */
+function estPlus() {
+  if (typeof SYNC !== 'undefined' && SYNC.estPlus) return SYNC.estPlus();
+  return localStorage.getItem('syncType') === 'plus';
+}
+function labelColReel() { return estPlus() ? 'Réalisé' : 'Planifié'; }
+
+/* Planifié = cumul journalier des heures chantier saisies dans le Planning
+   (clés heuresdata : <salarieId><AAAA_MM_JJ>ch1..ch5). */
+function planifieParJour(salarieId, ym) {
+  let heures = {};
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const [an, mo] = ym.split('-').map(Number);
+  const nb = new Date(an, mo, 0).getDate();
+  const map = {};
+  for (let j = 1; j <= nb; j++) {
+    const k    = cle(new Date(an, mo - 1, j));
+    const safe = k.replace(/-/g, '_');
+    let t = 0;
+    for (let i = 1; i <= 5; i++) {
+      t += parseFloat(heures[salarieId + safe + 'ch' + i] && heures[salarieId + safe + 'ch' + i].heures || 0) || 0;
+    }
+    if (t) map[k] = t;
+  }
+  return map;
+}
+
 /* Construit les lignes jour par jour d'un mois (ym = "YYYY-MM"). */
 function lignesDuMois(sal, ym, saisies, retenues) {
   const [an, mo] = ym.split('-').map(Number);
-  const realMap = realiseParJour(saisies, sal.id);
+  const realMap = estPlus() ? realiseParJour(saisies, sal.id) : planifieParJour(sal.id, ym);
   const nbJours = new Date(an, mo, 0).getDate();
   const lignes = [];
   for (let j = 1; j <= nbJours; j++) {
@@ -279,7 +306,7 @@ async function chargerMois() {
   const tec = r2(tr - tp), tecv = r2(tret - tp);
   document.getElementById('zone').innerHTML =
     '<table class="bev"><thead><tr>' +
-      '<th>Jour</th><th>Prévu</th><th>Événements</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th>' +
+      '<th>Jour</th><th>Prévu</th><th>Événements</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td><td>' + fmt(tp) + '</td><td></td><td>' + fmt(tr) + '</td>' +
       '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
@@ -405,7 +432,7 @@ async function chargerAnnee() {
   });
   const TEC = r2(TR - TP), TECV = r2(TRET - TP);
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>Réalisé</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th>Écart payé</th><th>Écart reporté</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th>Écart payé</th><th>Écart reporté</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
       '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td><td>' + fmt(TRET) + '</td>' +
