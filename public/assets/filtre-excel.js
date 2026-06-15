@@ -5,8 +5,7 @@
      - Champ de recherche
      - "(Sélectionner tout)"
      - Liste de cases à cocher
-     - Boutons OK / Annuler
-   Le filtre n'est appliqué qu'au clic sur OK.
+   Le filtre est appliqué immédiatement à chaque coche/décoche.
    ─────────────────────────────────────────────────────────────── */
 
 window.FiltreExcel = (function () {
@@ -34,10 +33,6 @@ window.FiltreExcel = (function () {
         <input type="text" class="fexc-search" placeholder="🔍 ${cfg.placeholderRecherche || 'Rechercher…'}">
       </div>
       <div class="fexc-list"></div>
-      <div class="fexc-actions">
-        <button class="fexc-btn-ok">OK</button>
-        <button class="fexc-btn-cancel">Annuler</button>
-      </div>
     `;
 
     // Positionnement absolu sous le bouton
@@ -76,6 +71,7 @@ window.FiltreExcel = (function () {
           itemsVisibles.forEach(it => selectedSet.delete(it.value));
         }
         rendreListe(filtre);
+        cfg.onApply(selectedSet);   // application immédiate
       });
       list.appendChild(labelAll);
 
@@ -95,6 +91,7 @@ window.FiltreExcel = (function () {
           // Mettre à jour le checkbox "tous"
           const allChecked = itemsVisibles.every(i => selectedSet.has(i.value));
           cbAll.checked = allChecked;
+          cfg.onApply(selectedSet);   // application immédiate
         });
         list.appendChild(lab);
       });
@@ -109,31 +106,6 @@ window.FiltreExcel = (function () {
 
     rendreListe();
     search.addEventListener('input', e => rendreListe(e.target.value));
-
-    // Actions
-    dd.querySelector('.fexc-btn-ok').addEventListener('click', () => {
-      // Comportement type Excel : si l'utilisateur a tapé une recherche,
-      // on considère qu'il veut cibler uniquement les éléments trouvés.
-      // On enlève donc du set tous les items NON-visibles.
-      const filtre = search.value.trim();
-      if (filtre) {
-        const f = normaliser(filtre);
-        const visiblesValues = new Set(
-          cfg.items
-            .filter(it => normaliser(it.label).includes(f))
-            .map(it => it.value)
-        );
-        // Retirer du set tout ce qui n'est pas visible
-        [...selectedSet].forEach(v => {
-          if (!visiblesValues.has(v)) selectedSet.delete(v);
-        });
-      }
-      cfg.onApply(selectedSet);
-      fermer();
-    });
-    dd.querySelector('.fexc-btn-cancel').addEventListener('click', () => {
-      fermer();
-    });
 
     _activeDropdown = dd;
     _activeButton   = cfg.button;
