@@ -320,6 +320,13 @@
   }
   .pin-screen h2 { color: #fff; font-size: 1.2rem; margin-bottom: 0.5rem; }
   .pin-screen p  { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-bottom: 1.5rem; text-align:center; }
+  .pin-logo {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: 14%; width: 96px; height: 96px;
+    border-radius: 22px; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    transition: top .2s ease, width .2s ease, height .2s ease;
+  }
+  .pin-logo.sur-pin { top: 4%; width: 60px; height: 60px; }
   .pin-screen select {
     width: 100%; padding: 12px; border-radius: 8px; border: none;
     font-size: 1rem; margin-bottom: 1rem; background: #fff;
@@ -868,8 +875,7 @@
 
 <!-- ── ÉCRAN PIN ── -->
 <div class="pin-screen" id="pin-screen" style="display:none;">
-  <img src="assets/icon-512.png" alt="Suiv'Heures" class="pin-logo"
-       style="position:absolute;top:14%;left:50%;transform:translateX(-50%);width:96px;height:96px;border-radius:22px;box-shadow:0 6px 16px rgba(0,0,0,0.18);">
+  <img src="assets/icon-512.png" alt="Suiv'Heures" id="pin-logo" class="pin-logo">
   <h2>Suiv'Heures</h2>
   <p id="pin-subtitle">Identifiez-vous pour saisir vos heures</p>
 
@@ -2600,5 +2606,18 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   <p id="qr-print-url" style="font-size:11pt;color:#888;margin-top:1cm;word-break:break-all;"></p>
   <p style="font-size:11pt;color:#888;margin-top:0.5cm;">Code entreprise : <strong id="qr-print-code"></strong></p>
 </div>
+<script>
+(function(){
+  var pin = document.getElementById('etape-pin');
+  var logo = document.getElementById('pin-logo');
+  if (!pin || !logo) return;
+  function maj(){
+    var visible = getComputedStyle(pin).display !== 'none';
+    logo.classList.toggle('sur-pin', visible);
+  }
+  new MutationObserver(maj).observe(pin, { attributes:true, attributeFilter:['style'] });
+  maj();
+})();
+</script>
 </body>
 </html>
