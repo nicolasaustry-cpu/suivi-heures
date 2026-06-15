@@ -652,6 +652,25 @@ function majEncartPrevus() {
     mins > 0 ? `${heures} h ${String(mins).padStart(2,'0')}` : `${heures} h`;
   document.getElementById('encart-prevu-sous').textContent =
     f.size === 1 ? '1 chantier' : f.size + ' chantiers';
+
+  // Couleur du pavé selon le ratio réalisé / prévu
+  //   < 90 %  → vert (fond vert clair, texte vert foncé)
+  //   90–100 % → orange
+  //   > 100 % → rouge
+  const totalReal = realVisible.reduce((s, l) => s + (parseFloat(l.heures) || 0), 0);
+  let bg = '', fg = '';
+  if (totalH > 0) {
+    const ratio = (totalReal / totalH) * 100;
+    if (ratio < 90)        { bg = '#dcfce7'; fg = '#15803d'; }
+    else if (ratio <= 100) { bg = '#ffedd5'; fg = '#c2410c'; }
+    else                   { bg = '#fee2e2'; fg = '#dc2626'; }
+  }
+  encart.style.background = bg;
+  const tit = encart.querySelector('.encart-titre');
+  if (tit) tit.style.color = fg;
+  document.getElementById('encart-prevu-total').style.color = fg;
+  document.getElementById('encart-prevu-sous').style.color  = fg;
+
   encart.style.display = 'flex';
 }
 
