@@ -871,9 +871,9 @@
   <h2>Suiv'Heures</h2>
   <p id="pin-subtitle">Identifiez-vous pour saisir vos heures</p>
 
-  <!-- ÉTAPE 1 : Code employé -->
+  <!-- ÉTAPE 1 : Code entreprise -->
   <div id="etape-code">
-    <input type="text" id="pin-code-entreprise" placeholder="Code employé"
+    <input type="text" id="pin-code-entreprise" placeholder="Code entreprise"
       style="width:100%;padding:12px;border-radius:8px;border:none;font-size:1rem;margin-bottom:0.5rem;text-transform:uppercase;text-align:center;"
       onkeydown="if(event.key==='Enter') validerCodeEntreprise()">
     <button id="btn-code-entreprise" onclick="validerCodeEntreprise()"
@@ -1141,7 +1141,7 @@ async function reconnecterAuto(codeEmploye) {
 
 async function validerCodeEntreprise() {
   const codeEmploye = document.getElementById('pin-code-entreprise').value.trim().toUpperCase();
-  if (!codeEmploye) { document.getElementById('pin-error').textContent = 'Saisissez votre code employé'; return; }
+  if (!codeEmploye) { document.getElementById('pin-error').textContent = 'Saisissez votre code entreprise'; return; }
 
   const btn = document.getElementById('btn-code-entreprise');
   btn.textContent = 'Vérification...'; btn.disabled = true;
@@ -1155,7 +1155,7 @@ async function validerCodeEntreprise() {
     });
     const d = await r.json();
     if (!d.ok) {
-      document.getElementById('pin-error').textContent = 'Code employé invalide';
+      document.getElementById('pin-error').textContent = 'Code entreprise invalide';
       btn.textContent = 'Valider'; btn.disabled = false;
       return;
     }
@@ -1264,7 +1264,7 @@ async function pinValider() {
 
   const codeEmploye = localStorage.getItem('saisie_codeEmploye');
   if (!codeEmploye) {
-    errEl.textContent = 'Code employé manquant';
+    errEl.textContent = 'Code entreprise manquant';
     _pinSaisi = ''; majDots();
     return;
   }
@@ -2596,7 +2596,7 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   <p style="font-size:14pt;margin-bottom:1cm;color:#555;">Scannez ce QR code avec votre téléphone</p>
   <div id="qr-print-target" style="display:flex;justify-content:center;margin:1cm 0;"></div>
   <p id="qr-print-url" style="font-size:11pt;color:#888;margin-top:1cm;word-break:break-all;"></p>
-  <p style="font-size:11pt;color:#888;margin-top:0.5cm;">Code employé : <strong id="qr-print-code"></strong></p>
+  <p style="font-size:11pt;color:#888;margin-top:0.5cm;">Code entreprise : <strong id="qr-print-code"></strong></p>
 </div>
 </body>
 </html>
