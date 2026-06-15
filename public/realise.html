@@ -637,7 +637,8 @@ function ouvrirEditChantier(btn) {
   document.getElementById('me-nom').value  = c.nom || '';
   document.getElementById('me-arr').value  = c.heureArrivee || '';
   document.getElementById('me-dep').value  = c.heureDepart || '';
-  document.getElementById('me-depl').value = c.deplacement || 0;
+  document.getElementById('me-depl').value  = c.deplacement || 0;
+  document.getElementById('me-pause').value = c.pause || 0;
   document.getElementById('modale-edit').style.display = 'flex';
 }
 
@@ -652,7 +653,8 @@ async function enregistrerEditChantier() {
   const nom  = document.getElementById('me-nom').value.trim();
   const arr  = document.getElementById('me-arr').value;
   const dep  = document.getElementById('me-dep').value;
-  const depl = parseInt(document.getElementById('me-depl').value) || 0;
+  const depl  = parseInt(document.getElementById('me-depl').value) || 0;
+  const pause = parseInt(document.getElementById('me-pause').value) || 0;
   if (!nom) { alert('Le nom du chantier est obligatoire.'); return; }
   if (arr && dep && arr >= dep) { alert('L\'heure de départ doit être après l\'heure d\'arrivée.'); return; }
 
@@ -661,7 +663,7 @@ async function enregistrerEditChantier() {
     const r = await fetch(`/api/saisies/${sid}/chantier/${idx}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ nom, heureArrivee: arr, heureDepart: dep, deplacement: depl })
+      body: JSON.stringify({ nom, heureArrivee: arr, heureDepart: dep, deplacement: depl, pause })
     });
     const d = await r.json();
     if (!d.ok) { alert('Erreur : ' + (d.message || 'modification refusée')); return; }
@@ -825,9 +827,15 @@ function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
         <input type="time" id="me-dep">
       </div>
     </div>
-    <div class="champ">
-      <label>Déplacement (minutes)</label>
-      <input type="number" id="me-depl" min="0" max="600" step="15">
+    <div class="deux-cols">
+      <div class="champ">
+        <label>Pause (minutes)</label>
+        <input type="number" id="me-pause" min="0" max="600" step="5">
+      </div>
+      <div class="champ">
+        <label>Déplacement (minutes)</label>
+        <input type="number" id="me-depl" min="0" max="600" step="15">
+      </div>
     </div>
     <div class="actions">
       <button class="btn-annuler" onclick="fermerEditChantier()">Annuler</button>
