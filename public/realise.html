@@ -345,7 +345,8 @@ function ajusterMarginTop() {
 }
 
 /* ══ CHARGEMENT ══ */
-async function chargerRealise() {
+let _supprimerScroll = false;
+async function chargerRealise(garderEtat) {
   if (!_moisSelection || _moisSelection.size === 0) { _saisies = []; afficherRealise(); return; }
 
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken()) || localStorage.getItem('syncToken');
@@ -364,11 +365,14 @@ async function chargerRealise() {
   }
   _saisies = tout;
 
-  // Construire les listes de filtres
+  // Construire les listes de filtres (en préservant la sélection courante si demandé)
+  const ancSal = garderEtat ? _cochésSal : null;
+  const ancCh  = garderEtat ? _cochesCh  : null;
   _tousSals = [...new Set(_saisies.map(s => s.salarieNom))].sort();
   _tousChs  = [...new Set(_saisies.flatMap(s => (s.chantiers||[]).map(c => c.nom)))].sort();
-  _cochésSal = new Set(_tousSals);
-  _cochesCh  = new Set(_tousChs);
+  _cochésSal = ancSal ? new Set(_tousSals.filter(v => ancSal.has(v))) : new Set(_tousSals);
+  _cochesCh  = ancCh  ? new Set(_tousChs.filter(v => ancCh.has(v)))  : new Set(_tousChs);
+  if (garderEtat) _supprimerScroll = true;
 
   majBtnFiltre('sal');
   majBtnFiltre('ch');
@@ -662,7 +666,9 @@ async function enregistrerEditChantier() {
     const d = await r.json();
     if (!d.ok) { alert('Erreur : ' + (d.message || 'modification refusée')); return; }
     fermerEditChantier();
-    await chargerRealise();
+    const y = window.scrollY;
+    await chargerRealise(true);
+    window.scrollTo(0, y);
   } catch (e) {
     alert('Erreur réseau, vérifiez votre connexion.');
   }
@@ -684,7 +690,9 @@ async function supprimerChantierSaisie(btn) {
     });
     const d = await r.json();
     if (!d.ok) { alert('Erreur : ' + (d.message || 'suppression refusée')); return; }
-    await chargerRealise();
+    const y = window.scrollY;
+    await chargerRealise(true);
+    window.scrollTo(0, y);
   } catch (e) {
     alert('Erreur réseau, vérifiez votre connexion.');
   }
@@ -692,6 +700,7 @@ async function supprimerChantierSaisie(btn) {
 
 /* Scroll vers le bloc du jour courant (sinon le plus proche dans le mois affiché) */
 function scrollVersAujourdhui() {
+  if (_supprimerScroll) { _supprimerScroll = false; return; }
   const blocs = document.querySelectorAll('#contenu-realise .jour-block');
   if (!blocs.length) return;
 
