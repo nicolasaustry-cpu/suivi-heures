@@ -1,6 +1,7 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import Licence from "../models/licence.js";
+import Prescripteur from "../models/prescripteur.js";
 
 const router = express.Router();
 
@@ -42,6 +43,30 @@ router.post("/admin-login", async (req, res) => {
 
     const token = jwt.sign({ role: "admin" }, process.env.JWT_SECRET, { expiresIn: "8h" });
     res.json({ ok: true, token });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+router.post("/presc-login", async (req, res) => {
+  try {
+    const identifiant = (req.body.identifiant || req.body.email || "").trim().toUpperCase();
+    const motDePasse  = req.body.motDePasse || req.body.password || "";
+    if (!identifiant || !motDePasse)
+      return res.status(400).json({ ok: false, message: "Identifiant et mot de passe requis" });
+
+    const presc = await Prescripteur.findOne({ identifiant });
+    if (!presc || !presc.actif)
+      return res.status(401).json({ ok: false, message: "Identifiants incorrects" });
+    const ok = await presc.verifierMotDePasse(motDePasse);
+    if (!ok) return res.status(401).json({ ok: false, message: "Identifiants incorrects" });
+
+    const token = jwt.sign(
+      { role: "prescripteur", presId: identifiant, nom: presc.nom },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+    res.json({ ok: true, token, nom: presc.nom, presId: identifiant });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
