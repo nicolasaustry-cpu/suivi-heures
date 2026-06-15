@@ -28,6 +28,8 @@
     border-radius: 6px; padding: 10px; font-weight: 700; font-size: 1rem; cursor: pointer;
   }
   .login-box button:hover { background: #1d4ed8; }
+  #ecran-admin.presc-mode .bloc-admin,
+  #ecran-admin.presc-mode .col-admin { display: none !important; }
   #login-error { color: #dc2626; font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
 
   /* ── ADMIN ── */
@@ -104,8 +106,8 @@
 <div id="ecran-login">
   <div class="login-box">
     <h1>🔐 Administration<br>Suiv'Heures</h1>
-    <label>Email</label>
-    <input type="email" id="loginEmail" placeholder="admin@exemple.fr">
+    <label>Identifiant ou e-mail</label>
+    <input type="text" id="loginEmail" placeholder="Identifiant prescripteur ou e-mail admin">
     <label>Mot de passe</label>
     <input type="password" id="loginPassword" placeholder="••••••••">
     <button onclick="seConnecter()">Se connecter</button>
@@ -116,21 +118,21 @@
 <!-- ── ÉCRAN ADMIN ── -->
 <div id="ecran-admin">
   <header>
-    <h1>⚙ Administration – Suiv'Heures</h1>
+    <h1 id="admin-titre">⚙ Administration – Suiv'Heures</h1>
     <button onclick="seDeconnecter()">Déconnexion</button>
   </header>
 
   <div class="container">
 
     <!-- Stats -->
-    <div class="stats" id="stats-bloc">
+    <div class="stats bloc-admin" id="stats-bloc">
       <div class="stat-card"><div class="val" id="s-total">—</div><div class="lbl">Licences totales</div></div>
       <div class="stat-card"><div class="val" id="s-actifs">—</div><div class="lbl">Actives</div></div>
       <div class="stat-card"><div class="val" id="s-expires">—</div><div class="lbl">Expirées</div></div>
     </div>
 
     <!-- Nouvelle licence -->
-    <div class="card">
+    <div class="card bloc-admin">
       <h2>+ Nouvelle licence client</h2>
       <div class="form-row">
         <div>
@@ -161,6 +163,12 @@
           </select>
         </div>
         <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Prescripteur</label>
+          <select id="f-prescripteur" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;">
+            <option value="">— Aucun —</option>
+          </select>
+        </div>
+        <div>
           <button class="btn btn-success" onclick="creerLicence()">✔ Créer</button>
         </div>
       </div>
@@ -182,9 +190,10 @@
             <th>Expiration</th>
             <th>Type</th>
             <th>Statut</th>
+            <th class="col-admin">Prescripteur</th>
             <th>Consulter</th>
-            <th>Modifier</th>
-            <th>Actions</th>
+            <th class="col-admin">Modifier</th>
+            <th class="col-admin">Actions</th>
           </tr>
         </thead>
         <tbody id="tbody-licences"></tbody>
@@ -192,8 +201,38 @@
       <p id="no-licence" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune licence.</p>
     </div>
 
+    <!-- Prescripteurs -->
+    <div class="card bloc-admin" style="margin-top:1.5rem;">
+      <h2>👥 Prescripteurs (consultation)</h2>
+      <p style="font-size:0.85rem;color:#6b7280;margin:0.3rem 0 0.8rem;">
+        Comptes de consultation en lecture seule. Un prescripteur ne voit que les clients dont la licence lui est attribuée (champ « Prescripteur »).
+      </p>
+      <div class="form-row">
+        <div>
+          <label>Identifiant *</label>
+          <input id="p-id" placeholder="CABINET-X" style="text-transform:uppercase;width:160px;">
+        </div>
+        <div>
+          <label>Mot de passe *</label>
+          <input id="p-mdp" type="text" placeholder="mot de passe" style="width:160px;">
+        </div>
+        <div>
+          <label>Nom (affichage)</label>
+          <input id="p-nom" placeholder="Cabinet X" style="width:200px;">
+        </div>
+        <div>
+          <button class="btn btn-success" onclick="creerPrescripteur()">✔ Créer</button>
+        </div>
+      </div>
+      <table style="margin-top:0.8rem;">
+        <thead><tr><th>Identifiant</th><th>Nom</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody id="tbody-presc"></tbody>
+      </table>
+      <p id="no-presc" style="color:#9ca3af;font-style:italic;padding:0.5rem 0;display:none;">Aucun prescripteur.</p>
+    </div>
+
     <!-- Gestion de l'aide / chatbot (Q/R) -->
-    <div class="section" style="margin-top:1.5rem;">
+    <div class="section bloc-admin" style="margin-top:1.5rem;">
       <h2>💬 Aide en ligne (chatbot) — Questions / Réponses</h2>
       <p style="font-size:0.85rem;color:#6b7280;margin:0.3rem 0 0.8rem;">
         Ces questions/réponses alimentent la bulle d'aide « ? » visible par les clients sur les pages de gestion.
@@ -271,6 +310,12 @@
           <option value="plus">Plus ★</option>
         </select>
       </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Prescripteur</label>
+        <select id="modif-prescripteur" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+          <option value="">— Aucun —</option>
+        </select>
+      </div>
     </div>
     <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem;">
       <button class="btn btn-warning" onclick="fermerModifLicence()" style="padding:7px 16px;">Annuler</button>
@@ -286,22 +331,37 @@ const API = ''; // même domaine
 
 let _token = localStorage.getItem('admin_token') || '';
 let _licences = [];
+let _role = 'admin';
+let _presNom = '';
+let _prescripteurs = [];
 
 /* ── AUTH ── */
 async function seConnecter() {
-  const email    = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  const errEl    = document.getElementById('login-error');
+  const identifiant = document.getElementById('loginEmail').value.trim();
+  const password    = document.getElementById('loginPassword').value;
+  const errEl       = document.getElementById('login-error');
   errEl.textContent = '';
   try {
-    const r = await fetch(API + '/api/auth/admin-login', {
+    // 1) Tentative administrateur global
+    let r = await fetch(API + '/api/auth/admin-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: identifiant, password })
     });
-    const d = await r.json();
-    if (!d.ok) { errEl.textContent = d.message || 'Identifiants incorrects'; return; }
-    _token = d.token;
+    let d = await r.json();
+    if (d.ok) {
+      _token = d.token; _role = 'admin';
+    } else {
+      // 2) Tentative prescripteur
+      r = await fetch(API + '/api/auth/presc-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifiant, motDePasse: password })
+      });
+      d = await r.json();
+      if (!d.ok) { errEl.textContent = d.message || 'Identifiants incorrects'; return; }
+      _token = d.token; _role = 'prescripteur'; _presNom = d.nom || '';
+    }
     localStorage.setItem('admin_token', _token);
     afficherAdmin();
   } catch {
@@ -319,9 +379,21 @@ function seDeconnecter() {
 async function afficherAdmin() {
   document.getElementById('ecran-login').style.display = 'none';
   document.getElementById('ecran-admin').style.display = 'block';
+  const ecran = document.getElementById('ecran-admin');
+
+  if (_role === 'prescripteur') {
+    ecran.classList.add('presc-mode');
+    document.getElementById('admin-titre').textContent = '👁 Espace prescripteur' + (_presNom ? ' – ' + _presNom : '');
+    await chargerLicences();
+    return;
+  }
+
+  ecran.classList.remove('presc-mode');
+  document.getElementById('admin-titre').textContent = '⚙ Administration – Suiv\'Heures';
   await chargerStats();
   await chargerLicences();
   await chargerFaqs();
+  await chargerPrescripteurs();
 
   // Date expiration par défaut : dans 1 an
   const d = new Date();
@@ -342,7 +414,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       headers: { 'Authorization': 'Bearer ' + _token }
     });
     const d = await r.json();
-    if (d.ok && d.role === 'admin') afficherAdmin();
+    if (d.ok && d.role === 'admin') { _role = 'admin'; afficherAdmin(); }
+    else if (d.ok && d.role === 'prescripteur') { _role = 'prescripteur'; _presNom = d.nom || ''; afficherAdmin(); }
     else {
       localStorage.removeItem('admin_token');
       _token = '';
@@ -367,7 +440,8 @@ async function chargerStats() {
 /* ── LICENCES ── */
 async function chargerLicences() {
   try {
-    const r = await fetch(API + '/api/admin/licences', { headers: auth() });
+    const url = _role === 'prescripteur' ? '/api/presc/licences' : '/api/admin/licences';
+    const r = await fetch(API + url, { headers: auth() });
     const d = await r.json();
     if (!d.ok) return;
     _licences = d.licences;
@@ -410,19 +484,20 @@ function afficherLicences(liste) {
           ${l.type === 'plus' ? 'Plus ★' : 'Standard'}
         </span>
       </td>
+      <td class="col-admin" style="text-align:center;">${l.prescripteur || '—'}</td>
       <td style="text-align:center;">
         <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;"
           onclick="consulterClient('${l.codeClient}')" title="Accéder aux données de ce client">
           👁 Consulter
         </button>
       </td>
-      <td style="text-align:center;">
+      <td class="col-admin" style="text-align:center;">
         <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
-          onclick="ouvrirModifLicence('${l.codeClient}','${l.nomClient}','${l.email}','${l.dateExpiration?.split('T')[0]}','${l.type || 'standard'}')">
+          onclick="ouvrirModifLicence('${l.codeClient}','${l.nomClient}','${l.email}','${l.dateExpiration?.split('T')[0]}','${l.type || 'standard'}','${l.prescripteur || ''}')">
           ✏ Modifier
         </button>
       </td>
-      <td style="white-space:nowrap;">
+      <td class="col-admin" style="white-space:nowrap;">
         <button class="btn btn-success" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
           onclick="exporterFinLicence('${l.codeClient}')" title="Exporter toutes les données de ce client (Excel)">
           📦 Export
@@ -444,7 +519,8 @@ async function creerLicence() {
   const email      = document.getElementById('f-email').value.trim();
   const expiration = document.getElementById('f-expiration').value;
   const notes      = document.getElementById('f-notes').value.trim();
-  const type       = document.getElementById('f-type').value;
+  const type        = document.getElementById('f-type').value;
+  const prescripteur = document.getElementById('f-prescripteur').value;
 
   if (!code || !nomClient || !expiration) {
     alert('Code, nom et date d\'expiration sont obligatoires.');
@@ -454,7 +530,7 @@ async function creerLicence() {
     const r = await fetch(API + '/api/admin/licences', {
       method: 'POST',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type })
+      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type, prescripteur })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
@@ -626,12 +702,13 @@ document.addEventListener('keydown', e => {
 });
 
 /* ── Modifier une licence ── */
-function ouvrirModifLicence(code, nom, email, expiration, type) {
-  document.getElementById('modif-code').value       = code;
-  document.getElementById('modif-nom').value        = nom || '';
-  document.getElementById('modif-email').value      = email || '';
-  document.getElementById('modif-expiration').value = expiration || '';
-  document.getElementById('modif-type').value       = type || 'standard';
+function ouvrirModifLicence(code, nom, email, expiration, type, prescripteur) {
+  document.getElementById('modif-code').value         = code;
+  document.getElementById('modif-nom').value          = nom || '';
+  document.getElementById('modif-email').value        = email || '';
+  document.getElementById('modif-expiration').value   = expiration || '';
+  document.getElementById('modif-type').value         = type || 'standard';
+  document.getElementById('modif-prescripteur').value = prescripteur || '';
   document.getElementById('modale-modif').style.display = 'flex';
 }
 
@@ -644,13 +721,14 @@ async function sauverModifLicence() {
   const nomClient  = document.getElementById('modif-nom').value.trim();
   const email      = document.getElementById('modif-email').value.trim();
   const expiration = document.getElementById('modif-expiration').value;
-  const type       = document.getElementById('modif-type').value;
+  const type         = document.getElementById('modif-type').value;
+  const prescripteur = document.getElementById('modif-prescripteur').value;
 
   try {
     const r = await fetch(API + '/api/admin/licences/' + code, {
       method: 'PUT',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type })
+      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type, prescripteur })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
@@ -665,15 +743,121 @@ document.getElementById('modale-modif').addEventListener('click', function(e) {
   if (e.target === this) fermerModifLicence();
 });
 
+/* ── GESTION DES PRESCRIPTEURS (admin) ── */
+async function chargerPrescripteurs() {
+  try {
+    const r = await fetch(API + '/api/admin/prescripteurs', { headers: auth() });
+    const d = await r.json();
+    if (!d.ok) return;
+    _prescripteurs = d.prescripteurs || [];
+    afficherPrescripteurs();
+    remplirSelectsPrescripteurs();
+  } catch {}
+}
+
+function afficherPrescripteurs() {
+  const tb = document.getElementById('tbody-presc');
+  const no = document.getElementById('no-presc');
+  if (!tb) return;
+  tb.innerHTML = '';
+  no.style.display = _prescripteurs.length ? 'none' : '';
+  _prescripteurs.forEach(pr => {
+    const statut = pr.actif
+      ? '<span class="badge badge-on">Actif</span>'
+      : '<span class="badge badge-off">Désactivé</span>';
+    tb.innerHTML += `<tr>
+      <td><strong>${pr.identifiant}</strong></td>
+      <td>${pr.nom || '—'}</td>
+      <td>${statut}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
+          onclick="reinitMdpPrescripteur('${pr.identifiant}')">🔑 Mot de passe</button>
+        <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
+          onclick="togglePrescripteur('${pr.identifiant}')">${pr.actif ? '⏸ Désactiver' : '▶ Activer'}</button>
+        <button class="btn btn-danger" style="padding:4px 10px;font-size:0.8rem;margin-left:4px;"
+          onclick="supprimerPrescripteur('${pr.identifiant}')">✕</button>
+      </td>
+    </tr>`;
+  });
+}
+
+function remplirSelectsPrescripteurs() {
+  const opts = '<option value="">— Aucun —</option>' +
+    _prescripteurs.map(pr => `<option value="${pr.identifiant}">${pr.identifiant}${pr.nom ? ' (' + pr.nom + ')' : ''}</option>`).join('');
+  const fSel = document.getElementById('f-prescripteur');
+  const mSel = document.getElementById('modif-prescripteur');
+  if (fSel) { const v = fSel.value; fSel.innerHTML = opts; fSel.value = v; }
+  if (mSel) { const v = mSel.value; mSel.innerHTML = opts; mSel.value = v; }
+}
+
+async function creerPrescripteur() {
+  const identifiant = document.getElementById('p-id').value.trim().toUpperCase();
+  const motDePasse  = document.getElementById('p-mdp').value;
+  const nom         = document.getElementById('p-nom').value.trim();
+  if (!identifiant || !motDePasse) { alert('Identifiant et mot de passe obligatoires.'); return; }
+  try {
+    const r = await fetch(API + '/api/admin/prescripteurs', {
+      method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiant, motDePasse, nom })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg('✔ Prescripteur créé : ' + identifiant);
+    document.getElementById('p-id').value = '';
+    document.getElementById('p-mdp').value = '';
+    document.getElementById('p-nom').value = '';
+    await chargerPrescripteurs();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function reinitMdpPrescripteur(id) {
+  const motDePasse = prompt('Nouveau mot de passe pour ' + id + ' :');
+  if (!motDePasse) return;
+  try {
+    const r = await fetch(API + '/api/admin/prescripteurs/' + id, {
+      method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motDePasse })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg('✔ Mot de passe modifié');
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function togglePrescripteur(id) {
+  try {
+    const r = await fetch(API + '/api/admin/prescripteurs/' + id + '/toggle', { method: 'PATCH', headers: auth() });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    await chargerPrescripteurs();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function supprimerPrescripteur(id) {
+  if (!confirm('Supprimer le prescripteur ' + id + ' ?\n\nLes licences rattachées ne sont pas supprimées (le lien devient simplement vide).')) return;
+  try {
+    const r = await fetch(API + '/api/admin/prescripteurs/' + id, { method: 'DELETE', headers: auth() });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    await chargerPrescripteurs();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
 /* ── Consulter les données d'un client ── */
 async function consulterClient(code) {
   try {
-    // Connexion avec le code licence du client
-    const r = await fetch(API + '/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
-    });
+    // Admin : connexion directe ; Prescripteur : via /api/presc/consulter (vérif. d'appartenance côté serveur)
+    const r = _role === 'prescripteur'
+      ? await fetch(API + '/api/presc/consulter', {
+          method: 'POST',
+          headers: { ...auth(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        })
+      : await fetch(API + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
     const d = await r.json();
     if (!d.ok) {
       msg('Impossible de se connecter : ' + d.message, '#dc2626');
