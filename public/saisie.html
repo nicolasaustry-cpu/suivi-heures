@@ -1546,11 +1546,17 @@ function rendrePrev() {
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       if (s.pause > 0) pauseBtn.style.display = "none";
+      const noteBtn = document.createElement('button');
+      const aNote = !!((s.note && s.note.trim()) || (s.photos && s.photos.length));
+      noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
+      noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
-      env.textContent = '✔ Chantier enregistré';
+      env.textContent = '✔ Enregistré';
       env.style.flex = '1';
       barre.appendChild(pauseBtn);
+      barre.appendChild(noteBtn);
       barre.appendChild(env);
       div.appendChild(barre);
     } else {
@@ -1697,11 +1703,17 @@ function rendreAjout() {
       pauseBtn.textContent = '🍽️ Pause';
       pauseBtn.onclick = function() { togglePause(pauseRow, this); };
       if (ch.pause > 0) pauseBtn.style.display = "none";
+      const noteBtn = document.createElement('button');
+      const aNote = !!((ch.note && ch.note.trim()) || (ch.photos && ch.photos.length));
+      noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
+      noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
+      noteBtn.onclick = function() { ouvrirNote('ajout', i, this); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
-      env.textContent = '✔ Chantier enregistré';
+      env.textContent = '✔ Enregistré';
       env.style.flex = '1';
       barre.appendChild(pauseBtn);
+      barre.appendChild(noteBtn);
       barre.appendChild(env);
       div.appendChild(barre);
     } else {
@@ -2226,6 +2238,16 @@ async function validerPause(btn) {
 
   btn.classList.add('valide');
   s.pauseValidee = true;
+
+  // Pause ajoutée APRÈS un envoi : on « dé-finalise » le chantier pour réafficher
+  // « Envoyer ce chantier » (le ré-envoi repartira complet, départ inclus).
+  if (s.envoye || s.dejaEnvoye) {
+    s.envoye = false;
+    s.dejaEnvoye = false;
+    if (type === 'pause-prev') rendrePrev(); else rendreAjout();
+    majTotal();
+    return;
+  }
 
   // Envoyer l'état actuel au serveur (départ éventuellement vide)
   const date = document.getElementById('date-saisie').value;
