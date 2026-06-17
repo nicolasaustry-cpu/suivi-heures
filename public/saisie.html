@@ -2302,10 +2302,18 @@ function ouvrirNote(type, ref, btn) {
     _notePhotos  = (ch.photos || []).slice();
   }
   document.getElementById('note-chantier-nom').textContent = nom;
-  document.getElementById('note-texte').value = noteActuelle;
+  // Si la note existe déjà, on ajoute un passage à la ligne automatique pour que
+  // le nouvel ajout commence sur une ligne vierge (le .trim() à l'enregistrement
+  // retire ce saut s'il reste inutilisé).
+  const txtNote = document.getElementById('note-texte');
+  txtNote.value = noteActuelle ? (noteActuelle.replace(/\n+$/, '') + '\n') : '';
   rendrePhotosNote();
   document.getElementById('modal-note').classList.add('open');
-  setTimeout(() => document.getElementById('note-texte').focus(), 50);
+  setTimeout(() => {
+    txtNote.focus();
+    const len = txtNote.value.length;
+    try { txtNote.setSelectionRange(len, len); } catch (e) {}
+  }, 50);
 }
 
 function fermerNote() {
