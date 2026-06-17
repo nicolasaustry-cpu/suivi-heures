@@ -192,6 +192,9 @@
   /* Note imprimable : cachée à l'écran, visible uniquement à l'impression */
   .note-print { display:none; }
   @media print { .note-print { display:block;font-size:0.66rem;line-height:1.2;color:#000;white-space:pre-wrap;margin-top:2px;padding-top:2px;border-top:1px dotted #999; } }
+  /* Aligner en haut le contenu des cellules du planning
+     (pour que les noms de chantiers restent alignés quand une note agrandit une cellule) */
+  #planning-wrapper table td { vertical-align: top; }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
