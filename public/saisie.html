@@ -2330,16 +2330,23 @@ function validerNote() {
   }
   if (s) { s.note = val; s.photos = fotos; }
   fermerNote();
-  // Mise à jour ciblée du bouton uniquement : on ne re-rend PAS la carte,
-  // sinon un chantier déjà synchronisé basculerait visuellement en « enregistré ».
+  // Note mise à jour sur un chantier déjà ENVOYÉ : on dé-finalise pour redemander
+  // l'envoi explicite (cohérent avec la pause). « Envoyer ce chantier » réapparaît.
+  if (s && (s.envoye || s.dejaEnvoye)) {
+    s.envoye = false;
+    s.dejaEnvoye = false;
+    if (cible.type === 'prev') rendrePrev(); else rendreAjout();
+    return;
+  }
+  // Chantier pas encore finalisé : mise à jour ciblée du bouton note.
   if (cible.btn) {
     const aNote = !!(val || fotos.length);
     cible.btn.className   = 'btn-note' + (aNote ? ' actif' : '');
     cible.btn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
   }
-  // Chantier déjà parti au serveur (envoi progressif) : pousser la note/photos
-  // tout de suite, sinon elles ne partiraient jamais. La fusion serveur préserve les heures.
-  if (s && nom && (s.envoye || s.dejaEnvoye || s.synchronise)) {
+  // Envoi progressif de la note pour un chantier partiellement synchronisé (arrivée),
+  // pas encore finalisé : la note part tout de suite (la fusion serveur préserve les heures).
+  if (s && nom && s.synchronise) {
     const dateEl = document.getElementById('date-saisie');
     const date = dateEl ? dateEl.value : '';
     if (date) _envoyerChantier({ nom, note: s.note, photos: s.photos, isPrevisionnel: (cible.type === 'prev') }, date);
