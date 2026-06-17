@@ -1389,7 +1389,7 @@ async function chargerChantiersPrev() {
               note:    c.note || '',
               photos:  Array.isArray(c.photos) ? c.photos : [],
               synchronise: true,
-              dejaEnvoye: true
+              dejaEnvoye: !!(c.heureDepart)
             };
           } else {
             // Chantier ajouté librement précédemment : on l'ajoute aux chantiers libres
@@ -1404,7 +1404,7 @@ async function chargerChantiersPrev() {
                 note:    c.note || '',
                 photos:  Array.isArray(c.photos) ? c.photos : [],
                 synchronise: true,
-                dejaEnvoye: true
+                dejaEnvoye: !!(c.heureDepart)
               });
             }
           }
@@ -1445,7 +1445,7 @@ function rendrePrev() {
     nomEl.textContent = ch.nom;
     header.appendChild(nomEl);
     const badge = document.createElement('span');
-    const dejaSauve = s.envoye || s.dejaEnvoye || s.synchronise;
+    const dejaSauve = s.envoye || s.dejaEnvoye;
     if (dejaSauve) {
       badge.style.cssText = 'background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;';
       badge.textContent = '✔ Enregistré';
@@ -1480,7 +1480,7 @@ function rendrePrev() {
     arrInput.id = 'arr-' + nomId;
     arrInput.value = s.arrivee || '';
     const arrBtn = document.createElement('button');
-    arrBtn.className = 'btn-valider-heure' + (s.arrivee && dejaSauve ? ' valide' : '');
+    arrBtn.className = 'btn-valider-heure' + (s.arrivee ? ' valide' : '');
     arrBtn.textContent = '✔ OK';
     arrBtn.dataset.nom = ch.nom;
     arrBtn.dataset.champ = 'arrivee';
@@ -1519,7 +1519,7 @@ function rendrePrev() {
     depInput.id = 'dep-' + nomId;
     depInput.value = s.depart || '';
     const depBtn = document.createElement('button');
-    depBtn.className = 'btn-valider-heure' + (s.depart && dejaSauve ? ' valide' : '');
+    depBtn.className = 'btn-valider-heure' + (s.depart ? ' valide' : '');
     depBtn.textContent = '✔ OK';
     depBtn.dataset.nom = ch.nom;
     depBtn.dataset.champ = 'depart';
@@ -1609,7 +1609,7 @@ function rendreAjout() {
 
   const items = _chantiersA.map((ch, i) => {
     const duree = calcDuree(ch.arrivee, ch.depart, ch.pause);
-    const dejaSauve = ch.envoye || ch.dejaEnvoye || ch.synchronise;
+    const dejaSauve = ch.envoye || ch.dejaEnvoye;
     const div   = document.createElement('div');
     div.className = 'chantier-card ajoute';
 
@@ -1650,7 +1650,7 @@ function rendreAjout() {
     // Ligne 3 : arrivée + OK
     const arrLigne = document.createElement('div');
     arrLigne.className = 'heure-ligne';
-    const clsArrOK = 'btn-valider-heure' + (ch.arrivee && dejaSauve ? ' valide' : '');
+    const clsArrOK = 'btn-valider-heure' + (ch.arrivee ? ' valide' : '');
     arrLigne.innerHTML = '<span class="heure-label">Arrivée</span>'
       + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '">'
       + '<button class="' + clsArrOK + '" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
@@ -1676,7 +1676,7 @@ function rendreAjout() {
     const depLigne = document.createElement('div');
     depLigne.className = 'heure-ligne';
     const depBtnVis = ch.arrivee ? '' : 'display:none;';
-    const clsDepOK = 'btn-valider-heure' + (ch.depart && dejaSauve ? ' valide' : '');
+    const clsDepOK = 'btn-valider-heure' + (ch.depart ? ' valide' : '');
     depLigne.innerHTML = '<span class="heure-label">Départ</span>'
       + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
       + '<button class="' + clsDepOK + '" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
@@ -2047,7 +2047,10 @@ async function validerHeurePrevData(btn) {
   }
   majTotal();
 
-  // Envoi serveur progressif : à chaque OK on pousse l'état actuel
+  // L'heure de départ ne part au serveur qu'au clic « Envoyer ce chantier ».
+  if (champ === 'depart') return;
+
+  // Envoi serveur progressif (arrivée) : on pousse l'état SANS le départ.
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
   const ancienTxt = btn.textContent;
@@ -2056,8 +2059,8 @@ async function validerHeurePrevData(btn) {
   const chantier = {
     nom,
     heureArrivee: s.arrivee || '',
-    heureDepart:  s.depart  || '',
-    dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
+    heureDepart:  '',
+    dureeMin:     0,
     pause:        s.pause || 0,
     deplacement:  s.depl || 0,
     note:         s.note,
@@ -2105,7 +2108,10 @@ async function validerHeureAjoutData(btn) {
   }
   majTotal();
 
-  // Envoi serveur progressif
+  // L'heure de départ ne part au serveur qu'au clic « Envoyer ce chantier ».
+  if (champ === 'depart') return;
+
+  // Envoi serveur progressif (arrivée) : on pousse l'état SANS le départ.
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
   const ch = _chantiersA[i];
@@ -2115,8 +2121,8 @@ async function validerHeureAjoutData(btn) {
   const chantier = {
     nom:           ch.nom,
     heureArrivee:  ch.arrivee || '',
-    heureDepart:   ch.depart  || '',
-    dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
+    heureDepart:   '',
+    dureeMin:      0,
         pause:         ch.pause || 0,
     deplacement:   ch.depl || 0,
     note:          ch.note,
@@ -2230,8 +2236,8 @@ async function validerPause(btn) {
   const chantier = {
     nom,
     heureArrivee: s.arrivee || '',
-    heureDepart:  s.depart  || '',
-    dureeMin:     calcMinutes(s.arrivee, s.depart, s.pause),
+    heureDepart:  '',
+    dureeMin:     0,
     pause:        s.pause || 0,
     deplacement:  s.depl || 0,
     note:         s.note,
