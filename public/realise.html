@@ -370,8 +370,8 @@ async function chargerRealise(garderEtat) {
   const ancCh  = garderEtat ? _cochesCh  : null;
   _tousSals = [...new Set(_saisies.map(s => s.salarieNom))].sort();
   _tousChs  = [...new Set(_saisies.flatMap(s => (s.chantiers||[]).map(c => c.nom)))].sort();
-  _cochésSal = ancSal ? new Set(_tousSals.filter(v => ancSal.has(v))) : new Set(_tousSals);
-  _cochesCh  = ancCh  ? new Set(_tousChs.filter(v => ancCh.has(v)))  : new Set(_tousChs);
+  _cochésSal = ancSal ? new Set(_tousSals.filter(v => ancSal.has(v))) : new Set();
+  _cochesCh  = ancCh  ? new Set(_tousChs.filter(v => ancCh.has(v)))  : new Set();
   if (garderEtat) _supprimerScroll = true;
 
   majBtnFiltre('sal');
@@ -426,7 +426,7 @@ function afficherRealise() {
   const msgV = document.getElementById('msg-vide');
 
   // Filtrer les saisies
-  const saisies = _saisies.filter(s => _cochésSal.has(s.salarieNom));
+  const saisies = _saisies.filter(s => !_cochésSal.size || _cochésSal.has(s.salarieNom));
 
   if (!saisies.length) {
     msgV.style.display = '';
@@ -479,7 +479,7 @@ function afficherRealise() {
     if (exclu) {
       return !String(nom || '').toLowerCase().includes(exclu);
     }
-    return _cochesCh.has(nom);
+    return !_cochesCh.size || _cochesCh.has(nom);
   }
 
   cont.innerHTML = Object.keys(parDate).sort().map(date => {

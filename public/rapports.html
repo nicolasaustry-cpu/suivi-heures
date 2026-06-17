@@ -676,8 +676,8 @@ function majEncartPrevus() {
 
 function filtrer(lignes) {
   return lignes.filter(l => {
-    if (filtresActifs.salarie  && !filtresActifs.salarie.has(l.salarie))   return false;
-    if (filtresActifs.chantier && !filtresActifs.chantier.has(l.chantier)) return false;
+    if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
+    if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
     return true;
   });
 }
@@ -793,7 +793,7 @@ function ouvrirFiltre(col, event) {
 
   const selection = filtresActifs[col]
     ? new Set(filtresActifs[col])
-    : new Set(valeurs);
+    : new Set();
 
   FiltreExcel.ouvrir({
     button: btn,
@@ -801,7 +801,7 @@ function ouvrirFiltre(col, event) {
     selected: selection,
     onApply: (sel) => {
       // Si tout est sélectionné, on annule le filtre
-      filtresActifs[col] = valeurs.every(v => sel.has(v)) ? null : sel;
+      filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
       // Mettre à jour le label du bouton
       const items = valeurs.map(v => ({ value: v, label: v }));
       if (!filtresActifs[col]) {

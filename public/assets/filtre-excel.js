@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
    FILTRE STYLE EXCEL — module commun
    ───────────────────────────────────────────────────────────────
-   Affiche un dropdown avec :
-     - Champ de recherche
-     - "(Sélectionner tout)"
-     - Liste de cases à cocher
-   Le filtre est appliqué immédiatement à chaque coche/décoche.
+   Modèle « vide = tout affiché » :
+     - Par défaut AUCUNE case cochée  → aucun filtre → tout est affiché.
+     - Saisir du texte COCHE automatiquement les valeurs correspondantes.
+     - Cocher / décocher applique IMMÉDIATEMENT (pas de bouton OK).
+     - Un Set vide transmis à onApply() signifie « aucun filtre ».
    ─────────────────────────────────────────────────────────────── */
 
 window.FiltreExcel = (function () {
@@ -14,17 +14,16 @@ window.FiltreExcel = (function () {
 
   /**
    * Ouvre un filtre style Excel.
-   *
    * @param {Object} cfg
-   * @param {HTMLElement} cfg.button     - le bouton-déclencheur (sera utilisé pour positionner le dropdown)
-   * @param {Array}       cfg.items      - tableau d'items, chacun = { value: 'id-unique', label: 'Texte affiché' }
-   * @param {Set|Array}   cfg.selected   - les valeurs actuellement sélectionnées
-   * @param {Function}    cfg.onApply    - callback(selectedSet) appelé au clic OK
+   * @param {HTMLElement} cfg.button   - bouton-déclencheur (positionnement)
+   * @param {Array}       cfg.items    - [{ value:'id', label:'Texte' }, …]
+   * @param {Set|Array}   cfg.selected - valeurs déjà cochées (vide = tout)
+   * @param {Function}    cfg.onApply  - callback(selectedSet) à chaque changement
    * @param {string}      [cfg.labelTous='(Sélectionner tout)']
    * @param {string}      [cfg.placeholderRecherche='Rechercher…']
    */
   function ouvrir(cfg) {
-    fermer();  // toujours fermer un éventuel dropdown ouvert avant
+    fermer();
 
     const dd = document.createElement('div');
     dd.className = 'fexc-dropdown';
@@ -35,26 +34,21 @@ window.FiltreExcel = (function () {
       <div class="fexc-list"></div>
     `;
 
-    // Positionnement absolu sous le bouton
     document.body.appendChild(dd);
     positionner(dd, cfg.button);
 
-    const list = dd.querySelector('.fexc-list');
-    const search = dd.querySelector('.fexc-search');
+    const list      = dd.querySelector('.fexc-list');
+    const search    = dd.querySelector('.fexc-search');
     const labelTous = cfg.labelTous || '(Sélectionner tout)';
     const selectedSet = new Set(cfg.selected || []);
 
-    // Rendu de la liste
+    /* Rendu de la liste (filtre = texte de recherche éventuel). */
     function rendreListe(filtre = '') {
       list.innerHTML = '';
       const f = normaliser(filtre);
+      const itemsVisibles = cfg.items.filter(it => !f || normaliser(it.label).includes(f));
 
-      // Filtrer les items selon la recherche
-      const itemsVisibles = cfg.items.filter(it =>
-        !f || normaliser(it.label).includes(f)
-      );
-
-      // Ligne "(Sélectionner tout)"
+      // Ligne "(Sélectionner tout)" : cochée si tous les éléments visibles sont sélectionnés
       const toutCoches = itemsVisibles.length > 0 &&
                          itemsVisibles.every(it => selectedSet.has(it.value));
       const labelAll = document.createElement('label');
@@ -65,22 +59,19 @@ window.FiltreExcel = (function () {
       `;
       const cbAll = labelAll.querySelector('input');
       cbAll.addEventListener('change', () => {
-        if (cbAll.checked) {
-          itemsVisibles.forEach(it => selectedSet.add(it.value));
-        } else {
-          itemsVisibles.forEach(it => selectedSet.delete(it.value));
-        }
+        if (cbAll.checked) itemsVisibles.forEach(it => selectedSet.add(it.value));
+        else               itemsVisibles.forEach(it => selectedSet.delete(it.value));
         rendreListe(filtre);
         cfg.onApply(selectedSet);   // application immédiate
       });
       list.appendChild(labelAll);
 
-      // Items individuels
+      // Cases individuelles
       itemsVisibles.forEach(it => {
         const lab = document.createElement('label');
         lab.className = 'fexc-item';
         lab.innerHTML = `
-          <input type="checkbox" data-value="${escapeAttr(it.value)}" ${selectedSet.has(it.value) ? 'checked' : ''}>
+          <input type="checkbox" ${selectedSet.has(it.value) ? 'checked' : ''}>
           <span></span>
         `;
         lab.querySelector('span').textContent = it.label;
@@ -88,9 +79,7 @@ window.FiltreExcel = (function () {
         cb.addEventListener('change', () => {
           if (cb.checked) selectedSet.add(it.value);
           else            selectedSet.delete(it.value);
-          // Mettre à jour le checkbox "tous"
-          const allChecked = itemsVisibles.every(i => selectedSet.has(i.value));
-          cbAll.checked = allChecked;
+          cbAll.checked = itemsVisibles.every(i => selectedSet.has(i.value));
           cfg.onApply(selectedSet);   // application immédiate
         });
         list.appendChild(lab);
@@ -104,13 +93,26 @@ window.FiltreExcel = (function () {
       }
     }
 
+    /* Recherche = coche :
+       - champ vide  → on vide la sélection (donc tout est affiché)
+       - sinon       → on COCHE les valeurs dont le libellé correspond. */
+    function appliquerRecherche(txt) {
+      const f = normaliser(txt);
+      selectedSet.clear();
+      if (f) {
+        cfg.items.forEach(it => {
+          if (normaliser(it.label).includes(f)) selectedSet.add(it.value);
+        });
+      }
+      rendreListe(txt);
+      cfg.onApply(selectedSet);   // application immédiate
+    }
+
     rendreListe();
-    search.addEventListener('input', e => rendreListe(e.target.value));
+    search.addEventListener('input', e => appliquerRecherche(e.target.value));
 
     _activeDropdown = dd;
     _activeButton   = cfg.button;
-
-    // Focus dans la recherche
     setTimeout(() => search.focus(), 50);
   }
 
@@ -126,7 +128,6 @@ window.FiltreExcel = (function () {
     const rect = button.getBoundingClientRect();
     const top  = rect.bottom + window.scrollY + 4;
     let left   = rect.left + window.scrollX;
-    // Empêcher de déborder à droite
     const ddWidth = 260;
     if (left + ddWidth > window.innerWidth - 10) {
       left = window.innerWidth - ddWidth - 10;
@@ -136,14 +137,10 @@ window.FiltreExcel = (function () {
   }
 
   /* Helpers ─────────────────── */
-
   function normaliser(s) {
     return (s || '').toString()
       .toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // sans accents
-  }
-  function escapeAttr(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   }
 
   /* Fermeture sur clic extérieur ou Échap */
@@ -157,10 +154,11 @@ window.FiltreExcel = (function () {
     if (e.key === 'Escape') fermer();
   });
 
-  /* Helper : produire un libellé pour le bouton-déclencheur. */
+  /* Libellé du bouton-déclencheur.
+     Set vide ou complet = « Tous » (puisque vide = tout affiché). */
   function libelle(selectedSet, totalItems, items, libelleTous = 'Tous') {
-    if (!selectedSet || selectedSet.size === 0)        return 'Aucun';
-    if (selectedSet.size === totalItems)               return libelleTous;
+    if (!selectedSet || selectedSet.size === 0) return libelleTous;
+    if (selectedSet.size === totalItems)        return libelleTous;
     if (selectedSet.size <= 2 && items) {
       const labels = items.filter(it => selectedSet.has(it.value)).map(it => it.label);
       return labels.join(', ');
