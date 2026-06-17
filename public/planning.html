@@ -182,6 +182,16 @@
     font-weight: 800;
     color: #2563eb;
   }
+  /* Bouton "note de chantier" (planning) */
+  .btn-note-ch { width:24px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-weight:700;line-height:1;flex:0 0 auto;position:relative; }
+  .btn-note-ch:hover { border-color:#f59e0b;color:#b45309; }
+  .btn-note-ch.has-note { background:#fef3c7;color:#b45309;border-color:#fde68a; }
+  .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
+  /* Note affichée dans l'infobulle chantier */
+  .chantier-tooltip .ct-note { margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:0.8rem;color:#fde68a;white-space:pre-wrap;line-height:1.35; }
+  /* Note imprimable : cachée à l'écran, visible uniquement à l'impression */
+  .note-print { display:none; }
+  @media print { .note-print { display:block;font-size:0.66rem;line-height:1.2;color:#000;white-space:pre-wrap;margin-top:2px;padding-top:2px;border-top:1px dotted #999; } }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -625,7 +635,11 @@ function genererPlanning() {
               onchange="saveHeure('${k}',document.getElementById('${k}chantier').value,this.value)">
               ${genOptionsHeures(data.heures)}
             </select>
+            <button type="button" class="btn-note-ch no-print${data.note ? ' has-note' : ''}" id="${k}note-btn"
+              title="Note de chantier" aria-label="Note de chantier"
+              onclick="ouvrirNoteChantier('${k}')">🗒</button>
           </div>
+          <div class="note-print" id="${k}note-print">${data.note ? '📝 ' + escapeHtml(data.note) : ''}</div>
         </td>`;
       }
 
@@ -760,18 +774,74 @@ function viderChantier(k) {
   input.value = '';
   const hSel = document.getElementById(k + 'h');
   if (hSel) hSel.value = '0';            // remet les heures saisies à 0 (affichage)
+  if (heures[k]) delete heures[k].note;  // on retire aussi la note de la cellule
   saveHeure(k, '', 0);                   // enregistre : chantier vidé ET 0 heure saisie
+  majBoutonNote(k);                      // met à jour l'indicateur + la note imprimable
   input.focus();
 }
 
 function saveHeure(k, ch, h) {
+  const noteAv = heures[k] && heures[k].note ? heures[k].note : '';
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  if (noteAv) heures[k].note = noteAv;
   localStorage.setItem('heuresdata', JSON.stringify(heures));
 
   const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
   if (!match) return;
   majTotalLigne(match[1], match[2].replace(/_/g, '-'));
   majCouleursChantiers();
+}
+
+/* ── Notes de chantier (planning) ───────────────────────────── */
+let _noteCleCourante = null;
+
+function saveNote(k, note) {
+  const prev = heures[k] || { chantier: '', heures: 0 };
+  heures[k] = { chantier: prev.chantier || '', heures: parseFloat(prev.heures) || 0 };
+  if (note) heures[k].note = note;
+  if (!heures[k].chantier && !heures[k].heures && !heures[k].note) delete heures[k];
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+}
+
+function majBoutonNote(k) {
+  const btn = document.getElementById(k + 'note-btn');
+  if (btn) btn.classList.toggle('has-note', !!(heures[k] && heures[k].note));
+  const pr = document.getElementById(k + 'note-print');
+  if (pr) pr.innerHTML = (heures[k] && heures[k].note) ? '📝 ' + escapeHtml(heures[k].note) : '';
+}
+
+function ouvrirNoteChantier(k) {
+  _noteCleCourante = k;
+  const d = heures[k] || {};
+  const txt = document.getElementById('note-modal-txt');
+  txt.value = d.note || '';
+  const nomInput = document.getElementById(k + 'chantier');
+  const nom = nomInput && nomInput.value ? nomInput.value.trim() : '';
+  document.getElementById('note-modal-sub').textContent = nom ? ('Chantier : ' + nom) : 'Cellule sans chantier';
+  document.getElementById('note-modal-overlay').style.display = 'flex';
+  setTimeout(() => txt.focus(), 30);
+}
+
+function fermerNoteChantier() {
+  const o = document.getElementById('note-modal-overlay');
+  if (o) o.style.display = 'none';
+  _noteCleCourante = null;
+}
+
+function enregistrerNoteChantier() {
+  if (!_noteCleCourante) return;
+  const k = _noteCleCourante;
+  saveNote(k, document.getElementById('note-modal-txt').value.trim());
+  majBoutonNote(k);
+  fermerNoteChantier();
+}
+
+function supprimerNoteChantier() {
+  if (!_noteCleCourante) return;
+  const k = _noteCleCourante;
+  saveNote(k, '');
+  majBoutonNote(k);
+  fermerNoteChantier();
 }
 
 function majTotalLigne(salarieId, dateStr) {
@@ -1157,32 +1227,39 @@ function getTotalDevisChantier(nom) {
 
 function montrerTooltipChantier(input) {
   const nom = (input.value || '').trim();
-  if (!nom) { cacherTooltip(); return; }
+  const k = (input.id || '').replace(/chantier$/, '');
+  const note = (k && heures[k] && heures[k].note) ? String(heures[k].note) : '';
 
-  const stats = getStatsChantier(nom);
-  if (!stats || stats.total === 0) { cacherTooltip(); return; }
+  const stats = nom ? getStatsChantier(nom) : null;
+  const aStats = !!(stats && stats.total > 0);
+  if (!aStats && !note) { cacherTooltip(); return; }
 
   const el = getTooltipEl();
-  let html = `<div class="ct-nom">${escapeHtml(nom)}</div>`;
-  const totalDevis = getTotalDevisChantier(nom);
-  const depasse = totalDevis > 0 && stats.total > totalDevis;
-  if (totalDevis > 0) {
-    html += `<div class="ct-total" style="color:#fff;">Total devis : <strong>${formatHeures(totalDevis)}</strong></div>`;
+  let html = '';
+  if (nom) html += `<div class="ct-nom">${escapeHtml(nom)}</div>`;
+  if (aStats) {
+    const totalDevis = getTotalDevisChantier(nom);
+    const depasse = totalDevis > 0 && stats.total > totalDevis;
+    if (totalDevis > 0) {
+      html += `<div class="ct-total" style="color:#fff;">Total devis : <strong>${formatHeures(totalDevis)}</strong></div>`;
+    }
+    const couleurPlan = depasse ? '#ef4444' : '';
+    html += `<div class="ct-total">Total planifié : <strong style="color:${couleurPlan};">${formatHeures(stats.total)}</strong></div>`;
+    if (stats.liste.length > 0) {
+      html += '<div class="ct-label">Salariés intervenus</div>';
+      stats.liste.forEach(s => {
+        html += `<div class="ct-sal">
+          <span class="ct-sal-nom">${escapeHtml(s.nom)}</span>
+          <span class="ct-sal-h">${formatHeures(s.heures)}</span>
+        </div>`;
+      });
+    }
+    if (stats.dateMin && stats.dateMax) {
+      html += `<div class="ct-periode">Du ${formatDateFr(stats.dateMin)} au ${formatDateFr(stats.dateMax)}</div>`;
+    }
   }
-  // Total planifié : en rouge si dépassement par rapport au devis
-  const couleurPlan = depasse ? '#ef4444' : '';
-  html += `<div class="ct-total">Total planifié : <strong style="color:${couleurPlan};">${formatHeures(stats.total)}</strong></div>`;
-  if (stats.liste.length > 0) {
-    html += '<div class="ct-label">Salariés intervenus</div>';
-    stats.liste.forEach(s => {
-      html += `<div class="ct-sal">
-        <span class="ct-sal-nom">${escapeHtml(s.nom)}</span>
-        <span class="ct-sal-h">${formatHeures(s.heures)}</span>
-      </div>`;
-    });
-  }
-  if (stats.dateMin && stats.dateMax) {
-    html += `<div class="ct-periode">Du ${formatDateFr(stats.dateMin)} au ${formatDateFr(stats.dateMax)}</div>`;
+  if (note) {
+    html += `<div class="ct-note">📝 ${escapeHtml(note)}</div>`;
   }
   el.innerHTML = html;
 
@@ -1241,6 +1318,26 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+<!-- Modale de saisie d'une note de chantier -->
+<div id="note-modal-overlay" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;align-items:center;justify-content:center;padding:16px;"
+  onclick="if(event.target===this)fermerNoteChantier()">
+  <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
+    <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
+    <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <textarea id="note-modal-txt" rows="5" placeholder="Saisir des informations sur ce chantier…"
+      style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px;">
+      <button type="button" onclick="supprimerNoteChantier()"
+        style="border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:600;">Supprimer</button>
+      <div style="display:flex;gap:8px;">
+        <button type="button" onclick="fermerNoteChantier()"
+          style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Annuler</button>
+        <button type="button" onclick="enregistrerNoteChantier()"
+          style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
