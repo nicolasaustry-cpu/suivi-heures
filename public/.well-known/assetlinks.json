@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.volitis.suivheures",
+      "sha256_cert_fingerprints": [
+        "3D:D1:71:56:26:31:94:4E:4D:3E:1B:98:EC:5F:3C:A9:EA:48:B6:67:6B:91:36:B9:BF:DF:5C:E3:38:F2:B1:DE"
+      ]
+    }
+  }
+]
