@@ -759,7 +759,8 @@ function viderChantier(k) {
   if (!input) return;
   input.value = '';
   const hSel = document.getElementById(k + 'h');
-  saveHeure(k, '', hSel ? hSel.value : 0);
+  if (hSel) hSel.value = '0';            // remet les heures saisies à 0 (affichage)
+  saveHeure(k, '', 0);                   // enregistre : chantier vidé ET 0 heure saisie
   input.focus();
 }
 
