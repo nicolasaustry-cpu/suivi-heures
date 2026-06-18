@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Planning équipe – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <style>
+  body { margin:0; font-family:Arial,sans-serif; background:#f4f6f8; color:#222; }
+
+  /* ══ BARRE FIXE (header + nav + outils) ══ */
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
+  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
+  .nav a.active { text-decoration:underline; }
+  .nav a.nav-plus { color:#16a34a; }
+
+  .fixed-tools { background:#fff; border-bottom:1px solid #ccc; padding:0.45rem 0.8rem; }
+  .wk-nav { display:flex; align-items:center; gap:0.7rem; justify-content:center; flex-wrap:wrap; }
+  .wk-btn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; font-size:0.95rem; line-height:1; }
+  .wk-btn:hover { border-color:#0f3a8a; background:#eff4ff; }
+  .wk-label { font-weight:800; color:#0f3a8a; min-width:240px; text-align:center; font-size:0.95rem; }
+  .legende { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; align-items:center; padding-top:0.45rem; font-size:0.78rem; color:#475569; }
+  .legende span { display:inline-flex; align-items:center; gap:5px; }
+  .sw { width:13px; height:13px; border-radius:3px; border:1px solid #cbd5e1; display:inline-block; }
+  .tag-add { font-size:0.7rem; font-weight:700; border:1px solid #cbd5e1; border-radius:5px; padding:0 5px; color:#475569; background:#fff; white-space:nowrap; }
+
+  /* ══ GRILLE ══ */
+  #grille-wrap { overflow:auto; -webkit-overflow-scrolling:touch; }
+  table.grille { border-collapse:separate; border-spacing:0; width:max-content; font-size:0.8rem; }
+  table.grille thead th {
+    position:sticky; top:0; z-index:3; background:#0f3a8a; color:#fff; font-weight:700;
+    padding:8px 6px; text-align:center; min-width:150px;
+    border-right:1px solid rgba(255,255,255,0.18); border-bottom:1px solid #0a2a66;
+  }
+  table.grille thead th.corner { left:0; z-index:5; min-width:66px; width:66px; border-right:3px solid #f59e0b; }
+  table.grille tbody th.jour {
+    position:sticky; left:0; z-index:4; background:#0f3a8a; color:#fff; font-weight:700;
+    padding:8px 5px; min-width:66px; width:66px; text-align:center; vertical-align:top;
+    border-right:3px solid #f59e0b; border-bottom:1px solid #c7cfdb;
+  }
+  table.grille tbody th.jour .jnum { font-size:0.95rem; }
+  table.grille tbody th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
+  table.grille tbody th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
+  table.grille tbody td { background:#fff; vertical-align:top; padding:6px; min-width:150px; border-right:1px solid #e3e7ee; border-bottom:1px solid #c7cfdb; }
+  table.grille tbody tr.ligne-aujourdhui td { background:#fbfdff; }
+
+  .chip { border:1px solid #d7dde5; border-radius:7px; padding:6px 7px; margin-bottom:6px; background:#f1f5f9; }
+  .chip:last-child { margin-bottom:0; }
+  .chip.s-cours { background:#E6F1FB; border-color:#85B7EB; }
+  .chip.s-parti { background:#EAF3DE; border-color:#97C459; }
+  .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:5px; color:#1f2937; font-size:0.8rem; }
+  .chip.s-cours .cn { color:#0C447C; }
+  .chip.s-parti .cn { color:#173404; }
+  .chip .ct { display:inline-block; font-size:0.72rem; font-weight:700; border-radius:5px; padding:1px 7px; background:#f59e0b; color:#412402; }
+  .chip.s-cours .ct { background:#B5D4F4; color:#042C53; }
+  .chip.s-parti .ct { background:#C0DD97; color:#173404; }
+  .chip .pin-etat { font-size:0.85rem; line-height:1; }
+  .vide { color:#9ca3af; text-align:center; padding:6px 2px; }
+
+  .msg-info { padding:1rem; color:#6b7280; }
+  </style>
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+</head>
+<body>
+
+<div class="top-bar" id="top-bar">
+  <header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
+  <h1 class="page-title">Planning équipe</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+  <div class="nav no-print">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+  </div>
+
+  <div class="fixed-tools no-print">
+    <div class="wk-nav">
+      <button class="wk-btn" onclick="semaineDecalage(-1)" title="Semaine précédente">‹</button>
+      <div class="wk-label" id="wk-label">—</div>
+      <button class="wk-btn" onclick="semaineDecalage(1)" title="Semaine suivante">›</button>
+      <button class="wk-btn" onclick="semaineAujourdhui()" title="Revenir à la semaine en cours">Cette semaine</button>
+    </div>
+    <div class="legende">
+      <span><i class="sw" style="background:#f1f5f9"></i>Planifié</span>
+      <span><i class="sw" style="background:#E6F1FB;border-color:#85B7EB"></i>Sur le chantier</span>
+      <span><i class="sw" style="background:#EAF3DE;border-color:#97C459"></i>Parti</span>
+      <span><i class="tag-add">ajouté</i> par le salarié</span>
+    </div>
+  </div>
+</div>
+
+<div id="grille-wrap">
+  <div class="msg-info" id="zone-grille">Chargement…</div>
+</div>
+
+<script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+/* ════════════════════════════════════════════════
+   Planning équipe — grille gérant
+   Colonnes = salariés, lignes = jours (Lun→Sam).
+   Contenu = chantiers planifiés (heuresdata) + chantiers
+   ajoutés sur mobile (réalisé). Couleur selon l'état réel.
+   ════════════════════════════════════════════════ */
+
+let _ancre        = lundiDe(new Date());   // lundi de la semaine affichée
+let _saisies      = [];                     // réalisé chargé depuis le serveur
+const _moisCharges = new Set();             // mois (YYYY-MM) déjà récupérés
+
+const JOURS_NOM = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+
+/* ── Utilitaires dates ── */
+function lundiDe(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const j = d.getDay();                     // 0=dim,1=lun…
+  const delta = (j === 0) ? -6 : (1 - j);   // ramener au lundi
+  d.setDate(d.getDate() + delta);
+  return d;
+}
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function norm(s) { return (s || '').trim().toLowerCase(); }
+function fmtH(h) {
+  const v = Math.round((parseFloat(h) || 0) * 100) / 100;
+  if (!v) return '';
+  return (Number.isInteger(v) ? String(v) : String(v).replace('.', ',')) + 'h';
+}
+function joursSemaine() {                    // Lun→Sam (dimanche exclu, comme le Planning)
+  const arr = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(_ancre);
+    d.setDate(_ancre.getDate() + i);
+    arr.push(d);
+  }
+  return arr;
+}
+
+/* ── État réel d'un chantier saisi ── */
+function etatChantier(c) {
+  if (c.heureDepart  && String(c.heureDepart).trim())  return 'parti';
+  if (c.heureArrivee && String(c.heureArrivee).trim()) return 'cours';
+  return 'plan';
+}
+
+/* ── Récupération du réalisé pour les mois de la semaine ── */
+async function chargerRealiseSemaine() {
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+    || localStorage.getItem('syncToken');
+  if (!token) return;                        // pas de licence : on affiche le planifié seul
+
+  const mois = new Set(joursSemaine().map(d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`));
+  for (const m of mois) {
+    if (_moisCharges.has(m)) continue;
+    try {
+      const r = await fetch(`/api/saisies/${m}`, { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.ok && d.saisies) _saisies.push(...d.saisies);
+      _moisCharges.add(m);
+    } catch (_) {}
+  }
+}
+
+/* ── Construit les pavés d'une cellule (salarié × jour) ── */
+function chipsCellule(sal, dateStr, heures, realParSalDate) {
+  const safeDate = dateStr.replace(/-/g, '_');
+
+  // 1) Chantiers planifiés (Planning) : un pavé par case ch1..ch5 nommée
+  const planifies = [];
+  for (let i = 1; i <= 5; i++) {
+    const data = heures[`${sal.id}${safeDate}ch${i}`];
+    if (data && data.chantier && String(data.chantier).trim()) {
+      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0 });
+    }
+  }
+
+  // 2) Réalisé du salarié ce jour-là
+  const rs   = (realParSalDate[sal.id] && realParSalDate[sal.id][dateStr]) ? realParSalDate[sal.id][dateStr] : [];
+  const pris = new Array(rs.length).fill(false);
+
+  const chips = [];
+
+  // 2a) Pavés planifiés, colorés selon le réalisé correspondant (par nom)
+  planifies.forEach(p => {
+    let etat = 'plan';
+    const idx = rs.findIndex((c, j) => !pris[j] && norm(c.nom) === norm(p.nom));
+    if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); }
+    chips.push({ nom: p.nom, time: fmtH(p.h), etat, ajoute: false });
+  });
+
+  // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
+  rs.forEach((c, j) => {
+    if (pris[j]) return;
+    const dm = c.dureeMin || 0;
+    chips.push({ nom: c.nom, time: dm > 0 ? fmtH(dm / 60) : '', etat: etatChantier(c), ajoute: true });
+  });
+
+  return chips;
+}
+
+function htmlChip(c) {
+  const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
+              : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
+  const tag   = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
+  const temps = c.time ? `<span class="ct">${c.time}</span>` : '';
+  return `<div class="chip s-${c.etat}">
+    <div class="cn">${icone}<span>${escapeHtmlLocal(c.nom)}</span>${tag}</div>${temps}
+  </div>`;
+}
+
+function escapeHtmlLocal(s) {
+  return String(s || '').replace(/[&<>"']/g, m => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]
+  ));
+}
+
+/* ── Rendu de la grille ── */
+function genererGrille() {
+  const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
+  const zone     = document.getElementById('zone-grille');
+
+  const dates    = joursSemaine();
+  const weekStart = dates[0], weekEnd = dates[5];
+
+  majLibelleSemaine(weekStart, weekEnd);
+
+  // Salariés présents au moins un jour de la semaine
+  const sals = salaries.filter(s => {
+    const e = s.dateEntree ? new Date(s.dateEntree) : null;
+    const o = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
+    if (e && e > weekEnd)   return false;
+    if (o && o < weekStart) return false;
+    return true;
+  });
+
+  if (!sals.length) {
+    zone.outerHTML = `<div class="msg-info" id="zone-grille">Aucun salarié présent sur cette semaine.</div>`;
+    return;
+  }
+
+  // Index du réalisé : real[salarieId][date] = [chantiers]
+  const real = {};
+  (_saisies || []).forEach(s => {
+    if (!real[s.salarieId]) real[s.salarieId] = {};
+    if (!real[s.salarieId][s.date]) real[s.salarieId][s.date] = [];
+    (s.chantiers || []).forEach(c => real[s.salarieId][s.date].push(c));
+  });
+
+  const ajdStr = ymd(new Date());
+
+  // En-tête : colonne Jour figée + une colonne par salarié
+  let html = '<table class="grille"><thead><tr><th class="corner">Jour</th>';
+  sals.forEach(s => { html += `<th>${escapeHtmlLocal(s.prenom)} ${escapeHtmlLocal(s.nom)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  dates.forEach(d => {
+    const dateStr = ymd(d);
+    const estAjd  = (dateStr === ajdStr);
+    const jnom    = JOURS_NOM[d.getDay()];
+    html += `<tr class="${estAjd ? 'ligne-aujourdhui' : ''}">`;
+    html += `<th class="jour ${estAjd ? 'aujourdhui' : ''}">
+               <div class="jnum">${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</div>
+               <div class="jnom">${jnom}.</div>
+             </th>`;
+    sals.forEach(s => {
+      const chips = chipsCellule(s, dateStr, heures, real);
+      html += '<td>' + (chips.length ? chips.map(htmlChip).join('') : '<div class="vide">—</div>') + '</td>';
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  zone.outerHTML = `<div id="zone-grille">${html}</div>`;
+
+  // Défilement auto vers le jour courant si présent dans la semaine
+  const ligneAjd = document.querySelector('.grille tr.ligne-aujourdhui');
+  if (ligneAjd) ligneAjd.scrollIntoView({ block: 'center', behavior: 'auto' });
+}
+
+function majLibelleSemaine(debut, fin) {
+  const opt = { day: 'numeric', month: 'long' };
+  const lbl = document.getElementById('wk-label');
+  if (lbl) lbl.textContent = `Semaine du ${debut.toLocaleDateString('fr-FR', opt)} au ${fin.toLocaleDateString('fr-FR', opt)}`;
+}
+
+/* ── Navigation semaine ── */
+async function semaineDecalage(n) {
+  _ancre.setDate(_ancre.getDate() + n * 7);
+  await chargerRealiseSemaine();
+  genererGrille();
+}
+async function semaineAujourdhui() {
+  _ancre = lundiDe(new Date());
+  await chargerRealiseSemaine();
+  genererGrille();
+}
+
+/* ── Hauteur de la zone de défilement sous la barre fixe ── */
+function ajusterHauteur() {
+  const bar  = document.getElementById('top-bar');
+  const wrap = document.getElementById('grille-wrap');
+  if (!bar || !wrap) return;
+  const h = bar.offsetHeight;
+  wrap.style.marginTop = h + 'px';
+  wrap.style.height    = (window.innerHeight - h) + 'px';
+}
+
+/* ── Init ── */
+window.addEventListener('DOMContentLoaded', async () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) { const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+
+  ajusterHauteur();
+  window.addEventListener('resize', ajusterHauteur);
+
+  await chargerRealiseSemaine();
+  genererGrille();
+  ajusterHauteur();
+});
+
+// Quand les données serveur arrivent (salariés, planning…), recharger la grille.
+window.addEventListener('donnees-chargees', async () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) { const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+  await chargerRealiseSemaine();
+  genererGrille();
+  ajusterHauteur();
+});
+</script>
+
+</body>
+</html>
