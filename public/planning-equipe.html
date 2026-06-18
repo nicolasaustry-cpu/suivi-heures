@@ -66,6 +66,22 @@
   .chip .pin-etat { font-size:0.85rem; line-height:1; }
   .vide { color:#9ca3af; text-align:center; padding:6px 2px; }
 
+  /* ── PC : tableau agrandi (~+50 %) et centré horizontalement ── */
+  @media (min-width: 761px) {
+    table.grille { font-size:1.2rem; margin-left:auto; margin-right:auto; }
+    table.grille thead th { min-width:225px; padding:12px 9px; font-size:1.1rem; }
+    table.grille thead th.corner { min-width:99px; width:99px; }
+    table.grille tbody th.jour { min-width:99px; width:99px; padding:12px 8px; }
+    table.grille tbody th.jour .jnum { font-size:1.42rem; }
+    table.grille tbody th.jour .jnom { font-size:1.05rem; }
+    table.grille tbody td { padding:9px; min-width:225px; }
+    .chip { padding:9px 11px; margin-bottom:9px; border-radius:9px; }
+    .chip .cn { font-size:1.2rem; gap:6px; margin-bottom:7px; }
+    .chip .ct { font-size:1.05rem; padding:2px 11px; border-radius:7px; }
+    .chip .pin-etat { font-size:1.28rem; }
+    .vide { font-size:1.2rem; padding:9px 3px; }
+  }
+
   .msg-info { padding:1rem; color:#6b7280; }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
