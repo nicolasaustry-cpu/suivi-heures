@@ -8,11 +8,11 @@
   <style>
   body { margin:0; font-family:Arial,sans-serif; background:#f4f6f8; color:#222; }
   html, body { overflow-x:hidden; }   /* pas de défilement horizontal de la page */
-  /* Sur mobile, l'en-tête desktop déborde : on le masque (le sélecteur suffit).
-     On masque aussi la nav : le gérant n'a pas besoin des pages PC. */
+  /* Sur mobile : masquer en-tête desktop ET nav (le gérant n'a besoin que de la grille).
+     Sélecteur volontairement spécifique + !important pour battre theme-volitis.css. */
   @media (max-width: 760px) {
-    .main-header { display:none; }
-    .nav { display:none; }
+    .top-bar .main-header { display:none !important; }
+    .top-bar .nav         { display:none !important; }
   }
 
   /* ══ BARRE FIXE (header + nav + outils) ══ */
