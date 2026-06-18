@@ -157,6 +157,45 @@ router.post("/mobile-day", async (req, res) => {
   }
 });
 
+/* ── Vue équipe (mobile) : un salarié GÉRANT récupère les saisies du mois de
+   toute l'entreprise + le planning à jour. Auth par code employé (sans token
+   licence) ; l'accès est refusé si le salarié n'est pas marqué « gérant ». ── */
+router.post("/equipe-mois", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const mois      = (req.body.mois || "").trim(); // "YYYY-MM"
+
+    if (!codeEmp || !salarieId || !/^\d{4}-\d{2}$/.test(mois))
+      return res.status(400).json({ ok: false, message: "Paramètres manquants ou invalides" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    // Le salarié doit exister ET être gérant
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal || !sal.gerant)
+      return res.status(403).json({ ok: false, message: "Accès réservé au gérant" });
+
+    const saisies = await Saisie.find({
+      clientId: doc.clientId,
+      date: { $regex: `^${mois}` }
+    }).sort({ date: 1, salarieNom: 1 });
+
+    // Salariés sans PIN (sécurité) + planning à jour pour alimenter la grille
+    const salariesSansPin = (doc.salaries || []).map(s => {
+      const { pin, ...reste } = s.toObject ? s.toObject() : s;
+      return reste;
+    });
+
+    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {} });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Authentification salarié par PIN ── */
 router.post("/auth", verifyToken, async (req, res) => {
   try {

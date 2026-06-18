@@ -163,20 +163,64 @@ function etatChantier(c) {
   return 'plan';
 }
 
-/* ── Récupération du réalisé pour les mois de la semaine ── */
+/* ── Récupération des données pour les mois de la semaine ──
+   Deux contextes : licence (PC, jeton) ou mobile (gérant, code employé). */
+let _accesRefuse = false;
+
 async function chargerRealiseSemaine() {
+  const mois = [...new Set(joursSemaine().map(d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`))];
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
     || localStorage.getItem('syncToken');
-  if (!token) return;                        // pas de licence : on affiche le planifié seul
 
-  const mois = new Set(joursSemaine().map(d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`));
+  if (token) {
+    // Contexte licence (PC). Filet : si la grille n'a pas encore les
+    // salariés/planning (ouverture directe), on les récupère une fois.
+    const aSal = (JSON.parse(localStorage.getItem('salariesdata') || '[]')).length > 0;
+    if (!aSal) {
+      try {
+        const r = await fetch('/api/data', { headers: { 'Authorization': 'Bearer ' + token } });
+        const d = await r.json();
+        if (d.ok && d.data) {
+          localStorage.setItem('salariesdata', JSON.stringify(d.data.salaries || []));
+          localStorage.setItem('heuresdata',   JSON.stringify(d.data.heures   || {}));
+          if (d.data.entreprise) localStorage.setItem('entreprisedata', JSON.stringify(d.data.entreprise));
+        }
+      } catch (_) {}
+    }
+    for (const m of mois) {
+      if (_moisCharges.has(m)) continue;
+      try {
+        const r = await fetch(`/api/saisies/${m}`, { headers: { 'Authorization': 'Bearer ' + token } });
+        const d = await r.json();
+        if (d.ok && d.saisies) _saisies.push(...d.saisies);
+        _moisCharges.add(m);
+      } catch (_) {}
+    }
+    return;
+  }
+
+  // Contexte mobile : salarié gérant connecté par code employé.
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  let salarieId = null;
+  try { salarieId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+  if (!codeEmploye || !salarieId) return;
+
   for (const m of mois) {
     if (_moisCharges.has(m)) continue;
     try {
-      const r = await fetch(`/api/saisies/${m}`, { headers: { 'Authorization': 'Bearer ' + token } });
+      const r = await fetch('/api/saisies/equipe-mois', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye, salarieId, mois: m })
+      });
+      if (r.status === 403) { _accesRefuse = true; continue; }
       const d = await r.json();
-      if (d.ok && d.saisies) _saisies.push(...d.saisies);
-      _moisCharges.add(m);
+      if (d.ok) {
+        if (d.saisies)  _saisies.push(...d.saisies);
+        if (d.salaries) localStorage.setItem('salariesdata', JSON.stringify(d.salaries));
+        if (d.heures)   localStorage.setItem('heuresdata',   JSON.stringify(d.heures));
+        _moisCharges.add(m);
+      }
     } catch (_) {}
   }
 }
@@ -236,6 +280,11 @@ function escapeHtmlLocal(s) {
 
 /* ── Rendu de la grille ── */
 function genererGrille() {
+  const zone0 = document.getElementById('zone-grille');
+  if (_accesRefuse) {
+    zone0.outerHTML = `<div class="msg-info" id="zone-grille">Cette page est réservée aux gérants.</div>`;
+    return;
+  }
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   const heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
   const zone     = document.getElementById('zone-grille');

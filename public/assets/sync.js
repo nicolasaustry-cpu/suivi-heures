@@ -32,7 +32,7 @@ const SYNC = (() => {
 
   const PAGES_LIBRES = ['index.html', '/', ''];
   const PAGES_PLUS = ['realise.html', 'notes.html'];
-  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
+  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html', 'planning-equipe.html'];
 
   /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
   const _fetchOriginal = window.fetch.bind(window);

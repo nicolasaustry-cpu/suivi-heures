@@ -941,6 +941,11 @@
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;">
           ← Sortir
         </button>
+        <button id="btn-vue-equipe" onclick="window.location.href='planning-equipe.html'"
+          style="background:#16a34a;border:1px solid rgba(255,255,255,0.5);color:#fff;
+                 border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;white-space:nowrap;">
+          👁 Vue équipe
+        </button>
         <button onclick="seDeconnecter()"
           style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
@@ -1320,7 +1325,21 @@ function majDateAffichee(val) {
   el.textContent = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
 }
 
+/* Affiche le bouton « Vue équipe » uniquement si le salarié connecté est gérant. */
+function majAccesGerant() {
+  const btn = document.getElementById('btn-vue-equipe');
+  if (!btn) return;
+  let estGerant = false;
+  try {
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const moi  = sals.find(s => String(s.id) === String(_salarie?.id));
+    estGerant = !!(moi && moi.gerant);
+  } catch (_) {}
+  btn.style.display = estGerant ? '' : 'none';
+}
+
 async function chargerChantiersPrev() {
+  majAccesGerant();
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
 
