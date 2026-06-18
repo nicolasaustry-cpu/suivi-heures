@@ -326,6 +326,18 @@ const SYNC = (() => {
     if (_type === 'plus') {
       const rapportsLink = nav.querySelector('a[href="rapports.html"]');
       if (rapportsLink) rapportsLink.remove();
+
+      // « Vue équipe » (vert) inséré juste après « Planning »
+      const planningLink = nav.querySelector('a[href="planning.html"]');
+      if (planningLink) {
+        const ve = document.createElement('a');
+        ve.href = 'planning-equipe.html';
+        ve.textContent = 'Vue équipe';
+        ve.className = 'nav-plus';
+        if (page === 'planning-equipe.html') ve.classList.add('active');
+        planningLink.insertAdjacentElement('afterend', ve);
+      }
+
       const liens = [
         { href: 'saisie.html',  label: 'Saisie mobile' },
         { href: 'realise.html', label: 'Planning réalisé' },
