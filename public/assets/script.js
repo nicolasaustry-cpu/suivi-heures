@@ -128,6 +128,13 @@ function afficherSalaries() {
       <tr>
         <td>${s.prenom}${badgeAlt}</td>
         <td>${s.nom}</td>
+        <td style="text-align:center;">
+          <label class="switch-gerant" title="Gérant : accès à la page Planning équipe">
+            <input type="checkbox" ${s.gerant ? 'checked' : ''} ${estAdmin ? 'disabled' : ''}
+                   onchange="majGerant(${s.id}, this.checked)">
+            <span class="slider"></span>
+          </label>
+        </td>
         <td>${fmtDateFr(s.dateEntree)}</td>
         <td>
           <input type="date" value="${s.dateSortie || ""}"
@@ -292,6 +299,15 @@ function majDateSortie(id, nouvelleDate) {
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
   localStorage.setItem("majPlanning", Date.now().toString());
+}
+
+/* Marque/démarque un salarié comme « gérant » (accès à la page Planning équipe).
+   L'écriture dans salariesdata déclenche automatiquement la synchro serveur. */
+function majGerant(id, checked) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  sal.gerant = !!checked;
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
 }
 
 function majPIN(id, pin) {

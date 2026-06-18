@@ -17,6 +17,14 @@
     background: #f4f6f8;
     box-shadow: 0 4px 8px rgba(0,0,0,0.08);
   }
+  /* Bascule Gérant (accès Planning équipe) */
+  .switch-gerant { position:relative; display:inline-block; width:40px; height:22px; vertical-align:middle; }
+  .switch-gerant input { opacity:0; width:0; height:0; }
+  .switch-gerant .slider { position:absolute; inset:0; background:#cbd5e1; border-radius:22px; transition:.2s; cursor:pointer; }
+  .switch-gerant .slider:before { content:""; position:absolute; height:16px; width:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
+  .switch-gerant input:checked + .slider { background:#f59e0b; }
+  .switch-gerant input:checked + .slider:before { transform:translateX(18px); }
+  .switch-gerant input:disabled + .slider { opacity:.5; cursor:not-allowed; }
 </style>
 
 <div class="zone-figee-sal">
@@ -160,6 +168,7 @@
       <tr>
         <th style="min-width:90px;">Prénom</th>
         <th style="min-width:90px;">Nom</th>
+        <th style="width:60px;text-align:center;" title="Donne accès à la page Planning équipe (mobile et PC)">Gérant</th>
         <th style="width:110px;">Entrée</th>
         <th style="width:140px;">Sortie</th>
         <th style="width:38px;text-align:center;">Lun</th>
