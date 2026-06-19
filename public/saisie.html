@@ -2476,6 +2476,10 @@ function dicterNote() {
   const btn = document.getElementById('btn-dicter');
   const lbl = document.getElementById('dicter-label');
   if (!SR) { alert('La dictée vocale n\'est pas disponible sur ce navigateur. Utilisez le micro du clavier de votre téléphone.'); return; }
+  if (!navigator.onLine) {
+    alert('La dictée vocale a besoin d\'une connexion Internet. Hors ligne, tapez votre note directement (le micro du clavier du téléphone peut aussi fonctionner selon le modèle).');
+    return;
+  }
   if (_noteEnEcoute) { arreterDictee(); return; }
   _noteRecognition = new SR();
   _noteRecognition.lang = 'fr-FR';
@@ -2487,7 +2491,12 @@ function dicterNote() {
     ta.value = (ta.value ? ta.value.trim() + ' ' : '') + t;
   };
   _noteRecognition.onend   = arreterDictee;
-  _noteRecognition.onerror = arreterDictee;
+  _noteRecognition.onerror = function (e) {
+    arreterDictee();
+    if (e && e.error === 'network') {
+      alert('La dictée vocale a été interrompue : connexion Internet indisponible. Tapez votre note directement.');
+    }
+  };
   try { _noteRecognition.start(); _noteEnEcoute = true; lbl.textContent = 'Écoute…'; btn.classList.add('ecoute'); }
   catch (e) { arreterDictee(); }
 }
@@ -2866,16 +2875,21 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     var b = banniere();
     var ecran = document.getElementById('ecran-saisie');
     var enSaisie = ecran && getComputedStyle(ecran).display !== 'none';
-    if (!enSaisie) { b.style.display = 'none'; return; }   // bandeau uniquement sur l'écran de saisie
+    if (!enSaisie) { b.style.display = 'none'; return; }
     var n = window.outboxCount();
-    if (!navigator.onLine) {
-      b.style.display = 'block'; b.style.background = '#f59e0b'; b.style.color = '#3b2400';
-      b.textContent = n > 0
-        ? '\u26A1 Hors connexion \u2014 ' + n + ' saisie(s) en attente, envoi automatique au retour du r\u00e9seau'
-        : '\u26A1 Hors connexion \u2014 vos saisies sont enregistr\u00e9es et seront envoy\u00e9es au retour du r\u00e9seau';
-    } else if (n > 0) {
+    if (n > 0 && _enCours) {
+      // Envoi réellement en cours (la file se vide)
       b.style.display = 'block'; b.style.background = '#2563eb'; b.style.color = '#fff';
       b.textContent = '\u23EB Envoi en cours\u2026 ' + n + ' restante(s)';
+    } else if (n > 0) {
+      // Des saisies attendent (hors connexion ou réseau instable) — couleur distincte de l'en-tête
+      b.style.display = 'block'; b.style.background = '#b45309'; b.style.color = '#fff';
+      b.style.boxShadow = 'inset 0 -2px 0 rgba(0,0,0,0.2)';
+      b.textContent = '\u26A1 ' + n + ' saisie(s) en attente d\u2019envoi \u2014 envoi automatique au retour du r\u00e9seau';
+    } else if (!navigator.onLine) {
+      b.style.display = 'block'; b.style.background = '#b45309'; b.style.color = '#fff';
+      b.style.boxShadow = 'inset 0 -2px 0 rgba(0,0,0,0.2)';
+      b.textContent = '\u26A1 Hors connexion \u2014 vos saisies sont enregistr\u00e9es sur le t\u00e9l\u00e9phone';
     } else {
       b.style.display = 'none';
     }
