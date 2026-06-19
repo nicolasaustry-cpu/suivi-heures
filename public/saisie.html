@@ -839,13 +839,6 @@
   .btn-valider-heure:active { transform: none !important; }
   /* Champ verrouillé quand la bascule est verte */
   .heure-input:disabled { opacity: 0.65; cursor: not-allowed; background: #f1f5f9; }
-  /* Défilement « chantier par chantier » : arrêt net sur chaque carte.
-     .saisie-scroll a overflow-y:auto donc capte le snap des cartes alors que c'est
-     la PAGE qui défile réellement (mise en page flex désactivée). On le neutralise
-     pour que les cartes deviennent des points d'ancrage du défilement de la page. */
-  html, body { scroll-snap-type: y mandatory; scroll-padding-top: 8px; }
-  .saisie-scroll { overflow: visible !important; }
-  .chantier-card { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: 8px; }
   </style>
 </head>
 <body>
