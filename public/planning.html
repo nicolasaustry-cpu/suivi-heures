@@ -607,9 +607,12 @@ function genererPlanning() {
     let lignes = '';
     let totalJour = 0;
     const lignesData = []; // { prevu, ec } par salarié, pour remplir prevu/ecart après
+    let salIdx = 0;        // compteur de salariés affichés ce jour (pour l'alternance de couleur)
 
     salsAvecDates.forEach(({ s, entree: e, sortie: srt }) => {
       if (d < e || (srt && d > srt)) return;
+      const zebra = (salIdx % 2 === 0) ? '#ffffff' : '#eef1f4';  // couleur alternée par salarié
+      salIdx++;
 
       const hp    = grilleHeuresPourDate(s, d);
       const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
@@ -663,7 +666,7 @@ function genererPlanning() {
         : '';
 
       // Ligne 1 : nom + ch1..5 + Total/Abs/Prévu/Écart (en rowspan=2 si SAV)
-      let row = `<tr data-salarie="${s.id}" data-date="${dateStr}">
+      let row = `<tr data-salarie="${s.id}" data-date="${dateStr}" style="background:${zebra};">
         <td style="font-weight:bold;border:1px solid #ccc;padding:3px 5px;vertical-align:top;">${s.prenom} ${s.nom}${badgeAB}${badgeSav}</td>
         ${cells1}
         <td class="cell-total"${rs} style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
@@ -679,8 +682,8 @@ function genererPlanning() {
 
       // Ligne 2 (SAV) : cellule vide sous le nom (alignement) + ch6..10 sous Ch1..5
       if (sav) {
-        row += `<tr class="ligne-sav2">
-          <td style="border:1px solid #ccc;background:#fffdf5;"></td>
+        row += `<tr class="ligne-sav2" style="background:${zebra};">
+          <td style="border:1px solid #ccc;"></td>
           ${cells2}
           </tr>`;
       }
