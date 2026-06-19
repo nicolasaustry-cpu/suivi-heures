@@ -38,7 +38,7 @@
   table.grille { border-collapse:separate; border-spacing:0; width:max-content; font-size:0.8rem; }
   table.grille thead th {
     position:sticky; top:0; z-index:3; background:#0f3a8a; color:#fff; font-weight:700;
-    padding:8px 6px; text-align:center; min-width:150px;
+    padding:8px 6px; text-align:center; min-width:150px; width:150px; max-width:150px;
     border-right:1px solid rgba(255,255,255,0.18); border-bottom:1px solid #0a2a66;
   }
   table.grille thead th.corner { left:0; z-index:5; min-width:66px; width:66px; border-right:3px solid #f59e0b; }
@@ -50,34 +50,34 @@
   table.grille tbody th.jour .jnum { font-size:0.95rem; }
   table.grille tbody th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
   table.grille tbody th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
-  table.grille tbody td { background:#fff; vertical-align:top; padding:6px; min-width:150px; border-right:1px solid #e3e7ee; border-bottom:1px solid #c7cfdb; }
+  table.grille tbody td { background:#fff; vertical-align:top; padding:6px; min-width:150px; width:150px; max-width:150px; border-right:1px solid #e3e7ee; border-bottom:1px solid #c7cfdb; }
   table.grille tbody tr.ligne-aujourdhui td { background:#fbfdff; }
 
-  .chip { border:1px solid #EEC489; border-radius:7px; padding:6px 7px; margin-bottom:6px; background:#FCEBD2; }
+  .chip { border:1px solid #EEC489; border-radius:7px; padding:7px 8px; margin-bottom:6px; background:#FCEBD2; display:flex; flex-direction:column; min-height:90px; }
   .chip:last-child { margin-bottom:0; }
   .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
   .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
   .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:5px; color:#6E4A12; font-size:0.8rem; }
+  .chip .cn .nm { overflow-wrap:anywhere; word-break:break-word; }
   .chip.s-cours .cn { color:#0B3E78; }
   .chip.s-parti .cn { color:#1E5E12; }
-  .chip .ct { display:inline-block; font-size:0.72rem; font-weight:700; border-radius:5px; padding:1px 7px; background:#f59e0b; color:#4A2D04; }
-  .chip.s-cours .ct { background:#2563EB; color:#fff; }
-  .chip.s-parti .ct { background:#4C9A1E; color:#fff; }
+  .chip-hrs { margin-top:auto; padding-top:5px; font-size:0.7rem; line-height:1.4; color:#4b5563; }
+  .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
   .chip .pin-etat { font-size:0.85rem; line-height:1; }
   .vide { color:#9ca3af; text-align:center; padding:6px 2px; }
 
   /* ── PC : tableau agrandi (~+50 %) et centré horizontalement ── */
   @media (min-width: 761px) {
     table.grille { font-size:1.2rem; margin-left:auto; margin-right:auto; }
-    table.grille thead th { min-width:225px; padding:12px 9px; font-size:1.1rem; }
+    table.grille thead th { min-width:225px; width:225px; max-width:225px; padding:12px 9px; font-size:1.1rem; }
     table.grille thead th.corner { min-width:99px; width:99px; }
     table.grille tbody th.jour { min-width:99px; width:99px; padding:12px 8px; }
     table.grille tbody th.jour .jnum { font-size:1.42rem; }
     table.grille tbody th.jour .jnom { font-size:1.05rem; }
-    table.grille tbody td { padding:9px; min-width:225px; }
-    .chip { padding:9px 11px; margin-bottom:9px; border-radius:9px; }
+    table.grille tbody td { padding:9px; min-width:225px; width:225px; max-width:225px; }
+    .chip { padding:11px 13px; margin-bottom:9px; border-radius:9px; min-height:150px; }
     .chip .cn { font-size:1.2rem; gap:6px; margin-bottom:7px; }
-    .chip .ct { font-size:1.05rem; padding:2px 11px; border-radius:7px; }
+    .chip-hrs { font-size:1rem; padding-top:8px; }
     .chip .pin-etat { font-size:1.28rem; }
     .vide { font-size:1.2rem; padding:9px 3px; }
   }
@@ -270,29 +270,37 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
 
   // 2a) Pavés planifiés, colorés selon le réalisé correspondant (par nom)
   planifies.forEach(p => {
-    let etat = 'plan';
+    let etat = 'plan', hReal = 0;
     const idx = rs.findIndex((c, j) => !pris[j] && norm(c.nom) === norm(p.nom));
-    if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); }
-    chips.push({ nom: p.nom, time: fmtH(p.h), etat, ajoute: false });
+    if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; }
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false });
   });
 
-  // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
+  // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié (pas de planifié)
   rs.forEach((c, j) => {
     if (pris[j]) return;
-    const dm = c.dureeMin || 0;
-    chips.push({ nom: c.nom, time: dm > 0 ? fmtH(dm / 60) : '', etat: etatChantier(c), ajoute: true });
+    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true });
   });
 
   return chips;
 }
 
+function fmtHM(h) {
+  if (!h || h <= 0) return '—';
+  return (Math.round(h * 100) / 100).toFixed(2).replace('.', ',') + ' h';
+}
+
 function htmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
-  const tag   = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
-  const temps = c.time ? `<span class="ct">${c.time}</span>` : '';
+  const tag     = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
+  const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
   return `<div class="chip s-${c.etat}">
-    <div class="cn">${icone}<span>${escapeHtmlLocal(c.nom)}</span>${tag}</div>${temps}
+    <div class="cn">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}</div>
+    <div class="chip-hrs">
+      <div class="hp">h plan. : ${fmtHM(c.hPlan)}</div>
+      <div class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</div>
+    </div>
   </div>`;
 }
 
