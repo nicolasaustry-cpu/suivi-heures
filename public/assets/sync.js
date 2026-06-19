@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.06.02-sync3';
+  const VERSION = 'v2026.06.19-sync4';
 
   const API = '';
   let _token    = null;
@@ -385,7 +385,7 @@ const SYNC = (() => {
       const tag = document.createElement('div');
       tag.id = 'sync-version';
       tag.textContent = VERSION + (_modeAdmin ? ' (admin)' : '');
-      tag.style.cssText = 'position:fixed;bottom:4px;left:6px;z-index:9997;font-size:10px;color:#9ca3af;opacity:0.6;font-family:monospace;pointer-events:none;';
+      tag.style.cssText = 'position:fixed;bottom:6px;left:6px;z-index:9997;font-size:12px;font-weight:700;color:#111827;background:rgba(255,255,255,0.92);padding:3px 8px;border-radius:8px;border:1px solid #d1d5db;box-shadow:0 1px 3px rgba(0,0,0,0.15);font-family:monospace;pointer-events:none;';
       document.body.appendChild(tag);
     };
     if (document.body) ajoute();
