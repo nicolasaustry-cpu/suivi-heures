@@ -65,8 +65,12 @@
         <div><label style="font-size:0.85rem;font-weight:600;">Date d'entrée :</label><br><input type="date" id="dateEntreeEl"></div>
       </div>
 
-      <!-- Entretien / Dépannage / SAV : potentiellement plus de 5 chantiers par jour -->
-      <div style="display:flex;align-items:center;">
+      <!-- Cases empilées : alternance A/B + Entretien/Dépannage/SAV -->
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;">
+          <input type="checkbox" id="altCheck" onchange="toggleAlternance()" style="width:auto;">
+          Ce salarié alterne deux semaines (A / B)
+        </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;">
           <input type="checkbox" id="savCheck" style="width:auto;">
           🛠 Entretien / Dépannage / SAV
@@ -76,11 +80,6 @@
 
       <!-- Heures contractuelles -->
       <div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.4rem;">
-          <input type="checkbox" id="altCheck" onchange="toggleAlternance()" style="width:auto;">
-          Ce salarié alterne deux semaines (A / B)
-        </label>
-
         <label id="labelGrilleA" style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Heures / jour</label>
         <table style="width:auto;border-collapse:collapse;">
           <thead>
