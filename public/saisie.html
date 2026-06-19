@@ -813,6 +813,32 @@
     flex: 1; padding: 12px; background: #16a34a; color: #fff; border: none;
     border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer;
   }
+  /* ── Bascules de validation façon interrupteur (gris = non validé / vert = validé) ──
+     Remplace l'aspect des anciens boutons « ✔ OK » (heures + pause). */
+  .btn-valider-heure, .btn-valider-pause {
+    position: relative !important;
+    width: 56px !important; min-width: 56px !important; height: 30px !important;
+    padding: 0 !important; margin: 0 !important;
+    border: none !important; border-radius: 999px !important;
+    background: #cbd5e1 !important;
+    box-shadow: none !important;
+    font-size: 0 !important; color: transparent !important;
+    cursor: pointer; flex: 0 0 auto;
+    transition: background .2s !important;
+    -webkit-appearance: none; appearance: none;
+  }
+  .btn-valider-heure::before, .btn-valider-pause::before {
+    content: ""; position: absolute; top: 3px; left: 3px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    transition: transform .2s;
+  }
+  .btn-valider-heure.valide, .btn-valider-pause.valide { background: #16a34a !important; }
+  .btn-valider-heure.valide::before, .btn-valider-pause.valide::before { transform: translateX(26px); }
+  .btn-valider-heure.erreur, .btn-valider-pause.erreur { background: #dc2626 !important; }
+  .btn-valider-heure:active { transform: none !important; }
+  /* Champ verrouillé quand la bascule est verte */
+  .heure-input:disabled { opacity: 0.65; cursor: not-allowed; background: #f1f5f9; }
   </style>
 </head>
 <body>
@@ -1498,6 +1524,7 @@ function rendrePrev() {
     arrInput.type = 'time';
     arrInput.id = 'arr-' + nomId;
     arrInput.value = s.arrivee || '';
+    arrInput.disabled = !!s.arrivee;
     const arrBtn = document.createElement('button');
     arrBtn.className = 'btn-valider-heure' + (s.arrivee ? ' valide' : '');
     arrBtn.textContent = '✔ OK';
@@ -1522,7 +1549,7 @@ function rendrePrev() {
     }
     pauseRow.innerHTML =
         '<span class="heure-label pause-label">🍽️ Pause</span>'
-      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-nom="' + ch.nom + '">' + optsP + '</select>'
+      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-nom="' + ch.nom + '"' + (s.pauseValidee ? ' disabled' : '') + '>' + optsP + '</select>'
       + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-nom="' + ch.nom + '" onclick="validerPause(this)">✔ OK</button>';
     div.appendChild(pauseRow);
 
@@ -1537,6 +1564,7 @@ function rendrePrev() {
     depInput.type = 'time';
     depInput.id = 'dep-' + nomId;
     depInput.value = s.depart || '';
+    depInput.disabled = !!s.depart;
     const depBtn = document.createElement('button');
     depBtn.className = 'btn-valider-heure' + (s.depart ? ' valide' : '');
     depBtn.textContent = '✔ OK';
@@ -1677,7 +1705,7 @@ function rendreAjout() {
     arrLigne.className = 'heure-ligne';
     const clsArrOK = 'btn-valider-heure' + (ch.arrivee ? ' valide' : '');
     arrLigne.innerHTML = '<span class="heure-label">Arrivée</span>'
-      + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '">'
+      + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '"' + (ch.arrivee ? ' disabled' : '') + '>'
       + '<button class="' + clsArrOK + '" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(arrLigne);
 
@@ -1693,7 +1721,7 @@ function rendreAjout() {
     }
     pauseRow.innerHTML =
         '<span class="heure-label pause-label">🍽️ Pause</span>'
-      + '<select class="heure-input pause-select" id="pause-ajout-' + i + '" onchange="majPauseSelect(this)" data-type="pause-ajout" data-idx="' + i + '">' + optsPa + '</select>'
+      + '<select class="heure-input pause-select" id="pause-ajout-' + i + '" onchange="majPauseSelect(this)" data-type="pause-ajout" data-idx="' + i + '"' + (ch.pauseValidee ? ' disabled' : '') + '>' + optsPa + '</select>'
       + '<button class="btn-valider-heure btn-valider-pause' + (ch.pauseValidee ? ' valide' : '') + '" data-type="pause-ajout" data-idx="' + i + '" onclick="validerPause(this)">✔ OK</button>';
     div.appendChild(pauseRow);
 
@@ -1703,7 +1731,7 @@ function rendreAjout() {
     const depBtnVis = ch.arrivee ? '' : 'display:none;';
     const clsDepOK = 'btn-valider-heure' + (ch.depart ? ' valide' : '');
     depLigne.innerHTML = '<span class="heure-label">Départ</span>'
-      + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '">'
+      + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '"' + (ch.depart ? ' disabled' : '') + '>'
       + '<button class="' + clsDepOK + '" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(depLigne);
 
@@ -2051,15 +2079,27 @@ function seDeconnecter() {
 
 
 /* ── Validation des heures ── */
+/* Bascule de validation repassée au gris : rouvre la saisie de l'heure. */
+function devaliderHeure(btn) {
+  btn.classList.remove('valide', 'erreur');
+  const id = btn.dataset.inputId || btn.dataset.input;
+  const inp = id && document.getElementById(id);
+  if (inp) inp.disabled = false;
+}
+
 async function validerHeurePrevData(btn) {
+  // Bascule OFF : si déjà validé, on rouvre la saisie
+  if (btn.classList.contains('valide')) { devaliderHeure(btn); return; }
   const nom   = btn.dataset.nom;
   const champ = btn.dataset.champ;
   const val   = document.getElementById(btn.dataset.inputId)?.value;
   if (!val) return;
   if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
   _saisiesPrev[nom][champ] = val;
-  // Passer le bouton en vert
+  // Passer la bascule en vert et verrouiller le champ
   btn.classList.add('valide');
+  const inpLock = document.getElementById(btn.dataset.inputId);
+  if (inpLock) inpLock.disabled = true;
   // Si arrivée validée → afficher bouton OK du départ
   if (champ === 'arrivee') {
     const card = btn.closest('.chantier-card');
@@ -2106,22 +2146,27 @@ async function validerHeurePrevData(btn) {
   } else {
     btn.textContent = '⚠ Réessayer';
     btn.classList.remove('valide');
-    btn.style.background = '#dc2626';
+    btn.classList.add('erreur');
+    if (inpLock) inpLock.disabled = false;
     setTimeout(() => {
       btn.textContent = ancienTxt;
-      btn.style.background = '';
+      btn.classList.remove('erreur');
     }, 2500);
   }
 }
 
 async function validerHeureAjoutData(btn) {
+  // Bascule OFF : si déjà validé, on rouvre la saisie
+  if (btn.classList.contains('valide')) { devaliderHeure(btn); return; }
   const i     = parseInt(btn.dataset.idx);
   const champ = btn.dataset.champ;
   const val   = document.getElementById(btn.dataset.input)?.value;
   if (!val) return;
   _chantiersA[i][champ] = val;
-  // Passer le bouton en vert
+  // Passer la bascule en vert et verrouiller le champ
   btn.classList.add('valide');
+  const inpLock = document.getElementById(btn.dataset.input);
+  if (inpLock) inpLock.disabled = true;
   // Si arrivée validée → afficher bouton OK du départ
   if (champ === 'arrivee') {
     const card = btn.closest('.chantier-card');
@@ -2168,10 +2213,11 @@ async function validerHeureAjoutData(btn) {
   } else {
     btn.textContent = '⚠ Réessayer';
     btn.classList.remove('valide');
-    btn.style.background = '#dc2626';
+    btn.classList.add('erreur');
+    if (inpLock) inpLock.disabled = false;
     setTimeout(() => {
       btn.textContent = ancienTxt;
-      btn.style.background = '';
+      btn.classList.remove('erreur');
     }, 2500);
   }
 }
@@ -2239,6 +2285,20 @@ function majPauseSelect(sel) {
    Fonctionne même si le départ n'est pas encore saisi : on enregistre l'état actuel
    du chantier au serveur avec la pause. */
 async function validerPause(btn) {
+  // Bascule OFF : rouvrir la sélection de pause
+  if (btn.classList.contains('valide')) {
+    btn.classList.remove('valide', 'erreur');
+    const card0 = btn.closest('.chantier-card');
+    const selP  = card0 && card0.querySelector('.pause-select');
+    if (selP) selP.disabled = false;
+    if (btn.dataset.type === 'pause-prev') {
+      if (_saisiesPrev[btn.dataset.nom]) _saisiesPrev[btn.dataset.nom].pauseValidee = false;
+    } else {
+      const ii = parseInt(btn.dataset.idx);
+      if (_chantiersA[ii]) _chantiersA[ii].pauseValidee = false;
+    }
+    return;
+  }
   const type = btn.dataset.type;
   const card = btn.closest('.chantier-card');
   let s, nom;
@@ -2257,6 +2317,8 @@ async function validerPause(btn) {
 
   btn.classList.add('valide');
   s.pauseValidee = true;
+  const selLock = card && card.querySelector('.pause-select');
+  if (selLock) selLock.disabled = true;
 
   // Pause ajoutée APRÈS un envoi : on « dé-finalise » le chantier pour réafficher
   // « Envoyer ce chantier » (le ré-envoi repartira complet, départ inclus).
@@ -2293,7 +2355,9 @@ async function validerPause(btn) {
   } else {
     btn.textContent = '⚠';
     btn.classList.remove('valide');
-    setTimeout(() => { btn.textContent = ancienTxt; }, 2000);
+    btn.classList.add('erreur');
+    if (selLock) selLock.disabled = false;
+    setTimeout(() => { btn.textContent = ancienTxt; btn.classList.remove('erreur'); }, 2000);
   }
 }
 
