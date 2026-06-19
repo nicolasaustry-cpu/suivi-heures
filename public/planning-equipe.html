@@ -38,7 +38,7 @@
   table.grille { border-collapse:separate; border-spacing:0; width:max-content; font-size:0.8rem; }
   table.grille thead th {
     position:sticky; top:0; z-index:3; background:#0f3a8a; color:#fff; font-weight:700;
-    padding:8px 6px; text-align:center; min-width:150px; width:150px; max-width:150px;
+    padding:8px 6px; text-align:center; min-width:160px; width:160px; max-width:160px;
     border-right:1px solid rgba(255,255,255,0.18); border-bottom:1px solid #0a2a66;
   }
   table.grille thead th.corner { left:0; z-index:5; min-width:66px; width:66px; border-right:3px solid #f59e0b; }
@@ -50,10 +50,10 @@
   table.grille tbody th.jour .jnum { font-size:0.95rem; }
   table.grille tbody th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
   table.grille tbody th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
-  table.grille tbody td { background:#fff; vertical-align:top; padding:6px; min-width:150px; width:150px; max-width:150px; border-right:1px solid #e3e7ee; border-bottom:1px solid #c7cfdb; }
+  table.grille tbody td { background:#fff; vertical-align:top; padding:6px; min-width:160px; width:160px; max-width:160px; border-right:1px solid #e3e7ee; border-bottom:1px solid #c7cfdb; }
   table.grille tbody tr.ligne-aujourdhui td { background:#fbfdff; }
 
-  .chip { border:1px solid #EEC489; border-radius:7px; padding:7px 8px; margin-bottom:6px; background:#FCEBD2; display:flex; flex-direction:column; min-height:90px; }
+  .chip { border:1px solid #EEC489; border-radius:7px; padding:6px 8px; margin-bottom:6px; background:#FCEBD2; display:flex; flex-direction:column; min-height:45px; }
   .chip:last-child { margin-bottom:0; }
   .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
   .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
@@ -61,7 +61,8 @@
   .chip .cn .nm { overflow-wrap:anywhere; word-break:break-word; }
   .chip.s-cours .cn { color:#0B3E78; }
   .chip.s-parti .cn { color:#1E5E12; }
-  .chip-hrs { margin-top:auto; padding-top:5px; font-size:0.7rem; line-height:1.4; color:#4b5563; }
+  .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.6rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
+  .chip-hrs .hr { margin-left:5px; }
   .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
   .chip .pin-etat { font-size:0.85rem; line-height:1; }
   .vide { color:#9ca3af; text-align:center; padding:6px 2px; }
@@ -75,9 +76,9 @@
     table.grille tbody th.jour .jnum { font-size:1.42rem; }
     table.grille tbody th.jour .jnom { font-size:1.05rem; }
     table.grille tbody td { padding:9px; min-width:225px; width:225px; max-width:225px; }
-    .chip { padding:11px 13px; margin-bottom:9px; border-radius:9px; min-height:150px; }
+    .chip { padding:9px 13px; margin-bottom:9px; border-radius:9px; min-height:75px; }
     .chip .cn { font-size:1.2rem; gap:6px; margin-bottom:7px; }
-    .chip-hrs { font-size:1rem; padding-top:8px; }
+    .chip-hrs { font-size:0.8rem; padding-top:6px; }
     .chip .pin-etat { font-size:1.28rem; }
     .vide { font-size:1.2rem; padding:9px 3px; }
   }
@@ -297,10 +298,7 @@ function htmlChip(c) {
   const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
   return `<div class="chip s-${c.etat}">
     <div class="cn">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}</div>
-    <div class="chip-hrs">
-      <div class="hp">h plan. : ${fmtHM(c.hPlan)}</div>
-      <div class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</div>
-    </div>
+    <div class="chip-hrs"><span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span></div>
   </div>`;
 }
 
