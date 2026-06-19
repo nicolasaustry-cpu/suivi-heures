@@ -1040,6 +1040,7 @@
     <div id="note-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
     <textarea class="note-textarea" id="note-texte" placeholder="Saisir une note, ou dicter…"></textarea>
     <div class="note-hint">Astuce : le micro du clavier fonctionne aussi sur tous les téléphones.</div>
+    <div class="note-hint" id="note-offline-hint" style="display:none;color:#92400e;font-weight:700;">⚡ Hors connexion : la dictée vocale est indisponible. Tapez votre note (le micro du clavier peut fonctionner).</div>
     <div class="note-actions">
       <button class="btn-dicter" id="btn-dicter" onclick="dicterNote()">🎤 <span id="dicter-label">Dicter</span></button>
       <button class="btn-dicter" id="btn-photo" onclick="prendrePhoto()">📷 Photo</button>
@@ -2403,6 +2404,8 @@ function ouvrirNote(type, ref, btn) {
     _notePhotos  = (ch.photos || []).slice();
   }
   document.getElementById('note-chantier-nom').textContent = nom;
+  var hintOff = document.getElementById('note-offline-hint');
+  if (hintOff) hintOff.style.display = (!navigator.onLine || window._reseauReel === false) ? 'block' : 'none';
   // Si la note existe déjà, on ajoute un passage à la ligne automatique pour que
   // le nouvel ajout commence sur une ligne vierge (le .trim() à l'enregistrement
   // retire ce saut s'il reste inutilisé).
@@ -2476,7 +2479,7 @@ function dicterNote() {
   const btn = document.getElementById('btn-dicter');
   const lbl = document.getElementById('dicter-label');
   if (!SR) { alert('La dictée vocale n\'est pas disponible sur ce navigateur. Utilisez le micro du clavier de votre téléphone.'); return; }
-  if (!navigator.onLine) {
+  if (!navigator.onLine || window._reseauReel === false) {
     alert('La dictée vocale a besoin d\'une connexion Internet. Hors ligne, tapez votre note directement (le micro du clavier du téléphone peut aussi fonctionner selon le modèle).');
     return;
   }
@@ -2629,6 +2632,7 @@ async function _envoyerChantier(chantier, date) {
   };
   // Hors-ligne connu : on met en file, l'envoi se fera tout seul au retour du réseau
   if (!navigator.onLine && window.outboxAdd) {
+    window._reseauReel = false;
     outboxAdd(payload);
     if (window.majIndicateurReseau) majIndicateurReseau();
     return true;
@@ -2639,6 +2643,7 @@ async function _envoyerChantier(chantier, date) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    window._reseauReel = true;
     const d = await r.json();
     if (d.ok === true) {
       if (window.outboxFlush) outboxFlush();   // au passage, on vide une éventuelle file en attente
@@ -2647,6 +2652,7 @@ async function _envoyerChantier(chantier, date) {
     return false;                              // erreur serveur réelle (on est en ligne)
   } catch(e) {
     // Réseau coupé pendant l'envoi → file d'attente
+    window._reseauReel = false;
     if (window.outboxAdd) {
       outboxAdd(payload);
       if (window.majIndicateurReseau) majIndicateurReseau();
@@ -2836,7 +2842,7 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 
   var _enCours = false;
   window.outboxFlush = async function () {
-    if (_enCours || !navigator.onLine) { majIndicateurReseau(); return; }
+    if (_enCours) { majIndicateurReseau(); return; }
     var arr = fileLire();
     if (!arr.length) { majIndicateurReseau(); return; }
     _enCours = true; majIndicateurReseau();
@@ -2849,9 +2855,10 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(arr[0].payload)
           });
+          window._reseauReel = true;          // serveur joint
           var d = await r.json();
           ok = !!(d && d.ok === true);
-        } catch (e) { ok = false; }
+        } catch (e) { ok = false; window._reseauReel = false; }
         if (!ok) break;                 // réseau de nouveau coupé : on s'arrête, on réessaiera
         arr.shift(); fileEcrire(arr);   // envoyé : on retire de la file
         majIndicateurReseau();
@@ -2860,14 +2867,14 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   };
 
   function banniere() {
-    var ecran = document.getElementById('ecran-saisie');
     var b = document.getElementById('offline-banner');
     if (!b) {
       b = document.createElement('div');
       b.id = 'offline-banner';
-      b.style.cssText = 'text-align:center;font-size:13px;font-weight:700;padding:7px 10px;display:none;line-height:1.3;';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;text-align:center;'
+        + 'font-size:13px;font-weight:700;padding:8px 12px;display:none;line-height:1.3;';
+      (document.body || document.documentElement).appendChild(b);
     }
-    if (ecran && b.parentNode !== ecran) ecran.insertBefore(b, ecran.firstChild);
     return b;
   }
 
@@ -2875,32 +2882,34 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     var b = banniere();
     var ecran = document.getElementById('ecran-saisie');
     var enSaisie = ecran && getComputedStyle(ecran).display !== 'none';
-    if (!enSaisie) { b.style.display = 'none'; return; }
+    if (!enSaisie) { b.style.display = 'none'; if (ecran) ecran.style.paddingTop = ''; return; }
     var n = window.outboxCount();
     if (n > 0 && _enCours) {
-      // Envoi réellement en cours (la file se vide)
       b.style.display = 'block'; b.style.background = '#2563eb'; b.style.color = '#fff';
+      b.style.boxShadow = 'inset 0 -2px 0 rgba(0,0,0,0.2)';
       b.textContent = '\u23EB Envoi en cours\u2026 ' + n + ' restante(s)';
     } else if (n > 0) {
-      // Des saisies attendent (hors connexion ou réseau instable) — couleur distincte de l'en-tête
       b.style.display = 'block'; b.style.background = '#b45309'; b.style.color = '#fff';
       b.style.boxShadow = 'inset 0 -2px 0 rgba(0,0,0,0.2)';
       b.textContent = '\u26A1 ' + n + ' saisie(s) en attente d\u2019envoi \u2014 envoi automatique au retour du r\u00e9seau';
-    } else if (!navigator.onLine) {
+    } else if (!navigator.onLine || window._reseauReel === false) {
       b.style.display = 'block'; b.style.background = '#b45309'; b.style.color = '#fff';
       b.style.boxShadow = 'inset 0 -2px 0 rgba(0,0,0,0.2)';
       b.textContent = '\u26A1 Hors connexion \u2014 vos saisies sont enregistr\u00e9es sur le t\u00e9l\u00e9phone';
     } else {
       b.style.display = 'none';
     }
+    // Le bandeau est fixe : on décale le contenu pour ne pas masquer l'en-tête
+    ecran.style.paddingTop = (b.style.display === 'none') ? '' : (b.offsetHeight + 'px');
   };
 
   function init() {
+    if (window._reseauReel === undefined) window._reseauReel = navigator.onLine;
     majIndicateurReseau();
     outboxFlush();
     window.addEventListener('online',  outboxFlush);
-    window.addEventListener('offline', majIndicateurReseau);
-    setInterval(function () { if (navigator.onLine && outboxCount() > 0) outboxFlush(); }, 20000);
+    window.addEventListener('offline', function () { window._reseauReel = false; majIndicateurReseau(); });
+    setInterval(function () { if (outboxCount() > 0) outboxFlush(); }, 20000);
     var ecran = document.getElementById('ecran-saisie');
     if (ecran) new MutationObserver(majIndicateurReseau)
       .observe(ecran, { attributes: true, attributeFilter: ['style'] });
