@@ -1060,6 +1060,7 @@
 ═══════════════════════════ */
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
+let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) }
 let _chantiersA = [];   // chantiers ajoutés
 let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
 let _deplJournee = 0;  // Déplacement global de la journée
@@ -1377,6 +1378,7 @@ async function chargerChantiersPrev() {
   const salarieId = _salarie?.id;
 
   _chantiersP = [];
+  _notesPlanning = {};
   // On RÉINITIALISE pas _saisiesPrev / _chantiersA ici : ils sont remis à zéro
   // au changement de date / déconnexion. Au premier appel après login, ils sont vides.
 
@@ -1393,6 +1395,9 @@ async function chargerChantiersPrev() {
       const h = parseFloat(entry?.heures) || 0;
       chantiersTrouves.set(nomChantier, h);
     }
+    // Note saisie dans le planning (première non vide rencontrée pour ce chantier)
+    const noteP = (entry?.note || '').trim();
+    if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
   }
 
   _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
@@ -1467,6 +1472,31 @@ async function chargerChantiersPrev() {
   majTotal();
 }
 
+/* Pop-up LECTURE SEULE : affiche la note saisie dans le planning pour un chantier prévu. */
+function ouvrirNotePlanning(nom) {
+  const txt = (_notesPlanning[nom] || '').trim();
+  if (!txt) return;
+  let ov = document.getElementById('note-planning-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'note-planning-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px;';
+    ov.innerHTML =
+        '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
+      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note du planning</div>'
+      + '<div id="note-planning-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
+      + '<div id="note-planning-txt" style="padding:8px 16px 16px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
+      + '<div style="padding:0 16px 16px;text-align:right;"><button type="button" id="note-planning-fermer" style="background:#0f3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;">Fermer</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (e) { if (e.target === ov) ov.style.display = 'none'; });
+    ov.querySelector('#note-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
+  }
+  ov.querySelector('#note-planning-nom').textContent = nom;
+  ov.querySelector('#note-planning-txt').textContent = txt;
+  ov.style.display = 'flex';
+}
+
 /* ═══════════════════════════
    RENDU CHANTIERS PRÉVUS
 ═══════════════════════════ */
@@ -1489,6 +1519,15 @@ function rendrePrev() {
     const nomEl = document.createElement('div');
     nomEl.className = 'chantier-nom';
     nomEl.textContent = ch.nom;
+    if ((_notesPlanning[ch.nom] || '').trim()) {
+      const btnNP = document.createElement('button');
+      btnNP.type = 'button';
+      btnNP.textContent = '📋 Note';
+      btnNP.title = 'Voir la note du planning';
+      btnNP.style.cssText = 'background:#e0e7ff;color:#3730a3;border:none;border-radius:8px;padding:3px 9px;font-size:0.72rem;font-weight:700;cursor:pointer;margin-left:8px;flex:0 0 auto;white-space:nowrap;';
+      btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
+      nomEl.appendChild(btnNP);
+    }
     header.appendChild(nomEl);
     const badge = document.createElement('span');
     const dejaSauve = s.envoye || s.dejaEnvoye;
