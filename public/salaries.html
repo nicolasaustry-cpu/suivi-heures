@@ -65,6 +65,15 @@
         <div><label style="font-size:0.85rem;font-weight:600;">Date d'entrée :</label><br><input type="date" id="dateEntreeEl"></div>
       </div>
 
+      <!-- Entretien / Dépannage / SAV : potentiellement plus de 5 chantiers par jour -->
+      <div style="display:flex;align-items:center;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;">
+          <input type="checkbox" id="savCheck" style="width:auto;">
+          🛠 Entretien / Dépannage / SAV
+          <span style="font-weight:400;color:#6b7280;font-size:0.78rem;">(plus de 5 chantiers/jour → 2ᵉ ligne dans le planning)</span>
+        </label>
+      </div>
+
       <!-- Heures contractuelles -->
       <div>
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.4rem;">
