@@ -2770,5 +2770,30 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   maj();
 })();
 </script>
+<script>
+  /* Le n° de version (pastille ajoutée par sync.js) ne doit apparaître que sur les
+     écrans « code entreprise » et « choisir votre nom » (#pin-screen), pas sur la
+     saisie des heures (#ecran-saisie). On masque la pastille quand la saisie est visible. */
+  (function () {
+    function majBadgeVersion() {
+      var v = document.getElementById('sync-version');
+      if (!v) return;
+      var ecran = document.getElementById('ecran-saisie');
+      var enSaisie = ecran && getComputedStyle(ecran).display !== 'none';
+      v.style.display = enSaisie ? 'none' : '';
+    }
+    function init() {
+      var ecran = document.getElementById('ecran-saisie');
+      if (ecran) new MutationObserver(majBadgeVersion)
+        .observe(ecran, { attributes: true, attributeFilter: ['style'] });
+      // La pastille peut être créée par sync.js après le chargement : on surveille son ajout.
+      new MutationObserver(majBadgeVersion).observe(document.body, { childList: true });
+      majBadgeVersion();
+      setTimeout(majBadgeVersion, 1000);
+    }
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init);
+    else init();
+  })();
+</script>
 </body>
 </html>
