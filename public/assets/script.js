@@ -149,6 +149,8 @@ function afficherSalaries() {
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
         <td style="white-space:nowrap;">${pinCell}</td>
         <td style="white-space:nowrap;">
+          <button class="btn" title="Monter" style="padding:3px 7px;font-size:0.8rem;background:#eef2ff;color:#3730a3;" onclick="deplacerSalarie(${idx}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <button class="btn" title="Descendre" style="padding:3px 7px;font-size:0.8rem;background:#eef2ff;color:#3730a3;" onclick="deplacerSalarie(${idx}, 1)" ${i === liste.length - 1 ? 'disabled' : ''}>▼</button>
           <button class="btn btn-primary" style="padding:3px 8px;font-size:0.8rem;" onclick="ouvrirModifSalarie(${s.id})">✏</button>
           <button class="btn btn-danger" style="padding:3px 8px;font-size:0.8rem;" onclick="supprimerSalarie(${idx})">✖</button>
         </td>
@@ -190,6 +192,12 @@ function ouvrirModifSalarie(id) {
 
   modale.innerHTML = '<div style="background:#fff;border-radius:12px;padding:1.5rem;width:520px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2);">'
     + '<h3 style="margin:0 0 1rem;color:#374151;">✏ Modifier ' + sal.prenom + ' ' + sal.nom + '</h3>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">'
+    + '<div><label style="font-size:0.8rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">Prénom</label>'
+    + '<input type="text" id="modif-prenom" value="' + (sal.prenom || '').replace(/"/g, '&quot;') + '" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font-size:0.9rem;"></div>'
+    + '<div><label style="font-size:0.8rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">Nom</label>'
+    + '<input type="text" id="modif-nom" value="' + (sal.nom || '').replace(/"/g, '&quot;') + '" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font-size:0.9rem;"></div>'
+    + '</div>'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.8rem;">'
     + '<input type="checkbox" id="modif-alt" ' + (alternance ? 'checked' : '') + ' onchange="toggleAltModif()" style="width:auto;"> Ce salarié alterne deux semaines (A / B)</label>'
     + '<p id="modif-labelA" style="font-size:0.85rem;color:#6b7280;margin:0 0 0.5rem;">' + (alternance ? 'Semaine A' : 'Heures contractuelles par jour') + '</p>'
@@ -255,6 +263,11 @@ function ajouterBasculeModif(date, semaine) {
 function sauverModifSalarie(id) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
+  // Prénom / Nom (modifiables)
+  const nvPrenom = (document.getElementById('modif-prenom')?.value || '').trim();
+  const nvNom    = (document.getElementById('modif-nom')?.value || '').trim();
+  if (nvPrenom) sal.prenom = nvPrenom;
+  sal.nom = nvNom;
   const jours = ['lun','mar','mer','jeu','ven','sam'];
   const lire = (prefixe) => {
     const g = {};
@@ -299,6 +312,27 @@ function majDateSortie(id, nouvelleDate) {
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
   localStorage.setItem("majPlanning", Date.now().toString());
+}
+
+/* Change l'ordre d'un salarié : ▲ (sens = -1) le monte, ▼ (sens = +1) le descend.
+   Le déplacement se fait par rapport à la liste VISIBLE (respecte le filtre « présents »). */
+function deplacerSalarie(idx, sens) {
+  const s = salaries[idx];
+  if (!s) return;
+  const auj = new Date();
+  const visibles = _filtrePresents
+    ? salaries.filter(x => !x.dateSortie || new Date(x.dateSortie) >= auj)
+    : salaries.slice();
+  const posV  = visibles.indexOf(s);
+  const cible = visibles[posV + sens];
+  if (!cible) return;                       // déjà tout en haut / tout en bas
+  const i1 = salaries.indexOf(s);
+  const i2 = salaries.indexOf(cible);
+  salaries[i1] = cible;
+  salaries[i2] = s;
+  localStorage.setItem('salariesdata', JSON.stringify(salaries));
+  afficherSalaries();
+  localStorage.setItem('majPlanning', Date.now().toString());
 }
 
 /* Marque/démarque un salarié comme « gérant » (accès à la page Planning équipe).
