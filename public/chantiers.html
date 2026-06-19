@@ -779,7 +779,7 @@ function rendreChantiers() {
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder=""
-              style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;"
+              style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
             ${coche}
@@ -804,7 +804,7 @@ function rendreChantiers() {
       html += `<tr class="tr-chantier">
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <input placeholder=""
-            style="width:100%;border:none;background:transparent;font-size:0.88rem;font-family:inherit;"
+            style="width:100%;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
             data-annee="${annee}" data-mi="${mi}" data-champ="client" data-nav="client"
             onblur="ajouterVierge(this)" onkeydown="navEnTree(event,this)">
         </td>
@@ -901,7 +901,7 @@ function ajouterDepuisVierge(annee, mi, input, champ) {
   const dm = getDataMois(annee, mi);
   if (!dm.chantiers) dm.chantiers = [];
   const nouveau = { client: '', hPrevues: '' };
-  nouveau[champ] = val;
+  nouveau[champ] = (champ === 'client') ? val.toUpperCase() : val;
   dm.chantiers.push(nouveau);
   sauverData();
   rendreChantiers();
@@ -972,7 +972,7 @@ function supprimerChantier(annee, mi, ci) {
 
 function majChantier(annee, mi, ci, champ, val) {
   const dm = getDataMois(annee, mi);
-  dm.chantiers[ci][champ] = val;
+  dm.chantiers[ci][champ] = (champ === 'client' && typeof val === 'string') ? val.toUpperCase() : val;
   sauverData();
   majLigne(`${annee}_${mi}`);
   const totH = dm.chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
