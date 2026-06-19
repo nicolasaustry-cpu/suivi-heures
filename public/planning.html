@@ -619,14 +619,15 @@ function genererPlanning() {
       const badgeAB = s.alternance
         ? ` <span style="display:inline-block;background:${semaineAB(s,d)==='A'?'#dbeafe':'#fef3c7'};color:${semaineAB(s,d)==='A'?'#1e40af':'#92400e'};border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;" title="Semaine ${semaineAB(s,d)}">${semaineAB(s,d)}</span>`
         : '';
-      let row = `<tr data-salarie="${s.id}" data-date="${dateStr}">
-        <td style="font-weight:bold;border:1px solid #ccc;padding:3px 5px;">${s.prenom} ${s.nom}${badgeAB}</td>`;
+      const sav = !!s.sav;
+      const rs  = sav ? ' rowspan="2"' : '';
 
-      for (let i = 1; i <= 5; i++) {
+      // Construit une cellule chantier (index i) et cumule le total de la ligne
+      const celluleCh = (i) => {
         const k    = `${s.id}${safeDate}ch${i}`;
         const data = heures[k] || { chantier: '', heures: 0 };
         total += parseFloat(data.heures) || 0;
-        row += `<td style="border:1px solid #ccc;padding:2px;">
+        return `<td style="border:1px solid #ccc;padding:2px;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:116px;flex:0 0 auto;"
               list="liste-chantiers-prev" autocomplete="off"
@@ -644,25 +645,45 @@ function genererPlanning() {
           </div>
           <div class="note-print" id="${k}note-print">${data.note ? '📝 ' + escapeHtml(data.note) : ''}</div>
         </td>`;
-      }
+      };
+
+      // Ligne 1 : ch1..5 ; pour les SAV, ligne 2 : ch6..10 (cumulés AVANT le total)
+      let cells1 = '';
+      for (let i = 1; i <= 5; i++) cells1 += celluleCh(i);
+      let cells2 = '';
+      if (sav) for (let i = 6; i <= 10; i++) cells2 += celluleCh(i);
 
       const absK = `${s.id}${safeDate}abs`;
       const abs  = heures[absK]?.heures || 0;
       const ec   = total - prevu + abs;
       totalJour += total;
 
-      // Prévu et Écart laissés vides — remplis après selon totalJour
-      row += `
-        <td class="cell-total" style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
-        <td class="cell-abs col-abs" style="border:1px solid #ccc;text-align:center;">
+      const badgeSav = sav
+        ? ' <span title="Entretien/Dépannage/SAV (2ᵉ ligne de chantiers)" style="background:#fef3c7;color:#92400e;border-radius:4px;padding:0 4px;font-size:0.68rem;font-weight:700;">🛠</span>'
+        : '';
+
+      // Ligne 1 : nom + ch1..5 + Total/Abs/Prévu/Écart (en rowspan=2 si SAV)
+      let row = `<tr data-salarie="${s.id}" data-date="${dateStr}">
+        <td style="font-weight:bold;border:1px solid #ccc;padding:3px 5px;vertical-align:top;">${s.prenom} ${s.nom}${badgeAB}${badgeSav}</td>
+        ${cells1}
+        <td class="cell-total"${rs} style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
+        <td class="cell-abs col-abs"${rs} style="border:1px solid #ccc;text-align:center;">
           <select data-type="abs" id="${absK}h" style="width:55px;"
             onchange="saveHeure('${absK}','absence',this.value)">
             ${genOptionsHeures(abs)}
           </select>
         </td>
-        <td class="cell-prevu col-prevu" style="border:1px solid #ccc;text-align:center;"></td>
-        <td class="cell-ecart col-ecart" style="border:1px solid #ccc;text-align:center;"></td>
+        <td class="cell-prevu col-prevu"${rs} style="border:1px solid #ccc;text-align:center;"></td>
+        <td class="cell-ecart col-ecart"${rs} style="border:1px solid #ccc;text-align:center;"></td>
         </tr>`;
+
+      // Ligne 2 (SAV) : cellule vide sous le nom (alignement) + ch6..10 sous Ch1..5
+      if (sav) {
+        row += `<tr class="ligne-sav2">
+          <td style="border:1px solid #ccc;background:#fffdf5;"></td>
+          ${cells2}
+          </tr>`;
+      }
 
       lignes += row;
       lignesData.push({ salarieId: s.id, prevuReduit: prevu - abs, ec });
@@ -852,15 +873,16 @@ function majTotalLigne(salarieId, dateStr) {
   if (!tr) return;
 
   const safeDate = dateStr.replace(/-/g, '_');
+  const sal   = salaries.find(s => s.id == salarieId);
+  if (!sal) return;
+  const nbCh  = sal.sav ? 10 : 5;
   let total = 0;
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= nbCh; i++) {
     total += parseFloat(heures[`${salarieId}${safeDate}ch${i}`]?.heures || 0);
   }
 
   const absK  = `${salarieId}${safeDate}abs`;
   const abs   = parseFloat(heures[absK]?.heures || 0);
-  const sal   = salaries.find(s => s.id == salarieId);
-  if (!sal) return;
 
   const jour  = new Date(dateStr).getDay();
   const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][jour];
