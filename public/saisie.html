@@ -839,9 +839,11 @@
   .btn-valider-heure:active { transform: none !important; }
   /* Champ verrouillé quand la bascule est verte */
   .heure-input:disabled { opacity: 0.65; cursor: not-allowed; background: #f1f5f9; }
-  /* Défilement « chantier par chantier » : arrêt net sur chaque carte (entièrement visible) */
-  .saisie-scroll { scroll-snap-type: y mandatory; scroll-padding-top: 6px; }
-  .chantier-card { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: 6px; }
+  /* Défilement « chantier par chantier » : arrêt net sur chaque carte (entièrement visible).
+     Le scroller réel est la racine du document (#ecran-saisie est en display:block),
+     donc on pose le snap sur html/body en plus de .saisie-scroll. */
+  html, body, .saisie-scroll { scroll-snap-type: y mandatory; scroll-padding-top: 8px; }
+  .chantier-card { scroll-snap-align: start; scroll-snap-stop: always; scroll-margin-top: 8px; }
   </style>
 </head>
 <body>
