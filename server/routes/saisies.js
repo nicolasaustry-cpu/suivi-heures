@@ -134,6 +134,44 @@ router.post("/envoyer", async (req, res) => {
   }
 });
 
+/* ── Supprimer un chantier AJOUTÉ d'une journée (route mobile : code employé,
+   pas de token licence). Retire le chantier non prévisionnel correspondant ;
+   si la journée n'a plus aucun chantier, supprime la saisie entière. ── */
+router.post("/supprimer-chantier", async (req, res) => {
+  try {
+    const { codeEmploye, salarieId, date, nom } = req.body;
+    const codeEmp = (codeEmploye || "").trim().toUpperCase();
+    if (!nom || !date) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
+    if (!saisie) return res.json({ ok: true, supprimee: false });
+
+    const cible = (nom || "").trim();
+    const avant = saisie.chantiers.length;
+    // On ne retire que le chantier AJOUTÉ (non prévisionnel) portant ce nom
+    saisie.chantiers = saisie.chantiers.filter(
+      c => !((c.nom || "").trim() === cible && !c.isPrevisionnel)
+    );
+    if (saisie.chantiers.length === avant) return res.json({ ok: true, supprimee: false });
+
+    if (saisie.chantiers.length === 0) {
+      await saisie.deleteOne();
+      return res.json({ ok: true, supprimee: true, saisieSupprimee: true });
+    }
+    saisie.totalMin = saisie.chantiers.reduce((s, c) => s + (c.dureeMin || 0) + (c.deplacement || 0), 0);
+    saisie.updatedAt = new Date();
+    await saisie.save();
+    res.json({ ok: true, supprimee: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Récupérer les saisies déjà envoyées d'un salarié pour une date donnée
    (route mobile : utilise le code employé, pas de token licence) ── */
 router.post("/mobile-day", async (req, res) => {

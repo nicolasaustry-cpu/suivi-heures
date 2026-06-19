@@ -1807,10 +1807,28 @@ function majAjout(i, champ, val) {
   majTotal();
 }
 
-function supprimerAjout(i) {
+async function supprimerAjout(i) {
+  const ch        = _chantiersA[i];
+  const surServeur = !!(ch && (ch.synchronise || ch.envoye || ch.dejaEnvoye));
+  const nom        = ch && ch.nom;
   _chantiersA.splice(i, 1);
   rendreAjout();
   majTotal();
+  // S'il a déjà été envoyé, on le retire aussi côté serveur (sinon il réapparaît)
+  if (surServeur && nom) {
+    try {
+      await fetch('/api/saisies/supprimer-chantier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeEmploye: localStorage.getItem('saisie_codeEmploye'),
+          salarieId:   _salarie?.id,
+          date:        document.getElementById('date-saisie').value,
+          nom
+        })
+      });
+    } catch (_) {}
+  }
 }
 
 /* ═══════════════════════════
