@@ -2612,21 +2612,37 @@ async function envoyerUnChantierAjout(i) {
 
 /* ── Fonction commune d'envoi d'un chantier ── */
 async function _envoyerChantier(chantier, date) {
-  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const payload = {
+    codeEmploye: localStorage.getItem('saisie_codeEmploye'),
+    salarieId:   _salarie.id,
+    salarieNom:  _salarie.nom,
+    date, chantier
+  };
+  // Hors-ligne connu : on met en file, l'envoi se fera tout seul au retour du réseau
+  if (!navigator.onLine && window.outboxAdd) {
+    outboxAdd(payload);
+    if (window.majIndicateurReseau) majIndicateurReseau();
+    return true;
+  }
   try {
     const r = await fetch('/api/saisies/envoyer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        codeEmploye,
-        salarieId:  _salarie.id,
-        salarieNom: _salarie.nom,
-        date, chantier
-      })
+      body: JSON.stringify(payload)
     });
     const d = await r.json();
-    return d.ok === true;
+    if (d.ok === true) {
+      if (window.outboxFlush) outboxFlush();   // au passage, on vide une éventuelle file en attente
+      return true;
+    }
+    return false;                              // erreur serveur réelle (on est en ligne)
   } catch(e) {
+    // Réseau coupé pendant l'envoi → file d'attente
+    if (window.outboxAdd) {
+      outboxAdd(payload);
+      if (window.majIndicateurReseau) majIndicateurReseau();
+      return true;
+    }
     return false;
   }
 }
@@ -2787,6 +2803,97 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init);
     else init();
   })();
+</script>
+<script>
+/* ════════════ MODE HORS-LIGNE ════════════
+   - Un envoi qui échoue (réseau coupé) est mis dans une file locale (localStorage).
+   - La file est renvoyée automatiquement dès que le réseau revient (événement online),
+     à la réouverture de l'appli, et toutes les 20 s par sécurité.
+   - Un bandeau en haut de l'écran de saisie indique l'état (hors-ligne / envoi en cours). */
+(function () {
+  var CLE = 'saisie_outbox';
+
+  function fileLire() {
+    try { return JSON.parse(localStorage.getItem(CLE) || '[]'); } catch (e) { return []; }
+  }
+  function fileEcrire(arr) { try { localStorage.setItem(CLE, JSON.stringify(arr)); } catch (e) {} }
+
+  window.outboxAdd = function (payload) {
+    var arr = fileLire();
+    arr.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), payload: payload });
+    fileEcrire(arr);
+  };
+  window.outboxCount = function () { return fileLire().length; };
+
+  var _enCours = false;
+  window.outboxFlush = async function () {
+    if (_enCours || !navigator.onLine) { majIndicateurReseau(); return; }
+    var arr = fileLire();
+    if (!arr.length) { majIndicateurReseau(); return; }
+    _enCours = true; majIndicateurReseau();
+    try {
+      while (arr.length) {
+        var ok = false;
+        try {
+          var r = await fetch('/api/saisies/envoyer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(arr[0].payload)
+          });
+          var d = await r.json();
+          ok = !!(d && d.ok === true);
+        } catch (e) { ok = false; }
+        if (!ok) break;                 // réseau de nouveau coupé : on s'arrête, on réessaiera
+        arr.shift(); fileEcrire(arr);   // envoyé : on retire de la file
+        majIndicateurReseau();
+      }
+    } finally { _enCours = false; majIndicateurReseau(); }
+  };
+
+  function banniere() {
+    var ecran = document.getElementById('ecran-saisie');
+    var b = document.getElementById('offline-banner');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'offline-banner';
+      b.style.cssText = 'text-align:center;font-size:13px;font-weight:700;padding:7px 10px;display:none;line-height:1.3;';
+    }
+    if (ecran && b.parentNode !== ecran) ecran.insertBefore(b, ecran.firstChild);
+    return b;
+  }
+
+  window.majIndicateurReseau = function () {
+    var b = banniere();
+    var ecran = document.getElementById('ecran-saisie');
+    var enSaisie = ecran && getComputedStyle(ecran).display !== 'none';
+    if (!enSaisie) { b.style.display = 'none'; return; }   // bandeau uniquement sur l'écran de saisie
+    var n = window.outboxCount();
+    if (!navigator.onLine) {
+      b.style.display = 'block'; b.style.background = '#f59e0b'; b.style.color = '#3b2400';
+      b.textContent = n > 0
+        ? '\u26A1 Hors connexion \u2014 ' + n + ' saisie(s) en attente, envoi automatique au retour du r\u00e9seau'
+        : '\u26A1 Hors connexion \u2014 vos saisies sont enregistr\u00e9es et seront envoy\u00e9es au retour du r\u00e9seau';
+    } else if (n > 0) {
+      b.style.display = 'block'; b.style.background = '#2563eb'; b.style.color = '#fff';
+      b.textContent = '\u23EB Envoi en cours\u2026 ' + n + ' restante(s)';
+    } else {
+      b.style.display = 'none';
+    }
+  };
+
+  function init() {
+    majIndicateurReseau();
+    outboxFlush();
+    window.addEventListener('online',  outboxFlush);
+    window.addEventListener('offline', majIndicateurReseau);
+    setInterval(function () { if (navigator.onLine && outboxCount() > 0) outboxFlush(); }, 20000);
+    var ecran = document.getElementById('ecran-saisie');
+    if (ecran) new MutationObserver(majIndicateurReseau)
+      .observe(ecran, { attributes: true, attributeFilter: ['style'] });
+  }
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
 </script>
 </body>
 </html>
