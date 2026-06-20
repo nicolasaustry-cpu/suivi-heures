@@ -371,6 +371,107 @@ const SYNC = (() => {
         nav.appendChild(a);
       }
     }
+    construireMenuLateral();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     Menu commun responsive — pilote latéral (Brique 2)
+     Grand écran souris (≥1100px) : menu latéral fixe à gauche.
+     Sinon (tablette / téléphone / tactile) : barre existante.
+     Pilote limité à planning-equipe.html.
+     ───────────────────────────────────────────────────────────── */
+  var _menuListenersPoses = false;
+
+  function injecterStyleMenu() {
+    if (document.getElementById('sh-menu-style')) return;
+    const css =
+      '.sh-rail{position:fixed;top:0;left:0;bottom:0;width:208px;background:#0f2747;' +
+      'padding:14px 9px;overflow-y:auto;z-index:200;box-sizing:border-box;font-family:Arial,sans-serif;}' +
+      '.sh-rail .sh-grp{font-size:0.72rem;color:#7e92b4;padding:11px 9px 4px;}' +
+      '.sh-rail a.sh-i{display:block;color:#cdd8ea;text-decoration:none;font-size:0.9rem;' +
+      'padding:8px 10px;border-radius:8px;margin-bottom:2px;}' +
+      '.sh-rail a.sh-i:hover{background:#17335a;color:#fff;}' +
+      '.sh-rail a.sh-i.active{background:#1d8cf0;color:#fff;}' +
+      '.sh-rail .sh-plus{float:right;font-size:0.6rem;font-weight:700;background:#caa24a;' +
+      'color:#241a06;border-radius:999px;padding:1px 7px;margin-left:6px;}' +
+      'html.sh-lateral body{padding-left:208px;}' +
+      'html.sh-lateral .top-bar{left:208px;}' +
+      'html.sh-lateral .fixed-tools{left:208px;}';
+    const st = document.createElement('style');
+    st.id = 'sh-menu-style';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  function construireMenuLateral() {
+    const PILOTE = ['planning-equipe.html'];
+    const page = pageActuelle();
+    if (!PILOTE.includes(page)) return;
+    const nav = document.querySelector('.nav');
+    if (!nav) return;
+    injecterStyleMenu();
+
+    const GROUPES = [
+      { label: 'Gestion',  pages: ['index.html', 'salaries.html', 'chantiers.html'] },
+      { label: 'Planning', pages: ['planning.html', 'planning-equipe.html', 'realise.html', 'saisie.html'] },
+      { label: 'Suivi',    pages: ['rapports.html', 'notes.html', 'bev.html'] }
+    ];
+    const PLUS_BADGE = ['realise.html', 'notes.html', 'saisie.html'];
+
+    const byHref = {};
+    nav.querySelectorAll('a').forEach(a => {
+      byHref[(a.getAttribute('href') || '').split('/').pop()] = a;
+    });
+
+    const ancien = document.getElementById('sh-rail');
+    if (ancien) ancien.remove();
+
+    const rail = document.createElement('nav');
+    rail.id = 'sh-rail';
+    rail.className = 'sh-rail';
+    GROUPES.forEach(g => {
+      const presents = g.pages.filter(p => byHref[p]);
+      if (!presents.length) return;
+      const gl = document.createElement('div');
+      gl.className = 'sh-grp';
+      gl.textContent = g.label;
+      rail.appendChild(gl);
+      presents.forEach(p => {
+        const src = byHref[p];
+        const a = document.createElement('a');
+        a.href = src.getAttribute('href');
+        a.className = 'sh-i' + (src.classList.contains('active') ? ' active' : '');
+        a.textContent = src.textContent;
+        if (PLUS_BADGE.includes(p) && src.classList.contains('nav-plus')) {
+          const b = document.createElement('span');
+          b.className = 'sh-plus';
+          b.textContent = 'Plus';
+          a.appendChild(b);
+        }
+        rail.appendChild(a);
+      });
+    });
+    document.body.appendChild(rail);
+
+    appliquerModeMenu();
+    if (!_menuListenersPoses) {
+      _menuListenersPoses = true;
+      window.addEventListener('resize', appliquerModeMenu);
+      if (window.matchMedia) {
+        try { window.matchMedia('(pointer: coarse)').addEventListener('change', appliquerModeMenu); } catch (_) {}
+      }
+    }
+  }
+
+  function appliquerModeMenu() {
+    const rail = document.getElementById('sh-rail');
+    if (!rail) return;
+    const coarse = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
+    const lateral = (window.innerWidth >= 1100 && !coarse);
+    document.documentElement.classList.toggle('sh-lateral', lateral);
+    rail.style.display = lateral ? '' : 'none';
+    const nav = document.querySelector('.nav');
+    if (nav) nav.style.display = lateral ? 'none' : '';
   }
 
   function majStatutLicence(actif, message) {
