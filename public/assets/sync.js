@@ -352,7 +352,18 @@ const SYNC = (() => {
         nav.appendChild(a);
       });
     } else {
-      // Standard : BEV accessible aussi (après Rapports)
+      // Standard : « Vue équipe » (planning seul) insérée juste après « Planning »
+      if (!nav.querySelector('a[href="planning-equipe.html"]')) {
+        const planningLink = nav.querySelector('a[href="planning.html"]');
+        if (planningLink) {
+          const ve = document.createElement('a');
+          ve.href = 'planning-equipe.html';
+          ve.textContent = 'Vue équipe';
+          if (page === 'planning-equipe.html') ve.classList.add('active');
+          planningLink.insertAdjacentElement('afterend', ve);
+        }
+      }
+      // BEV accessible aussi (après Rapports)
       if (!nav.querySelector('a[href="bev.html"]')) {
         const a = document.createElement('a');
         a.href = 'bev.html'; a.textContent = 'BEV'; a.className = 'nav-plus';

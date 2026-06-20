@@ -198,7 +198,13 @@ async function chargerRealiseSemaine() {
     || localStorage.getItem('syncToken');
 
   if (token) {
-    _peutReordonner = true;   // contexte licence (patron PC) : réordonnancement autorisé
+    const _t = (typeof SYNC !== 'undefined' && SYNC.getType && SYNC.getType()) || localStorage.getItem('syncType');
+    _modeStandard = (_t === 'standard');
+    _peutReordonner = !_modeStandard;   // Standard = planning seul, pas de réordonnancement
+    if (_modeStandard) {
+      const lg = document.querySelector('.legende');
+      if (lg) lg.style.display = 'none';
+    }
     // Contexte licence (PC). Filet : si la grille n'a pas encore les
     // salariés/planning (ouverture directe), on les récupère une fois.
     const aSal = (JSON.parse(localStorage.getItem('salariesdata') || '[]')).length > 0;
@@ -256,6 +262,7 @@ async function chargerRealiseSemaine() {
 
 /* ── Réordonnancement mobile (gérant), par glisser-déposer tactile ── */
 let _peutReordonner = false;
+let _modeStandard = (localStorage.getItem('syncType') === 'standard'); // Vue équipe « planning seul »
 let _drag = null;
 
 /* Applique l'ordre mobile (s'il existe) à une liste de noms de chantiers (tri stable). */
@@ -476,9 +483,12 @@ function htmlChip(c) {
   const noteBtn = (c.note && c.note.trim())
     ? `<button type="button" class="chip-note" title="Voir la note" data-nom="${escapeHtmlLocal(c.nom)}" data-note="${escapeHtmlLocal(c.note)}" style="flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`
     : '';
+  const hrsHtml = _modeStandard
+    ? `<span class="hp">h prévues : ${fmtHM(c.hPlan)}</span>`
+    : `<span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span>`;
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${noteBtn}${grip}</div>
-    <div class="chip-hrs"><span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span></div>
+    <div class="chip-hrs">${hrsHtml}</div>
   </div>`;
 }
 
