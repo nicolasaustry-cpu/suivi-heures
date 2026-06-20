@@ -386,7 +386,7 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html'];
+    'planning-equipe.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html'];
 
   // Structure canonique du menu (indépendante de la licence).
   var MENU_GROUPES = [
@@ -424,7 +424,7 @@ const SYNC = (() => {
       'color:#241a06;border-radius:999px;padding:1px 7px;margin-left:6px;}' +
       'html.sh-lateral body{padding-left:208px;}' +
       'html.sh-lateral .nav{display:none !important;}' +
-      'html.sh-lateral body > .main-header{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}';
+      'html.sh-lateral body > .main-header,html.sh-lateral body > .header-desktop{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}';
     const st = document.createElement('style');
     st.id = 'sh-menu-style';
     st.textContent = css;
@@ -524,6 +524,7 @@ const SYNC = (() => {
 
   function mesurerBandeau() {
     return document.querySelector('.top-bar')
+        || document.querySelector('body > .header-desktop')
         || document.querySelector('body > .main-header')
         || document.querySelector('.main-header');
   }
