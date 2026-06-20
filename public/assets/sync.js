@@ -375,12 +375,38 @@ const SYNC = (() => {
   }
 
   /* ─────────────────────────────────────────────────────────────
-     Menu commun responsive — pilote latéral (Brique 2)
-     Grand écran souris (≥1100px) : menu latéral fixe à gauche.
+     Menu commun responsive (Brique 2)
+     Grand écran souris (≥1100px) : menu latéral fixe à gauche, sous le bandeau.
      Sinon (tablette / téléphone / tactile) : barre existante.
-     Pilote limité à planning-equipe.html.
+     En Standard, les entrées Plus sont affichées en « teasing » :
+     un clic ouvre un pop-up invitant à passer en licence Plus.
      ───────────────────────────────────────────────────────────── */
   var _menuListenersPoses = false;
+  var _lateralPrec = null;
+
+  // Pages où le menu latéral s'applique (planning.html : passe dédiée ultérieure).
+  var MENU_PAGES = ['index.html', 'salaries.html', 'chantiers.html',
+    'planning-equipe.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html'];
+
+  // Structure canonique du menu (indépendante de la licence).
+  var MENU_GROUPES = [
+    { label: 'Gestion', items: [
+      { href: 'index.html',     label: 'Entreprise' },
+      { href: 'salaries.html',  label: 'Salariés' },
+      { href: 'chantiers.html', label: 'Prévisionnel' }
+    ] },
+    { label: 'Planning', items: [
+      { href: 'planning.html',         label: 'Planning' },
+      { href: 'planning-equipe.html',  label: 'Vue équipe' },            // les deux licences
+      { href: 'realise.html',          label: 'Planning réalisé', plus: true },
+      { href: 'saisie.html',           label: 'Saisie mobile',    plus: true }
+    ] },
+    { label: 'Suivi', items: [
+      { href: 'rapports.html', label: 'Rapports' },
+      { href: 'notes.html',    label: 'Notes', plus: true },
+      { href: 'bev.html',      label: 'BEV' }
+    ] }
+  ];
 
   function injecterStyleMenu() {
     if (document.getElementById('sh-menu-style')) return;
@@ -392,35 +418,67 @@ const SYNC = (() => {
       'padding:8px 10px;border-radius:8px;margin-bottom:2px;}' +
       '.sh-rail a.sh-i:hover{background:#17335a;color:#fff;}' +
       '.sh-rail a.sh-i.active{background:#1d8cf0;color:#fff;}' +
+      '.sh-rail a.sh-i.sh-lock{color:#8aa0c2;}' +
+      '.sh-rail a.sh-i.sh-lock:hover{background:#17335a;color:#cdd8ea;}' +
       '.sh-rail .sh-plus{float:right;font-size:0.6rem;font-weight:700;background:#caa24a;' +
       'color:#241a06;border-radius:999px;padding:1px 7px;margin-left:6px;}' +
       'html.sh-lateral body{padding-left:208px;}' +
-      'html.sh-lateral .top-bar .nav{display:none !important;}';
+      'html.sh-lateral .nav{display:none !important;}' +
+      'html.sh-lateral body > .main-header{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}';
     const st = document.createElement('style');
     st.id = 'sh-menu-style';
     st.textContent = css;
     document.head.appendChild(st);
   }
 
+  function popupPlus(label) {
+    const ancien = document.getElementById('sh-plus-pop');
+    if (ancien) ancien.remove();
+    const ov = document.createElement('div');
+    ov.id = 'sh-plus-pop';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(8,17,34,0.55);z-index:10050;' +
+      'display:flex;align-items:center;justify-content:center;padding:18px;font-family:Arial,sans-serif;';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fff;max-width:430px;width:100%;border-radius:14px;' +
+      'padding:22px 22px 18px;box-shadow:0 18px 50px rgba(0,0,0,0.3);color:#1f2937;box-sizing:border-box;';
+    const safe = String(label || '').replace(/[&<>"']/g, m => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
+    ));
+    card.innerHTML =
+      '<div style="margin-bottom:10px;"><span style="font-size:0.68rem;font-weight:700;letter-spacing:0.04em;' +
+      'background:#caa24a;color:#241a06;border-radius:999px;padding:3px 10px;">LICENCE PLUS</span></div>' +
+      '<h3 style="margin:0 0 8px;font-size:1.18rem;color:#0f2747;">« ' + safe + ' » fait partie de la licence Plus</h3>' +
+      '<p style="margin:0 0 12px;font-size:0.9rem;color:#475569;line-height:1.5;">' +
+      'Passez en Plus pour débloquer le suivi terrain complet :</p>' +
+      '<ul style="margin:0 0 18px;padding-left:18px;font-size:0.9rem;color:#334155;line-height:1.7;">' +
+      '<li><strong>Saisie mobile</strong> — vos salariés pointent depuis leur téléphone</li>' +
+      '<li><strong>Planning réalisé</strong> — comparez le prévu et le réalisé d\'un coup d\'œil</li>' +
+      '<li><strong>Notes</strong> — consignez les infos chantier par chantier</li>' +
+      '</ul>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
+      '<button type="button" id="sh-plus-later" style="background:#fff;border:1px solid #cbd5e1;color:#334155;' +
+      'border-radius:8px;padding:8px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;">Plus tard</button>' +
+      '<button type="button" id="sh-plus-go" style="background:#0f2747;border:1px solid #0f2747;color:#fff;' +
+      'border-radius:8px;padding:8px 14px;font-size:0.88rem;font-weight:600;cursor:pointer;">Découvrir la licence Plus</button>' +
+      '</div>';
+    ov.appendChild(card);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    const later = card.querySelector('#sh-plus-later');
+    const go = card.querySelector('#sh-plus-go');
+    if (later) later.addEventListener('click', () => ov.remove());
+    if (go) go.addEventListener('click', () => {
+      ov.remove();
+      if (typeof window.ouvrirOffrePlus === 'function') { try { window.ouvrirOffrePlus(); } catch (_) {} }
+    });
+  }
+
   function construireMenuLateral() {
-    const PILOTE = ['planning-equipe.html'];
     const page = pageActuelle();
-    if (!PILOTE.includes(page)) return;
-    const nav = document.querySelector('.nav');
-    if (!nav) return;
+    if (!MENU_PAGES.includes(page)) return;
     injecterStyleMenu();
 
-    const GROUPES = [
-      { label: 'Gestion',  pages: ['index.html', 'salaries.html', 'chantiers.html'] },
-      { label: 'Planning', pages: ['planning.html', 'planning-equipe.html', 'realise.html', 'saisie.html'] },
-      { label: 'Suivi',    pages: ['rapports.html', 'notes.html', 'bev.html'] }
-    ];
-    const PLUS_BADGE = ['realise.html', 'notes.html', 'saisie.html'];
-
-    const byHref = {};
-    nav.querySelectorAll('a').forEach(a => {
-      byHref[(a.getAttribute('href') || '').split('/').pop()] = a;
-    });
+    const estPlus = (_type === 'plus');
 
     const ancien = document.getElementById('sh-rail');
     if (ancien) ancien.remove();
@@ -428,24 +486,25 @@ const SYNC = (() => {
     const rail = document.createElement('nav');
     rail.id = 'sh-rail';
     rail.className = 'sh-rail';
-    GROUPES.forEach(g => {
-      const presents = g.pages.filter(p => byHref[p]);
-      if (!presents.length) return;
+    MENU_GROUPES.forEach(g => {
       const gl = document.createElement('div');
       gl.className = 'sh-grp';
       gl.textContent = g.label;
       rail.appendChild(gl);
-      presents.forEach(p => {
-        const src = byHref[p];
+      g.items.forEach(it => {
+        const verrou = !!it.plus && !estPlus;   // Standard + page Plus → teasing
         const a = document.createElement('a');
-        a.href = src.getAttribute('href');
-        a.className = 'sh-i' + (src.classList.contains('active') ? ' active' : '');
-        a.textContent = src.textContent;
-        if (PLUS_BADGE.includes(p) && src.classList.contains('nav-plus')) {
+        a.href = verrou ? '#' : it.href;
+        a.className = 'sh-i' + (page === it.href ? ' active' : '') + (verrou ? ' sh-lock' : '');
+        a.textContent = it.label;
+        if (it.plus) {
           const b = document.createElement('span');
           b.className = 'sh-plus';
           b.textContent = 'Plus';
           a.appendChild(b);
+        }
+        if (verrou) {
+          a.addEventListener('click', e => { e.preventDefault(); popupPlus(it.label); });
         }
         rail.appendChild(a);
       });
@@ -453,7 +512,7 @@ const SYNC = (() => {
     document.body.appendChild(rail);
 
     appliquerModeMenu();
-    setTimeout(appliquerModeMenu, 0);     // recale après définition d'ajusterHauteur
+    setTimeout(appliquerModeMenu, 0);     // recale une fois la page initialisée
     if (!_menuListenersPoses) {
       _menuListenersPoses = true;
       window.addEventListener('resize', appliquerModeMenu);
@@ -461,6 +520,12 @@ const SYNC = (() => {
         try { window.matchMedia('(pointer: coarse)').addEventListener('change', appliquerModeMenu); } catch (_) {}
       }
     }
+  }
+
+  function mesurerBandeau() {
+    return document.querySelector('.top-bar')
+        || document.querySelector('body > .main-header')
+        || document.querySelector('.main-header');
   }
 
   function appliquerModeMenu() {
@@ -471,11 +536,21 @@ const SYNC = (() => {
     document.documentElement.classList.toggle('sh-lateral', lateral);
     rail.style.display = lateral ? '' : 'none';
     if (lateral) {
-      const bar = document.getElementById('top-bar');
+      const bar = mesurerBandeau();
       rail.style.top = (bar ? bar.offsetHeight : 0) + 'px';   // démarrer sous le bandeau
     }
-    if (typeof window.ajusterHauteur === 'function') {
-      try { window.ajusterHauteur(); } catch (_) {}            // resync décalage du contenu
+    const change = (lateral !== _lateralPrec);
+    _lateralPrec = lateral;
+    if (change) {
+      // Laisser le CSS s'appliquer (nav masquée), puis demander à la page de recalculer son décalage.
+      setTimeout(function () {
+        const r = document.getElementById('sh-rail');
+        if (r && lateral) {
+          const bar = mesurerBandeau();
+          r.style.top = (bar ? bar.offsetHeight : 0) + 'px';
+        }
+        try { window.dispatchEvent(new Event('resize')); } catch (_) {}
+      }, 0);
     }
   }
 
