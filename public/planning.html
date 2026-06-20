@@ -667,7 +667,7 @@ function genererPlanning() {
 
       // Ligne 1 : nom + ch1..5 + Total/Abs/Prévu/Écart (en rowspan=2 si SAV)
       let row = `<tr data-salarie="${s.id}" data-date="${dateStr}" style="background:${zebra};">
-        <td style="font-weight:bold;border:1px solid #ccc;padding:3px 5px;vertical-align:top;font-size:0.9rem;">${s.prenom} ${s.nom}${badgeAB}${badgeSav}</td>
+        <td style="font-weight:bold;border:1px solid #ccc;${sav ? 'border-bottom:none;' : ''}padding:3px 5px;vertical-align:top;font-size:0.9rem;">${s.prenom} ${s.nom}${badgeAB}${badgeSav}</td>
         ${cells1}
         <td class="cell-total"${rs} style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
         <td class="cell-abs col-abs"${rs} style="border:1px solid #ccc;text-align:center;">
@@ -683,7 +683,7 @@ function genererPlanning() {
       // Ligne 2 (SAV) : cellule vide sous le nom (alignement) + ch6..10 sous Ch1..5
       if (sav) {
         row += `<tr class="ligne-sav2" style="background:${zebra};">
-          <td style="border:1px solid #ccc;"></td>
+          <td style="border:1px solid #ccc;border-top:none;"></td>
           ${cells2}
           </tr>`;
       }
