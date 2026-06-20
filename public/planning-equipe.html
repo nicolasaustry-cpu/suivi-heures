@@ -471,7 +471,7 @@ function htmlChip(c) {
   const tag     = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
   const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
   const grip = _peutReordonner
-    ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin-left:auto;flex:0 0 auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;font-size:1.25rem;line-height:1;color:#64748b;padding:4px 7px;margin:-2px -2px -2px 0;">⠿</span>`
+    ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin:-2px -2px -2px auto;flex:0 0 auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;font-size:1.25rem;line-height:1;color:#64748b;padding:4px 7px;">⠿</span>`
     : '';
   const noteBtn = (c.note && c.note.trim())
     ? `<button type="button" class="chip-note" title="Voir la note" data-nom="${escapeHtmlLocal(c.nom)}" data-note="${escapeHtmlLocal(c.note)}" style="flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`
