@@ -1135,6 +1135,7 @@ async function reconnecterAuto(codeEmploye) {
       localStorage.setItem('salariesdata', JSON.stringify(fusionne));
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+      if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
 
       // Afficher le QR de partage (PC uniquement, lib chargée en defer)
       const codeAct = localStorage.getItem('saisie_codeEmploye');
@@ -1218,6 +1219,7 @@ async function validerCodeEntreprise() {
     localStorage.setItem('salariesdata', JSON.stringify(fusionne2));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+    if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
 
     // Afficher le QR de partage (PC uniquement)
     if (typeof qrcode !== 'undefined') afficherQR(codeEmploye);
@@ -1272,6 +1274,7 @@ async function rafraichirDonneesServeur() {
     }
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
+    if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
   } catch (_) {
     // Hors ligne : on garde les données locales, pas grave
   }
@@ -1431,6 +1434,7 @@ async function chargerChantiersPrev() {
         body: JSON.stringify({ codeEmploye, salarieId, date })
       });
       const d = await r.json();
+      if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
       if (d.ok && d.saisie && Array.isArray(d.saisie.chantiers)) {
         d.saisie.chantiers.forEach(c => {
           const nom = (c.nom || '').trim();
@@ -1472,6 +1476,13 @@ async function chargerChantiersPrev() {
     }
   } catch (_) {
     // Hors ligne : on garde l'état local existant
+  }
+
+  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne les chantiers prévus
+  const _ord = _ordreMobilePour(salarieId, date);
+  if (_ord) {
+    const rang = {}; _ord.forEach((n, i) => { rang[n] = i; });
+    _chantiersP.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999)));
   }
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
@@ -1520,6 +1531,14 @@ function _lundiDe(dateStr) {
   d.setDate(d.getDate() - dec);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+/* Ordre mobile (fixé par le gérant) pour un salarié/date, ou null. */
+function _ordreMobilePour(salId, dateStr) {
+  try {
+    const o = JSON.parse(localStorage.getItem('ordreMobiledata') || '{}');
+    const a = o[String(salId) + '_' + dateStr];
+    return Array.isArray(a) ? a : null;
+  } catch (_) { return null; }
 }
 /* Chantiers planifiés du salarié connecté pour une date donnée (depuis heuresdata). */
 function chantiersPlanningPour(dateStr) {
@@ -1588,6 +1607,11 @@ function rendreMonPlanning() {
     const d = new Date(lundi); d.setDate(lundi.getDate() + i);
     const ds = _ymd(d);
     const list = chantiersPlanningPour(ds);
+    const _ordJ = _ordreMobilePour(_salarie?.id, ds);
+    if (_ordJ) {
+      const rg = {}; _ordJ.forEach((n, k) => { rg[n] = k; });
+      list.sort((a, b) => ((rg[a.nom] != null ? rg[a.nom] : 999) - (rg[b.nom] != null ? rg[b.nom] : 999)));
+    }
 
     const bloc = document.createElement('div');
     bloc.style.cssText = 'border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;'

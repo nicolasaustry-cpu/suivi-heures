@@ -1,8 +1,17 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Saisie from "../models/saisies.js";
+import OrdreMobile from "../models/ordremobile.js";
 
 const router = express.Router();
+
+/* Ordre d'affichage mobile des chantiers (fixé par le gérant). { "<salId>_<date>": [noms] } */
+async function getOrdresMobile(clientId) {
+  try {
+    const o = await OrdreMobile.findOne({ clientId });
+    return (o && o.ordres) || {};
+  } catch (_) { return {}; }
+}
 
 /* ── Connexion par code employé (sans token licence) ── */
 router.post("/connect", async (req, res) => {
@@ -30,7 +39,8 @@ router.post("/connect", async (req, res) => {
       clientId:     doc.clientId,
       salaries:     salariesSansPin,
       previsionnel: doc.previsionnel || {},
-      heures:       doc.heures       || {}
+      heures:       doc.heures       || {},
+      ordreMobile:  await getOrdresMobile(doc.clientId)
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
@@ -189,7 +199,7 @@ router.post("/mobile-day", async (req, res) => {
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
-    res.json({ ok: true, saisie: saisie || null });
+    res.json({ ok: true, saisie: saisie || null, ordreMobile: await getOrdresMobile(doc.clientId) });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -228,7 +238,43 @@ router.post("/equipe-mois", async (req, res) => {
       return reste;
     });
 
-    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {} });
+    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {}, ordreMobile: await getOrdresMobile(doc.clientId) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Enregistrer l'ordre mobile des chantiers d'une journée (réservé au gérant,
+   auth par code employé). N'affecte PAS le planning PC. ── */
+router.post("/ordre-mobile", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const gerantId  = req.body.gerantId;     // salarié qui agit (doit être gérant)
+    const salarieId = req.body.salarieId;    // salarié cible
+    const date      = (req.body.date || "").trim();
+    const ordre     = Array.isArray(req.body.ordre) ? req.body.ordre.map(x => String(x)) : null;
+    if (!codeEmp || !gerantId || !salarieId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !ordre)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants ou invalides" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const gerant = (doc.salaries || []).find(s => String(s.id) === String(gerantId));
+    if (!gerant || !gerant.gerant)
+      return res.status(403).json({ ok: false, message: "Action réservée au gérant" });
+
+    let o = await OrdreMobile.findOne({ clientId: doc.clientId });
+    if (!o) o = new OrdreMobile({ clientId: doc.clientId, ordres: {} });
+    const ordres = o.ordres || {};
+    ordres[String(salarieId) + "_" + date] = ordre;
+    o.ordres = ordres;
+    o.markModified("ordres");
+    o.updatedAt = new Date();
+    await o.save();
+
+    res.json({ ok: true, ordres });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
