@@ -291,7 +291,7 @@ async function deplacerChantierMobile(salId, dateStr, nom, sens) {
   try { o = JSON.parse(localStorage.getItem('ordreMobiledata') || '{}'); } catch (_) {}
   o[String(salId) + '_' + dateStr] = noms;
   localStorage.setItem('ordreMobiledata', JSON.stringify(o));
-  genererGrille();
+  genererGrille({ conserverScroll: true });
 
   // Enregistrement serveur (réservé au gérant)
   try {
@@ -378,7 +378,13 @@ function escapeHtmlLocal(s) {
 }
 
 /* ── Rendu de la grille ── */
-function genererGrille() {
+function genererGrille(opts) {
+  opts = opts || {};
+  // Conserver la position de défilement (ex. après un changement d'ordre) au lieu d'aller à aujourd'hui
+  const wrap0 = document.getElementById('grille-wrap');
+  const savSL = (opts.conserverScroll && wrap0) ? wrap0.scrollLeft : null;
+  const savST = (opts.conserverScroll && wrap0) ? wrap0.scrollTop  : null;
+
   const zone0 = document.getElementById('zone-grille');
   if (_accesRefuse) {
     zone0.outerHTML = `<div class="msg-info" id="zone-grille">Cette page est réservée aux gérants.</div>`;
@@ -440,6 +446,15 @@ function genererGrille() {
 
   html += '</tbody></table>';
   zone.outerHTML = `<div id="zone-grille">${html}</div>`;
+
+  if (opts.conserverScroll) {
+    const wrap = document.getElementById('grille-wrap');
+    if (wrap) {
+      if (savSL != null) wrap.scrollLeft = savSL;
+      if (savST != null) wrap.scrollTop  = savST;
+    }
+    return;
+  }
 
   // Défilement auto vers le jour courant si présent dans la semaine
   const ligneAjd = document.querySelector('.grille tr.ligne-aujourdhui');
