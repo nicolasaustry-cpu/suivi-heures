@@ -1369,6 +1369,9 @@ function majAccesGerant() {
     estGerant = !!(moi && moi.gerant);
   } catch (_) {}
   btn.style.display = estGerant ? '' : 'none';
+  // Le gérant a la Vue équipe : il n'a pas besoin de « Mon planning »
+  const btnMon = document.getElementById('btn-mon-planning');
+  if (btnMon) btnMon.style.display = estGerant ? 'none' : '';
 }
 
 async function chargerChantiersPrev() {
