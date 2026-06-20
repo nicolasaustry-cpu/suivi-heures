@@ -270,51 +270,87 @@ function appliquerOrdreMobile(salId, dateStr, noms) {
 function initDragReorder() {
   if (!_peutReordonner) return;
   document.querySelectorAll('.grille .drag-grip').forEach(g => {
-    g.addEventListener('pointerdown', dragDown);
+    g.addEventListener('touchstart', dragStartTouch, { passive: false });
+    g.addEventListener('mousedown',  dragStartMouse);
   });
 }
-function dragDown(e) {
-  const chip = e.target.closest('.chip');
-  const cell = chip && chip.closest('td[data-cell]');
-  if (!chip || !cell) return;
-  if (cell.querySelectorAll('.chip').length < 2) return; // rien à réordonner
-  e.preventDefault();
-  e.stopPropagation();
-  _drag = { chip, cell, grip: e.target, id: e.pointerId };
-  chip.style.opacity = '0.6';
+
+/* — Début / déplacement / fin communs — */
+function dragBegin(chip, cell) {
+  _drag = { chip, cell };
+  chip.style.opacity = '0.55';
   chip.style.outline = '2px dashed #2563eb';
   chip.style.outlineOffset = '-2px';
-  try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
-  e.target.addEventListener('pointermove', dragMove);
-  e.target.addEventListener('pointerup', dragUp);
-  e.target.addEventListener('pointercancel', dragUp);
+  document.body.style.userSelect = 'none';
+  document.body.style.webkitUserSelect = 'none';
 }
-function dragMove(e) {
+function dragPoint(x, y) {
   if (!_drag) return;
-  e.preventDefault();
   const { chip, cell } = _drag;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const el = document.elementFromPoint(x, y);
   const cible = el && el.closest ? el.closest('.chip') : null;
   if (!cible || cible === chip) return;
-  if (cible.closest('td[data-cell]') !== cell) return; // rester dans la même journée/salarié
+  if (cible.closest('td[data-cell]') !== cell) return; // rester dans la même case (jour × salarié)
   const r = cible.getBoundingClientRect();
-  const apres = e.clientY > r.top + r.height / 2;
-  if (apres) cible.after(chip); else cible.before(chip);
+  if (y > r.top + r.height / 2) cible.after(chip); else cible.before(chip);
 }
-function dragUp(e) {
+function dragFinish() {
   if (!_drag) return;
-  const { chip, cell, grip } = _drag;
+  const { chip, cell } = _drag;
   chip.style.opacity = '';
   chip.style.outline = '';
   chip.style.outlineOffset = '';
-  try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
-  grip.removeEventListener('pointermove', dragMove);
-  grip.removeEventListener('pointerup', dragUp);
-  grip.removeEventListener('pointercancel', dragUp);
+  document.body.style.userSelect = '';
+  document.body.style.webkitUserSelect = '';
   const cle  = cell.getAttribute('data-cell');
   const noms = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-nom'));
   _drag = null;
   enregistrerOrdreCellule(cle, noms);
+}
+
+/* — Tactile (mobile) : touchmove NON-PASSIF + preventDefault pour bloquer le défilement — */
+function dragStartTouch(e) {
+  const chip = e.target.closest('.chip');
+  const cell = chip && chip.closest('td[data-cell]');
+  if (!chip || !cell || cell.querySelectorAll('.chip').length < 2) return;
+  e.preventDefault();   // empêche défilement + sélection dès le départ
+  e.stopPropagation();
+  dragBegin(chip, cell);
+  document.addEventListener('touchmove',   dragMoveTouch, { passive: false });
+  document.addEventListener('touchend',    dragEndTouch);
+  document.addEventListener('touchcancel', dragEndTouch);
+}
+function dragMoveTouch(e) {
+  if (!_drag) return;
+  e.preventDefault();   // bloque le défilement du calendrier pendant le glisser
+  const t = e.touches && e.touches[0];
+  if (t) dragPoint(t.clientX, t.clientY);
+}
+function dragEndTouch() {
+  document.removeEventListener('touchmove',   dragMoveTouch, { passive: false });
+  document.removeEventListener('touchend',    dragEndTouch);
+  document.removeEventListener('touchcancel', dragEndTouch);
+  dragFinish();
+}
+
+/* — Souris (PC / tablette) — */
+function dragStartMouse(e) {
+  const chip = e.target.closest('.chip');
+  const cell = chip && chip.closest('td[data-cell]');
+  if (!chip || !cell || cell.querySelectorAll('.chip').length < 2) return;
+  e.preventDefault();
+  dragBegin(chip, cell);
+  document.addEventListener('mousemove', dragMoveMouse);
+  document.addEventListener('mouseup',   dragEndMouse);
+}
+function dragMoveMouse(e) {
+  if (!_drag) return;
+  dragPoint(e.clientX, e.clientY);
+}
+function dragEndMouse() {
+  document.removeEventListener('mousemove', dragMoveMouse);
+  document.removeEventListener('mouseup',   dragEndMouse);
+  dragFinish();
 }
 /* Mémorise (local + serveur) le nouvel ordre d'une case. cle = "<salarieId>_<YYYY-MM-DD>" */
 async function enregistrerOrdreCellule(cle, noms) {
@@ -391,7 +427,7 @@ function htmlChip(c) {
   const tag     = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
   const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
   const grip = _peutReordonner
-    ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin-left:auto;flex:0 0 auto;cursor:grab;touch-action:none;font-size:1.05rem;line-height:1;color:#94a3b8;padding:0 2px;user-select:none;">⠿</span>`
+    ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin-left:auto;flex:0 0 auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;font-size:1.25rem;line-height:1;color:#64748b;padding:4px 7px;margin:-2px -2px -2px 0;">⠿</span>`
     : '';
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${grip}</div>
