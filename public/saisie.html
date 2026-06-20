@@ -3207,5 +3207,35 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   else init();
 })();
 </script>
+
+<!-- ── Taille responsive du cadre téléphone (PC) : ~80% de la hauteur sous le bandeau ── -->
+<script>
+(function () {
+  var PHONE_H = 779;   // hauteur réelle du cadre (px), avant mise à l'échelle
+  function ajusterTaillePhone() {
+    var wrap = document.querySelector('.phone-wrap');
+    var layout = document.querySelector('.desktop-layout');
+    if (!wrap || !layout) return;
+    if (window.innerWidth < 600) {           // vrai mode mobile (salarié) : pas de scale
+      wrap.style.transform = '';
+      wrap.style.marginBottom = '';
+      return;
+    }
+    var top = layout.getBoundingClientRect().top;    // bas du bandeau
+    var dispo = window.innerHeight - top;            // hauteur restante sous le bandeau
+    var cible = 0.80 * dispo;                        // 80% de cette hauteur
+    var scale = cible / PHONE_H;
+    if (scale < 0.55) scale = 0.55;
+    if (scale > 1.25) scale = 1.25;
+    wrap.style.transform = 'scale(' + scale + ')';
+    wrap.style.transformOrigin = 'top center';
+    wrap.style.marginBottom = (-PHONE_H * (1 - scale)) + 'px';
+  }
+  window.addEventListener('resize', ajusterTaillePhone);
+  ajusterTaillePhone();
+  setTimeout(ajusterTaillePhone, 0);       // après calage initial
+  setTimeout(ajusterTaillePhone, 300);     // après application du menu latéral / polices
+})();
+</script>
 </body>
 </html>
