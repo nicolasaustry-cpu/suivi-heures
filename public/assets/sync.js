@@ -384,8 +384,8 @@ const SYNC = (() => {
   var _menuListenersPoses = false;
   var _lateralPrec = null;
 
-  // Pages où le menu latéral s'applique (planning.html : passe dédiée ultérieure).
-  var MENU_PAGES = ['index.html', 'salaries.html', 'chantiers.html',
+  // Pages où le menu latéral s'applique.
+  var MENU_PAGES = ['index.html', 'salaries.html', 'chantiers.html', 'planning.html',
     'planning-equipe.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html'];
 
   // Structure canonique du menu (indépendante de la licence).
