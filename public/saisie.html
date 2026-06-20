@@ -3219,6 +3219,8 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     if (window.innerWidth < 600) {           // vrai mode mobile (salarié) : pas de scale
       wrap.style.transform = '';
       wrap.style.marginBottom = '';
+      layout.style.minHeight = '';
+      layout.style.alignItems = '';
       return;
     }
     var top = layout.getBoundingClientRect().top;    // bas du bandeau
@@ -3230,6 +3232,10 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     wrap.style.transform = 'scale(' + scale + ')';
     wrap.style.transformOrigin = 'top center';
     wrap.style.marginBottom = (-PHONE_H * (1 - scale)) + 'px';
+    // Remplir la hauteur disponible et centrer verticalement le cadre + la carte QR
+    layout.style.boxSizing = 'border-box';
+    layout.style.minHeight = dispo + 'px';
+    layout.style.alignItems = 'center';
   }
   window.addEventListener('resize', ajusterTaillePhone);
   ajusterTaillePhone();
