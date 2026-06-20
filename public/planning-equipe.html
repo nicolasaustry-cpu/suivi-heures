@@ -198,6 +198,7 @@ async function chargerRealiseSemaine() {
     || localStorage.getItem('syncToken');
 
   if (token) {
+    _peutReordonner = true;   // contexte licence (patron PC) : réordonnancement autorisé
     // Contexte licence (PC). Filet : si la grille n'a pas encore les
     // salariés/planning (ouverture directe), on les récupère une fois.
     const aSal = (JSON.parse(localStorage.getItem('salariesdata') || '[]')).length > 0;
@@ -218,6 +219,7 @@ async function chargerRealiseSemaine() {
         const r = await fetch(`/api/saisies/${m}`, { headers: { 'Authorization': 'Bearer ' + token } });
         const d = await r.json();
         if (d.ok && d.saisies) _saisies.push(...d.saisies);
+        if (d.ok && d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
         _moisCharges.add(m);
       } catch (_) {}
     }
@@ -362,17 +364,59 @@ async function enregistrerOrdreCellule(cle, noms) {
   const i = cle.indexOf('_');
   const salId = cle.slice(0, i), date = cle.slice(i + 1);
   try {
-    let gerantId = null;
-    try { gerantId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+    const headers = { 'Content-Type': 'application/json' };
+    const body = { salarieId: salId, date, ordre: noms };
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    if (codeEmploye) {
+      // Mobile : gérant par code employé
+      body.codeEmploye = codeEmploye;
+      try { body.gerantId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+    } else {
+      // PC : token licence
+      const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken');
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+    }
     await fetch('/api/saisies/ordre-mobile', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        codeEmploye: localStorage.getItem('saisie_codeEmploye'),
-        gerantId, salarieId: salId, date, ordre: noms
-      })
+      headers,
+      body: JSON.stringify(body)
     });
   } catch (_) {}
+}
+
+/* Pop-up LECTURE SEULE d'une note. */
+function afficherNotePopup(titre, texte) {
+  const txt = (texte || '').trim();
+  if (!txt) return;
+  let ov = document.getElementById('note-popup-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'note-popup-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:18px;';
+    ov.innerHTML =
+        '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
+      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note</div>'
+      + '<div id="note-popup-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
+      + '<div id="note-popup-txt" style="padding:8px 16px 16px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
+      + '<div style="padding:0 16px 16px;text-align:right;"><button type="button" id="note-popup-fermer" style="background:#0f3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;">Fermer</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
+    ov.querySelector('#note-popup-fermer').addEventListener('click', () => { ov.style.display = 'none'; });
+  }
+  ov.querySelector('#note-popup-nom').textContent = titre || '';
+  ov.querySelector('#note-popup-txt').textContent = txt;
+  ov.style.display = 'flex';
+}
+/* Active les boutons 📋 (note) des pavés. */
+function initChipNotes() {
+  document.querySelectorAll('.grille .chip-note').forEach(b => {
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      afficherNotePopup(this.getAttribute('data-nom'), this.getAttribute('data-note'));
+    });
+  });
 }
 
 /* ── Construit les pavés d'une cellule (salarié × jour) ── */
@@ -384,7 +428,7 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   for (let i = 1; i <= 5; i++) {
     const data = heures[`${sal.id}${safeDate}ch${i}`];
     if (data && data.chantier && String(data.chantier).trim()) {
-      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0 });
+      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim() });
     }
   }
 
@@ -396,16 +440,16 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
 
   // 2a) Pavés planifiés, colorés selon le réalisé correspondant (par nom)
   planifies.forEach(p => {
-    let etat = 'plan', hReal = 0;
+    let etat = 'plan', hReal = 0, noteR = '';
     const idx = rs.findIndex((c, j) => !pris[j] && norm(c.nom) === norm(p.nom));
-    if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false });
+    if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR });
   });
 
   // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
   rs.forEach((c, j) => {
     if (pris[j]) return;
-    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true });
+    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim() });
   });
 
   // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés)
@@ -429,8 +473,11 @@ function htmlChip(c) {
   const grip = _peutReordonner
     ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin-left:auto;flex:0 0 auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;font-size:1.25rem;line-height:1;color:#64748b;padding:4px 7px;margin:-2px -2px -2px 0;">⠿</span>`
     : '';
+  const noteBtn = (c.note && c.note.trim())
+    ? `<button type="button" class="chip-note" title="Voir la note" data-nom="${escapeHtmlLocal(c.nom)}" data-note="${escapeHtmlLocal(c.note)}" style="flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`
+    : '';
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}">
-    <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${grip}</div>
+    <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${noteBtn}${grip}</div>
     <div class="chip-hrs"><span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span></div>
   </div>`;
 }
@@ -511,6 +558,7 @@ function genererGrille(opts) {
   html += '</tbody></table>';
   zone.outerHTML = `<div id="zone-grille">${html}</div>`;
   initDragReorder();
+  initChipNotes();
 
   if (opts.conserverScroll) {
     const wrap = document.getElementById('grille-wrap');

@@ -244,29 +244,46 @@ router.post("/equipe-mois", async (req, res) => {
   }
 });
 
-/* ── Enregistrer l'ordre mobile des chantiers d'une journée (réservé au gérant,
-   auth par code employé). N'affecte PAS le planning PC. ── */
+/* ── Enregistrer l'ordre mobile des chantiers d'une journée. N'affecte PAS le
+   planning PC. Auth : code employé gérant (mobile) OU token licence (patron PC). ── */
 router.post("/ordre-mobile", async (req, res) => {
   try {
-    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
-    const gerantId  = req.body.gerantId;     // salarié qui agit (doit être gérant)
     const salarieId = req.body.salarieId;    // salarié cible
     const date      = (req.body.date || "").trim();
     const ordre     = Array.isArray(req.body.ordre) ? req.body.ordre.map(x => String(x)) : null;
-    if (!codeEmp || !gerantId || !salarieId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !ordre)
+    if (!salarieId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !ordre)
       return res.status(400).json({ ok: false, message: "Paramètres manquants ou invalides" });
 
-    const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
-    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+    let clientId = null;
+    const codeEmp = (req.body.codeEmploye || "").trim().toUpperCase();
 
-    const gerant = (doc.salaries || []).find(s => String(s.id) === String(gerantId));
-    if (!gerant || !gerant.gerant)
-      return res.status(403).json({ ok: false, message: "Action réservée au gérant" });
+    if (codeEmp) {
+      // Contexte mobile : gérant authentifié par code employé
+      const gerantId = req.body.gerantId;
+      const Donnees = (await import("../models/donnees.js")).default;
+      const docs = await Donnees.find({});
+      const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+      if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+      const gerant = (doc.salaries || []).find(s => String(s.id) === String(gerantId));
+      if (!gerant || !gerant.gerant)
+        return res.status(403).json({ ok: false, message: "Action réservée au gérant" });
+      clientId = doc.clientId;
+    } else {
+      // Contexte licence (patron PC) : token Bearer
+      const jwt = (await import("jsonwebtoken")).default;
+      let token = req.headers.authorization?.split(" ")[1];
+      if (!token && req.body._token) token = req.body._token;
+      if (!token) return res.status(401).json({ ok: false, message: "Accès refusé : aucun token" });
+      try {
+        clientId = jwt.verify(token, process.env.JWT_SECRET).clientId;
+      } catch {
+        return res.status(400).json({ ok: false, message: "Token invalide ou expiré" });
+      }
+    }
+    if (!clientId) return res.status(403).json({ ok: false, message: "Client introuvable" });
 
-    let o = await OrdreMobile.findOne({ clientId: doc.clientId });
-    if (!o) o = new OrdreMobile({ clientId: doc.clientId, ordres: {} });
+    let o = await OrdreMobile.findOne({ clientId });
+    if (!o) o = new OrdreMobile({ clientId, ordres: {} });
     const ordres = o.ordres || {};
     ordres[String(salarieId) + "_" + date] = ordre;
     o.ordres = ordres;
@@ -342,7 +359,7 @@ router.get("/:mois", verifyToken, async (req, res) => {
       clientId,
       date: { $regex: `^${mois}` }
     }).sort({ date: 1, salarieNom: 1 });
-    res.json({ ok: true, saisies });
+    res.json({ ok: true, saisies, ordreMobile: await getOrdresMobile(clientId) });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
