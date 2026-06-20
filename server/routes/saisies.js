@@ -244,6 +244,32 @@ router.post("/equipe-mois", async (req, res) => {
   }
 });
 
+/* ── Saisies (réalisé) d'UN salarié pour un mois — route mobile « self » (code employé).
+   Permet au salarié de consulter son propre planning enrichi du réalisé. ── */
+router.post("/mobile-mois", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const mois      = (req.body.mois || "").trim(); // "YYYY-MM"
+    if (!codeEmp || !salarieId || !/^\d{4}-\d{2}$/.test(mois))
+      return res.status(400).json({ ok: false, message: "Paramètres manquants ou invalides" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal) return res.status(403).json({ ok: false, message: "Salarié inconnu" });
+
+    const saisies = await Saisie.find({
+      clientId: doc.clientId, salarieId, date: { $regex: `^${mois}` }
+    }).sort({ date: 1 });
+    res.json({ ok: true, saisies, ordreMobile: await getOrdresMobile(doc.clientId) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Enregistrer l'ordre mobile des chantiers d'une journée. N'affecte PAS le
    planning PC. Auth : code employé gérant (mobile) OU token licence (patron PC). ── */
 router.post("/ordre-mobile", async (req, res) => {

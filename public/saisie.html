@@ -839,6 +839,20 @@
   .btn-valider-heure:active { transform: none !important; }
   /* Champ verrouillé quand la bascule est verte */
   .heure-input:disabled { opacity: 0.65; cursor: not-allowed; background: #f1f5f9; }
+  /* Pavés « Mon planning » : même présentation que la Vue équipe */
+  #mon-planning-corps .chip { border:1px solid #EEC489; border-radius:8px; padding:8px 10px; margin-bottom:7px; background:#FCEBD2; display:flex; flex-direction:column; min-height:48px; }
+  #mon-planning-corps .chip:last-child { margin-bottom:0; }
+  #mon-planning-corps .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
+  #mon-planning-corps .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
+  #mon-planning-corps .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:5px; color:#6E4A12; font-size:0.95rem; }
+  #mon-planning-corps .chip .cn .nm { overflow-wrap:anywhere; word-break:break-word; }
+  #mon-planning-corps .chip.s-cours .cn { color:#0B3E78; }
+  #mon-planning-corps .chip.s-parti .cn { color:#1E5E12; }
+  #mon-planning-corps .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.78rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
+  #mon-planning-corps .chip-hrs .hr { margin-left:6px; }
+  #mon-planning-corps .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
+  #mon-planning-corps .chip .pin-etat { font-size:1rem; line-height:1; }
+  #mon-planning-corps .tag-add { font-size:0.7rem; font-weight:700; border:1px solid #cbd5e1; border-radius:5px; padding:0 5px; color:#475569; background:#fff; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -1559,15 +1573,111 @@ function chantiersPlanningPour(dateStr) {
   }
   return [...map.values()];
 }
-function ouvrirMonPlanning() {
+/* ── État réalisé pour Mon planning (récupéré par mois via /mobile-mois) ── */
+let _mpSaisies = [];
+let _mpMoisCharges = new Set();
+let _mpRealParDate = {};
+
+function _mpNorm(s) { return (s || '').trim().toLowerCase(); }
+function _mpEtat(c) {
+  if (c.heureDepart  && String(c.heureDepart).trim())  return 'parti';
+  if (c.heureArrivee && String(c.heureArrivee).trim()) return 'cours';
+  return 'plan';
+}
+function _mpFmtHM(h) {
+  if (!h || h <= 0) return '—';
+  return (Math.round(h * 100) / 100).toFixed(2).replace('.', ',') + ' h';
+}
+function _mpEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+/* Recharge le réalisé du salarié pour les mois couvrant la semaine affichée. */
+async function chargerRealiseMonPlanning() {
+  const code = localStorage.getItem('saisie_codeEmploye');
+  const salId = _salarie?.id;
+  if (!code || !salId) return;
+  const lundi = _monPlanningLundi;
+  const mois = new Set();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(lundi); d.setDate(lundi.getDate() + i);
+    mois.add(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
+  for (const m of mois) {
+    if (_mpMoisCharges.has(m)) continue;
+    try {
+      const r = await fetch('/api/saisies/mobile-mois', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye: code, salarieId: salId, mois: m })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        if (Array.isArray(d.saisies)) _mpSaisies.push(...d.saisies);
+        if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+        _mpMoisCharges.add(m);
+      }
+    } catch (_) {}
+  }
+  _mpRealParDate = {};
+  _mpSaisies.forEach(s => {
+    if (!s || !s.date) return;
+    (_mpRealParDate[s.date] = _mpRealParDate[s.date] || []).push(...(s.chantiers || []));
+  });
+}
+/* Pavés d'une journée (planifié + réalisé), même logique que la Vue équipe. */
+function chipsJourMonPlanning(dateStr) {
+  const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const safeDate = dateStr.replace(/-/g, '_');
+  const salId = _salarie?.id;
+  const planifies = [];
+  for (let i = 1; i <= 5; i++) {
+    const dd = heures[`${salId}${safeDate}ch${i}`];
+    if (dd && dd.chantier && String(dd.chantier).trim())
+      planifies.push({ nom: String(dd.chantier).trim(), h: parseFloat(dd.heures) || 0, note: (dd.note || '').trim() });
+  }
+  const rs = _mpRealParDate[dateStr] || [];
+  const pris = new Array(rs.length).fill(false);
+  const chips = [];
+  planifies.forEach(p => {
+    let etat = 'plan', hReal = 0, noteR = '';
+    const idx = rs.findIndex((c, j) => !pris[j] && _mpNorm(c.nom) === _mpNorm(p.nom));
+    if (idx >= 0) { pris[idx] = true; etat = _mpEtat(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR });
+  });
+  rs.forEach((c, j) => {
+    if (pris[j]) return;
+    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: _mpEtat(c), ajoute: true, note: (c.note || '').trim() });
+  });
+  const ord = _ordreMobilePour(salId, dateStr);
+  if (ord) { const rang = {}; ord.forEach((n, i) => { rang[n] = i; }); chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999))); }
+  return chips;
+}
+function _mpHtmlChip(c) {
+  const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
+              : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
+  const tag = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
+  const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
+  const noteBtn = (c.note && c.note.trim())
+    ? `<button type="button" class="mp-note" data-nom="${_mpEsc(c.nom)}" data-note="${_mpEsc(c.note)}" style="margin-left:auto;flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;font-size:0.8rem;line-height:1;padding:3px 7px;cursor:pointer;">📋</button>`
+    : '';
+  return `<div class="chip s-${c.etat}"><div class="cn">${icone}<span class="nm">${_mpEsc(c.nom)}</span>${tag}${noteBtn}</div>`
+       + `<div class="chip-hrs"><span class="hp">h plan. : ${_mpFmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${_mpFmtHM(c.hReal)}</span></div></div>`;
+}
+
+async function ouvrirMonPlanning() {
   const base = document.getElementById('date-saisie').value || _ymd(new Date());
   _monPlanningLundi = _lundiDe(base);
-  rendreMonPlanning();
+  rendreMonPlanning();                 // affichage immédiat (planifié)
   document.getElementById('mon-planning-overlay').style.display = 'flex';
+  await chargerRealiseMonPlanning();    // puis enrichissement avec le réalisé
+  rendreMonPlanning();
 }
-function naviguerMonPlanning(deltaSemaines) {
+async function naviguerMonPlanning(deltaSemaines) {
   if (!_monPlanningLundi) return;
   _monPlanningLundi.setDate(_monPlanningLundi.getDate() + deltaSemaines * 7);
+  rendreMonPlanning();
+  await chargerRealiseMonPlanning();
   rendreMonPlanning();
 }
 function rendreMonPlanning() {
@@ -1586,6 +1696,11 @@ function rendreMonPlanning() {
       +   '<button type="button" id="mon-planning-prec" style="background:#eef2ff;color:#3730a3;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;">◀</button>'
       +   '<span id="mon-planning-semaine" style="font-weight:700;color:#111827;font-size:0.9rem;text-align:center;"></span>'
       +   '<button type="button" id="mon-planning-suiv" style="background:#eef2ff;color:#3730a3;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;">▶</button>'
+      + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 14px;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;">'
+      +   '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:#FCEBD2;border:1px solid #EEC489;display:inline-block;"></i>Planifié</span>'
+      +   '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:#D4E7FB;border:1px solid #4F9BE8;display:inline-block;"></i>Sur place</span>'
+      +   '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:#DCF0C6;border:1px solid #6FB23C;display:inline-block;"></i>Parti</span>'
       + '</div>'
       + '<div id="mon-planning-corps" style="padding:10px 14px 16px;overflow:auto;"></div>'
       + '</div>';
@@ -1608,12 +1723,7 @@ function rendreMonPlanning() {
   for (let i = 0; i < 6; i++) {
     const d = new Date(lundi); d.setDate(lundi.getDate() + i);
     const ds = _ymd(d);
-    const list = chantiersPlanningPour(ds);
-    const _ordJ = _ordreMobilePour(_salarie?.id, ds);
-    if (_ordJ) {
-      const rg = {}; _ordJ.forEach((n, k) => { rg[n] = k; });
-      list.sort((a, b) => ((rg[a.nom] != null ? rg[a.nom] : 999) - (rg[b.nom] != null ? rg[b.nom] : 999)));
-    }
+    const chips = chipsJourMonPlanning(ds);
 
     const bloc = document.createElement('div');
     bloc.style.cssText = 'border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;'
@@ -1624,39 +1734,17 @@ function rendreMonPlanning() {
     titre.innerHTML = '<span>' + jours[i] + '</span><span style="color:#6b7280;font-weight:600;">' + ddmm(d) + (ds === ajd ? ' • aujourd\u2019hui' : '') + '</span>';
     bloc.appendChild(titre);
 
-    if (!list.length) {
-      const vide = document.createElement('div');
-      vide.style.cssText = 'padding:8px 10px;color:#9ca3af;font-style:italic;font-size:0.85rem;';
-      vide.textContent = 'Rien de prévu';
-      bloc.appendChild(vide);
-    } else {
-      list.forEach(c => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid #f1f5f9;';
-        const nom = document.createElement('span');
-        nom.style.cssText = 'flex:1;min-width:0;font-weight:600;color:#111827;overflow-wrap:anywhere;';
-        nom.textContent = c.nom;
-        row.appendChild(nom);
-        if (c.h) {
-          const h = document.createElement('span');
-          h.style.cssText = 'flex:0 0 auto;color:#2563eb;font-weight:700;font-size:0.85rem;';
-          h.textContent = String(c.h).replace('.', ',') + ' h';
-          row.appendChild(h);
-        }
-        if (c.note) {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.textContent = '📋';
-          b.title = 'Note du planning';
-          b.style.cssText = 'flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:8px;padding:3px 8px;font-size:0.8rem;cursor:pointer;';
-          b.onclick = function () { afficherNotePopup(c.nom, c.note); };
-          row.appendChild(b);
-        }
-        bloc.appendChild(row);
-      });
-    }
+    const body = document.createElement('div');
+    body.style.cssText = 'padding:8px 10px;';
+    body.innerHTML = chips.length ? chips.map(_mpHtmlChip).join('')
+      : '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;">Rien de prévu</div>';
+    bloc.appendChild(body);
     corps.appendChild(bloc);
   }
+
+  corps.querySelectorAll('.mp-note').forEach(b => {
+    b.addEventListener('click', function () { afficherNotePopup(this.getAttribute('data-nom'), this.getAttribute('data-note')); });
+  });
 }
 
 /* ═══════════════════════════
