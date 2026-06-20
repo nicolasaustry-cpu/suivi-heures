@@ -967,6 +967,11 @@
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;">
           ← Sortir
         </button>
+        <button id="btn-mon-planning" onclick="ouvrirMonPlanning()"
+          style="background:#2563eb;border:1px solid rgba(255,255,255,0.5);color:#fff;
+                 border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
+          📅 Mon planning
+        </button>
         <button id="btn-vue-equipe" onclick="window.location.href='planning-equipe.html'"
           style="background:#16a34a;border:1px solid rgba(255,255,255,0.5);color:#fff;
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;white-space:nowrap;">
@@ -1472,15 +1477,15 @@ async function chargerChantiersPrev() {
   majTotal();
 }
 
-/* Pop-up LECTURE SEULE : affiche la note saisie dans le planning pour un chantier prévu. */
-function ouvrirNotePlanning(nom) {
-  const txt = (_notesPlanning[nom] || '').trim();
+/* Pop-up LECTURE SEULE générique (note). */
+function afficherNotePopup(titre, texte) {
+  const txt = (texte || '').trim();
   if (!txt) return;
   let ov = document.getElementById('note-planning-overlay');
   if (!ov) {
     ov = document.createElement('div');
     ov.id = 'note-planning-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px;';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:18px;';
     ov.innerHTML =
         '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
       + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note du planning</div>'
@@ -1492,9 +1497,137 @@ function ouvrirNotePlanning(nom) {
     ov.addEventListener('click', function (e) { if (e.target === ov) ov.style.display = 'none'; });
     ov.querySelector('#note-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
   }
-  ov.querySelector('#note-planning-nom').textContent = nom;
+  ov.querySelector('#note-planning-nom').textContent = titre || '';
   ov.querySelector('#note-planning-txt').textContent = txt;
   ov.style.display = 'flex';
+}
+function ouvrirNotePlanning(nom) { afficherNotePopup(nom, _notesPlanning[nom]); }
+
+/* ═══════════════════════════
+   MON PLANNING (vue semaine, lecture seule, chaque salarié)
+═══════════════════════════ */
+let _monPlanningLundi = null;
+
+function _ymd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _lundiDe(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dec = (d.getDay() + 6) % 7;        // 0 = lundi
+  d.setDate(d.getDate() - dec);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+/* Chantiers planifiés du salarié connecté pour une date donnée (depuis heuresdata). */
+function chantiersPlanningPour(dateStr) {
+  const heures  = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const prefixe = String(_salarie?.id) + dateStr.replace(/-/g, '_');
+  const map = new Map();
+  for (const k in heures) {
+    if (!k.startsWith(prefixe)) continue;
+    if (k.endsWith('abs')) continue;
+    const e = heures[k];
+    const nom = (e?.chantier || '').trim();
+    if (!nom || nom.toLowerCase() === 'absence') continue;
+    const note = (e?.note || '').trim();
+    if (!map.has(nom)) map.set(nom, { nom, h: parseFloat(e?.heures) || 0, note });
+    else if (note && !map.get(nom).note) map.get(nom).note = note;
+  }
+  return [...map.values()];
+}
+function ouvrirMonPlanning() {
+  const base = document.getElementById('date-saisie').value || _ymd(new Date());
+  _monPlanningLundi = _lundiDe(base);
+  rendreMonPlanning();
+  document.getElementById('mon-planning-overlay').style.display = 'flex';
+}
+function naviguerMonPlanning(deltaSemaines) {
+  if (!_monPlanningLundi) return;
+  _monPlanningLundi.setDate(_monPlanningLundi.getDate() + deltaSemaines * 7);
+  rendreMonPlanning();
+}
+function rendreMonPlanning() {
+  let ov = document.getElementById('mon-planning-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'mon-planning-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:14px;';
+    ov.innerHTML =
+        '<div style="background:#fff;border-radius:14px;max-width:480px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
+      + '<div style="background:#0f3a8a;color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+      +   '<span style="font-weight:700;">📅 Mon planning</span>'
+      +   '<button type="button" id="mon-planning-fermer" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer;">Fermer</button>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid #e5e7eb;">'
+      +   '<button type="button" id="mon-planning-prec" style="background:#eef2ff;color:#3730a3;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;">◀</button>'
+      +   '<span id="mon-planning-semaine" style="font-weight:700;color:#111827;font-size:0.9rem;text-align:center;"></span>'
+      +   '<button type="button" id="mon-planning-suiv" style="background:#eef2ff;color:#3730a3;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;">▶</button>'
+      + '</div>'
+      + '<div id="mon-planning-corps" style="padding:10px 14px 16px;overflow:auto;"></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (e) { if (e.target === ov) ov.style.display = 'none'; });
+    ov.querySelector('#mon-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
+    ov.querySelector('#mon-planning-prec').addEventListener('click', function () { naviguerMonPlanning(-1); });
+    ov.querySelector('#mon-planning-suiv').addEventListener('click', function () { naviguerMonPlanning(1); });
+  }
+
+  const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const lundi = _monPlanningLundi;
+  const samedi = new Date(lundi); samedi.setDate(lundi.getDate() + 5);
+  const ddmm = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  ov.querySelector('#mon-planning-semaine').textContent = 'Semaine du ' + ddmm(lundi) + ' au ' + ddmm(samedi);
+
+  const corps = ov.querySelector('#mon-planning-corps');
+  corps.innerHTML = '';
+  const ajd = _ymd(new Date());
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(lundi); d.setDate(lundi.getDate() + i);
+    const ds = _ymd(d);
+    const list = chantiersPlanningPour(ds);
+
+    const bloc = document.createElement('div');
+    bloc.style.cssText = 'border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;'
+      + (ds === ajd ? 'box-shadow:0 0 0 2px #2563eb;' : '');
+
+    const titre = document.createElement('div');
+    titre.style.cssText = 'background:#f3f4f6;padding:6px 10px;font-weight:700;font-size:0.85rem;color:#374151;display:flex;justify-content:space-between;';
+    titre.innerHTML = '<span>' + jours[i] + '</span><span style="color:#6b7280;font-weight:600;">' + ddmm(d) + (ds === ajd ? ' • aujourd\u2019hui' : '') + '</span>';
+    bloc.appendChild(titre);
+
+    if (!list.length) {
+      const vide = document.createElement('div');
+      vide.style.cssText = 'padding:8px 10px;color:#9ca3af;font-style:italic;font-size:0.85rem;';
+      vide.textContent = 'Rien de prévu';
+      bloc.appendChild(vide);
+    } else {
+      list.forEach(c => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid #f1f5f9;';
+        const nom = document.createElement('span');
+        nom.style.cssText = 'flex:1;min-width:0;font-weight:600;color:#111827;overflow-wrap:anywhere;';
+        nom.textContent = c.nom;
+        row.appendChild(nom);
+        if (c.h) {
+          const h = document.createElement('span');
+          h.style.cssText = 'flex:0 0 auto;color:#2563eb;font-weight:700;font-size:0.85rem;';
+          h.textContent = String(c.h).replace('.', ',') + ' h';
+          row.appendChild(h);
+        }
+        if (c.note) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = '📋';
+          b.title = 'Note du planning';
+          b.style.cssText = 'flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:8px;padding:3px 8px;font-size:0.8rem;cursor:pointer;';
+          b.onclick = function () { afficherNotePopup(c.nom, c.note); };
+          row.appendChild(b);
+        }
+        bloc.appendChild(row);
+      });
+    }
+    corps.appendChild(bloc);
+  }
 }
 
 /* ═══════════════════════════
