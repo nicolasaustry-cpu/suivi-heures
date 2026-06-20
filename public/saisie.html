@@ -45,6 +45,7 @@
       align-items: flex-start;
       flex-wrap: wrap;
       padding: 1.5rem 1rem 2rem;
+      position: relative;
     }
     /* Le cadre téléphone : on lui donne une vraie taille mobile (390×779)
        puis on le réduit visuellement à 300×600 via un scale unique.
@@ -69,8 +70,12 @@
       inset: 0 !important;
       z-index: 300;
     }
-    /* Panneau QR à droite du téléphone */
+    /* Panneau QR épinglé sur le bord droit de la page */
     .qr-panel {
+      position: absolute;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
       width: 280px;
       background: #fff;
       border-radius: 16px;
