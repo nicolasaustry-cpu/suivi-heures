@@ -252,12 +252,10 @@ async function chargerRealiseSemaine() {
   }
 }
 
-/* ── Réordonnancement mobile (gérant) ── */
+/* ── Réordonnancement mobile (gérant), par glisser-déposer tactile ── */
 let _peutReordonner = false;
+let _drag = null;
 
-function escJs(s) {
-  return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-}
 /* Applique l'ordre mobile (s'il existe) à une liste de noms de chantiers (tri stable). */
 function appliquerOrdreMobile(salId, dateStr, noms) {
   let o = {};
@@ -267,33 +265,66 @@ function appliquerOrdreMobile(salId, dateStr, noms) {
   const rang = {}; ordre.forEach((n, i) => { rang[n] = i; });
   return noms.slice().sort((a, b) => ((rang[a] != null ? rang[a] : 999) - (rang[b] != null ? rang[b] : 999)));
 }
-/* Noms des chantiers planifiés d'une journée, dans l'ordre mobile courant. */
-function planifiesOrdonnes(salId, dateStr, heures) {
-  const safeDate = dateStr.replace(/-/g, '_');
-  const noms = [];
-  for (let i = 1; i <= 5; i++) {
-    const dd = heures[`${salId}${safeDate}ch${i}`];
-    if (dd && dd.chantier && String(dd.chantier).trim()) noms.push(String(dd.chantier).trim());
-  }
-  return appliquerOrdreMobile(salId, dateStr, noms);
-}
-/* Déplace un chantier planifié dans l'ordre du jour (sens = -1 monter, +1 descendre). */
-async function deplacerChantierMobile(salId, dateStr, nom, sens) {
-  const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-  const noms = planifiesOrdonnes(salId, dateStr, heures);
-  const i = noms.indexOf(nom);
-  const j = i + sens;
-  if (i < 0 || j < 0 || j >= noms.length) return;
-  const tmp = noms[i]; noms[i] = noms[j]; noms[j] = tmp;
 
-  // Mémorisation locale immédiate + re-rendu
+/* Active le glisser-déposer sur chaque poignée (⠿) des pavés. */
+function initDragReorder() {
+  if (!_peutReordonner) return;
+  document.querySelectorAll('.grille .drag-grip').forEach(g => {
+    g.addEventListener('pointerdown', dragDown);
+  });
+}
+function dragDown(e) {
+  const chip = e.target.closest('.chip');
+  const cell = chip && chip.closest('td[data-cell]');
+  if (!chip || !cell) return;
+  if (cell.querySelectorAll('.chip').length < 2) return; // rien à réordonner
+  e.preventDefault();
+  e.stopPropagation();
+  _drag = { chip, cell, grip: e.target, id: e.pointerId };
+  chip.style.opacity = '0.6';
+  chip.style.outline = '2px dashed #2563eb';
+  chip.style.outlineOffset = '-2px';
+  try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+  e.target.addEventListener('pointermove', dragMove);
+  e.target.addEventListener('pointerup', dragUp);
+  e.target.addEventListener('pointercancel', dragUp);
+}
+function dragMove(e) {
+  if (!_drag) return;
+  e.preventDefault();
+  const { chip, cell } = _drag;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const cible = el && el.closest ? el.closest('.chip') : null;
+  if (!cible || cible === chip) return;
+  if (cible.closest('td[data-cell]') !== cell) return; // rester dans la même journée/salarié
+  const r = cible.getBoundingClientRect();
+  const apres = e.clientY > r.top + r.height / 2;
+  if (apres) cible.after(chip); else cible.before(chip);
+}
+function dragUp(e) {
+  if (!_drag) return;
+  const { chip, cell, grip } = _drag;
+  chip.style.opacity = '';
+  chip.style.outline = '';
+  chip.style.outlineOffset = '';
+  try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
+  grip.removeEventListener('pointermove', dragMove);
+  grip.removeEventListener('pointerup', dragUp);
+  grip.removeEventListener('pointercancel', dragUp);
+  const cle  = cell.getAttribute('data-cell');
+  const noms = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-nom'));
+  _drag = null;
+  enregistrerOrdreCellule(cle, noms);
+}
+/* Mémorise (local + serveur) le nouvel ordre d'une case. cle = "<salarieId>_<YYYY-MM-DD>" */
+async function enregistrerOrdreCellule(cle, noms) {
   let o = {};
   try { o = JSON.parse(localStorage.getItem('ordreMobiledata') || '{}'); } catch (_) {}
-  o[String(salId) + '_' + dateStr] = noms;
+  o[cle] = noms;
   localStorage.setItem('ordreMobiledata', JSON.stringify(o));
-  genererGrille({ conserverScroll: true });
 
-  // Enregistrement serveur (réservé au gérant)
+  const i = cle.indexOf('_');
+  const salId = cle.slice(0, i), date = cle.slice(i + 1);
   try {
     let gerantId = null;
     try { gerantId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
@@ -302,7 +333,7 @@ async function deplacerChantierMobile(salId, dateStr, nom, sens) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         codeEmploye: localStorage.getItem('saisie_codeEmploye'),
-        gerantId, salarieId: salId, date: dateStr, ordre: noms
+        gerantId, salarieId: salId, date, ordre: noms
       })
     });
   } catch (_) {}
@@ -320,10 +351,6 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
       planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0 });
     }
   }
-  // Ordre mobile (fixé par le gérant) : on réordonne les pavés planifiés
-  const ordreNoms = appliquerOrdreMobile(sal.id, dateStr, planifies.map(p => p.nom));
-  const rangP = {}; ordreNoms.forEach((n, i) => { rangP[n] = i; });
-  planifies.sort((a, b) => ((rangP[a.nom] != null ? rangP[a.nom] : 999) - (rangP[b.nom] != null ? rangP[b.nom] : 999)));
 
   // 2) Réalisé du salarié ce jour-là
   const rs   = (realParSalDate[sal.id] && realParSalDate[sal.id][dateStr]) ? realParSalDate[sal.id][dateStr] : [];
@@ -336,14 +363,19 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
     let etat = 'plan', hReal = 0;
     const idx = rs.findIndex((c, j) => !pris[j] && norm(c.nom) === norm(p.nom));
     if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, salId: sal.id, date: dateStr });
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false });
   });
 
-  // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié (pas de planifié)
+  // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
   rs.forEach((c, j) => {
     if (pris[j]) return;
     chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true });
   });
+
+  // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés)
+  const ordreNoms = appliquerOrdreMobile(sal.id, dateStr, chips.map(c => c.nom));
+  const rang = {}; ordreNoms.forEach((n, i) => { rang[n] = i; });
+  chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999)));
 
   return chips;
 }
@@ -358,15 +390,11 @@ function htmlChip(c) {
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
   const tag     = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
   const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
-  const btnStyle = 'border:none;background:#eef2ff;color:#3730a3;border-radius:5px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;';
-  const reorder = (!c.ajoute && _peutReordonner)
-    ? `<span style="margin-left:auto;display:inline-flex;gap:3px;flex:0 0 auto;">`
-      + `<button type="button" title="Monter" style="${btnStyle}" onclick="event.stopPropagation();deplacerChantierMobile('${escJs(c.salId)}','${escJs(c.date)}','${escJs(c.nom)}',-1)">▲</button>`
-      + `<button type="button" title="Descendre" style="${btnStyle}" onclick="event.stopPropagation();deplacerChantierMobile('${escJs(c.salId)}','${escJs(c.date)}','${escJs(c.nom)}',1)">▼</button>`
-      + `</span>`
+  const grip = _peutReordonner
+    ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin-left:auto;flex:0 0 auto;cursor:grab;touch-action:none;font-size:1.05rem;line-height:1;color:#94a3b8;padding:0 2px;user-select:none;">⠿</span>`
     : '';
-  return `<div class="chip s-${c.etat}">
-    <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${reorder}</div>
+  return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}">
+    <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${grip}</div>
     <div class="chip-hrs"><span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span></div>
   </div>`;
 }
@@ -439,13 +467,14 @@ function genererGrille(opts) {
              </th>`;
     sals.forEach(s => {
       const chips = chipsCellule(s, dateStr, heures, real);
-      html += '<td>' + (chips.length ? chips.map(htmlChip).join('') : '<div class="vide">—</div>') + '</td>';
+      html += `<td data-cell="${s.id}_${dateStr}">` + (chips.length ? chips.map(htmlChip).join('') : '<div class="vide">—</div>') + '</td>';
     });
     html += '</tr>';
   });
 
   html += '</tbody></table>';
   zone.outerHTML = `<div id="zone-grille">${html}</div>`;
+  initDragReorder();
 
   if (opts.conserverScroll) {
     const wrap = document.getElementById('grille-wrap');

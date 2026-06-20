@@ -1478,11 +1478,13 @@ async function chargerChantiersPrev() {
     // Hors ligne : on garde l'état local existant
   }
 
-  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne les chantiers prévus
+  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne prévus ET ajoutés
   const _ord = _ordreMobilePour(salarieId, date);
   if (_ord) {
     const rang = {}; _ord.forEach((n, i) => { rang[n] = i; });
-    _chantiersP.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999)));
+    const parRang = (a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999));
+    _chantiersP.sort(parRang);
+    _chantiersA.sort(parRang);
   }
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
