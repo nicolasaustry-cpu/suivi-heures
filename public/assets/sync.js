@@ -423,8 +423,26 @@ const SYNC = (() => {
       '.sh-rail .sh-plus{float:right;font-size:0.6rem;font-weight:700;background:#caa24a;' +
       'color:#241a06;border-radius:999px;padding:1px 7px;margin-left:6px;}' +
       'html.sh-lateral body{padding-left:208px;}' +
-      'html.sh-lateral .nav{display:none !important;}' +
-      'html.sh-lateral body > .main-header,html.sh-lateral body > .header-desktop{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}';
+      'html.sh-menu-on .nav{display:none !important;}' +
+      'html.sh-lateral body > .main-header,html.sh-lateral body > .header-desktop{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}' +
+      // Barre du haut groupée (tablette / écran étroit)
+      '.sh-topbar{display:flex;align-items:center;gap:4px;background:#0f2747;padding:6px 10px;' +
+      'overflow-x:auto;white-space:nowrap;font-family:Arial,sans-serif;}' +
+      '.sh-topbar .sh-tb-brand{color:#fff;font-weight:700;font-size:0.95rem;margin-right:10px;}' +
+      '.sh-topbar .sh-tb-btn{background:transparent;border:none;color:#cdd8ea;font-size:0.9rem;' +
+      'font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}' +
+      '.sh-topbar .sh-tb-btn:hover{background:#17335a;color:#fff;}' +
+      '.sh-topbar .sh-tb-btn.active{color:#fff;}' +
+      '.sh-topbar .sh-tb-btn.ouvert{background:#1d8cf0;color:#fff;}' +
+      '.sh-topbar .sh-caret{font-size:0.7rem;}' +
+      '.sh-dropdown{background:#fff;border:1px solid #e2e8f0;border-radius:10px;' +
+      'box-shadow:0 12px 32px rgba(0,0,0,0.18);padding:6px;min-width:200px;font-family:Arial,sans-serif;}' +
+      '.sh-dropdown a.sh-dd-i{display:block;color:#1f2937;text-decoration:none;font-size:0.9rem;padding:8px 10px;border-radius:7px;}' +
+      '.sh-dropdown a.sh-dd-i:hover{background:#eef2f7;}' +
+      '.sh-dropdown a.sh-dd-i.active{background:#1d8cf0;color:#fff;}' +
+      '.sh-dropdown a.sh-dd-i.sh-lock{color:#64748b;}' +
+      '.sh-dropdown .sh-plus{float:right;font-size:0.6rem;font-weight:700;background:#caa24a;' +
+      'color:#241a06;border-radius:999px;padding:1px 7px;margin-left:6px;}';
     const st = document.createElement('style');
     st.id = 'sh-menu-style';
     st.textContent = css;
@@ -511,15 +529,94 @@ const SYNC = (() => {
     });
     document.body.appendChild(rail);
 
+    // ── Barre du haut groupée (tablette / écran étroit) ──
+    construireTopbar();
+    document.documentElement.classList.add('sh-menu-on');
+
     appliquerModeMenu();
     setTimeout(appliquerModeMenu, 0);     // recale une fois la page initialisée
     if (!_menuListenersPoses) {
       _menuListenersPoses = true;
       window.addEventListener('resize', appliquerModeMenu);
+      window.addEventListener('resize', fermerDropdown);
+      document.addEventListener('click', fermerDropdown);
       if (window.matchMedia) {
         try { window.matchMedia('(pointer: coarse)').addEventListener('change', appliquerModeMenu); } catch (_) {}
       }
     }
+  }
+
+  function construireTopbar() {
+    const nav = document.querySelector('.nav');
+    if (!nav) return;
+    const ancien = document.getElementById('sh-topbar');
+    if (ancien) ancien.remove();
+    const estPlus = (_type === 'plus');
+    const page = pageActuelle();
+    const bar = document.createElement('nav');
+    bar.id = 'sh-topbar';
+    bar.className = 'sh-topbar';
+    const brand = document.createElement('span');
+    brand.className = 'sh-tb-brand';
+    brand.textContent = "Suiv'Heures";
+    bar.appendChild(brand);
+    MENU_GROUPES.forEach(g => {
+      const actif = g.items.some(it => it.href === page);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sh-tb-btn' + (actif ? ' active' : '');
+      btn.appendChild(document.createTextNode(g.label + ' '));
+      const car = document.createElement('span');
+      car.className = 'sh-caret';
+      car.textContent = '▾';
+      btn.appendChild(car);
+      btn.addEventListener('click', function (e) { e.stopPropagation(); ouvrirDropdown(btn, g); });
+      bar.appendChild(btn);
+    });
+    nav.parentNode.insertBefore(bar, nav);
+  }
+
+  function fermerDropdown() {
+    const d = document.getElementById('sh-dropdown');
+    if (d) d.remove();
+    document.querySelectorAll('.sh-tb-btn.ouvert').forEach(b => b.classList.remove('ouvert'));
+  }
+
+  function ouvrirDropdown(btn, g) {
+    const dejaOuvert = btn.classList.contains('ouvert');
+    fermerDropdown();
+    if (dejaOuvert) return;               // re-clic sur le même bouton = fermeture
+    btn.classList.add('ouvert');
+    const estPlus = (_type === 'plus');
+    const page = pageActuelle();
+    const dd = document.createElement('div');
+    dd.id = 'sh-dropdown';
+    dd.className = 'sh-dropdown';
+    g.items.forEach(it => {
+      const verrou = !!it.plus && !estPlus;
+      const a = document.createElement('a');
+      a.href = verrou ? '#' : it.href;
+      a.className = 'sh-dd-i' + (page === it.href ? ' active' : '') + (verrou ? ' sh-lock' : '');
+      a.textContent = it.label;
+      if (it.plus) {
+        const b = document.createElement('span');
+        b.className = 'sh-plus';
+        b.textContent = 'Plus';
+        a.appendChild(b);
+      }
+      if (verrou) a.addEventListener('click', e => { e.preventDefault(); fermerDropdown(); popupPlus(it.label); });
+      dd.appendChild(a);
+    });
+    dd.addEventListener('click', e => e.stopPropagation());
+    document.body.appendChild(dd);
+    const r = btn.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.zIndex = '10040';
+    let left = r.left;
+    const maxLeft = window.innerWidth - dd.offsetWidth - 8;
+    if (left > maxLeft) left = Math.max(8, maxLeft);
+    dd.style.top = (r.bottom + 4) + 'px';
+    dd.style.left = left + 'px';
   }
 
   function mesurerBandeau() {
@@ -531,19 +628,22 @@ const SYNC = (() => {
 
   function appliquerModeMenu() {
     const rail = document.getElementById('sh-rail');
-    if (!rail) return;
-    // Latéral dès 1000px (tablettes paysage incluses), tactile compris.
+    const tb = document.getElementById('sh-topbar');
+    if (!rail && !tb) return;
+    // ≥1000px : menu latéral. Sinon : barre du haut groupée.
     const lateral = (window.innerWidth >= 1000);
     document.documentElement.classList.toggle('sh-lateral', lateral);
-    rail.style.display = lateral ? '' : 'none';
-    if (lateral) {
+    if (rail) rail.style.display = lateral ? '' : 'none';
+    if (tb) tb.style.display = lateral ? 'none' : '';
+    fermerDropdown();
+    if (lateral && rail) {
       const bar = mesurerBandeau();
       rail.style.top = (bar ? bar.offsetHeight : 0) + 'px';   // démarrer sous le bandeau
     }
     const change = (lateral !== _lateralPrec);
     _lateralPrec = lateral;
     if (change) {
-      // Laisser le CSS s'appliquer (nav masquée), puis demander à la page de recalculer son décalage.
+      // Laisser le CSS s'appliquer, puis demander à la page de recalculer son décalage.
       setTimeout(function () {
         const r = document.getElementById('sh-rail');
         if (r && lateral) {
