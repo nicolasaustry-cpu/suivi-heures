@@ -386,7 +386,7 @@ const SYNC = (() => {
     if (document.getElementById('sh-menu-style')) return;
     const css =
       '.sh-rail{position:fixed;top:0;left:0;bottom:0;width:208px;background:#0f2747;' +
-      'padding:14px 9px;overflow-y:auto;z-index:200;box-sizing:border-box;font-family:Arial,sans-serif;}' +
+      'padding:14px 9px;overflow-y:auto;z-index:90;box-sizing:border-box;font-family:Arial,sans-serif;}' +
       '.sh-rail .sh-grp{font-size:0.72rem;color:#7e92b4;padding:11px 9px 4px;}' +
       '.sh-rail a.sh-i{display:block;color:#cdd8ea;text-decoration:none;font-size:0.9rem;' +
       'padding:8px 10px;border-radius:8px;margin-bottom:2px;}' +
@@ -395,8 +395,7 @@ const SYNC = (() => {
       '.sh-rail .sh-plus{float:right;font-size:0.6rem;font-weight:700;background:#caa24a;' +
       'color:#241a06;border-radius:999px;padding:1px 7px;margin-left:6px;}' +
       'html.sh-lateral body{padding-left:208px;}' +
-      'html.sh-lateral .top-bar{left:208px;}' +
-      'html.sh-lateral .fixed-tools{left:208px;}';
+      'html.sh-lateral .top-bar .nav{display:none !important;}';
     const st = document.createElement('style');
     st.id = 'sh-menu-style';
     st.textContent = css;
@@ -454,6 +453,7 @@ const SYNC = (() => {
     document.body.appendChild(rail);
 
     appliquerModeMenu();
+    setTimeout(appliquerModeMenu, 0);     // recale après définition d'ajusterHauteur
     if (!_menuListenersPoses) {
       _menuListenersPoses = true;
       window.addEventListener('resize', appliquerModeMenu);
@@ -470,8 +470,13 @@ const SYNC = (() => {
     const lateral = (window.innerWidth >= 1100 && !coarse);
     document.documentElement.classList.toggle('sh-lateral', lateral);
     rail.style.display = lateral ? '' : 'none';
-    const nav = document.querySelector('.nav');
-    if (nav) nav.style.display = lateral ? 'none' : '';
+    if (lateral) {
+      const bar = document.getElementById('top-bar');
+      rail.style.top = (bar ? bar.offsetHeight : 0) + 'px';   // démarrer sous le bandeau
+    }
+    if (typeof window.ajusterHauteur === 'function') {
+      try { window.ajusterHauteur(); } catch (_) {}            // resync décalage du contenu
+    }
   }
 
   function majStatutLicence(actif, message) {
