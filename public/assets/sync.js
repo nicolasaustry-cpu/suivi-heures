@@ -532,8 +532,8 @@ const SYNC = (() => {
   function appliquerModeMenu() {
     const rail = document.getElementById('sh-rail');
     if (!rail) return;
-    const coarse = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
-    const lateral = (window.innerWidth >= 1100 && !coarse);
+    // Latéral dès 1000px (tablettes paysage incluses), tactile compris.
+    const lateral = (window.innerWidth >= 1000);
     document.documentElement.classList.toggle('sh-lateral', lateral);
     rail.style.display = lateral ? '' : 'none';
     if (lateral) {
