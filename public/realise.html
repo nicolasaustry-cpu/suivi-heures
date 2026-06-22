@@ -529,7 +529,7 @@ function afficherRealise() {
         const salRealMin  = salTotalMin + salDeplMin;
         const salEcartMin = salRealMin - salPrevuMin;
         const salEcartStr = salPrevuMin > 0
-          ? (salEcartMin >= 0 ? '+' : '') + Math.floor(Math.abs(salEcartMin)/60) + 'h' + String(Math.abs(salEcartMin)%60).padStart(2,'0')
+          ? (salEcartMin >= 0 ? '+' : '-') + Math.floor(Math.abs(salEcartMin)/60) + 'h' + String(Math.abs(salEcartMin)%60).padStart(2,'0')
           : '—';
         const salEcartColor = salEcartMin >= 0 ? '#16a34a' : '#dc2626';
         const salPrevStr = salPrevuMin > 0
@@ -565,7 +565,7 @@ function afficherRealise() {
     salsDuJour.forEach(sid => { jourPrevuMin += getPrevuMin(date, sid); });
     const jourEcartMin = jRealMin - jourPrevuMin;
     const jourEcartStr = jourPrevuMin > 0
-      ? (jourEcartMin >= 0 ? '+' : '') + Math.floor(Math.abs(jourEcartMin)/60) + 'h' + String(Math.abs(jourEcartMin)%60).padStart(2,'0')
+      ? (jourEcartMin >= 0 ? '+' : '-') + Math.floor(Math.abs(jourEcartMin)/60) + 'h' + String(Math.abs(jourEcartMin)%60).padStart(2,'0')
       : '—';
     const jourEcartColor = jourEcartMin >= 0 ? '#16a34a' : '#dc2626';
     const jourPrevStr = jourPrevuMin > 0
