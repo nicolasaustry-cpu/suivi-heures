@@ -236,6 +236,7 @@
   .chantier-nom { font-size: 0.95rem; font-weight: 700; color: #1e3a8a; flex: 1; }
   .chantier-nom.libre { color: #374151; }
   .tag-prev { font-size: 0.68rem; color: #2563eb; background: #dbeafe; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+  .tag-hprev { font-size: 0.72rem; font-weight: 700; color: #1d4ed8; background: #dbeafe; padding: 2px 8px; border-radius: 999px; flex-shrink: 0; margin-left: 8px; white-space: nowrap; }
   .btn-suppr { background: none; border: none; color: #dc2626; font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
 
   .time-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 6px; }
@@ -1784,6 +1785,11 @@ function rendrePrev() {
       nomEl.appendChild(btnNP);
     }
     header.appendChild(nomEl);
+    // Temps prévu, à droite du nom (1re ligne)
+    const _totMinPrev = Math.round((ch.hPrevues || 0) * 60);
+    const hPrevEl = document.createElement('span');
+    hPrevEl.className = 'tag-hprev';
+    hPrevEl.textContent = Math.floor(_totMinPrev / 60) + 'h' + String(_totMinPrev % 60).padStart(2, '0');
     const badge = document.createElement('span');
     const dejaSauve = s.envoye || s.dejaEnvoye;
     if (dejaSauve) {
@@ -1794,6 +1800,7 @@ function rendrePrev() {
       badge.textContent = 'Prévu';
     }
     header.appendChild(badge);
+    header.appendChild(hPrevEl);   // temps prévu, à droite de l'étiquette « Prévu »
     div.appendChild(header);
 
     // Ligne 2 : déplacement
