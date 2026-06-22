@@ -127,6 +127,7 @@
 <script>
 let _vue = 'mois';
 let _ecartMois = 0;
+let _prevuMois = 0;
 const EVENEMENTS = ['', 'CP', 'École', 'Maladie', 'Abs Aut.', 'Ev. Famil.', 'RTT', 'AT'];
 function optionsEvt(sel) { return EVENEMENTS.map(function(e){ return '<option value="' + e + '"' + (e === sel ? ' selected' : '') + '>' + (e || '—') + '</option>'; }).join(''); }
 let _salaries = [];
@@ -304,6 +305,7 @@ async function chargerMois() {
     '</tr>';
   });
   const tec = r2(tr - tp), tecv = r2(tret - tp);
+  _prevuMois = tp;
   document.getElementById('zone').innerHTML =
     '<table class="bev"><thead><tr>' +
       '<th>Jour</th><th>Prévu</th><th>Événements</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th>' +
@@ -312,8 +314,8 @@ async function chargerMois() {
       '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
       '<td id="t-ret">' + fmt(tret) + '</td>' +
       '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td></tr></tfoot></table>' +
-    '<table class="bev-encart"><thead><tr><th>Écart d\'heures</th><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th></tr></thead>' +
-    '<tbody><tr><td id="enc-ecart"></td><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td></tr></tbody></table>' +
+    '<table class="bev-encart"><thead><tr><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
+    '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 
@@ -342,6 +344,7 @@ function recalcMois() {
   const tc = document.getElementById('t-ecv');
   tc.textContent = signe(tecv); tc.className = classeEcart(tecv);
   _ecartMois = tecv;
+  _prevuMois = tp;
   majEncart();
 }
 
@@ -350,10 +353,10 @@ function majEncart() {
   if (!el) return;
   const rep  = parseFloat(el.value) || 0;
   const paye = r2(_ecartMois - rep);
-  const e = document.getElementById('enc-ecart');
-  e.textContent = signe(_ecartMois); e.className = classeEcart(_ecartMois);
   const p = document.getElementById('enc-paye');
   p.textContent = signe(paye); p.className = classeEcart(paye);
+  const tpay = document.getElementById('enc-payees');
+  if (tpay) tpay.textContent = fmt(r2(_prevuMois + paye));
 }
 
 async function enregistrer() {
