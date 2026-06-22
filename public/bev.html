@@ -431,16 +431,16 @@ async function chargerAnnee() {
     corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
       '<td class="' + classeEcart(ec) + '">' + signe(ec) + '</td><td>' + fmt(ret) + '</td>' +
       '<td class="' + classeEcart(ecv) + '">' + signe(ecv) + '</td>' +
-      '<td class="' + classeEcart(paye) + '">' + signe(paye) + '</td><td>' + fmt(reporte) + '</td></tr>';
+      '<td>' + fmt(reporte) + '</td><td>' + fmt(r2(p + paye)) + '</td></tr>';
   });
   const TEC = r2(TR - TP), TECV = r2(TRET - TP);
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th>Écart payé</th><th>Écart reporté</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th>Écart reporté</th><th>Heures payées</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
       '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td><td>' + fmt(TRET) + '</td>' +
       '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td>' +
-      '<td class="' + classeEcart(TPAYE) + '">' + signe(TPAYE) + '</td><td>' + fmt(TREPORTE) + '</td></tr></tfoot></table>' +
+      '<td>' + fmt(TREPORTE) + '</td><td>' + fmt(r2(TP + TPAYE)) + '</td></tr></tfoot></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 }
