@@ -61,6 +61,7 @@
       #aide-pied { padding: 8px 16px; font-size: 0.74rem; color: #9ca3af; border-top: 1px solid #f3f4f6; text-align: center; }
       #aide-pied a { color: ${BLEU}; font-weight: 700; text-decoration: none; }
       #aide-pied a:hover { text-decoration: underline; }
+      @media print { #aide-bulle, #aide-panneau { display: none !important; } }
     `;
     const style = document.createElement('style');
     style.id = 'aide-styles';
