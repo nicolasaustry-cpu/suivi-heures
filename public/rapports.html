@@ -258,6 +258,11 @@
       <label>Affichage</label>
       <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Situation par chantier : heures planifiées et réalisées regroupées par chantier">Situation par chantier</div>
     </div>
+    <div class="filtre-item">
+      <label>Exclure (mot-clé)</label>
+      <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
+        style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
+    </div>
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
       <div style="display:flex;gap:0.4rem;">
@@ -711,9 +716,11 @@ function majEncartPrevus() {
 }
 
 function filtrer(lignes) {
+  const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
   return lignes.filter(l => {
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
     if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
+    if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
     return true;
   });
 }
