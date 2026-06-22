@@ -423,22 +423,22 @@ async function chargerAnnee() {
     let p=0, r=0, ret=0, moisPasse=false;
     lignes.forEach(l => { if (l.passe) { p += l.prevu; r += l.real; ret += l.retenu; moisPasse = true; } });
     if (!moisPasse) {
-      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
       return;
     }
     const ec = r2(r - p), ecv = r2(ret - p), paye = r2(ecv - reporte);
     TP += p; TR += r; TRET += ret; TPAYE += paye; TREPORTE += reporte;
     corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
-      '<td class="' + classeEcart(ec) + '">' + signe(ec) + '</td><td>' + fmt(ret) + '</td>' +
+      '<td class="' + classeEcart(ec) + '">' + signe(ec) + '</td>' +
       '<td class="' + classeEcart(ecv) + '">' + signe(ecv) + '</td>' +
       '<td>' + fmt(reporte) + '</td><td>' + fmt(r2(p + paye)) + '</td></tr>';
   });
   const TEC = r2(TR - TP), TECV = r2(TRET - TP);
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th>Écart reporté</th><th>Heures payées</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>' + labelColReel() + '</th><th>Écart</th><th>Écart validé</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
-      '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td><td>' + fmt(TRET) + '</td>' +
+      '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td>' +
       '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td>' +
       '<td>' + fmt(TREPORTE) + '</td><td>' + fmt(r2(TP + TPAYE)) + '</td></tr></tfoot></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
