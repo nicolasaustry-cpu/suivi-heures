@@ -256,7 +256,7 @@
     </div>
     <div class="filtre-item">
       <label>Affichage</label>
-      <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Regrouper le détail par chantier (cumul des heures réalisées)">Cumul par chantier</div>
+      <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Situation par chantier : heures planifiées et réalisées regroupées par chantier">Situation par chantier</div>
     </div>
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
@@ -397,19 +397,33 @@
     </div>
   </div>
 
-  <!-- LIGNE 2bis : Vue regroupée par chantier (cumul réalisé) -->
+  <!-- LIGNE 2bis : Situation par chantier (planifié à gauche / réalisé à droite) -->
   <div class="grille-rapport" id="grille-regroupe" style="display:none;">
+    <!-- Planifié par chantier (bleu) -->
+    <div class="rapport-card">
+      <div class="rapport-card-header prevu">
+        <h3>Heures planifiées par chantier</h3>
+        <span class="badge-nb prevu" id="badge-regroupe-prev">0 chantier</span>
+      </div>
+      <table class="detail-table prevu" style="table-layout:auto;min-width:360px;">
+        <thead><tr><th>Chantier</th><th style="text-align:right;">Heures planifiées</th></tr></thead>
+        <tbody id="tbody-regroupe-prev"></tbody>
+        <tfoot><tr><td>Total</td><td id="total-regroupe-prev" style="text-align:right;">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-regroupe-prev" style="display:none;">Aucune donnée</p>
+    </div>
+    <!-- Réalisé par chantier (vert) -->
     <div class="rapport-card">
       <div class="rapport-card-header realise">
         <h3>Heures réalisées par chantier</h3>
-        <span class="badge-nb realise" id="badge-regroupe">0 chantier</span>
+        <span class="badge-nb realise" id="badge-regroupe-real">0 chantier</span>
       </div>
       <table class="detail-table realise" style="table-layout:auto;min-width:360px;">
         <thead><tr><th>Chantier</th><th style="text-align:right;">Heures réalisées</th></tr></thead>
-        <tbody id="tbody-regroupe"></tbody>
-        <tfoot><tr><td>Total</td><td id="total-regroupe" style="text-align:right;">0 h</td></tr></tfoot>
+        <tbody id="tbody-regroupe-real"></tbody>
+        <tfoot><tr><td>Total</td><td id="total-regroupe-real" style="text-align:right;">0 h</td></tr></tfoot>
       </table>
-      <p class="msg-vide" id="vide-regroupe" style="display:none;">Aucune donnée</p>
+      <p class="msg-vide" id="vide-regroupe-real" style="display:none;">Aucune donnée</p>
     </div>
   </div>
 
@@ -631,7 +645,7 @@ function appliquerEtAfficher() {
   afficherSynthese('real', realVisible);
   afficherDetail('prev', prevVisible);
   afficherDetail('real', realVisible);
-  if (_vueChantier) afficherRegroupeChantier(realVisible);
+  if (_vueChantier) rafraichirRegroupe();
   majEncartPrevus();
   majBoutons();
   setTimeout(ajusterHauteur, 50);
@@ -799,14 +813,14 @@ function majVueChantier() {
   const reg = document.getElementById('grille-regroupe');
   if (det) det.style.display = _vueChantier ? 'none' : '';
   if (reg) reg.style.display = _vueChantier ? '' : 'none';
-  if (_vueChantier) afficherRegroupeChantier(realVisible);
+  if (_vueChantier) rafraichirRegroupe();
 }
 
-function afficherRegroupeChantier(lignes) {
-  const tbody = document.getElementById('tbody-regroupe');
-  const total = document.getElementById('total-regroupe');
-  const badge = document.getElementById('badge-regroupe');
-  const vide  = document.getElementById('vide-regroupe');
+function afficherRegroupeChantier(type, lignes) {
+  const tbody = document.getElementById('tbody-regroupe-' + type);
+  const total = document.getElementById('total-regroupe-' + type);
+  const badge = document.getElementById('badge-regroupe-' + type);
+  const vide  = document.getElementById('vide-regroupe-' + type);
   if (!tbody) return;
 
   const parChantier = {};
@@ -823,6 +837,11 @@ function afficherRegroupeChantier(lignes) {
   total.textContent = grand.toFixed(2) + ' h';
   badge.textContent = noms.length + ' chantier' + (noms.length > 1 ? 's' : '');
   vide.style.display = noms.length ? 'none' : '';
+}
+
+function rafraichirRegroupe() {
+  afficherRegroupeChantier('prev', prevVisible);
+  afficherRegroupeChantier('real', realVisible);
 }
 
 /* ═══════════════════════════
