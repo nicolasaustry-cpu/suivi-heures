@@ -252,8 +252,21 @@ const SYNC = (() => {
     _syncTimer = setTimeout(sauvegarderTout, SAVE_DELAY);
   }
 
+  /* Garde-fou anti-mélange de clients : le jeton en mémoire (_token/_clientId)
+     doit correspondre au client actif dans le localStorage. Si un AUTRE onglet
+     a changé de client entre-temps, ces deux valeurs divergent : on refuse alors
+     d'écrire, pour ne jamais sauvegarder les données d'un client sous le jeton
+     d'un autre. */
+  function identiteCoherente() {
+    return !!_token
+        && localStorage.getItem('syncToken')    === _token
+        && localStorage.getItem('syncClientId') === _clientId;
+  }
+
   function construirePayload() {
     return {
+      // Client auquel APPARTIENNENT ces données (revérifié côté serveur).
+      clientIdAttendu: localStorage.getItem('syncClientId') || _clientId || '',
       entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
       salaries:     JSON.parse(localStorage.getItem('salariesdata')      || '[]'),
       heures:       JSON.parse(localStorage.getItem('heuresdata')        || '{}'),
@@ -265,6 +278,10 @@ const SYNC = (() => {
   async function sauvegarderTout() {
     if (_modeAdmin) return;          // admin = lecture seule
     if (!_token) return;
+    if (!identiteCoherente()) {      // anti-mélange : client changé dans un autre onglet
+      console.warn('Sauvegarde annulée : le client actif a changé dans un autre onglet.');
+      return;
+    }
     clearTimeout(_syncTimer);
     _syncTimer = null;
     try {
@@ -283,6 +300,7 @@ const SYNC = (() => {
      récente (ex. PIN) atteint le serveur même si on quitte avant la coalescence. */
   function flushSauvegarde() {
     if (_modeAdmin || !_token || !_pendingSave) return;
+    if (!identiteCoherente()) return;   // anti-mélange : ne jamais flusher avec le jeton d'un autre client
     clearTimeout(_syncTimer);
     _syncTimer = null;
     // sendBeacon : seul transport fiable au déchargement sur Safari/iOS.

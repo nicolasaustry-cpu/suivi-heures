@@ -45,6 +45,10 @@ router.get("/", verifyToken, async (req, res) => {
 router.post("/", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
+    const attendu  = (req.body.clientIdAttendu || "").toUpperCase();
+    if (attendu && attendu !== clientId) {
+      return res.status(409).json({ ok: false, message: "Incohérence client : sauvegarde refusée (anti-mélange)" });
+    }
     const { entreprise, salaries, heures, chantiers, previsionnel } = req.body;
 
     // Retrouver un document existant quelle que soit la casse de son clientId,
@@ -115,6 +119,10 @@ router.post("/reset-pin", verifyToken, async (req, res) => {
 router.patch("/:cle", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
+    const attendu  = (req.body.clientIdAttendu || "").toUpperCase();
+    if (attendu && attendu !== clientId) {
+      return res.status(409).json({ ok: false, message: "Incohérence client : sauvegarde refusée (anti-mélange)" });
+    }
     const { cle }  = req.params;
     const clesAutorisees = ["entreprise", "salaries", "heures", "chantiers", "previsionnel"];
     if (!clesAutorisees.includes(cle))
