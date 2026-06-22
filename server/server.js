@@ -11,6 +11,7 @@ import saisiesRoutes from "./routes/saisies.js";
 import faqRoutes    from "./routes/faq.js";
 import bevRoutes    from "./routes/bev.js";
 import prescRoutes  from "./routes/presc.js";
+import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
 
 dotenv.config();
 
@@ -84,6 +85,9 @@ mongoose.connection.on('error', (err) => {
 });
 
 connecterMongo();
+
+// Sauvegarde quotidienne « maison » → collection donnees_history (rétention 30 j)
+planifierSauvegardeQuotidienne();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
