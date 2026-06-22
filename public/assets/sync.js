@@ -443,6 +443,7 @@ const SYNC = (() => {
       'html.sh-lateral body{padding-left:208px;}' +
       'html.sh-menu-on .nav{display:none !important;}' +
       'html.sh-lateral .main-header,html.sh-lateral .header-desktop{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}' +
+      'html.sh-lateral .top-bar .main-header{margin-left:0;width:100%;}' +
       // Barre du haut groupée (tablette / écran étroit)
       '.sh-topbar{display:flex;align-items:center;gap:4px;background:#0f2747;padding:6px 10px;' +
       'overflow-x:auto;white-space:nowrap;font-family:Arial,sans-serif;}' +
