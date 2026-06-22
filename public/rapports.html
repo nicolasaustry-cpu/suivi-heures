@@ -254,6 +254,10 @@
       <label>Chantier(s)</label>
       <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
     </div>
+    <div class="filtre-item">
+      <label>Affichage</label>
+      <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Regrouper le détail par chantier (cumul des heures réalisées)">Cumul par chantier</div>
+    </div>
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
       <div style="display:flex;gap:0.4rem;">
@@ -336,7 +340,7 @@
   </div>
 
   <!-- LIGNE 2 : Détails côte à côte -->
-  <div class="grille-rapport">
+  <div class="grille-rapport" id="grille-details">
 
     <!-- Détail PRÉVU -->
     <div class="rapport-card">
@@ -393,6 +397,22 @@
     </div>
   </div>
 
+  <!-- LIGNE 2bis : Vue regroupée par chantier (cumul réalisé) -->
+  <div class="grille-rapport" id="grille-regroupe" style="display:none;">
+    <div class="rapport-card">
+      <div class="rapport-card-header realise">
+        <h3>Heures réalisées par chantier</h3>
+        <span class="badge-nb realise" id="badge-regroupe">0 chantier</span>
+      </div>
+      <table class="detail-table realise" style="table-layout:auto;min-width:360px;">
+        <thead><tr><th>Chantier</th><th style="text-align:right;">Heures réalisées</th></tr></thead>
+        <tbody id="tbody-regroupe"></tbody>
+        <tfoot><tr><td>Total</td><td id="total-regroupe" style="text-align:right;">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-regroupe" style="display:none;">Aucune donnée</p>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -407,6 +427,7 @@ let lignesReal  = []; // saisies salariés (réalisées)
 let prevVisible = [], realVisible = [];
 
 const filtresActifs = { salarie: null, chantier: null };
+let _vueChantier = false;
 
 const triEtat = {
   prev: { col: 'date', asc: true },
@@ -610,6 +631,7 @@ function appliquerEtAfficher() {
   afficherSynthese('real', realVisible);
   afficherDetail('prev', prevVisible);
   afficherDetail('real', realVisible);
+  if (_vueChantier) afficherRegroupeChantier(realVisible);
   majEncartPrevus();
   majBoutons();
   setTimeout(ajusterHauteur, 50);
@@ -759,6 +781,48 @@ function afficherDetail(type, lignes) {
   total.textContent = sum.toFixed(2) + ' h';
   badge.textContent = triees.length + ' ligne' + (triees.length > 1 ? 's' : '');
   vide.style.display = triees.length ? 'none' : '';
+}
+
+/* ═══════════════════════════
+   VUE REGROUPÉE PAR CHANTIER (cumul réalisé sur la période)
+═══════════════════════════ */
+function toggleVueChantier() {
+  _vueChantier = !_vueChantier;
+  const btn = document.getElementById('btn-vue-chantier');
+  if (btn) btn.classList.toggle('actif', _vueChantier);
+  majVueChantier();
+  setTimeout(ajusterHauteur, 50);
+}
+
+function majVueChantier() {
+  const det = document.getElementById('grille-details');
+  const reg = document.getElementById('grille-regroupe');
+  if (det) det.style.display = _vueChantier ? 'none' : '';
+  if (reg) reg.style.display = _vueChantier ? '' : 'none';
+  if (_vueChantier) afficherRegroupeChantier(realVisible);
+}
+
+function afficherRegroupeChantier(lignes) {
+  const tbody = document.getElementById('tbody-regroupe');
+  const total = document.getElementById('total-regroupe');
+  const badge = document.getElementById('badge-regroupe');
+  const vide  = document.getElementById('vide-regroupe');
+  if (!tbody) return;
+
+  const parChantier = {};
+  (lignes || []).forEach(l => {
+    const nom = (l.chantier || '').trim() || '(sans chantier)';
+    parChantier[nom] = (parChantier[nom] || 0) + (parseFloat(l.heures) || 0);
+  });
+  const noms  = Object.keys(parChantier).sort((a, b) => parChantier[b] - parChantier[a]);
+  const grand = noms.reduce((s, n) => s + parChantier[n], 0);
+
+  tbody.innerHTML = noms.map(n =>
+    `<tr><td>${n}</td><td style="text-align:right;font-weight:600;">${parChantier[n].toFixed(2)} h</td></tr>`
+  ).join('');
+  total.textContent = grand.toFixed(2) + ' h';
+  badge.textContent = noms.length + ' chantier' + (noms.length > 1 ? 's' : '');
+  vide.style.display = noms.length ? 'none' : '';
 }
 
 /* ═══════════════════════════
