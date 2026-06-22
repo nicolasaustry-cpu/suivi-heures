@@ -122,6 +122,7 @@
       <div class="wk-label" id="wk-label">—</div>
       <button class="wk-btn" onclick="semaineDecalage(1)" title="Semaine suivante">›</button>
       <button class="wk-btn" onclick="semaineAujourdhui()" title="Revenir à la semaine en cours">Cette semaine</button>
+      <button class="wk-btn" onclick="rafraichirVueEquipe(this)" title="Recharger les données depuis le serveur">↻ Rafraîchir</button>
     </div>
     <div class="legende">
       <span><i class="sw" style="background:#FCEBD2;border-color:#EEC489"></i>Planifié</span>
@@ -600,6 +601,29 @@ async function semaineAujourdhui() {
   _ancre = lundiDe(new Date());
   await chargerRealiseSemaine();
   genererGrille();
+}
+
+/* ── Rafraîchir : vide le cache et recharge tout depuis le serveur ── */
+async function rafraichirVueEquipe(btn) {
+  if (btn) { btn.disabled = true; btn._txt = btn.textContent; btn.textContent = '…'; }
+  _moisCharges.clear();          // force le re-téléchargement du réalisé
+  _saisies.length = 0;
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+    || localStorage.getItem('syncToken');
+  if (token) {
+    try {                        // re-tire salariés / planning / entreprise à jour
+      const r = await fetch('/api/data', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.ok && d.data) {
+        localStorage.setItem('salariesdata', JSON.stringify(d.data.salaries || []));
+        localStorage.setItem('heuresdata',   JSON.stringify(d.data.heures   || {}));
+        if (d.data.entreprise) localStorage.setItem('entreprisedata', JSON.stringify(d.data.entreprise));
+      }
+    } catch (_) {}
+  }
+  await chargerRealiseSemaine();
+  genererGrille();
+  if (btn) { btn.textContent = btn._txt || '↻ Rafraîchir'; btn.disabled = false; }
 }
 
 /* ── Hauteur de la zone de défilement sous la barre fixe ── */
