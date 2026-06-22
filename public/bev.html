@@ -49,7 +49,8 @@
     /* Bandeau figé en haut + en-tête du tableau figé juste dessous (écran) */
     body header.main-header { position: sticky; top: 0; z-index: 50; }
     @media screen {
-      table.bev thead th { position: sticky; top: var(--bandeau-h, 66px); z-index: 30; }
+      .bev-controls { position: sticky; top: var(--bandeau-h, 66px); z-index: 40; background: #f4f6f8; padding: 8px 0; }
+      table.bev thead th { position: sticky; top: calc(var(--bandeau-h, 66px) + var(--controls-h, 56px)); z-index: 30; }
     }
     @page { size: A4 portrait; margin: 12mm; }
     @media print {
@@ -489,15 +490,18 @@ window.addEventListener('donnees-chargees', () => {
 });
 </script>
 <script>
-  /* Décalage de l'en-tête figé = hauteur réelle du bandeau (robuste au responsive) */
+  /* Décalages des éléments figés = hauteurs réelles du bandeau et de la barre de contrôles */
   (function () {
-    function majBandeauH() {
+    function majFigBev() {
+      var root = document.documentElement.style;
       var h = document.querySelector('.main-header');
-      if (h) document.documentElement.style.setProperty('--bandeau-h', h.offsetHeight + 'px');
+      var c = document.querySelector('.bev-controls');
+      if (h) root.setProperty('--bandeau-h', h.offsetHeight + 'px');
+      if (c) root.setProperty('--controls-h', c.offsetHeight + 'px');
     }
-    window.addEventListener('load', majBandeauH);
-    window.addEventListener('resize', majBandeauH);
-    majBandeauH();
+    window.addEventListener('load', majFigBev);
+    window.addEventListener('resize', majFigBev);
+    majFigBev();
   })();
 </script>
 </body>
