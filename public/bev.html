@@ -46,8 +46,11 @@
     .bev-encart td { padding:6px 14px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
     .bev-encart input { width:80px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; font-weight:600; }
     #zone { max-width: 780px; margin: 0 auto; }
-    /* Bandeau figé en haut de la page BEV */
+    /* Bandeau figé en haut + en-tête du tableau figé juste dessous (écran) */
     body .main-header { position: sticky; top: 0; z-index: 50; }
+    @media screen {
+      table.bev thead th { position: sticky; top: var(--bandeau-h, 66px); z-index: 30; }
+    }
     @page { size: A4 portrait; margin: 12mm; }
     @media print {
       .no-print { display:none !important; }
@@ -484,6 +487,18 @@ window.addEventListener('donnees-chargees', () => {
   remplirSalaries();
   rafraichir();
 });
+</script>
+<script>
+  /* Décalage de l'en-tête figé = hauteur réelle du bandeau (robuste au responsive) */
+  (function () {
+    function majBandeauH() {
+      var h = document.querySelector('.main-header');
+      if (h) document.documentElement.style.setProperty('--bandeau-h', h.offsetHeight + 'px');
+    }
+    window.addEventListener('load', majBandeauH);
+    window.addEventListener('resize', majBandeauH);
+    majBandeauH();
+  })();
 </script>
 </body>
 </html>
