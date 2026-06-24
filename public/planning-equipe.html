@@ -150,6 +150,7 @@
 
 let _ancre        = lundiDe(new Date());   // lundi de la semaine affichée
 let _saisies      = [];                     // réalisé chargé depuis le serveur
+let _notesChantiers = {};                   // note générale par chantier (lecture/édition)
 const _moisCharges = new Set();             // mois (YYYY-MM) déjà récupérés
 
 const JOURS_NOM = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
@@ -254,6 +255,7 @@ async function chargerRealiseSemaine() {
         if (d.salaries) localStorage.setItem('salariesdata', JSON.stringify(d.salaries));
         if (d.heures)   localStorage.setItem('heuresdata',   JSON.stringify(d.heures));
         if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+        if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
         _peutReordonner = true;   // contexte gérant mobile : réordonnancement autorisé
         _moisCharges.add(m);
       }
@@ -394,35 +396,105 @@ async function enregistrerOrdreCellule(cle, noms) {
 }
 
 /* Pop-up LECTURE SEULE d'une note. */
-function afficherNotePopup(titre, texte) {
-  const txt = (texte || '').trim();
-  if (!txt) return;
+function chargerNotesChantiers() {
+  try { _notesChantiers = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'); }
+  catch { _notesChantiers = {}; }
+}
+
+function _peutEditerNote() {
+  try {
+    const ce = localStorage.getItem('saisie_codeEmploye');
+    const sid = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id;
+    return !!(ce && sid);   // contexte mobile gérant/administratif
+  } catch { return false; }
+}
+
+function afficherNotePopup(nomChantier) {
+  const nom  = (nomChantier || '').trim();
+  const nomU = nom.toUpperCase();
+  chargerNotesChantiers();
+  const note = _notesChantiers[nomU] || '';
+  const editable = _peutEditerNote();
+
   let ov = document.getElementById('note-popup-overlay');
   if (!ov) {
     ov = document.createElement('div');
     ov.id = 'note-popup-overlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:18px;';
     ov.innerHTML =
-        '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
-      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note</div>'
+        '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
+      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note de chantier</div>'
       + '<div id="note-popup-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
-      + '<div id="note-popup-txt" style="padding:8px 16px 16px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
-      + '<div style="padding:0 16px 16px;text-align:right;"><button type="button" id="note-popup-fermer" style="background:#0f3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;">Fermer</button></div>'
+      + '<div id="note-popup-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;"></div>'
+      + '<div id="note-popup-edit" style="padding:0 16px 12px;display:none;">'
+      +   '<label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>'
+      +   '<textarea id="note-popup-input" rows="3" placeholder="Nouvelle information…" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.92rem;resize:vertical;margin-top:4px;"></textarea>'
+      + '</div>'
+      + '<div style="padding:0 16px 16px;display:flex;justify-content:flex-end;gap:8px;">'
+      +   '<button type="button" id="note-popup-fermer" style="background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;">Fermer</button>'
+      +   '<button type="button" id="note-popup-ajouter" style="background:#0f3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;display:none;">Ajouter</button>'
+      + '</div>'
       + '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
     ov.querySelector('#note-popup-fermer').addEventListener('click', () => { ov.style.display = 'none'; });
+    ov.querySelector('#note-popup-ajouter').addEventListener('click', ajouterLigneNote);
   }
-  ov.querySelector('#note-popup-nom').textContent = titre || '';
-  ov.querySelector('#note-popup-txt').textContent = txt;
+  ov._nom = nomU;
+  ov.querySelector('#note-popup-nom').textContent = nom ? ('Chantier : ' + nom) : '';
+  ov.querySelector('#note-popup-txt').textContent = note || '(aucune note pour ce chantier)';
+  ov.querySelector('#note-popup-edit').style.display    = editable ? 'block' : 'none';
+  ov.querySelector('#note-popup-ajouter').style.display = editable ? 'inline-block' : 'none';
+  const inp = ov.querySelector('#note-popup-input'); if (inp) inp.value = '';
   ov.style.display = 'flex';
+}
+
+async function ajouterLigneNote() {
+  const ov = document.getElementById('note-popup-overlay');
+  if (!ov) return;
+  const nomU = ov._nom;
+  const inp = ov.querySelector('#note-popup-input');
+  const texte = (inp.value || '').trim();
+  if (!texte) return;
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  let salarieId = null;
+  try { salarieId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+  if (!codeEmploye || !salarieId) return;
+
+  const btn = ov.querySelector('#note-popup-ajouter');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/api/saisies/note-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye, salarieId, chantier: nomU, texte })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      _notesChantiers[nomU] = d.note;
+      localStorage.setItem('notesChantiersdata', JSON.stringify(_notesChantiers));
+      ov.querySelector('#note-popup-txt').textContent = d.note;
+      inp.value = '';
+      document.querySelectorAll('.grille .chip-note').forEach(b => {
+        if ((b.getAttribute('data-nom') || '').toUpperCase() === nomU) {
+          b.style.background = '#e0e7ff'; b.style.color = '#3730a3';
+        }
+      });
+    } else {
+      alert(d.message || 'Échec de l’ajout de la note.');
+    }
+  } catch (e) {
+    alert('Erreur réseau lors de l’ajout de la note.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Ajouter';
+  }
 }
 /* Active les boutons 📋 (note) des pavés. */
 function initChipNotes() {
   document.querySelectorAll('.grille .chip-note').forEach(b => {
     b.addEventListener('click', function (e) {
       e.stopPropagation();
-      afficherNotePopup(this.getAttribute('data-nom'), this.getAttribute('data-note'));
+      afficherNotePopup(this.getAttribute('data-nom'));
     });
   });
 }
@@ -481,9 +553,9 @@ function htmlChip(c) {
   const grip = _peutReordonner
     ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin:-2px -2px -2px auto;flex:0 0 auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;font-size:1.25rem;line-height:1;color:#64748b;padding:4px 7px;">⠿</span>`
     : '';
-  const noteBtn = (c.note && c.note.trim())
-    ? `<button type="button" class="chip-note" title="Voir la note" data-nom="${escapeHtmlLocal(c.nom)}" data-note="${escapeHtmlLocal(c.note)}" style="flex:0 0 auto;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`
-    : '';
+  const _noteG = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim();
+  const _noteStyle = _noteG ? 'background:#e0e7ff;color:#3730a3;' : 'background:#eef2f7;color:#94a3b8;';
+  const noteBtn = `<button type="button" class="chip-note" title="Note de chantier" data-nom="${escapeHtmlLocal(c.nom)}" style="flex:0 0 auto;${_noteStyle}border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`;
   const hrsHtml = _modeStandard
     ? `<span class="hp">h prévues : ${fmtHM(c.hPlan)}</span>`
     : `<span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span>`;
@@ -502,6 +574,7 @@ function escapeHtmlLocal(s) {
 /* ── Rendu de la grille ── */
 function genererGrille(opts) {
   opts = opts || {};
+  chargerNotesChantiers();
   // Conserver la position de défilement (ex. après un changement d'ordre) au lieu d'aller à aujourd'hui
   const wrap0 = document.getElementById('grille-wrap');
   const savSL = (opts.conserverScroll && wrap0) ? wrap0.scrollLeft : null;
