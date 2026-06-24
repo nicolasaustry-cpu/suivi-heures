@@ -523,6 +523,7 @@ function genererGrille(opts) {
 
   // Salariés présents au moins un jour de la semaine
   const sals = salaries.filter(s => {
+    if (s.administratif) return false;   // les administratifs ne figurent pas dans l'équipe
     const e = s.dateEntree ? new Date(s.dateEntree) : null;
     const o = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
     if (e && e > weekEnd)   return false;

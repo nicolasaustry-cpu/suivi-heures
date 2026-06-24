@@ -466,7 +466,7 @@ function rafraichir() {
   if (_vue === 'mois') chargerMois(); else chargerAnnee();
 }
 function remplirSalaries() {
-  _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
   const sel = document.getElementById('sel-salarie');
   const courant = sel.value;
   sel.innerHTML = _salaries.map(s => `<option value="${s.id}">${(s.prenom||'')+' '+(s.nom||'')}</option>`).join('');

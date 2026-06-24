@@ -321,7 +321,7 @@
 <div id="planning-wrapper"></div>
 
 <script>
-let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
 let heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
 let salariesCoches = new Set();
 
@@ -545,7 +545,7 @@ function grilleHeuresPourDate(s, d) {
 }
 
 function genererPlanning() {
-  salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
 
   const cont    = document.getElementById('planning-wrapper');

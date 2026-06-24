@@ -307,7 +307,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
 
-  _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
 
   // Sélection mois par défaut = mois en cours
   const now = new Date();
@@ -321,7 +321,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Quand les données serveur arrivent (salaries, previsionnel…), recharger pour
   // que la colonne "Prévu" se calcule correctement sans rafraîchissement manuel.
   window.addEventListener('donnees-chargees', () => {
-    _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    _salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
     const ent2 = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
     if (ent2.nom) {
       const nomEl = document.getElementById('entreprise-nom');
@@ -447,7 +447,7 @@ function afficherRealise() {
 
   // Pré-calculer les heures prévues par salarié par jour depuis le planning
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-  const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
 
   const joursNoms = ['dim','lun','mar','mer','jeu','ven','sam'];
 
