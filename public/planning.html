@@ -888,11 +888,10 @@ function rafraichirLigne(salarieId, dateStr) {
   for (let i = 1; i <= 5; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k] || { chantier: '', heures: 0 };
-    const estTNA = (e.chantier || '').trim().toUpperCase() === TNA;
     const inp = document.getElementById(k + 'chantier');
     const sel = document.getElementById(k + 'h');
     if (inp) inp.value = e.chantier || '';
-    if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = estTNA; }
+    if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
     majBoutonNote(k);
   }
   majTotalLigne(salarieId, dateStr);
@@ -906,6 +905,11 @@ function onChantierCommit(k) {
   const salarieId = mm[1], safe = mm[2], dateStr = safe.replace(/_/g, '-');
   const s = salaries.find(x => String(x.id) === String(salarieId));
   if (!_eligibleTNA(s, dateStr)) return;
+
+  // Resynchroniser heures[k] depuis la saisie en cours (fiabilise la sélection via le menu déroulant)
+  const inpEl = document.getElementById(k + 'chantier');
+  const selEl = document.getElementById(k + 'h');
+  if (inpEl) saveHeure(k, (inpEl.value || '').trim().toUpperCase(), selEl ? selEl.value : (heures[k]?.heures || 0));
 
   const e = heures[k] || { chantier: '', heures: 0 };
   const nom = (e.chantier || '').trim();
