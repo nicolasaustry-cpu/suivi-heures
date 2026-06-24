@@ -62,21 +62,13 @@
       /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
          zoom met à l'échelle la MISE EN PAGE (fiable à l'impression), facteur calculé au moment de l'impression. */
       #bev-doc { width: 190mm; zoom: var(--bev-scale, 1); }
-      .bev-titre-doc { display:block; text-align:center; margin-bottom:0.8rem; }
-      table.bev { font-size:0.7rem; break-inside:avoid; page-break-inside:avoid; }
-      table.bev td, table.bev th { padding:1px 5px; }
-      table.bev tfoot td { padding:3px 5px; }
+      .bev-titre-doc { display:block; text-align:center; }
+      table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      .signatures { break-inside:avoid; page-break-inside:avoid; margin-top:1rem; gap:18px; }
-      .sig-box { min-height:90px; }
+      .signatures { break-inside:avoid; page-break-inside:avoid; }
     }
-    /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression pour calculer l'échelle. */
+    /* Gabarit de MESURE (hors écran) : largeur d'une page, mêmes styles que l'écran/impression. */
     .bev-mesure { width:190mm; }
-    .bev-mesure table.bev { font-size:0.7rem; }
-    .bev-mesure table.bev td, .bev-mesure table.bev th { padding:1px 5px; }
-    .bev-mesure table.bev tfoot td { padding:3px 5px; }
-    .bev-mesure .signatures { margin-top:1rem; gap:18px; }
-    .bev-mesure .sig-box { min-height:90px; }
   </style>
 </head>
 <body>
@@ -162,7 +154,7 @@ function ajusterEchelleBEV() {
   if (!doc) return;
   doc.style.removeProperty('--bev-scale');
   const ppmm = _bevPxParMm();
-  const Wmm = 190, Hmm = 277;            // zone utile A4 portrait, marges 10mm
+  const Wmm = 190, Hmm = 268;            // zone utile A4 portrait (marge de sécurité incluse)
   const clone = doc.cloneNode(true);
   clone.classList.add('bev-mesure');
   clone.style.cssText = 'position:absolute;left:-99999px;top:0;zoom:1;';
