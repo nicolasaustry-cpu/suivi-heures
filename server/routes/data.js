@@ -55,11 +55,12 @@ router.post("/note-chantier", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const chantier = (req.body.chantier || "").trim().toUpperCase();
-    const texte    = (req.body.texte || "").toString().trim();
+    const mode     = (req.body.mode || "ajouter").toString();
+    const texteRaw = (req.body.texte || "").toString();
     const auteur   = (req.body.auteur || "Gérant").toString().trim().slice(0, 40);
 
-    if (!chantier || !texte) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
-    if (texte.length > 2000)  return res.status(400).json({ ok: false, message: "Note trop longue" });
+    if (!chantier) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    if (texteRaw.length > 10000) return res.status(400).json({ ok: false, message: "Note trop longue" });
 
     let doc = await Donnees.findOne({ clientId });
     if (!doc) {
@@ -68,15 +69,26 @@ router.post("/note-chantier", verifyToken, async (req, res) => {
     }
     if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
 
-    const ligne = _ligneNoteData(auteur, texte);
     const notes = doc.notesChantiers || {};
-    notes[chantier] = notes[chantier] ? (notes[chantier] + "\n" + ligne) : ligne;
+
+    if (mode === "remplacer") {
+      // Remplace tout le bloc (modif / suppression ligne par ligne côté client).
+      const bloc = texteRaw.replace(/\s+$/g, "");
+      if (bloc.trim()) notes[chantier] = bloc;
+      else delete notes[chantier];            // plus aucune ligne → on retire la note
+    } else {
+      // Ajout d'une ligne datée/signée (comportement existant).
+      const texte = texteRaw.trim();
+      if (!texte) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+      const ligne = _ligneNoteData(auteur, texte);
+      notes[chantier] = notes[chantier] ? (notes[chantier] + "\n" + ligne) : ligne;
+    }
 
     await Donnees.updateOne(
       { _id: doc._id },
       { $set: { notesChantiers: notes, updatedAt: new Date() } }
     );
-    res.json({ ok: true, chantier, note: notes[chantier] });
+    res.json({ ok: true, chantier, note: notes[chantier] || "" });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
