@@ -66,9 +66,28 @@
       table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .signatures { break-inside:avoid; page-break-inside:avoid; }
+      /* Tableau compact : colonnes étroites + dates sur une seule ligne */
+      #bev-doc table.bev { table-layout:fixed; width:143mm; font-size:0.66rem; }
+      #bev-doc table.bev th, #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      #bev-doc table.bev th:nth-child(1), #bev-doc table.bev td:nth-child(1) { width:34mm; }
+      #bev-doc table.bev th:nth-child(2), #bev-doc table.bev td:nth-child(2) { width:14mm; }
+      #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:32mm; }
+      #bev-doc table.bev th:nth-child(4), #bev-doc table.bev td:nth-child(4) { width:15mm; }
+      #bev-doc table.bev th:nth-child(5), #bev-doc table.bev td:nth-child(5) { width:14mm; }
+      #bev-doc table.bev th:nth-child(6), #bev-doc table.bev td:nth-child(6) { width:16mm; }
+      #bev-doc table.bev th:nth-child(7), #bev-doc table.bev td:nth-child(7) { width:18mm; }
     }
-    /* Gabarit de MESURE (hors écran) : largeur d'une page, mêmes styles que l'écran/impression. */
+    /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
     .bev-mesure { width:190mm; }
+    .bev-mesure table.bev { table-layout:fixed; width:143mm; font-size:0.66rem; }
+    .bev-mesure table.bev th, .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
+    .bev-mesure table.bev th:nth-child(1), .bev-mesure table.bev td:nth-child(1) { width:34mm; }
+    .bev-mesure table.bev th:nth-child(2), .bev-mesure table.bev td:nth-child(2) { width:14mm; }
+    .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:32mm; }
+    .bev-mesure table.bev th:nth-child(4), .bev-mesure table.bev td:nth-child(4) { width:15mm; }
+    .bev-mesure table.bev th:nth-child(5), .bev-mesure table.bev td:nth-child(5) { width:14mm; }
+    .bev-mesure table.bev th:nth-child(6), .bev-mesure table.bev td:nth-child(6) { width:16mm; }
+    .bev-mesure table.bev th:nth-child(7), .bev-mesure table.bev td:nth-child(7) { width:18mm; }
   </style>
 </head>
 <body>
