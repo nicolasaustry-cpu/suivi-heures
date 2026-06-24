@@ -1153,6 +1153,7 @@ async function reconnecterAuto(codeEmploye) {
         return exist && exist.pin ? { ...s, pin: exist.pin } : s;
       });
       localStorage.setItem('salariesdata', JSON.stringify(fusionne));
+      if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
       if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
@@ -1237,6 +1238,7 @@ async function validerCodeEntreprise() {
       return exist && exist.pin ? { ...s, pin: exist.pin } : s;
     });
     localStorage.setItem('salariesdata', JSON.stringify(fusionne2));
+    if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
@@ -1291,6 +1293,7 @@ async function rafraichirDonneesServeur() {
         return exist && exist.pin ? { ...s, pin: exist.pin } : s;
       });
       localStorage.setItem('salariesdata', JSON.stringify(fusionne3));
+      if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
     }
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
@@ -1442,6 +1445,14 @@ async function chargerChantiersPrev() {
     const noteP = (entry?.note || '').trim();
     if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
   }
+  // Note générale du chantier (unifiée) — prioritaire, lue depuis le journal
+  try {
+    const _ng = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}');
+    for (const nom of chantiersTrouves.keys()) {
+      const g = _ng[nom.toUpperCase()];
+      if (g) _notesPlanning[nom] = g;
+    }
+  } catch (_) {}
 
   _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
 
@@ -1549,7 +1560,11 @@ function afficherNotePopup(titre, texte) {
   ov.querySelector('#note-planning-txt').textContent = txt;
   ov.style.display = 'flex';
 }
-function ouvrirNotePlanning(nom) { afficherNotePopup(nom, _notesPlanning[nom]); }
+function ouvrirNotePlanning(nom) {
+  let g = '';
+  try { g = (JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'))[nom.toUpperCase()] || ''; } catch (_) {}
+  afficherNotePopup(nom, g || _notesPlanning[nom] || '');
+}
 
 /* ═══════════════════════════
    MON PLANNING (vue semaine, lecture seule, chaque salarié)
