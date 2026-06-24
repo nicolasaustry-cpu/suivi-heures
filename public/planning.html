@@ -629,6 +629,7 @@ function genererPlanning() {
       const celluleCh = (i) => {
         const k    = `${s.id}${safeDate}ch${i}`;
         const data = heures[k] || { chantier: '', heures: 0 };
+        const noteG = _notesChantiers[(data.chantier || '').toUpperCase()] || '';
         total += parseFloat(data.heures) || 0;
         return `<td style="border:1px solid #ccc;padding:2px;">
           <div style="display:flex;align-items:center;gap:2px;">
@@ -642,11 +643,11 @@ function genererPlanning() {
               onchange="saveHeure('${k}',document.getElementById('${k}chantier').value.toUpperCase(),this.value)">
               ${genOptionsHeures(data.heures)}
             </select>
-            <button type="button" class="btn-note-ch no-print${data.note ? ' has-note' : ''}" id="${k}note-btn"
+            <button type="button" class="btn-note-ch no-print${noteG ? ' has-note' : ''}" id="${k}note-btn"
               title="Note de chantier" aria-label="Note de chantier"
               onclick="ouvrirNoteChantier('${k}')">🗒</button>
           </div>
-          <div class="note-print" id="${k}note-print">${data.note ? '📝 ' + escapeHtml(data.note) : ''}</div>
+          <div class="note-print" id="${k}note-print">${noteG ? '📝 ' + escapeHtml(noteG) : ''}</div>
         </td>`;
       };
 
@@ -812,6 +813,7 @@ function saveHeure(k, ch, h) {
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   if (noteAv) heures[k].note = noteAv;
   localStorage.setItem('heuresdata', JSON.stringify(heures));
+  majBoutonNote(k);   // l'indicateur de note suit le nom de chantier de la cellule
 
   const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
   if (!match) return;
@@ -819,32 +821,52 @@ function saveHeure(k, ch, h) {
   majCouleursChantiers();
 }
 
-/* ── Notes de chantier (planning) ───────────────────────────── */
+/* ── Notes de chantier (planning) : note GÉNÉRALE par chantier (cumulative) ── */
 let _noteCleCourante = null;
+let _notesChantiers = {};
 
-function saveNote(k, note) {
-  const prev = heures[k] || { chantier: '', heures: 0 };
-  heures[k] = { chantier: prev.chantier || '', heures: parseFloat(prev.heures) || 0 };
-  if (note) heures[k].note = note;
-  if (!heures[k].chantier && !heures[k].heures && !heures[k].note) delete heures[k];
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
+function chargerNotesChantiers() {
+  try { _notesChantiers = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'); }
+  catch { _notesChantiers = {}; }
+}
+chargerNotesChantiers();
+window.addEventListener('donnees-chargees', () => { chargerNotesChantiers(); rafraichirNotesAffichage(); });
+
+function _nomChantierCell(k) {
+  const el = document.getElementById(k + 'chantier');
+  return el && el.value ? el.value.trim().toUpperCase() : '';
+}
+function noteDuChantier(nom) {
+  return (nom && _notesChantiers[nom]) ? _notesChantiers[nom] : '';
 }
 
 function majBoutonNote(k) {
+  const note = noteDuChantier(_nomChantierCell(k));
   const btn = document.getElementById(k + 'note-btn');
-  if (btn) btn.classList.toggle('has-note', !!(heures[k] && heures[k].note));
+  if (btn) btn.classList.toggle('has-note', !!note);
   const pr = document.getElementById(k + 'note-print');
-  if (pr) pr.innerHTML = (heures[k] && heures[k].note) ? '📝 ' + escapeHtml(heures[k].note) : '';
+  if (pr) pr.innerHTML = note ? '📝 ' + escapeHtml(note) : '';
+}
+
+function rafraichirNotesAffichage() {
+  document.querySelectorAll('.btn-note-ch').forEach(btn => {
+    const id = btn.id || '';
+    if (id.endsWith('note-btn')) majBoutonNote(id.slice(0, -8)); // 'note-btn'.length = 8
+  });
 }
 
 function ouvrirNoteChantier(k) {
   _noteCleCourante = k;
-  const d = heures[k] || {};
+  const nom = _nomChantierCell(k);
+  document.getElementById('note-modal-sub').textContent =
+    nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
+  const hist = document.getElementById('note-modal-hist');
+  const note = noteDuChantier(nom);
+  if (hist) hist.textContent = note || '(aucune note pour ce chantier)';
   const txt = document.getElementById('note-modal-txt');
-  txt.value = d.note || '';
-  const nomInput = document.getElementById(k + 'chantier');
-  const nom = nomInput && nomInput.value ? nomInput.value.trim() : '';
-  document.getElementById('note-modal-sub').textContent = nom ? ('Chantier : ' + nom) : 'Cellule sans chantier';
+  txt.value = '';
+  const btnAjout = document.getElementById('note-modal-ajouter');
+  if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
   document.getElementById('note-modal-overlay').style.display = 'flex';
   setTimeout(() => txt.focus(), 30);
 }
@@ -855,20 +877,34 @@ function fermerNoteChantier() {
   _noteCleCourante = null;
 }
 
-function enregistrerNoteChantier() {
+async function enregistrerNoteChantier() {
   if (!_noteCleCourante) return;
-  const k = _noteCleCourante;
-  saveNote(k, document.getElementById('note-modal-txt').value.trim());
-  majBoutonNote(k);
-  fermerNoteChantier();
-}
-
-function supprimerNoteChantier() {
-  if (!_noteCleCourante) return;
-  const k = _noteCleCourante;
-  saveNote(k, '');
-  majBoutonNote(k);
-  fermerNoteChantier();
+  const nom   = _nomChantierCell(_noteCleCourante);
+  const texte = document.getElementById('note-modal-txt').value.trim();
+  if (!nom)   { alert('Renseignez d’abord un chantier dans cette cellule.'); return; }
+  if (!texte) { fermerNoteChantier(); return; }
+  const btn = document.getElementById('note-modal-ajouter');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const token = localStorage.getItem('syncToken');
+    const r = await fetch('/api/data/note-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ chantier: nom, texte, auteur: 'Gérant' })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      _notesChantiers[nom] = d.note;
+      rafraichirNotesAffichage();
+      fermerNoteChantier();
+    } else {
+      alert(d.message || 'Échec de l’enregistrement de la note.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+    }
+  } catch (e) {
+    alert('Erreur réseau lors de l’enregistrement de la note.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+  }
 }
 
 function majTotalLigne(salarieId, dateStr) {
@@ -1256,7 +1292,7 @@ function getTotalDevisChantier(nom) {
 function montrerTooltipChantier(input) {
   const nom = (input.value || '').trim();
   const k = (input.id || '').replace(/chantier$/, '');
-  const note = (k && heures[k] && heures[k].note) ? String(heures[k].note) : '';
+  const note = noteDuChantier((nom || '').toUpperCase());
 
   const stats = nom ? getStatsChantier(nom) : null;
   const aStats = !!(stats && stats.total > 0);
@@ -1352,17 +1388,16 @@ document.addEventListener('DOMContentLoaded', () => {
   <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
     <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
-    <textarea id="note-modal-txt" rows="5" placeholder="Saisir des informations sur ce chantier…"
-      style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px;">
-      <button type="button" onclick="supprimerNoteChantier()"
-        style="border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:600;">Supprimer</button>
-      <div style="display:flex;gap:8px;">
-        <button type="button" onclick="fermerNoteChantier()"
-          style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Annuler</button>
-        <button type="button" onclick="enregistrerNoteChantier()"
-          style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Enregistrer</button>
-      </div>
+    <div id="note-modal-hist"
+      style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:0.84rem;line-height:1.4;color:#374151;max-height:200px;overflow:auto;margin-bottom:10px;"></div>
+    <label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
+    <textarea id="note-modal-txt" rows="3" placeholder="Nouvelle information à ajouter…"
+      style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;margin-top:4px;"></textarea>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;">
+      <button type="button" onclick="fermerNoteChantier()"
+        style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Fermer</button>
+      <button type="button" id="note-modal-ajouter" onclick="enregistrerNoteChantier()"
+        style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Ajouter</button>
     </div>
   </div>
 </div>

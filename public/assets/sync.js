@@ -228,6 +228,7 @@ const SYNC = (() => {
       ecrireLocalSansDeclencher('heuresdata',        JSON.stringify(serveur.heures       || {}));
       ecrireLocalSansDeclencher('chantiersdata',     JSON.stringify(serveur.chantiers    || []));
       ecrireLocalSansDeclencher('previsionnel_data', JSON.stringify(serveur.previsionnel || {}));
+      ecrireLocalSansDeclencher('notesChantiersdata', JSON.stringify(serveur.notesChantiers || {}));
       window.dispatchEvent(new Event('donnees-chargees'));
     } catch {
       console.warn('Impossible de charger les données du serveur');
