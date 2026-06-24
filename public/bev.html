@@ -448,8 +448,10 @@ async function chargerMois() {
       return;
     }
     tp += l.prevu; tr += l.real; tret += l.retenu;
-    const clsLigne = (l.we ? ' we' : '') + (l.abs ? ' abs-todo' : '');
-    corps += '<tr' + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
+    const aAbs   = Math.abs(l.abs || 0) > 0.0001;
+    const evtSet = !!(evenements[l.date]);
+    const clsLigne = (l.we ? ' we' : '') + (aAbs && !evtSet ? ' abs-todo' : '');
+    corps += '<tr' + (aAbs ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.prevu) + '</td>' +
       '<td><select class="evt" data-date="' + l.date + '">' + optionsEvt(evenements[l.date] || '') + '</select></td>' +
@@ -490,6 +492,11 @@ async function chargerMois() {
       const sp = e.target.parentNode.querySelector('.tranche-print');
       if (sp) sp.textContent = e.target.value || '';
       rendreRecapIndemnites();
+    }
+    if (e.target.classList && e.target.classList.contains('evt')) {
+      const row = e.target.closest('tr');
+      // Surlignage orange seulement si la journée a une absence ET qu'aucun événement n'est choisi
+      if (row) row.classList.toggle('abs-todo', row.dataset.abs === '1' && !e.target.value);
     }
   });
   appliquerIndemnites();
