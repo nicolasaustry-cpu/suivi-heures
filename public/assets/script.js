@@ -138,6 +138,13 @@ function afficherSalaries() {
             <span class="slider"></span>
           </label>
         </td>
+        <td style="text-align:center;">
+          <label class="switch-gerant switch-admin" title="Administratif : pas de saisie d'heures, accès Vue équipe sur mobile">
+            <input type="checkbox" ${s.administratif ? 'checked' : ''} ${estAdmin ? 'disabled' : ''}
+                   onchange="majAdmin(${s.id}, this.checked)">
+            <span class="slider"></span>
+          </label>
+        </td>
         <td>${fmtDateFr(s.dateEntree)}</td>
         <td>
           <input type="date" value="${s.dateSortie || ""}"
@@ -347,6 +354,15 @@ function majGerant(id, checked) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
   sal.gerant = !!checked;
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
+}
+
+/* Marque/démarque un salarié comme « administratif » : pas de saisie d'heures,
+   accès Vue équipe sur mobile. L'écriture déclenche la synchro serveur. */
+function majAdmin(id, checked) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  sal.administratif = !!checked;
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
 }
 
