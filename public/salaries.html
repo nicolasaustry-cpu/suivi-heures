@@ -25,7 +25,6 @@
   .switch-gerant input:checked + .slider { background:#f59e0b; }
   .switch-gerant input:checked + .slider:before { transform:translateX(18px); }
   .switch-gerant input:disabled + .slider { opacity:.5; cursor:not-allowed; }
-  .switch-admin input:checked + .slider { background:#0f3a8a; }
 </style>
 
 <div class="zone-figee-sal">
@@ -66,8 +65,17 @@
         <div><label style="font-size:0.85rem;font-weight:600;">Date d'entrée :</label><br><input type="date" id="dateEntreeEl"></div>
       </div>
 
+      <!-- Poste administratif (sans horaires) -->
+      <div style="display:flex;align-items:center;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:700;color:#0f3a8a;">
+          <input type="checkbox" id="adminCheck" onchange="togglePosteAdmin()" style="width:auto;">
+          👤 Poste administratif
+          <span style="font-weight:400;color:#6b7280;font-size:0.78rem;">(sans horaires, accès Vue équipe sur mobile)</span>
+        </label>
+      </div>
+
       <!-- Cases empilées : alternance A/B + Entretien/Dépannage/SAV -->
-      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+      <div id="bloc-options" style="display:flex;flex-direction:column;gap:0.4rem;">
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;">
           <input type="checkbox" id="altCheck" onchange="toggleAlternance()" style="width:auto;">
           Ce salarié alterne deux semaines (A / B)
@@ -80,7 +88,7 @@
       </div>
 
       <!-- Heures contractuelles -->
-      <div>
+      <div id="bloc-heures">
         <label id="labelGrilleA" style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.3rem;">Heures / jour</label>
         <table style="width:auto;border-collapse:collapse;">
           <thead>
@@ -178,7 +186,6 @@
         <th style="min-width:90px;">Prénom</th>
         <th style="min-width:90px;">Nom</th>
         <th style="width:60px;text-align:center;" title="Donne accès à la page Planning équipe (mobile et PC)">Gérant</th>
-        <th style="width:70px;text-align:center;" title="Salarié administratif : pas de saisie d'heures, accès Vue équipe sur mobile">Admin.</th>
         <th style="width:110px;">Entrée</th>
         <th style="width:140px;">Sortie</th>
         <th style="width:38px;text-align:center;">Lun</th>

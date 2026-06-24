@@ -103,6 +103,9 @@ function afficherSalaries() {
     const badgeSav = s.sav
       ? ' <span title="Entretien/Dépannage/SAV : 2ᵉ ligne de chantiers au planning" style="background:#fef3c7;color:#92400e;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">🛠 SAV</span>'
       : '';
+    const badgeAdmin = s.administratif
+      ? ' <span title="Poste administratif (sans horaires, accès Vue équipe)" style="background:#dbeafe;color:#1e3a8a;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">👤 Admin</span>'
+      : '';
     const estAdmin = (typeof SYNC !== 'undefined' && SYNC.estAdmin && SYNC.estAdmin());
     const pinPose  = !!(s.pin && String(s.pin).trim());
     let pinCell;
@@ -129,19 +132,12 @@ function afficherSalaries() {
     }
     tb.innerHTML += `
       <tr>
-        <td>${s.prenom}${badgeAlt}${badgeSav}</td>
+        <td>${s.prenom}${badgeAlt}${badgeSav}${badgeAdmin}</td>
         <td>${s.nom}</td>
         <td style="text-align:center;">
           <label class="switch-gerant" title="Gérant : accès à la page Planning équipe">
             <input type="checkbox" ${s.gerant ? 'checked' : ''} ${estAdmin ? 'disabled' : ''}
                    onchange="majGerant(${s.id}, this.checked)">
-            <span class="slider"></span>
-          </label>
-        </td>
-        <td style="text-align:center;">
-          <label class="switch-gerant switch-admin" title="Administratif : pas de saisie d'heures, accès Vue équipe sur mobile">
-            <input type="checkbox" ${s.administratif ? 'checked' : ''} ${estAdmin ? 'disabled' : ''}
-                   onchange="majAdmin(${s.id}, this.checked)">
             <span class="slider"></span>
           </label>
         </td>
@@ -357,15 +353,6 @@ function majGerant(id, checked) {
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
 }
 
-/* Marque/démarque un salarié comme « administratif » : pas de saisie d'heures,
-   accès Vue équipe sur mobile. L'écriture déclenche la synchro serveur. */
-function majAdmin(id, checked) {
-  const sal = salaries.find(s => s.id === id);
-  if (!sal) return;
-  sal.administratif = !!checked;
-  localStorage.setItem("salariesdata", JSON.stringify(salaries));
-}
-
 function majPIN(id, pin) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
@@ -483,6 +470,22 @@ async function enregistrerTousPINs() {
 /* ===========================================
    AJOUT / SUPPRESSION DE SALARIÉ
    =========================================== */
+/* Poste administratif : masque la grille d'horaires et les options (alternance/SAV)
+   — un administratif n'a pas d'horaires. La case reste visible (hors des blocs masqués). */
+function togglePosteAdmin() {
+  const admin = document.getElementById("adminCheck")?.checked || false;
+  if (admin) {
+    const alt = document.getElementById("altCheck");
+    if (alt && alt.checked) { alt.checked = false; if (typeof toggleAlternance === "function") toggleAlternance(); }
+    const sav = document.getElementById("savCheck");
+    if (sav) sav.checked = false;
+  }
+  const blocOptions = document.getElementById("bloc-options");
+  const blocHeures  = document.getElementById("bloc-heures");
+  if (blocOptions) blocOptions.style.display = admin ? "none" : "";
+  if (blocHeures)  blocHeures.style.display  = admin ? "none" : "";
+}
+
 function ajouterSalarie() {
   const prenom    = document.getElementById("prenomEl")?.value.trim();
   const nom       = document.getElementById("nomEl")?.value.trim();
@@ -504,6 +507,7 @@ function ajouterSalarie() {
 
   const alternance = document.getElementById("altCheck")?.checked || false;
   const sav        = document.getElementById("savCheck")?.checked || false;
+  const administratif = document.getElementById("adminCheck")?.checked || false;
 
   const nouveau = {
     id: Date.now(),
@@ -515,6 +519,7 @@ function ajouterSalarie() {
   };
 
   if (sav) nouveau.sav = true;       // Entretien/Dépannage/SAV : 2ᵉ ligne de chantiers au planning
+  if (administratif) nouveau.administratif = true;   // poste administratif : sans horaires, accès Vue équipe
 
   if (alternance) {
     nouveau.alternance     = true;
@@ -535,6 +540,9 @@ function ajouterSalarie() {
   });
   const savCb = document.getElementById("savCheck");
   if (savCb) savCb.checked = false;
+  const adminCb = document.getElementById("adminCheck");
+  if (adminCb) adminCb.checked = false;
+  if (typeof togglePosteAdmin === "function") togglePosteAdmin();
   ["hLun","hMar","hMer","hJeu","hVen","hSam"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "0";
