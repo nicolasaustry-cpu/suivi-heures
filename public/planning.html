@@ -776,6 +776,9 @@ function majCouleursChantiers() {
     if (!sel) return;
 
     const nom = (input.value || '').trim();
+    const estTNA = nom.toUpperCase() === TNA;
+    input.style.color      = estTNA ? '#dc2626' : '';   // TNA en rouge
+    input.style.fontWeight = estTNA ? '700'     : '';
     if (!nom) { sel.style.background = NEUTRE; return; }
 
     const cible = normaliserChantier(nom);
