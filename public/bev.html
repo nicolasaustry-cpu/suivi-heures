@@ -80,8 +80,8 @@
       #bev-doc table.bev select.evt { width:100%; }
       #bev-doc table.bev input { width:12mm; }
       /* Signatures empilées à droite du tableau (récupère la hauteur) */
-      .bev-flow { display:flex; align-items:flex-start; gap:10px; }
-      .bev-left { min-width:0; }
+      .bev-flow { display:flex; align-items:flex-start; justify-content:center; gap:10px; }
+      .bev-left { min-width:0; flex:0 1 auto; }
       .signatures { display:flex !important; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0 !important; }
       .sig-box { min-height:74px; }
       .col-tranche .tranche-sel { display:none; }
@@ -101,8 +101,8 @@
     .bev-mesure table.bev th:nth-child(8), .bev-mesure table.bev td:nth-child(8) { width:11mm; }
     .bev-mesure table.bev select.evt { width:100%; }
     .bev-mesure table.bev input { width:12mm; }
-    .bev-mesure .bev-flow { display:flex; align-items:flex-start; gap:10px; }
-    .bev-mesure .bev-left { min-width:0; }
+    .bev-mesure .bev-flow { display:flex; align-items:flex-start; justify-content:center; gap:10px; }
+    .bev-mesure .bev-left { min-width:0; flex:0 1 auto; }
     .bev-mesure .signatures { display:flex; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0; }
     .bev-mesure .col-tranche .tranche-sel { display:none; }
     .bev-mesure .col-tranche .tranche-print { display:inline; }
