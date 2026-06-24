@@ -52,25 +52,33 @@
       .bev-controls { position: sticky; top: var(--bandeau-h, 66px); z-index: 40; background: #f4f6f8; padding: 8px 0; }
       table.bev thead th { position: sticky; top: calc(var(--bandeau-h, 66px) + var(--controls-h, 56px)); z-index: 30; }
     }
-    @page { size: A4 portrait; margin: 10mm; }
+    @page { size: A4 portrait; margin: 5mm; }
     @media print {
       .no-print { display:none !important; }
       body header.main-header, body .main-header, body .nav, body div.nav { display:none !important; }
       body { background:#fff; }
-      section { margin:0; }
+      section { margin:0 !important; border:none !important; box-shadow:none !important; padding:0 !important; border-radius:0 !important; }
       #zone { max-width: none; }
       /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
          zoom met à l'échelle la MISE EN PAGE (fiable à l'impression), facteur calculé au moment de l'impression. */
-      #bev-doc { width: 190mm; zoom: var(--bev-scale, 1); }
+      #bev-doc { width: 200mm; zoom: var(--bev-scale, 1); }
       .bev-titre-doc { display:block; text-align:center; }
       table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .signatures { break-inside:avoid; page-break-inside:avoid; }
-      /* Tableau compact : police réduite, dates sur une seule ligne, colonnes au plus juste */
+      /* Tableau compact : police réduite, dates sur une ligne, en-têtes sur 2 lignes possibles */
       #bev-doc table.bev { width:auto; font-size:0.66rem; }
-      #bev-doc table.bev th, #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
-      #bev-doc table.bev th:nth-child(n+2), #bev-doc table.bev td:nth-child(n+2) { width:auto; }
-      #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:auto; }
+      #bev-doc table.bev th { padding:1px 3px; white-space:normal; vertical-align:bottom; }
+      #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
+      #bev-doc table.bev th:nth-child(2), #bev-doc table.bev td:nth-child(2),
+      #bev-doc table.bev th:nth-child(4), #bev-doc table.bev td:nth-child(4),
+      #bev-doc table.bev th:nth-child(5), #bev-doc table.bev td:nth-child(5),
+      #bev-doc table.bev th:nth-child(7), #bev-doc table.bev td:nth-child(7) { width:13mm; }
+      #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:16mm; }
+      #bev-doc table.bev th:nth-child(6), #bev-doc table.bev td:nth-child(6) { width:15mm; }
+      #bev-doc table.bev th:nth-child(8), #bev-doc table.bev td:nth-child(8) { width:11mm; }
+      #bev-doc table.bev select.evt { width:100%; }
+      #bev-doc table.bev input { width:12mm; }
       /* Signatures empilées à droite du tableau (récupère la hauteur) */
       .bev-flow { display:flex; align-items:flex-start; gap:10px; }
       .bev-left { min-width:0; }
@@ -80,11 +88,19 @@
       .col-tranche .tranche-print { display:inline; }
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
-    .bev-mesure { width:190mm; }
+    .bev-mesure { width:200mm; }
     .bev-mesure table.bev { width:auto; font-size:0.66rem; }
-    .bev-mesure table.bev th, .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
-    .bev-mesure table.bev th:nth-child(n+2), .bev-mesure table.bev td:nth-child(n+2) { width:auto; }
-    .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:auto; }
+    .bev-mesure table.bev th { padding:1px 3px; white-space:normal; vertical-align:bottom; }
+    .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
+    .bev-mesure table.bev th:nth-child(2), .bev-mesure table.bev td:nth-child(2),
+    .bev-mesure table.bev th:nth-child(4), .bev-mesure table.bev td:nth-child(4),
+    .bev-mesure table.bev th:nth-child(5), .bev-mesure table.bev td:nth-child(5),
+    .bev-mesure table.bev th:nth-child(7), .bev-mesure table.bev td:nth-child(7) { width:13mm; }
+    .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:16mm; }
+    .bev-mesure table.bev th:nth-child(6), .bev-mesure table.bev td:nth-child(6) { width:15mm; }
+    .bev-mesure table.bev th:nth-child(8), .bev-mesure table.bev td:nth-child(8) { width:11mm; }
+    .bev-mesure table.bev select.evt { width:100%; }
+    .bev-mesure table.bev input { width:12mm; }
     .bev-mesure .bev-flow { display:flex; align-items:flex-start; gap:10px; }
     .bev-mesure .bev-left { min-width:0; }
     .bev-mesure .signatures { display:flex; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0; }
@@ -195,7 +211,7 @@ function ajusterEchelleBEV() {
   if (!doc) return;
   doc.style.removeProperty('--bev-scale');
   const ppmm = _bevPxParMm();
-  const Wmm = 190, Hmm = 268;            // zone utile A4 portrait (marge de sécurité incluse)
+  const Wmm = 200, Hmm = 282;            // zone utile A4 portrait (marges 5mm, sécurité incluse)
   const clone = doc.cloneNode(true);
   clone.classList.add('bev-mesure');
   clone.style.cssText = 'position:absolute;left:-99999px;top:0;zoom:1;';
