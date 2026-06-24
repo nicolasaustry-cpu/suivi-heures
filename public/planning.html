@@ -635,12 +635,13 @@ function genererPlanning() {
           <div style="display:flex;align-items:center;gap:2px;">
             <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:116px;flex:0 0 auto;text-transform:uppercase;"
               list="liste-chantiers-prev" autocomplete="off"
-              oninput="saveHeure('${k}',this.value.toUpperCase(),document.getElementById('${k}h').value)">
+              oninput="saveHeure('${k}',this.value.toUpperCase(),document.getElementById('${k}h').value)"
+              onchange="onChantierCommit('${k}')">
             <button type="button" class="btn-vider-ch no-print" title="Vider ce chantier" aria-label="Vider ce chantier"
               onclick="viderChantier('${k}')"
               style="width:22px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;color:#dc2626;border-radius:4px;cursor:pointer;font-weight:700;line-height:1;flex:0 0 auto;">✕</button>
             <select id="${k}h" style="width:54px;flex:0 0 auto;"
-              onchange="saveHeure('${k}',document.getElementById('${k}chantier').value.toUpperCase(),this.value)">
+              onchange="saveHeure('${k}',document.getElementById('${k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${k}')">
               ${genOptionsHeures(data.heures)}
             </select>
             <button type="button" class="btn-note-ch no-print${noteG ? ' has-note' : ''}" id="${k}note-btn"
@@ -673,7 +674,7 @@ function genererPlanning() {
         <td class="cell-total"${rs} style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
         <td class="cell-abs col-abs"${rs} style="border:1px solid #ccc;text-align:center;">
           <select data-type="abs" id="${absK}h" style="width:55px;"
-            onchange="saveHeure('${absK}','absence',this.value)">
+            onchange="saveHeure('${absK}','absence',this.value);onLigneRecalc('${absK}')">
             ${genOptionsHeures(abs)}
           </select>
         </td>
@@ -805,6 +806,7 @@ function viderChantier(k) {
   if (heures[k]) delete heures[k].note;  // on retire aussi la note de la cellule
   saveHeure(k, '', 0);                   // enregistre : chantier vidé ET 0 heure saisie
   majBoutonNote(k);                      // met à jour l'indicateur + la note imprimable
+  onLigneRecalc(k);                      // recalcule « TEMPS NON AFFECTE » si nécessaire
   input.focus();
 }
 
@@ -819,6 +821,119 @@ function saveHeure(k, ch, h) {
   if (!match) return;
   majTotalLigne(match[1], match[2].replace(/_/g, '-'));
   majCouleursChantiers();
+}
+
+/* ── TEMPS NON AFFECTE — auto-remplissage du planning ────────────────
+   Hors SAV, et UNIQUEMENT à partir d'aujourd'hui (jamais les jours passés).
+   Le 1er chantier saisi prend par défaut le contrat du jour (− absence),
+   le reste éventuel est porté par un chantier « TEMPS NON AFFECTE »
+   (auto-calculé, masqué quand il vaut 0). */
+const TNA = 'TEMPS NON AFFECTE';
+
+function estDatePassee(dateStr) {
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const d = new Date(a, m - 1, j); d.setHours(0, 0, 0, 0);
+  return d < auj;
+}
+
+function contratDuJour(s, dateStr) {
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const dObj = new Date(a, m - 1, j);
+  const cle = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][dObj.getDay()];
+  return (grilleHeuresPourDate(s, dObj))[cle] || 0;
+}
+
+function _eligibleTNA(s, dateStr) {
+  return !!(s && !s.sav && !estDatePassee(dateStr));
+}
+
+/* Recalcule et place/retire « TEMPS NON AFFECTE » sur une ligne (salarié × jour). */
+function appliquerTempsNonAffecte(salarieId, dateStr) {
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!_eligibleTNA(s, dateStr)) return;
+  const safeDate = dateStr.replace(/-/g, '_');
+  const abs   = parseFloat(heures[`${salarieId}${safeDate}abs`]?.heures) || 0;
+  const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
+
+  const slots = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = `${salarieId}${safeDate}ch${i}`;
+    const e = heures[k];
+    slots.push({ i, k, nom: (e?.chantier || '').trim(), h: parseFloat(e?.heures) || 0 });
+  }
+  const reels = slots.filter(sl => sl.nom && sl.nom.toUpperCase() !== TNA);
+  // Nettoyage : retirer l'ancien TNA (recalculé) et toute entrée sans nom (heures fantômes)
+  slots.forEach(sl => {
+    if (sl.nom.toUpperCase() === TNA) delete heures[sl.k];
+    else if (!sl.nom && heures[sl.k]) delete heures[sl.k];
+  });
+
+  if (reels.length > 0) {
+    const somme = reels.reduce((acc, sl) => acc + sl.h, 0);
+    const reste = Math.round((cible - somme) * 100) / 100;
+    if (reste > 0.001) {
+      const occupes = new Set(reels.map(sl => sl.i));
+      let libre = null;
+      for (let i = 1; i <= 5; i++) if (!occupes.has(i)) { libre = i; break; }
+      if (libre) heures[`${salarieId}${safeDate}ch${libre}`] = { chantier: TNA, heures: reste };
+    }
+  }
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+}
+
+/* Resynchronise l'affichage d'une ligne depuis heures (et verrouille les heures du TNA). */
+function rafraichirLigne(salarieId, dateStr) {
+  const safeDate = dateStr.replace(/-/g, '_');
+  for (let i = 1; i <= 5; i++) {
+    const k = `${salarieId}${safeDate}ch${i}`;
+    const e = heures[k] || { chantier: '', heures: 0 };
+    const estTNA = (e.chantier || '').trim().toUpperCase() === TNA;
+    const inp = document.getElementById(k + 'chantier');
+    const sel = document.getElementById(k + 'h');
+    if (inp) inp.value = e.chantier || '';
+    if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = estTNA; }
+    majBoutonNote(k);
+  }
+  majTotalLigne(salarieId, dateStr);
+  majCouleursChantiers();
+}
+
+/* Saisie/MAJ d'un nom de chantier (blur) : défaut du 1er chantier, puis recalcul TNA. */
+function onChantierCommit(k) {
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch\d+$/);
+  if (!mm) return;
+  const salarieId = mm[1], safe = mm[2], dateStr = safe.replace(/_/g, '-');
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!_eligibleTNA(s, dateStr)) return;
+
+  const e = heures[k] || { chantier: '', heures: 0 };
+  const nom = (e.chantier || '').trim();
+  if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
+    let nbReels = 0;
+    for (let i = 1; i <= 5; i++) {
+      const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
+      if (n && n.toUpperCase() !== TNA) nbReels++;
+    }
+    if (nbReels === 1) {
+      const abs = parseFloat(heures[`${salarieId}${safe}abs`]?.heures) || 0;
+      const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
+      if (cible > 0) { heures[k] = { chantier: nom, heures: cible }; localStorage.setItem('heuresdata', JSON.stringify(heures)); }
+    }
+  }
+  appliquerTempsNonAffecte(salarieId, dateStr);
+  rafraichirLigne(salarieId, dateStr);
+}
+
+/* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
+function onLigneRecalc(k) {
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if (!mm) return;
+  const salarieId = mm[1], dateStr = mm[2].replace(/_/g, '-');
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!_eligibleTNA(s, dateStr)) return;
+  appliquerTempsNonAffecte(salarieId, dateStr);
+  rafraichirLigne(salarieId, dateStr);
 }
 
 /* ── Notes de chantier (planning) : note GÉNÉRALE par chantier (cumulative) ── */
