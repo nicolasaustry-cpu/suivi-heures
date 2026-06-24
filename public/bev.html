@@ -69,11 +69,28 @@
       /* Tableau compact : police réduite, dates sur une seule ligne, colonnes au plus juste */
       #bev-doc table.bev { width:auto; font-size:0.66rem; }
       #bev-doc table.bev th, #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
+      #bev-doc table.bev th:nth-child(n+2), #bev-doc table.bev td:nth-child(n+2) { width:auto; }
+      #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:auto; }
+      /* Signatures empilées à droite du tableau (récupère la hauteur) */
+      .bev-flow { display:flex; align-items:flex-start; gap:10px; }
+      .bev-left { min-width:0; }
+      .signatures { display:flex !important; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0 !important; }
+      .sig-box { min-height:74px; }
+      .col-tranche .tranche-sel { display:none; }
+      .col-tranche .tranche-print { display:inline; }
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
     .bev-mesure { width:190mm; }
     .bev-mesure table.bev { width:auto; font-size:0.66rem; }
     .bev-mesure table.bev th, .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
+    .bev-mesure table.bev th:nth-child(n+2), .bev-mesure table.bev td:nth-child(n+2) { width:auto; }
+    .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:auto; }
+    .bev-mesure .bev-flow { display:flex; align-items:flex-start; gap:10px; }
+    .bev-mesure .bev-left { min-width:0; }
+    .bev-mesure .signatures { display:flex; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0; }
+    .bev-mesure .col-tranche .tranche-sel { display:none; }
+    .bev-mesure .col-tranche .tranche-print { display:inline; }
+    .tranche-print { display:none; }
     /* Indemnités de petits déplacements */
     .bev-indemnites { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:6px 0 2px; font-size:0.9rem; color:#374151; }
     .bev-indemnites .bi-label { font-weight:600; }
@@ -411,12 +428,13 @@ async function chargerMois() {
       '<td class="' + classeEcart(l.ecart) + '">' + signe(l.ecart) + '</td>' +
       '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" data-passe="1" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
       '<td class="ecv ' + classeEcart(l.ecartV) + '">' + signe(l.ecartV) + '</td>' +
-      '<td class="col-tranche"><select class="tranche-sel" data-date="' + l.date + '">' + optionsTranche(_tranches[l.date] || '') + '</select></td>' +
+      '<td class="col-tranche"><select class="tranche-sel" data-date="' + l.date + '">' + optionsTranche(_tranches[l.date] || '') + '</select><span class="tranche-print">' + (_tranches[l.date] || '') + '</span></td>' +
     '</tr>';
   });
   const tec = r2(tr - tp), tecv = r2(tret - tp);
   _prevuMois = tp;
   document.getElementById('zone').innerHTML =
+    '<div class="bev-flow"><div class="bev-left">' +
     '<table class="bev"><thead><tr>' +
       '<th>Jour</th><th>Prévu</th><th>Événements</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th class="col-tranche">Tranche indemnité</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
@@ -427,8 +445,10 @@ async function chargerMois() {
     '<div id="recap-indemnites"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td><td id="enc-payees"></td></tr></tbody></table>' +
+    '</div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
-    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
+    '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>' +
+    '</div>';
 
   _ecartMois = tecv;
   document.getElementById('corps').addEventListener('input', recalcMois);
@@ -437,7 +457,11 @@ async function chargerMois() {
   document.querySelector('.ind-chk[value="transport"]').checked = !!_indemnites.transport;
   document.querySelector('.ind-chk[value="repas"]').checked     = !!_indemnites.repas;
   document.getElementById('corps').addEventListener('change', function(e){
-    if (e.target.classList && e.target.classList.contains('tranche-sel')) rendreRecapIndemnites();
+    if (e.target.classList && e.target.classList.contains('tranche-sel')) {
+      const sp = e.target.parentNode.querySelector('.tranche-print');
+      if (sp) sp.textContent = e.target.value || '';
+      rendreRecapIndemnites();
+    }
   });
   appliquerIndemnites();
   majEncart();
