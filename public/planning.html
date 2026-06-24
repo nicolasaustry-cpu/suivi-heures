@@ -635,8 +635,9 @@ function genererPlanning() {
           <div style="display:flex;align-items:center;gap:2px;">
             <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:116px;flex:0 0 auto;text-transform:uppercase;"
               list="liste-chantiers-prev" autocomplete="off"
+              onfocus="onChantierFocus('${k}')"
               oninput="saveHeure('${k}',this.value.toUpperCase(),document.getElementById('${k}h').value)"
-              onchange="onChantierCommit('${k}')">
+              onblur="onChantierCommit('${k}')">
             <button type="button" class="btn-vider-ch no-print" title="Vider ce chantier" aria-label="Vider ce chantier"
               onclick="viderChantier('${k}')"
               style="width:22px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;color:#dc2626;border-radius:4px;cursor:pointer;font-weight:700;line-height:1;flex:0 0 auto;">✕</button>
@@ -899,6 +900,14 @@ function rafraichirLigne(salarieId, dateStr) {
 }
 
 /* Saisie/MAJ d'un nom de chantier (blur) : défaut du 1er chantier, puis recalcul TNA. */
+function onChantierFocus(k) {
+  // Au focus d'une case « TEMPS NON AFFECTE », on vide l'affichage pour rendre le menu
+  // déroulant utilisable. heures[k] garde la valeur : si rien n'est choisi, le TNA est
+  // restauré au blur par onChantierCommit (recalcul).
+  const inp = document.getElementById(k + 'chantier');
+  if (inp && (inp.value || '').trim().toUpperCase() === TNA) inp.value = '';
+}
+
 function onChantierCommit(k) {
   const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch\d+$/);
   if (!mm) return;
