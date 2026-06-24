@@ -8,6 +8,7 @@ const donneesSchema = new mongoose.Schema({
   heures:       { type: Object, default: {} },
   chantiers:    { type: Array,  default: [] },
   previsionnel: { type: Object, default: {} },
+  notesChantiers: { type: Object, default: {} }, // note générale par chantier : { "NOM CHANTIER": "texte cumulé" }
   updatedAt:    { type: Date,   default: Date.now }
 });
 

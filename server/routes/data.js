@@ -41,6 +41,47 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Note de chantier (PC, via token licence) : ajoute une ligne datée/signée ──
+   Écriture CIBLÉE ($set sur le seul champ notesChantiers) : n'affecte jamais
+   salaries/heures (anti-écrasement, cf. incident). */
+function _ligneNoteData(auteur, texte) {
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  const sig = auteur ? ` – ${auteur}` : "";
+  return `[${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}${sig}] ${texte}`;
+}
+
+router.post("/note-chantier", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const chantier = (req.body.chantier || "").trim().toUpperCase();
+    const texte    = (req.body.texte || "").toString().trim();
+    const auteur   = (req.body.auteur || "Gérant").toString().trim().slice(0, 40);
+
+    if (!chantier || !texte) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    if (texte.length > 2000)  return res.status(400).json({ ok: false, message: "Note trop longue" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const ligne = _ligneNoteData(auteur, texte);
+    const notes = doc.notesChantiers || {};
+    notes[chantier] = notes[chantier] ? (notes[chantier] + "\n" + ligne) : ligne;
+
+    await Donnees.updateOne(
+      { _id: doc._id },
+      { $set: { notesChantiers: notes, updatedAt: new Date() } }
+    );
+    res.json({ ok: true, chantier, note: notes[chantier] });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Sauvegarder toutes les données du client ──
 router.post("/", verifyToken, async (req, res) => {
   try {

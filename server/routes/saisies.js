@@ -40,6 +40,7 @@ router.post("/connect", async (req, res) => {
       salaries:     salariesSansPin,
       previsionnel: doc.previsionnel || {},
       heures:       doc.heures       || {},
+      notesChantiers: doc.notesChantiers || {},
       ordreMobile:  await getOrdresMobile(doc.clientId)
     });
   } catch (err) {
@@ -71,6 +72,53 @@ router.post("/auth-pin", async (req, res) => {
     if (String(sal.pin) !== pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
 
     res.json({ ok: true, salarieId: sal.id, nom: `${sal.prenom} ${sal.nom}`, administratif: !!sal.administratif, gerant: !!sal.gerant });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Note de chantier (mobile) : ajoute une ligne datée/signée au journal ──
+   Réservé aux salariés administratifs et gérants. Écriture CIBLÉE ($set sur le
+   seul champ notesChantiers) : n'affecte jamais salaries/heures (anti-écrasement). */
+function _ligneNote(auteur, texte) {
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  const sig = auteur ? ` – ${auteur}` : "";
+  return `[${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}${sig}] ${texte}`;
+}
+
+router.post("/note-chantier", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const chantier  = (req.body.chantier || "").trim().toUpperCase();
+    const texte     = (req.body.texte || "").toString().trim();
+
+    if (!codeEmp || !salarieId || !chantier || !texte)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    if (texte.length > 2000)
+      return res.status(400).json({ ok: false, message: "Note trop longue" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
+    if (!sal.administratif && !sal.gerant)
+      return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+
+    const auteur = `${sal.prenom || ""} ${sal.nom || ""}`.trim();
+    const ligne  = _ligneNote(auteur, texte);
+    const notes  = doc.notesChantiers || {};
+    notes[chantier] = notes[chantier] ? (notes[chantier] + "\n" + ligne) : ligne;
+
+    await Donnees.updateOne(
+      { _id: doc._id },
+      { $set: { notesChantiers: notes, updatedAt: new Date() } }
+    );
+    res.json({ ok: true, chantier, note: notes[chantier] });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -238,7 +286,7 @@ router.post("/equipe-mois", async (req, res) => {
       return reste;
     });
 
-    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {}, ordreMobile: await getOrdresMobile(doc.clientId) });
+    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {}, notesChantiers: doc.notesChantiers || {}, ordreMobile: await getOrdresMobile(doc.clientId) });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
