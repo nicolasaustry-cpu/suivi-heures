@@ -12,7 +12,7 @@ router.get("/:mois/:salarieId", verifyToken, async (req, res) => {
     const tous = await Bev.find({ mois, salarieId: String(salarieId) });
     const doc  = tous.find(d => (d.clientId || "").toUpperCase() === clientId);
     if (!doc) return res.json({ ok: true, retenues: {}, valide: false, reporte: 0 });
-    res.json({ ok: true, retenues: doc.retenues || {}, valide: !!doc.valide, reporte: doc.reporte || 0, evenements: doc.evenements || {} });
+    res.json({ ok: true, retenues: doc.retenues || {}, valide: !!doc.valide, reporte: doc.reporte || 0, evenements: doc.evenements || {}, indemnites: doc.indemnites || {}, tranches: doc.tranches || {} });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -33,6 +33,12 @@ router.post("/", verifyToken, async (req, res) => {
     const evbrut = (req.body.evenements && typeof req.body.evenements === 'object') ? req.body.evenements : {};
     const evenements = {};
     for (const k of Object.keys(evbrut)) { if (EVTS.includes(evbrut[k])) evenements[k] = evbrut[k]; }
+    const indbrut = (req.body.indemnites && typeof req.body.indemnites === 'object') ? req.body.indemnites : {};
+    const indemnites = { trajet: !!indbrut.trajet, transport: !!indbrut.transport, repas: !!indbrut.repas };
+    const TRANCHES = ['IA','IB','II','III','IV','V','VI','VII'];
+    const trbrut = (req.body.tranches && typeof req.body.tranches === 'object') ? req.body.tranches : {};
+    const tranches = {};
+    for (const k of Object.keys(trbrut)) { if (TRANCHES.includes(trbrut[k])) tranches[k] = trbrut[k]; }
     const retenues = {};
     for (const k of Object.keys(brut)) {
       const v = Number(brut[k]);
@@ -47,11 +53,15 @@ router.post("/", verifyToken, async (req, res) => {
       doc.reporte   = reporte;
       doc.evenements = evenements;
       doc.markModified('evenements');
+      doc.indemnites = indemnites;
+      doc.markModified('indemnites');
+      doc.tranches = tranches;
+      doc.markModified('tranches');
       doc.updatedAt = new Date();
       doc.markModified("retenues");
       await doc.save();
     } else {
-      await Bev.create({ clientId, salarieId: String(salarieId), mois, retenues, valide, reporte, evenements });
+      await Bev.create({ clientId, salarieId: String(salarieId), mois, retenues, valide, reporte, evenements, indemnites, tranches });
     }
     res.json({ ok: true });
   } catch (err) {

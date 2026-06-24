@@ -10,6 +10,8 @@ const bevSchema = new mongoose.Schema({
   retenues:  { type: Object, default: {} },
   reporte:   { type: Number, default: 0 },
   evenements:{ type: Object, default: {} },
+  indemnites:{ type: Object, default: {} },     // { trajet:bool, transport:bool, repas:bool }
+  tranches:  { type: Object, default: {} },     // { "YYYY-MM-DD": "IA"|"IB"|... }
   valide:    { type: Boolean, default: false },
   updatedAt: { type: Date,   default: Date.now }
 });

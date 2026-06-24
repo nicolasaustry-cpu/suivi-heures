@@ -66,28 +66,26 @@
       table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .signatures { break-inside:avoid; page-break-inside:avoid; }
-      /* Tableau compact : colonnes étroites + dates sur une seule ligne */
-      #bev-doc table.bev { table-layout:fixed; width:143mm; font-size:0.66rem; }
-      #bev-doc table.bev th, #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-      #bev-doc table.bev th:nth-child(1), #bev-doc table.bev td:nth-child(1) { width:34mm; }
-      #bev-doc table.bev th:nth-child(2), #bev-doc table.bev td:nth-child(2) { width:14mm; }
-      #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:32mm; }
-      #bev-doc table.bev th:nth-child(4), #bev-doc table.bev td:nth-child(4) { width:15mm; }
-      #bev-doc table.bev th:nth-child(5), #bev-doc table.bev td:nth-child(5) { width:14mm; }
-      #bev-doc table.bev th:nth-child(6), #bev-doc table.bev td:nth-child(6) { width:16mm; }
-      #bev-doc table.bev th:nth-child(7), #bev-doc table.bev td:nth-child(7) { width:18mm; }
+      /* Tableau compact : police réduite, dates sur une seule ligne, colonnes au plus juste */
+      #bev-doc table.bev { width:auto; font-size:0.66rem; }
+      #bev-doc table.bev th, #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
     .bev-mesure { width:190mm; }
-    .bev-mesure table.bev { table-layout:fixed; width:143mm; font-size:0.66rem; }
+    .bev-mesure table.bev { width:auto; font-size:0.66rem; }
     .bev-mesure table.bev th, .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
-    .bev-mesure table.bev th:nth-child(1), .bev-mesure table.bev td:nth-child(1) { width:34mm; }
-    .bev-mesure table.bev th:nth-child(2), .bev-mesure table.bev td:nth-child(2) { width:14mm; }
-    .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:32mm; }
-    .bev-mesure table.bev th:nth-child(4), .bev-mesure table.bev td:nth-child(4) { width:15mm; }
-    .bev-mesure table.bev th:nth-child(5), .bev-mesure table.bev td:nth-child(5) { width:14mm; }
-    .bev-mesure table.bev th:nth-child(6), .bev-mesure table.bev td:nth-child(6) { width:16mm; }
-    .bev-mesure table.bev th:nth-child(7), .bev-mesure table.bev td:nth-child(7) { width:18mm; }
+    /* Indemnités de petits déplacements */
+    .bev-indemnites { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:6px 0 2px; font-size:0.9rem; color:#374151; }
+    .bev-indemnites .bi-label { font-weight:600; }
+    .bev-indemnites label { display:inline-flex; align-items:center; gap:5px; font-weight:500; cursor:pointer; }
+    .col-tranche { display:none; }
+    #zone.ind-on .col-tranche { display:table-cell; }
+    #recap-indemnites { margin-top:10px; }
+    #recap-indemnites:empty { display:none; }
+    table.bev-recap { border-collapse:collapse; font-size:0.85rem; margin-top:6px; }
+    table.bev-recap th, table.bev-recap td { border:1px solid #cbd5e1; padding:3px 8px; text-align:center; }
+    table.bev-recap th { background:#eef2f7; color:#0f3a8a; font-weight:700; }
+    table.bev-recap td:first-child, table.bev-recap th:first-child { text-align:left; font-weight:600; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -145,6 +143,13 @@
     </label>
   </div>
 
+  <div class="bev-indemnites no-print" id="bev-indemnites">
+    <span class="bi-label">Indemnités de petits déplacements :</span>
+    <label><input type="checkbox" class="ind-chk" value="trajet" onchange="onIndemniteChange()"> Trajet</label>
+    <label><input type="checkbox" class="ind-chk" value="transport" onchange="onIndemniteChange()"> Transport</label>
+    <label><input type="checkbox" class="ind-chk" value="repas" onchange="onIndemniteChange()"> Repas</label>
+  </div>
+
   <div id="bev-fit"><div id="bev-doc">
     <div class="bev-titre-doc" id="titre-doc"></div>
     <div id="zone"></div>
@@ -191,6 +196,48 @@ window.addEventListener('beforeprint', ajusterEchelleBEV);
 let _prevuMois = 0;
 const EVENEMENTS = ['', 'CP', 'École', 'Maladie', 'Abs Aut.', 'Ev. Famil.', 'RTT', 'AT'];
 function optionsEvt(sel) { return EVENEMENTS.map(function(e){ return '<option value="' + e + '"' + (e === sel ? ' selected' : '') + '>' + (e || '—') + '</option>'; }).join(''); }
+
+/* ── Indemnités de petits déplacements ── */
+const TRANCHES_IND = [
+  ['',''],['IA','IA 0 à 5 km'],['IB','IB 5 à 10 km'],['II','II 10 à 20 km'],
+  ['III','III 20 à 30 km'],['IV','IV 30 à 40 km'],['V','V 40 à 50 km'],
+  ['VI','VI 50 à 65 km'],['VII','VII 65 à 80 km']
+];
+let _indemnites = {};   // { trajet, transport, repas }
+let _tranches   = {};   // { 'YYYY-MM-DD': 'IA'|... }
+function optionsTranche(sel) {
+  return TRANCHES_IND.map(function(t){ return '<option value="' + t[0] + '"' + (t[0] === sel ? ' selected' : '') + '>' + (t[1] || '—') + '</option>'; }).join('');
+}
+function onIndemniteChange() {
+  _indemnites = {
+    trajet:    !!document.querySelector('.ind-chk[value="trajet"]').checked,
+    transport: !!document.querySelector('.ind-chk[value="transport"]').checked,
+    repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
+  };
+  appliquerIndemnites();
+}
+function appliquerIndemnites() {
+  const zone = document.getElementById('zone');
+  const actif = !!(_indemnites.trajet || _indemnites.transport || _indemnites.repas);
+  if (zone) zone.classList.toggle('ind-on', actif);
+  rendreRecapIndemnites();
+}
+function rendreRecapIndemnites() {
+  const wrap = document.getElementById('recap-indemnites');
+  if (!wrap) return;
+  const items = [['trajet','Trajet'],['transport','Transport'],['repas','Repas']].filter(function(it){ return _indemnites[it[0]]; });
+  if (!items.length) { wrap.innerHTML = ''; return; }
+  const codes = ['IA','IB','II','III','IV','V','VI','VII'];
+  const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
+  document.querySelectorAll('#corps .tranche-sel').forEach(function(sel){ if (cnt[sel.value] !== undefined) cnt[sel.value]++; });
+  const tot = codes.reduce(function(a,c){ return a + cnt[c]; }, 0);
+  let html = '<table class="bev-recap"><thead><tr><th>Indemnité</th>' + codes.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>';
+  items.forEach(function(it){
+    html += '<tr><td>' + it[1] + '</td>' + codes.map(function(c){ return '<td>' + (cnt[c] || '') + '</td>'; }).join('') + '<td>' + (tot || '') + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
 let _salaries = [];
 const MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 function moisLabel(ym) { const p = ym.split('-'); return MOIS_NOMS[parseInt(p[1])-1] + '-' + p[0]; }
@@ -336,13 +383,14 @@ async function chargerMois() {
     '<div class="td-sal">' + sal.prenom + ' ' + sal.nom + '</div>';
 
   let saisies = [], retenues = {}, valide = false, reporte = 0, evenements = {};
+  _indemnites = {}; _tranches = {};
   try {
     const [rs, rb] = await Promise.all([
       fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
       fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
     ]);
     saisies  = rs.ok ? (rs.saisies || []) : [];
-    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; }
+    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; _indemnites = rb.indemnites || {}; _tranches = rb.tranches || {}; }
   } catch (e) {}
 
   document.getElementById('chk-valide').checked = valide;
@@ -351,7 +399,7 @@ async function chargerMois() {
   let corps = '';
   lignes.forEach(l => {
     if (!l.passe) {
-      corps += '<tr class="futur' + (l.we ? ' we' : '') + '"><td>' + l.label + '</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+      corps += '<tr class="futur' + (l.we ? ' we' : '') + '"><td>' + l.label + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="col-tranche"></td></tr>';
       return;
     }
     tp += l.prevu; tr += l.real; tret += l.retenu;
@@ -363,18 +411,20 @@ async function chargerMois() {
       '<td class="' + classeEcart(l.ecart) + '">' + signe(l.ecart) + '</td>' +
       '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" data-passe="1" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
       '<td class="ecv ' + classeEcart(l.ecartV) + '">' + signe(l.ecartV) + '</td>' +
+      '<td class="col-tranche"><select class="tranche-sel" data-date="' + l.date + '">' + optionsTranche(_tranches[l.date] || '') + '</select></td>' +
     '</tr>';
   });
   const tec = r2(tr - tp), tecv = r2(tret - tp);
   _prevuMois = tp;
   document.getElementById('zone').innerHTML =
     '<table class="bev"><thead><tr>' +
-      '<th>Jour</th><th>Prévu</th><th>Événements</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th>' +
+      '<th>Jour</th><th>Prévu</th><th>Événements</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th class="col-tranche">Tranche indemnité</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td><td>' + fmt(tp) + '</td><td></td><td>' + fmt(tr) + '</td>' +
       '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
       '<td id="t-ret">' + fmt(tret) + '</td>' +
-      '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td></tr></tfoot></table>' +
+      '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td><td class="col-tranche"></td></tr></tfoot></table>' +
+    '<div id="recap-indemnites"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
@@ -383,6 +433,13 @@ async function chargerMois() {
   _ecartMois = tecv;
   document.getElementById('corps').addEventListener('input', recalcMois);
   document.getElementById('enc-reporte').addEventListener('input', majEncart);
+  document.querySelector('.ind-chk[value="trajet"]').checked    = !!_indemnites.trajet;
+  document.querySelector('.ind-chk[value="transport"]').checked = !!_indemnites.transport;
+  document.querySelector('.ind-chk[value="repas"]').checked     = !!_indemnites.repas;
+  document.getElementById('corps').addEventListener('change', function(e){
+    if (e.target.classList && e.target.classList.contains('tranche-sel')) rendreRecapIndemnites();
+  });
+  appliquerIndemnites();
   majEncart();
 }
 
@@ -435,13 +492,20 @@ async function enregistrer() {
   document.querySelectorAll('#corps .evt').forEach(sel => { if (sel.value) evenements[sel.dataset.date] = sel.value; });
   const repEl = document.getElementById('enc-reporte');
   const reporte = repEl ? (parseFloat(repEl.value) || 0) : 0;
+  const indemnites = {
+    trajet:    !!document.querySelector('.ind-chk[value="trajet"]').checked,
+    transport: !!document.querySelector('.ind-chk[value="transport"]').checked,
+    repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
+  };
+  const tranches = {};
+  document.querySelectorAll('#corps .tranche-sel').forEach(function(sel){ if (sel.value) tranches[sel.dataset.date] = sel.value; });
   const btn = document.getElementById('btn-save');
   const ancien = btn.innerHTML; btn.disabled = true; btn.textContent = 'Enregistrement…';
   try {
     const r = await fetch('/api/bev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide, reporte, evenements })
+      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide, reporte, evenements, indemnites, tranches })
     });
     const d = await r.json();
     btn.innerHTML = d.ok ? '<i class="ti ti-check"></i> Enregistré' : '⚠ Échec';
