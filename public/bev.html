@@ -60,9 +60,8 @@
       section { margin:0; }
       #zone { max-width: none; }
       /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
-         le document est mis à l'échelle (calculée au moment de l'impression). */
-      #bev-fit { height: var(--bev-fit-h, auto); overflow: hidden; }
-      #bev-doc { width: 190mm; transform: scale(var(--bev-scale, 1)); transform-origin: top left; }
+         zoom met à l'échelle la MISE EN PAGE (fiable à l'impression), facteur calculé au moment de l'impression. */
+      #bev-doc { width: 190mm; zoom: var(--bev-scale, 1); }
       .bev-titre-doc { display:block; text-align:center; margin-bottom:0.8rem; }
       table.bev { font-size:0.7rem; break-inside:avoid; page-break-inside:avoid; }
       table.bev td, table.bev th { padding:1px 5px; }
@@ -128,7 +127,7 @@
       <input type="number" id="sel-annee" min="2020" max="2100" step="1" onchange="rafraichir()" style="width:90px;">
     </div>
     <button class="btn-outil btn-refresh" onclick="location.reload()"><i class="ti ti-refresh"></i> Rafraîchir</button>
-    <button class="btn-outil btn-print" onclick="window.print()"><i class="ti ti-printer"></i> Imprimer</button>
+    <button class="btn-outil btn-print" onclick="imprimerBEV()"><i class="ti ti-printer"></i> Imprimer</button>
     <button class="btn-outil btn-save no-print" id="btn-save" onclick="enregistrer()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
     <label class="no-print" id="lbl-valide" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#374151;">
       <input type="checkbox" id="chk-valide" style="width:auto;"> Mois validé
@@ -160,22 +159,23 @@ function _bevPxParMm() {
 }
 function ajusterEchelleBEV() {
   const doc = document.getElementById('bev-doc');
-  const fit = document.getElementById('bev-fit');
-  if (!doc || !fit) return;
+  if (!doc) return;
+  doc.style.removeProperty('--bev-scale');
   const ppmm = _bevPxParMm();
   const Wmm = 190, Hmm = 277;            // zone utile A4 portrait, marges 10mm
   const clone = doc.cloneNode(true);
   clone.classList.add('bev-mesure');
-  clone.style.cssText = 'position:absolute;left:-99999px;top:0;transform:none;';
+  clone.style.cssText = 'position:absolute;left:-99999px;top:0;zoom:1;';
   document.body.appendChild(clone);
   const hMm = clone.scrollHeight / ppmm;
   const wMm = clone.scrollWidth  / ppmm;
   clone.remove();
   let scale = Math.min(1, Hmm / (hMm || 1), Wmm / (wMm || 1));
   if (!isFinite(scale) || scale <= 0) scale = 1;
+  if (scale < 1) scale = Math.max(0.3, scale * 0.98); // petite marge : jamais de 2e page
   doc.style.setProperty('--bev-scale', String(scale));
-  fit.style.setProperty('--bev-fit-h', (hMm * scale + 1).toFixed(1) + 'mm');
 }
+function imprimerBEV() { ajusterEchelleBEV(); window.print(); }
 window.addEventListener('beforeprint', ajusterEchelleBEV);
 let _prevuMois = 0;
 const EVENEMENTS = ['', 'CP', 'École', 'Maladie', 'Abs Aut.', 'Ev. Famil.', 'RTT', 'AT'];
