@@ -1354,6 +1354,18 @@ async function pinValider() {
 
     _salarie = { id: d.salarieId, nom: d.nom };
     localStorage.setItem('saisie_salarie', JSON.stringify(_salarie));
+
+    // Salarié administratif : accès direct à la Vue équipe, sans écran de saisie d'heures.
+    let estAdministratif = !!d.administratif;
+    if (!estAdministratif) {
+      try {
+        const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+        const moi  = sals.find(s => String(s.id) === String(d.salarieId));
+        estAdministratif = !!(moi && moi.administratif);
+      } catch (_) {}
+    }
+    if (estAdministratif) { window.location.href = 'planning-equipe.html'; return; }
+
     document.getElementById('nom-salarie').textContent = _salarie.nom;
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('ecran-saisie').style.display = 'block';

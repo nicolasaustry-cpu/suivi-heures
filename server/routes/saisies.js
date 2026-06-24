@@ -70,7 +70,7 @@ router.post("/auth-pin", async (req, res) => {
     if (!sal || !sal.pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
     if (String(sal.pin) !== pin) return res.status(401).json({ ok: false, message: "PIN incorrect" });
 
-    res.json({ ok: true, salarieId: sal.id, nom: `${sal.prenom} ${sal.nom}` });
+    res.json({ ok: true, salarieId: sal.id, nom: `${sal.prenom} ${sal.nom}`, administratif: !!sal.administratif, gerant: !!sal.gerant });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
