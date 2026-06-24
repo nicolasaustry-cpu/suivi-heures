@@ -52,13 +52,17 @@
       .bev-controls { position: sticky; top: var(--bandeau-h, 66px); z-index: 40; background: #f4f6f8; padding: 8px 0; }
       table.bev thead th { position: sticky; top: calc(var(--bandeau-h, 66px) + var(--controls-h, 56px)); z-index: 30; }
     }
-    @page { size: A4 portrait; margin: 12mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     @media print {
       .no-print { display:none !important; }
       body header.main-header, body .main-header, body .nav, body div.nav { display:none !important; }
       body { background:#fff; }
       section { margin:0; }
       #zone { max-width: none; }
+      /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
+         le document est mis à l'échelle (calculée au moment de l'impression). */
+      #bev-fit { height: var(--bev-fit-h, auto); overflow: hidden; }
+      #bev-doc { width: 190mm; transform: scale(var(--bev-scale, 1)); transform-origin: top left; }
       .bev-titre-doc { display:block; text-align:center; margin-bottom:0.8rem; }
       table.bev { font-size:0.7rem; break-inside:avoid; page-break-inside:avoid; }
       table.bev td, table.bev th { padding:1px 5px; }
@@ -67,6 +71,13 @@
       .signatures { break-inside:avoid; page-break-inside:avoid; margin-top:1rem; gap:18px; }
       .sig-box { min-height:90px; }
     }
+    /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression pour calculer l'échelle. */
+    .bev-mesure { width:190mm; }
+    .bev-mesure table.bev { font-size:0.7rem; }
+    .bev-mesure table.bev td, .bev-mesure table.bev th { padding:1px 5px; }
+    .bev-mesure table.bev tfoot td { padding:3px 5px; }
+    .bev-mesure .signatures { margin-top:1rem; gap:18px; }
+    .bev-mesure .sig-box { min-height:90px; }
   </style>
 </head>
 <body>
@@ -124,8 +135,10 @@
     </label>
   </div>
 
-  <div class="bev-titre-doc" id="titre-doc"></div>
-  <div id="zone"></div>
+  <div id="bev-fit"><div id="bev-doc">
+    <div class="bev-titre-doc" id="titre-doc"></div>
+    <div id="zone"></div>
+  </div></div>
 </section>
 
 <script src="assets/sync.js"></script>
@@ -133,6 +146,37 @@
 <script>
 let _vue = 'mois';
 let _ecartMois = 0;
+
+/* ── Impression sur UNE seule page (toute imprimante / PDF) ──
+   Avant impression, on mesure le document à la largeur d'une page A4 (gabarit hors écran)
+   et on applique une échelle pour qu'il tienne exactement sur une page. */
+function _bevPxParMm() {
+  const p = document.createElement('div');
+  p.style.cssText = 'position:absolute;left:-9999px;top:0;width:100mm;height:0;visibility:hidden;';
+  document.body.appendChild(p);
+  const v = p.getBoundingClientRect().width / 100;
+  p.remove();
+  return v || 3.7795;
+}
+function ajusterEchelleBEV() {
+  const doc = document.getElementById('bev-doc');
+  const fit = document.getElementById('bev-fit');
+  if (!doc || !fit) return;
+  const ppmm = _bevPxParMm();
+  const Wmm = 190, Hmm = 277;            // zone utile A4 portrait, marges 10mm
+  const clone = doc.cloneNode(true);
+  clone.classList.add('bev-mesure');
+  clone.style.cssText = 'position:absolute;left:-99999px;top:0;transform:none;';
+  document.body.appendChild(clone);
+  const hMm = clone.scrollHeight / ppmm;
+  const wMm = clone.scrollWidth  / ppmm;
+  clone.remove();
+  let scale = Math.min(1, Hmm / (hMm || 1), Wmm / (wMm || 1));
+  if (!isFinite(scale) || scale <= 0) scale = 1;
+  doc.style.setProperty('--bev-scale', String(scale));
+  fit.style.setProperty('--bev-fit-h', (hMm * scale + 1).toFixed(1) + 'mm');
+}
+window.addEventListener('beforeprint', ajusterEchelleBEV);
 let _prevuMois = 0;
 const EVENEMENTS = ['', 'CP', 'École', 'Maladie', 'Abs Aut.', 'Ev. Famil.', 'RTT', 'AT'];
 function optionsEvt(sel) { return EVENEMENTS.map(function(e){ return '<option value="' + e + '"' + (e === sel ? ' selected' : '') + '>' + (e || '—') + '</option>'; }).join(''); }
