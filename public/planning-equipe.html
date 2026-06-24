@@ -509,7 +509,7 @@ function genererGrille(opts) {
 
   const zone0 = document.getElementById('zone-grille');
   if (_accesRefuse) {
-    zone0.outerHTML = `<div class="msg-info" id="zone-grille">Cette page est réservée aux gérants.</div>`;
+    zone0.outerHTML = `<div class="msg-info" id="zone-grille">Cette page est réservée aux gérants et administratifs.</div>`;
     return;
   }
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]');

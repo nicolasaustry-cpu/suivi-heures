@@ -270,10 +270,10 @@ router.post("/equipe-mois", async (req, res) => {
     const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
-    // Le salarié doit exister ET être gérant
+    // Le salarié doit exister ET être gérant ou administratif
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
-    if (!sal || !sal.gerant)
-      return res.status(403).json({ ok: false, message: "Accès réservé au gérant" });
+    if (!sal || (!sal.gerant && !sal.administratif))
+      return res.status(403).json({ ok: false, message: "Accès réservé aux gérants et administratifs" });
 
     const saisies = await Saisie.find({
       clientId: doc.clientId,
@@ -339,8 +339,8 @@ router.post("/ordre-mobile", async (req, res) => {
       const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
       if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
       const gerant = (doc.salaries || []).find(s => String(s.id) === String(gerantId));
-      if (!gerant || !gerant.gerant)
-        return res.status(403).json({ ok: false, message: "Action réservée au gérant" });
+      if (!gerant || (!gerant.gerant && !gerant.administratif))
+        return res.status(403).json({ ok: false, message: "Action réservée aux gérants et administratifs" });
       clientId = doc.clientId;
     } else {
       // Contexte licence (patron PC) : token Bearer
