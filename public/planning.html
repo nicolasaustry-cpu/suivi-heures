@@ -630,7 +630,7 @@ function genererPlanning() {
         const k    = `${s.id}${safeDate}ch${i}`;
         const data = heures[k] || { chantier: '', heures: 0 };
         const noteG = _notesChantiers[(data.chantier || '').toUpperCase()] || '';
-        total += parseFloat(data.heures) || 0;
+        if ((data.chantier || '').trim().toUpperCase() !== TNA) total += parseFloat(data.heures) || 0;
         return `<td style="border:1px solid #ccc;padding:2px;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:116px;flex:0 0 auto;text-transform:uppercase;"
@@ -1045,7 +1045,9 @@ function majTotalLigne(salarieId, dateStr) {
   const nbCh  = sal.sav ? 10 : 5;
   let total = 0;
   for (let i = 1; i <= nbCh; i++) {
-    total += parseFloat(heures[`${salarieId}${safeDate}ch${i}`]?.heures || 0);
+    const cell = heures[`${salarieId}${safeDate}ch${i}`];
+    if ((cell?.chantier || '').trim().toUpperCase() === TNA) continue; // TNA exclu du total planifié
+    total += parseFloat(cell?.heures || 0);
   }
 
   const absK  = `${salarieId}${safeDate}abs`;
