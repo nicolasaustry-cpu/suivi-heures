@@ -1437,6 +1437,7 @@ async function chargerChantiersPrev() {
     const entry = heures[k];
     const nomChantier = (entry?.chantier || '').trim();
     if (!nomChantier || nomChantier.toLowerCase() === 'absence') continue;
+    if (nomChantier.toUpperCase() === 'TEMPS NON AFFECTE' && !_estGerantOuAdmin()) continue;
     if (!chantiersTrouves.has(nomChantier)) {
       const h = parseFloat(entry?.heures) || 0;
       chantiersTrouves.set(nomChantier, h);
@@ -1658,6 +1659,15 @@ async function chargerRealiseMonPlanning() {
     (_mpRealParDate[s.date] = _mpRealParDate[s.date] || []).push(...(s.chantiers || []));
   });
 }
+/* Le salarié connecté est-il gérant ou administratif ? (pour montrer « TEMPS NON AFFECTE ») */
+function _estGerantOuAdmin() {
+  try {
+    if (!_salarie) return false;
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const moi = sals.find(s => String(s.id) === String(_salarie.id));
+    return !!(moi && (moi.gerant || moi.administratif));
+  } catch { return false; }
+}
 /* Pavés d'une journée (planifié + réalisé), même logique que la Vue équipe. */
 function chipsJourMonPlanning(dateStr) {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
@@ -1666,8 +1676,10 @@ function chipsJourMonPlanning(dateStr) {
   const planifies = [];
   for (let i = 1; i <= 5; i++) {
     const dd = heures[`${salId}${safeDate}ch${i}`];
-    if (dd && dd.chantier && String(dd.chantier).trim())
-      planifies.push({ nom: String(dd.chantier).trim(), h: parseFloat(dd.heures) || 0, note: (dd.note || '').trim() });
+    if (!dd || !dd.chantier || !String(dd.chantier).trim()) continue;
+    const _nomP = String(dd.chantier).trim();
+    if (_nomP.toUpperCase() === 'TEMPS NON AFFECTE' && !_estGerantOuAdmin()) continue;
+    planifies.push({ nom: _nomP, h: parseFloat(dd.heures) || 0, note: (dd.note || '').trim() });
   }
   const rs = _mpRealParDate[dateStr] || [];
   const pris = new Array(rs.length).fill(false);
