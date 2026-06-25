@@ -15,7 +15,7 @@ router.get("/licences", verifyToken, verifyAdmin, async (req, res) => {
 // ── Créer une licence ──
 router.post("/licences", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { codeClient, nomClient, email, dateExpiration, notes, type, prescripteur } = req.body;
+    const { codeClient, nomClient, email, dateExpiration, notes, type, prescripteur, marquePartenaire, logoPartenaire } = req.body;
     if (!codeClient || !dateExpiration)
       return res.status(400).json({ ok: false, message: "Code et date d'expiration requis" });
 
@@ -25,6 +25,8 @@ router.post("/licences", verifyToken, verifyAdmin, async (req, res) => {
       type: type || "standard",
       prescripteur: (prescripteur || "").toUpperCase().trim(),
       dateExpiration: new Date(dateExpiration),
+      marquePartenaire: !!marquePartenaire,
+      logoPartenaire: logoPartenaire || "",
       actif: true
     });
     await licence.save();
@@ -42,13 +44,15 @@ router.put("/licences/:code", verifyToken, verifyAdmin, async (req, res) => {
     const licence = await Licence.findOne({ codeClient: req.params.code.toUpperCase() });
     if (!licence) return res.status(404).json({ ok: false, message: "Licence introuvable" });
 
-    const { nomClient, email, dateExpiration, notes, type, prescripteur } = req.body;
+    const { nomClient, email, dateExpiration, notes, type, prescripteur, marquePartenaire, logoPartenaire } = req.body;
     if (nomClient)              licence.nomClient      = nomClient;
     if (email)               licence.email          = email;
     if (dateExpiration)      licence.dateExpiration = new Date(dateExpiration);
     if (notes !== undefined) licence.notes          = notes;
     if (type)                   licence.type           = type;
     if (prescripteur !== undefined) licence.prescripteur = (prescripteur || "").toUpperCase().trim();
+    if (marquePartenaire !== undefined) licence.marquePartenaire = !!marquePartenaire;
+    if (logoPartenaire !== undefined)   licence.logoPartenaire   = logoPartenaire || "";
     await licence.save();
     res.json({ ok: true, licence });
   } catch (err) {
