@@ -27,7 +27,9 @@ router.post("/login", async (req, res) => {
       clientId:   code,
       nomClient:  licence.nomClient,
       type:       licence.type,
-      expiration: licence.dateExpiration
+      expiration: licence.dateExpiration,
+      marquePartenaire: !!licence.marquePartenaire,
+      logoPartenaire:   licence.logoPartenaire || ""
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

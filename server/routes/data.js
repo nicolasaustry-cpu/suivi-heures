@@ -1,6 +1,7 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Donnees from "../models/donnees.js";
+import Licence from "../models/licence.js";
 
 const router = express.Router();
 
@@ -35,7 +36,14 @@ router.get("/", verifyToken, async (req, res) => {
       doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
     }
     if (!doc) doc = { entreprise: {}, salaries: [], heures: {}, chantiers: [], previsionnel: {} };
-    res.json({ ok: true, data: doc });
+    // Marque blanche : flag + logo du prescripteur, livrés à chaque chargement
+    const licence = await Licence.findOne({ codeClient: clientId });
+    res.json({
+      ok: true,
+      data: doc,
+      marquePartenaire: licence ? !!licence.marquePartenaire : false,
+      logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
+    });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

@@ -187,6 +187,18 @@ const SYNC = (() => {
       });
       const d = await r.json();
       if (!d.ok) return;
+
+      // Marque blanche : mémoriser le flag + logo du prescripteur (livrés par /api/data
+      // à chaque chargement, donc toujours à jour). Clés hors CLES → pas de sauvegarde déclenchée.
+      try {
+        localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
+        if (typeof d.logoPartenaire === 'string' && d.logoPartenaire)
+          localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
+        else
+          localStorage.removeItem('syncLogoPartenaire');
+      } catch (e) {}
+      if (typeof majMarqueBlanche === 'function') majMarqueBlanche();
+
       const serveur = d.data || {};
 
       const aDesDonneesServeur = (serveur.salaries?.length > 0)
