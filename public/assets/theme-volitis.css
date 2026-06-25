@@ -73,6 +73,21 @@ body .main-header .vol-identite img.vol-logo {
   box-sizing: border-box !important;
   display: block !important;
 }
+/* Logo du partenaire (marque blanche) — entre l'identité et le titre de page */
+body header.main-header .vol-logo-partenaire,
+body .main-header .vol-logo-partenaire {
+  height: 40px !important;
+  max-height: 40px !important;
+  max-width: 200px !important;
+  object-fit: contain !important;
+  background: #fff !important;
+  border-radius: 6px !important;
+  padding: 4px 10px !important;
+  margin-left: 16px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+}
 body header.main-header .vol-identite .vol-titres,
 body .main-header .vol-identite .vol-titres {
   display: flex !important;

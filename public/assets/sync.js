@@ -153,6 +153,8 @@ const SYNC = (() => {
       if (changementClient) {
         CLES.forEach(k => localStorage.removeItem(k));
         localStorage.removeItem('syncNomClient');
+        localStorage.removeItem('syncMarquePartenaire');
+        localStorage.removeItem('syncLogoPartenaire');
         _pendingSave = false;
       }
 
@@ -786,7 +788,42 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   SYNC.init();
+  majMarqueBlanche();
 });
+
+/* ── Marque blanche ──────────────────────────────────────────────────────
+   Si la licence est en "marque partenaire", masque le nom "VOLITIS" et insère
+   le logo du partenaire entre l'identité (Suiv'Heures) et le titre de la page.
+   La config est lue dans le localStorage (alimentée par /api/data à chaque
+   chargement), donc appelée au boot ET après chaque chargement de données. */
+function majMarqueBlanche() {
+  const actif = localStorage.getItem('syncMarquePartenaire') === '1';
+  const logo  = localStorage.getItem('syncLogoPartenaire') || '';
+
+  // 1) Masquer / réafficher le nom "VOLITIS" (les liens Volitis restent intacts)
+  document.querySelectorAll('.vol-marque').forEach(el => {
+    el.style.display = actif ? 'none' : '';
+  });
+
+  // 2) Logo partenaire entre l'identité et le titre de page
+  document.querySelectorAll('.main-header').forEach(header => {
+    let img = header.querySelector('.vol-logo-partenaire');
+    if (actif && logo) {
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'vol-logo-partenaire';
+        img.alt = 'Logo partenaire';
+        const identite = header.querySelector('.vol-identite');
+        if (identite) identite.insertAdjacentElement('afterend', img);
+        else header.insertBefore(img, header.firstChild);
+      }
+      if (img.getAttribute('src') !== logo) img.setAttribute('src', logo);
+      img.style.display = '';
+    } else if (img) {
+      img.remove();
+    }
+  });
+}
 
 // Crée (sans doublon) le bandeau de consultation admin en haut de la page.
 function afficherBanniereConsultation(clientNom) {
