@@ -334,6 +334,16 @@
     transition: top .2s ease, width .2s ease, height .2s ease;
   }
   .pin-logo.sur-pin { top: 4%; width: 60px; height: 60px; }
+  #pin-logo-partenaire {
+    margin: 1.4rem auto 0;
+    max-width: 180px;
+    max-height: 54px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    box-sizing: border-box;
+  }
   .pin-screen select {
     width: 100%; padding: 12px; border-radius: 8px; border: none;
     font-size: 1rem; margin-bottom: 1rem; background: #fff;
@@ -972,6 +982,9 @@
   <div style="margin-top:1.5rem;text-align:center;">
     <a href="#" onclick="changerEntreprise(event)" style="color:rgba(255,255,255,0.55);font-size:0.75rem;text-decoration:underline;">Changer d'entreprise</a>
   </div>
+
+  <!-- Logo du partenaire (marque blanche) -->
+  <img id="pin-logo-partenaire" alt="" style="display:none;">
 </div>
 
 <!-- ── ÉCRAN SAISIE ── -->
@@ -1132,7 +1145,18 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('pin-screen').style.display = 'flex';
     chargerSalaries();
   }
+  majLogoPinMobile();   // logo partenaire (depuis le cache) sur l'écran PIN
 });
+
+// Affiche le logo du partenaire (marque blanche) sur l'écran PIN, sous "Changer d'entreprise"
+function majLogoPinMobile() {
+  const img = document.getElementById('pin-logo-partenaire');
+  if (!img) return;
+  const actif = localStorage.getItem('syncMarquePartenaire') === '1';
+  const logo  = localStorage.getItem('syncLogoPartenaire') || '';
+  if (actif && logo) { img.src = logo; img.style.display = 'block'; }
+  else { img.removeAttribute('src'); img.style.display = 'none'; }
+}
 
 async function reconnecterAuto(codeEmploye) {
   try {
@@ -1158,6 +1182,10 @@ async function reconnecterAuto(codeEmploye) {
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
       if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+      localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
+      if (d.logoPartenaire) localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
+      else localStorage.removeItem('syncLogoPartenaire');
+      majLogoPinMobile();
 
       // Afficher le QR de partage (PC uniquement, lib chargée en defer)
       const codeAct = localStorage.getItem('saisie_codeEmploye');
@@ -1243,6 +1271,10 @@ async function validerCodeEntreprise() {
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+    localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
+    if (d.logoPartenaire) localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
+    else localStorage.removeItem('syncLogoPartenaire');
+    majLogoPinMobile();
 
     // Afficher le QR de partage (PC uniquement)
     if (typeof qrcode !== 'undefined') afficherQR(codeEmploye);
