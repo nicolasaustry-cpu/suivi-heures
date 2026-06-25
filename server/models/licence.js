@@ -9,7 +9,9 @@ const licenceSchema = new mongoose.Schema({
   dateActivation:  { type: Date, default: Date.now },
   dateExpiration:  { type: Date, required: true },
   notes:           { type: String, default: "" },
-  prescripteur:    { type: String, default: "", uppercase: true, trim: true }  // identifiant du prescripteur rattaché
+  prescripteur:    { type: String, default: "", uppercase: true, trim: true },  // identifiant du prescripteur rattaché
+  marquePartenaire:{ type: Boolean, default: false },                            // marque blanche : masque "Volitis", affiche le logo du prescripteur
+  logoPartenaire:  { type: String,  default: "" }                               // logo du prescripteur (image en data URL base64)
 });
 
 export default mongoose.model("Licence", licenceSchema);
