@@ -2,6 +2,7 @@ import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
+import Licence from "../models/licence.js";
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.post("/connect", async (req, res) => {
       return reste;
     });
 
+    const licence = await Licence.findOne({ codeClient: (doc.clientId || "").toUpperCase() });
     res.json({
       ok: true,
       clientId:     doc.clientId,
@@ -41,7 +43,9 @@ router.post("/connect", async (req, res) => {
       previsionnel: doc.previsionnel || {},
       heures:       doc.heures       || {},
       notesChantiers: doc.notesChantiers || {},
-      ordreMobile:  await getOrdresMobile(doc.clientId)
+      ordreMobile:  await getOrdresMobile(doc.clientId),
+      marquePartenaire: licence ? !!licence.marquePartenaire : false,
+      logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
