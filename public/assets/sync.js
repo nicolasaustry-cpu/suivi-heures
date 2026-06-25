@@ -88,6 +88,11 @@ const SYNC = (() => {
 
     if (PAGES_LIBRES_TOTAL.includes(pageActuelle())) {
       if (_token && _type) { majStatutLicence(true); majNav(); }
+      else if (['index.html', '/', ''].includes(pageActuelle())) {
+        // Page Entreprise (accueil) sans licence active : on affiche quand même
+        // la barre latérale, pour la cohérence visuelle avec les autres pages.
+        majNav();
+      }
       return;
     }
 
