@@ -169,6 +169,20 @@
           </select>
         </div>
         <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Marque partenaire</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;padding-top:6px;">
+            <input type="checkbox" id="f-marque" onchange="majZoneLogo('creation')"> Activer
+          </label>
+        </div>
+        <div id="f-logo-zone" style="display:none;">
+          <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Logo partenaire</label>
+          <div style="display:flex;align-items:center;gap:6px;padding-top:4px;">
+            <input type="file" id="f-logo-file" accept="image/*" onchange="chargerLogo(this,'creation')" style="font-size:0.78rem;width:150px;">
+            <img id="f-logo-preview" alt="" style="display:none;height:30px;background:#0f3a8a;border-radius:4px;padding:2px 4px;">
+            <button type="button" id="f-logo-clear" onclick="effacerLogo('creation')" title="Retirer le logo" style="display:none;border:none;background:#fee2e2;color:#b91c1c;border-radius:5px;padding:3px 7px;font-size:0.8rem;cursor:pointer;">✕</button>
+          </div>
+        </div>
+        <div>
           <button class="btn btn-success" onclick="creerLicence()">✔ Créer</button>
         </div>
       </div>
@@ -315,6 +329,19 @@
         <select id="modif-prescripteur" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
           <option value="">— Aucun —</option>
         </select>
+      </div>
+      <div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;font-weight:600;color:#6b7280;">
+          <input type="checkbox" id="modif-marque" onchange="majZoneLogo('modif')"> Marque partenaire (marque blanche)
+        </label>
+      </div>
+      <div id="modif-logo-zone" style="display:none;">
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Logo partenaire</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="file" id="modif-logo-file" accept="image/*" onchange="chargerLogo(this,'modif')" style="font-size:0.8rem;flex:1;">
+          <img id="modif-logo-preview" alt="" style="display:none;height:32px;background:#0f3a8a;border-radius:4px;padding:2px 4px;">
+          <button type="button" id="modif-logo-clear" onclick="effacerLogo('modif')" title="Retirer le logo" style="display:none;border:none;background:#fee2e2;color:#b91c1c;border-radius:5px;padding:4px 8px;font-size:0.8rem;cursor:pointer;">✕</button>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem;">
@@ -521,6 +548,8 @@ async function creerLicence() {
   const notes      = document.getElementById('f-notes').value.trim();
   const type        = document.getElementById('f-type').value;
   const prescripteur = document.getElementById('f-prescripteur').value;
+  const marquePartenaire = document.getElementById('f-marque').checked;
+  const logoPartenaire   = _logoCreation;
 
   if (!code || !nomClient || !expiration) {
     alert('Code, nom et date d\'expiration sont obligatoires.');
@@ -530,7 +559,7 @@ async function creerLicence() {
     const r = await fetch(API + '/api/admin/licences', {
       method: 'POST',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type, prescripteur })
+      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type, prescripteur, marquePartenaire, logoPartenaire })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
@@ -539,6 +568,9 @@ async function creerLicence() {
     document.getElementById('f-nom').value  = '';
     document.getElementById('f-email').value = '';
     document.getElementById('f-notes').value = '';
+    document.getElementById('f-marque').checked = false;
+    effacerLogo('creation');
+    majZoneLogo('creation');
     await chargerStats();
     await chargerLicences();
   } catch (e) { alert('Erreur : ' + e.message); }
@@ -709,6 +741,11 @@ function ouvrirModifLicence(code, nom, email, expiration, type, prescripteur) {
   document.getElementById('modif-expiration').value   = expiration || '';
   document.getElementById('modif-type').value         = type || 'standard';
   document.getElementById('modif-prescripteur').value = prescripteur || '';
+  const lic = _licences.find(l => l.codeClient === code) || {};
+  document.getElementById('modif-marque').checked = !!lic.marquePartenaire;
+  _logoModif = lic.logoPartenaire || '';
+  majApercuLogo('modif');
+  majZoneLogo('modif');
   document.getElementById('modale-modif').style.display = 'flex';
 }
 
@@ -723,12 +760,14 @@ async function sauverModifLicence() {
   const expiration = document.getElementById('modif-expiration').value;
   const type         = document.getElementById('modif-type').value;
   const prescripteur = document.getElementById('modif-prescripteur').value;
+  const marquePartenaire = document.getElementById('modif-marque').checked;
+  const logoPartenaire   = _logoModif;
 
   try {
     const r = await fetch(API + '/api/admin/licences/' + code, {
       method: 'PUT',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type, prescripteur })
+      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type, prescripteur, marquePartenaire, logoPartenaire })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
@@ -742,6 +781,61 @@ async function sauverModifLicence() {
 document.getElementById('modale-modif').addEventListener('click', function(e) {
   if (e.target === this) fermerModifLicence();
 });
+
+// ── Logos partenaire (marque blanche) ──
+let _logoCreation = '';
+let _logoModif    = '';
+
+function majZoneLogo(ctx) {
+  const pfx  = ctx === 'creation' ? 'f' : 'modif';
+  const on   = document.getElementById(pfx + '-marque').checked;
+  const zone = document.getElementById(pfx + '-logo-zone');
+  if (zone) zone.style.display = on ? '' : 'none';
+}
+
+function majApercuLogo(ctx) {
+  const pfx  = ctx === 'creation' ? 'f' : 'modif';
+  const data = ctx === 'creation' ? _logoCreation : _logoModif;
+  const pre  = document.getElementById(pfx + '-logo-preview');
+  const clr  = document.getElementById(pfx + '-logo-clear');
+  if (pre) {
+    if (data) { pre.src = data; pre.style.display = ''; }
+    else { pre.removeAttribute('src'); pre.style.display = 'none'; }
+  }
+  if (clr) clr.style.display = data ? '' : 'none';
+}
+
+function effacerLogo(ctx) {
+  if (ctx === 'creation') { _logoCreation = ''; const f = document.getElementById('f-logo-file'); if (f) f.value = ''; }
+  else { _logoModif = ''; const f = document.getElementById('modif-logo-file'); if (f) f.value = ''; }
+  majApercuLogo(ctx);
+}
+
+// Redimensionne le logo (max 240×72 px) et le stocke en data URL PNG (transparence préservée)
+function chargerLogo(input, ctx) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { alert('Veuillez choisir un fichier image.'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const maxW = 240, maxH = 72;
+      const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+      const w = Math.max(1, Math.round(img.width * ratio));
+      const h = Math.max(1, Math.round(img.height * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/png');
+      if (ctx === 'creation') _logoCreation = dataUrl; else _logoModif = dataUrl;
+      majApercuLogo(ctx);
+    };
+    img.onerror = function () { alert('Image illisible.'); input.value = ''; };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
 /* ── GESTION DES PRESCRIPTEURS (admin) ── */
 async function chargerPrescripteurs() {
