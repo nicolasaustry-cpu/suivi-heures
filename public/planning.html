@@ -961,7 +961,21 @@ function chargerNotesChantiers() {
   catch { _notesChantiers = {}; }
 }
 chargerNotesChantiers();
-window.addEventListener('donnees-chargees', () => { chargerNotesChantiers(); rafraichirNotesAffichage(); });
+/* Quand la synchro serveur se termine (souvent APRÈS le premier rendu sur connexion
+   lente), on reconstruit le planning avec les données fraîches : sans ça, les chips de
+   notes de chantier, le calcul des TNA et les heures par défaut du 1er chantier ne
+   s'affichent pas. Garde : si l'utilisateur est en train d'éditer une case, on ne
+   reconstruit pas (on perdrait le focus) — on rafraîchit juste les notes. */
+window.addEventListener('donnees-chargees', () => {
+  chargerNotesChantiers();
+  const actif = document.activeElement;
+  const enEdition = actif && actif.closest && actif.closest('#planning-wrapper');
+  if (enEdition || typeof genererPlanning !== 'function') {
+    rafraichirNotesAffichage();
+    return;
+  }
+  genererPlanning();          // re-render complet : TNA, heures par défaut, notes
+});
 
 function _nomChantierCell(k) {
   const el = document.getElementById(k + 'chantier');
