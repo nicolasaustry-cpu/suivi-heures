@@ -2330,7 +2330,11 @@ function afficherQR(codeEmploye) {
   // createSvgTag(cellSize, margin)
   wrap.innerHTML = qr.createSvgTag(5, 1);
 
-  if (urlEl) urlEl.textContent = url;
+  if (urlEl) {
+    const partenaire = localStorage.getItem('syncMarquePartenaire') === '1';
+    urlEl.textContent = partenaire ? '' : url;     // marque blanche : on n'affiche pas l'URL volitis
+    urlEl.style.display = partenaire ? 'none' : '';
+  }
   panel.style.display = 'block';
 
   // Préparer aussi la zone d'impression (plus grosse)

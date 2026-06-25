@@ -459,6 +459,7 @@ const SYNC = (() => {
       'html.sh-menu-on .nav{display:none !important;}' +
       'html.sh-lateral .main-header,html.sh-lateral .header-desktop{margin-left:-208px;width:calc(100% + 208px);box-sizing:border-box;}' +
       'html.sh-lateral .top-bar .main-header{margin-left:0;width:100%;}' +
+      'html.sh-lateral .header-desktop .main-header{margin-left:0;width:100%;}' +
       '@media print{.sh-rail,.sh-topbar{display:none !important;}html.sh-lateral body{padding-left:0 !important;}html.sh-lateral .main-header,html.sh-lateral .header-desktop,html.sh-lateral .top-bar .main-header{margin-left:0 !important;width:100% !important;}}' +
       // Barre du haut groupée (tablette / écran étroit)
       '.sh-topbar{display:flex;align-items:center;gap:4px;background:#0f2747;padding:6px 10px;' +
