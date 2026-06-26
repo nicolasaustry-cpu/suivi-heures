@@ -1071,6 +1071,22 @@
     </div>
   </div>
 
+  <!-- ── Réglage du délai de rappel RDV (gérant uniquement) ── -->
+  <div id="notif-delai-bar" class="section" style="display:none;">
+    <div style="font-size:0.85rem;color:#374151;margin-bottom:8px;">
+      ⏰ Prévenir les salariés <strong id="notif-delai-val">45</strong> min avant l'heure de leur RDV.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="notif-delai-input" type="number" min="0" max="1440" step="5"
+        style="width:90px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:0.9rem;">
+      <span style="font-size:0.85rem;color:#6b7280;">minutes avant</span>
+      <button id="notif-delai-btn" onclick="enregistrerDelai(this)"
+        style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.9rem;font-weight:600;cursor:pointer;margin-left:auto;">
+        Enregistrer
+      </button>
+    </div>
+  </div>
+
   <!-- Chantiers prévus -->
   <div class="section">
     <div class="section-title">
@@ -1494,6 +1510,7 @@ function majAccesGerant() {
   // Le gérant a la Vue équipe : il n'a pas besoin de « Mon planning »
   const btnMon = document.getElementById('btn-mon-planning');
   if (btnMon) btnMon.style.display = estGerant ? 'none' : '';
+  if (window.chargerDelaiNotif) window.chargerDelaiNotif(estGerant);
 }
 
 async function chargerChantiersPrev() {
@@ -3466,6 +3483,64 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
       alert("Test impossible : " + (e && e.message ? e.message : e));
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = label || 'envoyer un test'; }
+    }
+  };
+
+  // Réglage du délai de rappel (gérant uniquement) : lecture + affichage
+  window.chargerDelaiNotif = async function (estGerant) {
+    const bar = document.getElementById('notif-delai-bar');
+    if (!bar) return;
+    if (!estGerant) { bar.style.display = 'none'; return; }
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    if (!codeEmploye) { bar.style.display = 'none'; return; }
+    try {
+      const r = await fetch('/api/push/delai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'lecture impossible');
+      const val   = (d.delaiMin != null) ? d.delaiMin : 45;
+      const input = document.getElementById('notif-delai-input');
+      const lbl   = document.getElementById('notif-delai-val');
+      if (input) input.value = val;
+      if (lbl)   lbl.textContent = val;
+      bar.style.display = '';
+    } catch (_) {
+      bar.style.display = 'none';
+    }
+  };
+
+  // Réglage du délai : enregistrement (gérant)
+  window.enregistrerDelai = async function (btn) {
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    const salarieId   = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
+    const input = document.getElementById('notif-delai-input');
+    if (!codeEmploye || salarieId == null || !input) { alert("Reconnectez-vous d'abord."); return; }
+
+    let v = parseInt(input.value, 10);
+    if (isNaN(v) || v < 0) { alert("Saisissez un nombre de minutes valide."); return; }
+    if (v > 1440) v = 1440;
+
+    const label = btn ? btn.textContent : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+    try {
+      const r = await fetch('/api/push/delai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye, salarieId, delaiMin: v })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'échec');
+      const lbl = document.getElementById('notif-delai-val');
+      if (lbl)   lbl.textContent = d.delaiMin;
+      if (input) input.value = d.delaiMin;
+      if (navigator.vibrate) navigator.vibrate(60);
+    } catch (e) {
+      alert("Impossible d'enregistrer : " + (e && e.message ? e.message : e));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label || 'Enregistrer'; }
     }
   };
 
