@@ -6,7 +6,7 @@
    - Ressources statiques (CSS, JS, icônes) : cache d'abord
    ======================================= */
 
-const CACHE_NAME = 'suivheures-v5';
+const CACHE_NAME = 'suivheures-v6';
 
 // Ressources statiques pré-mises en cache (PAS les pages .html, PAS le manifest)
 const FICHIERS_CACHE = [
@@ -82,6 +82,48 @@ self.addEventListener('fetch', event => {
         }
         return response;
       });
+    })
+  );
+});
+
+/* ── Réception d'une notification push (rappel de RDV) ──
+   Le serveur envoie un JSON { titre, corps, url, tag }. On affiche
+   la notification. Un repli texte est prévu si le format diffère. */
+self.addEventListener('push', event => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_) {
+    data = { corps: event.data ? event.data.text() : '' };
+  }
+
+  const titre = data.titre || "Suiv'Heures";
+  const options = {
+    body:    data.corps || '',
+    icon:    '/assets/icon-192.png',
+    badge:   '/assets/icon-192.png',
+    tag:     data.tag || 'rdv',          // regroupe les notifs d'un même RDV
+    data:    { url: data.url || '/saisie.html' },
+    vibrate: [100, 50, 100],
+    requireInteraction: false
+  };
+
+  event.waitUntil(self.registration.showNotification(titre, options));
+});
+
+/* ── Clic sur la notification : ouvre (ou ramène au premier plan) l'app ── */
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const cible = (event.notification.data && event.notification.data.url) || '/saisie.html';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(liste => {
+      // Si une fenêtre de l'app est déjà ouverte, on la réutilise
+      for (const client of liste) {
+        if (client.url.includes(cible) && 'focus' in client) return client.focus();
+      }
+      // Sinon on en ouvre une nouvelle
+      if (self.clients.openWindow) return self.clients.openWindow(cible);
     })
   );
 });
