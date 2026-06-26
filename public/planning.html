@@ -856,10 +856,14 @@ function saveHeure(k, ch, h) {
   const noteAv = heures[k] && heures[k].note ? heures[k].note : '';
   const rdvAv  = heures[k] && heures[k].rdv  ? heures[k].rdv  : '';
   const rdvAutAv = heures[k] && heures[k].rdvAuteur ? heures[k].rdvAuteur : '';
+  const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
+  const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
+  if (rdvDelaiAv != null) heures[k].rdvDelai = rdvDelaiAv;   // le délai spécifique suit aussi
+  if (rdvNotifAv != null) heures[k].rdvNotifie = rdvNotifAv; // ne pas re-notifier après simple édition d'heures
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majBoutonNote(k);   // l'indicateur de note suit le nom de chantier de la cellule
 
@@ -870,10 +874,25 @@ function saveHeure(k, ch, h) {
 }
 
 /* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
-function saveRdv(k, val) {
+function saveRdv(k, val, delai) {
   if (!heures[k]) heures[k] = { chantier: '', heures: 0 };
-  if (val) { heures[k].rdv = val; heures[k].rdvAuteur = 'gerant'; }   // planning desktop = autorité gérant
-  else { delete heures[k].rdv; delete heures[k].rdvAuteur; }
+  if (val) {
+    heures[k].rdv = val;
+    heures[k].rdvAuteur = 'gerant';   // planning desktop = autorité gérant
+    // Délai spécifique à ce RDV (optionnel) : vide = suit le défaut entreprise
+    if (delai === undefined || delai === null || String(delai).trim() === '') {
+      delete heures[k].rdvDelai;
+    } else {
+      const dv = parseInt(delai, 10);
+      if (isNaN(dv)) delete heures[k].rdvDelai;
+      else heures[k].rdvDelai = Math.max(0, Math.min(1440, dv));
+    }
+  } else {
+    delete heures[k].rdv;
+    delete heures[k].rdvAuteur;
+    delete heures[k].rdvDelai;
+  }
+  delete heures[k].rdvNotifie;   // toute modification doit pouvoir redéclencher un rappel
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majRdvVisuel(k);
 }
@@ -901,6 +920,8 @@ function ouvrirRdv(k) {
     pop.innerHTML =
       '<div class="rdv-pop-titre">Heure de RDV</div>' +
       '<input type="time" id="rdv-pop-input" onkeydown="if(event.key===\'Enter\')validerRdvPop();if(event.key===\'Escape\')fermerRdvPop();">' +
+      '<div style="font-size:0.72rem;color:#475569;margin:6px 0 3px;">Prévenir avant (mn)</div>' +
+      '<input type="number" id="rdv-pop-delai" min="0" max="1440" step="5" placeholder="Défaut" onkeydown="if(event.key===\'Enter\')validerRdvPop();if(event.key===\'Escape\')fermerRdvPop();" style="width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;margin-bottom:7px;font-size:0.85rem;">' +
       '<div class="rdv-pop-actions">' +
         '<button type="button" class="rdv-pop-ok" onclick="validerRdvPop()">Valider</button>' +
         '<button type="button" class="rdv-pop-clear" onclick="effacerRdvPop()">Effacer</button>' +
@@ -911,6 +932,8 @@ function ouvrirRdv(k) {
   _rdvPopK = k;
   const input = document.getElementById('rdv-pop-input');
   input.value = (heures[k] && heures[k].rdv) ? heures[k].rdv : '';
+  const di = document.getElementById('rdv-pop-delai');
+  if (di) di.value = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : '';
   pop.style.display = 'block';
   // Positionnement à côté du bouton (à droite, sinon à gauche si pas la place)
   const r  = btn.getBoundingClientRect();
@@ -928,7 +951,9 @@ function ouvrirRdv(k) {
 }
 function validerRdvPop() {
   const input = document.getElementById('rdv-pop-input');
-  if (_rdvPopK != null && input) saveRdv(_rdvPopK, (input.value || '').trim());
+  const di = document.getElementById('rdv-pop-delai');
+  const delai = di ? (di.value || '').trim() : '';
+  if (_rdvPopK != null && input) saveRdv(_rdvPopK, (input.value || '').trim(), delai);
   fermerRdvPop();
 }
 function effacerRdvPop() {
