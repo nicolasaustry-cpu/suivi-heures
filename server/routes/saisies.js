@@ -138,6 +138,7 @@ router.post("/rdv", async (req, res) => {
     const date      = (req.body.date || "").trim();            // YYYY-MM-DD
     const chantier  = (req.body.chantier || "").trim();
     const rdv       = (req.body.rdv || "").trim();             // "HH:MM" ou "" pour effacer
+    const rdvDelaiRaw = req.body.rdvDelai;                      // minutes (optionnel) ; "" ou absent = suit le défaut entreprise
 
     if (!codeEmp || !salarieId || !date || !chantier)
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
@@ -172,15 +173,31 @@ router.post("/rdv", async (req, res) => {
     if (auteur === "admin" && auteurExistant === "gerant")
       return res.status(403).json({ ok: false, verrou: true, message: "RDV posé par le gérant — non modifiable" });
 
-    if (rdv) { entry.rdv = rdv; entry.rdvAuteur = auteur; }
-    else { delete entry.rdv; delete entry.rdvAuteur; }
+    if (rdv) {
+      entry.rdv = rdv;
+      entry.rdvAuteur = auteur;
+      // Délai spécifique à ce RDV (optionnel) : vide/absent = suit le défaut entreprise
+      if (rdvDelaiRaw === undefined || rdvDelaiRaw === null || String(rdvDelaiRaw).trim() === "") {
+        delete entry.rdvDelai;
+      } else {
+        const dv = parseInt(rdvDelaiRaw, 10);
+        if (isNaN(dv)) delete entry.rdvDelai;
+        else entry.rdvDelai = Math.max(0, Math.min(1440, dv));
+      }
+    } else {
+      delete entry.rdv;
+      delete entry.rdvAuteur;
+      delete entry.rdvDelai;
+    }
+    // Toute modification du RDV doit pouvoir redéclencher un rappel
+    delete entry.rdvNotifie;
     heures[cle] = entry;
 
     await Donnees.updateOne(
       { _id: doc._id },
       { $set: { heures: heures, updatedAt: new Date() } }
     );
-    res.json({ ok: true, chantier, rdv: entry.rdv || "", rdvAuteur: entry.rdvAuteur || "" });
+    res.json({ ok: true, chantier, rdv: entry.rdv || "", rdvAuteur: entry.rdvAuteur || "", rdvDelai: (entry.rdvDelai != null ? entry.rdvDelai : "") });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
