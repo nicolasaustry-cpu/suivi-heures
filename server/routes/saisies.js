@@ -128,6 +128,64 @@ router.post("/note-chantier", async (req, res) => {
   }
 });
 
+/* ── Heure de RDV d'un chantier planifié (mobile : gérant ou administratif) ──
+   Priorité gérant : un RDV posé par le gérant (ou ancien, sans auteur) ne peut
+   pas être modifié par un administratif. */
+router.post("/rdv", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const date      = (req.body.date || "").trim();            // YYYY-MM-DD
+    const chantier  = (req.body.chantier || "").trim();
+    const rdv       = (req.body.rdv || "").trim();             // "HH:MM" ou "" pour effacer
+
+    if (!codeEmp || !salarieId || !date || !chantier)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    if (rdv && !/^\d{1,2}:\d{2}$/.test(rdv))
+      return res.status(400).json({ ok: false, message: "Heure invalide" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
+    if (!sal.administratif && !sal.gerant)
+      return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+    const auteur = sal.gerant ? "gerant" : "admin";
+
+    const heures   = doc.heures || {};
+    const safeDate = date.replace(/-/g, "_");
+    const prefixe  = String(salarieId) + safeDate + "ch";
+    let cle = null;
+    for (let i = 1; i <= 5; i++) {
+      const k = prefixe + i;
+      const e = heures[k];
+      if (e && (e.chantier || "").trim().toUpperCase() === chantier.toUpperCase()) { cle = k; break; }
+    }
+    if (!cle) return res.status(404).json({ ok: false, message: "Chantier introuvable dans le planning" });
+
+    const entry = heures[cle];
+    // Priorité gérant : un RDV existant "gérant" (ou ancien sans auteur) est verrouillé pour l'admin
+    const auteurExistant = entry.rdv ? (entry.rdvAuteur || "gerant") : "";
+    if (auteur === "admin" && auteurExistant === "gerant")
+      return res.status(403).json({ ok: false, verrou: true, message: "RDV posé par le gérant — non modifiable" });
+
+    if (rdv) { entry.rdv = rdv; entry.rdvAuteur = auteur; }
+    else { delete entry.rdv; delete entry.rdvAuteur; }
+    heures[cle] = entry;
+
+    await Donnees.updateOne(
+      { _id: doc._id },
+      { $set: { heures: heures, updatedAt: new Date() } }
+    );
+    res.json({ ok: true, chantier, rdv: entry.rdv || "", rdvAuteur: entry.rdvAuteur || "" });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Envoyer un chantier (avec code employé) ──
    Upsert par nom : si le chantier existe déjà pour ce jour/salarié, on le met à jour
    (permet la saisie progressive : arrivée seule, puis départ, etc.) */

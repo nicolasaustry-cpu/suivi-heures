@@ -870,6 +870,17 @@
   #mon-planning-corps .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
   #mon-planning-corps .chip .pin-etat { font-size:1rem; line-height:1; }
   #mon-planning-corps .tag-add { font-size:0.7rem; font-weight:700; border:1px solid #cbd5e1; border-radius:5px; padding:0 5px; color:#475569; background:#fff; white-space:nowrap; }
+  /* Panneau de modification de l'heure de RDV (gérant/administratif) */
+  #rdv-pop-m { display:none; position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; padding:20px; }
+  #rdv-pop-m .rdvm-box { background:#fff; border-radius:14px; padding:18px; width:100%; max-width:320px; box-shadow:0 12px 44px rgba(0,0,0,0.3); }
+  #rdv-pop-m .rdvm-titre { font-size:0.95rem; font-weight:700; color:#0f172a; margin-bottom:12px; text-align:center; }
+  #rdv-pop-m #rdvm-ch { font-size:0.8rem; color:#2563eb; font-weight:700; }
+  #rdv-pop-m #rdvm-input { width:100%; box-sizing:border-box; font-size:1.5rem; text-align:center; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:14px; }
+  #rdv-pop-m .rdvm-actions { display:flex; gap:8px; }
+  #rdv-pop-m .rdvm-actions button { flex:1; padding:11px 4px; border:none; border-radius:8px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+  #rdv-pop-m .rdvm-ok { background:#2563eb; color:#fff; }
+  #rdv-pop-m .rdvm-clear { background:#f1f5f9; color:#475569; }
+  #rdv-pop-m .rdvm-cancel { background:#fee2e2; color:#b91c1c; }
   </style>
 </head>
 <body>
@@ -1101,6 +1112,7 @@ let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
 let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) }
 let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin" } }
+let _rdvMobileNom = null;
 let _chantiersA = [];   // chantiers ajoutés
 let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
 let _deplJournee = 0;  // Déplacement global de la journée
@@ -1716,6 +1728,71 @@ function _estGerantOuAdmin() {
     return !!(moi && (moi.gerant || moi.administratif));
   } catch { return false; }
 }
+/* Rôle du salarié connecté : 'gerant' | 'admin' | 'salarie' */
+function _monRole() {
+  try {
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const moi = sals.find(s => String(s.id) === String(_salarie?.id));
+    if (moi && moi.gerant) return 'gerant';
+    if (moi && moi.administratif) return 'admin';
+  } catch (_) {}
+  return 'salarie';
+}
+/* ── Panneau de modification de l'heure de RDV (gérant/administratif) ── */
+function ouvrirRdvMobile(nom, current) {
+  let pop = document.getElementById('rdv-pop-m');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'rdv-pop-m';
+    pop.innerHTML =
+      '<div class="rdvm-box">' +
+        '<div class="rdvm-titre">Heure de RDV<br><span id="rdvm-ch"></span></div>' +
+        '<input type="time" id="rdvm-input">' +
+        '<div class="rdvm-actions">' +
+          '<button type="button" class="rdvm-ok" onclick="validerRdvMobile()">Valider</button>' +
+          '<button type="button" class="rdvm-clear" onclick="effacerRdvMobile()">Effacer</button>' +
+          '<button type="button" class="rdvm-cancel" onclick="fermerRdvMobile()">Annuler</button>' +
+        '</div>' +
+      '</div>';
+    pop.addEventListener('click', (e) => { if (e.target === pop) fermerRdvMobile(); });
+    document.body.appendChild(pop);
+  }
+  _rdvMobileNom = nom;
+  document.getElementById('rdvm-ch').textContent = nom;
+  document.getElementById('rdvm-input').value = current || '';
+  pop.style.display = 'flex';
+  setTimeout(() => { const i = document.getElementById('rdvm-input'); if (i) i.focus(); }, 30);
+}
+function validerRdvMobile() {
+  const v = (document.getElementById('rdvm-input').value || '').trim();
+  serverSaveRdv(_rdvMobileNom, v);
+}
+function effacerRdvMobile() { serverSaveRdv(_rdvMobileNom, ''); }
+function fermerRdvMobile() {
+  const p = document.getElementById('rdv-pop-m');
+  if (p) p.style.display = 'none';
+  _rdvMobileNom = null;
+}
+async function serverSaveRdv(nom, val) {
+  if (!nom) return;
+  const code = localStorage.getItem('saisie_codeEmploye');
+  const date = document.getElementById('date-saisie').value;
+  try {
+    const r = await fetch('/api/saisies/rdv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: code, salarieId: _salarie?.id, date, chantier: nom, rdv: val })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Modification impossible'); return; }
+    if (d.rdv) _rdvPlanning[nom] = { rdv: d.rdv, auteur: d.rdvAuteur || 'admin' };
+    else delete _rdvPlanning[nom];
+    fermerRdvMobile();
+    rendrePrev();
+  } catch (e) {
+    alert('Connexion impossible, réessayez.');
+  }
+}
 /* Pavés d'une journée (planifié + réalisé), même logique que la Vue équipe. */
 function chipsJourMonPlanning(dateStr) {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
@@ -1871,14 +1948,42 @@ function rendrePrev() {
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
       nomEl.appendChild(btnNP);
     }
-    // Badge heure de RDV (lecture seule pour l'instant)
-    const _rdvP = _rdvPlanning[ch.nom];
-    if (_rdvP && _rdvP.rdv) {
-      const rdvEl = document.createElement('span');
-      rdvEl.textContent = '🕐 ' + _rdvP.rdv;
-      rdvEl.title = 'Heure de RDV';
-      rdvEl.style.cssText = 'background:#dbeafe;color:#1e3a8a;border-radius:8px;padding:3px 9px;font-size:0.72rem;font-weight:700;margin-left:8px;flex:0 0 auto;white-space:nowrap;';
-      nomEl.appendChild(rdvEl);
+    // Heure de RDV : lecture seule pour le salarié ; modifiable pour gérant/admin
+    // (avec verrou 🔒 côté admin sur un RDV posé par le gérant).
+    const _rdvP   = _rdvPlanning[ch.nom];
+    const rdvVal  = _rdvP ? _rdvP.rdv : '';
+    const rdvAut  = _rdvP ? (_rdvP.auteur || 'gerant') : '';
+    const role    = _monRole();
+    if (role === 'salarie') {
+      if (rdvVal) {
+        const rdvEl = document.createElement('span');
+        rdvEl.textContent = '🕐 ' + rdvVal;
+        rdvEl.title = 'Heure de RDV';
+        rdvEl.style.cssText = 'background:#dbeafe;color:#1e3a8a;border-radius:8px;padding:3px 9px;font-size:0.72rem;font-weight:700;margin-left:8px;flex:0 0 auto;white-space:nowrap;';
+        nomEl.appendChild(rdvEl);
+      }
+    } else {
+      const verrou = (role === 'admin' && rdvVal && rdvAut === 'gerant');
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.style.cssText = 'border:none;border-radius:8px;padding:4px 10px;font-size:0.72rem;font-weight:700;margin-left:8px;flex:0 0 auto;white-space:nowrap;cursor:pointer;';
+      if (verrou) {
+        el.textContent = '🔒 ' + rdvVal;
+        el.title = 'RDV posé par le gérant — non modifiable';
+        el.style.background = '#e5e7eb'; el.style.color = '#6b7280'; el.style.cursor = 'default';
+        el.onclick = function () { alert('Ce RDV a été posé par le gérant : il n\'est pas modifiable.'); };
+      } else if (rdvVal) {
+        el.textContent = '🕐 ' + rdvVal;
+        el.title = 'Modifier l\'heure de RDV';
+        el.style.background = '#dbeafe'; el.style.color = '#1e3a8a';
+        el.onclick = function () { ouvrirRdvMobile(ch.nom, rdvVal); };
+      } else {
+        el.textContent = '🕐 RDV';
+        el.title = 'Définir une heure de RDV';
+        el.style.background = '#eef2f7'; el.style.color = '#64748b';
+        el.onclick = function () { ouvrirRdvMobile(ch.nom, ''); };
+      }
+      nomEl.appendChild(el);
     }
     header.appendChild(nomEl);
     // Temps prévu, à droite du nom (1re ligne)
