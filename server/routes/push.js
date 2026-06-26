@@ -115,40 +115,64 @@ router.post("/test", async (req, res) => {
 });
 
 /* ── Délai de rappel RDV (minutes AVANT l'heure du RDV), par entreprise ──
-   - Sans champ delaiMin → LECTURE : renvoie le délai courant (défaut 45).
-   - Avec delaiMin → ÉCRITURE : réservée au GÉRANT. ── */
+   Deux contextes d'authentification :
+   - MOBILE (code employé) : lecture libre ; écriture réservée au GÉRANT.
+   - LICENCE/desktop (token Bearer ou _token) : lecture + écriture (patron).
+   Sans delaiMin → LECTURE ; avec delaiMin → ÉCRITURE. ── */
 router.post("/delai", async (req, res) => {
   try {
-    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
-    const salarieId = req.body.salarieId;
-    const aDelai    = req.body.delaiMin !== undefined && req.body.delaiMin !== null && req.body.delaiMin !== "";
-    if (!codeEmp) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    const codeEmp = (req.body.codeEmploye || "").trim().toUpperCase();
+    const aDelai  = req.body.delaiMin !== undefined && req.body.delaiMin !== null && req.body.delaiMin !== "";
 
-    const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
-    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+    let clientId = null;
+    let autoriseEcriture = false;
 
-    // ── Écriture (gérant uniquement) ──
+    if (codeEmp) {
+      // ── Contexte MOBILE : code employé ──
+      const Donnees = (await import("../models/donnees.js")).default;
+      const docs = await Donnees.find({});
+      const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+      if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+      clientId = doc.clientId;
+      if (aDelai) {
+        const sal = (doc.salaries || []).find(s => String(s.id) === String(req.body.salarieId));
+        if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
+        if (!sal.gerant) return res.status(403).json({ ok: false, message: "Réglage réservé au gérant" });
+        autoriseEcriture = true;
+      }
+    } else {
+      // ── Contexte LICENCE (patron PC) : token ──
+      const jwt = (await import("jsonwebtoken")).default;
+      let token = req.headers.authorization?.split(" ")[1];
+      if (!token && req.body._token) token = req.body._token;
+      if (!token) return res.status(401).json({ ok: false, message: "Accès refusé : aucun token" });
+      try {
+        clientId = jwt.verify(token, process.env.JWT_SECRET).clientId;
+      } catch {
+        return res.status(400).json({ ok: false, message: "Token invalide ou expiré" });
+      }
+      autoriseEcriture = true; // le détenteur du token (patron) peut régler le défaut
+    }
+
+    if (!clientId) return res.status(403).json({ ok: false, message: "Client introuvable" });
+
+    // ── Écriture ──
     if (aDelai) {
-      const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
-      if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
-      if (!sal.gerant) return res.status(403).json({ ok: false, message: "Réglage réservé au gérant" });
-
+      if (!autoriseEcriture) return res.status(403).json({ ok: false, message: "Action non autorisée" });
       let v = parseInt(req.body.delaiMin, 10);
       if (isNaN(v)) return res.status(400).json({ ok: false, message: "Délai invalide" });
       v = Math.max(0, Math.min(1440, v));
 
       await NotifReglage.findOneAndUpdate(
-        { clientId: doc.clientId },
-        { clientId: doc.clientId, delaiRdvMin: v, updatedAt: new Date() },
+        { clientId },
+        { clientId, delaiRdvMin: v, updatedAt: new Date() },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
       return res.json({ ok: true, delaiMin: v });
     }
 
     // ── Lecture ──
-    const reg = await NotifReglage.findOne({ clientId: doc.clientId });
+    const reg = await NotifReglage.findOne({ clientId });
     res.json({ ok: true, delaiMin: reg ? reg.delaiRdvMin : 45 });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
