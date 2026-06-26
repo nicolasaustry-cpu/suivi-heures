@@ -1100,6 +1100,7 @@
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
 let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) }
+let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin" } }
 let _chantiersA = [];   // chantiers ajoutés
 let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
 let _deplJournee = 0;  // Déplacement global de la journée
@@ -1468,6 +1469,7 @@ async function chargerChantiersPrev() {
 
   _chantiersP = [];
   _notesPlanning = {};
+  _rdvPlanning = {};
   // On RÉINITIALISE pas _saisiesPrev / _chantiersA ici : ils sont remis à zéro
   // au changement de date / déconnexion. Au premier appel après login, ils sont vides.
 
@@ -1488,6 +1490,9 @@ async function chargerChantiersPrev() {
     // Note saisie dans le planning (première non vide rencontrée pour ce chantier)
     const noteP = (entry?.note || '').trim();
     if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
+    // Heure de RDV saisie dans le planning (première non vide rencontrée)
+    const rdvP = (entry?.rdv || '').trim();
+    if (rdvP && !_rdvPlanning[nomChantier]) _rdvPlanning[nomChantier] = { rdv: rdvP, auteur: entry?.rdvAuteur || 'gerant' };
   }
   // Note générale du chantier (unifiée) — prioritaire, lue depuis le journal
   try {
@@ -1865,6 +1870,15 @@ function rendrePrev() {
       btnNP.style.cssText = 'background:#e0e7ff;color:#3730a3;border:none;border-radius:8px;padding:3px 9px;font-size:0.72rem;font-weight:700;cursor:pointer;margin-left:8px;flex:0 0 auto;white-space:nowrap;';
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
       nomEl.appendChild(btnNP);
+    }
+    // Badge heure de RDV (lecture seule pour l'instant)
+    const _rdvP = _rdvPlanning[ch.nom];
+    if (_rdvP && _rdvP.rdv) {
+      const rdvEl = document.createElement('span');
+      rdvEl.textContent = '🕐 ' + _rdvP.rdv;
+      rdvEl.title = 'Heure de RDV';
+      rdvEl.style.cssText = 'background:#dbeafe;color:#1e3a8a;border-radius:8px;padding:3px 9px;font-size:0.72rem;font-weight:700;margin-left:8px;flex:0 0 auto;white-space:nowrap;';
+      nomEl.appendChild(rdvEl);
     }
     header.appendChild(nomEl);
     // Temps prévu, à droite du nom (1re ligne)

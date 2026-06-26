@@ -855,9 +855,11 @@ function viderChantier(k) {
 function saveHeure(k, ch, h) {
   const noteAv = heures[k] && heures[k].note ? heures[k].note : '';
   const rdvAv  = heures[k] && heures[k].rdv  ? heures[k].rdv  : '';
+  const rdvAutAv = heures[k] && heures[k].rdvAuteur ? heures[k].rdvAuteur : '';
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
+  if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majBoutonNote(k);   // l'indicateur de note suit le nom de chantier de la cellule
 
@@ -870,8 +872,8 @@ function saveHeure(k, ch, h) {
 /* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
 function saveRdv(k, val) {
   if (!heures[k]) heures[k] = { chantier: '', heures: 0 };
-  if (val) heures[k].rdv = val;
-  else delete heures[k].rdv;
+  if (val) { heures[k].rdv = val; heures[k].rdvAuteur = 'gerant'; }   // planning desktop = autorité gérant
+  else { delete heures[k].rdv; delete heures[k].rdvAuteur; }
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majRdvVisuel(k);
 }
