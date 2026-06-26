@@ -192,6 +192,21 @@
   .btn-rdv-ch { height:30px;min-width:30px;padding:0 5px;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-size:0.78rem;line-height:1;flex:0 0 auto; }
   .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
   .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
+  /* Panneau de saisie de l'heure de RDV (ouvert à côté de la cellule) */
+  #rdv-pop { position:fixed;z-index:2000;display:none;background:#fff;border:1px solid #cbd5e1;
+    border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);padding:10px;min-width:170px; }
+  #rdv-pop .rdv-pop-titre { font-size:0.78rem;color:#475569;font-weight:600;margin-bottom:6px; }
+  #rdv-pop #rdv-pop-input { width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #cbd5e1;
+    border-radius:5px;font-size:0.95rem;margin-bottom:8px; }
+  #rdv-pop .rdv-pop-actions { display:flex;gap:6px; }
+  #rdv-pop .rdv-pop-actions button { flex:1;padding:6px 4px;border:none;border-radius:5px;cursor:pointer;
+    font-size:0.76rem;font-weight:600;white-space:nowrap; }
+  #rdv-pop .rdv-pop-ok { background:#2563eb;color:#fff; }
+  #rdv-pop .rdv-pop-ok:hover { background:#1d4ed8; }
+  #rdv-pop .rdv-pop-clear { background:#f1f5f9;color:#475569; }
+  #rdv-pop .rdv-pop-clear:hover { background:#e2e8f0; }
+  #rdv-pop .rdv-pop-cancel { background:#fee2e2;color:#b91c1c; }
+  #rdv-pop .rdv-pop-cancel:hover { background:#fecaca; }
   /* ── Barre latérale rétractable (page planning) ── */
   #pl-rail-toggle { display:none;position:fixed;top:50%;left:208px;transform:translateY(-50%);z-index:1500;
     width:20px;height:54px;padding:0;border:none;cursor:pointer;background:#1d8cf0;color:#fff;
@@ -865,27 +880,67 @@ function majRdvVisuel(k) {
   btn.textContent = v || '🕐';
   btn.title = v ? 'RDV à ' + v : 'Heure de RDV (alerte salarié)';
 }
-/* Ouvre un sélecteur d'heure natif créé à la volée (aucun champ time persistant
-   dans la grille → pas de surcharge de rendu). Repli sur une invite si non supporté. */
+/* Ouvre un petit panneau de saisie de l'heure JUSTE À CÔTÉ de la cellule cliquée,
+   avec sélecteur d'heure + boutons Valider / Effacer / Annuler. */
+let _rdvPopK = null;
 function ouvrirRdv(k) {
-  const actuel = (heures[k] && heures[k].rdv) ? heures[k].rdv : '';
   const btn = document.getElementById(k + 'rdv-btn');
-  const inp = document.createElement('input');
-  inp.type = 'time';
-  inp.value = actuel;
-  inp.style.cssText = 'position:fixed;opacity:0;width:1px;height:1px;border:0;padding:0;margin:0;z-index:-1;';
-  if (btn) { const r = btn.getBoundingClientRect(); inp.style.left = r.left + 'px'; inp.style.top = r.bottom + 'px'; }
-  document.body.appendChild(inp);
-  const cleanup = () => { if (inp.parentNode) inp.parentNode.removeChild(inp); };
-  inp.addEventListener('change', () => { saveRdv(k, inp.value); cleanup(); });
-  inp.addEventListener('blur', () => setTimeout(cleanup, 300));
-  if (typeof inp.showPicker === 'function') {
-    try { inp.showPicker(); return; } catch (e) {}
+  if (!btn) return;
+  let pop = document.getElementById('rdv-pop');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'rdv-pop';
+    pop.className = 'no-print';
+    pop.innerHTML =
+      '<div class="rdv-pop-titre">Heure de RDV</div>' +
+      '<input type="time" id="rdv-pop-input" onkeydown="if(event.key===\'Enter\')validerRdvPop();if(event.key===\'Escape\')fermerRdvPop();">' +
+      '<div class="rdv-pop-actions">' +
+        '<button type="button" class="rdv-pop-ok" onclick="validerRdvPop()">Valider</button>' +
+        '<button type="button" class="rdv-pop-clear" onclick="effacerRdvPop()">Effacer</button>' +
+        '<button type="button" class="rdv-pop-cancel" onclick="fermerRdvPop()">Annuler</button>' +
+      '</div>';
+    document.body.appendChild(pop);
   }
-  cleanup();
-  const v = prompt('Heure de RDV (HH:MM) — laisser vide pour effacer :', actuel);
-  if (v !== null) saveRdv(k, v.trim());
+  _rdvPopK = k;
+  const input = document.getElementById('rdv-pop-input');
+  input.value = (heures[k] && heures[k].rdv) ? heures[k].rdv : '';
+  pop.style.display = 'block';
+  // Positionnement à côté du bouton (à droite, sinon à gauche si pas la place)
+  const r  = btn.getBoundingClientRect();
+  const pw = pop.offsetWidth  || 180;
+  const ph = pop.offsetHeight || 96;
+  let left = r.right + 6;
+  if (left + pw > window.innerWidth - 8) left = r.left - pw - 6;
+  if (left < 8) left = 8;
+  let top = r.top;
+  if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+  if (top < 8) top = 8;
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+  setTimeout(() => { input.focus(); }, 20);
 }
+function validerRdvPop() {
+  const input = document.getElementById('rdv-pop-input');
+  if (_rdvPopK != null && input) saveRdv(_rdvPopK, (input.value || '').trim());
+  fermerRdvPop();
+}
+function effacerRdvPop() {
+  if (_rdvPopK != null) saveRdv(_rdvPopK, '');
+  fermerRdvPop();
+}
+function fermerRdvPop() {
+  const pop = document.getElementById('rdv-pop');
+  if (pop) pop.style.display = 'none';
+  _rdvPopK = null;
+}
+/* Fermer (annuler) si on clique en dehors du panneau */
+document.addEventListener('mousedown', (e) => {
+  const pop = document.getElementById('rdv-pop');
+  if (!pop || pop.style.display === 'none') return;
+  if (pop.contains(e.target)) return;
+  if (e.target.classList && e.target.classList.contains('btn-rdv-ch')) return;
+  fermerRdvPop();
+});
 
 /* ── TEMPS NON AFFECTE — auto-remplissage du planning ────────────────
    Hors SAV, et UNIQUEMENT à partir d'aujourd'hui (jamais les jours passés).
