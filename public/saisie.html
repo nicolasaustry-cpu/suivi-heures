@@ -1056,6 +1056,8 @@
     </div>
     <div id="notif-zone-active" style="display:none;font-size:0.85rem;color:#16a34a;">
       ✅ Notifications activées sur ce téléphone.
+      <button onclick="testerNotification(this)"
+        style="background:none;border:none;color:#2563eb;text-decoration:underline;font-size:0.8rem;cursor:pointer;padding:0;margin-left:6px;">envoyer un test</button>
       <button onclick="desactiverNotifications()"
         style="background:none;border:none;color:#6b7280;text-decoration:underline;font-size:0.8rem;cursor:pointer;padding:0;margin-left:6px;">désactiver</button>
     </div>
@@ -3438,6 +3440,33 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
       }
     } catch (_) {}
     await majBoutonNotif();
+  };
+
+  // Envoie une notification de test sur ce téléphone (via le serveur)
+  window.testerNotification = async function (btn) {
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    const salarieId   = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
+    if (!codeEmploye || salarieId == null) { alert("Reconnectez-vous d'abord."); return; }
+
+    const label = btn ? btn.textContent : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'envoi…'; }
+    try {
+      const r = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye, salarieId })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'échec');
+      if (d.envoyes === 0) {
+        alert("Aucun appareil n'a reçu le test. Essayez de réactiver les notifications.");
+      }
+      // Si d.envoyes > 0, la notification arrive d'elle-même sur le téléphone.
+    } catch (e) {
+      alert("Test impossible : " + (e && e.message ? e.message : e));
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label || 'envoyer un test'; }
+    }
   };
 
   // État initial (et re-vérification après l'enregistrement du SW au 'load')
