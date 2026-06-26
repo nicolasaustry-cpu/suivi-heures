@@ -1022,6 +1022,11 @@
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;white-space:nowrap;">
           👁 Vue équipe
         </button>
+        <button id="btn-notif-open" onclick="ouvrirNotifs()"
+          style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
+                 border-radius:6px;padding:4px 9px;font-size:0.9rem;cursor:pointer;line-height:1;">
+          🔔
+        </button>
         <button onclick="seDeconnecter()"
           style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
@@ -1040,52 +1045,64 @@
     </div>
   </div><!-- fin entete-fixe -->
 
+  <!-- ── POP-UP NOTIFICATIONS (ouvert par le bouton 🔔 du bandeau) ── -->
+  <div id="notif-modal-bg" style="display:none;position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)fermerNotifs()">
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:360px;padding:18px;box-shadow:0 12px 44px rgba(0,0,0,0.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-size:1rem;font-weight:700;color:#0f172a;">🔔 Notifications</div>
+        <button onclick="fermerNotifs()" style="background:none;border:none;font-size:1.2rem;line-height:1;color:#6b7280;cursor:pointer;padding:0 4px;">✕</button>
+      </div>
+
+      <!-- Activer / test / désactiver / états -->
+      <div id="notif-bar" style="display:none;margin-bottom:6px;">
+        <div id="notif-zone-action" style="display:none;">
+          <div style="font-size:0.85rem;color:#374151;margin-bottom:8px;">
+            Recevez une alerte sur ce téléphone avant vos rendez-vous de chantier.
+          </div>
+          <button id="btn-notif" onclick="activerNotifications()"
+            style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:0.9rem;font-weight:600;cursor:pointer;width:100%;">
+            Activer les notifications
+          </button>
+        </div>
+        <div id="notif-zone-active" style="display:none;font-size:0.85rem;color:#16a34a;">
+          ✅ Notifications activées sur ce téléphone.
+          <div style="margin-top:6px;">
+            <button onclick="testerNotification(this)"
+              style="background:none;border:none;color:#2563eb;text-decoration:underline;font-size:0.8rem;cursor:pointer;padding:0;">envoyer un test</button>
+            <button onclick="desactiverNotifications()"
+              style="background:none;border:none;color:#6b7280;text-decoration:underline;font-size:0.8rem;cursor:pointer;padding:0;margin-left:12px;">désactiver</button>
+          </div>
+        </div>
+        <div id="notif-zone-ios" style="display:none;font-size:0.82rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;">
+          📲 Pour recevoir les notifications sur iPhone, ajoutez d'abord l'app à l'écran d'accueil
+          (bouton Partager → « Sur l'écran d'accueil »), puis rouvrez-la depuis son icône.
+        </div>
+        <div id="notif-zone-refus" style="display:none;font-size:0.82rem;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;">
+          🔕 Les notifications sont bloquées pour ce site dans les réglages du navigateur.
+          Autorisez-les pour les réactiver.
+        </div>
+      </div>
+
+      <!-- Délai de prévenance (gérant uniquement) -->
+      <div id="notif-delai-bar" style="display:none;border-top:1px solid #f1f5f9;padding-top:12px;margin-top:6px;">
+        <div style="font-size:0.85rem;color:#374151;margin-bottom:8px;">
+          ⏰ Prévenir <strong id="notif-delai-val">45</strong> mn avant l'heure du RDV.
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="notif-delai-input" type="number" min="0" max="1440" step="5"
+            style="width:90px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:0.9rem;">
+          <span style="font-size:0.85rem;color:#6b7280;">minutes avant</span>
+          <button id="notif-delai-btn" onclick="enregistrerDelai(this)"
+            style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.9rem;font-weight:600;cursor:pointer;margin-left:auto;">
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Zone scrollable -->
   <div class="saisie-scroll">
-
-  <!-- ── Notifications de RDV (push) — affichée selon l'état (support/iOS/permission/abonnement) ── -->
-  <div id="notif-bar" class="section" style="display:none;">
-    <div id="notif-zone-action" style="display:none;">
-      <div style="font-size:0.85rem;color:#374151;margin-bottom:8px;">
-        🔔 Recevez une alerte sur ce téléphone avant vos rendez-vous de chantier.
-      </div>
-      <button id="btn-notif" onclick="activerNotifications()"
-        style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px 14px;font-size:0.9rem;font-weight:600;cursor:pointer;width:100%;">
-        Activer les notifications
-      </button>
-    </div>
-    <div id="notif-zone-active" style="display:none;font-size:0.85rem;color:#16a34a;">
-      ✅ Notifications activées sur ce téléphone.
-      <button onclick="testerNotification(this)"
-        style="background:none;border:none;color:#2563eb;text-decoration:underline;font-size:0.8rem;cursor:pointer;padding:0;margin-left:6px;">envoyer un test</button>
-      <button onclick="desactiverNotifications()"
-        style="background:none;border:none;color:#6b7280;text-decoration:underline;font-size:0.8rem;cursor:pointer;padding:0;margin-left:6px;">désactiver</button>
-    </div>
-    <div id="notif-zone-ios" style="display:none;font-size:0.82rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;">
-      📲 Pour recevoir les notifications sur iPhone, ajoutez d'abord l'app à l'écran d'accueil
-      (bouton Partager → « Sur l'écran d'accueil »), puis rouvrez-la depuis son icône.
-    </div>
-    <div id="notif-zone-refus" style="display:none;font-size:0.82rem;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;">
-      🔕 Les notifications sont bloquées pour ce site dans les réglages du navigateur.
-      Autorisez-les pour les réactiver.
-    </div>
-  </div>
-
-  <!-- ── Réglage du délai de rappel RDV (gérant uniquement) ── -->
-  <div id="notif-delai-bar" class="section" style="display:none;">
-    <div style="font-size:0.85rem;color:#374151;margin-bottom:8px;">
-      ⏰ Prévenir <strong id="notif-delai-val">45</strong> mn avant l'heure du RDV.
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input id="notif-delai-input" type="number" min="0" max="1440" step="5"
-        style="width:90px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:0.9rem;">
-      <span style="font-size:0.85rem;color:#6b7280;">minutes avant</span>
-      <button id="notif-delai-btn" onclick="enregistrerDelai(this)"
-        style="background:#16a34a;border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:0.9rem;font-weight:600;cursor:pointer;margin-left:auto;">
-        Enregistrer
-      </button>
-    </div>
-  </div>
 
   <!-- Chantiers prévus -->
   <div class="section">
@@ -3548,6 +3565,26 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = label || 'Enregistrer'; }
     }
+  };
+
+  // Ouvre le pop-up Notifications et rafraîchit son contenu
+  window.ouvrirNotifs = function () {
+    const bg = document.getElementById('notif-modal-bg');
+    if (!bg) return;
+    bg.style.display = 'flex';
+    majBoutonNotif();
+    let estGerant = false;
+    try {
+      const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+      const monId = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
+      const moi = sals.find(s => String(s.id) === String(monId));
+      estGerant = !!(moi && moi.gerant);
+    } catch (_) {}
+    if (window.chargerDelaiNotif) window.chargerDelaiNotif(estGerant);
+  };
+  window.fermerNotifs = function () {
+    const bg = document.getElementById('notif-modal-bg');
+    if (bg) bg.style.display = 'none';
   };
 
   // État initial (et re-vérification après l'enregistrement du SW au 'load')
