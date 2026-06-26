@@ -1133,11 +1133,21 @@ window.addEventListener('DOMContentLoaded', () => {
   const codeMemorize = localStorage.getItem('saisie_codeEmploye');
   // Si le QR vient d'être scanné, l'URL contient ?code=XXX → on l'utilise comme code mémorisé
   const codeURL = new URLSearchParams(location.search).get('code');
-  if (codeURL && !codeMemorize) {
-    localStorage.setItem('saisie_codeEmploye', codeURL.toUpperCase());
+  if (codeURL) {
+    // Le QR (code dans l'URL) est PRIORITAIRE sur un éventuel code mémorisé :
+    // scanner un QR est une intention explicite de se connecter à CE client.
+    const codeU = codeURL.toUpperCase();
+    if (codeMemorize && codeMemorize.toUpperCase() !== codeU) {
+      // Changement de client → purger les données de l'ancien, sinon on resterait
+      // sur sa session (les salariés sont fusionnés, les autres clés conservées).
+      ['saisie_salarie', 'saisie_clientId', 'salariesdata', 'notesChantiersdata',
+       'previsionnel_data', 'heuresdata', 'ordreMobiledata',
+       'syncMarquePartenaire', 'syncLogoPartenaire'].forEach(k => localStorage.removeItem(k));
+    }
+    localStorage.setItem('saisie_codeEmploye', codeU);
     // Nettoyer l'URL pour ne pas laisser le code visible dans l'historique navigateur
     history.replaceState({}, '', location.pathname);
-    reconnecterAuto(codeURL.toUpperCase());
+    reconnecterAuto(codeU);
   } else if (codeMemorize) {
     reconnecterAuto(codeMemorize);
   } else {
