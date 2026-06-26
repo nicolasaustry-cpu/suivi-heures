@@ -188,6 +188,10 @@
   .btn-note-ch:hover { border-color:#f59e0b;color:#b45309; }
   .btn-note-ch.has-note { background:#fef3c7;color:#b45309;border-color:#fde68a; }
   .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
+  /* Heure de RDV par chantier : discret quand vide, bleu quand renseigné */
+  .rdv-input { font-size:0.78rem;height:30px;padding:1px 3px;border:1px solid #e5e7eb;border-radius:4px;color:#9ca3af;background:#fff; }
+  .rdv-input:hover { border-color:#2563eb; }
+  .rdv-input.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
   /* Note affichée dans l'infobulle chantier */
   .chantier-tooltip .ct-note { margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:0.8rem;color:#fde68a;white-space:pre-wrap;line-height:1.35; }
   /* Note imprimable : cachée à l'écran, visible uniquement à l'impression */
@@ -649,6 +653,10 @@ function genererPlanning() {
             <button type="button" class="btn-note-ch no-print${noteG ? ' has-note' : ''}" id="${k}note-btn"
               title="Note de chantier" aria-label="Note de chantier"
               onclick="ouvrirNoteChantier('${k}')">🗒</button>
+            <input type="time" id="${k}rdv" value="${data.rdv || ''}" class="rdv-input no-print${data.rdv ? ' has-rdv' : ''}"
+              title="Heure de RDV (pour alerter le salarié)"
+              onchange="saveRdv('${k}', this.value)"
+              style="width:80px;flex:0 0 auto;">
           </div>
           <div class="note-print" id="${k}note-print">${noteG ? '📝 ' + escapeHtml(noteG) : ''}</div>
         </td>`;
@@ -817,8 +825,10 @@ function viderChantier(k) {
 
 function saveHeure(k, ch, h) {
   const noteAv = heures[k] && heures[k].note ? heures[k].note : '';
+  const rdvAv  = heures[k] && heures[k].rdv  ? heures[k].rdv  : '';
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   if (noteAv) heures[k].note = noteAv;
+  if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majBoutonNote(k);   // l'indicateur de note suit le nom de chantier de la cellule
 
@@ -826,6 +836,19 @@ function saveHeure(k, ch, h) {
   if (!match) return;
   majTotalLigne(match[1], match[2].replace(/_/g, '-'));
   majCouleursChantiers();
+}
+
+/* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
+function saveRdv(k, val) {
+  if (!heures[k]) heures[k] = { chantier: '', heures: 0 };
+  if (val) heures[k].rdv = val;
+  else delete heures[k].rdv;
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  majRdvVisuel(k);
+}
+function majRdvVisuel(k) {
+  const el = document.getElementById(k + 'rdv');
+  if (el) el.classList.toggle('has-rdv', !!(el.value && el.value.trim()));
 }
 
 /* ── TEMPS NON AFFECTE — auto-remplissage du planning ────────────────
@@ -897,6 +920,8 @@ function rafraichirLigne(salarieId, dateStr) {
     const sel = document.getElementById(k + 'h');
     if (inp) inp.value = e.chantier || '';
     if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
+    const rdvEl = document.getElementById(k + 'rdv');
+    if (rdvEl) { rdvEl.value = e.rdv || ''; majRdvVisuel(k); }
     majBoutonNote(k);
   }
   majTotalLigne(salarieId, dateStr);
