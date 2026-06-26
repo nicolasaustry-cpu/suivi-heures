@@ -123,6 +123,23 @@
   </div>
 </section>
 
+<!-- Notifications de RDV : délai de rappel par défaut (réglage entreprise) -->
+<section>
+  <h2>Notifications de RDV</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Délai par défaut d'envoi du rappel (notification) aux salariés, <strong>avant l'heure de leur RDV</strong>.
+    Ce délai peut être ajusté ponctuellement sur chaque RDV depuis le <strong>Planning</strong> ou le mobile.
+  </p>
+  <div class="flex" id="delai-defaut-bloc" style="align-items:flex-end;gap:1rem;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:1rem 1.2rem;">
+    <div>
+      <label for="delai-defaut">Prévenir avant (minutes) :</label><br>
+      <input id="delai-defaut" type="number" min="0" max="1440" step="5" style="width:120px;">
+    </div>
+    <button class="btn btn-success" onclick="sauverDelaiDefaut(this)">💾 Enregistrer</button>
+    <span id="delai-defaut-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+</section>
+
 <script>
 function _getEntreprise() {
   try { return JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch { return {}; }
@@ -226,6 +243,55 @@ window.addEventListener('donnees-chargees', chargerSeuilsJauge);
     }
   };
   });
+</script>
+
+<script>
+/* ── Délai de rappel RDV par défaut (réglage entreprise, auth par token) ── */
+async function chargerDelaiDefaut() {
+  const bloc = document.getElementById('delai-defaut-bloc');
+  const token = localStorage.getItem('syncToken');
+  if (!token) { if (bloc) bloc.closest('section').style.display = 'none'; return; }
+  try {
+    const r = await fetch('/api/push/delai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('delai-defaut').value = (d.delaiMin != null ? d.delaiMin : 45);
+      if (bloc) bloc.closest('section').style.display = '';
+    } else if (bloc) {
+      bloc.closest('section').style.display = 'none';
+    }
+  } catch (_) { if (bloc) bloc.closest('section').style.display = 'none'; }
+}
+window.sauverDelaiDefaut = async function (btn) {
+  const token = localStorage.getItem('syncToken');
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  let v = parseInt(document.getElementById('delai-defaut').value, 10);
+  if (isNaN(v) || v < 0) { alert("Saisissez un nombre de minutes valide."); return; }
+  if (v > 1440) v = 1440;
+  const msg = document.getElementById('delai-defaut-msg');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/push/delai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ delaiMin: v })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    document.getElementById('delai-defaut').value = d.delaiMin;
+    if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+  } catch (e) {
+    alert("Impossible d'enregistrer : " + (e && e.message ? e.message : e));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+window.addEventListener('DOMContentLoaded', chargerDelaiDefaut);
+window.addEventListener('donnees-chargees', chargerDelaiDefaut);
 </script>
 
 <!-- PWA : enregistrement du Service Worker pour permettre l'installation comme app -->
