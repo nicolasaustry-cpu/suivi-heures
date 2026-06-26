@@ -188,10 +188,12 @@
   .btn-note-ch:hover { border-color:#f59e0b;color:#b45309; }
   .btn-note-ch.has-note { background:#fef3c7;color:#b45309;border-color:#fde68a; }
   .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
-  /* Heure de RDV par chantier : discret quand vide, bleu quand renseigné */
-  .rdv-input { font-size:0.78rem;height:30px;padding:1px 3px;border:1px solid #e5e7eb;border-radius:4px;color:#9ca3af;background:#fff; }
-  .rdv-input:hover { border-color:#2563eb; }
-  .rdv-input.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
+  /* Heure de RDV par chantier : bouton compact (même gabarit que la note), bleu quand renseigné */
+  .rdv-wrap { position:relative;display:inline-flex;flex:0 0 auto; }
+  .btn-rdv-ch { height:30px;min-width:30px;padding:0 5px;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-size:0.78rem;line-height:1;flex:0 0 auto; }
+  .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
+  .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
+  .rdv-hidden { position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;border:0;padding:0;margin:0; }
   /* Note affichée dans l'infobulle chantier */
   .chantier-tooltip .ct-note { margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:0.8rem;color:#fde68a;white-space:pre-wrap;line-height:1.35; }
   /* Note imprimable : cachée à l'écran, visible uniquement à l'impression */
@@ -653,6 +655,9 @@ function genererPlanning() {
             <button type="button" class="btn-note-ch no-print${noteG ? ' has-note' : ''}" id="${k}note-btn"
               title="Note de chantier" aria-label="Note de chantier"
               onclick="ouvrirNoteChantier('${k}')">🗒</button>
+            <span class="rdv-wrap no-print"><button type="button" class="btn-rdv-ch${data.rdv ? ' has-rdv' : ''}" id="${k}rdv-btn"
+              title="${data.rdv ? 'RDV à ' + data.rdv : 'Heure de RDV (alerte salarié)'}"
+              onclick="ouvrirRdv('${k}')">${data.rdv ? data.rdv : '🕐'}</button><input type="time" id="${k}rdv" value="${data.rdv || ''}" class="rdv-hidden" tabindex="-1" aria-hidden="true" onchange="saveRdv('${k}', this.value)"></span>
           </div>
           <div class="note-print" id="${k}note-print">${noteG ? '📝 ' + escapeHtml(noteG) : ''}</div>
         </td>`;
@@ -843,8 +848,26 @@ function saveRdv(k, val) {
   majRdvVisuel(k);
 }
 function majRdvVisuel(k) {
-  const el = document.getElementById(k + 'rdv');
-  if (el) el.classList.toggle('has-rdv', !!(el.value && el.value.trim()));
+  const btn = document.getElementById(k + 'rdv-btn');
+  const inp = document.getElementById(k + 'rdv');
+  const v   = inp && inp.value ? inp.value.trim() : '';
+  if (btn) {
+    btn.classList.toggle('has-rdv', !!v);
+    btn.textContent = v || '🕐';
+    btn.title = v ? 'RDV à ' + v : 'Heure de RDV (alerte salarié)';
+  }
+}
+/* Ouvre le sélecteur d'heure natif (repli sur une invite si non supporté). */
+function ouvrirRdv(k) {
+  const inp = document.getElementById(k + 'rdv');
+  if (!inp) return;
+  if (typeof inp.showPicker === 'function') {
+    try { inp.showPicker(); return; } catch (e) {}
+  }
+  const v = prompt('Heure de RDV (HH:MM) — laisser vide pour effacer :', inp.value || '');
+  if (v === null) return;
+  inp.value = v.trim();
+  saveRdv(k, inp.value);
 }
 
 /* ── TEMPS NON AFFECTE — auto-remplissage du planning ────────────────
