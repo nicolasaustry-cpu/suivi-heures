@@ -11,6 +11,7 @@ import saisiesRoutes from "./routes/saisies.js";
 import faqRoutes    from "./routes/faq.js";
 import bevRoutes    from "./routes/bev.js";
 import prescRoutes  from "./routes/presc.js";
+import pushRoutes   from "./routes/push.js";
 import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
 
 dotenv.config();
@@ -30,6 +31,7 @@ app.use("/api/saisies", saisiesRoutes);
 app.use("/api/faq",     faqRoutes);
 app.use("/api/bev",     bevRoutes);
 app.use("/api/presc",   prescRoutes);
+app.use("/api/push",    pushRoutes);
 
 // Endpoint de santé : vérifie l'état du serveur et de la base.
 // Utile pour le monitoring (UptimeRobot…) et le diagnostic de panne.
