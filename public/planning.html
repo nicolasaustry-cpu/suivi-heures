@@ -653,10 +653,6 @@ function genererPlanning() {
             <button type="button" class="btn-note-ch no-print${noteG ? ' has-note' : ''}" id="${k}note-btn"
               title="Note de chantier" aria-label="Note de chantier"
               onclick="ouvrirNoteChantier('${k}')">🗒</button>
-            <input type="time" id="${k}rdv" value="${data.rdv || ''}" class="rdv-input no-print${data.rdv ? ' has-rdv' : ''}"
-              title="Heure de RDV (pour alerter le salarié)"
-              onchange="saveRdv('${k}', this.value)"
-              style="width:80px;flex:0 0 auto;">
           </div>
           <div class="note-print" id="${k}note-print">${noteG ? '📝 ' + escapeHtml(noteG) : ''}</div>
         </td>`;
