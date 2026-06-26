@@ -509,7 +509,7 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   for (let i = 1; i <= 5; i++) {
     const data = heures[`${sal.id}${safeDate}ch${i}`];
     if (data && data.chantier && String(data.chantier).trim()) {
-      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim() });
+      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim(), rdv: (data.rdv || '').trim() });
     }
   }
 
@@ -524,7 +524,7 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
     let etat = 'plan', hReal = 0, noteR = '';
     const idx = rs.findIndex((c, j) => !pris[j] && norm(c.nom) === norm(p.nom));
     if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR });
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '' });
   });
 
   // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
@@ -557,11 +557,12 @@ function htmlChip(c) {
   const _noteG = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim();
   const _noteStyle = _noteG ? 'background:#e0e7ff;color:#3730a3;' : 'background:#eef2f7;color:#94a3b8;';
   const noteBtn = `<button type="button" class="chip-note" title="Note de chantier" data-nom="${escapeHtmlLocal(c.nom)}" style="flex:0 0 auto;${_noteStyle}border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`;
+  const rdvHtml = c.rdv ? `<span class="chip-rdv" title="Heure de RDV" style="flex:0 0 auto;background:#dbeafe;color:#1e3a8a;border-radius:6px;font-size:0.7rem;font-weight:600;padding:1px 5px;white-space:nowrap;">🕐 ${escapeHtmlLocal(c.rdv)}</span>` : '';
   const hrsHtml = _modeStandard
     ? `<span class="hp">h prévues : ${fmtHM(c.hPlan)}</span>`
     : `<span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span>`;
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}">
-    <div class="cn" style="display:flex;align-items:center;gap:4px;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${tag}${noteBtn}${grip}</div>
+    <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${grip}</div>
     <div class="chip-hrs">${hrsHtml}</div>
   </div>`;
 }

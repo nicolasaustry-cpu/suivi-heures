@@ -224,6 +224,8 @@
   /* Note imprimable : cachée à l'écran, visible uniquement à l'impression */
   .note-print { display:none; }
   @media print { .note-print { display:block;font-size:0.66rem;line-height:1.2;color:#000;white-space:pre-wrap;margin-top:2px;padding-top:2px;border-top:1px dotted #999; } }
+  .rdv-print { display:none; }
+  @media print { .rdv-print { display:block;font-size:0.66rem;line-height:1.2;color:#000;font-weight:700;margin-top:2px; } }
   /* Aligner en haut le contenu des cellules du planning
      (pour que les noms de chantiers restent alignés quand une note agrandit une cellule) */
   #planning-wrapper table td { vertical-align: top; }
@@ -685,6 +687,7 @@ function genererPlanning() {
               onclick="ouvrirRdv('${k}')">${data.rdv ? data.rdv : '🕐'}</button>
           </div>
           <div class="note-print" id="${k}note-print">${noteG ? '📝 ' + escapeHtml(noteG) : ''}</div>
+          <div class="rdv-print" id="${k}rdv-print">${data.rdv ? '🕐 ' + escapeHtml(data.rdv) : ''}</div>
         </td>`;
       };
 
@@ -879,6 +882,8 @@ function majRdvVisuel(k) {
   btn.classList.toggle('has-rdv', !!v);
   btn.textContent = v || '🕐';
   btn.title = v ? 'RDV à ' + v : 'Heure de RDV (alerte salarié)';
+  const pr = document.getElementById(k + 'rdv-print');
+  if (pr) pr.textContent = v ? '🕐 ' + v : '';
 }
 /* Ouvre un petit panneau de saisie de l'heure JUSTE À CÔTÉ de la cellule cliquée,
    avec sélecteur d'heure + boutons Valider / Effacer / Annuler. */
