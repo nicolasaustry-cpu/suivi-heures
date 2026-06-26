@@ -13,6 +13,7 @@ import bevRoutes    from "./routes/bev.js";
 import prescRoutes  from "./routes/presc.js";
 import pushRoutes   from "./routes/push.js";
 import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
+import { planifierRappelsRdv } from "./jobs/rappelsRdv.js";
 
 dotenv.config();
 
@@ -90,6 +91,9 @@ connecterMongo();
 
 // Sauvegarde quotidienne « maison » → collection donnees_history (rétention 30 j)
 planifierSauvegardeQuotidienne();
+
+// Rappels de RDV par notification push (chaque minute, Europe/Paris)
+planifierRappelsRdv();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
