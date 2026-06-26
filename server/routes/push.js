@@ -1,5 +1,6 @@
 import express from "express";
 import PushSubscription from "../models/pushSubscription.js";
+import { envoyerNotif } from "../services/pushSender.js";
 
 const router = express.Router();
 
@@ -74,6 +75,39 @@ router.post("/unsubscribe", async (req, res) => {
     if (!endpoint) return res.status(400).json({ ok: false, message: "Endpoint manquant" });
     await PushSubscription.deleteOne({ endpoint });
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Notification de TEST : envoie immédiatement une notification au
+   salarié qui la demande, sur tous ses appareils abonnés. Permet de
+   vérifier la chaîne d'envoi (serveur → service de push → téléphone). ── */
+router.post("/test", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    if (!codeEmp || salarieId == null)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
+
+    const r = await envoyerNotif(doc.clientId, salarieId, {
+      titre: "Suiv'Heures — test",
+      corps: "✅ Vos notifications fonctionnent !",
+      url:   "/saisie.html",
+      tag:   "test"
+    });
+
+    if (r.envoyes === 0)
+      return res.json({ ok: true, envoyes: 0, message: "Aucun appareil abonné (ou envoi impossible)" });
+    res.json({ ok: true, envoyes: r.envoyes });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
