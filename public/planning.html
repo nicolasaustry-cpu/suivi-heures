@@ -969,13 +969,16 @@ chargerNotesChantiers();
    reconstruit pas (on perdrait le focus) — on rafraîchit juste les notes. */
 window.addEventListener('donnees-chargees', () => {
   chargerNotesChantiers();
-  const actif = document.activeElement;
-  const enEdition = actif && actif.closest && actif.closest('#planning-wrapper');
-  if (enEdition || typeof genererPlanning !== 'function') {
-    rafraichirNotesAffichage();
-    return;
-  }
-  genererPlanning();          // re-render complet : TNA, heures par défaut, notes
+  if (typeof genererPlanning !== 'function') { rafraichirNotesAffichage(); return; }
+  // donnees-chargees ne se déclenche qu'une fois (au chargement, pas de polling).
+  // On reconstruit TOUJOURS le planning : sur connexion lente, si l'utilisateur a
+  // cliqué dans une case pendant le chargement, il ne faut PAS sauter le re-render —
+  // sinon le global `salaries` reste vide (auto-implantation du contrat KO) et les
+  // notes ne s'affichent pas. Les saisies déjà faites sont conservées (relues depuis
+  // le localStorage). On restaure le focus sur la même case si possible.
+  const actifId = document.activeElement && document.activeElement.id;
+  genererPlanning();
+  if (actifId) { const el = document.getElementById(actifId); if (el) el.focus(); }
 });
 
 function _nomChantierCell(k) {
