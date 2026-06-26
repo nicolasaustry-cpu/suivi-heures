@@ -1,5 +1,6 @@
 import express from "express";
 import PushSubscription from "../models/pushSubscription.js";
+import NotifReglage from "../models/notifReglage.js";
 import { envoyerNotif } from "../services/pushSender.js";
 
 const router = express.Router();
@@ -108,6 +109,47 @@ router.post("/test", async (req, res) => {
     if (r.envoyes === 0)
       return res.json({ ok: true, envoyes: 0, message: "Aucun appareil abonné (ou envoi impossible)" });
     res.json({ ok: true, envoyes: r.envoyes });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Délai de rappel RDV (minutes AVANT l'heure du RDV), par entreprise ──
+   - Sans champ delaiMin → LECTURE : renvoie le délai courant (défaut 45).
+   - Avec delaiMin → ÉCRITURE : réservée au GÉRANT. ── */
+router.post("/delai", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const aDelai    = req.body.delaiMin !== undefined && req.body.delaiMin !== null && req.body.delaiMin !== "";
+    if (!codeEmp) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+
+    // ── Écriture (gérant uniquement) ──
+    if (aDelai) {
+      const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+      if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
+      if (!sal.gerant) return res.status(403).json({ ok: false, message: "Réglage réservé au gérant" });
+
+      let v = parseInt(req.body.delaiMin, 10);
+      if (isNaN(v)) return res.status(400).json({ ok: false, message: "Délai invalide" });
+      v = Math.max(0, Math.min(1440, v));
+
+      await NotifReglage.findOneAndUpdate(
+        { clientId: doc.clientId },
+        { clientId: doc.clientId, delaiRdvMin: v, updatedAt: new Date() },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      return res.json({ ok: true, delaiMin: v });
+    }
+
+    // ── Lecture ──
+    const reg = await NotifReglage.findOne({ clientId: doc.clientId });
+    res.json({ ok: true, delaiMin: reg ? reg.delaiRdvMin : 45 });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
