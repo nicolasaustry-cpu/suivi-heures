@@ -2089,7 +2089,7 @@ function rendreAjout() {
     arrLigne.className = 'heure-ligne';
     const clsArrOK = 'btn-valider-heure' + (ch.arrivee ? ' valide' : '');
     arrLigne.innerHTML = '<span class="heure-label">Arrivée</span>'
-      + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || '') + '"' + (ch.arrivee ? ' disabled' : '') + '>'
+      + '<input class="heure-input" type="time" id="arr-ajout-' + i + '" value="' + (ch.arrivee || ch.arriveePropose || '') + '"' + (ch.arrivee ? ' disabled' : '') + '>'
       + '<button class="' + clsArrOK + '" data-idx="' + i + '" data-champ="arrivee" data-input="arr-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(arrLigne);
 
@@ -2298,7 +2298,9 @@ function validerAjout() {
   const nowA = new Date();
   const hhA  = String(nowA.getHours()).padStart(2,'0');
   const mmA  = String(nowA.getMinutes()).padStart(2,'0');
-  _chantiersA.push({ nom, arrivee: hhA + ':' + mmA, depart: '', depl: 0 });
+  // Heure proposée (heure courante) pré-remplie dans le champ, mais NON validée :
+  // le curseur reste gris, l'employé confirme (ou ajuste) lui-même puis valide.
+  _chantiersA.push({ nom, arrivee: '', arriveePropose: hhA + ':' + mmA, depart: '', depl: 0 });
   rendreAjout();
   majTotal();
   fermerModal();
