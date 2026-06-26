@@ -638,7 +638,7 @@ function genererPlanning() {
         if ((data.chantier || '').trim().toUpperCase() !== TNA) total += parseFloat(data.heures) || 0;
         return `<td style="border:1px solid #ccc;padding:2px;">
           <div style="display:flex;align-items:center;gap:2px;">
-            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="width:116px;flex:0 0 auto;text-transform:uppercase;"
+            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="flex:1 1 auto;min-width:0;width:auto;text-transform:uppercase;"
               list="liste-chantiers-prev" autocomplete="off"
               onfocus="onChantierFocus('${k}')"
               oninput="saveHeure('${k}',this.value.toUpperCase(),document.getElementById('${k}h').value)"
