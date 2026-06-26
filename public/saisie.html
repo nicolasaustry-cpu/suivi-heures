@@ -1549,7 +1549,7 @@ async function chargerChantiersPrev() {
     if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
     // Heure de RDV saisie dans le planning (première non vide rencontrée)
     const rdvP = (entry?.rdv || '').trim();
-    if (rdvP && !_rdvPlanning[nomChantier]) _rdvPlanning[nomChantier] = { rdv: rdvP, auteur: entry?.rdvAuteur || 'gerant' };
+    if (rdvP && !_rdvPlanning[nomChantier]) _rdvPlanning[nomChantier] = { rdv: rdvP, auteur: entry?.rdvAuteur || 'gerant', delai: (entry?.rdvDelai != null ? entry.rdvDelai : undefined) };
   }
   // Note générale du chantier (unifiée) — prioritaire, lue depuis le journal
   try {
@@ -1793,6 +1793,8 @@ function ouvrirRdvMobile(nom, current) {
       '<div class="rdvm-box">' +
         '<div class="rdvm-titre">Heure de RDV<br><span id="rdvm-ch"></span></div>' +
         '<input type="time" id="rdvm-input">' +
+        '<div style="font-size:0.78rem;color:#475569;margin:0 0 6px;">Prévenir avant (mn) — vide = défaut entreprise</div>' +
+        '<input type="number" id="rdvm-delai" min="0" max="1440" step="5" placeholder="Défaut entreprise" style="width:100%;box-sizing:border-box;font-size:1rem;text-align:center;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:14px;">' +
         '<div class="rdvm-actions">' +
           '<button type="button" class="rdvm-ok" onclick="validerRdvMobile()">Valider</button>' +
           '<button type="button" class="rdvm-clear" onclick="effacerRdvMobile()">Effacer</button>' +
@@ -1805,12 +1807,16 @@ function ouvrirRdvMobile(nom, current) {
   _rdvMobileNom = nom;
   document.getElementById('rdvm-ch').textContent = nom;
   document.getElementById('rdvm-input').value = current || '';
+  const _d = document.getElementById('rdvm-delai');
+  if (_d) _d.value = (_rdvPlanning[nom] && _rdvPlanning[nom].delai != null) ? _rdvPlanning[nom].delai : '';
   pop.style.display = 'flex';
   setTimeout(() => { const i = document.getElementById('rdvm-input'); if (i) i.focus(); }, 30);
 }
 function validerRdvMobile() {
   const v = (document.getElementById('rdvm-input').value || '').trim();
-  serverSaveRdv(_rdvMobileNom, v);
+  const delaiEl = document.getElementById('rdvm-delai');
+  const delai = delaiEl ? (delaiEl.value || '').trim() : '';
+  serverSaveRdv(_rdvMobileNom, v, delai);
 }
 function effacerRdvMobile() { serverSaveRdv(_rdvMobileNom, ''); }
 function fermerRdvMobile() {
@@ -1818,7 +1824,7 @@ function fermerRdvMobile() {
   if (p) p.style.display = 'none';
   _rdvMobileNom = null;
 }
-async function serverSaveRdv(nom, val) {
+async function serverSaveRdv(nom, val, delai) {
   if (!nom) return;
   const code = localStorage.getItem('saisie_codeEmploye');
   const date = document.getElementById('date-saisie').value;
@@ -1826,11 +1832,11 @@ async function serverSaveRdv(nom, val) {
     const r = await fetch('/api/saisies/rdv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codeEmploye: code, salarieId: _salarie?.id, date, chantier: nom, rdv: val })
+      body: JSON.stringify({ codeEmploye: code, salarieId: _salarie?.id, date, chantier: nom, rdv: val, rdvDelai: (delai != null ? delai : '') })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message || 'Modification impossible'); return; }
-    if (d.rdv) _rdvPlanning[nom] = { rdv: d.rdv, auteur: d.rdvAuteur || 'admin' };
+    if (d.rdv) _rdvPlanning[nom] = { rdv: d.rdv, auteur: d.rdvAuteur || 'admin', delai: (d.rdvDelai !== '' && d.rdvDelai != null) ? d.rdvDelai : undefined };
     else delete _rdvPlanning[nom];
     fermerRdvMobile();
     rendrePrev();
