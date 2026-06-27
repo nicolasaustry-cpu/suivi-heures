@@ -254,15 +254,21 @@ async function chargerRealiseSemaine() {
     }
     // Contexte licence (PC). Filet : si la grille n'a pas encore les
     // salariés/planning (ouverture directe), on les récupère une fois.
+    // On en profite pour charger les notes + photos de chantier (affichage popup).
     const aSal = (JSON.parse(localStorage.getItem('salariesdata') || '[]')).length > 0;
-    if (!aSal) {
+    const aPhotos = !!localStorage.getItem('notesChantiersPhotosdata');
+    if (!aSal || !aPhotos) {
       try {
         const r = await fetch('/api/data', { headers: { 'Authorization': 'Bearer ' + token } });
         const d = await r.json();
         if (d.ok && d.data) {
-          localStorage.setItem('salariesdata', JSON.stringify(d.data.salaries || []));
-          localStorage.setItem('heuresdata',   JSON.stringify(d.data.heures   || {}));
-          if (d.data.entreprise) localStorage.setItem('entreprisedata', JSON.stringify(d.data.entreprise));
+          if (!aSal) {
+            localStorage.setItem('salariesdata', JSON.stringify(d.data.salaries || []));
+            localStorage.setItem('heuresdata',   JSON.stringify(d.data.heures   || {}));
+            if (d.data.entreprise) localStorage.setItem('entreprisedata', JSON.stringify(d.data.entreprise));
+          }
+          if (d.data.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.data.notesChantiers));
+          localStorage.setItem('notesChantiersPhotosdata', JSON.stringify(d.data.notesChantiersPhotos || {}));
         }
       } catch (_) {}
     }

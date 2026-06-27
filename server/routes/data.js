@@ -59,6 +59,16 @@ function _ligneNoteData(auteur, texte) {
   return `[${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}${sig}] ${texte}`;
 }
 
+/* Assainit les photos d'un chantier : images data-URL uniquement, ≤ ~675 Ko chacune, 3 max.
+   Renvoie null si rien n'a été fourni (pour ne pas écraser l'existant). */
+function _assainirPhotosData(p) {
+  if (p == null) return null;
+  if (!Array.isArray(p)) return [];
+  return p
+    .filter(x => typeof x === "string" && x.startsWith("data:image/") && x.length <= 900000)
+    .slice(0, 3);
+}
+
 router.post("/note-chantier", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
@@ -66,6 +76,7 @@ router.post("/note-chantier", verifyToken, async (req, res) => {
     const mode     = (req.body.mode || "ajouter").toString();
     const texteRaw = (req.body.texte || "").toString();
     const auteur   = (req.body.auteur || "Gérant").toString().trim().slice(0, 40);
+    const photos   = _assainirPhotosData(req.body.photos);   // null = non fourni ; [] = effacer ; [...] = remplacer
 
     if (!chantier) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
     if (texteRaw.length > 10000) return res.status(400).json({ ok: false, message: "Note trop longue" });
@@ -77,26 +88,42 @@ router.post("/note-chantier", verifyToken, async (req, res) => {
     }
     if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
 
-    const notes = doc.notesChantiers || {};
+    const update = { updatedAt: new Date() };
+    const notes  = doc.notesChantiers || {};
 
     if (mode === "remplacer") {
       // Remplace tout le bloc (modif / suppression ligne par ligne côté client).
       const bloc = texteRaw.replace(/\s+$/g, "");
       if (bloc.trim()) notes[chantier] = bloc;
       else delete notes[chantier];            // plus aucune ligne → on retire la note
+      update.notesChantiers = notes;
     } else {
       // Ajout d'une ligne datée/signée (comportement existant).
       const texte = texteRaw.trim();
-      if (!texte) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
-      const ligne = _ligneNoteData(auteur, texte);
-      notes[chantier] = notes[chantier] ? (notes[chantier] + "\n" + ligne) : ligne;
+      if (!texte && photos === null)
+        return res.status(400).json({ ok: false, message: "Note ou photo requise" });
+      if (texte) {
+        const ligne = _ligneNoteData(auteur, texte);
+        notes[chantier] = notes[chantier] ? (notes[chantier] + "\n" + ligne) : ligne;
+        update.notesChantiers = notes;
+      }
+    }
+
+    // Photos : on REMPLACE le jeu de photos du chantier (si un tableau est fourni)
+    const np = doc.notesChantiersPhotos || {};
+    let notePhotos = np[chantier] || [];
+    if (photos !== null) {
+      if (photos.length) np[chantier] = photos;
+      else delete np[chantier];
+      update.notesChantiersPhotos = np;
+      notePhotos = photos;
     }
 
     await Donnees.updateOne(
       { _id: doc._id },
-      { $set: { notesChantiers: notes, updatedAt: new Date() } }
+      { $set: update }
     );
-    res.json({ ok: true, chantier, note: notes[chantier] || "" });
+    res.json({ ok: true, chantier, note: notes[chantier] || "", photos: notePhotos });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
