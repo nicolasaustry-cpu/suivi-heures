@@ -150,7 +150,9 @@
       <label style="font-size:0.82rem;color:#374151;">Heure de RDV (optionnel)</label>
       <input id="ae-rdv" type="time" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
       <label style="font-size:0.82rem;color:#374151;">Prévenir avant (mn) — vide = défaut</label>
-      <input id="ae-delai" type="number" min="0" max="1440" step="5" placeholder="Défaut entreprise" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.95rem;">
+      <input id="ae-delai" type="number" min="0" max="1440" step="5" placeholder="Défaut entreprise" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
+      <label style="font-size:0.82rem;color:#374151;">Note de chantier (optionnel)</label>
+      <textarea id="ae-note" rows="3" placeholder="Écrire ou dicter (micro du clavier)…" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.95rem;resize:vertical;"></textarea>
       <div style="display:flex;gap:8px;">
         <button id="ae-valider" onclick="validerAjoutEquipe()" style="flex:1;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Ajouter</button>
         <button onclick="fermerAjoutEquipe()" style="flex:0 0 auto;background:#eef2f7;border:none;color:#475569;border-radius:8px;padding:10px 14px;cursor:pointer;">Annuler</button>
@@ -733,6 +735,7 @@ function ouvrirAjoutEquipe(btn) {
   document.getElementById('ae-chantier').value = '';
   document.getElementById('ae-rdv').value = '';
   document.getElementById('ae-delai').value = '';
+  document.getElementById('ae-note').value = '';
   const lbl = document.getElementById('ae-sousTitre');
   if (lbl) {
     let nom = '';
@@ -784,6 +787,11 @@ async function validerAjoutEquipe() {
     // Mise à jour locale immédiate du planning, puis re-rendu
     _insererChantierLocal(_ajoutEquipe.salId, _ajoutEquipe.date, chantier,
       d.rdv || '', (d.rdvDelai !== '' && d.rdvDelai != null) ? d.rdvDelai : null, d.rdvAuteur || 'gerant');
+
+    // Note de chantier (optionnelle) → rejoint le système de notes habituel
+    const note = (document.getElementById('ae-note').value || '').trim();
+    if (note) await _enregistrerNoteEquipe(chantier, note);
+
     fermerAjoutEquipe();
     genererGrille({ conserverScroll: true });
   } catch (e) {
@@ -791,6 +799,36 @@ async function validerAjoutEquipe() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
   }
+}
+
+async function _enregistrerNoteEquipe(chantier, texte) {
+  texte = (texte || '').trim();
+  if (!texte) return;
+  const nomU = (chantier || '').trim().toUpperCase();
+  try {
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    let d = null;
+    if (codeEmploye) {
+      let salarieId = null;
+      try { salarieId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+      const r = await fetch('/api/saisies/note-chantier', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye, salarieId, chantier: nomU, texte })
+      });
+      d = await r.json();
+    } else {
+      const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
+      const r = await fetch('/api/data/note-chantier', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ chantier: nomU, texte, auteur: 'Gérant' })
+      });
+      d = await r.json();
+    }
+    if (d && d.ok && d.note != null) {
+      _notesChantiers[nomU] = d.note;
+      localStorage.setItem('notesChantiersdata', JSON.stringify(_notesChantiers));
+    }
+  } catch (_) {}
 }
 
 function _insererChantierLocal(salId, dateStr, chantier, rdv, rdvDelai, auteur) {
