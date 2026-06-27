@@ -2134,7 +2134,16 @@ function rendrePrev() {
     depInput.className = 'heure-input';
     depInput.type = 'time';
     depInput.id = 'dep-' + nomId;
-    depInput.value = s.depart || '';
+    // Une fois l'arrivée validée, proposer l'heure actuelle comme heure de départ
+    // (défaut d'affichage : l'état "depart" reste vide tant que l'utilisateur n'a pas validé)
+    if (s.depart) {
+      depInput.value = s.depart;
+    } else if (s.arrivee) {
+      const _mDep = new Date();
+      depInput.value = String(_mDep.getHours()).padStart(2,'0') + ':' + String(_mDep.getMinutes()).padStart(2,'0');
+    } else {
+      depInput.value = '';
+    }
     depInput.disabled = !!s.depart;
     const depBtn = document.createElement('button');
     depBtn.className = 'btn-valider-heure' + (s.depart ? ' valide' : '');
@@ -2301,8 +2310,12 @@ function rendreAjout() {
     depLigne.className = 'heure-ligne';
     const depBtnVis = ch.arrivee ? '' : 'display:none;';
     const clsDepOK = 'btn-valider-heure' + (ch.depart ? ' valide' : '');
+    // Une fois l'arrivée validée, proposer l'heure actuelle comme heure de départ par défaut
+    const _mDepA = new Date();
+    const heureNowDepA = String(_mDepA.getHours()).padStart(2,'0') + ':' + String(_mDepA.getMinutes()).padStart(2,'0');
+    const depValAjout = ch.depart || (ch.arrivee ? heureNowDepA : '');
     depLigne.innerHTML = '<span class="heure-label">Départ</span>'
-      + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + (ch.depart || '') + '"' + (ch.depart ? ' disabled' : '') + '>'
+      + '<input class="heure-input" type="time" id="dep-ajout-' + i + '" value="' + depValAjout + '"' + (ch.depart ? ' disabled' : '') + '>'
       + '<button class="' + clsDepOK + '" style="' + depBtnVis + '" data-idx="' + i + '" data-champ="depart" data-input="dep-ajout-' + i + '" onclick="validerHeureAjoutData(this)">✔ OK</button>';
     div.appendChild(depLigne);
 
