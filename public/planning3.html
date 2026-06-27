@@ -702,6 +702,21 @@ function pl2AjouterChantier(btn){
   if(inp) inp.focus();
   if(!cell.querySelector('.chip.vide')) btn.style.display='none';
 }
+function pl2ViderPave(btn, k){
+  viderChantier(k);
+  const chip = btn.closest('.chip');
+  const e = heures[k];
+  if (chip){
+    if (!e || !(e.chantier||'').trim()) { chip.classList.remove('tna'); chip.classList.add('vide'); }
+    else if ((e.chantier||'').toUpperCase()===TNA){ chip.classList.remove('vide'); chip.classList.add('tna'); }
+  }
+  const cell = btn.closest('td');
+  if (cell){ const add = cell.querySelector('.cell-add'); if (add) add.style.display=''; }
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if (mm){ majTotalLigne(mm[1], mm[2].replace(/_/g,'-')); }
+  majCouleursChantiers(); majTotauxGlobaux();
+}
+
 function pl2PoserAbsence(absK, prevu){
   const h = (parseFloat(prevu)||0) > 0 ? prevu : 7;
   saveHeure(absK,'absence',h);
@@ -774,7 +789,7 @@ function pl2ChipHTML(sl){
         oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
         onblur="onChantierCommit('${sl.k}')">
       ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
-      <button type="button" class="vider no-print" title="Vider ce chantier" onclick="viderChantier('${sl.k}')">✕</button>
+      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div class="ligne2">
       <select id="${sl.k}h" class="h" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
