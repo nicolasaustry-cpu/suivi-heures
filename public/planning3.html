@@ -321,7 +321,7 @@
   .twrap { overflow:auto; max-height:74vh; border:1px solid #c7cfdb; border-radius:14px; background:#fff; }
   table.tgrid { border-collapse:separate !important; border-spacing:0; width:max-content !important; margin:0 auto; table-layout:auto !important; font-size:0.82rem; }
   table.tgrid td, table.tgrid th { white-space:normal !important; overflow:visible !important; vertical-align:top; }
-  table.tgrid thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; border-right:1px solid rgba(255,255,255,.18); border-bottom:3px solid #f59e0b; min-width:170px !important; width:170px !important; max-width:170px !important; }
+  table.tgrid thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; border-right:1px solid rgba(255,255,255,.18); border-bottom:3px solid #f59e0b; min-width:210px !important; width:210px !important; max-width:210px !important; }
   table.tgrid thead th.tcorner { left:0; z-index:8; min-width:184px !important; width:184px !important; max-width:184px !important; border-right:3px solid #f59e0b; text-align:left; }
   table.tgrid thead th.ttot { min-width:108px !important; width:108px !important; max-width:108px !important; background:#0a2a66; }
   table.tgrid thead th .dn { font-size:0.96rem; } table.tgrid thead th .dd { font-size:0.74rem; opacity:.9; font-weight:600; }
@@ -334,7 +334,7 @@
   .tgrid .dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
   .tgrid .ab { background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:0.6rem; font-weight:800; }
 
-  table.tgrid tbody td { background:var(--bg); border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; padding:6px; min-width:170px !important; width:170px !important; max-width:170px !important; height:1px; }
+  table.tgrid tbody td { background:var(--bg); border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; padding:6px; min-width:210px !important; width:210px !important; max-width:210px !important; height:1px; }
   table.tgrid tbody td.auj { box-shadow: inset 3px 0 0 #f59e0b55; }
   td.thors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
   table.tgrid tbody td.tweek { background:#f8fafc; text-align:center; font-weight:800; color:#0f3a8a; border-left:5px solid var(--col); min-width:108px !important; width:108px !important; max-width:108px !important; font-size:0.92rem; }
@@ -788,11 +788,11 @@ function pl2ChipHTML(sl){
         onfocus="onChantierFocus('${sl.k}')"
         oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
         onblur="onChantierCommit('${sl.k}')">
-      ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
+      <select id="${sl.k}h" class="h" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div class="ligne2">
-      <select id="${sl.k}h" class="h" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
+      ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
     </div>
