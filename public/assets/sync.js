@@ -31,8 +31,8 @@ const SYNC = (() => {
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
 
   const PAGES_LIBRES = ['index.html', '/', ''];
-  const PAGES_PLUS = ['realise.html', 'notes.html'];
-  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html', 'planning-equipe.html'];
+  const PAGES_PLUS = ['realise.html', 'notes.html', 'planning-equipe.html'];
+  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
 
   /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
   const _fetchOriginal = window.fetch.bind(window);
@@ -392,17 +392,8 @@ const SYNC = (() => {
         nav.appendChild(a);
       });
     } else {
-      // Standard : « Vue équipe » (planning seul) insérée juste après « Planning »
-      if (!nav.querySelector('a[href="planning-equipe.html"]')) {
-        const planningLink = nav.querySelector('a[href="planning.html"]');
-        if (planningLink) {
-          const ve = document.createElement('a');
-          ve.href = 'planning-equipe.html';
-          ve.textContent = 'Planning réalisé';
-          if (page === 'planning-equipe.html') ve.classList.add('active');
-          planningLink.insertAdjacentElement('afterend', ve);
-        }
-      }
+      // « Planning réalisé » (planning-equipe.html) est réservé Plus :
+      // non affiché dans la barre Standard (il apparaît en « teasing » Plus dans le menu latéral).
       // BEV accessible aussi (après Rapports)
       if (!nav.querySelector('a[href="bev.html"]')) {
         const a = document.createElement('a');
@@ -437,7 +428,7 @@ const SYNC = (() => {
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
-      { href: 'planning-equipe.html',  label: 'Planning réalisé' },      // les deux licences
+      { href: 'planning-equipe.html',  label: 'Planning réalisé', plus: true },  // Plus (realise = saisies mobiles)
       { href: 'realise.html',          label: 'Suivi de l’activité', plus: true },
       { href: 'saisie.html',           label: 'Saisie mobile',    plus: true }
     ] },
