@@ -361,6 +361,8 @@ const SYNC = (() => {
     if (!nav) return;
     nav.querySelectorAll('.nav-plus').forEach(el => el.remove());
     const page = pageActuelle();
+    const _planLien = nav.querySelector('a[href="planning.html"]');
+    if (_planLien) _planLien.textContent = 'Planning prévu';
     if (_type === 'plus') {
       const rapportsLink = nav.querySelector('a[href="rapports.html"]');
       if (rapportsLink) rapportsLink.remove();
@@ -370,7 +372,7 @@ const SYNC = (() => {
       if (planningLink) {
         const ve = document.createElement('a');
         ve.href = 'planning-equipe.html';
-        ve.textContent = 'Vue équipe';
+        ve.textContent = 'Planning réalisé';
         ve.className = 'nav-plus';
         if (page === 'planning-equipe.html') ve.classList.add('active');
         planningLink.insertAdjacentElement('afterend', ve);
@@ -396,7 +398,7 @@ const SYNC = (() => {
         if (planningLink) {
           const ve = document.createElement('a');
           ve.href = 'planning-equipe.html';
-          ve.textContent = 'Vue équipe';
+          ve.textContent = 'Planning réalisé';
           if (page === 'planning-equipe.html') ve.classList.add('active');
           planningLink.insertAdjacentElement('afterend', ve);
         }
@@ -434,8 +436,8 @@ const SYNC = (() => {
       { href: 'chantiers.html', label: 'Prévisionnel' }
     ] },
     { label: 'Planning', items: [
-      { href: 'planning.html',         label: 'Planning' },
-      { href: 'planning-equipe.html',  label: 'Vue équipe' },            // les deux licences
+      { href: 'planning.html',         label: 'Planning prévu' },
+      { href: 'planning-equipe.html',  label: 'Planning réalisé' },      // les deux licences
       { href: 'realise.html',          label: 'Planning réalisé', plus: true },
       { href: 'saisie.html',           label: 'Saisie mobile',    plus: true }
     ] },
