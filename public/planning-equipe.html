@@ -139,6 +139,26 @@
 </div>
 
 <script src="assets/script.js"></script>
+<!-- Modal : ajouter un chantier / RDV depuis une case (gérant/admin) -->
+<div id="ov-ajout-equipe" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:18px;" onclick="if(event.target===this)fermerAjoutEquipe()">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:340px;overflow:hidden;box-shadow:0 14px 48px rgba(0,0,0,0.35);">
+    <div style="background:#0f3a8a;color:#fff;padding:12px 16px;font-weight:700;">Ajouter un chantier</div>
+    <div style="padding:16px;">
+      <div id="ae-sousTitre" style="font-size:0.8rem;color:#64748b;margin-bottom:12px;"></div>
+      <label style="font-size:0.82rem;color:#374151;">Nom du chantier</label>
+      <input id="ae-chantier" type="text" placeholder="Nom du chantier…" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
+      <label style="font-size:0.82rem;color:#374151;">Heure de RDV (optionnel)</label>
+      <input id="ae-rdv" type="time" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
+      <label style="font-size:0.82rem;color:#374151;">Prévenir avant (mn) — vide = défaut</label>
+      <input id="ae-delai" type="number" min="0" max="1440" step="5" placeholder="Défaut entreprise" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.95rem;">
+      <div style="display:flex;gap:8px;">
+        <button id="ae-valider" onclick="validerAjoutEquipe()" style="flex:1;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Ajouter</button>
+        <button onclick="fermerAjoutEquipe()" style="flex:0 0 auto;background:#eef2f7;border:none;color:#475569;border-radius:8px;padding:10px 14px;cursor:pointer;">Annuler</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script>
@@ -637,7 +657,8 @@ function genererGrille(opts) {
              </th>`;
     sals.forEach(s => {
       const chips = chipsCellule(s, dateStr, heures, real);
-      html += `<td data-cell="${s.id}_${dateStr}">` + (chips.length ? chips.map(htmlChip).join('') : '<div class="vide">—</div>') + '</td>';
+      const btnCell = `<button type="button" class="cell-add" data-sal="${s.id}" data-date="${dateStr}" onclick="ouvrirAjoutEquipe(this)" title="Ajouter un chantier / RDV" style="width:100%;margin-top:5px;background:#eef2f7;color:#475569;border:1px dashed #cbd5e1;border-radius:7px;font-size:0.72rem;font-weight:700;padding:4px;cursor:pointer;">➕ chantier</button>`;
+      html += `<td data-cell="${s.id}_${dateStr}">` + (chips.length ? chips.map(htmlChip).join('') : '<div class="vide">—</div>') + btnCell + '</td>';
     });
     html += '</tr>';
   });
@@ -703,6 +724,100 @@ async function rafraichirVueEquipe(btn) {
 }
 
 /* ── Hauteur de la zone de défilement sous la barre fixe ── */
+/* ── Ajout d'un chantier / RDV depuis une case (gérant/admin) ── */
+let _ajoutEquipe = { salId: null, date: null };
+
+function ouvrirAjoutEquipe(btn) {
+  _ajoutEquipe.salId = btn.getAttribute('data-sal');
+  _ajoutEquipe.date  = btn.getAttribute('data-date');
+  document.getElementById('ae-chantier').value = '';
+  document.getElementById('ae-rdv').value = '';
+  document.getElementById('ae-delai').value = '';
+  const lbl = document.getElementById('ae-sousTitre');
+  if (lbl) {
+    let nom = '';
+    try {
+      const sal = (JSON.parse(localStorage.getItem('salariesdata') || '[]')).find(s => String(s.id) === String(_ajoutEquipe.salId));
+      if (sal) nom = ((sal.prenom || '') + ' ' + (sal.nom || '')).trim();
+    } catch (_) {}
+    lbl.textContent = (nom ? nom + ' — ' : '') + _ajoutEquipe.date;
+  }
+  document.getElementById('ov-ajout-equipe').style.display = 'flex';
+  setTimeout(() => { const i = document.getElementById('ae-chantier'); if (i) i.focus(); }, 50);
+}
+
+function fermerAjoutEquipe() {
+  const ov = document.getElementById('ov-ajout-equipe');
+  if (ov) ov.style.display = 'none';
+}
+
+async function validerAjoutEquipe() {
+  const chantier = (document.getElementById('ae-chantier').value || '').trim();
+  const rdv      = (document.getElementById('ae-rdv').value || '').trim();
+  const delai    = (document.getElementById('ae-delai').value || '').trim();
+  if (!chantier) { alert('Indiquez le nom du chantier.'); return; }
+
+  const btn = document.getElementById('ae-valider');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const body = {
+      salarieId: _ajoutEquipe.salId,
+      date: _ajoutEquipe.date,
+      chantier, rdv, rdvDelai: delai,
+      creerChantier: true
+    };
+    const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    if (codeEmploye) {
+      body.codeEmploye = codeEmploye;
+      try { body.gerantId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+    } else {
+      const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken');
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+    }
+
+    const r = await fetch('/api/saisies/rdv', { method: 'POST', headers, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Ajout impossible.'); return; }
+
+    // Mise à jour locale immédiate du planning, puis re-rendu
+    _insererChantierLocal(_ajoutEquipe.salId, _ajoutEquipe.date, chantier,
+      d.rdv || '', (d.rdvDelai !== '' && d.rdvDelai != null) ? d.rdvDelai : null, d.rdvAuteur || 'gerant');
+    fermerAjoutEquipe();
+    genererGrille({ conserverScroll: true });
+  } catch (e) {
+    alert('Connexion impossible, réessayez.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+  }
+}
+
+function _insererChantierLocal(salId, dateStr, chantier, rdv, rdvDelai, auteur) {
+  let h = {};
+  try { h = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (_) {}
+  const safeDate = dateStr.replace(/-/g, '_');
+  const prefixe = String(salId) + safeDate + 'ch';
+  let cle = null;
+  for (let i = 1; i <= 5; i++) {
+    const k = prefixe + i, e = h[k];
+    if (e && (e.chantier || '').trim().toUpperCase() === chantier.toUpperCase()) { cle = k; break; }
+  }
+  if (!cle) {
+    for (let i = 1; i <= 5; i++) {
+      const k = prefixe + i, e = h[k];
+      if (!e || !((e.chantier || '').trim())) { h[k] = e || { chantier: '', heures: 0 }; h[k].chantier = chantier; cle = k; break; }
+    }
+  }
+  if (!cle) return;
+  if (rdv) {
+    h[cle].rdv = rdv;
+    h[cle].rdvAuteur = auteur || 'gerant';
+    if (rdvDelai != null) h[cle].rdvDelai = rdvDelai; else delete h[cle].rdvDelai;
+  }
+  localStorage.setItem('heuresdata', JSON.stringify(h));
+}
+
 function ajusterHauteur() {
   const bar  = document.getElementById('top-bar');
   const wrap = document.getElementById('grille-wrap');

@@ -133,28 +133,50 @@ router.post("/note-chantier", async (req, res) => {
    pas être modifié par un administratif. */
 router.post("/rdv", async (req, res) => {
   try {
-    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
-    const salarieId = req.body.salarieId;
-    const date      = (req.body.date || "").trim();            // YYYY-MM-DD
-    const chantier  = (req.body.chantier || "").trim();
-    const rdv       = (req.body.rdv || "").trim();             // "HH:MM" ou "" pour effacer
+    const codeEmp     = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId   = req.body.salarieId;                     // salarié CIBLÉ
+    const gerantId    = req.body.gerantId;                      // demandeur (Vue équipe) — optionnel
+    const date        = (req.body.date || "").trim();           // YYYY-MM-DD
+    const chantier    = (req.body.chantier || "").trim();
+    const rdv         = (req.body.rdv || "").trim();            // "HH:MM" ou "" pour effacer
     const rdvDelaiRaw = req.body.rdvDelai;                      // minutes (optionnel) ; "" ou absent = suit le défaut entreprise
+    const creerChantier = req.body.creerChantier === true || req.body.creerChantier === "1";
 
-    if (!codeEmp || !salarieId || !date || !chantier)
+    if (!salarieId || !date || !chantier)
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
     if (rdv && !/^\d{1,2}:\d{2}$/.test(rdv))
       return res.status(400).json({ ok: false, message: "Heure invalide" });
 
     const Donnees = (await import("../models/donnees.js")).default;
     const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
-    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
-    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
-    if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
-    if (!sal.administratif && !sal.gerant)
-      return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
-    const auteur = sal.gerant ? "gerant" : "admin";
+    // ── Résolution de l'entreprise + autorisation du DEMANDEUR ──
+    // Mobile : code employé (+ gerantId si on agit pour un autre salarié, ex. Vue équipe).
+    // Desktop : token de licence (le patron agit en autorité gérant).
+    let doc = null;
+    let auteur = null;   // "gerant" | "admin"
+    if (codeEmp) {
+      doc = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+      if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+      // Demandeur = gerantId si fourni (Vue équipe), sinon le salarié lui-même (compat mobile)
+      const demandeurId = (gerantId != null && gerantId !== "") ? gerantId : salarieId;
+      const dem = (doc.salaries || []).find(s => String(s.id) === String(demandeurId));
+      if (!dem) return res.status(401).json({ ok: false, message: "Demandeur inconnu" });
+      if (!dem.administratif && !dem.gerant)
+        return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+      auteur = dem.gerant ? "gerant" : "admin";
+    } else {
+      const jwt = (await import("jsonwebtoken")).default;
+      let token = req.headers.authorization?.split(" ")[1];
+      if (!token && req.body._token) token = req.body._token;
+      if (!token) return res.status(401).json({ ok: false, message: "Accès refusé : aucun token" });
+      let clientId;
+      try { clientId = jwt.verify(token, process.env.JWT_SECRET).clientId; }
+      catch { return res.status(400).json({ ok: false, message: "Token invalide ou expiré" }); }
+      doc = docs.find(d => d.clientId === clientId);
+      if (!doc) return res.status(403).json({ ok: false, message: "Entreprise introuvable" });
+      auteur = "gerant"; // le patron pose en autorité gérant
+    }
 
     const heures   = doc.heures || {};
     const safeDate = date.replace(/-/g, "_");
@@ -165,10 +187,11 @@ router.post("/rdv", async (req, res) => {
       const e = heures[k];
       if (e && (e.chantier || "").trim().toUpperCase() === chantier.toUpperCase()) { cle = k; break; }
     }
-    // Chantier pas encore dans le planning du jour (ex. chantier AJOUTÉ sur le mobile) :
-    // on crée un créneau libre pour y porter le RDV. Uniquement quand on POSE un RDV.
+    // Créneau inexistant : on le crée si on POSE un RDV, ou si on demande explicitement
+    // la création d'un chantier (creerChantier, ex. depuis la Vue équipe).
     if (!cle) {
-      if (!rdv) return res.json({ ok: true, chantier, rdv: "", rdvAuteur: "", rdvDelai: "" });
+      if (!rdv && !creerChantier)
+        return res.json({ ok: true, chantier, rdv: "", rdvAuteur: "", rdvDelai: "" });
       for (let i = 1; i <= 5; i++) {
         const k = prefixe + i;
         const e = heures[k];
@@ -199,13 +222,15 @@ router.post("/rdv", async (req, res) => {
         if (isNaN(dv)) delete entry.rdvDelai;
         else entry.rdvDelai = Math.max(0, Math.min(1440, dv));
       }
-    } else {
+      delete entry.rdvNotifie;            // RDV modifié → rappel re-déclenchable
+    } else if (!creerChantier) {
+      // Effacement EXPLICITE du RDV (et non un simple ajout de chantier)
       delete entry.rdv;
       delete entry.rdvAuteur;
       delete entry.rdvDelai;
+      delete entry.rdvNotifie;
     }
-    // Toute modification du RDV doit pouvoir redéclencher un rappel
-    delete entry.rdvNotifie;
+    // (creerChantier sans rdv : on n'altère pas un éventuel RDV existant)
     heures[cle] = entry;
 
     await Donnees.updateOne(
