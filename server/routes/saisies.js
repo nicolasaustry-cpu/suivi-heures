@@ -165,7 +165,22 @@ router.post("/rdv", async (req, res) => {
       const e = heures[k];
       if (e && (e.chantier || "").trim().toUpperCase() === chantier.toUpperCase()) { cle = k; break; }
     }
-    if (!cle) return res.status(404).json({ ok: false, message: "Chantier introuvable dans le planning" });
+    // Chantier pas encore dans le planning du jour (ex. chantier AJOUTÉ sur le mobile) :
+    // on crée un créneau libre pour y porter le RDV. Uniquement quand on POSE un RDV.
+    if (!cle) {
+      if (!rdv) return res.json({ ok: true, chantier, rdv: "", rdvAuteur: "", rdvDelai: "" });
+      for (let i = 1; i <= 5; i++) {
+        const k = prefixe + i;
+        const e = heures[k];
+        if (!e || !((e.chantier || "").trim())) {
+          heures[k] = e || { chantier: "", heures: 0 };
+          heures[k].chantier = chantier;
+          cle = k;
+          break;
+        }
+      }
+      if (!cle) return res.status(409).json({ ok: false, message: "Aucun créneau disponible (5 chantiers max ce jour)" });
+    }
 
     const entry = heures[cle];
     // Priorité gérant : un RDV existant "gérant" (ou ancien sans auteur) est verrouillé pour l'admin
