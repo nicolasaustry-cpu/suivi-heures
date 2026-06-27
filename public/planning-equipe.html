@@ -152,11 +152,32 @@
       <label style="font-size:0.82rem;color:#374151;">Prévenir avant (mn) — vide = défaut</label>
       <input id="ae-delai" type="number" min="0" max="1440" step="5" placeholder="Défaut entreprise" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
       <label style="font-size:0.82rem;color:#374151;">Note de chantier (optionnel)</label>
-      <textarea id="ae-note" rows="3" placeholder="Écrire ou dicter (micro du clavier)…" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.95rem;resize:vertical;"></textarea>
+      <button type="button" id="ae-note-btn" onclick="ouvrirNoteAE()" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.92rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📝 Ajouter une note / photos</button>
       <div style="display:flex;gap:8px;">
         <button id="ae-valider" onclick="validerAjoutEquipe()" style="flex:1;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Ajouter</button>
         <button onclick="fermerAjoutEquipe()" style="flex:0 0 auto;background:#eef2f7;border:none;color:#475569;border-radius:8px;padding:10px 14px;cursor:pointer;">Annuler</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Éditeur de note riche (texte + dictée + photos) — Vue équipe -->
+<div id="ov-note-ae" style="display:none;position:fixed;inset:0;z-index:4200;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)fermerNoteAE()">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 14px 48px rgba(0,0,0,0.4);">
+    <div style="background:#0f3a8a;color:#fff;padding:12px 16px;font-weight:700;">📝 Note du chantier</div>
+    <div style="padding:16px;">
+      <div id="nae-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-4px 0 10px;"></div>
+      <textarea id="nae-texte" rows="4" placeholder="Saisir une note, ou dicter…" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;resize:vertical;"></textarea>
+      <div style="font-size:0.74rem;color:#94a3b8;margin:6px 0 10px;">Astuce : le micro du clavier fonctionne aussi.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" id="btn-dicter-nae" onclick="dicterNAE()" style="flex:1;min-width:90px;background:#eef2f7;border:none;color:#334155;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;">🎤 <span id="dicter-label-nae">Dicter</span></button>
+        <button type="button" id="btn-photo-nae" onclick="prendrePhotoNAE()" style="flex:1;min-width:90px;background:#eef2f7;border:none;color:#334155;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;">📷 Photo</button>
+        <button type="button" onclick="validerNoteAE()" style="flex:1;min-width:90px;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:9px;font-weight:700;cursor:pointer;">✔ Valider</button>
+      </div>
+      <div id="nae-cpt" style="text-align:right;font-size:0.72rem;color:#94a3b8;margin-top:8px;">0/3</div>
+      <div id="nae-strip" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
+      <input type="file" id="nae-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="photoChoisieNAE(this)">
+      <button type="button" onclick="fermerNoteAE()" style="width:100%;margin-top:12px;background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:8px;padding:9px;font-weight:600;cursor:pointer;">Annuler</button>
     </div>
   </div>
 </div>
@@ -174,6 +195,7 @@
 let _ancre        = lundiDe(new Date());   // lundi de la semaine affichée
 let _saisies      = [];                     // réalisé chargé depuis le serveur
 let _notesChantiers = {};                   // note générale par chantier (lecture/édition)
+let _notesChantiersPhotos = {};             // photos par chantier (page Notes unifiée)
 const _moisCharges = new Set();             // mois (YYYY-MM) déjà récupérés
 
 const JOURS_NOM = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
@@ -279,6 +301,7 @@ async function chargerRealiseSemaine() {
         if (d.heures)   localStorage.setItem('heuresdata',   JSON.stringify(d.heures));
         if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
         if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
+        if (d.notesChantiersPhotos) localStorage.setItem('notesChantiersPhotosdata', JSON.stringify(d.notesChantiersPhotos));
         _peutReordonner = true;   // contexte gérant mobile : réordonnancement autorisé
         _moisCharges.add(m);
       }
@@ -422,6 +445,8 @@ async function enregistrerOrdreCellule(cle, noms) {
 function chargerNotesChantiers() {
   try { _notesChantiers = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'); }
   catch { _notesChantiers = {}; }
+  try { _notesChantiersPhotos = JSON.parse(localStorage.getItem('notesChantiersPhotosdata') || '{}'); }
+  catch { _notesChantiersPhotos = {}; }
 }
 
 function _peutEditerNote() {
@@ -449,6 +474,7 @@ function afficherNotePopup(nomChantier) {
       + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note de chantier</div>'
       + '<div id="note-popup-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
       + '<div id="note-popup-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;"></div>'
+      + '<div id="note-popup-photos" style="padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:8px;"></div>'
       + '<div id="note-popup-edit" style="padding:0 16px 12px;display:none;">'
       +   '<label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>'
       +   '<textarea id="note-popup-input" rows="3" placeholder="Nouvelle information…" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.92rem;resize:vertical;margin-top:4px;"></textarea>'
@@ -466,6 +492,20 @@ function afficherNotePopup(nomChantier) {
   ov._nom = nomU;
   ov.querySelector('#note-popup-nom').textContent = nom ? ('Chantier : ' + nom) : '';
   ov.querySelector('#note-popup-txt').textContent = note || '(aucune note pour ce chantier)';
+  // Photos rattachées au chantier (page Notes unifiée)
+  const pz = ov.querySelector('#note-popup-photos');
+  if (pz) {
+    const fotos = _notesChantiersPhotos[nomU] || [];
+    pz.innerHTML = '';
+    fotos.forEach(src => {
+      const im = document.createElement('img');
+      im.src = src;
+      im.style.cssText = 'width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;cursor:zoom-in;';
+      im.onclick = () => window.open(src, '_blank');
+      pz.appendChild(im);
+    });
+    pz.style.display = fotos.length ? 'flex' : 'none';
+  }
   ov.querySelector('#note-popup-edit').style.display    = editable ? 'block' : 'none';
   ov.querySelector('#note-popup-ajouter').style.display = editable ? 'inline-block' : 'none';
   const inp = ov.querySelector('#note-popup-input'); if (inp) inp.value = '';
@@ -735,7 +775,10 @@ function ouvrirAjoutEquipe(btn) {
   document.getElementById('ae-chantier').value = '';
   document.getElementById('ae-rdv').value = '';
   document.getElementById('ae-delai').value = '';
-  document.getElementById('ae-note').value = '';
+  _aeNoteTexte = '';
+  _aeNotePhotos = [];
+  _aeNotePhotosCharge = false;
+  _majBoutonNoteAE();
   const lbl = document.getElementById('ae-sousTitre');
   if (lbl) {
     let nom = '';
@@ -788,9 +831,10 @@ async function validerAjoutEquipe() {
     _insererChantierLocal(_ajoutEquipe.salId, _ajoutEquipe.date, chantier,
       d.rdv || '', (d.rdvDelai !== '' && d.rdvDelai != null) ? d.rdvDelai : null, d.rdvAuteur || 'gerant');
 
-    // Note de chantier (optionnelle) → rejoint le système de notes habituel
-    const note = (document.getElementById('ae-note').value || '').trim();
-    if (note) await _enregistrerNoteEquipe(chantier, note);
+    // Note de chantier (optionnelle : texte + photos) → page Notes unifiée
+    if ((_aeNoteTexte && _aeNoteTexte.trim()) || _aeNotePhotos.length) {
+      await _enregistrerNoteEquipe(chantier, _aeNoteTexte, _aeNotePhotos);
+    }
 
     fermerAjoutEquipe();
     genererGrille({ conserverScroll: true });
@@ -801,9 +845,10 @@ async function validerAjoutEquipe() {
   }
 }
 
-async function _enregistrerNoteEquipe(chantier, texte) {
+async function _enregistrerNoteEquipe(chantier, texte, photos) {
   texte = (texte || '').trim();
-  if (!texte) return;
+  photos = Array.isArray(photos) ? photos : [];
+  if (!texte && !photos.length) return;
   const nomU = (chantier || '').trim().toUpperCase();
   try {
     const codeEmploye = localStorage.getItem('saisie_codeEmploye');
@@ -813,22 +858,169 @@ async function _enregistrerNoteEquipe(chantier, texte) {
       try { salarieId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
       const r = await fetch('/api/saisies/note-chantier', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codeEmploye, salarieId, chantier: nomU, texte })
+        body: JSON.stringify({ codeEmploye, salarieId, chantier: nomU, texte, photos })
       });
       d = await r.json();
     } else {
       const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
       const r = await fetch('/api/data/note-chantier', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ chantier: nomU, texte, auteur: 'Gérant' })
+        body: JSON.stringify({ chantier: nomU, texte, photos, auteur: 'Gérant' })
       });
       d = await r.json();
     }
-    if (d && d.ok && d.note != null) {
-      _notesChantiers[nomU] = d.note;
-      localStorage.setItem('notesChantiersdata', JSON.stringify(_notesChantiers));
+    if (d && d.ok) {
+      if (d.note != null) {
+        _notesChantiers[nomU] = d.note;
+        localStorage.setItem('notesChantiersdata', JSON.stringify(_notesChantiers));
+      }
+      if (d.photos != null) {
+        _notesChantiersPhotos[nomU] = d.photos;
+        localStorage.setItem('notesChantiersPhotosdata', JSON.stringify(_notesChantiersPhotos));
+      }
     }
   } catch (_) {}
+}
+
+/* ── Éditeur de note riche (texte + dictée + photos) pour la Vue équipe ── */
+const PHOTOS_MAX_AE = 3;
+let _aeNoteTexte = '';
+let _aeNotePhotos = [];
+let _aeNotePhotosCharge = false;
+let _naeRecognition = null, _naeEnEcoute = false;
+
+function ouvrirNoteAE() {
+  const chantier = (document.getElementById('ae-chantier').value || '').trim();
+  if (!chantier) { alert('Indiquez d\'abord le nom du chantier.'); return; }
+  const nomU = chantier.toUpperCase();
+  if (!_aeNotePhotosCharge) {
+    try { _notesChantiersPhotos = JSON.parse(localStorage.getItem('notesChantiersPhotosdata') || '{}'); } catch (_) {}
+    _aeNotePhotos = (_notesChantiersPhotos[nomU] || []).slice();
+    _aeNotePhotosCharge = true;
+  }
+  document.getElementById('nae-nom').textContent = chantier;
+  document.getElementById('nae-texte').value = _aeNoteTexte || '';
+  rendrePhotosNAE();
+  document.getElementById('ov-note-ae').style.display = 'flex';
+  setTimeout(() => { const t = document.getElementById('nae-texte'); if (t) t.focus(); }, 50);
+}
+
+function fermerNoteAE() {
+  arreterDicteeAE();
+  document.getElementById('ov-note-ae').style.display = 'none';
+}
+
+function validerNoteAE() {
+  _aeNoteTexte = (document.getElementById('nae-texte').value || '').trim();
+  fermerNoteAE();
+  _majBoutonNoteAE();
+}
+
+function _majBoutonNoteAE() {
+  const b = document.getElementById('ae-note-btn');
+  if (!b) return;
+  const nbP = _aeNotePhotos.length;
+  const actif = !!((_aeNoteTexte && _aeNoteTexte.trim()) || nbP);
+  if (actif) {
+    b.textContent = '📝 Note ✓' + (nbP ? ' — ' + nbP + ' photo' + (nbP > 1 ? 's' : '') : '');
+    b.style.background = '#dcfce7'; b.style.color = '#166534';
+  } else {
+    b.textContent = '📝 Ajouter une note / photos';
+    b.style.background = '#eef2f7'; b.style.color = '#475569';
+  }
+}
+
+function arreterDicteeAE() {
+  if (_naeRecognition && _naeEnEcoute) { try { _naeRecognition.stop(); } catch (e) {} }
+  _naeEnEcoute = false;
+  const lbl = document.getElementById('dicter-label-nae');
+  const btn = document.getElementById('btn-dicter-nae');
+  if (lbl) lbl.textContent = 'Dicter';
+  if (btn) btn.style.background = '#eef2f7';
+}
+
+function dicterNAE() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('btn-dicter-nae');
+  const lbl = document.getElementById('dicter-label-nae');
+  if (!SR) { alert('La dictée vocale n\'est pas disponible sur ce navigateur. Utilisez le micro du clavier.'); return; }
+  if (!navigator.onLine) { alert('La dictée vocale a besoin d\'une connexion. Hors ligne, tapez la note (le micro du clavier peut fonctionner).'); return; }
+  if (_naeEnEcoute) { arreterDicteeAE(); return; }
+  _naeRecognition = new SR();
+  _naeRecognition.lang = 'fr-FR';
+  _naeRecognition.interimResults = false;
+  _naeRecognition.onresult = function (e) {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    const ta = document.getElementById('nae-texte');
+    ta.value = (ta.value ? ta.value.trim() + ' ' : '') + t;
+  };
+  _naeRecognition.onend = arreterDicteeAE;
+  _naeRecognition.onerror = function (e) { arreterDicteeAE(); if (e && e.error === 'network') alert('Dictée interrompue : connexion indisponible.'); };
+  try { _naeRecognition.start(); _naeEnEcoute = true; if (lbl) lbl.textContent = 'Écoute…'; if (btn) btn.style.background = '#fde68a'; }
+  catch (e) { arreterDicteeAE(); }
+}
+
+function rendrePhotosNAE() {
+  const strip = document.getElementById('nae-strip');
+  const cpt = document.getElementById('nae-cpt');
+  const btn = document.getElementById('btn-photo-nae');
+  if (!strip || !cpt || !btn) return;
+  strip.innerHTML = '';
+  _aeNotePhotos.forEach((src, i) => {
+    const v = document.createElement('div');
+    v.style.cssText = 'position:relative;width:72px;height:72px;';
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;';
+    const x = document.createElement('button');
+    x.type = 'button'; x.textContent = '✕';
+    x.style.cssText = 'position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#dc2626;color:#fff;font-size:0.7rem;cursor:pointer;line-height:1;';
+    x.onclick = function () { _aeNotePhotos.splice(i, 1); rendrePhotosNAE(); _majBoutonNoteAE(); };
+    v.appendChild(img); v.appendChild(x);
+    strip.appendChild(v);
+  });
+  cpt.textContent = _aeNotePhotos.length + '/' + PHOTOS_MAX_AE;
+  const plein = _aeNotePhotos.length >= PHOTOS_MAX_AE;
+  btn.disabled = plein;
+  btn.style.opacity = plein ? '0.45' : '1';
+}
+
+function prendrePhotoNAE() {
+  if (_aeNotePhotos.length >= PHOTOS_MAX_AE) return;
+  document.getElementById('nae-photo-input').click();
+}
+
+function photoChoisieNAE(input) {
+  const fichier = input.files && input.files[0];
+  input.value = '';
+  if (!fichier) return;
+  compresserPhotoNAE(fichier, function (dataUrl) {
+    if (!dataUrl) { alert('Impossible de lire cette photo.'); return; }
+    if (_aeNotePhotos.length >= PHOTOS_MAX_AE) return;
+    _aeNotePhotos.push(dataUrl);
+    rendrePhotosNAE();
+    _majBoutonNoteAE();
+  });
+}
+
+function compresserPhotoNAE(fichier, cb) {
+  const url = URL.createObjectURL(fichier);
+  const img = new Image();
+  img.onload = function () {
+    try {
+      const MAXC = 1280;
+      let w = img.width, h = img.height;
+      if (w > MAXC || h > MAXC) { const r = Math.min(MAXC / w, MAXC / h); w = Math.round(w * r); h = Math.round(h * r); }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      cb(c.toDataURL('image/jpeg', 0.7));
+    } catch (e) { URL.revokeObjectURL(url); cb(null); }
+  };
+  img.onerror = function () { URL.revokeObjectURL(url); cb(null); };
+  img.src = url;
 }
 
 function _insererChantierLocal(salId, dateStr, chantier, rdv, rdvDelai, auteur) {
