@@ -257,7 +257,7 @@
   .chips { flex:1 1 auto; }
 
   /* Sous-total semaine */
-  tr.sous-total th.jour { background:#0a2a66; }
+  tr.sous-total th.jour { background:#2d5296; }
   tr.sous-total td { background:#f8fafc !important; text-align:center; font-weight:800; color:#0f3a8a; font-size:0.92rem; padding:7px; border-left:5px solid var(--col,#cbd5e1); }
   tr.sous-total td .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
 
@@ -621,11 +621,11 @@ function grilleHeuresPourDate(s, d) {
 
 /* ====== VUE MENSUELLE planning2 — fidèle maquette v5 ====== */
 const PL2_PALETTE = [
-  {fg:'#2563eb', bg:'#eff6ff'}, {fg:'#0d9488', bg:'#ecfdf5'},
-  {fg:'#7c3aed', bg:'#f5f3ff'}, {fg:'#b45309', bg:'#fffbeb'},
-  {fg:'#be123c', bg:'#fff1f2'}, {fg:'#0369a1', bg:'#f0f9ff'},
-  {fg:'#15803d', bg:'#f0fdf4'}, {fg:'#7e22ce', bg:'#faf5ff'},
-  {fg:'#a16207', bg:'#fefce8'}, {fg:'#0e7490', bg:'#ecfeff'},
+  {fg:'#2563eb', bg:'#dbeafe'}, {fg:'#0d9488', bg:'#d1fae5'},
+  {fg:'#7c3aed', bg:'#ede9fe'}, {fg:'#b45309', bg:'#fef3c7'},
+  {fg:'#be123c', bg:'#ffe4e6'}, {fg:'#0369a1', bg:'#e0f2fe'},
+  {fg:'#15803d', bg:'#dcfce7'}, {fg:'#7e22ce', bg:'#f3e8ff'},
+  {fg:'#a16207', bg:'#fef9c3'}, {fg:'#0e7490', bg:'#cffafe'},
 ];
 function pl2Couleur(i){ return PL2_PALETTE[i % PL2_PALETTE.length]; }
 const pl2Fmt = h => (Math.round((parseFloat(h)||0)*100)/100).toString().replace('.',',')+' h';
