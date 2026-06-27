@@ -229,6 +229,168 @@
   /* Aligner en haut le contenu des cellules du planning
      (pour que les noms de chantiers restent alignés quand une note agrandit une cellule) */
   #planning-wrapper table td { vertical-align: top; }
+  /* ============== VUE MENSUELLE planning2 — fidèle maquette v5 ============== */
+  .grille-wrap { overflow:auto; max-height:72vh; border-radius:14px; border:1px solid #c7cfdb; background:#fff; }
+  table.grille { border-collapse:separate !important; border-spacing:0; width:max-content !important; margin:0 auto; table-layout:auto !important; font-size:0.82rem; }
+  table.grille td, table.grille th { white-space:normal !important; overflow:visible !important; }
+
+  /* En-tête figé (nom + TOTAL MOIS) */
+  table.grille thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:1px solid rgba(255,255,255,0.18); border-bottom:3px solid #0a2a66; vertical-align:top; }
+  table.grille thead th.corner { left:0; z-index:8; min-width:96px !important; width:96px !important; max-width:96px !important; border-right:3px solid #f59e0b; }
+  .hd-nom { font-size:0.95rem; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .hd-total { margin-top:6px; background:#fff; border:2px solid var(--col,#fff); border-radius:8px; padding:4px 6px; color:#0f3a8a; font-weight:800; font-size:0.74rem; }
+  .hd-total .sub { display:block; font-size:0.64rem; font-weight:600; color:#64748b; margin-top:1px; }
+  .grille .dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
+  .grille .ab { display:inline-block; background:#fef3c7; color:#92400e; border-radius:4px; padding:0 6px; font-size:0.64rem; font-weight:800; }
+
+  /* Colonne Jour figée */
+  table.grille tbody th.jour { position:sticky; left:0; z-index:4; background:#0f3a8a; color:#fff; font-weight:700; padding:9px 6px; min-width:96px !important; width:96px !important; max-width:96px !important; text-align:center; vertical-align:top; border-right:3px solid #f59e0b; border-bottom:3px solid #94a3b8; }
+  th.jour .jnum { font-size:0.98rem; } th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
+  th.jour .sweek { display:inline-block; margin-top:3px; background:#1e3a8a; color:#cbd5e1; border-radius:4px; font-size:0.6rem; padding:0 4px; font-weight:700; }
+  th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
+
+  table.grille tbody td { vertical-align:top; height:1px; padding:7px; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:2px solid #cbd5e1; border-bottom:3px solid #cbd5e1; }
+  tr.fin-semaine td, tr.fin-semaine th.jour { border-bottom:5px solid #64748b; }
+  td.hors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
+
+  .cellinner { display:flex; flex-direction:column; height:100%; min-height:104px; }
+  .chips { flex:1 1 auto; }
+
+  /* Sous-total semaine */
+  tr.sous-total th.jour { background:#2d5296; }
+  tr.sous-total td { background:#f8fafc !important; text-align:center; font-weight:800; color:#0f3a8a; font-size:0.92rem; padding:7px; border-left:5px solid var(--col,#cbd5e1); }
+  tr.sous-total td .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
+
+  /* Pastille chantier */
+  .grille .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:7px 8px; margin-bottom:7px; background:#fff; display:flex; flex-direction:column; gap:6px; }
+  .grille .chip.vide { display:none; }
+  .grille .chip .ligne1 { display:flex; align-items:center; gap:5px; }
+  .grille .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:5px 7px; font-size:0.8rem; font-weight:700; text-transform:uppercase; }
+  .grille .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
+  .grille .chip .vider { flex:0 0 auto; width:26px; height:28px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; line-height:1; padding:0; }
+  .grille .chip .vider:hover { background:#fee2e2; }
+  .grille .chip .ligne2 { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .grille .chip select.h { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:4px; font-size:0.74rem; font-weight:700; color:#334155; }
+
+  /* RDV / Note en pastilles (boutons du moteur restylés) */
+  .grille .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:4px 8px; font-size:0.72rem; font-weight:700; cursor:pointer; line-height:1.3; }
+  .grille .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
+  .grille .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:4px 8px; font-size:0.72rem; font-weight:700; cursor:pointer; line-height:1.3; position:static; }
+  .grille .btn-note-ch.has-note { background:#e0e7ff; color:#3730a3; }
+  .grille .btn-note-ch.has-note::after { display:none; }
+
+  /* TNA */
+  .grille .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
+  .grille .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
+  .grille .chip.tna .tag { font-size:0.66rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+
+  /* Absence */
+  .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:9px; text-align:center; font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:7px; }
+  .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:3px; font-weight:700; font-size:0.72rem; }
+  .abs-day .x { border:none; background:#fca5a5; color:#7f1d1d; border-radius:50%; width:18px; height:18px; font-size:0.62rem; cursor:pointer; line-height:1; padding:0; }
+
+  /* Actions + pied */
+  .cell-actions { display:flex; gap:6px; margin-top:6px; }
+  .cell-add { flex:1 1 auto; background:#eef2f7; color:#475569; border:1px dashed #cbd5e1; border-radius:8px; font-size:0.74rem; font-weight:700; padding:6px; cursor:pointer; }
+  .cell-add:hover { border-color:var(--col); color:var(--col); }
+  .btn-abs { flex:0 0 auto; background:#fff; color:#b91c1c; border:1px dashed #fca5a5; border-radius:8px; font-size:0.72rem; font-weight:700; padding:6px 8px; cursor:pointer; }
+  .btn-abs:hover { background:#fef2f2; }
+  .cell-foot { margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:0.7rem; color:#475569; display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
+  .cell-foot b { color:#0f172a; } .grille .ecart.pos { color:#16a34a; font-weight:800; } .grille .ecart.neg { color:#dc2626; font-weight:800; }
+  .cell-foot .tna-h { color:#dc2626; font-weight:800; }
+  /* ===== Barre d'outils façon v5 ===== */
+  .fixed-tools .pl2-toolbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .pl2-ptitle { font-size:1.35rem; font-weight:800; color:#0f3a8a; margin:0; letter-spacing:-0.5px; }
+  .pl2-wknav { display:flex; align-items:center; gap:8px; }
+  .pl2-wkbtn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; font-weight:700; border-radius:9px; padding:5px 12px; cursor:pointer; font-size:1.05rem; line-height:1; }
+  .pl2-wkbtn:hover { background:#eff6ff; }
+  .pl2-wklabel { font-weight:800; color:#0f3a8a; min-width:140px; text-align:center; font-size:1rem; }
+  .pl2-spacer { flex:1 1 auto; }
+  .pl2-toolbtn { display:inline-flex; align-items:center; gap:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:9px; padding:8px 12px; cursor:pointer; font-size:0.85rem; font-weight:700; }
+  .pl2-toolbtn:hover { border-color:#0f3a8a; color:#0f3a8a; }
+  .pl2-jaugebox { display:flex; align-items:center; gap:6px; }
+  .pl2-obj { font-size:0.74rem; color:#64748b; line-height:1.2; } .pl2-obj b { display:block; color:#0f172a; font-size:0.86rem; }
+  .pl2-printwrap { display:inline-flex; gap:6px; align-items:center; }
+  .pl2-printsel { border:1px solid #cbd5e1; border-radius:9px; padding:8px; font-size:0.82rem; font-weight:600; color:#334155; background:#fff; }
+  /* Absence semaine */
+  .cell-actions { flex-wrap:wrap; }
+  .btn-abs { padding:6px 7px; }
+  .abs-day .absweek { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 7px; font-size:0.66rem; font-weight:800; cursor:pointer; }
+  .abs-day .absweek:hover { background:#fee2e2; }
+  /* ============== VUE HEBDOMADAIRE TRANSPOSÉE (planning3) ============== */
+  .twrap { overflow:auto; max-height:74vh; border:1px solid #c7cfdb; border-radius:14px; background:#fff; }
+  table.tgrid { border-collapse:separate !important; border-spacing:0; width:max-content !important; margin:0 auto; table-layout:auto !important; font-size:0.82rem; }
+  table.tgrid td, table.tgrid th { white-space:normal !important; overflow:visible !important; vertical-align:top; }
+  table.tgrid thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; border-right:1px solid rgba(255,255,255,.18); border-bottom:3px solid #f59e0b; min-width:210px !important; width:210px !important; max-width:210px !important; }
+  table.tgrid thead th.tcorner { left:0; z-index:8; min-width:184px !important; width:184px !important; max-width:184px !important; border-right:3px solid #f59e0b; text-align:left; }
+  table.tgrid thead th.ttot { min-width:108px !important; width:108px !important; max-width:108px !important; background:#0a2a66; }
+  table.tgrid thead th .dn { font-size:0.96rem; } table.tgrid thead th .dd { font-size:0.74rem; opacity:.9; font-weight:600; }
+  table.tgrid thead th.auj { background:#15357a; box-shadow:inset 0 -4px 0 #f59e0b; }
+
+  table.tgrid tbody th.tsal { position:sticky; left:0; z-index:4; text-align:left; padding:9px 10px; border-right:3px solid var(--col); border-bottom:3px solid #cbd5e1; background:var(--bg); min-width:184px !important; width:184px !important; max-width:184px !important; }
+  .tsal .snom { font-weight:800; color:var(--col); display:flex; align-items:center; gap:6px; font-size:0.92rem; }
+  .tsal .stot { display:inline-block; margin-top:6px; background:#fff; border:1px solid var(--col); border-radius:9px; padding:2px 8px; font-size:0.72rem; font-weight:800; color:#0f172a; }
+  .tsal .stot .sub { display:block; font-size:0.62rem; font-weight:600; color:#64748b; }
+  .tgrid .dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
+  .tgrid .ab { background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:0.6rem; font-weight:800; }
+
+  table.tgrid tbody td { background:var(--bg); border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; padding:6px; min-width:210px !important; width:210px !important; max-width:210px !important; height:1px; }
+  table.tgrid tbody td.auj { box-shadow: inset 3px 0 0 #f59e0b55; }
+  td.thors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
+  table.tgrid tbody td.tweek { background:#f8fafc; text-align:center; font-weight:800; color:#0f3a8a; border-left:5px solid var(--col); min-width:108px !important; width:108px !important; max-width:108px !important; font-size:0.92rem; }
+  .tweek .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
+
+  .tgrid .cellinner { display:flex; flex-direction:column; height:100%; min-height:88px; }
+  .tgrid .chips { flex:1 1 auto; }
+  .tgrid .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:5px 6px; margin-bottom:6px; background:#fff; display:flex; flex-direction:column; gap:5px; }
+  .tgrid .chip.vide { display:none; }
+  .tgrid .chip .ligne1 { display:flex; align-items:center; gap:5px; }
+  .tgrid .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:4px 6px; font-size:0.73rem; font-weight:700; text-transform:uppercase; }
+  .tgrid .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
+  .tgrid .chip .vider { flex:0 0 auto; width:23px; height:26px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; padding:0; }
+  .tgrid .chip .ligne2 { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .tgrid .chip select.h { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:3px 4px; font-size:0.72rem; font-weight:700; color:#334155; }
+  .tgrid .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; }
+  .tgrid .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
+  .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
+  .tgrid .btn-note-ch.has-note { background:#fef3c7; color:#b45309; }
+  .tgrid .btn-note-ch.has-note::after { content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:#f59e0b; border:1px solid #fff; }
+  .tgrid .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
+  .tgrid .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
+  .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+
+  .tgrid .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:8px; text-align:center; font-weight:800; font-size:0.76rem; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
+  .tgrid .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px; font-weight:700; font-size:0.7rem; }
+  .tgrid .abs-day .absweek { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 6px; font-size:0.64rem; font-weight:800; cursor:pointer; }
+  .tgrid .abs-day .x { border:none; background:#fca5a5; color:#7f1d1d; border-radius:50%; width:17px; height:17px; font-size:0.6rem; cursor:pointer; padding:0; }
+
+  .tgrid .cell-actions { display:flex; gap:5px; margin-top:4px; flex-wrap:wrap; }
+  .tgrid .cell-add { flex:1 1 auto; background:#eef2f7; color:#475569; border:1px dashed #cbd5e1; border-radius:8px; font-size:0.68rem; font-weight:700; padding:5px; cursor:pointer; }
+  .tgrid .btn-abs { background:#fff; color:#b91c1c; border:1px dashed #fca5a5; border-radius:8px; font-size:0.66rem; font-weight:700; padding:5px 6px; cursor:pointer; }
+  .tgrid .cell-foot { margin-top:5px; padding-top:5px; border-top:1px dashed #cbd5e1; font-size:0.66rem; color:#475569; display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
+  .tgrid .cell-foot b { color:#0f172a; } .tgrid .ecart.pos { color:#16a34a; font-weight:800; } .tgrid .ecart.neg { color:#dc2626; font-weight:800; }
+  .tgrid .abs-day .abs-motif { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 4px; font-weight:700; font-size:0.66rem; max-width:100%; }
+  @media print {
+    @page { size:A4 landscape; margin:8mm; }
+    body { background:#fff !important; padding:0 !important; }
+    .pl2-toolbar, .no-print { display:none !important; }
+    .twrap { overflow:visible !important; max-height:none !important; border:none !important; }
+    table.tgrid { width:100% !important; font-size:8pt; margin:0; }
+    table.tgrid thead th, table.tgrid tbody th.tsal { position:static !important; }
+    table.tgrid thead th.ttot, table.tgrid tbody td.tweek { display:none !important; }
+    table.tgrid thead th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    table.tgrid tbody td, table.tgrid tbody th.tsal, .tgrid .chip { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .tgrid .chip input.nm, .tgrid .chip select.h, .tgrid .abs-day .abs-motif, .tgrid .abs-day select { border:none !important; background:transparent !important; -webkit-appearance:none; appearance:none; padding:0 2px !important; color:#0f172a; }
+    .tgrid .chip, table.tgrid tbody tr { break-inside:avoid; }
+  }
+  /* ===== Vue MOIS vertical : semaines empilées ===== */
+  .wtitle{font-weight:800;color:#0a2a66;background:#e8eefb;border-left:5px solid #0f3a8a;border-radius:8px;padding:6px 12px;margin:16px 0 6px;font-size:0.85rem;}
+  .wtitle:first-of-type{margin-top:4px;}
+  .twrap{overflow-x:auto;overflow-y:visible;max-height:none;margin-bottom:2px;}
+  table.tgrid thead th{position:static;}
+  table.tgrid thead th.tcorner{position:sticky;left:0;z-index:8;}
+  table.tgrid tbody th.tsal{position:sticky;left:0;z-index:4;}
+  table.tgrid thead th.thhors .dn, table.tgrid thead th.thhors .dd{opacity:.45;}
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -262,61 +424,18 @@
   </div>
 
   <div class="fixed-tools no-print">
-    <div style="display:flex;align-items:flex-end;gap:0.8rem;flex-wrap:nowrap;">
-
-      <!-- Mois -->
-      <div>
-        <label>Mois :</label><br>
-        <input type="month" id="moisPlanning">
+    <div class="pl2-toolbar">
+      <h1 class="pl2-ptitle">Planning</h1>
+      <div class="pl2-wknav">
+        <button type="button" class="pl2-wkbtn" title="Mois précédent" onclick="pl2ChangerMois(-1)">&lsaquo;</button>
+        <span class="pl2-wklabel" id="pl2-moislabel">—</span>
+        <button type="button" class="pl2-wkbtn" title="Mois suivant" onclick="pl2ChangerMois(1)">&rsaquo;</button>
+        <button type="button" class="pl2-wkbtn" title="Mois courant" onclick="pl3MoisCourant()" style="font-size:0.8rem;">Auj.</button>
       </div>
-
-      <!-- Filtre salariés -->
-      <div>
-        <label>Salariés :</label><br>
-        <div class="filtre-btn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;display:inline-block;min-width:140px;user-select:none;">Tous ▼</div>
-      </div>
-
-      <!-- Semaine à imprimer -->
-      <div>
-        <label>Semaine à imprimer :</label><br>
-        <select id="semaineSelect"></select>
-      </div>
-
-      <!-- Chantiers à imprimer -->
-      <div>
-        <label>Chantiers à imprimer :</label><br>
-        <div class="filtre-container" style="position:relative;display:inline-block;">
-          <div id="btn-print-ch" onclick="togglePrintChDropdown()"
-               style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.85rem;min-width:120px;user-select:none;">
-            Tous ▼
-          </div>
-          <div id="dropdown-print-ch"
-               style="display:none;position:absolute;top:110%;left:0;z-index:200;background:#fff;border:1px solid #ccc;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);min-width:140px;padding:4px 0;">
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;border-bottom:1px solid #eee;font-weight:600;">
-              <input type="checkbox" id="print-ch-tous" checked onchange="cocherTousPrintCh(this.checked)">
-              (Tous)
-            </label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="1" checked onchange="majBtnPrintCh()"> Ch 1</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="2" checked onchange="majBtnPrintCh()"> Ch 2</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="3" checked onchange="majBtnPrintCh()"> Ch 3</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="4" checked onchange="majBtnPrintCh()"> Ch 4</label>
-            <label style="display:flex;align-items:center;gap:6px;padding:4px 10px;font-size:0.85rem;cursor:pointer;"><input type="checkbox" class="print-ch-cb" data-ch="5" checked onchange="majBtnPrintCh()"> Ch 5</label>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <button class="btn-warning" onclick="imprimerSemaine()">🖨 Imprimer</button>
-      </div>
-
-      <!-- Espaceur -->
-      <div style="flex:1;"></div>
-
-      <!-- Jauge circulaire compacte : 1/4 droite -->
-      <div style="flex:0 0 25%;min-width:280px;display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;align-self:stretch;">
-
-        <!-- Arc gauge -->
-        <svg viewBox="0 0 100 65" width="150" height="98" style="flex-shrink:0;">
+      <div class="pl2-spacer"></div>
+      <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
+      <div class="pl2-jaugebox">
+        <svg viewBox="0 0 100 65" width="116" height="76" style="flex-shrink:0;">
           <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-rouge"  d="" fill="none" stroke="#dc2626" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
@@ -324,23 +443,20 @@
           <text id="pourcentage" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
           <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
         </svg>
-
-        <!-- Lignes de totaux à droite (sans Absence) -->
-        <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;font-size:0.8rem;">
-          <div style="display:flex;justify-content:space-between;padding:4px 9px;background:#f8fafc;border-radius:4px;">
-            <span style="color:#64748b;font-weight:600;">Planifié</span>
-            <span id="tot-total" style="font-weight:700;color:#0f172a;">0 h</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:4px 9px;background:#f8fafc;border-radius:4px;">
-            <span style="color:#64748b;font-weight:600;">Contrat</span>
-            <span id="tot-prev" style="font-weight:700;color:#0f172a;">0 h</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:4px 9px;border-radius:4px;" id="ligne-ecart">
-            <span style="font-weight:600;">Écart</span>
-            <span id="tot-ecart" style="font-weight:700;">0 h</span>
-          </div>
-        </div>
-
+        <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif mois</span><b id="pl2-obj">—</b></div>
+      </div>
+      <div class="pl2-printwrap">
+        <button type="button" class="pl2-toolbtn" onclick="window.print()">🖨 Imprimer</button>
+        <select id="semaineSelect" class="pl2-printsel" style="display:none"></select>
+      </div>
+      <input type="month" id="moisPlanning" style="display:none">
+      <span id="tot-total" style="display:none"></span><span id="tot-prev" style="display:none"></span>
+      <span id="ligne-ecart" style="display:none"><span id="tot-ecart"></span></span>
+      <div id="dropdown-print-ch" style="display:none">
+        <input type="checkbox" id="print-ch-tous" checked>
+        <input type="checkbox" class="print-ch-cb" data-ch="1" checked><input type="checkbox" class="print-ch-cb" data-ch="2" checked>
+        <input type="checkbox" class="print-ch-cb" data-ch="3" checked><input type="checkbox" class="print-ch-cb" data-ch="4" checked>
+        <input type="checkbox" class="print-ch-cb" data-ch="5" checked>
       </div>
     </div>
   </div>
@@ -578,189 +694,266 @@ function grilleHeuresPourDate(s, d) {
   return s.heuresParJour || {};
 }
 
-function genererPlanning() {
+/* ====== VUE MENSUELLE planning2 — fidèle maquette v5 ====== */
+const PL2_PALETTE = [
+  {fg:'#2563eb', bg:'#dbeafe'}, {fg:'#0d9488', bg:'#d1fae5'},
+  {fg:'#7c3aed', bg:'#ede9fe'}, {fg:'#b45309', bg:'#fef3c7'},
+  {fg:'#be123c', bg:'#ffe4e6'}, {fg:'#0369a1', bg:'#e0f2fe'},
+  {fg:'#15803d', bg:'#dcfce7'}, {fg:'#7e22ce', bg:'#f3e8ff'},
+  {fg:'#a16207', bg:'#fef9c3'}, {fg:'#0e7490', bg:'#cffafe'},
+];
+function pl2Couleur(i){ return PL2_PALETTE[i % PL2_PALETTE.length]; }
+const pl2Fmt = h => (Math.round((parseFloat(h)||0)*100)/100).toString().replace('.',',')+' h';
+const pl2Sgn = e => e>0 ? ('+'+(Math.round(e*100)/100)).replace('.',',') : (Math.round(e*100)/100).toString().replace('.',',');
+const pl2EcartCls = e => e>0?'ecart pos':e<0?'ecart neg':'ecart';
+
+function pl2NumSemaine(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const j=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-j+3);
+  const p=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  return 1+Math.round(((t-p)/86400000-3+((p.getUTCDay()+6)%7))/7);
+}
+
+function pl2AjouterChantier(btn){
+  const cell = btn.closest('td');
+  if(!cell) return;
+  const vide = cell.querySelector('.chip.vide');
+  if(!vide){ btn.style.display='none'; return; }
+  vide.classList.remove('vide');
+  const inp = vide.querySelector('input[id$="chantier"]');
+  if(inp) inp.focus();
+  if(!cell.querySelector('.chip.vide')) btn.style.display='none';
+}
+function pl2ViderPave(btn, k){
+  viderChantier(k);
+  const chip = btn.closest('.chip');
+  const e = heures[k];
+  if (chip){
+    if (!e || !(e.chantier||'').trim()) { chip.classList.remove('tna'); chip.classList.add('vide'); }
+    else if ((e.chantier||'').toUpperCase()===TNA){ chip.classList.remove('vide'); chip.classList.add('tna'); }
+  }
+  const cell = btn.closest('td');
+  if (cell){ const add = cell.querySelector('.cell-add'); if (add) add.style.display=''; }
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if (mm){ majTotalLigne(mm[1], mm[2].replace(/_/g,'-')); }
+  majCouleursChantiers(); majTotauxGlobaux();
+}
+
+const PL2_MOTIFS = ['Congé','Maladie','RTT','Congé sans solde','Formation','Intempéries','Autre'];
+function pl2MotifOptions(sel){
+  let o='<option value="">— Motif ? —</option>';
+  PL2_MOTIFS.forEach(m=>{ o+=`<option ${m===sel?'selected':''}>${m}</option>`; });
+  return o;
+}
+function pl2SaveMotif(absK,val){
+  if(!heures[absK]) heures[absK]={chantier:'absence',heures:0};
+  heures[absK].motif=val;
+  localStorage.setItem('heuresdata',JSON.stringify(heures));
+}
+function pl3MajSemaine(){
+  document.querySelectorAll('table.tgrid tbody tr').forEach(tr=>{
+    const tw=tr.querySelector('.tweek'); if(!tw) return;
+    let wT=0,wC=0;
+    tr.querySelectorAll('td[data-salarie][data-date]').forEach(td=>{
+      wT += parseFloat(td.querySelector('.cell-total')?.textContent)||0;
+      const s=salaries.find(x=>String(x.id)===String(td.dataset.salarie)); if(!s) return;
+      const d=new Date(td.dataset.date+'T00:00:00');
+      const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+      wC += (grilleHeuresPourDate(s,d))[cle]||0;
+    });
+    const ecW=wT-wC;
+    tw.innerHTML = `${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span>`;
+  });
+}
+
+function pl2PoserAbsence(absK, prevu){
+  const h = (parseFloat(prevu)||0) > 0 ? prevu : 7;
+  saveHeure(absK,'absence',h);
+  onLigneRecalc(absK);
+  genererPlanning();
+}
+function pl2RetirerAbsence(absK){
+  saveHeure(absK,'absence',0);
+  onLigneRecalc(absK);
+  genererPlanning();
+}
+
+function pl2MajMoisLabel(){
+  const v=document.getElementById('moisPlanning').value;
+  const el=document.getElementById('pl2-moislabel');
+  if(el && v){ const d=new Date(v+'-01'); let t=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); el.textContent=t.charAt(0).toUpperCase()+t.slice(1); }
+}
+function pl3MoisCourant(){
+  const n=new Date(); document.getElementById('moisPlanning').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+  chargerSemaines(); initFiltre(); genererPlanning(); majMoisImpression(); pl2MajMoisLabel();
+}
+function pl2ChangerMois(delta){
+  const mois=document.getElementById('moisPlanning');
+  if(!mois || !mois.value) return;
+  const [a,m]=mois.value.split('-').map(Number);
+  const d=new Date(a, m-1+delta, 1);
+  mois.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  chargerSemaines(); initFiltre(); genererPlanning(); majMoisImpression(); pl2MajMoisLabel();
+}
+function pl2SemaineDates(salarieId, dateStr){
+  const s=salaries.find(x=>String(x.id)===String(salarieId)); if(!s) return null;
+  const d=new Date(dateStr+'T00:00:00');
+  const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
+  const [a,m]=document.getElementById('moisPlanning').value.split('-').map(Number);
+  const entree=new Date(s.dateEntree); const sortie=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
+  const out=[];
+  for(let i=0;i<6;i++){
+    const dd=new Date(lun); dd.setDate(lun.getDate()+i);
+    if(dd.getMonth()!==m-1) continue;
+    if(dd<entree || (sortie&&dd>sortie)) continue;
+    out.push(dd);
+  }
+  return {s,out};
+}
+function pl2PoserAbsenceSemaine(salarieId, dateStr){
+  const r=pl2SemaineDates(salarieId,dateStr); if(!r) return;
+  r.out.forEach(dd=>{
+    const cle=['dim','lun','mar','mer','jeu','ven','sam'][dd.getDay()];
+    const prevu=(grilleHeuresPourDate(r.s,dd))[cle]||0;
+    if(prevu<=0) return;
+    const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
+    const absK=`${r.s.id}${safe}abs`;
+    saveHeure(absK,'absence',prevu); onLigneRecalc(absK);
+  });
+  genererPlanning();
+}
+function pl2RetirerAbsenceSemaine(salarieId, dateStr){
+  const r=pl2SemaineDates(salarieId,dateStr); if(!r) return;
+  r.out.forEach(dd=>{
+    const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
+    const absK=`${r.s.id}${safe}abs`;
+    saveHeure(absK,'absence',0); onLigneRecalc(absK);
+  });
+  genererPlanning();
+}
+
+/* Pastille chantier (façon v5), câblée au moteur. */
+function pl2ChipHTML(sl){
+  const data=sl.data;
+  const nom=(data.chantier||'').trim();
+  const estTNA=nom.toUpperCase()===TNA;
+  const noteG=_notesChantiers[nom.toUpperCase()]||'';
+  const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
+  return `<div class="${cls}" data-k="${sl.k}">
+    <div class="ligne1">
+      <input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
+        onfocus="onChantierFocus('${sl.k}')"
+        oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
+        onblur="onChantierCommit('${sl.k}')">
+      <select id="${sl.k}h" class="h" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
+      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
+    </div>
+    <div class="ligne2">
+      ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
+      <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
+    </div>
+  </div>`;
+}
+
+function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
+  const cont = document.getElementById('planning-wrapper');
+  const moisInput = document.getElementById('moisPlanning');
+  if(!moisInput.value){ const n=new Date(); moisInput.value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
+  const [anMois,moMois]=moisInput.value.split('-').map(Number);
+  const moIdx=moMois-1;
 
-  const cont    = document.getElementById('planning-wrapper');
-  const moisSel = document.getElementById('moisPlanning').value;
-  if (!moisSel) {
-    cont.innerHTML = "<p style='padding:1rem;color:#6b7280;'>Choisissez un mois pour afficher le planning.</p>";
-    return;
-  }
+  const lab=document.getElementById('pl2-moislabel');
+  if(lab){ const dl=new Date(anMois,moIdx,1); let t=dl.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); lab.textContent=t.charAt(0).toUpperCase()+t.slice(1); }
 
-  const idsAffiches    = salariesCoches.size === 0 ? new Set(salaries.map(s => s.id)) : salariesCoches;
-  const salariesAffiches = salaries.filter(s => idsAffiches.has(s.id));
-
-  const [a, m] = moisSel.split('-');
-  const debut  = new Date(+a, +m - 1, 1);
-  const fin    = new Date(+a, +m, 0);
-  const jours  = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-
-  // Pré-calculer les dates d'entrée/sortie une fois
-  const salsAvecDates = salariesAffiches.map(s => ({
-    s,
-    entree: new Date(s.dateEntree),
-    sortie: s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null
+  const idsAffiches = salariesCoches.size===0 ? new Set(salaries.map(s=>s.id)) : salariesCoches;
+  const sals = salaries.filter(s=>idsAffiches.has(s.id)).map((s,idx)=>({
+    s, idx, coul: pl2Couleur(idx),
+    entree:new Date(s.dateEntree), sortie:s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null
   }));
 
-  // Date du jour (format YYYY-MM-DD) pour mettre en évidence son bandeau
-  const _ajd = new Date();
-  const _aujStr = `${_ajd.getFullYear()}-${String(_ajd.getMonth()+1).padStart(2,'0')}-${String(_ajd.getDate()).padStart(2,'0')}`;
+  const JNOM=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const _a=new Date(); const aujStr=`${_a.getFullYear()}-${String(_a.getMonth()+1).padStart(2,'0')}-${String(_a.getDate()).padStart(2,'0')}`;
+  const ds=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const f2=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 
-  let htmlTotal = '';         // accumuler tout le HTML
-  const joursData = [];       // pour remplir prévu/écart après injection
-
-  for (let d = new Date(debut); d <= fin; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() === 0) continue; // pas de dimanche
-
-    const jourNom = jours[d.getDay()];
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const safeDate = dateStr.replace(/-/g, '_');
-
-    // Bandeau bleu soutenu pour la date du jour, bleu clair pour les autres jours
-    const estAujourdhui = (dateStr === _aujStr);
-    const fondJour = estAujourdhui ? '#93c5fd' : '#dbeafe';
-
-    let htmlJour = `<div class="jour-block" data-date="${dateStr}">`;
-    htmlJour += `<h3 style="background:${fondJour};padding:0.3rem 0.6rem;margin:0.3rem 0 0 0;border-radius:4px;">${jourNom} ${d.toLocaleDateString('fr-FR')}</h3>`;
-    htmlJour += `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:0.3rem;">
-      <thead><tr style="background:#e2e8f0;">
-        <th style="border:1px solid #ccc;width:128px;">Salariés</th>
-        <th style="border:1px solid #ccc;width:224px;">Ch 1</th>
-        <th style="border:1px solid #ccc;width:224px;">Ch 2</th>
-        <th style="border:1px solid #ccc;width:224px;">Ch 3</th>
-        <th style="border:1px solid #ccc;width:224px;">Ch 4</th>
-        <th style="border:1px solid #ccc;width:224px;">Ch 5</th>
-        <th style="border:1px solid #ccc;width:46px;">Total</th>
-        <th class="col-abs"   style="border:1px solid #ccc;width:46px;">Abs.</th>
-        <th class="col-prevu" style="border:1px solid #ccc;width:46px;">Contrat</th>
-        <th class="col-ecart" style="border:1px solid #ccc;width:46px;">Écart</th>
-      </tr></thead><tbody>`;
-
-    let lignes = '';
-    let totalJour = 0;
-    const lignesData = []; // { prevu, ec } par salarié, pour remplir prevu/ecart après
-    let salIdx = 0;        // compteur de salariés affichés ce jour (pour l'alternance de couleur)
-
-    salsAvecDates.forEach(({ s, entree: e, sortie: srt }) => {
-      if (d < e || (srt && d > srt)) return;
-      const zebra = (salIdx % 2 === 0) ? '#ffffff' : '#eef1f4';  // couleur alternée par salarié
-      salIdx++;
-
-      const hp    = grilleHeuresPourDate(s, d);
-      const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
-      const prevu = hp[cle] || 0;
-
-      let total = 0;
-      const badgeAB = s.alternance
-        ? ` <span style="display:inline-block;background:${semaineAB(s,d)==='A'?'#dbeafe':'#fef3c7'};color:${semaineAB(s,d)==='A'?'#1e40af':'#92400e'};border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;" title="Semaine ${semaineAB(s,d)}">${semaineAB(s,d)}</span>`
-        : '';
-      const sav = !!s.sav;
-      const rs  = sav ? ' rowspan="2"' : '';
-
-      // Construit une cellule chantier (index i) et cumule le total de la ligne
-      const celluleCh = (i) => {
-        const k    = `${s.id}${safeDate}ch${i}`;
-        const data = heures[k] || { chantier: '', heures: 0 };
-        const noteG = _notesChantiers[(data.chantier || '').toUpperCase()] || '';
-        if ((data.chantier || '').trim().toUpperCase() !== TNA) total += parseFloat(data.heures) || 0;
-        return `<td style="border:1px solid #ccc;padding:2px;">
-          <div style="display:flex;align-items:center;gap:2px;">
-            <input id="${k}chantier" value="${data.chantier}" placeholder="Chantier" style="flex:1 1 auto;min-width:0;width:auto;text-transform:uppercase;"
-              list="liste-chantiers-prev" autocomplete="off"
-              onfocus="onChantierFocus('${k}')"
-              oninput="saveHeure('${k}',this.value.toUpperCase(),document.getElementById('${k}h').value)"
-              onblur="onChantierCommit('${k}')">
-            <button type="button" class="btn-vider-ch no-print" title="Vider ce chantier" aria-label="Vider ce chantier"
-              onclick="viderChantier('${k}')"
-              style="width:22px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;color:#dc2626;border-radius:4px;cursor:pointer;font-weight:700;line-height:1;flex:0 0 auto;">✕</button>
-            <select id="${k}h" style="width:54px;flex:0 0 auto;"
-              onchange="saveHeure('${k}',document.getElementById('${k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${k}')">
-              ${genOptionsHeures(data.heures)}
-            </select>
-            <button type="button" class="btn-note-ch no-print${noteG ? ' has-note' : ''}" id="${k}note-btn"
-              title="Note de chantier" aria-label="Note de chantier"
-              onclick="ouvrirNoteChantier('${k}')">🗒</button>
-            <button type="button" class="btn-rdv-ch no-print${data.rdv ? ' has-rdv' : ''}" id="${k}rdv-btn"
-              title="${data.rdv ? 'RDV à ' + data.rdv : 'Heure de RDV (alerte salarié)'}"
-              onclick="ouvrirRdv('${k}')">${data.rdv ? data.rdv : '🕐'}</button>
-          </div>
-          <div class="note-print" id="${k}note-print">${noteG ? '📝 ' + escapeHtml(noteG) : ''}</div>
-          <div class="rdv-print" id="${k}rdv-print">${data.rdv ? '🕐 ' + escapeHtml(data.rdv) : ''}</div>
-        </td>`;
-      };
-
-      // Ligne 1 : ch1..5 ; pour les SAV, ligne 2 : ch6..10 (cumulés AVANT le total)
-      let cells1 = '';
-      for (let i = 1; i <= 5; i++) cells1 += celluleCh(i);
-      let cells2 = '';
-      if (sav) for (let i = 6; i <= 10; i++) cells2 += celluleCh(i);
-
-      const absK = `${s.id}${safeDate}abs`;
-      const abs  = heures[absK]?.heures || 0;
-      const ec   = total - prevu + abs;
-      totalJour += total;
-
-      const badgeSav = sav
-        ? ' <span title="Entretien/Dépannage/SAV (2ᵉ ligne de chantiers)" style="background:#fef3c7;color:#92400e;border-radius:4px;padding:0 4px;font-size:0.68rem;font-weight:700;">🛠</span>'
-        : '';
-
-      // Ligne 1 : nom + ch1..5 + Total/Abs/Prévu/Écart (en rowspan=2 si SAV)
-      let row = `<tr data-salarie="${s.id}" data-date="${dateStr}" style="background:${zebra};">
-        <td style="font-weight:bold;border:1px solid #ccc;${sav ? 'border-bottom:none;' : ''}padding:3px 5px;vertical-align:top;font-size:0.9rem;">${s.prenom} ${s.nom}${badgeAB}${badgeSav}</td>
-        ${cells1}
-        <td class="cell-total"${rs} style="border:1px solid #ccc;text-align:center;">${total.toFixed(1)}</td>
-        <td class="cell-abs col-abs"${rs} style="border:1px solid #ccc;text-align:center;">
-          <select data-type="abs" id="${absK}h" style="width:55px;"
-            onchange="saveHeure('${absK}','absence',this.value);onLigneRecalc('${absK}')">
-            ${genOptionsHeures(abs)}
-          </select>
-        </td>
-        <td class="cell-prevu col-prevu"${rs} style="border:1px solid #ccc;text-align:center;"></td>
-        <td class="cell-ecart col-ecart"${rs} style="border:1px solid #ccc;text-align:center;"></td>
-        </tr>`;
-
-      // Ligne 2 (SAV) : cellule vide sous le nom (alignement) + ch6..10 sous Ch1..5
-      if (sav) {
-        row += `<tr class="ligne-sav2" style="background:${zebra};">
-          <td style="border:1px solid #ccc;border-top:none;"></td>
-          ${cells2}
-          </tr>`;
-      }
-
-      lignes += row;
-      lignesData.push({ salarieId: s.id, prevuReduit: prevu - abs, ec });
-    });
-
-    htmlJour += lignes + '</tbody></table></div>';
-    htmlTotal += htmlJour;
-    if (totalJour > 0) joursData.push({ dateStr, lignesData });
+  function lireCellule(s, dateStr){
+    const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
+    for(let i=1;i<=nbCh;i++){ const k=`${s.id}${safe}ch${i}`; const data=heures[k]||{chantier:'',heures:0};
+      const rempli=(data.chantier||'').trim()!==''; if(rempli && (data.chantier||'').trim().toUpperCase()!==TNA) total+=parseFloat(data.heures)||0; slots.push({i,k,data,rempli}); }
+    const absK=`${s.id}${safe}abs`; const abs=parseFloat(heures[absK]?.heures||0);
+    return {safe,total,slots,absK,abs};
   }
 
-  // Injection unique dans le DOM (x26 fois plus rapide que += dans la boucle)
-  // Le <datalist> en tête alimente l'autocomplétion des cases Chantier.
-  cont.innerHTML = genDatalistChantiers() + htmlTotal;
+  // Semaines (Lun->Sam) couvrant le mois, empilées verticalement
+  const first=new Date(anMois,moIdx,1);
+  let lun=new Date(first); lun.setDate(first.getDate()-((first.getDay()+6)%7));
+  const semaines=[];
+  for(let w=0; w<8; w++){
+    const wdays=[]; for(let i=0;i<6;i++){ const d=new Date(lun); d.setDate(lun.getDate()+i); wdays.push(d); }
+    const touche=wdays.some(x=>x.getMonth()===moIdx && x.getFullYear()===anMois);
+    if(touche) semaines.push(wdays);
+    else if(semaines.length>0) break;
+    lun=new Date(lun); lun.setDate(lun.getDate()+7);
+  }
 
-  // Remplir Prévu et Écart après injection
-  joursData.forEach(({ dateStr, lignesData }) => {
-    lignesData.forEach(({ salarieId, prevuReduit, ec }) => {
-      const tr = cont.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
-      if (!tr) return;
-      tr.querySelector('.cell-prevu').textContent = prevuReduit.toFixed(1);
-      const ecCell = tr.querySelector('.cell-ecart');
-      ecCell.textContent = (ec >= 0 ? '+' : '') + ec.toFixed(1);
-      ecCell.style.color = ec < 0 ? 'red' : 'green';
+  const datesFill=new Map();
+  let html=genDatalistChantiers();
+
+  semaines.forEach(jours=>{
+    const numSem=pl2NumSemaine(jours[0]);
+    let thead='<th class="tcorner">Salarié</th>';
+    jours.forEach(d=>{ const auj=ds(d)===aujStr; const hors=d.getMonth()!==moIdx;
+      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}</div></th>`; });
+    thead+='<th class="ttot">Total<br>sem.</th>';
+
+    let body='';
+    sals.forEach(row=>{
+      const {s,coul}=row; let wT=0,wC=0,cells='';
+      jours.forEach(d=>{
+        const dateStr=ds(d); const auj=dateStr===aujStr;
+        if(d.getMonth()!==moIdx){ cells+=`<td class="thors"></td>`; return; }
+        if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors"></td>`; return; }
+        const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+        const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
+        wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
+
+        let chips='';
+        if(C.abs>0){
+          chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}')">${genOptionsHeures(C.abs)}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
+               +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
+        }
+        C.slots.forEach(sl=>chips+=pl2ChipHTML(sl));
+        const actions = (C.abs>0) ? '' :
+          `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
+          +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
+          +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
+        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
+        cells+=`<td class="${auj?'auj':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+      });
+      const ecW=wT-wC;
+      const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
+      body+=`<tr style="--col:${coul.fg};--bg:${coul.bg};">`
+        +`<th class="tsal"><div class="snom"><span class="dot" style="background:${coul.fg}"></span>${s.prenom} ${s.nom}${badge}</div></th>`
+        +`${cells}`
+        +`<td class="tweek">${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span></td>`
+        +`</tr>`;
     });
+
+    html+=`<div class="wtitle">Semaine ${numSem} · ${f2(jours[0])} → ${f2(jours[5])}</div>`
+       +`<div class="twrap"><table class="tgrid"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
   });
 
+  cont.innerHTML = html;
+
+  datesFill.forEach((salId,dateStr)=>{ majTotalLigne(salId,dateStr); });
   majTotauxGlobaux();
   ajusterMarginTop();
   majCouleursChantiers();
-
-  // Placer la date du jour en haut de l'écran (uniquement si le mois affiché
-  // est le mois courant). Sinon on ne touche pas au défilement.
-  defilerVersAujourdhui(moisSel);
 }
 
 // Fait défiler la page pour amener le bloc du jour (ou le jour ouvré le plus
@@ -772,25 +965,25 @@ function defilerVersAujourdhui(moisSel) {
 
   const cont = document.getElementById('planning-wrapper');
   if (!cont) return;
-  const blocs = [...cont.querySelectorAll('.jour-block[data-date]')];
+  const blocs = [...cont.querySelectorAll('th.jour[data-jour]')];
   if (!blocs.length) return;
 
   const aujStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
   // Bloc du jour exact, sinon dernier bloc dont la date est ≤ aujourd'hui
-  let cible = blocs.find(b => b.dataset.date === aujStr);
+  let cible = blocs.find(b => b.dataset.jour === aujStr);
   if (!cible) {
-    const passes = blocs.filter(b => b.dataset.date <= aujStr);
+    const passes = blocs.filter(b => b.dataset.jour <= aujStr);
     cible = passes.length ? passes[passes.length - 1] : blocs[0];
   }
 
-  const topBar = document.querySelector('.top-bar');
-  const decal  = (topBar ? topBar.offsetHeight : 0) + 12;
-
-  // Léger délai pour laisser le layout se stabiliser (marginTop venant d'être posée)
+  const wrap = cont.querySelector('.grille-wrap');
   setTimeout(() => {
-    const y = cible.getBoundingClientRect().top + window.pageYOffset - decal;
-    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    if (wrap && cible) {
+      const wr = wrap.getBoundingClientRect();
+      const cr = cible.getBoundingClientRect();
+      wrap.scrollTop += (cr.top - wr.top) - 90;
+    }
   }, 80);
 }
 
@@ -858,7 +1051,9 @@ function saveHeure(k, ch, h) {
   const rdvAutAv = heures[k] && heures[k].rdvAuteur ? heures[k].rdvAuteur : '';
   const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
   const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
+  const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  if (motifAv) heures[k].motif = motifAv;
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
@@ -1041,7 +1236,14 @@ function rafraichirLigne(salarieId, dateStr) {
     const e = heures[k] || { chantier: '', heures: 0 };
     const inp = document.getElementById(k + 'chantier');
     const sel = document.getElementById(k + 'h');
-    if (inp) inp.value = e.chantier || '';
+    if (inp) {
+      inp.value = e.chantier || '';
+      const chip = inp.closest('.chip');
+      if (chip) {
+        chip.classList.toggle('vide', (e.chantier || '').trim() === '');
+        chip.classList.toggle('tna', (e.chantier||'').toUpperCase() === TNA);
+      }
+    }
     if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
     majRdvVisuel(k);
     majBoutonNote(k);
@@ -1204,7 +1406,7 @@ async function enregistrerNoteChantier() {
 }
 
 function majTotalLigne(salarieId, dateStr) {
-  const tr = document.querySelector(`tr[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
+  const tr = document.querySelector(`[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
   if (!tr) return;
 
   const safeDate = dateStr.replace(/-/g, '_');
@@ -1230,7 +1432,7 @@ function majTotalLigne(salarieId, dateStr) {
   tr.querySelector('.cell-total').textContent = total.toFixed(1);
 
   // Vérifier si AU MOINS UN salarié a des heures ce jour-là
-  const tousLesTrs = document.querySelectorAll(`tr[data-date="${dateStr}"]`);
+  const tousLesTrs = document.querySelectorAll(`[data-date="${dateStr}"]`);
   let jourADesHeures = false;
   tousLesTrs.forEach(row => {
     const t = parseFloat(row.querySelector('.cell-total')?.textContent) || 0;
@@ -1264,7 +1466,7 @@ function majTotalLigne(salarieId, dateStr) {
 
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0;
-  document.querySelectorAll('tr[data-salarie]').forEach(tr => {
+  document.querySelectorAll('[data-salarie][data-date]').forEach(tr => {
     totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
     totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
     totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
@@ -1286,6 +1488,9 @@ function majTotauxGlobaux() {
 
   const pct = totP > 0 ? (totT / totP) * 100 : 0;
   dessinerJauge(pct);
+  const objEl = document.getElementById('pl2-obj');
+  if (objEl) objEl.textContent = totT.toFixed(1).replace('.',',') + ' h / ' + totP.toFixed(1).replace('.',',') + ' h';
+  if (typeof pl3MajSemaine === 'function') pl3MajSemaine();
 }
 
 /* ====== IMPRESSION ====== */
@@ -1471,12 +1676,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initFiltre();
   genererPlanning();
   majMoisImpression();
+  pl2MajMoisLabel();
 
   mois.addEventListener('input', () => {
     chargerSemaines();
     initFiltre();
     genererPlanning();
     majMoisImpression();
+    pl2MajMoisLabel();
   });
 
   // Licence
