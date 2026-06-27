@@ -235,8 +235,8 @@
   table.grille td, table.grille th { white-space:normal !important; overflow:visible !important; }
 
   /* En-tête figé (nom + TOTAL MOIS) */
-  table.grille thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; min-width:122px !important; width:122px !important; max-width:122px !important; border-right:1px solid rgba(255,255,255,0.18); border-bottom:3px solid #0a2a66; vertical-align:top; }
-  table.grille thead th.corner { left:0; z-index:8; min-width:48px !important; width:48px !important; max-width:48px !important; border-right:3px solid #f59e0b; }
+  table.grille thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:1px solid rgba(255,255,255,0.18); border-bottom:3px solid #0a2a66; vertical-align:top; }
+  table.grille thead th.corner { left:0; z-index:8; min-width:96px !important; width:96px !important; max-width:96px !important; border-right:3px solid #f59e0b; }
   .hd-nom { font-size:0.95rem; display:flex; align-items:center; justify-content:center; gap:6px; }
   .hd-total { margin-top:6px; background:#fff; border:2px solid var(--col,#fff); border-radius:8px; padding:4px 6px; color:#0f3a8a; font-weight:800; font-size:0.74rem; }
   .hd-total .sub { display:block; font-size:0.64rem; font-weight:600; color:#64748b; margin-top:1px; }
@@ -244,12 +244,12 @@
   .grille .ab { display:inline-block; background:#fef3c7; color:#92400e; border-radius:4px; padding:0 6px; font-size:0.64rem; font-weight:800; }
 
   /* Colonne Jour figée */
-  table.grille tbody th.jour { position:sticky; left:0; z-index:4; background:#0f3a8a; color:#fff; font-weight:700; padding:7px 2px; min-width:48px !important; width:48px !important; max-width:48px !important; text-align:center; vertical-align:top; border-right:3px solid #f59e0b; border-bottom:3px solid #94a3b8; }
-  th.jour .jnum { font-size:0.78rem; } th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
+  table.grille tbody th.jour { position:sticky; left:0; z-index:4; background:#0f3a8a; color:#fff; font-weight:700; padding:9px 6px; min-width:96px !important; width:96px !important; max-width:96px !important; text-align:center; vertical-align:top; border-right:3px solid #f59e0b; border-bottom:3px solid #94a3b8; }
+  th.jour .jnum { font-size:0.98rem; } th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
   th.jour .sweek { display:inline-block; margin-top:3px; background:#1e3a8a; color:#cbd5e1; border-radius:4px; font-size:0.6rem; padding:0 4px; font-weight:700; }
   th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
 
-  table.grille tbody td { vertical-align:top; height:1px; padding:5px; min-width:122px !important; width:122px !important; max-width:122px !important; border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; }
+  table.grille tbody td { vertical-align:top; height:1px; padding:7px; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; }
   tr.fin-semaine td, tr.fin-semaine th.jour { border-bottom:5px solid #64748b; }
   td.hors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
 
@@ -265,7 +265,7 @@
   .grille .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:7px 8px; margin-bottom:7px; background:#fff; display:flex; flex-direction:column; gap:6px; }
   .grille .chip.vide { display:none; }
   .grille .chip .ligne1 { display:flex; align-items:center; gap:5px; }
-  .grille .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:4px 5px; font-size:0.72rem; font-weight:700; text-transform:uppercase; }
+  .grille .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:5px 7px; font-size:0.8rem; font-weight:700; text-transform:uppercase; }
   .grille .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
   .grille .chip .vider { flex:0 0 auto; width:26px; height:28px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; line-height:1; padding:0; }
   .grille .chip .vider:hover { background:#fee2e2; }
