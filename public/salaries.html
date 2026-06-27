@@ -81,7 +81,7 @@
           <input type="checkbox" id="altCheck" onchange="toggleAlternance()" style="width:auto;">
           Ce salarié alterne deux semaines (A / B)
         </label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;">
+        <label style="display:none;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;">
           <input type="checkbox" id="savCheck" style="width:auto;">
           🛠 Entretien / Dépannage / SAV
           <span style="font-weight:400;color:#6b7280;font-size:0.78rem;">(plus de 5 chantiers/jour → 2ᵉ ligne dans le planning)</span>
@@ -299,6 +299,23 @@
   });
 
   window.addEventListener('storage', () => majMessageVide());
+
+  // Suppression de l'option SAV : convertit les salariés SAV existants en salariés normaux
+  function convertirSAVenNormal(){
+    try{
+      if(window.SYNC && SYNC.estAdmin && SYNC.estAdmin()) return; // consultation admin = lecture seule
+      const liste = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+      let change=false;
+      liste.forEach(sal=>{ if(sal.sav){ sal.sav=false; change=true; } });
+      if(change){
+        localStorage.setItem('salariesdata', JSON.stringify(liste));
+        if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
+        if(typeof majMessageVide==='function') majMessageVide();
+      }
+    }catch(e){}
+  }
+  window.addEventListener('donnees-chargees', convertirSAVenNormal);
+  convertirSAVenNormal();
 </script>
 
 </body>

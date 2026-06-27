@@ -395,6 +395,8 @@
   table.tgrid thead th.tcorner{position:sticky;left:0;z-index:8;}
   table.tgrid tbody th.tsal{position:sticky;left:0;z-index:4;}
   table.tgrid thead th.thhors .dn, table.tgrid thead th.thhors .dd{opacity:.45;}
+  #planning-wrapper.masquer-samedi .sam-col { display:none !important; }
+  .pl2-toolbtn.actif { background:#0f3a8a; color:#fff; border-color:#0f3a8a; }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -438,6 +440,7 @@
       </div>
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
+      <button type="button" class="pl2-toolbtn" id="btn-samedi" onclick="pl3ToggleSamedi()">👁 Afficher le samedi</button>
       <div class="pl2-jaugebox">
         <svg viewBox="0 0 100 65" width="116" height="76" style="flex-shrink:0;">
           <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
@@ -796,11 +799,21 @@ function imprimerSemaineChoix(){
   window.print();
 }
 window.addEventListener('afterprint', ()=>{ document.querySelectorAll('.wblock.print-hide').forEach(b=>b.classList.remove('print-hide')); });
+let _afficherSamedi=false;
+function pl3MajSamedi(){
+  const cont=document.getElementById('planning-wrapper');
+  if(cont) cont.classList.toggle('masquer-samedi', !_afficherSamedi);
+  const btn=document.getElementById('btn-samedi');
+  if(btn){ btn.textContent=_afficherSamedi?'🙈 Masquer le samedi':'👁 Afficher le samedi'; btn.classList.toggle('actif', _afficherSamedi); }
+}
+function pl3ToggleSamedi(){ _afficherSamedi=!_afficherSamedi; pl3MajSamedi(); }
 function pl3MoisCourant(){
+  _afficherSamedi=false;
   const n=new Date(); document.getElementById('moisPlanning').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
   chargerSemaines(); initFiltre(); genererPlanning(); majMoisImpression(); pl2MajMoisLabel();
 }
 function pl2ChangerMois(delta){
+  _afficherSamedi=false;
   const mois=document.getElementById('moisPlanning');
   if(!mois || !mois.value) return;
   const [a,m]=mois.value.split('-').map(Number);
@@ -920,7 +933,7 @@ function genererPlanning(){
     const numSem=pl2NumSemaine(jours[0]);
     let thead='<th class="tcorner">Salarié</th>';
     jours.forEach(d=>{ const auj=ds(d)===aujStr; const hors=d.getMonth()!==moIdx;
-      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}</div></th>`; });
+      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}${d.getDay()===6?' sam-col':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}</div></th>`; });
     thead+='<th class="ttot">Total<br>sem.</th>';
 
     let body='';
@@ -928,8 +941,8 @@ function genererPlanning(){
       const {s,coul}=row; let wT=0,wC=0,cells='';
       jours.forEach(d=>{
         const dateStr=ds(d); const auj=dateStr===aujStr;
-        if(d.getMonth()!==moIdx){ cells+=`<td class="thors"></td>`; return; }
-        if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors"></td>`; return; }
+        if(d.getMonth()!==moIdx){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
+        if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
         const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
         const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
         wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
@@ -947,7 +960,7 @@ function genererPlanning(){
           +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
           +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
         const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
-        cells+=`<td class="${auj?'auj':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+        cells+=`<td class="${auj?'auj':''}${d.getDay()===6?' sam-col':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
       });
       const ecW=wT-wC;
       const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
@@ -971,6 +984,7 @@ function genererPlanning(){
   majTotauxGlobaux();
   ajusterMarginTop();
   majCouleursChantiers();
+  pl3MajSamedi();
 }
 
 // Fait défiler la page pour amener le bloc du jour (ou le jour ouvré le plus
