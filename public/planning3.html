@@ -383,6 +383,14 @@
     .tgrid .chip input.nm, .tgrid .chip select.h, .tgrid .abs-day .abs-motif, .tgrid .abs-day select { border:none !important; background:transparent !important; -webkit-appearance:none; appearance:none; padding:0 2px !important; color:#0f172a; }
     .tgrid .chip, table.tgrid tbody tr { break-inside:avoid; }
   }
+  /* ===== Vue MOIS vertical : semaines empilées ===== */
+  .wtitle{font-weight:800;color:#0a2a66;background:#e8eefb;border-left:5px solid #0f3a8a;border-radius:8px;padding:6px 12px;margin:16px 0 6px;font-size:0.85rem;}
+  .wtitle:first-of-type{margin-top:4px;}
+  .twrap{overflow-x:auto;overflow-y:visible;max-height:none;margin-bottom:2px;}
+  table.tgrid thead th{position:static;}
+  table.tgrid thead th.tcorner{position:sticky;left:0;z-index:8;}
+  table.tgrid tbody th.tsal{position:sticky;left:0;z-index:4;}
+  table.tgrid thead th.thhors .dn, table.tgrid thead th.thhors .dd{opacity:.45;}
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -419,10 +427,10 @@
     <div class="pl2-toolbar">
       <h1 class="pl2-ptitle">Planning</h1>
       <div class="pl2-wknav">
-        <button type="button" class="pl2-wkbtn" title="Semaine précédente" onclick="pl2ChangerSemaine(-1)">&lsaquo;</button>
+        <button type="button" class="pl2-wkbtn" title="Mois précédent" onclick="pl2ChangerMois(-1)">&lsaquo;</button>
         <span class="pl2-wklabel" id="pl2-moislabel">—</span>
-        <button type="button" class="pl2-wkbtn" title="Semaine suivante" onclick="pl2ChangerSemaine(1)">&rsaquo;</button>
-        <button type="button" class="pl2-wkbtn" title="Semaine courante" onclick="pl3Aujourdhui()" style="font-size:0.8rem;">Auj.</button>
+        <button type="button" class="pl2-wkbtn" title="Mois suivant" onclick="pl2ChangerMois(1)">&rsaquo;</button>
+        <button type="button" class="pl2-wkbtn" title="Mois courant" onclick="pl3MoisCourant()" style="font-size:0.8rem;">Auj.</button>
       </div>
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
@@ -435,7 +443,7 @@
           <text id="pourcentage" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
           <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
         </svg>
-        <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif semaine</span><b id="pl2-obj">—</b></div>
+        <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif mois</span><b id="pl2-obj">—</b></div>
       </div>
       <div class="pl2-printwrap">
         <button type="button" class="pl2-toolbtn" onclick="window.print()">🖨 Imprimer</button>
@@ -770,7 +778,15 @@ function pl2RetirerAbsence(absK){
   genererPlanning();
 }
 
-function pl2MajMoisLabel(){ /* libellé géré par genererPlanning (semaine) */ }
+function pl2MajMoisLabel(){
+  const v=document.getElementById('moisPlanning').value;
+  const el=document.getElementById('pl2-moislabel');
+  if(el && v){ const d=new Date(v+'-01'); let t=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); el.textContent=t.charAt(0).toUpperCase()+t.slice(1); }
+}
+function pl3MoisCourant(){
+  const n=new Date(); document.getElementById('moisPlanning').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+  chargerSemaines(); initFiltre(); genererPlanning(); majMoisImpression(); pl2MajMoisLabel();
+}
 function pl2ChangerMois(delta){
   const mois=document.getElementById('moisPlanning');
   if(!mois || !mois.value) return;
@@ -840,21 +856,17 @@ function pl2ChipHTML(sl){
   </div>`;
 }
 
-let _pl3Lundi = null;
-function pl3LundiDe(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
-function pl2ChangerSemaine(delta){
-  if(!_pl3Lundi) _pl3Lundi = pl3LundiDe(new Date());
-  _pl3Lundi = new Date(_pl3Lundi); _pl3Lundi.setDate(_pl3Lundi.getDate()+7*delta);
-  genererPlanning();
-}
-function pl3Aujourdhui(){ _pl3Lundi = pl3LundiDe(new Date()); genererPlanning(); }
-
 function genererPlanning(){
   salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
   const cont = document.getElementById('planning-wrapper');
-  if(!_pl3Lundi) _pl3Lundi = pl3LundiDe(new Date());
-  const lundi = _pl3Lundi;
+  const moisInput = document.getElementById('moisPlanning');
+  if(!moisInput.value){ const n=new Date(); moisInput.value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
+  const [anMois,moMois]=moisInput.value.split('-').map(Number);
+  const moIdx=moMois-1;
+
+  const lab=document.getElementById('pl2-moislabel');
+  if(lab){ const dl=new Date(anMois,moIdx,1); let t=dl.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); lab.textContent=t.charAt(0).toUpperCase()+t.slice(1); }
 
   const idsAffiches = salariesCoches.size===0 ? new Set(salaries.map(s=>s.id)) : salariesCoches;
   const sals = salaries.filter(s=>idsAffiches.has(s.id)).map((s,idx)=>({
@@ -862,15 +874,10 @@ function genererPlanning(){
     entree:new Date(s.dateEntree), sortie:s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null
   }));
 
-  const jours=[]; for(let i=0;i<6;i++){ const d=new Date(lundi); d.setDate(lundi.getDate()+i); jours.push(d); }
-  const numSem = pl2NumSemaine(lundi);
   const JNOM=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const _a=new Date(); const aujStr=`${_a.getFullYear()}-${String(_a.getMonth()+1).padStart(2,'0')}-${String(_a.getDate()).padStart(2,'0')}`;
   const ds=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-
-  // Libellé semaine dans la barre
-  const lab=document.getElementById('pl2-moislabel');
-  if(lab){ const f=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; lab.textContent=`Sem. ${numSem} · ${f(jours[0])} → ${f(jours[5])}`; }
+  const f2=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 
   function lireCellule(s, dateStr){
     const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
@@ -880,61 +887,68 @@ function genererPlanning(){
     return {safe,total,slots,absK,abs};
   }
 
-  // thead : Salarié + jours + Total sem.
-  let thead='<th class="tcorner">Salarié</th>';
-  jours.forEach(d=>{ const auj=ds(d)===aujStr;
-    thead+=`<th class="${auj?'auj':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}</div></th>`; });
-  thead+='<th class="ttot">Total<br>sem.</th>';
+  // Semaines (Lun->Sam) couvrant le mois, empilées verticalement
+  const first=new Date(anMois,moIdx,1);
+  let lun=new Date(first); lun.setDate(first.getDate()-((first.getDay()+6)%7));
+  const semaines=[];
+  for(let w=0; w<8; w++){
+    const wdays=[]; for(let i=0;i<6;i++){ const d=new Date(lun); d.setDate(lun.getDate()+i); wdays.push(d); }
+    const touche=wdays.some(x=>x.getMonth()===moIdx && x.getFullYear()===anMois);
+    if(touche) semaines.push(wdays);
+    else if(semaines.length>0) break;
+    lun=new Date(lun); lun.setDate(lun.getDate()+7);
+  }
 
-  const moMois=lundi.getMonth(), anMois=lundi.getFullYear();
   const datesFill=new Map();
-  let body='';
+  let html=genDatalistChantiers();
 
-  sals.forEach(row=>{
-    const {s,coul}=row;
-    // total du mois (du lundi affiché)
-    let mT=0,mC=0; const finM=new Date(anMois,moMois+1,0).getDate();
-    for(let dn=1;dn<=finM;dn++){ const dd=new Date(anMois,moMois,dn); if(dd.getDay()===0) continue;
-      if(dd<row.entree||(row.sortie&&dd>row.sortie)) continue;
-      const cle=['dim','lun','mar','mer','jeu','ven','sam'][dd.getDay()];
-      const C=lireCellule(s,ds(dd)); mT+=C.total; mC+=(grilleHeuresPourDate(s,dd))[cle]||0; }
+  semaines.forEach(jours=>{
+    const numSem=pl2NumSemaine(jours[0]);
+    let thead='<th class="tcorner">Salarié</th>';
+    jours.forEach(d=>{ const auj=ds(d)===aujStr; const hors=d.getMonth()!==moIdx;
+      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}</div></th>`; });
+    thead+='<th class="ttot">Total<br>sem.</th>';
 
-    let wT=0,wC=0,cells='';
-    jours.forEach(d=>{
-      const dateStr=ds(d); const auj=dateStr===aujStr;
-      if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors"></td>`; return; }
-      const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
-      const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
-      wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
+    let body='';
+    sals.forEach(row=>{
+      const {s,coul}=row; let wT=0,wC=0,cells='';
+      jours.forEach(d=>{
+        const dateStr=ds(d); const auj=dateStr===aujStr;
+        if(d.getMonth()!==moIdx){ cells+=`<td class="thors"></td>`; return; }
+        if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors"></td>`; return; }
+        const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+        const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
+        wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
 
-      let chips='';
-      if(C.abs>0){
-        chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}')">${genOptionsHeures(C.abs)}</select>`
-             +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
-             +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
-             +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
-      }
-      C.slots.forEach(sl=>chips+=pl2ChipHTML(sl));
-      const actions = (C.abs>0) ? '' :
-        `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
-        +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
-        +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
-      const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
-      cells+=`<td class="${auj?'auj':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+        let chips='';
+        if(C.abs>0){
+          chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}')">${genOptionsHeures(C.abs)}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
+               +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
+        }
+        C.slots.forEach(sl=>chips+=pl2ChipHTML(sl));
+        const actions = (C.abs>0) ? '' :
+          `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
+          +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
+          +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
+        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
+        cells+=`<td class="${auj?'auj':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+      });
+      const ecW=wT-wC;
+      const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
+      body+=`<tr style="--col:${coul.fg};--bg:${coul.bg};">`
+        +`<th class="tsal"><div class="snom"><span class="dot" style="background:${coul.fg}"></span>${s.prenom} ${s.nom}${badge}</div></th>`
+        +`${cells}`
+        +`<td class="tweek">${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span></td>`
+        +`</tr>`;
     });
 
-    const ecM=mT-mC, ecW=wT-wC;
-    const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
-    body+=`<tr style="--col:${coul.fg};--bg:${coul.bg};">
-      <th class="tsal"><div class="snom"><span class="dot" style="background:${coul.fg}"></span>${s.prenom} ${s.nom}${badge}</div>
-        <div class="stot">Total mois : ${pl2Fmt(mT)}<span class="sub">contrat ${pl2Fmt(mC)} · <span class="${pl2EcartCls(ecM)}">${pl2Sgn(ecM)}</span></span></div></th>
-      ${cells}
-      <td class="tweek">${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span></td>
-    </tr>`;
+    html+=`<div class="wtitle">Semaine ${numSem} · ${f2(jours[0])} → ${f2(jours[5])}</div>`
+       +`<div class="twrap"><table class="tgrid"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
   });
 
-  cont.innerHTML = genDatalistChantiers() +
-    `<div class="twrap"><table class="tgrid"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div>`;
+  cont.innerHTML = html;
 
   datesFill.forEach((salId,dateStr)=>{ majTotalLigne(salId,dateStr); });
   majTotauxGlobaux();
