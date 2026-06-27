@@ -1857,6 +1857,7 @@ async function serverSaveRdv(nom, val, delai) {
     else delete _rdvPlanning[nom];
     fermerRdvMobile();
     rendrePrev();
+    if (typeof rendreAjout === 'function') rendreAjout();
   } catch (e) {
     alert('Connexion impossible, réessayez.');
   }
@@ -2252,6 +2253,44 @@ function rendreAjout() {
     const nomEl = document.createElement('div');
     nomEl.className = 'chantier-nom libre';
     nomEl.textContent = ch.nom;
+    // Heure de RDV (gérant/admin) — même logique que les chantiers prévus
+    {
+      const _rdvP   = _rdvPlanning[ch.nom];
+      const rdvVal  = _rdvP ? _rdvP.rdv : '';
+      const rdvAut  = _rdvP ? (_rdvP.auteur || 'gerant') : '';
+      const role    = _monRole();
+      if (role === 'salarie') {
+        if (rdvVal) {
+          const rdvEl = document.createElement('span');
+          rdvEl.textContent = '🕐 ' + rdvVal;
+          rdvEl.title = 'Heure de RDV';
+          rdvEl.style.cssText = 'background:#dbeafe;color:#1e3a8a;border-radius:8px;padding:3px 9px;font-size:0.72rem;font-weight:700;margin-left:8px;flex:0 0 auto;white-space:nowrap;';
+          nomEl.appendChild(rdvEl);
+        }
+      } else {
+        const verrou = (role === 'admin' && rdvVal && rdvAut === 'gerant');
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.style.cssText = 'border:none;border-radius:8px;padding:4px 10px;font-size:0.72rem;font-weight:700;margin-left:8px;flex:0 0 auto;white-space:nowrap;cursor:pointer;';
+        if (verrou) {
+          el.textContent = '🔒 ' + rdvVal;
+          el.title = 'RDV posé par le gérant — non modifiable';
+          el.style.background = '#e5e7eb'; el.style.color = '#6b7280'; el.style.cursor = 'default';
+          el.onclick = function () { alert('Ce RDV a été posé par le gérant : il n\'est pas modifiable.'); };
+        } else if (rdvVal) {
+          el.textContent = '🕐 ' + rdvVal;
+          el.title = 'Modifier l\'heure de RDV';
+          el.style.background = '#dbeafe'; el.style.color = '#1e3a8a';
+          el.onclick = function () { ouvrirRdvMobile(ch.nom, rdvVal); };
+        } else {
+          el.textContent = '🕐 RDV';
+          el.title = 'Définir une heure de RDV';
+          el.style.background = '#eef2f7'; el.style.color = '#64748b';
+          el.onclick = function () { ouvrirRdvMobile(ch.nom, ''); };
+        }
+        nomEl.appendChild(el);
+      }
+    }
     header.appendChild(nomEl);
     if (dejaSauve) {
       const badge = document.createElement('span');
