@@ -249,7 +249,7 @@
   th.jour .sweek { display:inline-block; margin-top:3px; background:#1e3a8a; color:#cbd5e1; border-radius:4px; font-size:0.6rem; padding:0 4px; font-weight:700; }
   th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
 
-  table.grille tbody td { vertical-align:top; height:1px; padding:7px; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; }
+  table.grille tbody td { vertical-align:top; height:1px; padding:7px; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:2px solid #cbd5e1; border-bottom:3px solid #cbd5e1; }
   tr.fin-semaine td, tr.fin-semaine th.jour { border-bottom:5px solid #64748b; }
   td.hors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
 
@@ -369,6 +369,20 @@
   .tgrid .btn-abs { background:#fff; color:#b91c1c; border:1px dashed #fca5a5; border-radius:8px; font-size:0.66rem; font-weight:700; padding:5px 6px; cursor:pointer; }
   .tgrid .cell-foot { margin-top:5px; padding-top:5px; border-top:1px dashed #cbd5e1; font-size:0.66rem; color:#475569; display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
   .tgrid .cell-foot b { color:#0f172a; } .tgrid .ecart.pos { color:#16a34a; font-weight:800; } .tgrid .ecart.neg { color:#dc2626; font-weight:800; }
+  .tgrid .abs-day .abs-motif { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 4px; font-weight:700; font-size:0.66rem; max-width:100%; }
+  @media print {
+    @page { size:A4 landscape; margin:8mm; }
+    body { background:#fff !important; padding:0 !important; }
+    .pl2-toolbar, .no-print { display:none !important; }
+    .twrap { overflow:visible !important; max-height:none !important; border:none !important; }
+    table.tgrid { width:100% !important; font-size:8pt; margin:0; }
+    table.tgrid thead th, table.tgrid tbody th.tsal { position:static !important; }
+    table.tgrid thead th.ttot, table.tgrid tbody td.tweek { display:none !important; }
+    table.tgrid thead th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    table.tgrid tbody td, table.tgrid tbody th.tsal, .tgrid .chip { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .tgrid .chip input.nm, .tgrid .chip select.h, .tgrid .abs-day .abs-motif, .tgrid .abs-day select { border:none !important; background:transparent !important; -webkit-appearance:none; appearance:none; padding:0 2px !important; color:#0f172a; }
+    .tgrid .chip, table.tgrid tbody tr { break-inside:avoid; }
+  }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -717,6 +731,33 @@ function pl2ViderPave(btn, k){
   majCouleursChantiers(); majTotauxGlobaux();
 }
 
+const PL2_MOTIFS = ['Congé','Maladie','RTT','Congé sans solde','Formation','Intempéries','Autre'];
+function pl2MotifOptions(sel){
+  let o='<option value="">— Motif ? —</option>';
+  PL2_MOTIFS.forEach(m=>{ o+=`<option ${m===sel?'selected':''}>${m}</option>`; });
+  return o;
+}
+function pl2SaveMotif(absK,val){
+  if(!heures[absK]) heures[absK]={chantier:'absence',heures:0};
+  heures[absK].motif=val;
+  localStorage.setItem('heuresdata',JSON.stringify(heures));
+}
+function pl3MajSemaine(){
+  document.querySelectorAll('table.tgrid tbody tr').forEach(tr=>{
+    const tw=tr.querySelector('.tweek'); if(!tw) return;
+    let wT=0,wC=0;
+    tr.querySelectorAll('td[data-salarie][data-date]').forEach(td=>{
+      wT += parseFloat(td.querySelector('.cell-total')?.textContent)||0;
+      const s=salaries.find(x=>String(x.id)===String(td.dataset.salarie)); if(!s) return;
+      const d=new Date(td.dataset.date+'T00:00:00');
+      const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+      wC += (grilleHeuresPourDate(s,d))[cle]||0;
+    });
+    const ecW=wT-wC;
+    tw.innerHTML = `${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span>`;
+  });
+}
+
 function pl2PoserAbsence(absK, prevu){
   const h = (parseFloat(prevu)||0) > 0 ? prevu : 7;
   saveHeure(absK,'absence',h);
@@ -869,6 +910,7 @@ function genererPlanning(){
       let chips='';
       if(C.abs>0){
         chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}')">${genOptionsHeures(C.abs)}</select>`
+             +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
              +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
              +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
       }
@@ -995,7 +1037,9 @@ function saveHeure(k, ch, h) {
   const rdvAutAv = heures[k] && heures[k].rdvAuteur ? heures[k].rdvAuteur : '';
   const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
   const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
+  const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  if (motifAv) heures[k].motif = motifAv;
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
@@ -1432,6 +1476,7 @@ function majTotauxGlobaux() {
   dessinerJauge(pct);
   const objEl = document.getElementById('pl2-obj');
   if (objEl) objEl.textContent = totT.toFixed(1).replace('.',',') + ' h / ' + totP.toFixed(1).replace('.',',') + ' h';
+  if (typeof pl3MajSemaine === 'function') pl3MajSemaine();
 }
 
 /* ====== IMPRESSION ====== */
