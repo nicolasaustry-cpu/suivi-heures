@@ -380,7 +380,7 @@ const SYNC = (() => {
 
       const liens = [
         { href: 'saisie.html',  label: 'Saisie mobile' },
-        { href: 'realise.html', label: 'Planning réalisé' },
+        { href: 'realise.html', label: 'Suivi de l’activité' },
         { href: 'notes.html',   label: 'Notes' },
         { href: 'rapports.html', label: 'Rapports' },
         { href: 'bev.html',     label: 'BEV' },
@@ -438,7 +438,7 @@ const SYNC = (() => {
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
       { href: 'planning-equipe.html',  label: 'Planning réalisé' },      // les deux licences
-      { href: 'realise.html',          label: 'Planning réalisé', plus: true },
+      { href: 'realise.html',          label: 'Suivi de l’activité', plus: true },
       { href: 'saisie.html',           label: 'Saisie mobile',    plus: true }
     ] },
     { label: 'Suivi', items: [
