@@ -31,8 +31,8 @@ const SYNC = (() => {
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
 
   const PAGES_LIBRES = ['index.html', '/', ''];
-  const PAGES_PLUS = ['realise.html', 'notes.html', 'planning-equipe.html'];
-  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html'];
+  const PAGES_PLUS = ['realise.html', 'notes.html'];
+  const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html', 'planning-equipe.html'];
 
   /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
   const _fetchOriginal = window.fetch.bind(window);
@@ -372,7 +372,7 @@ const SYNC = (() => {
       if (planningLink) {
         const ve = document.createElement('a');
         ve.href = 'planning-equipe.html';
-        ve.textContent = 'Planning réalisé';
+        ve.textContent = 'Vue équipe';
         ve.className = 'nav-plus';
         if (page === 'planning-equipe.html') ve.classList.add('active');
         planningLink.insertAdjacentElement('afterend', ve);
@@ -380,7 +380,7 @@ const SYNC = (() => {
 
       const liens = [
         { href: 'saisie.html',  label: 'Saisie mobile' },
-        { href: 'realise.html', label: 'Suivi de l’activité' },
+        { href: 'realise.html', label: 'Planning réalisé' },
         { href: 'notes.html',   label: 'Notes' },
         { href: 'rapports.html', label: 'Rapports' },
         { href: 'bev.html',     label: 'BEV' },
@@ -392,8 +392,17 @@ const SYNC = (() => {
         nav.appendChild(a);
       });
     } else {
-      // « Planning réalisé » (planning-equipe.html) est réservé Plus :
-      // non affiché dans la barre Standard (il apparaît en « teasing » Plus dans le menu latéral).
+      // Standard : « Vue équipe » (planning seul) insérée juste après « Planning »
+      if (!nav.querySelector('a[href="planning-equipe.html"]')) {
+        const planningLink = nav.querySelector('a[href="planning.html"]');
+        if (planningLink) {
+          const ve = document.createElement('a');
+          ve.href = 'planning-equipe.html';
+          ve.textContent = 'Vue équipe';
+          if (page === 'planning-equipe.html') ve.classList.add('active');
+          planningLink.insertAdjacentElement('afterend', ve);
+        }
+      }
       // BEV accessible aussi (après Rapports)
       if (!nav.querySelector('a[href="bev.html"]')) {
         const a = document.createElement('a');
@@ -428,8 +437,8 @@ const SYNC = (() => {
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
-      { href: 'planning-equipe.html',  label: 'Planning réalisé', plus: true },  // Plus (realise = saisies mobiles)
-      { href: 'realise.html',          label: 'Suivi de l’activité', plus: true },
+      { href: 'planning-equipe.html',  label: 'Vue équipe' },            // les deux licences
+      { href: 'realise.html',          label: 'Planning réalisé', plus: true },
       { href: 'saisie.html',           label: 'Saisie mobile',    plus: true }
     ] },
     { label: 'Suivi', items: [
