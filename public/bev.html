@@ -87,11 +87,12 @@
       #bev-doc table.bev th:nth-child(10), #bev-doc table.bev td:nth-child(10) { width:15mm; }
       #bev-doc table.bev select.evt { width:100%; }
       #bev-doc table.bev input { width:11mm; }
-      /* Signatures empilées à droite du tableau (récupère la hauteur) */
-      .bev-flow { display:flex; align-items:flex-start; justify-content:center; gap:10px; }
-      .bev-left { min-width:0; flex:0 1 auto; }
-      .signatures { display:flex !important; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0 !important; }
-      .sig-box { min-height:74px; }
+      /* Tableau centré, signatures en bas de page (2 colonnes) */
+      .bev-flow { display:block; }
+      .bev-left { min-width:0; }
+      #bev-doc table.bev { margin:0 auto !important; }
+      .signatures { display:grid !important; grid-template-columns:1fr 1fr; gap:12mm; width:auto; max-width:170mm; margin:8mm auto 0 !important; }
+      .sig-box { min-height:70px; }
       .col-tranche .tranche-sel { display:none; }
       .col-tranche .tranche-print { display:inline; }
     }
@@ -106,9 +107,10 @@
     .bev-mesure table.bev th:nth-child(10), .bev-mesure table.bev td:nth-child(10) { width:15mm; }
     .bev-mesure table.bev select.evt { width:100%; }
     .bev-mesure table.bev input { width:11mm; }
-    .bev-mesure .bev-flow { display:flex; align-items:flex-start; justify-content:center; gap:10px; }
-    .bev-mesure .bev-left { min-width:0; flex:0 1 auto; }
-    .bev-mesure .signatures { display:flex; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0; }
+    .bev-mesure .bev-flow { display:block; }
+    .bev-mesure .bev-left { min-width:0; }
+    .bev-mesure table.bev { margin:0 auto; }
+    .bev-mesure .signatures { display:grid; grid-template-columns:1fr 1fr; gap:12mm; width:auto; max-width:170mm; margin:8mm auto 0; }
     .bev-mesure .col-tranche .tranche-sel { display:none; }
     .bev-mesure .col-tranche .tranche-print { display:inline; }
     .tranche-print { display:none; }
