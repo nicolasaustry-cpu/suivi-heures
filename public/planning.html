@@ -810,7 +810,7 @@ function pl3ToggleSamedi(){ _afficherSamedi=!_afficherSamedi; pl3MajSamedi(); }
 function pl3MoisCourant(){
   _afficherSamedi=false;
   const n=new Date(); document.getElementById('moisPlanning').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
-  chargerSemaines(); initFiltre(); genererPlanning(); majMoisImpression(); pl2MajMoisLabel();
+  chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
 }
 function pl2ChangerMois(delta){
   _afficherSamedi=false;
@@ -819,7 +819,7 @@ function pl2ChangerMois(delta){
   const [a,m]=mois.value.split('-').map(Number);
   const d=new Date(a, m-1+delta, 1);
   mois.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  chargerSemaines(); initFiltre(); genererPlanning(); majMoisImpression(); pl2MajMoisLabel();
+  chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
 }
 function pl2SemaineDates(salarieId, dateStr){
   const s=salaries.find(x=>String(x.id)===String(salarieId)); if(!s) return null;
@@ -884,7 +884,7 @@ function pl2ChipHTML(sl){
   </div>`;
 }
 
-function genererPlanning(){
+function genererPlanning(calerSemaine){
   salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
   const cont = document.getElementById('planning-wrapper');
@@ -992,37 +992,28 @@ function genererPlanning(){
   ajusterMarginTop();
   majCouleursChantiers();
   pl3MajSamedi();
+  if (calerSemaine) defilerVersAujourdhui(moisInput.value);
 }
 
-// Fait défiler la page pour amener le bloc du jour (ou le jour ouvré le plus
-// proche ≤ aujourd'hui) juste sous la barre supérieure fixe.
+// Cale la vue écran sur la semaine en cours : amène le bloc de la semaine
+// contenant aujourd'hui (colonne marquée .auj) juste sous la barre supérieure fixe.
 function defilerVersAujourdhui(moisSel) {
   const now = new Date();
   const moisCourant = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  if (moisSel !== moisCourant) return;
+  if (moisSel !== moisCourant) return;   // on ne cale que si le mois affiché est le mois courant
 
   const cont = document.getElementById('planning-wrapper');
   if (!cont) return;
-  const blocs = [...cont.querySelectorAll('th.jour[data-jour]')];
-  if (!blocs.length) return;
+  const aujCol = cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
+  const bloc = aujCol ? aujCol.closest('.wblock') : null;
+  if (!bloc) return;   // semaine du jour absente (mois affiché ≠ mois courant, ou pas encore rendu)
 
-  const aujStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-
-  // Bloc du jour exact, sinon dernier bloc dont la date est ≤ aujourd'hui
-  let cible = blocs.find(b => b.dataset.jour === aujStr);
-  if (!cible) {
-    const passes = blocs.filter(b => b.dataset.jour <= aujStr);
-    cible = passes.length ? passes[passes.length - 1] : blocs[0];
-  }
-
-  const wrap = cont.querySelector('.grille-wrap');
-  setTimeout(() => {
-    if (wrap && cible) {
-      const wr = wrap.getBoundingClientRect();
-      const cr = cible.getBoundingClientRect();
-      wrap.scrollTop += (cr.top - wr.top) - 90;
-    }
-  }, 80);
+  requestAnimationFrame(() => {
+    const topBar = document.querySelector('.top-bar');
+    const offset = (topBar ? topBar.offsetHeight : 0) + 10;
+    const y = bloc.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+  });
 }
 
 /* Colore les cases "heure" du planning selon la consommation par rapport
@@ -1364,7 +1355,7 @@ window.addEventListener('donnees-chargees', () => {
   // notes ne s'affichent pas. Les saisies déjà faites sont conservées (relues depuis
   // le localStorage). On restaure le focus sur la même case si possible.
   const actifId = document.activeElement && document.activeElement.id;
-  genererPlanning();
+  genererPlanning(true);
   if (actifId) { const el = document.getElementById(actifId); if (el) el.focus(); }
 });
 
@@ -1722,14 +1713,14 @@ document.addEventListener('DOMContentLoaded', () => {
   chargerSemaines();
   chargerJauge();
   initFiltre();
-  genererPlanning();
+  genererPlanning(true);
   majMoisImpression();
   pl2MajMoisLabel();
 
   mois.addEventListener('input', () => {
     chargerSemaines();
     initFiltre();
-    genererPlanning();
+    genererPlanning(true);
     majMoisImpression();
     pl2MajMoisLabel();
   });
