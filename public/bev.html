@@ -420,7 +420,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
     const ecartRB  = r2(realise - base);
-    const ecartRetenu = ecartRB;   // reporté de l'Écart Réalisé/Base (modifiable)
+    const ecartRetenu = (retenues && retenues[k] != null) ? r2(Number(retenues[k])) : ecartRB;   // valeur sauvegardée sinon reporté de l'Écart Réalisé/Base
     const tempsCompte = r2(base - ecartRetenu);   // Temps pris en compte = Nouvelle Base - Écart retenu
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
@@ -582,7 +582,11 @@ async function enregistrer() {
   if (!sal || !ym || !token) return;
   const retenues = {};
   document.querySelectorAll('#corps .ret').forEach(inp => {
-    retenues[inp.dataset.date] = parseFloat(inp.value) || 0;
+    const v       = parseFloat(inp.value) || 0;
+    const base    = parseFloat(inp.dataset.base) || 0;
+    const realise = parseFloat(inp.dataset.realise) || 0;
+    const defaut  = Math.round((realise - base) * 100) / 100;   // Écart Réalisé/Base (valeur reportée par défaut)
+    if (Math.abs(v - defaut) > 0.001) retenues[inp.dataset.date] = v;   // on ne persiste que les ajustements manuels
   });
   const valide = document.getElementById('chk-valide').checked;
   const evenements = {};
