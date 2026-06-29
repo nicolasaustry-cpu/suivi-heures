@@ -396,7 +396,7 @@ function planifieParJour(salarieId, ym) {
    - realise      = heures réellement pointées (saisies)
    - ecartRB      = Réalisé - Nouvelle Base
    - ecartRetenu  = modifiable, défaut = ecartRB
-   - tempsCompte  = Nouvelle Base + Écart retenu  (= Réalisé par défaut) */
+   - tempsCompte  = Réalisé - Écart retenu  (donc Temps compte + Écart retenu = Réalisé) */
 function lignesDuMois(sal, ym, saisies, retenues) {
   const [an, mo] = ym.split('-').map(Number);
   const planifMap = planifieParJour(sal.id, ym);
@@ -423,7 +423,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const realise  = r2(realMap[k] || 0);
     const ecartRB  = r2(realise - base);
     const ecartRetenu = (retenues && retenues[k] != null) ? r2(Number(retenues[k])) : ecartRB;   // valeur sauvegardée sinon reporté de l'Écart Réalisé/Base
-    const tempsCompte = r2(base - ecartRetenu);   // Temps pris en compte = Nouvelle Base - Écart retenu
+    const tempsCompte = r2(realise - ecartRetenu);   // Temps pris en compte = Réalisé - Écart retenu
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
@@ -550,7 +550,7 @@ function recalcMois() {
     const base    = parseFloat(inp.dataset.base) || 0;
     const realise = parseFloat(inp.dataset.realise) || 0;
     const er      = parseFloat(inp.value) || 0;       // Écart retenu (modifiable)
-    const tc      = r2(base - er);                    // Temps pris en compte = Nouvelle Base - Écart retenu
+    const tc      = r2(realise - er);                    // Temps pris en compte = Réalisé - Écart retenu
     const cellTC = row.querySelector('.tcompte');
     if (cellTC) cellTC.textContent = fmt(tc);
     const sp = row.querySelector('.ret-print'); if (sp) sp.textContent = fmt(er);
