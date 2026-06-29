@@ -492,7 +492,6 @@ async function chargerMois() {
   _prevuMois  = tbasePasse;   // base des jours passés (pour l'encart Heures payées)
   _ecartMois  = tret;         // total Écart retenu (jours passés)
   _compteMois = tcompte;      // total Temps pris en compte (jours passés)
-  const terbTotal = r2(treal - tbase);   // Écart Réalisé/Base (total) = Total Réalisé - Total Nouvelle Base
   document.getElementById('zone').innerHTML =
     '<div class="bev-flow"><div class="bev-left">' +
     '<table class="bev"><thead><tr>' +
@@ -503,7 +502,7 @@ async function chargerMois() {
       '<td><b class="base">' + fmt(tbase) + '</b></td>' +
       '<td>' + fmt(tplan) + '</td>' +
       '<td>' + fmt(treal) + '</td>' +
-      '<td class="' + classeEcart(terbTotal) + '">' + signe(terbTotal) + '</td>' +
+      '<td class="' + classeEcart(terb) + '">' + signe(terb) + '</td>' +
       '<td id="t-retenu">' + signe(tret) + '</td>' +
       '<td id="t-compte">' + fmt(tcompte) + '</td>' +
       '<td class="col-tranche"></td></tr></tfoot></table>' +
