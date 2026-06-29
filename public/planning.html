@@ -746,7 +746,7 @@ function pl2ViderPave(btn, k){
   majCouleursChantiers(); majTotauxGlobaux();
 }
 
-const PL2_MOTIFS = ['Congé','Maladie','RTT','Congé sans solde','Formation','Intempéries','Autre'];
+const PL2_MOTIFS = ['Congé','Maladie','RTT','Récupération','Congé sans solde','Formation','Intempéries','Autre'];
 function pl2MotifOptions(sel){
   let o='<option value="">— Motif ? —</option>';
   PL2_MOTIFS.forEach(m=>{ o+=`<option ${m===sel?'selected':''}>${m}</option>`; });
