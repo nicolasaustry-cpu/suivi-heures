@@ -31,6 +31,8 @@
     table.bev input { width:62px; }
     table.bev input.ret::-webkit-outer-spin-button, table.bev input.ret::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     table.bev input.ret { -moz-appearance:textfield; appearance:textfield; text-align:right; }
+    #enc-reporte::-webkit-outer-spin-button, #enc-reporte::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+    #enc-reporte { -moz-appearance:textfield; appearance:textfield; text-align:right; }
     table.bev th { background:#1d4ed8; color:#fff; font-weight:500; padding:7px 8px; text-align:center; vertical-align:middle; }
     table.bev th:first-child { text-align:center; }
     table.bev td { padding:5px 8px; text-align:right; border-bottom:1px solid #f1f5f9; }
@@ -510,7 +512,7 @@ async function chargerMois() {
       '<td class="col-tranche"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/Réalisé</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
-    '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td><td id="enc-payees"></td></tr></tbody></table>' +
+    '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="0" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '</div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>' +
