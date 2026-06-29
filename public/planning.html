@@ -864,6 +864,7 @@ function pl2ChipHTML(sl){
   const nom=(data.chantier||'').trim();
   const estTNA=nom.toUpperCase()===TNA;
   const noteG=_notesChantiers[nom.toUpperCase()]||'';
+  const noteImp=noteImpression(noteG);
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
   return `<div class="${cls}" data-k="${sl.k}">
     <div class="ligne1">
@@ -879,7 +880,7 @@ function pl2ChipHTML(sl){
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
     </div>
-    <div id="${sl.k}note-print" class="note-print">${noteG?'📝 '+escapeHtml(noteG):''}</div>
+    <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
   </div>`;
 }
 
@@ -1369,13 +1370,23 @@ function _nomChantierCell(k) {
 function noteDuChantier(nom) {
   return (nom && _notesChantiers[nom]) ? _notesChantiers[nom] : '';
 }
+/* Note nettoyée pour l'impression : retire le préfixe "[JJ/MM/AAAA HH:MM – Auteur]"
+   en tête de chaque ligne pour ne garder que le texte (sans date ni éditeur). */
+function noteImpression(note) {
+  if (!note) return '';
+  return String(note)
+    .split('\n')
+    .map(l => l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, ''))
+    .filter(l => l.trim() !== '')
+    .join('\n');
+}
 
 function majBoutonNote(k) {
   const note = noteDuChantier(_nomChantierCell(k));
   const btn = document.getElementById(k + 'note-btn');
   if (btn) btn.classList.toggle('has-note', !!note);
   const pr = document.getElementById(k + 'note-print');
-  if (pr) pr.innerHTML = note ? '📝 ' + escapeHtml(note) : '';
+  if (pr) { const np = noteImpression(note); pr.innerHTML = np ? '📝 ' + escapeHtml(np) : ''; }
 }
 
 function rafraichirNotesAffichage() {
