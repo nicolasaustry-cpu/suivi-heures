@@ -33,6 +33,7 @@
     table.bev td { padding:5px 8px; text-align:right; border-bottom:1px solid #f1f5f9; }
     table.bev td:first-child { text-align:left; }
     table.bev th:first-child, table.bev td:first-child { white-space:nowrap; }
+    table.bev td.evt-cell { text-align:center; }
     table.bev tr.we td { background:#fafafa; color:#9ca3af; }
     /* Jour avec absence planning non nulle : à caractériser dans Événements */
     table.bev tr.abs-todo td { background:#fed7aa; }
@@ -408,7 +409,9 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       contrat = Number(grille[key]) || 0;
     }
     const safe = k.replace(/-/g, '_');
-    const tempsEvt = parseFloat(_hAbs[sal.id + safe + 'abs'] && _hAbs[sal.id + safe + 'abs'].heures || 0) || 0;
+    const _abs = _hAbs[sal.id + safe + 'abs'];
+    const tempsEvt = parseFloat(_abs && _abs.heures || 0) || 0;
+    const motif    = (_abs && _abs.motif) || '';   // événement = motif d'absence saisi au Planning
     const base     = Math.max(0, r2(contrat - tempsEvt));
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
@@ -418,7 +421,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
-      contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base,
+      contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base, motif: motif,
       planifie: planifie, realise: realise, ecartRB: ecartRB,
       ecartRetenu: ecartRetenu, tempsCompte: tempsCompte
     });
@@ -458,8 +461,7 @@ async function chargerMois() {
     // Colonnes connues pour tout le mois (Contrat / Temps Évt / Nouvelle Base / Planifié)
     tcontrat += l.contrat; ttevt += l.tempsEvt; tbase += l.base; tplan += l.planifie;
     const aEvt   = Math.abs(l.tempsEvt || 0) > 0.0001;
-    const evtSet = !!(evenements[l.date]);
-    const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aEvt && !evtSet ? ' abs-todo' : '');
+    const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aEvt && !l.motif ? ' abs-todo' : '');
     let cellsReel;
     if (l.passe) {
       // Réalisé et colonnes dérivées : uniquement quand le jour est passé
@@ -475,7 +477,7 @@ async function chargerMois() {
     corps += '<tr' + (aEvt ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.contrat) + '</td>' +
-      '<td><select class="evt" data-date="' + l.date + '">' + optionsEvt(evenements[l.date] || '') + '</select></td>' +
+      '<td class="evt-cell">' + (l.motif || '') + '</td>' +
       '<td>' + fmt(l.tempsEvt) + '</td>' +
       '<td><b class="base">' + fmt(l.base) + '</b></td>' +
       '<td>' + fmt(l.planifie) + '</td>' +
@@ -518,11 +520,6 @@ async function chargerMois() {
       const sp = e.target.parentNode.querySelector('.tranche-print');
       if (sp) sp.textContent = e.target.value || '';
       rendreRecapIndemnites();
-    }
-    if (e.target.classList && e.target.classList.contains('evt')) {
-      const row = e.target.closest('tr');
-      // Surlignage orange seulement si la journée a une absence ET qu'aucun événement n'est choisi
-      if (row) row.classList.toggle('abs-todo', row.dataset.abs === '1' && !e.target.value);
     }
   });
   appliquerIndemnites();
