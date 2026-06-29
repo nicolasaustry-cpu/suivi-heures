@@ -688,8 +688,8 @@ async function chargerAnnee() {
     let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, moisPasse=false;
     const cntEvt = {}; evtsAnnee.forEach(function(e){ cntEvt[e] = 0; });
     lignes.forEach(l => {
-      cContrat += l.contrat; cTevt += l.tempsEvt; cBase += l.base; cPlan += l.planifie;
-      if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; moisPasse = true; }
+      cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie;
+      if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; moisPasse = true; }
       if (cntEvt[l.motif] !== undefined) cntEvt[l.motif]++;
     });
     const totEvtMois = evtsAnnee.reduce(function(a,e){ return a + cntEvt[e]; }, 0);
