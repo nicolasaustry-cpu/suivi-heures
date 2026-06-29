@@ -516,6 +516,15 @@ async function chargerMois() {
     '</div>';
 
   document.getElementById('corps').addEventListener('input', recalcMois);
+  document.getElementById('corps').addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('ret')) {
+      e.preventDefault();
+      const inputs = Array.prototype.slice.call(document.querySelectorAll('#corps .ret'));
+      const i = inputs.indexOf(e.target);
+      if (i > -1 && i + 1 < inputs.length) { const next = inputs[i + 1]; next.focus(); next.select(); }
+      else { e.target.blur(); }
+    }
+  });
   document.getElementById('enc-reporte').addEventListener('input', majEncart);
   document.querySelector('.ind-chk[value="trajet"]').checked    = !!_indemnites.trajet;
   document.querySelector('.ind-chk[value="transport"]').checked = !!_indemnites.transport;
