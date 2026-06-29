@@ -37,7 +37,7 @@
     table.bev tr.abs-todo td { background:#fed7aa; }
     table.bev tr.abs-todo td:first-child { color:#9a3412; font-weight:600; }
     table.bev tr.abs-todo select.evt { background:#fed7aa; }
-    table.bev tr.futur td { color:#cbd5e1; }
+    table.bev tr.futur td { color:#94a3b8; }
     table.bev tfoot td { border-top:2px solid #cbd5e1; font-weight:700; padding:9px 8px; }
     table.bev input { width:64px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; }
     .pos { color:#16a34a; } .neg { color:#dc2626; } .nul { color:#9ca3af; }
@@ -444,14 +444,10 @@ async function chargerMois() {
   let tp=0, tr=0, tret=0;
   let corps = '';
   lignes.forEach(l => {
-    if (!l.passe) {
-      corps += '<tr class="futur' + (l.we ? ' we' : '') + '"><td>' + l.label + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="col-tranche"></td></tr>';
-      return;
-    }
     tp += l.prevu; tr += l.real; tret += l.retenu;
     const aAbs   = Math.abs(l.abs || 0) > 0.0001;
     const evtSet = !!(evenements[l.date]);
-    const clsLigne = (l.we ? ' we' : '') + (aAbs && !evtSet ? ' abs-todo' : '');
+    const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aAbs && !evtSet ? ' abs-todo' : '');
     corps += '<tr' + (aAbs ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.prevu) + '</td>' +
