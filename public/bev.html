@@ -54,7 +54,7 @@
     .bev-encart th { background:#475569; color:#fff; font-weight:500; padding:7px 14px; }
     .bev-encart td { padding:6px 14px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
     .bev-encart input { width:80px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; font-weight:600; }
-    #zone { width: fit-content; max-width: 100%; margin: 0 auto; }
+    #zone { max-width: 1080px; margin: 0 auto; }
     /* Bandeau figé en haut + en-tête du tableau figé juste dessous (écran) */
     body header.main-header { position: sticky; top: 0; z-index: 50; }
     @media screen {
@@ -420,7 +420,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
     const ecartRB  = r2(realise - base);
-    const ecartRetenu = (retenues && retenues[k] != null) ? r2(Number(retenues[k])) : 0;
+    const ecartRetenu = 0;   // par défaut 0 (saisi manuellement par le gérant si besoin)
     const tempsCompte = r2(base + ecartRetenu);
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
