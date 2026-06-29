@@ -57,7 +57,7 @@
       .bev-controls { position: sticky; top: var(--bandeau-h, 66px); z-index: 40; background: #f4f6f8; padding: 8px 0; }
       table.bev thead th { position: sticky; top: calc(var(--bandeau-h, 66px) + var(--controls-h, 56px)); z-index: 30; }
     }
-    @page { size: A4 portrait; margin: 5mm; }
+    @page { size: A4 landscape; margin: 5mm; }
     @media print {
       .no-print { display:none !important; }
       body header.main-header, body .main-header, body .nav, body div.nav { display:none !important; }
@@ -70,7 +70,7 @@
       #zone { max-width: none; }
       /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
          zoom met à l'échelle la MISE EN PAGE (fiable à l'impression), facteur calculé au moment de l'impression. */
-      #bev-doc { width: 200mm; zoom: var(--bev-scale, 1); }
+      #bev-doc { width: 285mm; zoom: var(--bev-scale, 1); }
       .bev-titre-doc { display:block; text-align:center; }
       table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -79,15 +79,12 @@
       #bev-doc table.bev { width:auto; font-size:0.66rem; }
       #bev-doc table.bev th { padding:1px 3px; white-space:normal; vertical-align:bottom; }
       #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
-      #bev-doc table.bev th:nth-child(2), #bev-doc table.bev td:nth-child(2),
-      #bev-doc table.bev th:nth-child(4), #bev-doc table.bev td:nth-child(4),
-      #bev-doc table.bev th:nth-child(5), #bev-doc table.bev td:nth-child(5),
-      #bev-doc table.bev th:nth-child(7), #bev-doc table.bev td:nth-child(7) { width:13mm; }
+      #bev-doc table.bev th, #bev-doc table.bev td { width:12mm; }
+      #bev-doc table.bev th:first-child, #bev-doc table.bev td:first-child { width:auto; }
       #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:16mm; }
-      #bev-doc table.bev th:nth-child(6), #bev-doc table.bev td:nth-child(6) { width:15mm; }
-      #bev-doc table.bev th:nth-child(8), #bev-doc table.bev td:nth-child(8) { width:11mm; }
+      #bev-doc table.bev th:nth-child(10), #bev-doc table.bev td:nth-child(10) { width:15mm; }
       #bev-doc table.bev select.evt { width:100%; }
-      #bev-doc table.bev input { width:12mm; }
+      #bev-doc table.bev input { width:11mm; }
       /* Signatures empilées à droite du tableau (récupère la hauteur) */
       .bev-flow { display:flex; align-items:flex-start; justify-content:center; gap:10px; }
       .bev-left { min-width:0; flex:0 1 auto; }
@@ -97,19 +94,16 @@
       .col-tranche .tranche-print { display:inline; }
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
-    .bev-mesure { width:200mm; }
+    .bev-mesure { width:285mm; }
     .bev-mesure table.bev { width:auto; font-size:0.66rem; }
     .bev-mesure table.bev th { padding:1px 3px; white-space:normal; vertical-align:bottom; }
     .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
-    .bev-mesure table.bev th:nth-child(2), .bev-mesure table.bev td:nth-child(2),
-    .bev-mesure table.bev th:nth-child(4), .bev-mesure table.bev td:nth-child(4),
-    .bev-mesure table.bev th:nth-child(5), .bev-mesure table.bev td:nth-child(5),
-    .bev-mesure table.bev th:nth-child(7), .bev-mesure table.bev td:nth-child(7) { width:13mm; }
+    .bev-mesure table.bev th, .bev-mesure table.bev td { width:12mm; }
+    .bev-mesure table.bev th:first-child, .bev-mesure table.bev td:first-child { width:auto; }
     .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:16mm; }
-    .bev-mesure table.bev th:nth-child(6), .bev-mesure table.bev td:nth-child(6) { width:15mm; }
-    .bev-mesure table.bev th:nth-child(8), .bev-mesure table.bev td:nth-child(8) { width:11mm; }
+    .bev-mesure table.bev th:nth-child(10), .bev-mesure table.bev td:nth-child(10) { width:15mm; }
     .bev-mesure table.bev select.evt { width:100%; }
-    .bev-mesure table.bev input { width:12mm; }
+    .bev-mesure table.bev input { width:11mm; }
     .bev-mesure .bev-flow { display:flex; align-items:flex-start; justify-content:center; gap:10px; }
     .bev-mesure .bev-left { min-width:0; flex:0 1 auto; }
     .bev-mesure .signatures { display:flex; flex-direction:column; flex:0 0 50mm; width:50mm; gap:9px; margin-top:0; }
@@ -220,7 +214,7 @@ function ajusterEchelleBEV() {
   if (!doc) return;
   doc.style.removeProperty('--bev-scale');
   const ppmm = _bevPxParMm();
-  const Wmm = 200, Hmm = 282;            // zone utile A4 portrait (marges 5mm, sécurité incluse)
+  const Wmm = 285, Hmm = 195;            // zone utile A4 paysage (marges 5mm, sécurité incluse)
   const clone = doc.cloneNode(true);
   clone.classList.add('bev-mesure');
   clone.style.cssText = 'position:absolute;left:-99999px;top:0;zoom:1;';
@@ -236,6 +230,7 @@ function ajusterEchelleBEV() {
 function imprimerBEV() { ajusterEchelleBEV(); window.print(); }
 window.addEventListener('beforeprint', ajusterEchelleBEV);
 let _prevuMois = 0;
+let _compteMois = 0;
 const EVENEMENTS = ['', 'CP', 'École', 'Maladie', 'Abs Aut.', 'Ev. Famil.', 'RTT', 'AT'];
 function optionsEvt(sel) { return EVENEMENTS.map(function(e){ return '<option value="' + e + '"' + (e === sel ? ' selected' : '') + '>' + (e || '—') + '</option>'; }).join(''); }
 
@@ -384,10 +379,20 @@ function planifieParJour(salarieId, ym) {
   return map;
 }
 
-/* Construit les lignes jour par jour d'un mois (ym = "YYYY-MM"). */
+/* Construit les lignes jour par jour d'un mois (ym = "YYYY-MM").
+   Nouveau modèle BEV :
+   - contrat      = heures de contrat du jour
+   - tempsEvt     = heures d'événement = absence posée au Planning ce jour
+   - base         = Contrat - Temps Évt (Nouvelle Base)
+   - planifie     = heures chantier planifiées (Planning)
+   - realise      = heures réellement pointées (saisies)
+   - ecartRB      = Réalisé - Nouvelle Base
+   - ecartRetenu  = modifiable, défaut = ecartRB
+   - tempsCompte  = Nouvelle Base + Écart retenu  (= Réalisé par défaut) */
 function lignesDuMois(sal, ym, saisies, retenues) {
   const [an, mo] = ym.split('-').map(Number);
-  const realMap = estPlus() ? realiseParJour(saisies, sal.id) : planifieParJour(sal.id, ym);
+  const planifMap = planifieParJour(sal.id, ym);
+  const realMap   = realiseParJour(saisies, sal.id);
   let _hAbs = {};
   try { _hAbs = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
   const nbJours = new Date(an, mo, 0).getDate();
@@ -396,20 +401,25 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const d = new Date(an, mo - 1, j);
     const k = cle(d);
     const key = JOURS_KEYS[d.getDay()];
-    let prevu = 0;
+    let contrat = 0;
     if (key && dansContrat(sal, d)) {
       const grille = grilleHeuresPourDate(sal, d);
-      prevu = Number(grille[key]) || 0;
+      contrat = Number(grille[key]) || 0;
     }
-    const real   = r2(realMap[k] || 0);
-    const retenu = (retenues && retenues[k] != null) ? Number(retenues[k]) : real;
     const safe = k.replace(/-/g, '_');
-    const abs  = parseFloat(_hAbs[sal.id + safe + 'abs'] && _hAbs[sal.id + safe + 'abs'].heures || 0) || 0;
+    const tempsEvt = parseFloat(_hAbs[sal.id + safe + 'abs'] && _hAbs[sal.id + safe + 'abs'].heures || 0) || 0;
+    const base     = Math.max(0, r2(contrat - tempsEvt));
+    const planifie = r2(planifMap[k] || 0);
+    const realise  = r2(realMap[k] || 0);
+    const ecartRB  = r2(realise - base);
+    const ecartRetenu = (retenues && retenues[k] != null) ? r2(Number(retenues[k])) : ecartRB;
+    const tempsCompte = r2(base + ecartRetenu);
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
-      passe: (k < AUJOURDHUI), abs: r2(abs),
-      prevu: r2(prevu), real: real, retenu: r2(retenu),
-      ecart: r2(real - prevu), ecartV: r2(retenu - prevu)
+      passe: (k < AUJOURDHUI),
+      contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base,
+      planifie: planifie, realise: realise, ecartRB: ecartRB,
+      ecartRetenu: ecartRetenu, tempsCompte: tempsCompte
     });
   }
   return lignes;
@@ -441,35 +451,54 @@ async function chargerMois() {
 
   document.getElementById('chk-valide').checked = valide;
   const lignes = lignesDuMois(sal, ym, saisies, retenues);
-  let tp=0, tr=0, tret=0;
+  let tcontrat=0, ttevt=0, tbase=0, tplan=0, treal=0, terb=0, tret=0, tcompte=0, tbasePasse=0;
   let corps = '';
   lignes.forEach(l => {
-    tp += l.prevu; tr += l.real; tret += l.retenu;
-    const aAbs   = Math.abs(l.abs || 0) > 0.0001;
+    // Colonnes connues pour tout le mois (Contrat / Temps Évt / Nouvelle Base / Planifié)
+    tcontrat += l.contrat; ttevt += l.tempsEvt; tbase += l.base; tplan += l.planifie;
+    const aEvt   = Math.abs(l.tempsEvt || 0) > 0.0001;
     const evtSet = !!(evenements[l.date]);
-    const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aAbs && !evtSet ? ' abs-todo' : '');
-    corps += '<tr' + (aAbs ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
+    const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aEvt && !evtSet ? ' abs-todo' : '');
+    let cellsReel;
+    if (l.passe) {
+      // Réalisé et colonnes dérivées : uniquement quand le jour est passé
+      treal += l.realise; terb += l.ecartRB; tret += l.ecartRetenu; tcompte += l.tempsCompte; tbasePasse += l.base;
+      cellsReel =
+        '<td>' + fmt(l.realise) + '</td>' +
+        '<td class="' + classeEcart(l.ecartRB) + '">' + signe(l.ecartRB) + '</td>' +
+        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
+        '<td class="tcompte">' + fmt(l.tempsCompte) + '</td>';
+    } else {
+      cellsReel = '<td></td><td></td><td></td><td class="tcompte"></td>';
+    }
+    corps += '<tr' + (aEvt ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
       '<td>' + l.label + '</td>' +
-      '<td>' + fmt(l.prevu) + '</td>' +
+      '<td>' + fmt(l.contrat) + '</td>' +
       '<td><select class="evt" data-date="' + l.date + '">' + optionsEvt(evenements[l.date] || '') + '</select></td>' +
-      '<td>' + fmt(l.real) + '</td>' +
-      '<td class="' + classeEcart(l.ecart) + '">' + signe(l.ecart) + '</td>' +
-      '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-prevu="' + l.prevu + '" data-passe="1" value="' + fmt(l.retenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.retenu) + '</span></td>' +
-      '<td class="ecv ' + classeEcart(l.ecartV) + '">' + signe(l.ecartV) + '</td>' +
+      '<td>' + fmt(l.tempsEvt) + '</td>' +
+      '<td><b class="base">' + fmt(l.base) + '</b></td>' +
+      '<td>' + fmt(l.planifie) + '</td>' +
+      cellsReel +
       '<td class="col-tranche"><select class="tranche-sel" data-date="' + l.date + '">' + optionsTranche(_tranches[l.date] || '') + '</select><span class="tranche-print">' + (_tranches[l.date] || '') + '</span></td>' +
     '</tr>';
   });
-  const tec = r2(tr - tp), tecv = r2(tret - tp);
-  _prevuMois = tp;
+  _prevuMois  = tbasePasse;   // base des jours passés (pour l'encart Heures payées)
+  _ecartMois  = tret;         // total Écart retenu (jours passés)
+  _compteMois = tcompte;      // total Temps pris en compte (jours passés)
   document.getElementById('zone').innerHTML =
     '<div class="bev-flow"><div class="bev-left">' +
     '<table class="bev"><thead><tr>' +
-      '<th>Jour</th><th>Prévu</th><th>Événements</th><th>' + labelColReel() + '</th><th>Écart</th><th>Retenu</th><th>Écart validé</th><th class="col-tranche">Tranche indemnité</th>' +
+      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart Réalisé/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
-    '<tfoot><tr><td>Totaux</td><td>' + fmt(tp) + '</td><td></td><td>' + fmt(tr) + '</td>' +
-      '<td class="' + classeEcart(tec) + '">' + signe(tec) + '</td>' +
-      '<td id="t-ret">' + fmt(tret) + '</td>' +
-      '<td id="t-ecv" class="' + classeEcart(tecv) + '">' + signe(tecv) + '</td><td class="col-tranche"></td></tr></tfoot></table>' +
+    '<tfoot><tr><td>Totaux</td>' +
+      '<td>' + fmt(tcontrat) + '</td><td></td><td>' + fmt(ttevt) + '</td>' +
+      '<td><b class="base">' + fmt(tbase) + '</b></td>' +
+      '<td>' + fmt(tplan) + '</td>' +
+      '<td>' + fmt(treal) + '</td>' +
+      '<td class="' + classeEcart(terb) + '">' + signe(terb) + '</td>' +
+      '<td id="t-retenu">' + signe(tret) + '</td>' +
+      '<td id="t-compte">' + fmt(tcompte) + '</td>' +
+      '<td class="col-tranche"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td><td id="enc-payees"></td></tr></tbody></table>' +
@@ -478,7 +507,6 @@ async function chargerMois() {
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>' +
     '</div>';
 
-  _ecartMois = tecv;
   document.getElementById('corps').addEventListener('input', recalcMois);
   document.getElementById('enc-reporte').addEventListener('input', majEncart);
   document.querySelector('.ind-chk[value="trajet"]').checked    = !!_indemnites.trajet;
@@ -502,24 +530,23 @@ async function chargerMois() {
 
 function recalcMois() {
   const rows = document.querySelectorAll('#corps tr');
-  let tret = 0, tp = 0;
+  let tret = 0, tbase = 0, tcompte = 0;
   rows.forEach(row => {
     const inp = row.querySelector('.ret');
     if (!inp) return;
-    const prevu = parseFloat(inp.dataset.prevu) || 0;
-    const ret = parseFloat(inp.value) || 0;
-    const ecv = r2(ret - prevu);
-    const cell = row.querySelector('.ecv');
-    cell.textContent = signe(ecv); cell.className = 'ecv ' + classeEcart(ecv);
-    row.querySelector('.ret-print').textContent = fmt(ret);
-    if (inp.dataset.passe === '1') { tret += ret; tp += prevu; }
+    const base = parseFloat(inp.dataset.base) || 0;
+    const er   = parseFloat(inp.value) || 0;       // Écart retenu (modifiable)
+    const tc   = r2(base + er);                     // Temps pris en compte = Nouvelle Base + Écart retenu
+    const cellTC = row.querySelector('.tcompte');
+    if (cellTC) cellTC.textContent = fmt(tc);
+    const sp = row.querySelector('.ret-print'); if (sp) sp.textContent = fmt(er);
+    if (inp.dataset.passe === '1') { tret += er; tbase += base; tcompte += tc; }
   });
-  document.getElementById('t-ret').textContent = fmt(tret);
-  const tecv = r2(tret - tp);
-  const tc = document.getElementById('t-ecv');
-  tc.textContent = signe(tecv); tc.className = classeEcart(tecv);
-  _ecartMois = tecv;
-  _prevuMois = tp;
+  const tRet  = document.getElementById('t-retenu'); if (tRet)  tRet.textContent  = signe(tret);
+  const tComp = document.getElementById('t-compte'); if (tComp) tComp.textContent = fmt(tcompte);
+  _ecartMois  = tret;
+  _prevuMois  = tbase;
+  _compteMois = tcompte;
   majEncart();
 }
 
@@ -527,11 +554,11 @@ function majEncart() {
   const el = document.getElementById('enc-reporte');
   if (!el) return;
   const rep  = parseFloat(el.value) || 0;
-  const paye = r2(_ecartMois - rep);
+  const paye = r2(_ecartMois - rep);                          // écart d'heures payés = Écart retenu - reporté
   const p = document.getElementById('enc-paye');
-  p.textContent = signe(paye); p.className = classeEcart(paye);
+  if (p) { p.textContent = signe(paye); p.className = classeEcart(paye); }
   const tpay = document.getElementById('enc-payees');
-  if (tpay) tpay.textContent = fmt(r2(_prevuMois + paye));
+  if (tpay) tpay.textContent = fmt(r2(_compteMois - rep));    // heures payées = Temps pris en compte - reporté
 }
 
 async function enregistrer() {
@@ -595,34 +622,49 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let corps = '', TP=0, TR=0, TRET=0, TPAYE=0, TREPORTE=0;
+  let corps = '', TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0;
   res.forEach((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
     const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
-    let p=0, r=0, ret=0, moisPasse=false;
-    lignes.forEach(l => { if (l.passe) { p += l.prevu; r += l.real; ret += l.retenu; moisPasse = true; } });
-    if (!moisPasse) {
-      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, moisPasse=false;
+    lignes.forEach(l => {
+      cContrat += l.contrat; cTevt += l.tempsEvt; cBase += l.base; cPlan += l.planifie;
+      if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; moisPasse = true; }
+    });
+    // Mois entièrement à venir et sans contrat : ligne vide
+    if (cContrat === 0 && !moisPasse) {
+      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
       return;
     }
-    const ec = r2(r - p), ecv = r2(ret - p), paye = r2(ecv - reporte);
-    TP += p; TR += r; TRET += ret; TPAYE += paye; TREPORTE += reporte;
-    corps += '<tr><td>' + moisNoms[idx] + '</td><td>' + fmt(p) + '</td><td>' + fmt(r) + '</td>' +
-      '<td class="' + classeEcart(ec) + '">' + signe(ec) + '</td>' +
-      '<td class="' + classeEcart(ecv) + '">' + signe(ecv) + '</td>' +
-      '<td>' + fmt(reporte) + '</td><td>' + fmt(r2(p + paye)) + '</td></tr>';
+    const blanc = !moisPasse;                       // mois pas encore commencé : pas de réalisé
+    const payees = moisPasse ? r2(cCompte - reporte) : 0;
+    TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan;
+    if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; }
+    corps += '<tr' + (blanc ? ' class="futur"' : '') + '><td>' + moisNoms[idx] + '</td>' +
+      '<td>' + fmt(cContrat) + '</td>' +
+      '<td>' + fmt(cTevt) + '</td>' +
+      '<td><b class="base">' + fmt(cBase) + '</b></td>' +
+      '<td>' + fmt(cPlan) + '</td>' +
+      '<td>' + (blanc ? '' : fmt(cReal)) + '</td>' +
+      '<td>' + (blanc ? '' : fmt(cCompte)) + '</td>' +
+      '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
+      '<td>' + (blanc ? '' : fmt(payees)) + '</td></tr>';
   });
-  const TEC = r2(TR - TP), TECV = r2(TRET - TP);
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Prévu</th><th>' + labelColReel() + '</th><th>Écart</th><th>Écart validé</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
-    '<tfoot><tr><td>Total année</td><td>' + fmt(TP) + '</td><td>' + fmt(TR) + '</td>' +
-      '<td class="' + classeEcart(TEC) + '">' + signe(TEC) + '</td>' +
-      '<td class="' + classeEcart(TECV) + '">' + signe(TECV) + '</td>' +
-      '<td>' + fmt(TREPORTE) + '</td><td>' + fmt(r2(TP + TPAYE)) + '</td></tr></tfoot></table>' +
+    '<tfoot><tr><td>Total année</td>' +
+      '<td>' + fmt(TC) + '</td>' +
+      '<td>' + fmt(TTE) + '</td>' +
+      '<td><b class="base">' + fmt(TBASE) + '</b></td>' +
+      '<td>' + fmt(TPLAN) + '</td>' +
+      '<td>' + fmt(TREAL) + '</td>' +
+      '<td>' + fmt(TCOMPTE) + '</td>' +
+      '<td>' + fmt(TREPORTE) + '</td>' +
+      '<td>' + fmt(r2(TCOMPTE - TREPORTE)) + '</td></tr></tfoot></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 }
