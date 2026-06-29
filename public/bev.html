@@ -19,6 +19,7 @@
     .btn-print { background:#f59e0b; color:#000; }
     .btn-save  { background:#16a34a; color:#fff; }
     .btn-refresh { background:#3b82f6; color:#fff; }
+    .btn-reset { background:#6b7280; color:#fff; }
     .bev-titre-doc { display:none; }
     .bev-titre-doc .td-ent { font-size:1.15rem; font-weight:700; }
     .bev-titre-doc .td-bord { font-size:1rem; font-weight:700; margin-top:3px; }
@@ -180,6 +181,7 @@
     <button class="btn-outil btn-refresh" onclick="location.reload()"><i class="ti ti-refresh"></i> Rafraîchir</button>
     <button class="btn-outil btn-print" onclick="imprimerBEV()"><i class="ti ti-printer"></i> Imprimer</button>
     <button class="btn-outil btn-save no-print" id="btn-save" onclick="enregistrer()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
+    <button class="btn-outil btn-reset no-print" id="btn-reset" onclick="reinitEcartRetenu()"><i class="ti ti-rotate-2"></i> Réinitialiser l'écart retenu</button>
     <label class="no-print" id="lbl-valide" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#374151;">
       <input type="checkbox" id="chk-valide" style="width:auto;"> Mois validé
     </label>
@@ -611,6 +613,19 @@ async function enregistrer() {
     btn.innerHTML = d.ok ? '<i class="ti ti-check"></i> Enregistré' : '⚠ Échec';
   } catch (e) { btn.innerHTML = '⚠ Erreur'; }
   setTimeout(() => { btn.innerHTML = ancien; btn.disabled = false; }, 1800);
+}
+
+/* Réinitialiser la colonne Écart retenu : chaque jour reprend l'Écart Réalisé/Base, puis on persiste (efface les ajustements) */
+function reinitEcartRetenu() {
+  if (_vue !== 'mois') return;
+  if (!confirm("Réinitialiser la colonne « Écart retenu » ?\nChaque jour reprendra la valeur de l'Écart Réalisé/Base ; les ajustements manuels seront effacés.")) return;
+  document.querySelectorAll('#corps .ret').forEach(inp => {
+    const base    = parseFloat(inp.dataset.base) || 0;
+    const realise = parseFloat(inp.dataset.realise) || 0;
+    inp.value = fmt(realise - base);   // report de l'Écart Réalisé/Base
+  });
+  recalcMois();    // met à jour Temps pris en compte, totaux et encart
+  enregistrer();   // persiste : plus aucun ajustement enregistré → report redevenu définitif
 }
 
 /* ── Vue annuelle ── */
