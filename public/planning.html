@@ -340,6 +340,7 @@
   table.tgrid tbody td { background:var(--bg); border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; padding:6px; min-width:210px !important; width:210px !important; max-width:210px !important; height:1px; }
   table.tgrid tbody td.auj { box-shadow: inset 3px 0 0 #f59e0b55; }
   td.thors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
+  table.tgrid tbody td.hors-mois { background:#eef2f9; box-shadow: inset 0 0 0 1px #d7deea; }
   table.tgrid tbody td.tweek { background:#f8fafc; text-align:center; font-weight:800; color:#0f3a8a; border-left:5px solid var(--col); min-width:108px !important; width:108px !important; max-width:108px !important; font-size:0.92rem; }
   .tweek .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
 
@@ -943,7 +944,7 @@ function genererPlanning(calerSemaine){
       const {s,coul}=row; let wT=0,wC=0,cells='';
       jours.forEach(d=>{
         const dateStr=ds(d); const auj=dateStr===aujStr;
-        if(d.getMonth()!==moIdx){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
+        const horsMois=(d.getMonth()!==moIdx);   // jour du mois voisin (semaine à cheval) : actif, mais hors total mensuel
         if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
         const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
         const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
@@ -967,7 +968,7 @@ function genererPlanning(calerSemaine){
           actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button></div>`;
         }
         const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
-        cells+=`<td class="${auj?'auj':''}${d.getDay()===6?' sam-col':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+        cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
       });
       const ecW=wT-wC;
       const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
@@ -1505,7 +1506,7 @@ function majTotalLigne(salarieId, dateStr) {
 
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0;
-  document.querySelectorAll('[data-salarie][data-date]').forEach(tr => {
+  document.querySelectorAll('[data-salarie][data-date]:not(.hors-mois)').forEach(tr => {
     totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
     totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
     totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
