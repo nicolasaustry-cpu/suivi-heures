@@ -127,6 +127,8 @@
     #zone.ind-on .col-tranche { display:table-cell; }
     #recap-indemnites { margin-top:10px; }
     #recap-indemnites:empty { display:none; }
+    #recap-evenements { margin-top:10px; }
+    #recap-evenements:empty { display:none; }
     table.bev-recap { border-collapse:collapse; font-size:0.85rem; margin-top:6px; }
     table.bev-recap th, table.bev-recap td { border:1px solid #cbd5e1; padding:3px 8px; text-align:center; }
     table.bev-recap th { background:#eef2f7; color:#0f3a8a; font-weight:700; }
@@ -282,6 +284,22 @@ function rendreRecapIndemnites() {
   items.forEach(function(it){
     html += '<tr><td>' + it[1] + '</td>' + codes.map(function(c){ return '<td>' + (cnt[c] || '') + '</td>'; }).join('') + '<td>' + (tot || '') + '</td></tr>';
   });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+function rendreRecapEvenements() {
+  const wrap = document.getElementById('recap-evenements');
+  if (!wrap) return;
+  const evts = EVENEMENTS.filter(function(e){ return e; });   // sans la valeur vide
+  const cnt = {}; evts.forEach(function(e){ cnt[e] = 0; });
+  document.querySelectorAll('#corps .evt-cell').forEach(function(td){
+    const m = (td.textContent || '').trim();
+    if (cnt[m] !== undefined) cnt[m]++;
+  });
+  const tot = evts.reduce(function(a,e){ return a + cnt[e]; }, 0);
+  if (!tot) { wrap.innerHTML = ''; return; }   // aucun événement ce mois → tableau masqué
+  let html = '<table class="bev-recap"><thead><tr><th>Événement</th>' + evts.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>';
+  html += '<tr><td>Nombre de jours</td>' + evts.map(function(e){ return '<td>' + (cnt[e] || '') + '</td>'; }).join('') + '<td>' + tot + '</td></tr>';
   html += '</tbody></table>';
   wrap.innerHTML = html;
 }
@@ -511,6 +529,7 @@ async function chargerMois() {
       '<td id="t-compte">' + fmt(tcompte) + '</td>' +
       '<td class="col-tranche"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
+    '<div id="recap-evenements"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/Réalisé</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="0" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '</div>' +
@@ -540,6 +559,7 @@ async function chargerMois() {
     }
   });
   appliquerIndemnites();
+  rendreRecapEvenements();
   majEncart();
 }
 
