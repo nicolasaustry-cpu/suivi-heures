@@ -28,10 +28,11 @@
     table.bev th:nth-child(3), table.bev td:nth-child(3) { width:104px; }
     table.bev select.evt { width:100%; font-size:0.8rem; padding:2px 4px; border:1px solid #cbd5e1; border-radius:5px; }
     table.bev input { width:62px; }
-    table.bev th { background:#1d4ed8; color:#fff; font-weight:500; padding:7px 8px; text-align:right; }
-    table.bev th:first-child { text-align:left; }
+    table.bev th { background:#1d4ed8; color:#fff; font-weight:500; padding:7px 8px; text-align:center; vertical-align:middle; }
+    table.bev th:first-child { text-align:center; }
     table.bev td { padding:5px 8px; text-align:right; border-bottom:1px solid #f1f5f9; }
     table.bev td:first-child { text-align:left; }
+    table.bev th:first-child, table.bev td:first-child { white-space:nowrap; }
     table.bev tr.we td { background:#fafafa; color:#9ca3af; }
     /* Jour avec absence planning non nulle : à caractériser dans Événements */
     table.bev tr.abs-todo td { background:#fed7aa; }
@@ -57,7 +58,7 @@
       .bev-controls { position: sticky; top: var(--bandeau-h, 66px); z-index: 40; background: #f4f6f8; padding: 8px 0; }
       table.bev thead th { position: sticky; top: calc(var(--bandeau-h, 66px) + var(--controls-h, 56px)); z-index: 30; }
     }
-    @page { size: A4 landscape; margin: 5mm; }
+    @page { size: A4 portrait; margin: 5mm; }
     @media print {
       .no-print { display:none !important; }
       body header.main-header, body .main-header, body .nav, body div.nav { display:none !important; }
@@ -70,14 +71,14 @@
       #zone { max-width: none; }
       /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
          zoom met à l'échelle la MISE EN PAGE (fiable à l'impression), facteur calculé au moment de l'impression. */
-      #bev-doc { width: 285mm; zoom: var(--bev-scale, 1); }
+      #bev-doc { width: 200mm; zoom: var(--bev-scale, 1); }
       .bev-titre-doc { display:block; text-align:center; }
       table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .signatures { break-inside:avoid; page-break-inside:avoid; }
       /* Tableau compact : police réduite, dates sur une ligne, en-têtes sur 2 lignes possibles */
       #bev-doc table.bev { width:auto; font-size:0.66rem; }
-      #bev-doc table.bev th { padding:1px 3px; white-space:normal; vertical-align:bottom; }
+      #bev-doc table.bev th { padding:1px 3px; white-space:normal; vertical-align:middle; text-align:center; }
       #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
       #bev-doc table.bev th, #bev-doc table.bev td { width:12mm; }
       #bev-doc table.bev th:first-child, #bev-doc table.bev td:first-child { width:auto; }
@@ -94,9 +95,9 @@
       .col-tranche .tranche-print { display:inline; }
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
-    .bev-mesure { width:285mm; }
+    .bev-mesure { width:200mm; }
     .bev-mesure table.bev { width:auto; font-size:0.66rem; }
-    .bev-mesure table.bev th { padding:1px 3px; white-space:normal; vertical-align:bottom; }
+    .bev-mesure table.bev th { padding:1px 3px; white-space:normal; vertical-align:middle; text-align:center; }
     .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
     .bev-mesure table.bev th, .bev-mesure table.bev td { width:12mm; }
     .bev-mesure table.bev th:first-child, .bev-mesure table.bev td:first-child { width:auto; }
@@ -214,7 +215,7 @@ function ajusterEchelleBEV() {
   if (!doc) return;
   doc.style.removeProperty('--bev-scale');
   const ppmm = _bevPxParMm();
-  const Wmm = 285, Hmm = 195;            // zone utile A4 paysage (marges 5mm, sécurité incluse)
+  const Wmm = 200, Hmm = 282;            // zone utile A4 portrait (marges 5mm, sécurité incluse)
   const clone = doc.cloneNode(true);
   clone.classList.add('bev-mesure');
   clone.style.cssText = 'position:absolute;left:-99999px;top:0;zoom:1;';
