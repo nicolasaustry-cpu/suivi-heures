@@ -696,7 +696,7 @@ async function chargerAnnee() {
     evtsAnnee.forEach(function(e){ TEVT[e] += cntEvt[e]; });
     // Mois entièrement à venir et sans contrat : ligne vide
     if (cContrat === 0 && !moisPasse) {
-      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
       corpsEvt += '<tr class="futur"><td>' + moisNoms[idx] + '</td>' + evtsAnnee.map(function(){ return '<td></td>'; }).join('') + '<td></td></tr>';
       return;
     }
@@ -712,13 +712,14 @@ async function chargerAnnee() {
       '<td>' + (blanc ? '' : fmt(cReal)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(cCompte)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
+      '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(payees)) + '</td></tr>';
     corpsEvt += '<tr><td>' + moisNoms[idx] + '</td>' +
       evtsAnnee.map(function(e){ return '<td>' + (cntEvt[e] || '') + '</td>'; }).join('') +
       '<td>' + (totEvtMois || '') + '</td></tr>';
   });
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures dues par salarié</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td>' +
       '<td>' + fmt(TC) + '</td>' +
@@ -727,6 +728,7 @@ async function chargerAnnee() {
       '<td>' + fmt(TPLAN) + '</td>' +
       '<td>' + fmt(TREAL) + '</td>' +
       '<td>' + fmt(TCOMPTE) + '</td>' +
+      '<td>' + fmt(TREPORTE) + '</td>' +
       '<td>' + fmt(TREPORTE) + '</td>' +
       '<td>' + fmt(r2(TCOMPTE - TREPORTE)) + '</td></tr></tfoot></table>' +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
