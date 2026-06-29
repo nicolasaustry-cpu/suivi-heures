@@ -501,7 +501,7 @@ async function chargerMois() {
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td>' +
       '<td>' + fmt(tcontrat) + '</td><td></td><td>' + fmt(ttevt) + '</td>' +
-      '<td><b class="base">' + fmt(tbase) + '</b></td>' +
+      '<td><b class="base">' + fmt(tbasePasse) + '</b></td>' +
       '<td>' + fmt(tplan) + '</td>' +
       '<td>' + fmt(treal) + '</td>' +
       '<td class="' + classeEcart(terb) + '">' + signe(terb) + '</td>' +
@@ -509,7 +509,7 @@ async function chargerMois() {
       '<td id="t-compte">' + fmt(tcompte) + '</td>' +
       '<td class="col-tranche"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
-    '<table class="bev-encart"><thead><tr><th>Écart d\'heures payés</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
+    '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/Réalisé</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '</div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
