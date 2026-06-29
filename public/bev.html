@@ -420,8 +420,8 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
     const ecartRB  = r2(realise - base);
-    const ecartRetenu = 0;   // par défaut 0 (saisi manuellement par le gérant si besoin)
-    const tempsCompte = r2(base + ecartRetenu);
+    const ecartRetenu = ecartRB;   // reporté de l'Écart Réalisé/Base (modifiable)
+    const tempsCompte = r2(realise - ecartRetenu);   // Temps pris en compte = Réalisé - Écart retenu
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
@@ -473,7 +473,7 @@ async function chargerMois() {
       cellsReel =
         '<td>' + fmt(l.realise) + '</td>' +
         '<td class="' + classeEcart(l.ecartRB) + '">' + signe(l.ecartRB) + '</td>' +
-        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
+        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-realise="' + l.realise + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '" onfocus="this.select()" onmouseup="return false"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
         '<td class="tcompte">' + fmt(l.tempsCompte) + '</td>';
     } else {
       cellsReel = '<td></td><td></td><td></td><td class="tcompte"></td>';
@@ -546,9 +546,10 @@ function recalcMois() {
   rows.forEach(row => {
     const inp = row.querySelector('.ret');
     if (!inp) return;
-    const base = parseFloat(inp.dataset.base) || 0;
-    const er   = parseFloat(inp.value) || 0;       // Écart retenu (modifiable)
-    const tc   = r2(base + er);                     // Temps pris en compte = Nouvelle Base + Écart retenu
+    const base    = parseFloat(inp.dataset.base) || 0;
+    const realise = parseFloat(inp.dataset.realise) || 0;
+    const er      = parseFloat(inp.value) || 0;       // Écart retenu (modifiable)
+    const tc      = r2(realise - er);                 // Temps pris en compte = Réalisé - Écart retenu
     const cellTC = row.querySelector('.tcompte');
     if (cellTC) cellTC.textContent = fmt(tc);
     const sp = row.querySelector('.ret-print'); if (sp) sp.textContent = fmt(er);
