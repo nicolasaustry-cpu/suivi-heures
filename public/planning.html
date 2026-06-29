@@ -872,13 +872,13 @@ function pl2ChipHTML(sl){
         onfocus="onChantierFocus('${sl.k}')"
         oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
         onblur="onChantierCommit('${sl.k}')">
-      <select id="${sl.k}h" class="h" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
-      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div class="ligne2">
       ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
-      <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
+      <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
   </div>`;
@@ -951,16 +951,21 @@ function genererPlanning(){
 
         let chips='';
         if(C.abs>0){
-          chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}')">${genOptionsHeures(C.abs)}</select>`
+          chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}');genererPlanning()">${genOptionsHeures(C.abs)}</select>`
                +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
                +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
                +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
         }
         C.slots.forEach(sl=>chips+=pl2ChipHTML(sl));
-        const actions = (C.abs>0) ? '' :
-          `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
-          +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
-          +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
+        let actions = '';
+        if (C.abs <= 0) {
+          actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
+            +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
+            +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
+        } else if (C.abs < prevu) {
+          // Absence partielle : il reste du temps contrat → saisie de chantiers autorisée (le TNA suit la même règle : contrat − absence − chantiers)
+          actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button></div>`;
+        }
         const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
         cells+=`<td class="${auj?'auj':''}${d.getDay()===6?' sam-col':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
       });
