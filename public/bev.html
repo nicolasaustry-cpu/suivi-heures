@@ -676,6 +676,9 @@ async function chargerAnnee() {
   const res = await Promise.all(reqs);
 
   let corps = '', TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0;
+  const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
+  const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
+  let corpsEvt = '';
   res.forEach((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
     const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
@@ -683,13 +686,18 @@ async function chargerAnnee() {
     const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
     let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, moisPasse=false;
+    const cntEvt = {}; evtsAnnee.forEach(function(e){ cntEvt[e] = 0; });
     lignes.forEach(l => {
       cContrat += l.contrat; cTevt += l.tempsEvt; cBase += l.base; cPlan += l.planifie;
       if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; moisPasse = true; }
+      if (cntEvt[l.motif] !== undefined) cntEvt[l.motif]++;
     });
+    const totEvtMois = evtsAnnee.reduce(function(a,e){ return a + cntEvt[e]; }, 0);
+    evtsAnnee.forEach(function(e){ TEVT[e] += cntEvt[e]; });
     // Mois entièrement à venir et sans contrat : ligne vide
     if (cContrat === 0 && !moisPasse) {
       corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+      corpsEvt += '<tr class="futur"><td>' + moisNoms[idx] + '</td>' + evtsAnnee.map(function(){ return '<td></td>'; }).join('') + '<td></td></tr>';
       return;
     }
     const blanc = !moisPasse;                       // mois pas encore commencé : pas de réalisé
@@ -705,6 +713,9 @@ async function chargerAnnee() {
       '<td>' + (blanc ? '' : fmt(cCompte)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(payees)) + '</td></tr>';
+    corpsEvt += '<tr><td>' + moisNoms[idx] + '</td>' +
+      evtsAnnee.map(function(e){ return '<td>' + (cntEvt[e] || '') + '</td>'; }).join('') +
+      '<td>' + (totEvtMois || '') + '</td></tr>';
   });
   zone.innerHTML =
     '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
@@ -718,6 +729,11 @@ async function chargerAnnee() {
       '<td>' + fmt(TCOMPTE) + '</td>' +
       '<td>' + fmt(TREPORTE) + '</td>' +
       '<td>' + fmt(r2(TCOMPTE - TREPORTE)) + '</td></tr></tfoot></table>' +
+    '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
+    '<table class="bev"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
+    '<tbody>' + corpsEvt + '</tbody>' +
+    '<tfoot><tr><td>Total année</td>' + evtsAnnee.map(function(e){ return '<td>' + (TEVT[e] || '') + '</td>'; }).join('') +
+      '<td>' + (evtsAnnee.reduce(function(a,e){ return a + TEVT[e]; }, 0) || '') + '</td></tr></tfoot></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 }
