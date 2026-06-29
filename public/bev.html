@@ -531,7 +531,7 @@ async function chargerMois() {
     '<div id="recap-indemnites"></div>' +
     '<div id="recap-evenements"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/Réalisé</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
-    '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="0" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
+    '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '</div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>' +
