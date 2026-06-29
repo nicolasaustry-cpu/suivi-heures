@@ -879,6 +879,7 @@ function pl2ChipHTML(sl){
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
     </div>
+    <div id="${sl.k}note-print" class="note-print">${noteG?'📝 '+escapeHtml(noteG):''}</div>
   </div>`;
 }
 
