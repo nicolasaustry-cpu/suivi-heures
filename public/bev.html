@@ -675,7 +675,7 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let corps = '', TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0;
+  let corps = '', TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
   let corpsEvt = '';
@@ -685,11 +685,12 @@ async function chargerAnnee() {
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
-    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, moisPasse=false;
+    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, cRttRecup=0, moisPasse=false;
     const cntEvt = {}; evtsAnnee.forEach(function(e){ cntEvt[e] = 0; });
     lignes.forEach(l => {
       cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie;
       if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; moisPasse = true; }
+      if (l.motif === 'RTT' || l.motif === 'Récupération') cRttRecup += l.tempsEvt;
       if (cntEvt[l.motif] !== undefined) cntEvt[l.motif]++;
     });
     const totEvtMois = evtsAnnee.reduce(function(a,e){ return a + cntEvt[e]; }, 0);
@@ -702,7 +703,7 @@ async function chargerAnnee() {
     }
     const blanc = !moisPasse;                       // mois pas encore commencé : pas de réalisé
     const payees = moisPasse ? r2(cCompte - reporte) : 0;
-    TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan;
+    TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan; TRTTRECUP += cRttRecup;
     if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; }
     corps += '<tr' + (blanc ? ' class="futur"' : '') + '><td>' + moisNoms[idx] + '</td>' +
       '<td>' + fmt(cContrat) + '</td>' +
@@ -712,14 +713,14 @@ async function chargerAnnee() {
       '<td>' + (blanc ? '' : fmt(cReal)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(cCompte)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
+      '<td>' + fmt(cRttRecup) + '</td>' +
       '<td>' + (blanc ? '' : fmt(payees)) + '</td></tr>';
     corpsEvt += '<tr><td>' + moisNoms[idx] + '</td>' +
       evtsAnnee.map(function(e){ return '<td>' + (cntEvt[e] || '') + '</td>'; }).join('') +
       '<td>' + (totEvtMois || '') + '</td></tr>';
   });
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures dues par salarié</th><th>Heures reportées</th><th>Heures payées</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures dues par salarié</th><th>Heures RTT et Récup.</th><th>Heures payées</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td>' +
       '<td>' + fmt(TC) + '</td>' +
@@ -729,7 +730,7 @@ async function chargerAnnee() {
       '<td>' + fmt(TREAL) + '</td>' +
       '<td>' + fmt(TCOMPTE) + '</td>' +
       '<td>' + fmt(TREPORTE) + '</td>' +
-      '<td>' + fmt(TREPORTE) + '</td>' +
+      '<td>' + fmt(TRTTRECUP) + '</td>' +
       '<td>' + fmt(r2(TCOMPTE - TREPORTE)) + '</td></tr></tfoot></table>' +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
     '<table class="bev"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
