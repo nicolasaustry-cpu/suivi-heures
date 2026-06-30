@@ -826,12 +826,12 @@ function pl2SemaineDates(salarieId, dateStr){
   const s=salaries.find(x=>String(x.id)===String(salarieId)); if(!s) return null;
   const d=new Date(dateStr+'T00:00:00');
   const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
-  const [a,m]=document.getElementById('moisPlanning').value.split('-').map(Number);
   const entree=new Date(s.dateEntree); const sortie=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
   const out=[];
+  // Semaine complète (lun→sam), y compris les jours d'un mois voisin (semaine à cheval) :
+  // l'absence couvre toute la semaine affichée, sans la tronquer au bord du mois.
   for(let i=0;i<6;i++){
     const dd=new Date(lun); dd.setDate(lun.getDate()+i);
-    if(dd.getMonth()!==m-1) continue;
     if(dd<entree || (sortie&&dd>sortie)) continue;
     out.push(dd);
   }
@@ -839,13 +839,24 @@ function pl2SemaineDates(salarieId, dateStr){
 }
 function pl2PoserAbsenceSemaine(salarieId, dateStr){
   const r=pl2SemaineDates(salarieId,dateStr); if(!r) return;
+  // Absence du jour cliqué : on recopie son MOTIF, et si elle est partielle, sa DURÉE.
+  const safeClic=dateStr.replace(/-/g,'_');
+  const aClic=heures[`${r.s.id}${safeClic}abs`]||{};
+  const motifClic=aClic.motif||'';
+  const heuresClic=parseFloat(aClic.heures)||0;
+  const cleClic=['dim','lun','mar','mer','jeu','ven','sam'][new Date(dateStr+'T00:00:00').getDay()];
+  const prevuClic=(grilleHeuresPourDate(r.s,new Date(dateStr+'T00:00:00')))[cleClic]||0;
+  const partielle=heuresClic>0 && heuresClic<prevuClic;   // l'absence cliquée ne couvre qu'une partie de la journée
   r.out.forEach(dd=>{
     const cle=['dim','lun','mar','mer','jeu','ven','sam'][dd.getDay()];
     const prevu=(grilleHeuresPourDate(r.s,dd))[cle]||0;
     if(prevu<=0) return;
+    const valAbs=partielle ? Math.min(heuresClic,prevu) : prevu;   // partielle : même durée ; pleine : journée entière
     const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
     const absK=`${r.s.id}${safe}abs`;
-    saveHeure(absK,'absence',prevu); onLigneRecalc(absK);
+    saveHeure(absK,'absence',valAbs);
+    if(motifClic) pl2SaveMotif(absK,motifClic);   // duplication du motif sur toute la semaine
+    onLigneRecalc(absK);   // recalcule le TNA = max(0, contrat − absence) − Σ chantiers (l'absence partielle laisse du temps facturable)
   });
   genererPlanning();
 }
