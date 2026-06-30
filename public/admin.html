@@ -243,7 +243,7 @@
         </div>
       </div>
       <table style="margin-top:0.8rem;">
-        <thead><tr><th>Identifiant</th><th>Nom</th><th>Statut</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Identifiant</th><th>Nom</th><th>Statut</th><th>Mot de passe</th><th>Actions</th></tr></thead>
         <tbody id="tbody-presc"></tbody>
       </table>
       <p id="no-presc" style="color:#9ca3af;font-style:italic;padding:0.5rem 0;display:none;">Aucun prescripteur.</p>
@@ -365,6 +365,18 @@ let _licences = [];
 let _role = 'admin';
 let _presNom = '';
 let _prescripteurs = [];
+let _prescMdp = {};
+function chargerPrescMdpLocal() { try { _prescMdp = JSON.parse(localStorage.getItem('prescMdpLocal') || '{}'); } catch { _prescMdp = {}; } }
+function savePrescMdpLocal()    { try { localStorage.setItem('prescMdpLocal', JSON.stringify(_prescMdp)); } catch {} }
+function togglePrescMdpCell(id, btn) {
+  const span = btn.parentElement.querySelector('.presc-mdp-val');
+  if (!span) return;
+  const shown = span.getAttribute('data-shown') === '1';
+  span.textContent = shown ? '••••••••' : (_prescMdp[id] || '');
+  span.style.fontFamily = shown ? '' : 'monospace';
+  span.setAttribute('data-shown', shown ? '0' : '1');
+  btn.textContent = shown ? '👁' : '🙈';
+}
 
 /* ── AUTH ── */
 async function seConnecter() {
@@ -848,6 +860,8 @@ async function chargerPrescripteurs() {
     const d = await r.json();
     if (!d.ok) return;
     _prescripteurs = d.prescripteurs || [];
+    chargerPrescMdpLocal();
+    _prescripteurs.forEach(pr => { const m = pr.motDePasse || pr.mdp; if (m) _prescMdp[pr.identifiant] = m; });
     afficherPrescripteurs();
     remplirSelectsPrescripteurs();
   } catch {}
@@ -867,6 +881,12 @@ function afficherPrescripteurs() {
       <td><strong>${pr.identifiant}</strong></td>
       <td>${pr.nom || '—'}</td>
       <td>${statut}</td>
+      <td style="white-space:nowrap;">${
+        _prescMdp[pr.identifiant]
+          ? `<span class="presc-mdp-val" data-shown="0">••••••••</span>
+             <button type="button" style="background:none;border:none;cursor:pointer;font-size:1rem;padding:2px;vertical-align:middle;color:#64748b;" title="Afficher / masquer le mot de passe" onclick="togglePrescMdpCell('${pr.identifiant}', this)">👁</button>`
+          : `<span style="color:#9ca3af;font-style:italic;">non mémorisé ici</span>`
+      }</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
           onclick="reinitMdpPrescripteur('${pr.identifiant}')">🔑 Mot de passe</button>
@@ -910,6 +930,7 @@ async function creerPrescripteur() {
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
     msg('✔ Prescripteur créé : ' + identifiant);
+    _prescMdp[identifiant] = motDePasse; savePrescMdpLocal();
     document.getElementById('p-id').value = '';
     const _mdp = document.getElementById('p-mdp'); _mdp.value = ''; _mdp.type = 'password';
     const _eye = document.getElementById('p-mdp-eye'); if (_eye) _eye.textContent = '👁';
@@ -929,6 +950,8 @@ async function reinitMdpPrescripteur(id) {
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
     msg('✔ Mot de passe modifié');
+    _prescMdp[id] = motDePasse; savePrescMdpLocal();
+    afficherPrescripteurs();
   } catch (e) { alert('Erreur : ' + e.message); }
 }
 
@@ -947,6 +970,7 @@ async function supprimerPrescripteur(id) {
     const r = await fetch(API + '/api/admin/prescripteurs/' + id, { method: 'DELETE', headers: auth() });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
+    delete _prescMdp[id]; savePrescMdpLocal();
     await chargerPrescripteurs();
   } catch (e) { alert('Erreur : ' + e.message); }
 }
