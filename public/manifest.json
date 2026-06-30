@@ -2,7 +2,7 @@
   "name": "Suiv'Heures",
   "short_name": "Suiv'Heures",
   "description": "La gestion des heures, simplement",
-  "start_url": "/index.html",
+  "start_url": "/saisie.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f3a8a",
