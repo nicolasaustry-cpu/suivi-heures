@@ -354,6 +354,9 @@
   .tgrid .chip .vider { flex:0 0 auto; width:23px; height:26px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; padding:0; }
   .tgrid .chip .ligne2 { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
   .tgrid .chip select.h { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:3px 4px; font-size:0.72rem; font-weight:700; color:#334155; }
+  .tgrid .chip .pl2-grip, .grille .chip .pl2-grip { flex:0 0 auto; cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none; color:#94a3b8; font-size:0.95rem; line-height:1; padding:1px 2px; }
+  .tgrid .chip .pl2-grip:active, .grille .chip .pl2-grip:active { cursor:grabbing; }
+  .chip.pl2-dragging { opacity:.55; outline:2px dashed #2563eb; outline-offset:-2px; }
   .tgrid .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; }
   .tgrid .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
   .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
@@ -878,9 +881,10 @@ function pl2ChipHTML(sl){
   const noteG=_notesChantiers[nom.toUpperCase()]||'';
   const noteImp=noteImpression(noteG);
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
+  const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner">⠿</span>':'';
   return `<div class="${cls}" data-k="${sl.k}">
     <div class="ligne1">
-      <input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
+      ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
         onfocus="onChantierFocus('${sl.k}')"
         oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
         onblur="onChantierCommit('${sl.k}')">
@@ -894,6 +898,86 @@ function pl2ChipHTML(sl){
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
   </div>`;
+}
+
+/* ── Réordonnancement des pavés dans le planning prévu (glisser-déposer, poignée ⠿) ── */
+let _pl2Drag = null;
+function pl2InitDragReorder(){
+  document.querySelectorAll('#planning-wrapper .tgrid .chip .pl2-grip').forEach(g=>{
+    g.addEventListener('touchstart', pl2DragStartTouch, { passive:false });
+    g.addEventListener('mousedown',  pl2DragStartMouse);
+  });
+}
+function pl2DragBegin(chip, cell){
+  _pl2Drag = { chip, cell };
+  chip.classList.add('pl2-dragging');
+  document.body.style.userSelect='none'; document.body.style.webkitUserSelect='none';
+}
+function pl2DragPoint(x, y){
+  if(!_pl2Drag) return;
+  const { chip, cell } = _pl2Drag;
+  const el = document.elementFromPoint(x, y);
+  const cible = el && el.closest ? el.closest('.chip') : null;
+  if(!cible || cible===chip) return;
+  if(cible.closest('td') !== cell) return;                                   // rester dans la même case (jour × salarié)
+  if(cible.classList.contains('tna') || cible.classList.contains('vide')) return; // ne jamais passer après le TNA ni un slot vide
+  const r = cible.getBoundingClientRect();
+  if(y > r.top + r.height/2) cible.after(chip); else cible.before(chip);
+}
+function pl2DragFinish(){
+  if(!_pl2Drag) return;
+  const { chip, cell } = _pl2Drag;
+  chip.classList.remove('pl2-dragging');
+  document.body.style.userSelect=''; document.body.style.webkitUserSelect='';
+  const sal = cell.getAttribute('data-salarie'); const date = cell.getAttribute('data-date');
+  const ordreKeys = [...cell.querySelectorAll('.chip:not(.tna):not(.vide)')].map(c=>c.getAttribute('data-k'));
+  _pl2Drag = null;
+  pl2ReordonnerCellule(sal, date, ordreKeys);
+}
+function pl2DragStartTouch(e){
+  const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
+  if(!chip || !cell || cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2) return;
+  e.preventDefault(); e.stopPropagation();
+  pl2DragBegin(chip, cell);
+  document.addEventListener('touchmove', pl2DragMoveTouch, { passive:false });
+  document.addEventListener('touchend', pl2DragEndTouch);
+  document.addEventListener('touchcancel', pl2DragEndTouch);
+}
+function pl2DragMoveTouch(e){ if(!_pl2Drag) return; e.preventDefault(); const t=e.touches&&e.touches[0]; if(t) pl2DragPoint(t.clientX, t.clientY); }
+function pl2DragEndTouch(){
+  document.removeEventListener('touchmove', pl2DragMoveTouch, { passive:false });
+  document.removeEventListener('touchend', pl2DragEndTouch);
+  document.removeEventListener('touchcancel', pl2DragEndTouch);
+  pl2DragFinish();
+}
+function pl2DragStartMouse(e){
+  const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
+  if(!chip || !cell || cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2) return;
+  e.preventDefault();
+  pl2DragBegin(chip, cell);
+  document.addEventListener('mousemove', pl2DragMoveMouse);
+  document.addEventListener('mouseup', pl2DragEndMouse);
+}
+function pl2DragMoveMouse(e){ if(!_pl2Drag) return; pl2DragPoint(e.clientX, e.clientY); }
+function pl2DragEndMouse(){
+  document.removeEventListener('mousemove', pl2DragMoveMouse);
+  document.removeEventListener('mouseup', pl2DragEndMouse);
+  pl2DragFinish();
+}
+/* Réordonne physiquement les slots ch1..chN d'une case selon le nouvel ordre des pavés (ordreKeys). */
+function pl2ReordonnerCellule(salarieId, dateStr, ordreKeys){
+  if(!salarieId || !dateStr || !Array.isArray(ordreKeys) || !ordreKeys.length) return;
+  const safe = dateStr.replace(/-/g,'_');
+  // Données réelles (non vides, non TNA) dans le nouvel ordre — les objets restent référencés ici avant suppression des clés
+  const reels = ordreKeys
+    .map(k=>heures[k])
+    .filter(e=>e && (e.chantier||'').trim() && (e.chantier||'').toUpperCase()!==TNA);
+  if(!reels.length) return;
+  for(let i=1;i<=5;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide les 5 slots
+  reels.forEach((e,idx)=>{ heures[`${salarieId}${safe}ch${idx+1}`] = e; }); // réaffectation dans l'ordre
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  onLigneRecalc(`${salarieId}${safe}ch1`);   // recalcule/replace le TNA (1er slot libre → rendu en dernier)
+  genererPlanning();
 }
 
 function genererPlanning(calerSemaine){
@@ -968,7 +1052,11 @@ function genererPlanning(calerSemaine){
                +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
                +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
         }
-        C.slots.forEach(sl=>chips+=pl2ChipHTML(sl));
+        // Pavés : chantiers réels (et slots vides) d'abord, puis le TNA TOUJOURS en dernier (juste au-dessus de « ➕ chantier »)
+        const _slotsHorsTNA = C.slots.filter(sl=>(sl.data.chantier||'').toUpperCase()!==TNA);
+        const _slotTNA      = C.slots.find(sl=>(sl.data.chantier||'').toUpperCase()===TNA);
+        _slotsHorsTNA.forEach(sl=>chips+=pl2ChipHTML(sl));
+        if(_slotTNA) chips+=pl2ChipHTML(_slotTNA);
         let actions = '';
         if (C.abs <= 0) {
           actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
@@ -1004,6 +1092,7 @@ function genererPlanning(calerSemaine){
   ajusterMarginTop();
   majCouleursChantiers();
   pl3MajSamedi();
+  pl2InitDragReorder();
   if (calerSemaine) defilerVersAujourdhui(moisInput.value);
 }
 
