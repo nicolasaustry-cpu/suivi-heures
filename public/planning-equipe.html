@@ -16,6 +16,13 @@
     .top-bar .nav         { display:none !important; }
   }
 
+  /* ── Impression / PDF : barre non fixe + suppression de la marge haute (posée en ligne par JS)
+       pour coller l'en-tête au tableau (sinon grand vide car le nav/outils sont masqués). ── */
+  @media print {
+    .top-bar     { position:static !important; box-shadow:none !important; }
+    #grille-wrap { margin-top:0 !important; height:auto !important; }
+  }
+
   /* ══ BARRE FIXE (header + nav + outils) ══ */
   .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
   .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
