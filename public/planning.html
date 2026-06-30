@@ -345,7 +345,8 @@
   .tweek .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
 
   .tgrid .cellinner { display:flex; flex-direction:column; height:100%; min-height:88px; }
-  .tgrid .chips { flex:1 1 auto; }
+  .tgrid .chips { flex:1 1 auto; display:flex; flex-direction:column; }
+  .tgrid .chips .chip.tna { margin-top:auto; }   /* TNA toujours collé en bas, juste au-dessus de « ➕ chantier » */
   .tgrid .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:5px 6px; margin-bottom:6px; background:#fff; display:flex; flex-direction:column; gap:5px; }
   .tgrid .chip.vide { display:none; }
   .tgrid .chip .ligne1 { display:flex; align-items:center; gap:5px; }
