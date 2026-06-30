@@ -2298,14 +2298,15 @@ function rendreAjout() {
       badge.style.cssText = 'background:#dcfce7;color:#15803d;font-size:0.68rem;padding:2px 7px;border-radius:999px;font-weight:700;';
       badge.textContent = '✔ Enregistré';
       header.appendChild(badge);
-    } else {
-      const suppr = document.createElement('button');
-      suppr.className = 'btn-suppr';
-      suppr.textContent = '✕';
-      suppr.dataset.idx = i;
-      suppr.onclick = function() { supprimerAjout(parseInt(this.dataset.idx)); };
-      header.appendChild(suppr);
     }
+    // Croix de suppression : toujours présente, même après envoi, pour corriger une erreur de saisie
+    const suppr = document.createElement('button');
+    suppr.className = 'btn-suppr';
+    suppr.textContent = '✕';
+    suppr.dataset.idx = i;
+    suppr.title = 'Supprimer ce chantier';
+    suppr.onclick = function() { supprimerAjout(parseInt(this.dataset.idx)); };
+    header.appendChild(suppr);
     div.appendChild(header);
 
     // Ligne 2 : déplacement
@@ -2435,6 +2436,7 @@ async function supprimerAjout(i) {
   const ch        = _chantiersA[i];
   const surServeur = !!(ch && (ch.synchronise || ch.envoye || ch.dejaEnvoye));
   const nom        = ch && ch.nom;
+  if (surServeur && !confirm('Ce chantier a déjà été envoyé.\nLe supprimer quand même (y compris côté serveur) ?')) return;
   _chantiersA.splice(i, 1);
   rendreAjout();
   majTotal();
