@@ -100,9 +100,6 @@ function afficherSalaries() {
     const badgeAlt = s.alternance
       ? ' <span title="Alterne semaine A / B" style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">⇄ A/B</span>'
       : '';
-    const badgeSav = s.sav
-      ? ' <span title="Entretien/Dépannage/SAV : 2ᵉ ligne de chantiers au planning" style="background:#fef3c7;color:#92400e;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">🛠 SAV</span>'
-      : '';
     const badgeAdmin = s.administratif
       ? ' <span title="Poste administratif (sans horaires, accès Vue équipe)" style="background:#dbeafe;color:#1e3a8a;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">👤 Admin</span>'
       : '';
@@ -132,7 +129,7 @@ function afficherSalaries() {
     }
     tb.innerHTML += `
       <tr>
-        <td>${s.prenom}${badgeAlt}${badgeSav}${badgeAdmin}</td>
+        <td>${s.prenom}${badgeAlt}${badgeAdmin}</td>
         <td>${s.nom}</td>
         <td style="text-align:center;">
           <label class="switch-gerant" title="Gérant : accès à la page Planning équipe">
@@ -204,8 +201,6 @@ function ouvrirModifSalarie(id) {
     + '<div><label style="font-size:0.8rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">Nom</label>'
     + '<input type="text" id="modif-nom" value="' + (sal.nom || '').replace(/"/g, '&quot;') + '" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font-size:0.9rem;"></div>'
     + '</div>'
-    + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.9rem;">'
-    + '<input type="checkbox" id="modif-sav" ' + (sal.sav ? 'checked' : '') + ' style="width:auto;"> 🛠 Entretien / Dépannage / SAV <span style="font-weight:400;color:#6b7280;font-size:0.8rem;">(2ᵉ ligne de chantiers au planning)</span></label>'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.8rem;">'
     + '<input type="checkbox" id="modif-alt" ' + (alternance ? 'checked' : '') + ' onchange="toggleAltModif()" style="width:auto;"> Ce salarié alterne deux semaines (A / B)</label>'
     + '<p id="modif-labelA" style="font-size:0.85rem;color:#6b7280;margin:0 0 0.5rem;">' + (alternance ? 'Semaine A' : 'Heures contractuelles par jour') + '</p>'
@@ -276,7 +271,7 @@ function sauverModifSalarie(id) {
   const nvNom    = (document.getElementById('modif-nom')?.value || '').trim();
   if (nvPrenom) sal.prenom = nvPrenom;
   sal.nom = nvNom;
-  if (document.getElementById('modif-sav')?.checked) sal.sav = true; else delete sal.sav;
+  delete sal.sav;   // option SAV supprimée : le drapeau n'est jamais posé
   const jours = ['lun','mar','mer','jeu','ven','sam'];
   const lire = (prefixe) => {
     const g = {};
