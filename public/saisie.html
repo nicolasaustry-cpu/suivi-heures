@@ -2752,7 +2752,7 @@ async function validerHeurePrevData(btn) {
   if (champ === 'arrivee') {
     const card = btn.closest('.chantier-card');
     if (card) {
-      const depBtn = card.querySelectorAll('.btn-valider-heure')[1];
+      const depBtn = card.querySelector('.btn-valider-heure[data-champ="depart"]');
       if (depBtn) depBtn.style.display = '';
     }
   }
@@ -2819,7 +2819,7 @@ async function validerHeureAjoutData(btn) {
   if (champ === 'arrivee') {
     const card = btn.closest('.chantier-card');
     if (card) {
-      const depBtn = card.querySelectorAll('.btn-valider-heure')[1];
+      const depBtn = card.querySelector('.btn-valider-heure[data-champ="depart"]');
       if (depBtn) depBtn.style.display = '';
     }
   }
