@@ -479,7 +479,7 @@
 <div id="planning-wrapper"></div>
 
 <script>
-let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
+let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif || s.planningPrevu);
 let heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
 let salariesCoches = new Set();
 
@@ -886,7 +886,7 @@ function pl2ChipHTML(sl){
 }
 
 function genererPlanning(calerSemaine){
-  salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
+  salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif || s.planningPrevu);
   heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
   const cont = document.getElementById('planning-wrapper');
   const moisInput = document.getElementById('moisPlanning');

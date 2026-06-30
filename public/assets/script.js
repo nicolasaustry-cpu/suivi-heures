@@ -101,7 +101,7 @@ function afficherSalaries() {
       ? ' <span title="Alterne semaine A / B" style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">⇄ A/B</span>'
       : '';
     const badgeAdmin = s.administratif
-      ? ' <span title="Poste administratif (sans horaires, accès Vue équipe)" style="background:#dbeafe;color:#1e3a8a;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">👤 Admin</span>'
+      ? ' <span title="Poste administratif (sans horaires, accès Vue équipe)' + (s.planningPrevu ? ' — planning prévu activé' : '') + '" style="background:#dbeafe;color:#1e3a8a;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">👤 Admin' + (s.planningPrevu ? ' 📋' : '') + '</span>'
       : '';
     const estAdmin = (typeof SYNC !== 'undefined' && SYNC.estAdmin && SYNC.estAdmin());
     const pinPose  = !!(s.pin && String(s.pin).trim());
@@ -201,6 +201,7 @@ function ouvrirModifSalarie(id) {
     + '<div><label style="font-size:0.8rem;font-weight:700;color:#374151;display:block;margin-bottom:3px;">Nom</label>'
     + '<input type="text" id="modif-nom" value="' + (sal.nom || '').replace(/"/g, '&quot;') + '" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font-size:0.9rem;"></div>'
     + '</div>'
+    + (sal.administratif ? '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#0f3a8a;margin-bottom:0.8rem;"><input type="checkbox" id="modif-planning" ' + (sal.planningPrevu ? 'checked' : '') + ' style="width:auto;"> 📋 Autoriser un planning prévu <span style="font-weight:400;color:#6b7280;font-size:0.8rem;">(affecter des chantiers, même sans heures)</span></label>' : '')
     + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.8rem;">'
     + '<input type="checkbox" id="modif-alt" ' + (alternance ? 'checked' : '') + ' onchange="toggleAltModif()" style="width:auto;"> Ce salarié alterne deux semaines (A / B)</label>'
     + '<p id="modif-labelA" style="font-size:0.85rem;color:#6b7280;margin:0 0 0.5rem;">' + (alternance ? 'Semaine A' : 'Heures contractuelles par jour') + '</p>'
@@ -272,6 +273,8 @@ function sauverModifSalarie(id) {
   if (nvPrenom) sal.prenom = nvPrenom;
   sal.nom = nvNom;
   delete sal.sav;   // option SAV supprimée : le drapeau n'est jamais posé
+  // Planning prévu pour un administratif (chantiers sans heures)
+  if (document.getElementById('modif-planning')?.checked) sal.planningPrevu = true; else delete sal.planningPrevu;
   const jours = ['lun','mar','mer','jeu','ven','sam'];
   const lire = (prefixe) => {
     const g = {};
@@ -472,13 +475,15 @@ function togglePosteAdmin() {
   if (admin) {
     const alt = document.getElementById("altCheck");
     if (alt && alt.checked) { alt.checked = false; if (typeof toggleAlternance === "function") toggleAlternance(); }
-    const sav = document.getElementById("savCheck");
-    if (sav) sav.checked = false;
   }
   const blocOptions = document.getElementById("bloc-options");
   const blocHeures  = document.getElementById("bloc-heures");
   if (blocOptions) blocOptions.style.display = admin ? "none" : "";
   if (blocHeures)  blocHeures.style.display  = admin ? "none" : "";
+  // Option « planning prévu » : visible uniquement pour un administratif
+  const blocAdminPlanning = document.getElementById("bloc-admin-planning");
+  if (blocAdminPlanning) blocAdminPlanning.style.display = admin ? "" : "none";
+  if (!admin) { const pc = document.getElementById("planningCheck"); if (pc) pc.checked = false; }
 }
 
 function ajouterSalarie() {
@@ -501,7 +506,6 @@ function ajouterSalarie() {
   });
 
   const alternance = document.getElementById("altCheck")?.checked || false;
-  const sav        = document.getElementById("savCheck")?.checked || false;
   const administratif = document.getElementById("adminCheck")?.checked || false;
 
   const nouveau = {
@@ -513,8 +517,10 @@ function ajouterSalarie() {
     heuresParJour: lireGrille(""),   // toujours renseigné (= semaine A si alternance)
   };
 
-  if (sav) nouveau.sav = true;       // Entretien/Dépannage/SAV : 2ᵉ ligne de chantiers au planning
-  if (administratif) nouveau.administratif = true;   // poste administratif : sans horaires, accès Vue équipe
+  if (administratif) {
+    nouveau.administratif = true;   // poste administratif : sans horaires, accès Vue équipe
+    if (document.getElementById("planningCheck")?.checked) nouveau.planningPrevu = true; // planning prévu autorisé (chantiers sans heures)
+  }
 
   if (alternance) {
     nouveau.alternance     = true;
@@ -533,11 +539,9 @@ function ajouterSalarie() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
-  const savCb = document.getElementById("savCheck");
-  if (savCb) savCb.checked = false;
   const adminCb = document.getElementById("adminCheck");
   if (adminCb) adminCb.checked = false;
-  if (typeof togglePosteAdmin === "function") togglePosteAdmin();
+  if (typeof togglePosteAdmin === "function") togglePosteAdmin();   // masque l'option planning + décoche planningCheck
   ["hLun","hMar","hMer","hJeu","hVen","hSam"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "0";
