@@ -545,6 +545,10 @@ function afficherLicences(liste) {
           onclick="exporterFinLicence('${l.codeClient}')" title="Exporter toutes les données de ce client (Excel)">
           📦 Export
         </button>
+        <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
+          onclick="dupliquerLicence('${l.codeClient}')" title="Créer un nouveau client, copie de celui-ci (données incluses)">
+          ⧉ Dupliquer
+        </button>
         <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
           onclick="toggleLicence('${l.codeClient}')">
           ${l.actif ? '⏸ Désactiver' : '▶ Activer'}
@@ -617,6 +621,70 @@ async function supprimerLicence(code) {
     await chargerStats();
     await chargerLicences();
   } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+/* ── DUPLICATION D'UN CLIENT (licence + données) — pratique pour créer des clients de test ── */
+async function dupliquerLicence(sourceCode) {
+  const nouveauCode = (prompt('Code du NOUVEAU client (ex. ' + sourceCode + '-2) :', sourceCode + '-2') || '').trim().toUpperCase();
+  if (!nouveauCode) return;
+  const nouveauNom = (prompt('Nom du nouveau client :', '') || '').trim();
+  if (!nouveauNom) return;
+  if (nouveauCode === sourceCode) { alert('Le nouveau code doit être différent de la source.'); return; }
+  try {
+    msg('Duplication de ' + sourceCode + ' en cours…');
+
+    // 1) Lire les données + infos de la licence source
+    const rx = await fetch(API + '/api/admin/export/' + encodeURIComponent(sourceCode), { headers: auth() });
+    const src = await rx.json();
+    if (!src.ok) throw new Error(src.message || 'lecture de la source impossible');
+
+    // 2) Créer la nouvelle licence (mêmes type / e-mail ; expiration reprise ou +1 an)
+    const lic = src.licence || {};
+    const expiration = lic.dateExpiration
+      ? new Date(lic.dateExpiration).toISOString().slice(0, 10)
+      : new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
+    const rc = await fetch(API + '/api/admin/licences', {
+      method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeClient: nouveauCode, nomClient: nouveauNom, email: lic.email || '',
+        dateExpiration: expiration, notes: 'Copie de ' + sourceCode, type: lic.type || 'standard',
+        prescripteur: '', marquePartenaire: false, logoPartenaire: ''
+      })
+    });
+    const dc = await rc.json();
+    if (!dc.ok) throw new Error('création de la licence : ' + (dc.message || 'échec'));
+
+    // 3) Se connecter au nouveau client (login par code, sans mot de passe)
+    const rl = await fetch(API + '/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: nouveauCode })
+    });
+    const dl = await rl.json();
+    if (!dl.ok || !dl.token) throw new Error('connexion au nouveau client impossible');
+
+    // 4) Écrire les données de la source dans le nouveau client (entreprise renommée)
+    const entreprise = Object.assign({}, src.entreprise || {}, { nom: nouveauNom });
+    const payload = {
+      clientIdAttendu: dl.clientId,
+      entreprise,
+      salaries:     src.salaries     || [],
+      heures:       src.heures       || {},
+      chantiers:    src.chantiers    || [],
+      previsionnel: src.previsionnel || {}
+    };
+    const rp = await fetch(API + '/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + dl.token },
+      body: JSON.stringify(payload)
+    });
+    if (!rp.ok) throw new Error('écriture des données (HTTP ' + rp.status + ')');
+
+    msg('✔ Client dupliqué : ' + nouveauCode + ' — copie de ' + sourceCode);
+    await chargerStats();
+    await chargerLicences();
+  } catch (e) {
+    msg('Erreur de duplication : ' + e.message, '#dc2626');
+  }
 }
 
 /* ── EXPORT FIN DE LICENCE (Excel complet) ── */
