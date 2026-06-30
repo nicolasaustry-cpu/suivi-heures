@@ -1010,21 +1010,22 @@ function genererPlanning(calerSemaine){
 // Cale la vue écran sur la semaine en cours : amène le bloc de la semaine
 // contenant aujourd'hui (colonne marquée .auj) juste sous la barre supérieure fixe.
 function defilerVersAujourdhui(moisSel) {
-  const now = new Date();
-  const moisCourant = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  if (moisSel !== moisCourant) return;   // on ne cale que si le mois affiché est le mois courant
-
   const cont = document.getElementById('planning-wrapper');
   if (!cont) return;
   const aujCol = cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
   const bloc = aujCol ? aujCol.closest('.wblock') : null;
-  if (!bloc) return;   // semaine du jour absente (mois affiché ≠ mois courant, ou pas encore rendu)
 
   requestAnimationFrame(() => {
     const topBar = document.querySelector('.top-bar');
     const offset = (topBar ? topBar.offsetHeight : 0) + 10;
-    const y = bloc.getBoundingClientRect().top + window.pageYOffset - offset;
-    window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+    if (bloc) {
+      // La semaine en cours est affichée (mois courant OU mois voisin via une semaine à cheval) : on s'y cale.
+      const y = bloc.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+    } else {
+      // Mois sans la semaine en cours : on revient proprement en haut.
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
   });
 }
 
