@@ -138,7 +138,7 @@
     @page { size: A4 landscape; margin: 10mm; }
     .no-print { display:none !important; }
     .top-bar { position:static; box-shadow:none; }
-    #planning-wrapper { margin-top:0; }
+    #planning-wrapper { margin-top:0 !important; }
     /* Un jour ne doit JAMAIS être coupé entre deux pages */
     .jour-block, .jour-block * { page-break-inside:avoid !important; break-inside:avoid !important; }
     .jour-block { page-break-after:auto; display:block; }
@@ -495,6 +495,14 @@ function ajusterMarginTop() {
     wrapper.style.marginTop = (topBar.offsetHeight + 8) + 'px';
   }
 }
+
+/* Impression : la marge haute (posée en ligne ci-dessus) crée un grand vide sous l'en-tête.
+   On la met à 0 juste avant l'impression, puis on restaure après. */
+window.addEventListener('beforeprint', () => {
+  const wrapper = document.getElementById('planning-wrapper');
+  if (wrapper) wrapper.style.marginTop = '0';
+});
+window.addEventListener('afterprint', () => { ajusterMarginTop(); });
 
 /* ====== FILTRE SALARIÉS (style Excel) ====== */
 function initFiltre() {
