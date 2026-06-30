@@ -1579,12 +1579,13 @@ async function chargerChantiersPrev() {
 
   _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
 
-  // Pré-remplir l'heure d'arrivée avec l'heure actuelle pour chaque chantier
+  // Proposer l'heure actuelle comme heure d'arrivée, SANS la valider :
+  // le salarié doit activer lui-même la bascule (process voulu).
   const now = new Date();
   const heureNow = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   _chantiersP.forEach(ch => {
     if (!_saisiesPrev[ch.nom]) {
-      _saisiesPrev[ch.nom] = { arrivee: heureNow, depart: '', depl: 0 };
+      _saisiesPrev[ch.nom] = { arrivee: '', arriveePropose: heureNow, depart: '', depl: 0 };
     }
   });
 
@@ -2095,7 +2096,7 @@ function rendrePrev() {
     arrInput.className = 'heure-input';
     arrInput.type = 'time';
     arrInput.id = 'arr-' + nomId;
-    arrInput.value = s.arrivee || '';
+    arrInput.value = s.arrivee || s.arriveePropose || '';
     arrInput.disabled = !!s.arrivee;
     const arrBtn = document.createElement('button');
     arrBtn.className = 'btn-valider-heure' + (s.arrivee ? ' valide' : '');
