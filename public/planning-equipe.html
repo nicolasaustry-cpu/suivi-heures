@@ -19,8 +19,11 @@
   /* ── Impression / PDF : barre non fixe + suppression de la marge haute (posée en ligne par JS)
        pour coller l'en-tête au tableau (sinon grand vide car le nav/outils sont masqués). ── */
   @media print {
-    .top-bar     { position:static !important; box-shadow:none !important; }
+    #top-bar     { position:static !important; box-shadow:none !important; padding:0 !important; }
+    #top-bar .nav, #top-bar .fixed-tools, .no-print { display:none !important; }
+    #top-bar .main-header { padding:4px 8px !important; min-height:0 !important; }
     #grille-wrap { margin-top:0 !important; height:auto !important; }
+    body { margin:0 !important; }
   }
 
   /* ══ BARRE FIXE (header + nav + outils) ══ */
@@ -1069,6 +1072,20 @@ function ajusterHauteur() {
   wrap.style.marginTop = h + 'px';
   wrap.style.height    = (window.innerHeight - h) + 'px';
 }
+
+/* Impression : la marge haute et la barre fixe (posées en ligne) créent un grand vide.
+   On les neutralise juste avant l'impression, puis on restaure après. */
+window.addEventListener('beforeprint', () => {
+  const bar  = document.getElementById('top-bar');
+  const wrap = document.getElementById('grille-wrap');
+  if (bar)  bar.style.position = 'static';
+  if (wrap) { wrap.style.marginTop = '0'; wrap.style.height = 'auto'; }
+});
+window.addEventListener('afterprint', () => {
+  const bar = document.getElementById('top-bar');
+  if (bar) bar.style.position = '';
+  ajusterHauteur();
+});
 
 /* ── Init ── */
 window.addEventListener('DOMContentLoaded', async () => {
