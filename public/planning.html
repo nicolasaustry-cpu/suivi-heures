@@ -1398,29 +1398,32 @@ function onChantierCommit(k) {
   if (!mm) return;
   const salarieId = mm[1], safe = mm[2], dateStr = safe.replace(/_/g, '-');
   const s = salaries.find(x => String(x.id) === String(salarieId));
-  if (!_eligibleTNA(s, dateStr)) return;
+  if (!s) return;
 
   // Resynchroniser heures[k] depuis la saisie en cours (fiabilise la sélection via le menu déroulant)
   const inpEl = document.getElementById(k + 'chantier');
   const selEl = document.getElementById(k + 'h');
   if (inpEl) saveHeure(k, (inpEl.value || '').trim().toUpperCase(), selEl ? selEl.value : (heures[k]?.heures || 0));
 
-  const e = heures[k] || { chantier: '', heures: 0 };
-  const nom = (e.chantier || '').trim();
-  if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
-    let nbReels = 0;
-    for (let i = 1; i <= 5; i++) {
-      const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
-      if (n && n.toUpperCase() !== TNA) nbReels++;
+  if (_eligibleTNA(s, dateStr)) {
+    // Heures par défaut du 1er chantier + recalcul du TNA : seulement pour les jours à venir
+    const e = heures[k] || { chantier: '', heures: 0 };
+    const nom = (e.chantier || '').trim();
+    if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
+      let nbReels = 0;
+      for (let i = 1; i <= 5; i++) {
+        const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
+        if (n && n.toUpperCase() !== TNA) nbReels++;
+      }
+      if (nbReels === 1) {
+        const abs = parseFloat(heures[`${salarieId}${safe}abs`]?.heures) || 0;
+        const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
+        if (cible > 0) { heures[k] = { chantier: nom, heures: cible }; localStorage.setItem('heuresdata', JSON.stringify(heures)); }
+      }
     }
-    if (nbReels === 1) {
-      const abs = parseFloat(heures[`${salarieId}${safe}abs`]?.heures) || 0;
-      const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
-      if (cible > 0) { heures[k] = { chantier: nom, heures: cible }; localStorage.setItem('heuresdata', JSON.stringify(heures)); }
-    }
+    appliquerTempsNonAffecte(salarieId, dateStr);
   }
-  appliquerTempsNonAffecte(salarieId, dateStr);
-  rafraichirLigne(salarieId, dateStr);
+  rafraichirLigne(salarieId, dateStr);   // affichage + jauge : TOUJOURS
 }
 
 /* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
@@ -1429,9 +1432,9 @@ function onLigneRecalc(k) {
   if (!mm) return;
   const salarieId = mm[1], dateStr = mm[2].replace(/_/g, '-');
   const s = salaries.find(x => String(x.id) === String(salarieId));
-  if (!_eligibleTNA(s, dateStr)) return;
-  appliquerTempsNonAffecte(salarieId, dateStr);
-  rafraichirLigne(salarieId, dateStr);
+  if (!s) return;
+  if (_eligibleTNA(s, dateStr)) appliquerTempsNonAffecte(salarieId, dateStr);   // TNA recalculé seulement pour les jours à venir
+  rafraichirLigne(salarieId, dateStr);   // affichage de la ligne + jauge : TOUJOURS (y compris dates passées)
 }
 
 /* ── Notes de chantier (planning) : note GÉNÉRALE par chantier (cumulative) ── */
