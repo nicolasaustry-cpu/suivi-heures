@@ -578,6 +578,27 @@ function initChipNotes() {
   });
 }
 
+/* Convertit une heure de RDV ("HH:MM") en minutes, ou null si absente. */
+function _rdvEnMinutes(c){
+  const s = c && c.rdv ? String(c.rdv).trim() : '';
+  const m = s.match(/^(\d{1,2})[:hH](\d{0,2})/);
+  if(!m) return null;
+  return parseInt(m[1],10)*60 + (m[2] ? parseInt(m[2],10) : 0);
+}
+/* Réordonne les pavés porteurs d'un RDV par heure croissante, sans déplacer
+   les autres pavés. Ne s'active que s'il y a au moins deux RDV. */
+function trierChipsParRdv(chips){
+  const positions = [], avecRdv = [];
+  chips.forEach((c, i) => {
+    const mn = _rdvEnMinutes(c);
+    if(mn !== null){ positions.push(i); avecRdv.push({ c, mn }); }
+  });
+  if(avecRdv.length < 2) return chips;
+  avecRdv.sort((a, b) => a.mn - b.mn);
+  positions.forEach((pos, j) => { chips[pos] = avecRdv[j].c; });
+  return chips;
+}
+
 /* ── Construit les pavés d'une cellule (salarié × jour) ── */
 function chipsCellule(sal, dateStr, heures, realParSalDate) {
   const safeDate = dateStr.replace(/-/g, '_');
@@ -616,7 +637,7 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   const rang = {}; ordreNoms.forEach((n, i) => { rang[n] = i; });
   chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999)));
 
-  return chips;
+  return trierChipsParRdv(chips);
 }
 
 function fmtHM(h) {

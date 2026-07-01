@@ -1014,12 +1014,34 @@ function genererPlanning(calerSemaine){
   const ds=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const f2=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 
+  // Convertit une heure de RDV ("HH:MM" ou "HHhMM") en minutes, ou null si absente/illisible.
+  function rdvEnMinutes(data){
+    const s = data && data.rdv ? String(data.rdv).trim() : '';
+    const m = s.match(/^(\d{1,2})[:hH](\d{0,2})/);
+    if(!m) return null;
+    return parseInt(m[1],10)*60 + (m[2] ? parseInt(m[2],10) : 0);
+  }
+  // Réordonne, dans une journée, les pavés porteurs d'un RDV par heure croissante,
+  // sans déplacer les autres pavés. Ne s'active que s'il y a au moins deux RDV.
+  function trierSlotsParRdv(slots){
+    const positions = [], avecRdv = [];
+    slots.forEach((sl, i) => {
+      const mn = rdvEnMinutes(sl.data);
+      if(mn !== null){ positions.push(i); avecRdv.push({ sl, mn }); }
+    });
+    if(avecRdv.length < 2) return slots;
+    avecRdv.sort((a, b) => a.mn - b.mn);
+    const out = slots.slice();
+    positions.forEach((pos, j) => { out[pos] = avecRdv[j].sl; });
+    return out;
+  }
+
   function lireCellule(s, dateStr){
     const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
     for(let i=1;i<=nbCh;i++){ const k=`${s.id}${safe}ch${i}`; const data=heures[k]||{chantier:'',heures:0};
       const rempli=(data.chantier||'').trim()!==''; if(rempli && (data.chantier||'').trim().toUpperCase()!==TNA) total+=parseFloat(data.heures)||0; slots.push({i,k,data,rempli}); }
     const absK=`${s.id}${safe}abs`; const abs=parseFloat(heures[absK]?.heures||0);
-    return {safe,total,slots,absK,abs};
+    return {safe,total,slots:trierSlotsParRdv(slots),absK,abs};
   }
 
   // Semaines (Lun->Sam) couvrant le mois, empilées verticalement
