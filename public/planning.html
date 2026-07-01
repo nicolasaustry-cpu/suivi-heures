@@ -889,7 +889,8 @@ function pl2ChipHTML(sl){
   const nom=(data.chantier||'').trim();
   const estTNA=nom.toUpperCase()===TNA;
   const noteG=_notesChantiers[nom.toUpperCase()]||'';
-  const noteImp=noteImpression(noteG);
+  const noteJour=(data.note||'').trim();
+  const noteImp=[noteImpression(noteJour), noteImpression(noteG)].filter(Boolean).join('\n');
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
   const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner">⠿</span>':'';
   return `<div class="${cls}" data-k="${sl.k}">
@@ -902,7 +903,7 @@ function pl2ChipHTML(sl){
     <div class="ligne2">
       ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
-      <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
+      <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
@@ -1493,11 +1494,15 @@ function noteImpression(note) {
 }
 
 function majBoutonNote(k) {
-  const note = noteDuChantier(_nomChantierCell(k));
+  const noteG = noteDuChantier(_nomChantierCell(k));
+  const noteJour = (heures[k] && heures[k].note ? String(heures[k].note) : '').trim();
   const btn = document.getElementById(k + 'note-btn');
-  if (btn) btn.classList.toggle('has-note', !!note);
+  if (btn) btn.classList.toggle('has-note', !!(noteG || noteJour));
   const pr = document.getElementById(k + 'note-print');
-  if (pr) { const np = noteImpression(note); pr.innerHTML = np ? '📝 ' + escapeHtml(np) : ''; }
+  if (pr) {
+    const np = [noteImpression(noteJour), noteImpression(noteG)].filter(Boolean).join('\n');
+    pr.innerHTML = np ? '📝 ' + escapeHtml(np) : '';
+  }
 }
 
 function rafraichirNotesAffichage() {
@@ -1509,6 +1514,8 @@ function rafraichirNotesAffichage() {
 
 function ouvrirNoteChantier(k) {
   _noteCleCourante = k;
+  const chk = document.getElementById('note-modal-jour');
+  if (chk) chk.checked = false;
   const nom = _nomChantierCell(k);
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
@@ -1523,6 +1530,30 @@ function ouvrirNoteChantier(k) {
   setTimeout(() => txt.focus(), 30);
 }
 
+/* Bascule l'affichage de la modale selon la case « note pour cette journée ». */
+function clToggleNoteJour() {
+  const jour = document.getElementById('note-modal-jour').checked;
+  const k = _noteCleCourante;
+  const hist = document.getElementById('note-modal-hist');
+  const txt = document.getElementById('note-modal-txt');
+  const lbl = document.getElementById('note-modal-lbl');
+  const btn = document.getElementById('note-modal-ajouter');
+  if (jour) {
+    const dn = (heures[k] && heures[k].note) ? String(heures[k].note) : '';
+    if (hist) hist.textContent = dn || '(aucune note pour cette journée)';
+    if (txt) txt.value = dn;
+    if (lbl) lbl.textContent = 'Note de cette journée (remplace la note du jour)';
+    if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+  } else {
+    const note = noteDuChantier(_nomChantierCell(k));
+    if (hist) hist.textContent = note || '(aucune note pour ce chantier)';
+    if (txt) txt.value = '';
+    if (lbl) lbl.textContent = 'Ajouter une ligne';
+    if (btn) { btn.disabled = !_nomChantierCell(k); btn.textContent = 'Ajouter'; }
+  }
+  if (txt) setTimeout(() => txt.focus(), 20);
+}
+
 function fermerNoteChantier() {
   const o = document.getElementById('note-modal-overlay');
   if (o) o.style.display = 'none';
@@ -1532,8 +1563,22 @@ function fermerNoteChantier() {
 async function enregistrerNoteChantier() {
   if (!_noteCleCourante) return;
   const nom   = _nomChantierCell(_noteCleCourante);
-  const texte = document.getElementById('note-modal-txt').value.trim();
   if (!nom)   { alert('Renseignez d’abord un chantier dans cette cellule.'); return; }
+  const texte = document.getElementById('note-modal-txt').value.trim();
+  const chk = document.getElementById('note-modal-jour');
+  const pourJour = chk && chk.checked;
+  if (pourJour) {
+    // Note « pour cette journée » : stockée dans la cellule (heures[k].note),
+    // affichée/imprimée uniquement sur ce jour, conservée en mémoire (synchro heuresdata).
+    const k = _noteCleCourante;
+    if (texte) { if (!heures[k]) heures[k] = { chantier: nom, heures: 0 }; heures[k].note = texte; }
+    else if (heures[k]) { delete heures[k].note; }
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    majBoutonNote(k);
+    fermerNoteChantier();
+    return;
+  }
   if (!texte) { fermerNoteChantier(); return; }
   const btn = document.getElementById('note-modal-ajouter');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -2079,9 +2124,12 @@ document.addEventListener('DOMContentLoaded', () => {
   <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
     <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
+    </label>
     <div id="note-modal-hist"
       style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:0.84rem;line-height:1.4;color:#374151;max-height:200px;overflow:auto;margin-bottom:10px;"></div>
-    <label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
+    <label id="note-modal-lbl" style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
     <textarea id="note-modal-txt" rows="3" placeholder="Nouvelle information à ajouter…"
       style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;margin-top:4px;"></textarea>
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;">
