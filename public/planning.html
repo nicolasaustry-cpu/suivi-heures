@@ -444,6 +444,7 @@
         <button type="button" class="pl2-wkbtn" title="Mois courant" onclick="pl3MoisCourant()" style="font-size:0.8rem;">Auj.</button>
       </div>
       <div class="pl2-spacer"></div>
+      <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
       <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
       <button type="button" class="pl2-toolbtn" id="btn-samedi" onclick="pl3ToggleSamedi()">👁 Afficher le samedi</button>
       <div class="pl2-jaugebox">
@@ -2093,6 +2094,268 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 <script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
+<div id="cl-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;overflow:auto;padding:26px 12px;">
+  <div style="background:#fff;border-radius:12px;max-width:660px;margin:0 auto;box-shadow:0 20px 55px rgba(0,0,0,.35);font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#0f2747;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+      <div style="font-size:1.08rem;font-weight:700;">🏗️ Chantier long</div>
+      <button type="button" onclick="clFermer()" style="border:none;background:transparent;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:16px 18px;">
+      <div id="cl-datalist-holder"></div>
+
+      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Chantier</label>
+      <input id="cl-chantier" list="cl-liste-chantiers" placeholder="Nom du chantier"
+        style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;text-transform:uppercase;margin-bottom:14px;">
+
+      <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Du</label>
+          <input type="date" id="cl-du" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+        </div>
+        <div style="flex:1;min-width:130px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Au</label>
+          <input type="date" id="cl-au" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+        </div>
+      </div>
+
+      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Salariés</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;font-weight:600;padding:4px 0;border-bottom:1px solid #eef2f7;margin-bottom:4px;">
+        <input type="checkbox" id="cl-sal-tous" onclick="clToggleTousSal(this)"> Tout sélectionner
+      </label>
+      <div id="cl-salaries" style="max-height:150px;overflow:auto;border:1px solid #e5e7eb;border-radius:7px;padding:6px 8px;margin-bottom:14px;"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" onclick="clFermer()" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:7px;font:inherit;cursor:pointer;">Annuler</button>
+        <button type="button" onclick="clAnalyser()" style="padding:8px 16px;border:none;background:#2563eb;color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;">Analyser</button>
+      </div>
+
+      <div id="cl-resultats" style="margin-top:16px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var _clAnalyse = null;
+
+  function clAujISO() { var d = new Date(); return clISO(d); }
+  function clISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function clFrDate(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    var j = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
+    return j + ' ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function clFmt(h) { return (Math.round(h * 100) / 100) + ' h'; }
+
+  function clDansContrat(s, dObj) {
+    var entree = s.dateEntree ? new Date(s.dateEntree + 'T00:00:00') : null;
+    var sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
+    if (entree && dObj < entree) return false;
+    if (sortie && dObj > sortie) return false;
+    return true;
+  }
+  function clAbs(sid, safe) { var e = heures[sid + safe + 'abs']; return parseFloat(e && e.heures) || 0; }
+  function clNbSlots(s) { return s.sav ? 10 : 5; }
+  function clSlotsLibres(sid, safe, nb) {
+    var out = [];
+    for (var i = 1; i <= nb; i++) {
+      var e = heures[sid + safe + 'ch' + i];
+      var nom = (e && e.chantier || '').trim();
+      if (!nom || nom.toUpperCase() === TNA) out.push(i);
+    }
+    return out;
+  }
+  function clChantiersReels(sid, safe, nb) {
+    var out = [];
+    for (var i = 1; i <= nb; i++) {
+      var k = sid + safe + 'ch' + i, e = heures[k];
+      var nom = (e && e.chantier || '').trim();
+      if (nom && nom.toUpperCase() !== TNA && nom.toLowerCase() !== 'absence') {
+        out.push({ i: i, k: k, nom: nom, heures: parseFloat(e.heures) || 0, entry: e });
+      }
+    }
+    return out;
+  }
+  function clPoser(sid, iso, chantier, h) {
+    var safe = iso.replace(/-/g, '_');
+    var s = salaries.find(function (x) { return String(x.id) === String(sid); });
+    var libres = clSlotsLibres(sid, safe, clNbSlots(s));
+    if (!libres.length) return false;
+    heures[sid + safe + 'ch' + libres[0]] = { chantier: chantier, heures: Math.round(h * 100) / 100 };
+    return true;
+  }
+
+  window.clOuvrir = function () {
+    document.getElementById('cl-datalist-holder').innerHTML = genDatalistChantiers().replace('id="liste-chantiers-prev"', 'id="cl-liste-chantiers"');
+    var auj = clAujISO();
+    var du = document.getElementById('cl-du'), au = document.getElementById('cl-au');
+    du.min = auj; au.min = auj;
+    if (!du.value || du.value < auj) du.value = auj;
+    var cont = document.getElementById('cl-salaries');
+    cont.innerHTML = salaries.map(function (s) {
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
+        '<input type="checkbox" class="cl-sal" value="' + s.id + '"> ' + s.prenom + ' ' + s.nom + '</label>';
+    }).join('');
+    document.getElementById('cl-sal-tous').checked = false;
+    document.getElementById('cl-resultats').innerHTML = '';
+    _clAnalyse = null;
+    document.getElementById('cl-overlay').style.display = 'block';
+  };
+  window.clFermer = function () { document.getElementById('cl-overlay').style.display = 'none'; };
+  window.clToggleTousSal = function (chk) { document.querySelectorAll('.cl-sal').forEach(function (c) { c.checked = chk.checked; }); };
+  window.clMajAction = function (i) {
+    var sel = document.getElementById('cl-act-' + i);
+    var dt = document.getElementById('cl-date-' + i);
+    if (dt) dt.style.display = (sel.value === 'deplacer') ? 'inline-block' : 'none';
+  };
+
+  window.clAnalyser = function () {
+    var chantier = (document.getElementById('cl-chantier').value || '').trim().toUpperCase();
+    var du = document.getElementById('cl-du').value;
+    var au = document.getElementById('cl-au').value;
+    var salIds = [].slice.call(document.querySelectorAll('.cl-sal:checked')).map(function (c) { return c.value; });
+    if (!chantier) { alert('Choisis un chantier.'); return; }
+    if (!du || !au) { alert('Indique la période (Du / Au).'); return; }
+    if (au < du) { alert('La date de fin doit être postérieure à la date de début.'); return; }
+    if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
+
+    var auj = clAujISO();
+    var debut = du < auj ? auj : du;
+    var aRemplir = [], conflits = [], ignores = 0;
+
+    salIds.forEach(function (sid) {
+      var s = salaries.find(function (x) { return String(x.id) === String(sid); });
+      if (!s) return;
+      var nb = clNbSlots(s);
+      var fin = new Date(au + 'T00:00:00');
+      for (var d = new Date(debut + 'T00:00:00'); d <= fin; d.setDate(d.getDate() + 1)) {
+        var dObj = new Date(d), iso = clISO(dObj), safe = iso.replace(/-/g, '_');
+        var contrat = contratDuJour(s, iso);
+        if (contrat <= 0) continue;
+        if (!clDansContrat(s, dObj)) continue;
+        var abs = clAbs(sid, safe);
+        if (abs >= contrat) { ignores++; continue; }
+        var reels = clChantiersReels(sid, safe, nb);
+        if (reels.some(function (r) { return r.nom.toUpperCase() === chantier; })) continue;
+        var libres = clSlotsLibres(sid, safe, nb);
+        var dispo = Math.round((contrat - abs - reels.reduce(function (a, r) { return a + r.heures; }, 0)) * 100) / 100;
+        if (reels.length === 0) {
+          if (dispo > 0.001 && libres.length) aRemplir.push({ sid: sid, iso: iso, s: s, heures: dispo });
+          else ignores++;
+        } else {
+          conflits.push({ sid: sid, iso: iso, s: s, reels: reels, dispo: dispo, contrat: contrat, abs: abs, libres: libres.length });
+        }
+      }
+    });
+
+    _clAnalyse = { chantier: chantier, aRemplir: aRemplir, conflits: conflits, ignores: ignores };
+    clAfficher();
+  };
+
+  function clAfficher() {
+    var a = _clAnalyse, box = document.getElementById('cl-resultats');
+    var totH = a.aRemplir.reduce(function (s, x) { return s + x.heures; }, 0);
+    var html = '<div style="border-top:1px solid #e5e7eb;padding-top:14px;">';
+
+    if (!a.aRemplir.length && !a.conflits.length) {
+      html += '<div style="color:#64748b;">Aucun jour à affecter sur cette période (jours non travaillés, absences, ou déjà pleins). ' +
+        (a.ignores ? a.ignores + ' jour(s) ignoré(s).' : '') + '</div></div>';
+      box.innerHTML = html;
+      return;
+    }
+
+    html += '<div style="font-size:0.9rem;margin-bottom:10px;">' +
+      '<b>' + a.aRemplir.length + '</b> jour(s) seront remplis directement (<b>' + clFmt(totH) + '</b>)' +
+      (a.conflits.length ? ' · <b style="color:#b45309;">' + a.conflits.length + '</b> jour(s) avec un chantier déjà programmé' : '') +
+      (a.ignores ? ' · ' + a.ignores + ' ignoré(s)' : '') + '.</div>';
+
+    if (a.conflits.length) {
+      var auj = clAujISO();
+      html += '<div style="font-size:0.82rem;font-weight:600;margin:6px 0 6px;">Jours en conflit — choisis une action :</div>';
+      html += '<div style="max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;">';
+      a.conflits.forEach(function (c, i) {
+        var noms = c.reels.map(function (r) { return r.nom + ' (' + clFmt(r.heures) + ')'; }).join(', ');
+        var plein = c.dispo <= 0.001;
+        html += '<div style="padding:8px 10px;border-bottom:1px solid #f1f5f9;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">' +
+          '<div style="flex:1;min-width:210px;font-size:0.82rem;">' +
+            '<b>' + c.s.prenom + ' ' + c.s.nom + '</b> · ' + clFrDate(c.iso) +
+            '<div style="color:#64748b;">déjà : ' + noms + ' · reste ' + clFmt(Math.max(0, c.dispo)) + (plein ? ' <span style="color:#b45309;">(jour plein)</span>' : '') + '</div>' +
+          '</div>' +
+          '<select id="cl-act-' + i + '" onchange="clMajAction(' + i + ')" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:0.8rem;">' +
+            '<option value="completer">Compléter le temps restant</option>' +
+            '<option value="deplacer">Déplacer l\'existant…</option>' +
+            '<option value="ignorer">Ignorer ce jour</option>' +
+          '</select>' +
+          '<input type="date" id="cl-date-' + i + '" min="' + auj + '" style="display:none;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:0.8rem;">' +
+          '</div>';
+      });
+      html += '</div>';
+      html += '<div style="font-size:0.76rem;color:#64748b;margin-top:6px;">« Déplacer » repose le chantier existant à la date choisie et libère le jour pour le chantier long.</div>';
+    }
+
+    html += '<div style="display:flex;justify-content:flex-end;margin-top:14px;">' +
+      '<button type="button" onclick="clValider()" style="padding:9px 18px;border:none;background:#16a34a;color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;">Valider l\'affectation</button></div>';
+    html += '</div>';
+    box.innerHTML = html;
+  }
+
+  window.clValider = function () {
+    if (!_clAnalyse) return;
+    var a = _clAnalyse, chantier = a.chantier;
+    var touched = {}, erreurs = [];
+    var auj = clAujISO();
+
+    a.aRemplir.forEach(function (x) {
+      clPoser(x.sid, x.iso, chantier, x.heures);
+      touched[x.sid + '|' + x.iso] = 1;
+    });
+
+    a.conflits.forEach(function (c, i) {
+      var sel = document.getElementById('cl-act-' + i);
+      var action = sel ? sel.value : 'completer';
+      if (action === 'ignorer') return;
+      if (action === 'completer') {
+        if (c.dispo > 0.001 && c.libres > 0) { clPoser(c.sid, c.iso, chantier, c.dispo); touched[c.sid + '|' + c.iso] = 1; }
+        return;
+      }
+      var s = c.s, nb = clNbSlots(s);
+      var cible = document.getElementById('cl-date-' + i) ? document.getElementById('cl-date-' + i).value : '';
+      var nom = s.prenom + ' ' + s.nom;
+      if (!cible) { erreurs.push(nom + ' (' + clFrDate(c.iso) + ') : date de déplacement manquante'); return; }
+      if (cible < auj) { erreurs.push(nom + ' : ' + clFrDate(cible) + ' est une date passée'); return; }
+      var dCible = new Date(cible + 'T00:00:00');
+      if (contratDuJour(s, cible) <= 0 || !clDansContrat(s, dCible)) { erreurs.push(nom + ' : ' + clFrDate(cible) + ' n\'est pas un jour travaillé'); return; }
+      var safeCible = cible.replace(/-/g, '_');
+      var libresCible = clSlotsLibres(c.sid, safeCible, nb);
+      if (libresCible.length < c.reels.length) { erreurs.push(nom + ' : pas assez de créneaux libres le ' + clFrDate(cible)); return; }
+      c.reels.forEach(function (r, idx) {
+        var copie = {};
+        for (var p in r.entry) copie[p] = r.entry[p];
+        heures[c.sid + safeCible + 'ch' + libresCible[idx]] = copie;
+        delete heures[r.k];
+      });
+      touched[c.sid + '|' + cible] = 1;
+      var libere = Math.round((c.contrat - c.abs) * 100) / 100;
+      if (libere > 0.001) { clPoser(c.sid, c.iso, chantier, libere); }
+      touched[c.sid + '|' + c.iso] = 1;
+    });
+
+    if (erreurs.length) { alert('Impossible de valider :\n\n- ' + erreurs.join('\n- ')); return; }
+
+    Object.keys(touched).forEach(function (t) {
+      var p = t.split('|');
+      appliquerTempsNonAffecte(p[0], p[1]);
+    });
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    genererPlanning(true);
+    clFermer();
+    var nb = a.aRemplir.length + a.conflits.length;
+    alert('Affectation du chantier « ' + chantier + ' » terminée.');
+  };
+})();
+</script>
 <script src="assets/aide.js"></script>
 </body>
 </html>
