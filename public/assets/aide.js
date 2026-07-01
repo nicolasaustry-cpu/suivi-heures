@@ -11,6 +11,58 @@
   let _faqs = [];
   let _charge = false;
 
+  // ── Recherche intelligente : normalisation, mots vides, synonymes ──
+  // Minuscules, sans accents, ponctuation remplacée par des espaces.
+  function _norm(s) {
+    return String(s).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+  // Mots vides ignorés (ne portent pas de sens pour la recherche).
+  const _STOP = new Set(('a au aux de des du la le les un une et ou est sont il elle je tu on nous vous ils elles ' +
+    'comment quoi que qui quel quelle quels quelles pour par sur dans en ce cet cette ces mon ma mes ton ta tes son sa ses ' +
+    'se faire fait puis y c qu quand avec sans plus moins nos vos leur leurs si ne pas mettre').split(' '));
+  // Groupes de synonymes propres au vocabulaire de l'application.
+  const _SYN = [
+    ['ajouter', 'creer', 'nouveau', 'nouvelle', 'enregistrer', 'inscrire', 'saisir', 'ajout', 'creation'],
+    ['supprimer', 'retirer', 'effacer', 'enlever', 'desactiver', 'suppression'],
+    ['modifier', 'changer', 'editer', 'corriger', 'ajuster', 'modification', 'mettre a jour'],
+    ['salarie', 'employe', 'ouvrier', 'collaborateur', 'personnel'],
+    ['chantier', 'projet', 'affaire', 'chantiers'],
+    ['planning', 'planifier', 'planification', 'prevu', 'agenda'],
+    ['realise', 'pointage', 'pointer', 'effectue', 'realises'],
+    ['imprimer', 'impression', 'imprime', 'papier'],
+    ['exporter', 'export', 'telecharger', 'excel', 'pdf', 'extraire'],
+    ['connexion', 'connecter', 'identifier', 'login', 'licence', 'activer'],
+    ['pin', 'code'],
+    ['rdv', 'rendez vous', 'rendezvous', 'rendez'],
+    ['note', 'commentaire', 'remarque', 'notes'],
+    ['heure', 'heures', 'temps'],
+    ['jauge', 'seuil', 'couleur', 'indicateur', 'jauges', 'seuils'],
+    ['mobile', 'telephone', 'portable', 'smartphone'],
+    ['previsionnel', 'devis', 'prevoir'],
+    ['photo', 'photos', 'image', 'images'],
+    ['absence', 'conge', 'ferie', 'maladie', 'rtt', 'evenement', 'absent'],
+    ['gantt', 'diagramme', 'barres']
+  ];
+  // Index : chaque mot pointe vers son groupe de synonymes.
+  const _SYNIDX = (function () {
+    const m = {};
+    _SYN.forEach(g => g.forEach(w => { m[w] = g; }));
+    return m;
+  })();
+  // Découpe la requête en groupes de mots (chaque groupe = un mot + ses synonymes).
+  function _tokensRequete(q) {
+    return _norm(q).split(' ')
+      .filter(w => w.length > 1 && !_STOP.has(w))
+      .map(w => _SYNIDX[w] || [w]);
+  }
+  // Un groupe de synonymes est-il présent dans un texte déjà normalisé ?
+  function _groupePresent(groupe, texte) {
+    return groupe.some(w => texte.indexOf(w) !== -1);
+  }
+
   // ── Styles injectés une seule fois ──
   function injecterStyles() {
     if (document.getElementById('aide-styles')) return;
@@ -135,23 +187,45 @@
       return;
     }
 
-    const items = _faqs.filter(f =>
-      (f.question + ' ' + f.reponse + ' ' + (f.theme || '')).toLowerCase().includes(filtre)
-    );
-    if (!items.length) {
-      liste.innerHTML = '<div id="aide-vide">Aucune réponse trouvée pour cette recherche.</div>';
+    const groupes = _tokensRequete(filtre);
+    let resultats;
+
+    if (!groupes.length) {
+      // Requête composée uniquement de mots vides : repli sur une recherche simple.
+      const f0 = _norm(filtre);
+      resultats = _faqs
+        .filter(f => _norm(f.question + ' ' + f.reponse + ' ' + (f.theme || '')).indexOf(f0) !== -1)
+        .map(f => ({ f }));
+    } else {
+      resultats = [];
+      _faqs.forEach(f => {
+        const nQ = _norm(f.question);
+        const nTout = _norm(f.question + ' ' + f.reponse + ' ' + (f.theme || ''));
+        let score = 0, trouves = 0;
+        groupes.forEach(g => {
+          if (_groupePresent(g, nQ)) { score += 3; trouves++; }        // mot dans la question : fort
+          else if (_groupePresent(g, nTout)) { score += 1; trouves++; } // mot dans la réponse/thème : faible
+        });
+        if (trouves === groupes.length) score += 2;   // bonus : tous les mots trouvés
+        if (score > 0) resultats.push({ f, score });
+      });
+      resultats.sort((a, b) => b.score - a.score);   // les plus pertinents en premier
+    }
+
+    if (!resultats.length) {
+      liste.innerHTML = '<div id="aide-vide">Aucune réponse trouvée. Essayez d\'autres mots-clés (ex. « salarié », « planning », « export »).</div>';
       return;
     }
+
+    // Liste plate triée par pertinence ; le thème apparaît en petite étiquette après la question.
     let html = '';
-    let themeCourant = null;
-    items.forEach((f, i) => {
-      if (f.theme && f.theme !== themeCourant) {
-        themeCourant = f.theme;
-        html += `<div class="aide-theme">${esc(themeCourant)}</div>`;
-      }
+    resultats.slice(0, 25).forEach(({ f }, i) => {
+      const theme = f.theme
+        ? ` <span style="color:#9ca3af;font-size:0.76rem;">· ${esc(f.theme)}</span>`
+        : '';
       html += `<div class="aide-item" data-i="${i}">
         <div class="aide-q" onclick="this.parentElement.classList.toggle('ouvert')">
-          <span>${esc(f.question)}</span><span class="chev">▾</span>
+          <span>${esc(f.question)}${theme}</span><span class="chev">▾</span>
         </div>
         <div class="aide-r">${esc(f.reponse)}</div>
       </div>`;
