@@ -1467,21 +1467,31 @@ function navEnTree(event, input) {
       '<b style="font-weight:700;">' + val + '</b></div>';
   }
 
+  function metrique(label, val, prevu, colorVal) {
+    var s = statutReal(val, prevu);
+    var valCol = colorVal ? s.coul : '#fff';
+    return '<div style="display:flex;justify-content:space-between;font-size:0.76rem;margin-bottom:3px;">' +
+        '<span style="color:rgba(255,255,255,.7);">' + label + '</span>' +
+        '<b style="font-weight:700;color:' + valCol + ';">' + s.txt + '</b></div>' +
+      '<div style="height:5px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden;">' +
+        '<div style="height:100%;width:' + s.w + '%;background:' + (s.w > 0 ? s.coul : 'transparent') + ';border-radius:3px;"></div></div>' +
+      '<div style="text-align:right;font-size:0.66rem;font-weight:700;color:' + s.coul + ';margin:2px 0 7px;min-height:0.78rem;">' + s.pct + '</div>';
+  }
+
   function colonne(titre, prevu, planif, real) {
-    var s = statutReal(real, prevu);
     return '<div style="flex:1;min-width:0;">' +
       '<div style="font-size:0.64rem;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:7px;">' + titre + '</div>' +
       statLigne('Prévu', fmtH(prevu)) +
-      statLigne('Planifié', fmtH(planif)) +
-      '<div style="display:flex;justify-content:space-between;font-size:0.76rem;margin-bottom:6px;"><span style="color:rgba(255,255,255,.7);">Réalisé</span><b style="font-weight:700;color:' + s.coul + ';">' + s.txt + '</b></div>' +
-      '<div style="height:6px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden;"><div style="height:100%;width:' + s.w + '%;background:' + (s.w > 0 ? s.coul : 'transparent') + ';border-radius:4px;"></div></div>' +
-      '<div style="text-align:right;font-size:0.68rem;font-weight:700;color:' + s.coul + ';margin-top:3px;min-height:0.82rem;">' + s.pct + '</div>' +
+      '<div style="height:5px;"></div>' +
+      metrique('Planifié', planif, prevu, false) +
+      metrique('Réalisé', real, prevu, true) +
       '</div>';
   }
 
   function htmlDeux(c) {
     var dot = 'rgba(255,255,255,.4)';
     if (typeof c.realM === 'number' && c.realM > 0 && c.prevuM > 0) dot = coulRatio(c.realM / c.prevuM);
+    else if (c.planifM > 0 && c.prevuM > 0) dot = coulRatio(c.planifM / c.prevuM);
     return '<div style="display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:10px;">' +
         '<span style="width:9px;height:9px;border-radius:50%;background:' + dot + ';flex:none;"></span>' +
         '<span style="font-size:0.9rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (c.nom || '—') + '</span>' +
