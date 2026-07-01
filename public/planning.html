@@ -1526,6 +1526,8 @@ function ouvrirNoteChantier(k) {
   txt.value = '';
   const btnAjout = document.getElementById('note-modal-ajouter');
   if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
+  const btnSup = document.getElementById('note-modal-suppr');
+  if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = noteDuChantier(nom) ? '' : 'none'; }
   document.getElementById('note-modal-overlay').style.display = 'flex';
   setTimeout(() => txt.focus(), 30);
 }
@@ -1538,20 +1540,67 @@ function clToggleNoteJour() {
   const txt = document.getElementById('note-modal-txt');
   const lbl = document.getElementById('note-modal-lbl');
   const btn = document.getElementById('note-modal-ajouter');
+  const sup = document.getElementById('note-modal-suppr');
   if (jour) {
     const dn = (heures[k] && heures[k].note) ? String(heures[k].note) : '';
     if (hist) hist.textContent = dn || '(aucune note pour cette journée)';
     if (txt) txt.value = dn;
     if (lbl) lbl.textContent = 'Note de cette journée (remplace la note du jour)';
     if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
+    if (sup) sup.style.display = dn ? '' : 'none';
   } else {
     const note = noteDuChantier(_nomChantierCell(k));
     if (hist) hist.textContent = note || '(aucune note pour ce chantier)';
     if (txt) txt.value = '';
     if (lbl) lbl.textContent = 'Ajouter une ligne';
     if (btn) { btn.disabled = !_nomChantierCell(k); btn.textContent = 'Ajouter'; }
+    if (sup) sup.style.display = note ? '' : 'none';
   }
   if (txt) setTimeout(() => txt.focus(), 20);
+}
+
+/* Supprime la note : côté jour (heures[k].note) ou côté général (retirée de tous
+   les jours via mode "remplacer" avec texte vide). */
+async function supprimerNoteChantier() {
+  if (!_noteCleCourante) return;
+  const k = _noteCleCourante;
+  const nom = _nomChantierCell(k);
+  const chk = document.getElementById('note-modal-jour');
+  const pourJour = chk && chk.checked;
+  if (pourJour) {
+    if (!(heures[k] && heures[k].note)) { fermerNoteChantier(); return; }
+    if (!confirm('Supprimer la note de cette journée ?')) return;
+    delete heures[k].note;
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    majBoutonNote(k);
+    fermerNoteChantier();
+    return;
+  }
+  if (!nom || !noteDuChantier(nom)) { fermerNoteChantier(); return; }
+  if (!confirm('Supprimer la note générale du chantier « ' + nom + ' » ?\nElle sera retirée de tous les jours.')) return;
+  const btn = document.getElementById('note-modal-suppr');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const token = localStorage.getItem('syncToken');
+    const r = await fetch('/api/data/note-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ chantier: nom, texte: '', mode: 'remplacer', auteur: 'Gérant' })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      if (d.note) _notesChantiers[nom] = d.note; else delete _notesChantiers[nom];
+      rafraichirNotesAffichage();
+      fermerNoteChantier();
+    } else {
+      alert(d.message || 'Échec de la suppression de la note.');
+      if (btn) { btn.disabled = false; btn.textContent = '🗑 Supprimer'; }
+    }
+  } catch (e) {
+    alert('Erreur réseau lors de la suppression de la note.');
+    if (btn) { btn.disabled = false; btn.textContent = '🗑 Supprimer'; }
+  }
 }
 
 function fermerNoteChantier() {
@@ -2132,11 +2181,15 @@ document.addEventListener('DOMContentLoaded', () => {
     <label id="note-modal-lbl" style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
     <textarea id="note-modal-txt" rows="3" placeholder="Nouvelle information à ajouter…"
       style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;margin-top:4px;"></textarea>
-    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;">
-      <button type="button" onclick="fermerNoteChantier()"
-        style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Fermer</button>
-      <button type="button" id="note-modal-ajouter" onclick="enregistrerNoteChantier()"
-        style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Ajouter</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px;">
+      <button type="button" id="note-modal-suppr" onclick="supprimerNoteChantier()"
+        style="border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:600;">🗑 Supprimer</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button type="button" onclick="fermerNoteChantier()"
+          style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Fermer</button>
+        <button type="button" id="note-modal-ajouter" onclick="enregistrerNoteChantier()"
+          style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Ajouter</button>
+      </div>
     </div>
   </div>
 </div>
