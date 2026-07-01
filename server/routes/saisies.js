@@ -256,6 +256,24 @@ function assainirPhotos(p) {
     .slice(0, 3);
 }
 
+/* Recalcule la durée (minutes, pause déduite) à partir des heures d'arrivée et de
+   départ. Source de vérité : les horaires. Évite qu'une durée envoyée par le mobile
+   (parfois 0 après une saisie progressive) reste figée alors que les heures sont bonnes. */
+function recalcDuree(c) {
+  if (!c) return;
+  const a = String(c.heureArrivee || "").trim();
+  const d = String(c.heureDepart || "").trim();
+  if (a && d) {
+    const [h1, m1] = a.split(":").map(Number);
+    const [h2, m2] = d.split(":").map(Number);
+    if (![h1, m1, h2, m2].some(Number.isNaN)) {
+      c.dureeMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1) - (parseInt(c.pause) || 0));
+      return;
+    }
+  }
+  c.dureeMin = 0;
+}
+
 router.post("/envoyer", async (req, res) => {
   try {
     const { codeEmploye, salarieId, salarieNom, date, chantier } = req.body;
@@ -274,6 +292,7 @@ router.post("/envoyer", async (req, res) => {
     let saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
 
     if (!saisie) {
+      recalcDuree(chantier);
       saisie = new Saisie({
         clientId: doc.clientId, salarieId, salarieNom, date,
         chantiers: [chantier],
@@ -297,7 +316,9 @@ router.post("/envoyer", async (req, res) => {
           photos:         chantier.photos         != null ? chantier.photos         : (existant.photos         || []),
           isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false)
         };
+        recalcDuree(saisie.chantiers[idx]);
       } else {
+        recalcDuree(chantier);
         saisie.chantiers.push(chantier);
       }
       saisie.totalMin = saisie.chantiers.reduce((s, c) => s + (c.dureeMin || 0) + (c.deplacement || 0), 0);
