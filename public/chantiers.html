@@ -1283,14 +1283,18 @@ function navEnTree(event, input) {
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
    POPUP « TEMPS PAR CHANTIER » AU SURVOL (desktop)
-   Affiche, pour la ligne survolée : Devis / Planifié / Réalisé, sur le MOIS
-   de la ligne. Devis + Planifié = instantané (local) ; Réalisé = chargé une
-   fois par mois depuis le serveur (mis en cache). Bloc autonome, non intrusif.
+   Deux parties : « Ce mois » (mois de la ligne) et « Total » (tous mois
+   confondus, ce chantier). Chaque partie : Prévu / Planifié / Réalisé.
+   Prévu + Planifié = local (instantané). Réalisé = serveur, chargé une fois
+   par mois puis mis en cache. Code couleur du Réalisé vs Prévu :
+   orange > 90 %, rouge > 100 %. Bloc autonome, non intrusif.
 ═══════════════════════════════════════════════════════════════════════ */
 (function () {
-  const _cacheReal = {};   // "YYYY-MM" -> { status:'loading'|'done'|'error', parCh:{ NOM:minutes } }
+  const _cacheReal = {};   // "YYYY-MM" -> { status, parCh:{ NOM:minutes } }
+  let _moisListe = null;   // { status, mois:[...] } — liste des mois ayant du réalisé
   let _ttipEl  = null;
-  let _ttipCle = null;     // identifiant du contenu affiché (mois|NOM) pour la maj asynchrone
+  let _ttipCle = null;
+  let _cur     = null;     // état courant affiché (pour maj asynchrone)
 
   function tokenSync() {
     return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
@@ -1302,17 +1306,46 @@ function navEnTree(event, input) {
     return (Number.isInteger(h) ? h : h.toFixed(1).replace(/\.0$/, '')) + ' h';
   }
 
-  /* Somme des heures PLANIFIÉES (planning → localStorage.heuresdata) pour un
-     chantier, restreinte au mois de la ligne. La date YYYY_MM_DD est incluse
-     dans la clé ; l'id salarié qui la précède ne contient jamais de « _ »,
-     donc le motif « YYYY_MM_ » n'apparaît que dans la vraie date. */
+  /* Code couleur : orange si réalisé > 90 % du prévu, rouge si > 100 %. */
+  function couleurReal(real, prevu) {
+    if (!prevu || prevu <= 0) return '';
+    const pct = real / prevu;
+    if (pct > 1.0) return '#f87171';   // rouge  : dépassement du prévu
+    if (pct > 0.9) return '#fbbf24';   // orange : au-delà de 90 % du prévu
+    return '';
+  }
+
+  /* ---- PRÉVU ---- */
+  function prevuMois(devInp) { return parseFloat(devInp ? devInp.value : '') || 0; }
+  function prevuTotal(nom) {
+    const cible = (nom || '').trim().toUpperCase();
+    let tot = 0;
+    try {
+      for (const an in data) {
+        for (const mi in data[an]) {
+          const dm = data[an][mi];
+          if (!dm || !dm.chantiers) continue;
+          dm.chantiers.forEach(ch => {
+            if ((ch.client || '').trim().toUpperCase() === cible) tot += parseFloat(ch.hPrevues) || 0;
+          });
+        }
+      }
+    } catch (e) { return 0; }
+    return tot;
+  }
+
+  /* ---- PLANIFIÉ (planning → localStorage.heuresdata) ----
+     La date YYYY_MM_DD est incluse dans la clé ; l'id salarié qui la précède
+     ne contient jamais de « _ », donc « YYYY_MM_ » ne matche que la vraie date. */
+  function _heuresData() {
+    try { return JSON.parse(localStorage.getItem('heuresdata') || '{}'); }
+    catch (e) { return {}; }
+  }
   function planifieMois(nom, annee, mi) {
     const cible = (nom || '').trim().toUpperCase();
     if (!cible) return 0;
     const motif = `${annee}_${String(mi + 1).padStart(2, '0')}_`;
-    let heures;
-    try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); }
-    catch (e) { return 0; }
+    const heures = _heuresData();
     let tot = 0;
     for (const k in heures) {
       const v = heures[k];
@@ -1323,8 +1356,19 @@ function navEnTree(event, input) {
     }
     return tot;
   }
+  function planifieTotal(nom) {
+    const cible = (nom || '').trim().toUpperCase();
+    if (!cible) return 0;
+    const heures = _heuresData();
+    let tot = 0;
+    for (const k in heures) {
+      const v = heures[k];
+      if (v && v.chantier && String(v.chantier).trim().toUpperCase() === cible) tot += parseFloat(v.heures) || 0;
+    }
+    return tot;
+  }
 
-  /* Charge (une seule fois) le réalisé d'un mois depuis le serveur, en cache. */
+  /* ---- RÉALISÉ (serveur) ---- */
   async function realiseMois(mois) {
     if (_cacheReal[mois]) return _cacheReal[mois];
     const e = { status: 'loading', parCh: {} };
@@ -1346,38 +1390,81 @@ function navEnTree(event, input) {
     return e;
   }
 
+  async function chargerMoisListe() {
+    if (_moisListe) return _moisListe;
+    const token = tokenSync();
+    if (!token) { _moisListe = { status: 'error', mois: [] }; return _moisListe; }
+    try {
+      const r = await fetch('/api/saisies/mois-list', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      _moisListe = { status: (d && d.ok) ? 'done' : 'error', mois: (d && d.mois) || [] };
+    } catch (e) { _moisListe = { status: 'error', mois: [] }; }
+    return _moisListe;
+  }
+
+  // Réalisé d'un chantier sur UN mois (depuis le cache).
+  function realDuCache(mois, nomUp) {
+    const c = _cacheReal[mois];
+    if (c && c.status === 'done') return (c.parCh[nomUp] || 0) / 60;
+    return null;
+  }
+
+  // Réalisé TOTAL : charge la liste des mois + chaque mois, puis somme.
+  async function realiseTotal(nomUp) {
+    const ml = await chargerMoisListe();
+    if (ml.status !== 'done') return { status: 'error', h: 0 };
+    await Promise.all(ml.mois.map(m => realiseMois(m)));
+    let min = 0;
+    ml.mois.forEach(m => { const c = _cacheReal[m]; if (c && c.status === 'done') min += (c.parCh[nomUp] || 0); });
+    return { status: 'done', h: min / 60 };
+  }
+
+  /* ---- RENDU ---- */
   function elTooltip() {
     if (_ttipEl) return _ttipEl;
     const d = document.createElement('div');
     d.id = 'ttip-temps';
     d.style.cssText =
       'position:fixed;z-index:9999;pointer-events:none;display:none;' +
-      'background:#0f2747;color:#fff;border-radius:8px;padding:8px 11px;' +
+      'background:#0f2747;color:#fff;border-radius:8px;padding:9px 12px;' +
       'font-size:0.82rem;line-height:1.45;box-shadow:0 6px 20px rgba(0,0,0,.28);' +
-      'min-width:172px;max-width:240px;';
+      'min-width:186px;max-width:250px;';
     document.body.appendChild(d);
     _ttipEl = d;
     return d;
   }
 
-  function ligne(label, val, couleur) {
+  function ligne(label, val, coul) {
     return '<div style="display:flex;justify-content:space-between;gap:14px;">' +
       `<span style="opacity:.85;">${label}</span>` +
-      `<span style="font-weight:700;${couleur ? `color:${couleur};` : ''}">${val}</span></div>`;
+      `<span style="font-weight:700;${coul ? `color:${coul};` : ''}">${val}</span></div>`;
   }
 
-  function couleurReal(real, devis) {
-    if (!devis) return '';
-    if (real > devis * 1.05) return '#fca5a5';   // dépassement > 5 % → rouge clair
-    if (real > 0)            return '#86efac';    // dans le budget → vert clair
-    return '';
+  // real : nombre (h) | 'load' | 'nd'
+  function reaTxtCoul(real, prevu) {
+    if (real === 'load') return ['…', ''];
+    if (real === 'nd')   return ['n/d', ''];
+    return [fmtH(real), couleurReal(real, prevu)];
   }
 
-  function contenu(nom, devis, planif, realTxt, realCoul) {
-    return `<div style="font-weight:700;margin-bottom:5px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nom || '—'}</div>` +
-      ligne('Devis', fmtH(devis)) +
+  function bloc(titre, prevu, planif, real) {
+    const [rTxt, rCoul] = reaTxtCoul(real, prevu);
+    return `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;opacity:.6;margin:2px 0 3px;">${titre}</div>` +
+      ligne('Prévu', fmtH(prevu)) +
       ligne('Planifié', fmtH(planif)) +
-      ligne('Réalisé', realTxt, realCoul);
+      ligne('Réalisé', rTxt, rCoul);
+  }
+
+  function htmlDeux(c) {
+    return `<div style="font-weight:700;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nom || '—'}</div>` +
+      bloc('Ce mois', c.prevuM, c.planifM, c.realM) +
+      `<div style="height:1px;background:rgba(255,255,255,.14);margin:6px 0;"></div>` +
+      bloc('Total', c.prevuT, c.planifT, c.realT);
+  }
+
+  function rendreCourant() {
+    if (!_cur || _ttipCle !== _cur.cle || !_ttipEl) return;
+    _ttipEl.innerHTML = htmlDeux(_cur);
   }
 
   function positionner(e) {
@@ -1395,54 +1482,57 @@ function navEnTree(event, input) {
     const nomInp = tr.querySelector('input[data-champ="client"]');
     const devInp = tr.querySelector('input[data-champ="hPrevues"]');
     const nom = nomInp ? nomInp.value.trim() : '';
-    if (!nom) { cacher(); return; }                      // ligne vide → rien
-    if (tr.contains(document.activeElement)) { cacher(); return; } // saisie en cours → rien
+    if (!nom) { cacher(); return; }
+    if (tr.contains(document.activeElement)) { cacher(); return; }
 
     const annee = parseInt(tr.dataset.annee, 10);
     const mi    = parseInt(tr.dataset.mi, 10);
     const mois  = `${annee}-${String(mi + 1).padStart(2, '0')}`;
-    const cle   = `${mois}|${nom.toUpperCase()}`;
+    const nomUp = nom.toUpperCase();
+    const cle   = `${mois}|${nomUp}`;
 
     const t = elTooltip();
     if (t.style.display === 'block' && _ttipCle === cle) { positionner(e); return; }
     _ttipCle = cle;
 
-    const devis  = parseFloat(devInp ? devInp.value : '') || 0;
-    const planif = planifieMois(nom, annee, mi);
+    const cachedM = realDuCache(mois, nomUp);
+    _cur = {
+      cle, nom: nomUp,
+      prevuM:  prevuMois(devInp),
+      planifM: planifieMois(nom, annee, mi),
+      realM:   (cachedM !== null ? cachedM : (_cacheReal[mois] && _cacheReal[mois].status === 'error' ? 'nd' : 'load')),
+      prevuT:  prevuTotal(nom),
+      planifT: planifieTotal(nom),
+      realT:   'load'
+    };
 
-    let realTxt = '…', realCoul = '';
-    const cached = _cacheReal[mois];
-    if (cached && cached.status === 'done') {
-      const h = (cached.parCh[nom.toUpperCase()] || 0) / 60;
-      realTxt = fmtH(h); realCoul = couleurReal(h, devis);
-    } else if (cached && cached.status === 'error') {
-      realTxt = 'n/d';
-    }
-
-    t.innerHTML = contenu(nom.toUpperCase(), devis, planif, realTxt, realCoul);
+    rendreCourant();
     t.style.display = 'block';
     positionner(e);
 
-    if (!cached || cached.status === 'loading') {
+    // Réalisé du mois (si pas déjà en cache)
+    if (cachedM === null && !(_cacheReal[mois] && _cacheReal[mois].status === 'error')) {
       realiseMois(mois).then(res => {
-        if (_ttipCle !== cle) return;                    // survol changé entre-temps
-        let txt = 'n/d', coul = '';
-        if (res.status === 'done') {
-          const h = (res.parCh[nom.toUpperCase()] || 0) / 60;
-          txt = fmtH(h); coul = couleurReal(h, devis);
-        }
-        t.innerHTML = contenu(nom.toUpperCase(), devis, planif, txt, coul);
+        if (_ttipCle !== cle || !_cur) return;
+        _cur.realM = res.status === 'done' ? ((res.parCh[nomUp] || 0) / 60) : 'nd';
+        rendreCourant();
       });
     }
+    // Réalisé total (charge tous les mois, en cache)
+    realiseTotal(nomUp).then(res => {
+      if (_ttipCle !== cle || !_cur) return;
+      _cur.realT = res.status === 'done' ? res.h : 'nd';
+      rendreCourant();
+    });
   }
 
   function cacher() {
     _ttipCle = null;
+    _cur = null;
     if (_ttipEl) _ttipEl.style.display = 'none';
   }
 
   const SEL = 'tr.tr-chantier[data-ttip="1"]';
-
   document.addEventListener('mouseover', e => {
     const tr = e.target.closest && e.target.closest(SEL);
     if (tr) montrer(tr, e);
