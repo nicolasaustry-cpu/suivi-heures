@@ -31,6 +31,7 @@
     table.bev input { width:62px; }
     table.bev input.ret::-webkit-outer-spin-button, table.bev input.ret::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     table.bev input.ret { -moz-appearance:textfield; appearance:textfield; text-align:right; }
+    table.bev.mode-planifie th:nth-child(7), table.bev.mode-planifie td:nth-child(7) { display:none; }
     #enc-reporte::-webkit-outer-spin-button, #enc-reporte::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     #enc-reporte { -moz-appearance:textfield; appearance:textfield; text-align:right; }
     table.bev th { background:#1d4ed8; color:#fff; font-weight:500; padding:5px 8px; text-align:center; vertical-align:middle; }
@@ -452,6 +453,18 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       ecartRetenu: ecartRetenu, tempsCompte: tempsCompte
     });
   }
+  // Client « planning seul » : si aucun réalisé sur le mois, l'écart se calcule
+  // sur le Planifié (Planifié − Base) au lieu du Réalisé, et la colonne Réalisé sera masquée.
+  const totalRealise = r2(lignes.reduce(function (s, l) { return s + (l.realise || 0); }, 0));
+  const modePlanifie = totalRealise === 0;
+  if (modePlanifie) {
+    lignes.forEach(function (l) {
+      l.ecartRB = r2(l.planifie - l.base);
+      l.ecartRetenu = (retenues && retenues[l.date] != null) ? r2(Number(retenues[l.date])) : l.ecartRB;
+      l.tempsCompte = r2(l.base + l.ecartRetenu);
+    });
+  }
+  lignes.modePlanifie = modePlanifie;
   return lignes;
 }
 
@@ -481,6 +494,7 @@ async function chargerMois() {
 
   document.getElementById('chk-valide').checked = valide;
   const lignes = lignesDuMois(sal, ym, saisies, retenues);
+  const mp = lignes.modePlanifie;
   let tcontrat=0, ttevt=0, tbase=0, tplan=0, treal=0, terb=0, tret=0, tcompte=0, tbasePasse=0;
   let corps = '';
   lignes.forEach(l => {
@@ -495,7 +509,7 @@ async function chargerMois() {
       cellsReel =
         '<td>' + fmt(l.realise) + '</td>' +
         '<td class="' + classeEcart(l.ecartRB) + '">' + signe(l.ecartRB) + '</td>' +
-        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-realise="' + l.realise + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '" onfocus="this.select()" onmouseup="return false"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
+        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-realise="' + (mp ? l.planifie : l.realise) + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '" onfocus="this.select()" onmouseup="return false"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
         '<td class="tcompte">' + fmt(l.tempsCompte) + '</td>';
     } else {
       cellsReel = '<td></td><td></td><td></td><td class="tcompte"></td>';
@@ -516,8 +530,8 @@ async function chargerMois() {
   _compteMois = tcompte;      // total Temps pris en compte (jours passés)
   document.getElementById('zone').innerHTML =
     '<div class="bev-flow"><div class="bev-left">' +
-    '<table class="bev"><thead><tr>' +
-      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart Réalisé/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th>' +
+    '<table class="bev' + (mp ? ' mode-planifie' : '') + '"><thead><tr>' +
+      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart ' + (mp ? 'Planifié' : 'Réalisé') + '/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td>' +
       '<td>' + fmt(tcontrat) + '</td><td></td><td>' + fmt(ttevt) + '</td>' +
@@ -530,7 +544,7 @@ async function chargerMois() {
       '<td class="col-tranche"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
     '<div id="recap-evenements"></div>' +
-    '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/Réalisé</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
+    '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/' + (mp ? 'Planifié' : 'Réalisé') + '</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '</div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
