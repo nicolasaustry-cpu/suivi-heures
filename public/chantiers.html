@@ -776,7 +776,7 @@ function rendreChantiers() {
       const isPlanifie = estPlannifie(ch.client);
       const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
       const coche   = isPlanifie ? '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>' : '';
-      html += `<tr class="${classes}">
+      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder=""
@@ -1278,6 +1278,185 @@ function navEnTree(event, input) {
 }
 
 
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   POPUP « TEMPS PAR CHANTIER » AU SURVOL (desktop)
+   Affiche, pour la ligne survolée : Devis / Planifié / Réalisé, sur le MOIS
+   de la ligne. Devis + Planifié = instantané (local) ; Réalisé = chargé une
+   fois par mois depuis le serveur (mis en cache). Bloc autonome, non intrusif.
+═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const _cacheReal = {};   // "YYYY-MM" -> { status:'loading'|'done'|'error', parCh:{ NOM:minutes } }
+  let _ttipEl  = null;
+  let _ttipCle = null;     // identifiant du contenu affiché (mois|NOM) pour la maj asynchrone
+
+  function tokenSync() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken') || '';
+  }
+
+  function fmtH(h) {
+    if (!h || h <= 0) return '0 h';
+    return (Number.isInteger(h) ? h : h.toFixed(1).replace(/\.0$/, '')) + ' h';
+  }
+
+  /* Somme des heures PLANIFIÉES (planning → localStorage.heuresdata) pour un
+     chantier, restreinte au mois de la ligne. La date YYYY_MM_DD est incluse
+     dans la clé ; l'id salarié qui la précède ne contient jamais de « _ »,
+     donc le motif « YYYY_MM_ » n'apparaît que dans la vraie date. */
+  function planifieMois(nom, annee, mi) {
+    const cible = (nom || '').trim().toUpperCase();
+    if (!cible) return 0;
+    const motif = `${annee}_${String(mi + 1).padStart(2, '0')}_`;
+    let heures;
+    try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); }
+    catch (e) { return 0; }
+    let tot = 0;
+    for (const k in heures) {
+      const v = heures[k];
+      if (!v || !v.chantier) continue;
+      if (String(v.chantier).trim().toUpperCase() !== cible) continue;
+      if (k.indexOf(motif) === -1) continue;
+      tot += parseFloat(v.heures) || 0;
+    }
+    return tot;
+  }
+
+  /* Charge (une seule fois) le réalisé d'un mois depuis le serveur, en cache. */
+  async function realiseMois(mois) {
+    if (_cacheReal[mois]) return _cacheReal[mois];
+    const e = { status: 'loading', parCh: {} };
+    _cacheReal[mois] = e;
+    const token = tokenSync();
+    if (!token) { e.status = 'error'; return e; }
+    try {
+      const r = await fetch(`/api/saisies/${mois}`, { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      if (d && d.ok && Array.isArray(d.saisies)) {
+        d.saisies.forEach(s => (s.chantiers || []).forEach(c => {
+          const nom = (c.nom || '').trim().toUpperCase();
+          if (!nom) return;
+          e.parCh[nom] = (e.parCh[nom] || 0) + (parseFloat(c.dureeMin) || 0);
+        }));
+        e.status = 'done';
+      } else e.status = 'error';
+    } catch (_) { e.status = 'error'; }
+    return e;
+  }
+
+  function elTooltip() {
+    if (_ttipEl) return _ttipEl;
+    const d = document.createElement('div');
+    d.id = 'ttip-temps';
+    d.style.cssText =
+      'position:fixed;z-index:9999;pointer-events:none;display:none;' +
+      'background:#0f2747;color:#fff;border-radius:8px;padding:8px 11px;' +
+      'font-size:0.82rem;line-height:1.45;box-shadow:0 6px 20px rgba(0,0,0,.28);' +
+      'min-width:172px;max-width:240px;';
+    document.body.appendChild(d);
+    _ttipEl = d;
+    return d;
+  }
+
+  function ligne(label, val, couleur) {
+    return '<div style="display:flex;justify-content:space-between;gap:14px;">' +
+      `<span style="opacity:.85;">${label}</span>` +
+      `<span style="font-weight:700;${couleur ? `color:${couleur};` : ''}">${val}</span></div>`;
+  }
+
+  function couleurReal(real, devis) {
+    if (!devis) return '';
+    if (real > devis * 1.05) return '#fca5a5';   // dépassement > 5 % → rouge clair
+    if (real > 0)            return '#86efac';    // dans le budget → vert clair
+    return '';
+  }
+
+  function contenu(nom, devis, planif, realTxt, realCoul) {
+    return `<div style="font-weight:700;margin-bottom:5px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nom || '—'}</div>` +
+      ligne('Devis', fmtH(devis)) +
+      ligne('Planifié', fmtH(planif)) +
+      ligne('Réalisé', realTxt, realCoul);
+  }
+
+  function positionner(e) {
+    const t = elTooltip();
+    const ox = 16, oy = 16;
+    let x = e.clientX + ox, y = e.clientY + oy;
+    const w = t.offsetWidth, h = t.offsetHeight;
+    if (x + w > window.innerWidth  - 8) x = e.clientX - w - ox;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - oy;
+    t.style.left = Math.max(4, x) + 'px';
+    t.style.top  = Math.max(4, y) + 'px';
+  }
+
+  function montrer(tr, e) {
+    const nomInp = tr.querySelector('input[data-champ="client"]');
+    const devInp = tr.querySelector('input[data-champ="hPrevues"]');
+    const nom = nomInp ? nomInp.value.trim() : '';
+    if (!nom) { cacher(); return; }                      // ligne vide → rien
+    if (tr.contains(document.activeElement)) { cacher(); return; } // saisie en cours → rien
+
+    const annee = parseInt(tr.dataset.annee, 10);
+    const mi    = parseInt(tr.dataset.mi, 10);
+    const mois  = `${annee}-${String(mi + 1).padStart(2, '0')}`;
+    const cle   = `${mois}|${nom.toUpperCase()}`;
+
+    const t = elTooltip();
+    if (t.style.display === 'block' && _ttipCle === cle) { positionner(e); return; }
+    _ttipCle = cle;
+
+    const devis  = parseFloat(devInp ? devInp.value : '') || 0;
+    const planif = planifieMois(nom, annee, mi);
+
+    let realTxt = '…', realCoul = '';
+    const cached = _cacheReal[mois];
+    if (cached && cached.status === 'done') {
+      const h = (cached.parCh[nom.toUpperCase()] || 0) / 60;
+      realTxt = fmtH(h); realCoul = couleurReal(h, devis);
+    } else if (cached && cached.status === 'error') {
+      realTxt = 'n/d';
+    }
+
+    t.innerHTML = contenu(nom.toUpperCase(), devis, planif, realTxt, realCoul);
+    t.style.display = 'block';
+    positionner(e);
+
+    if (!cached || cached.status === 'loading') {
+      realiseMois(mois).then(res => {
+        if (_ttipCle !== cle) return;                    // survol changé entre-temps
+        let txt = 'n/d', coul = '';
+        if (res.status === 'done') {
+          const h = (res.parCh[nom.toUpperCase()] || 0) / 60;
+          txt = fmtH(h); coul = couleurReal(h, devis);
+        }
+        t.innerHTML = contenu(nom.toUpperCase(), devis, planif, txt, coul);
+      });
+    }
+  }
+
+  function cacher() {
+    _ttipCle = null;
+    if (_ttipEl) _ttipEl.style.display = 'none';
+  }
+
+  const SEL = 'tr.tr-chantier[data-ttip="1"]';
+
+  document.addEventListener('mouseover', e => {
+    const tr = e.target.closest && e.target.closest(SEL);
+    if (tr) montrer(tr, e);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!_ttipEl || _ttipEl.style.display !== 'block') return;
+    const tr = e.target.closest && e.target.closest(SEL);
+    if (tr) positionner(e);
+  });
+  document.addEventListener('mouseout', e => {
+    const to = e.relatedTarget;
+    if (!to || !(to.closest && to.closest(SEL))) cacher();
+  });
+})();
 </script>
 </body>
 </html>
