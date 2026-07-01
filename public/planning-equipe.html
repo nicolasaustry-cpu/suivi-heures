@@ -129,6 +129,7 @@
 
   <div class="fixed-tools no-print">
     <div class="wk-nav">
+      <button class="wk-btn" id="btn-retour-saisie" style="display:none;background:#0f3a8a;color:#fff;border-color:#0f3a8a;" onclick="location.href='saisie.html'" title="Retour à l'écran de saisie">← Saisie</button>
       <button class="wk-btn" onclick="semaineDecalage(-1)" title="Semaine précédente">‹</button>
       <div class="wk-label" id="wk-label">—</div>
       <button class="wk-btn" onclick="semaineDecalage(1)" title="Semaine suivante">›</button>
@@ -1112,6 +1113,12 @@ window.addEventListener('afterprint', () => {
 window.addEventListener('DOMContentLoaded', async () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   if (ent.nom) { const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+
+  // Contexte « saisie mobile » : proposer un retour direct vers l'écran de saisie
+  if (localStorage.getItem('saisie_codeEmploye')) {
+    const b = document.getElementById('btn-retour-saisie');
+    if (b) b.style.display = '';
+  }
 
   ajusterHauteur();
   window.addEventListener('resize', ajusterHauteur);
