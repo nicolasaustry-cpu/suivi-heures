@@ -1434,39 +1434,63 @@ function navEnTree(event, input) {
     d.style.cssText =
       'position:fixed;z-index:9999;pointer-events:none;display:none;' +
       'background:#0f2747;color:#fff;border-radius:8px;padding:9px 12px;' +
-      'font-size:0.82rem;line-height:1.45;box-shadow:0 6px 20px rgba(0,0,0,.28);' +
-      'min-width:186px;max-width:250px;';
+      'font-size:0.82rem;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.32);' +
+      'min-width:252px;max-width:290px;';
     document.body.appendChild(d);
     _ttipEl = d;
     return d;
   }
 
-  function ligne(label, val, coul) {
-    return '<div style="display:flex;justify-content:space-between;gap:14px;">' +
-      `<span style="opacity:.85;">${label}</span>` +
-      `<span style="font-weight:700;${coul ? `color:${coul};` : ''}">${val}</span></div>`;
+  function coulRatio(ratio) {
+    if (ratio > 1.0) return '#f87171';   // rouge  : > 100 % du prévu
+    if (ratio > 0.9) return '#fbbf24';   // orange : > 90 %
+    return '#4ade80';                    // vert   : dans le budget
   }
 
-  // real : nombre (h) | 'load' | 'nd'
-  function reaTxtCoul(real, prevu) {
-    if (real === 'load') return ['…', ''];
-    if (real === 'nd')   return ['n/d', ''];
-    return [fmtH(real), couleurReal(real, prevu)];
+  // real : nombre (h) | 'load' | 'nd'  →  { txt, coul, w, pct }
+  function statutReal(real, prevu) {
+    if (real === 'load') return { txt: '…',   coul: 'rgba(255,255,255,.5)',  w: 0, pct: '' };
+    if (real === 'nd')   return { txt: 'n/d', coul: 'rgba(255,255,255,.5)',  w: 0, pct: '' };
+    if (real <= 0)       return { txt: '0 h', coul: 'rgba(255,255,255,.55)', w: 0, pct: (prevu > 0 ? '0%' : '—') };
+    var ratio = prevu > 0 ? real / prevu : 2;
+    return {
+      txt: fmtH(real),
+      coul: coulRatio(ratio),
+      w: prevu > 0 ? Math.min(ratio, 1) * 100 : 100,
+      pct: prevu > 0 ? Math.round(ratio * 100) + '%' : '—'
+    };
   }
 
-  function bloc(titre, prevu, planif, real) {
-    const [rTxt, rCoul] = reaTxtCoul(real, prevu);
-    return `<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;opacity:.6;margin:2px 0 3px;">${titre}</div>` +
-      ligne('Prévu', fmtH(prevu)) +
-      ligne('Planifié', fmtH(planif)) +
-      ligne('Réalisé', rTxt, rCoul);
+  function statLigne(label, val) {
+    return '<div style="display:flex;justify-content:space-between;font-size:0.76rem;margin-bottom:4px;">' +
+      '<span style="color:rgba(255,255,255,.7);">' + label + '</span>' +
+      '<b style="font-weight:700;">' + val + '</b></div>';
+  }
+
+  function colonne(titre, prevu, planif, real) {
+    var s = statutReal(real, prevu);
+    return '<div style="flex:1;min-width:0;">' +
+      '<div style="font-size:0.64rem;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:7px;">' + titre + '</div>' +
+      statLigne('Prévu', fmtH(prevu)) +
+      statLigne('Planifié', fmtH(planif)) +
+      '<div style="display:flex;justify-content:space-between;font-size:0.76rem;margin-bottom:6px;"><span style="color:rgba(255,255,255,.7);">Réalisé</span><b style="font-weight:700;color:' + s.coul + ';">' + s.txt + '</b></div>' +
+      '<div style="height:6px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden;"><div style="height:100%;width:' + s.w + '%;background:' + (s.w > 0 ? s.coul : 'transparent') + ';border-radius:4px;"></div></div>' +
+      '<div style="text-align:right;font-size:0.68rem;font-weight:700;color:' + s.coul + ';margin-top:3px;min-height:0.82rem;">' + s.pct + '</div>' +
+      '</div>';
   }
 
   function htmlDeux(c) {
-    return `<div style="font-weight:700;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nom || '—'}</div>` +
-      bloc('Ce mois', c.prevuM, c.planifM, c.realM) +
-      `<div style="height:1px;background:rgba(255,255,255,.14);margin:6px 0;"></div>` +
-      bloc('Total', c.prevuT, c.planifT, c.realT);
+    var dot = 'rgba(255,255,255,.4)';
+    if (typeof c.realM === 'number' && c.realM > 0 && c.prevuM > 0) dot = coulRatio(c.realM / c.prevuM);
+    return '<div style="display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:10px;">' +
+        '<span style="width:9px;height:9px;border-radius:50%;background:' + dot + ';flex:none;"></span>' +
+        '<span style="font-size:0.9rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (c.nom || '—') + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:11px;">' +
+        colonne('Ce mois', c.prevuM, c.planifM, c.realM) +
+        '<div style="width:1px;background:rgba(255,255,255,.14);flex:none;"></div>' +
+        colonne('Total', c.prevuT, c.planifT, c.realT) +
+      '</div>';
   }
 
   function rendreCourant() {
