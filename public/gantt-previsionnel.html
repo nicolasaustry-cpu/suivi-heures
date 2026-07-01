@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt Prévisionnel – Suiv'Heures</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    color: #0f2747; background: #f4f7fb; font-size: 14px;
+  }
+  .wrap { max-width: 100%; padding: 16px 20px 40px; }
+
+  .barre {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+    margin-bottom: 14px;
+  }
+  .titre { font-size: 1.15rem; font-weight: 700; margin: 0; color: #0f2747; }
+  .sous { font-size: 0.82rem; color: #64748b; }
+
+  .seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; padding: 7px 15px; font: inherit; font-size: 0.85rem; background: #fff; color: #64748b; cursor: pointer; }
+  .seg button.actif { background: #2563eb; color: #fff; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip {
+    border: 1px solid #cbd5e1; background: #fff; color: #475569; border-radius: 999px;
+    padding: 4px 12px; font-size: 0.8rem; cursor: pointer;
+  }
+  .chip.on { background: #0f2747; color: #fff; border-color: #0f2747; }
+
+  .btn {
+    border: 1px solid #cbd5e1; background: #fff; color: #0f2747; border-radius: 8px;
+    padding: 7px 14px; font: inherit; font-size: 0.85rem; cursor: pointer;
+  }
+  .btn:hover { background: #eef2f7; }
+  .lien-retour { color: #2563eb; text-decoration: none; font-size: 0.88rem; }
+  .lien-retour:hover { text-decoration: underline; }
+
+  .legende { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.78rem; color: #64748b; align-items: center; }
+  .legende .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+
+  .gantt-scroll { overflow-x: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
+  table.gantt { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  table.gantt th, table.gantt td { border-right: 1px solid #eef2f7; }
+  table.gantt thead th { background: #f8fafc; font-weight: 600; font-size: 0.78rem; color: #475569; padding: 5px 4px; text-align: center; }
+  th.col-nom, td.col-nom { width: 168px; text-align: left; padding-left: 10px; position: sticky; left: 0; background: #fff; z-index: 2; }
+  thead th.col-nom { background: #f8fafc; z-index: 3; }
+  th.col-mois, td.col-mois { width: 50px; }
+  th.col-total, td.col-total { width: 66px; }
+  th.annee-band { background: #eef4ff; color: #1e3a8a; border-bottom: 1px solid #dbe6fb; }
+  td.col-nom { font-size: 0.86rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tbody tr { border-top: 1px solid #f1f5f9; }
+  tbody td { height: 40px; vertical-align: middle; }
+  .mois-actuel { box-shadow: inset 2px 0 0 #2563eb; }
+
+  .cap { height: 11px; border-radius: 6px; background: #e2e6ec; overflow: hidden; margin: 0 4px; }
+  .cap > div { height: 100%; border-radius: 6px; }
+  .num { font-size: 0.72rem; text-align: center; margin-top: 3px; }
+
+  tfoot td { height: 34px; border-top: 2px solid #e2e8f0; font-size: 0.74rem; text-align: center; }
+  tfoot td.col-nom { font-weight: 600; color: #475569; font-size: 0.78rem; white-space: normal; line-height: 1.2; }
+
+  .msg-vide { padding: 40px; text-align: center; color: #64748b; }
+  .avert-mobile { display: none; }
+
+  @media (max-width: 780px) {
+    .avert-mobile { display: block; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
+      border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; margin-bottom: 14px; }
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 8mm; }
+    body { background: #fff; }
+    .wrap { padding: 0; max-width: none; }
+    .no-print { display: none !important; }
+    .gantt-scroll { overflow: visible; border: none; border-radius: 0; }
+    table.gantt th, table.gantt td { border-right: 1px solid #e5e7eb; }
+    th.col-nom, td.col-nom { position: static; }
+    th.col-mois, td.col-mois { width: 40px; }
+    thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cap, .cap > div, .num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tbody tr { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="barre no-print">
+    <a class="lien-retour" href="chantiers.html">← Prévisionnel</a>
+    <div>
+      <h1 class="titre">Diagramme de Gantt — Prévisionnel</h1>
+      <div class="sous" id="ent-nom"></div>
+    </div>
+  </div>
+
+  <div class="avert-mobile no-print">Cette vue est optimisée pour un écran d'ordinateur.</div>
+
+  <div class="barre no-print">
+    <div class="seg" id="seg">
+      <button id="btn-planif">Planifié vs prévu</button>
+      <button id="btn-real" class="actif">Réalisé vs prévu</button>
+    </div>
+    <div class="chips" id="chips-annees"></div>
+    <button class="btn" id="btn-print">🖨️ Imprimer</button>
+  </div>
+
+  <div class="legende" style="margin-bottom:12px;">
+    <span><span class="sw" style="background:#cbd2dc;"></span>Prévu (réf.)</span>
+    <span><span class="sw" style="background:#16a34a;"></span>≤ 90 %</span>
+    <span><span class="sw" style="background:#f59e0b;"></span>90–100 %</span>
+    <span><span class="sw" style="background:#dc2626;"></span>&gt; 100 %</span>
+    <span style="margin-left:8px;">Barres = valeur / prévu par chantier · ligne du bas = charge du mois / heures vendables</span>
+  </div>
+
+  <div class="gantt-scroll">
+    <div id="gantt"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+  var data = {}, heures = {};
+  try { data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}'); } catch (e) { data = {}; }
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) { heures = {}; }
+
+  var ent = {};
+  try { ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch (e) { ent = {}; }
+  if (ent && ent.nom) document.getElementById('ent-nom').textContent = ent.nom;
+
+  var now = new Date();
+  var curY = now.getFullYear(), curM = now.getMonth();
+
+  var _cacheReal = {};
+  var metrique = 'real';
+  var anneesActives = null;
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function r(x) { return Math.round(x); }
+  function up(s) { return String(s || '').trim().toUpperCase(); }
+
+  function token() { return localStorage.getItem('syncToken') || ''; }
+
+  function coulRatio(ratio) {
+    if (ratio > 1.0) return '#dc2626';
+    if (ratio > 0.9) return '#f59e0b';
+    return '#16a34a';
+  }
+
+  function anneesPresentes() {
+    return Object.keys(data).map(Number).filter(function (a) { return !isNaN(a); }).sort(function (a, b) { return a - b; });
+  }
+
+  function prevuMois(nomUp, y, m) {
+    var dm = data[y] && data[y][m];
+    if (!dm || !dm.chantiers) return 0;
+    var tot = 0;
+    dm.chantiers.forEach(function (ch) { if (up(ch.client) === nomUp) tot += parseFloat(ch.hPrevues) || 0; });
+    return tot;
+  }
+  function planifMois(nomUp, y, m) {
+    var motif = y + '_' + pad2(m + 1) + '_';
+    var tot = 0;
+    for (var k in heures) {
+      var v = heures[k];
+      if (!v || !v.chantier) continue;
+      if (up(v.chantier) !== nomUp) continue;
+      if (k.indexOf(motif) === -1) continue;
+      tot += parseFloat(v.heures) || 0;
+    }
+    return tot;
+  }
+  function planifMoisTous(y, m) {
+    var motif = y + '_' + pad2(m + 1) + '_';
+    for (var k in heures) {
+      var v = heures[k];
+      if (v && v.chantier && up(v.chantier) !== 'ABSENCE' && k.indexOf(motif) !== -1 && (parseFloat(v.heures) || 0) > 0) return true;
+    }
+    return false;
+  }
+  function vendablesMois(y, m) {
+    var dm = data[y] && data[y][m];
+    return dm ? (parseFloat(dm.hVendables) || 0) : 0;
+  }
+  function realMois(nomUp, y, m) {
+    var mois = y + '-' + pad2(m + 1);
+    var c = _cacheReal[mois];
+    if (c && c.status === 'done') return (c.parCh[nomUp] || 0) / 60;
+    return null;
+  }
+
+  function listeChantiers() {
+    var set = {};
+    var annees = anneesPresentes();
+    annees.forEach(function (y) {
+      var mois = data[y] || {};
+      for (var m in mois) {
+        var dm = mois[m];
+        if (!dm || !dm.chantiers) continue;
+        dm.chantiers.forEach(function (ch) {
+          var nom = up(ch.client);
+          if (nom && nom !== 'ABSENCE') set[nom] = true;
+        });
+      }
+    });
+    return Object.keys(set).sort();
+  }
+
+  function colonnesActives() {
+    var cols = [];
+    var annees = anneesPresentes().filter(function (y) { return anneesActives.has(y); });
+    annees.forEach(function (y) {
+      for (var m = 0; m < 12; m++) {
+        var actif = vendablesMois(y, m) > 0 || planifMoisTous(y, m);
+        if (!actif) {
+          var dm = data[y] && data[y][m];
+          if (dm && dm.chantiers) {
+            actif = dm.chantiers.some(function (ch) { return (parseFloat(ch.hPrevues) || 0) > 0; });
+          }
+        }
+        if (actif) cols.push({ y: y, m: m });
+      }
+    });
+    return cols;
+  }
+
+  function valeur(nomUp, y, m) {
+    return metrique === 'planif' ? planifMois(nomUp, y, m) : realMois(nomUp, y, m);
+  }
+
+  function celluleBar(prevu, val, mNom, classe) {
+    if ((prevu == null || prevu === 0) && (val == null || val === 0)) {
+      return '<td class="col-mois ' + classe + '"></td>';
+    }
+    var loading = (val === null);
+    var v = loading ? 0 : val;
+    var ratio = (prevu && prevu > 0) ? v / prevu : (v > 0 ? 2 : 0);
+    var fill, w, coulTxt, num;
+    if (loading) { fill = '#e2e6ec'; w = 0; coulTxt = '#94a3b8'; num = '…'; }
+    else if (v <= 0) { fill = '#cbd2dc'; w = 0; coulTxt = '#94a3b8'; num = '0h'; }
+    else { fill = coulRatio(ratio); w = Math.min(ratio, 1) * 100; coulTxt = '#475569'; num = r(v) + 'h'; }
+    var pct = (prevu && prevu > 0 && !loading) ? r(ratio * 100) + '%' : '—';
+    var titre = 'Prévu ' + (prevu ? r(prevu) + 'h' : '—') + ' · ' + mNom + ' ' + (loading ? '…' : r(v) + 'h') + ' (' + pct + ')';
+    return '<td class="col-mois ' + classe + '" title="' + titre + '">'
+      + '<div class="cap"><div style="width:' + w + '%;background:' + fill + ';"></div></div>'
+      + '<div class="num" style="color:' + coulTxt + ';">' + num + '</div></td>';
+  }
+
+  function celluleTotal(sp, sv, svConnu, mNom) {
+    var ratio = sp > 0 ? sv / sp : (sv > 0 ? 2 : 0);
+    var fill = sv > 0 ? coulRatio(ratio) : '#cbd2dc';
+    var w = sv > 0 ? Math.min(ratio, 1) * 100 : 0;
+    var pct = sp > 0 && svConnu ? r(ratio * 100) + '%' : '—';
+    var num = svConnu ? r(sv) + 'h' : '…';
+    var titre = 'Total — Prévu ' + r(sp) + 'h · ' + mNom + ' ' + num + ' (' + pct + ')';
+    return '<td class="col-total" title="' + titre + '">'
+      + '<div class="cap"><div style="width:' + w + '%;background:' + fill + ';"></div></div>'
+      + '<div class="num" style="font-weight:600;color:#0f2747;">' + num + '</div></td>';
+  }
+
+  function render() {
+    var g = document.getElementById('gantt');
+    var chantiers = listeChantiers();
+    var cols = colonnesActives();
+    var mNom = metrique === 'planif' ? 'Planifié' : 'Réalisé';
+
+    if (!chantiers.length || !cols.length) {
+      g.innerHTML = '<div class="msg-vide">Aucune donnée à afficher pour la sélection.</div>';
+      return;
+    }
+
+    var parAnnee = {};
+    cols.forEach(function (c) { (parAnnee[c.y] = parAnnee[c.y] || []).push(c.m); });
+    var anneesCol = Object.keys(parAnnee).map(Number).sort(function (a, b) { return a - b; });
+
+    var h = '<table class="gantt"><thead>';
+    h += '<tr><th class="col-nom" rowspan="2">Chantier</th>';
+    anneesCol.forEach(function (y) { h += '<th class="annee-band" colspan="' + parAnnee[y].length + '">' + y + '</th>'; });
+    h += '<th class="col-total" rowspan="2">Total</th></tr>';
+    h += '<tr>';
+    cols.forEach(function (c) {
+      var actuel = (c.y === curY && c.m === curM) ? ' mois-actuel' : '';
+      h += '<th class="col-mois' + actuel + '">' + MOIS[c.m] + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+
+    chantiers.forEach(function (nomUp) {
+      h += '<tr><td class="col-nom" title="' + nomUp + '">' + nomUp + '</td>';
+      var sp = 0, sv = 0, svConnu = true;
+      cols.forEach(function (c) {
+        var p = prevuMois(nomUp, c.y, c.m);
+        var v = valeur(nomUp, c.y, c.m);
+        if (v === null) svConnu = false; else sv += v;
+        sp += p;
+        var actuel = (c.y === curY && c.m === curM) ? ' mois-actuel' : '';
+        h += celluleBar(p, v, mNom, actuel);
+      });
+      h += celluleTotal(sp, sv, svConnu, mNom);
+      h += '</tr>';
+    });
+
+    h += '</tbody><tfoot><tr><td class="col-nom">Charge / h. vendables</td>';
+    var gv = 0, gvend = 0, gConnu = true;
+    cols.forEach(function (c) {
+      var tv = 0, connu = true;
+      chantiers.forEach(function (nomUp) {
+        var v = valeur(nomUp, c.y, c.m);
+        if (v === null) connu = false; else tv += v;
+      });
+      var vend = vendablesMois(c.y, c.m);
+      if (connu) { gv += tv; } else { gConnu = false; }
+      gvend += vend;
+      var ratio = vend > 0 ? tv / vend : 0;
+      var coul = !connu ? '#94a3b8' : (tv > 0 ? coulRatio(ratio) : '#94a3b8');
+      var pct = vend > 0 && connu ? r(ratio * 100) + '%' : '—';
+      var actuel = (c.y === curY && c.m === curM) ? ' mois-actuel' : '';
+      var txt = connu ? (r(tv) + '/' + r(vend)) : ('…/' + r(vend));
+      h += '<td class="col-mois' + actuel + '" title="' + mNom + ' / vendables (' + pct + ')" style="color:' + coul + ';font-weight:' + (ratio > 0.9 && connu ? 600 : 400) + ';">' + txt + '</td>';
+    });
+    var gratio = gvend > 0 ? gv / gvend : 0;
+    var gcoul = gConnu ? (gv > 0 ? coulRatio(gratio) : '#94a3b8') : '#94a3b8';
+    h += '<td class="col-total" style="font-weight:600;color:' + gcoul + ';">' + (gConnu ? r(gv) : '…') + '/' + r(gvend) + '</td>';
+    h += '</tr></tfoot></table>';
+
+    g.innerHTML = h;
+  }
+
+  function chargerReal() {
+    var tk = token();
+    var cols = colonnesActives();
+    var moisSet = {};
+    cols.forEach(function (c) { moisSet[c.y + '-' + pad2(c.m + 1)] = true; });
+    var moisList = Object.keys(moisSet);
+    if (!tk) { moisList.forEach(function (mo) { _cacheReal[mo] = { status: 'error', parCh: {} }; }); render(); return; }
+    Promise.all(moisList.map(function (mois) {
+      if (_cacheReal[mois]) return Promise.resolve();
+      var e = { status: 'loading', parCh: {} };
+      _cacheReal[mois] = e;
+      return fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + tk } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && Array.isArray(d.saisies)) {
+            d.saisies.forEach(function (s) {
+              (s.chantiers || []).forEach(function (c) {
+                var nom = up(c.nom); if (!nom) return;
+                e.parCh[nom] = (e.parCh[nom] || 0) + (parseFloat(c.dureeMin) || 0);
+              });
+            });
+            e.status = 'done';
+          } else e.status = 'error';
+        })
+        .catch(function () { e.status = 'error'; });
+    })).then(function () { render(); });
+  }
+
+  function construireChips() {
+    var cont = document.getElementById('chips-annees');
+    cont.innerHTML = '';
+    anneesPresentes().forEach(function (y) {
+      var b = document.createElement('button');
+      b.className = 'chip' + (anneesActives.has(y) ? ' on' : '');
+      b.textContent = y;
+      b.addEventListener('click', function () {
+        if (anneesActives.has(y)) { if (anneesActives.size > 1) anneesActives.delete(y); }
+        else anneesActives.add(y);
+        construireChips();
+        render();
+        chargerReal();
+      });
+      cont.appendChild(b);
+    });
+  }
+
+  var bP = document.getElementById('btn-planif');
+  var bR = document.getElementById('btn-real');
+  function setMetrique(mode) {
+    metrique = mode;
+    bP.classList.toggle('actif', mode === 'planif');
+    bR.classList.toggle('actif', mode === 'real');
+    render();
+    if (mode === 'real') chargerReal();
+  }
+  bP.addEventListener('click', function () { setMetrique('planif'); });
+  bR.addEventListener('click', function () { setMetrique('real'); });
+  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+  var annees = anneesPresentes();
+  anneesActives = new Set(annees.length ? annees : [curY]);
+  construireChips();
+  render();
+  chargerReal();
+})();
+</script>
+</body>
+</html>
