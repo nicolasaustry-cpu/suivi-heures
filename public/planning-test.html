@@ -1,0 +1,2361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <title>Planning – Suivi des heures</title>
+  <style>
+  body { margin:0; font-family:Arial,sans-serif; background:#f4f6f8; color:#222; }
+
+  .top-bar {
+    position: fixed; top:0; left:0; right:0; z-index:1000;
+    display:flex; flex-direction:column; background:#fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  header.main-header {
+    background:#2563eb; color:#fff; padding:0.6rem 1rem;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  header.main-header .entreprise-nom { font-weight:700; font-size:0.95rem; min-width:160px; }
+  header.main-header .page-title { flex:1; text-align:center; margin:0; font-size:1.3rem; font-weight:800; letter-spacing:0.02em; }
+  header.main-header .header-droite { display:flex; align-items:center; gap:0.8rem; min-width:160px; justify-content:flex-end; }
+  .licence-badge { font-size:0.78rem; background:rgba(255,255,255,0.15); border-radius:999px; padding:2px 10px; color:#fff; }
+  .volitis-logo-wrapper { display:flex; align-items:center; gap:0.4rem; cursor:pointer; opacity:0.9; }
+  .volitis-logo-wrapper:hover { opacity:1; }
+  .volitis-logo-circle { background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+  .volitis-logo-circle img { height:22px; width:auto; }
+  .volitis-label { font-size:0.72rem; color:rgba(255,255,255,0.85); white-space:nowrap; }
+  .nav {
+    background:#e8edf3; display:flex; justify-content:center;
+    gap:1rem; padding:0.4rem;
+  }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; }
+  .nav a.active { text-decoration:underline; }
+  .fixed-tools {
+    background:#f8fafc; padding:0.5rem 0.8rem;
+    border-top:1px solid #ddd; border-bottom:1px solid #ccc;
+  }
+  #planning-wrapper { margin-top:0; padding:0.5rem 0.8rem; }
+
+  button { border:none; border-radius:4px; padding:0.5rem 1rem; font-weight:bold; cursor:pointer; color:#fff; }
+  .btn-warning { background:#f59e0b; color:#000; }
+  input, select { border:1px solid #ccc; border-radius:4px; padding:5px 8px; }
+  .flex { display:flex; flex-wrap:wrap; gap:0.8rem; align-items:center; }
+
+  /* ===== FILTRE TYPE EXCEL ===== */
+  .filtre-container { position:relative; display:inline-block; }
+  .filtre-btn {
+    min-width:160px; padding:5px 8px; border:1px solid #ccc;
+    border-radius:4px; background:#fff; cursor:pointer;
+    text-align:left; font-size:0.9rem;
+  }
+  .filtre-dropdown {
+    display:none; position:absolute; top:100%; left:0;
+    background:#fff; border:1px solid #999; min-width:180px;
+    max-height:220px; overflow-y:auto; z-index:1001;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  .filtre-dropdown.open { display:block; }
+  .filtre-dropdown input[type="text"] {
+    width:calc(100% - 10px); margin:5px; padding:4px;
+    border:1px solid #ccc; font-size:0.85rem; box-sizing:border-box;
+  }
+  .filtre-dropdown label {
+    display:block; padding:4px 8px; cursor:pointer;
+    font-size:0.85rem; white-space:nowrap;
+  }
+  .filtre-dropdown label:hover { background:#e8f0fe; }
+  .filtre-dropdown label.select-all { border-bottom:1px solid #ccc; font-weight:bold; }
+  .filtre-dropdown input[type="checkbox"] { margin-right:6px; vertical-align:middle; }
+
+  /* ===== TABLEAU ===== */
+  table { table-layout:fixed; width:100%; }
+  td, th { overflow:hidden; white-space:nowrap; }
+  .cell-total, .cell-prevu, .cell-ecart, td[data-type="abs"],
+  th:nth-last-child(-n+4) {
+    width:55px; min-width:55px; max-width:55px;
+    text-align:center;
+  }
+  #totaux-barre td {
+    width:55px; text-align:center; border:1px solid #ccc;
+    padding:4px; white-space:nowrap;
+  }
+
+  /* ===== TOOLTIP INFO CHANTIER ===== */
+  .chantier-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: #0f3a8a;
+    color: #fff;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    pointer-events: none;
+    max-width: 260px;
+    min-width: 200px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .chantier-tooltip.visible { opacity: 1; }
+  .chantier-tooltip .ct-nom {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fcd34d;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+  .chantier-tooltip .ct-total {
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .chantier-tooltip .ct-total strong { font-size: 1rem; color: #fff; }
+  .chantier-tooltip .ct-label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 4px 0 2px;
+  }
+  .chantier-tooltip .ct-sal {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0;
+  }
+  .chantier-tooltip .ct-sal-nom  { color: rgba(255,255,255,0.92); }
+  .chantier-tooltip .ct-sal-h    { color: #fcd34d; font-weight: 600; }
+  .chantier-tooltip .ct-periode  {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.65);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* ===== IMPRESSION ===== */
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    .no-print { display:none !important; }
+    .top-bar { position:static; box-shadow:none; }
+    #planning-wrapper { margin-top:0 !important; }
+    /* Un jour ne doit JAMAIS être coupé entre deux pages */
+    .jour-block, .jour-block * { page-break-inside:avoid !important; break-inside:avoid !important; }
+    .jour-block { page-break-after:auto; display:block; }
+    .jour-block table, .jour-block tr, .jour-block thead, .jour-block tbody { page-break-inside:avoid !important; break-inside:avoid !important; }
+    /* Le tableau garde la largeur de ses colonnes (pas d'étirement) ;
+       c'est le zoom JS qui agrandit l'ensemble si des colonnes sont masquées */
+    .jour-block table { width:auto !important; table-layout:fixed; margin:0 auto; }
+    .col-abs, .col-prevu, .col-ecart,
+    th.col-abs, th.col-prevu, th.col-ecart,
+    td.cell-abs, td.cell-prevu, td.cell-ecart { display:none !important; }
+    /* Masquage des colonnes Ch X à l'impression selon classe sur body */
+    body.hide-ch1 .jour-block table th:nth-child(2),
+    body.hide-ch1 .jour-block table td:nth-child(2) { display:none !important; }
+    body.hide-ch2 .jour-block table th:nth-child(3),
+    body.hide-ch2 .jour-block table td:nth-child(3) { display:none !important; }
+    body.hide-ch3 .jour-block table th:nth-child(4),
+    body.hide-ch3 .jour-block table td:nth-child(4) { display:none !important; }
+    body.hide-ch4 .jour-block table th:nth-child(5),
+    body.hide-ch4 .jour-block table td:nth-child(5) { display:none !important; }
+    body.hide-ch5 .jour-block table th:nth-child(6),
+    body.hide-ch5 .jour-block table td:nth-child(6) { display:none !important; }
+    /* En-tête impression : on ne garde que le nom de l'entreprise.
+       Préfixe html body pour dépasser la spécificité de theme-volitis.css
+       (chargé après, qui force body .main-header / body .nav en display:flex !important). */
+    #entete-impression { display:flex !important; }
+    html body header.main-header,
+    html body .main-header,
+    html body .nav,
+    html body div.nav,
+    html body .fixed-tools { display:none !important; }
+  }
+  #entete-impression {
+    display: none;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid #2563eb;
+    margin-bottom: 0.5rem;
+  }
+  #entete-impression .ent-nom {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #2563eb;
+  }
+  /* Bouton "note de chantier" (planning) */
+  .btn-note-ch { width:24px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-weight:700;line-height:1;flex:0 0 auto;position:relative; }
+  .btn-note-ch:hover { border-color:#f59e0b;color:#b45309; }
+  .btn-note-ch.has-note { background:#fef3c7;color:#b45309;border-color:#fde68a; }
+  .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
+  /* Heure de RDV par chantier : bouton compact (même gabarit que la note), bleu quand renseigné */
+  .btn-rdv-ch { height:30px;min-width:30px;padding:0 5px;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-size:0.78rem;line-height:1;flex:0 0 auto; }
+  .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
+  .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
+  /* Panneau de saisie de l'heure de RDV (ouvert à côté de la cellule) */
+  #rdv-pop { position:fixed;z-index:2000;display:none;background:#fff;border:1px solid #cbd5e1;
+    border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);padding:10px;min-width:170px; }
+  #rdv-pop .rdv-pop-titre { font-size:0.78rem;color:#475569;font-weight:600;margin-bottom:6px; }
+  #rdv-pop #rdv-pop-input { width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #cbd5e1;
+    border-radius:5px;font-size:0.95rem;margin-bottom:8px; }
+  #rdv-pop .rdv-pop-actions { display:flex;gap:6px; }
+  #rdv-pop .rdv-pop-actions button { flex:1;padding:6px 4px;border:none;border-radius:5px;cursor:pointer;
+    font-size:0.76rem;font-weight:600;white-space:nowrap; }
+  #rdv-pop .rdv-pop-ok { background:#2563eb;color:#fff; }
+  #rdv-pop .rdv-pop-ok:hover { background:#1d4ed8; }
+  #rdv-pop .rdv-pop-clear { background:#f1f5f9;color:#475569; }
+  #rdv-pop .rdv-pop-clear:hover { background:#e2e8f0; }
+  #rdv-pop .rdv-pop-cancel { background:#fee2e2;color:#b91c1c; }
+  #rdv-pop .rdv-pop-cancel:hover { background:#fecaca; }
+  /* ── Barre latérale rétractable (page planning) ── */
+  #pl-rail-toggle { display:none;position:fixed;top:50%;left:208px;transform:translateY(-50%);z-index:1500;
+    width:20px;height:54px;padding:0;border:none;cursor:pointer;background:#1d8cf0;color:#fff;
+    font-size:15px;line-height:54px;text-align:center;border-radius:0 7px 7px 0;box-shadow:2px 0 8px rgba(0,0,0,0.18); }
+  #pl-rail-toggle:hover { background:#1675c9; }
+  html.sh-lateral #pl-rail-toggle { display:block; }
+  html.pl-rail-reduit #pl-rail-toggle { left:0; }
+  html.pl-rail-reduit #sh-rail { display:none !important; }
+  html.pl-rail-reduit.sh-lateral body { padding-left:0 !important; }
+  html.pl-rail-reduit.sh-lateral .main-header,
+  html.pl-rail-reduit.sh-lateral .header-desktop { margin-left:0 !important;width:100% !important; }
+  @media print { #pl-rail-toggle { display:none !important; } }
+  /* Note affichée dans l'infobulle chantier */
+  .chantier-tooltip .ct-note { margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.25);font-size:0.8rem;color:#fde68a;white-space:pre-wrap;line-height:1.35; }
+  /* Note imprimable : cachée à l'écran, visible uniquement à l'impression */
+  .note-print { display:none; }
+  @media print { .note-print { display:block;font-size:0.66rem;line-height:1.2;color:#000;white-space:pre-wrap;margin-top:2px;padding-top:2px;border-top:1px dotted #999; } }
+  .rdv-print { display:none; }
+  @media print { .rdv-print { display:block;font-size:0.66rem;line-height:1.2;color:#000;font-weight:700;margin-top:2px; } }
+  /* Aligner en haut le contenu des cellules du planning
+     (pour que les noms de chantiers restent alignés quand une note agrandit une cellule) */
+  #planning-wrapper table td { vertical-align: top; }
+  /* ============== VUE MENSUELLE planning2 — fidèle maquette v5 ============== */
+  .grille-wrap { overflow:auto; max-height:72vh; border-radius:14px; border:1px solid #c7cfdb; background:#fff; }
+  table.grille { border-collapse:separate !important; border-spacing:0; width:max-content !important; margin:0 auto; table-layout:auto !important; font-size:0.82rem; }
+  table.grille td, table.grille th { white-space:normal !important; overflow:visible !important; }
+
+  /* En-tête figé (nom + TOTAL MOIS) */
+  table.grille thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:1px solid rgba(255,255,255,0.18); border-bottom:3px solid #0a2a66; vertical-align:top; }
+  table.grille thead th.corner { left:0; z-index:8; min-width:96px !important; width:96px !important; max-width:96px !important; border-right:3px solid #f59e0b; }
+  .hd-nom { font-size:0.95rem; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .hd-total { margin-top:6px; background:#fff; border:2px solid var(--col,#fff); border-radius:8px; padding:4px 6px; color:#0f3a8a; font-weight:800; font-size:0.74rem; }
+  .hd-total .sub { display:block; font-size:0.64rem; font-weight:600; color:#64748b; margin-top:1px; }
+  .grille .dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
+  .grille .ab { display:inline-block; background:#fef3c7; color:#92400e; border-radius:4px; padding:0 6px; font-size:0.64rem; font-weight:800; }
+
+  /* Colonne Jour figée */
+  table.grille tbody th.jour { position:sticky; left:0; z-index:4; background:#0f3a8a; color:#fff; font-weight:700; padding:9px 6px; min-width:96px !important; width:96px !important; max-width:96px !important; text-align:center; vertical-align:top; border-right:3px solid #f59e0b; border-bottom:3px solid #94a3b8; }
+  th.jour .jnum { font-size:0.98rem; } th.jour .jnom { font-size:0.72rem; opacity:0.9; font-weight:600; }
+  th.jour .sweek { display:inline-block; margin-top:3px; background:#1e3a8a; color:#cbd5e1; border-radius:4px; font-size:0.6rem; padding:0 4px; font-weight:700; }
+  th.jour.aujourdhui { background:#15357a; box-shadow:inset 4px 0 0 #f59e0b; }
+
+  table.grille tbody td { vertical-align:top; height:1px; padding:7px; min-width:244px !important; width:244px !important; max-width:244px !important; border-right:2px solid #cbd5e1; border-bottom:3px solid #cbd5e1; }
+  tr.fin-semaine td, tr.fin-semaine th.jour { border-bottom:5px solid #64748b; }
+  td.hors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
+
+  .cellinner { display:flex; flex-direction:column; height:100%; min-height:104px; }
+  .chips { flex:1 1 auto; }
+
+  /* Sous-total semaine */
+  tr.sous-total th.jour { background:#2d5296; }
+  tr.sous-total td { background:#f8fafc !important; text-align:center; font-weight:800; color:#0f3a8a; font-size:0.92rem; padding:7px; border-left:5px solid var(--col,#cbd5e1); }
+  tr.sous-total td .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
+
+  /* Pastille chantier */
+  .grille .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:7px 8px; margin-bottom:7px; background:#fff; display:flex; flex-direction:column; gap:6px; }
+  .grille .chip.vide { display:none; }
+  .grille .chip .ligne1 { display:flex; align-items:center; gap:5px; }
+  .grille .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:5px 7px; font-size:0.8rem; font-weight:700; text-transform:uppercase; }
+  .grille .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
+  .grille .chip .vider { flex:0 0 auto; width:26px; height:28px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; line-height:1; padding:0; }
+  .grille .chip .vider:hover { background:#fee2e2; }
+  .grille .chip .ligne2 { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .grille .chip select.h { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:4px; font-size:0.74rem; font-weight:700; color:#334155; }
+
+  /* RDV / Note en pastilles (boutons du moteur restylés) */
+  .grille .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:4px 8px; font-size:0.72rem; font-weight:700; cursor:pointer; line-height:1.3; }
+  .grille .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
+  .grille .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:4px 8px; font-size:0.72rem; font-weight:700; cursor:pointer; line-height:1.3; position:static; }
+  .grille .btn-note-ch.has-note { background:#e0e7ff; color:#3730a3; }
+  .grille .btn-note-ch.has-note::after { display:none; }
+
+  /* TNA */
+  .grille .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
+  .grille .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
+  .grille .chip.tna .tag { font-size:0.66rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+
+  /* Absence */
+  .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:9px; text-align:center; font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:7px; }
+  .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:3px; font-weight:700; font-size:0.72rem; }
+  .abs-day .x { border:none; background:#fca5a5; color:#7f1d1d; border-radius:50%; width:18px; height:18px; font-size:0.62rem; cursor:pointer; line-height:1; padding:0; }
+
+  /* Actions + pied */
+  .cell-actions { display:flex; gap:6px; margin-top:6px; }
+  .cell-add { flex:1 1 auto; background:#eef2f7; color:#475569; border:1px dashed #cbd5e1; border-radius:8px; font-size:0.74rem; font-weight:700; padding:6px; cursor:pointer; }
+  .cell-add:hover { border-color:var(--col); color:var(--col); }
+  .btn-abs { flex:0 0 auto; background:#fff; color:#b91c1c; border:1px dashed #fca5a5; border-radius:8px; font-size:0.72rem; font-weight:700; padding:6px 8px; cursor:pointer; }
+  .btn-abs:hover { background:#fef2f2; }
+  .cell-foot { margin-top:6px; padding-top:6px; border-top:1px dashed #cbd5e1; font-size:0.7rem; color:#475569; display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
+  .cell-foot b { color:#0f172a; } .grille .ecart.pos { color:#16a34a; font-weight:800; } .grille .ecart.neg { color:#dc2626; font-weight:800; }
+  .cell-foot .tna-h { color:#dc2626; font-weight:800; }
+  /* ===== Barre d'outils façon v5 ===== */
+  .fixed-tools .pl2-toolbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .pl2-ptitle { font-size:1.35rem; font-weight:800; color:#0f3a8a; margin:0; letter-spacing:-0.5px; }
+  .pl2-wknav { display:flex; align-items:center; gap:8px; }
+  .pl2-wkbtn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; font-weight:700; border-radius:9px; padding:5px 12px; cursor:pointer; font-size:1.05rem; line-height:1; }
+  .pl2-wkbtn:hover { background:#eff6ff; }
+  .pl2-wklabel { font-weight:800; color:#0f3a8a; min-width:140px; text-align:center; font-size:1rem; }
+  .pl2-spacer { flex:1 1 auto; }
+  .pl2-toolbtn { display:inline-flex; align-items:center; gap:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:9px; padding:8px 12px; cursor:pointer; font-size:0.85rem; font-weight:700; }
+  .pl2-toolbtn:hover { border-color:#0f3a8a; color:#0f3a8a; }
+  .pl2-jaugebox { display:flex; align-items:center; gap:6px; }
+  .pl2-obj { font-size:0.74rem; color:#64748b; line-height:1.2; } .pl2-obj b { display:block; color:#0f172a; font-size:0.86rem; }
+  .pl2-printwrap { display:inline-flex; gap:6px; align-items:center; }
+  .pl2-printsel { border:1px solid #cbd5e1; border-radius:9px; padding:8px; font-size:0.82rem; font-weight:600; color:#334155; background:#fff; }
+  /* Absence semaine */
+  .cell-actions { flex-wrap:wrap; }
+  .btn-abs { padding:6px 7px; }
+  .abs-day .absweek { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 7px; font-size:0.66rem; font-weight:800; cursor:pointer; }
+  .abs-day .absweek:hover { background:#fee2e2; }
+  /* ============== VUE HEBDOMADAIRE TRANSPOSÉE (planning3) ============== */
+  .twrap { overflow:auto; max-height:74vh; border:1px solid #c7cfdb; border-radius:14px; background:#fff; }
+  table.tgrid { border-collapse:separate !important; border-spacing:0; width:max-content !important; margin:0 auto; table-layout:auto !important; font-size:0.82rem; }
+  table.tgrid td, table.tgrid th { white-space:normal !important; overflow:visible !important; vertical-align:top; }
+  table.tgrid thead th { position:sticky; top:0; z-index:6; background:#0f3a8a; color:#fff; font-weight:700; padding:8px; text-align:center; border-right:1px solid rgba(255,255,255,.18); border-bottom:3px solid #f59e0b; min-width:210px !important; width:210px !important; max-width:210px !important; }
+  table.tgrid thead th.tcorner { left:0; z-index:8; min-width:140px !important; width:140px !important; max-width:140px !important; border-right:3px solid #f59e0b; text-align:left; }
+  table.tgrid thead th.ttot { min-width:108px !important; width:108px !important; max-width:108px !important; background:#0a2a66; }
+  table.tgrid thead th .dn { font-size:0.96rem; } table.tgrid thead th .dd { font-size:0.74rem; opacity:.9; font-weight:600; }
+  table.tgrid thead th.auj { background:#15357a; box-shadow:inset 0 -4px 0 #f59e0b; }
+
+  table.tgrid tbody th.tsal { position:sticky; left:0; z-index:4; text-align:left; padding:9px 10px; border-right:3px solid var(--col); border-bottom:3px solid #cbd5e1; background:var(--bg); min-width:140px !important; width:140px !important; max-width:140px !important; }
+  .tsal .snom { color:var(--col); display:flex; align-items:center; gap:6px; }
+  .tsal .snom .snom-id { display:flex; flex-direction:column; line-height:1.12; min-width:0; }
+  .tsal .snom .pre { font-weight:600; font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tsal .snom .nom { font-weight:800; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tsal .stot { display:inline-block; margin-top:6px; background:#fff; border:1px solid var(--col); border-radius:9px; padding:2px 8px; font-size:0.72rem; font-weight:800; color:#0f172a; }
+  .tsal .stot .sub { display:block; font-size:0.62rem; font-weight:600; color:#64748b; }
+  .tgrid .dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
+  .tgrid .ab { background:#fef3c7; color:#92400e; border-radius:4px; padding:0 5px; font-size:0.6rem; font-weight:800; }
+
+  table.tgrid tbody td { background:var(--bg); border-right:1px solid #e3e7ee; border-bottom:3px solid #cbd5e1; padding:6px; min-width:210px !important; width:210px !important; max-width:210px !important; height:1px; }
+  table.tgrid tbody td.auj { box-shadow: inset 3px 0 0 #f59e0b55; }
+  td.thors { background:repeating-linear-gradient(45deg,#f8fafc,#f8fafc 6px,#eef1f4 6px,#eef1f4 12px) !important; }
+  table.tgrid tbody td.hors-mois { background:#eef2f9; box-shadow: inset 0 0 0 1px #d7deea; }
+  table.tgrid tbody td.tweek { background:#f8fafc; text-align:center; font-weight:800; color:#0f3a8a; border-left:5px solid var(--col); min-width:108px !important; width:108px !important; max-width:108px !important; font-size:0.92rem; }
+  .tweek .sub { display:block; font-size:0.66rem; font-weight:600; color:#64748b; margin-top:2px; }
+
+  .tgrid .cellinner { display:flex; flex-direction:column; height:100%; min-height:88px; }
+  .tgrid .chips { flex:1 1 auto; display:flex; flex-direction:column; }
+  .tgrid .chips .chip.tna { margin-top:auto; }   /* TNA toujours collé en bas, juste au-dessus de « ➕ chantier » */
+  .tgrid .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:5px 6px; margin-bottom:6px; background:#fff; display:flex; flex-direction:column; gap:5px; }
+  .tgrid .chip.vide { display:none; }
+  .tgrid .chip .ligne1 { display:flex; align-items:center; gap:5px; }
+  .tgrid .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:4px 6px; font-size:0.73rem; font-weight:700; text-transform:uppercase; }
+  .tgrid .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
+  .tgrid .chip .vider { flex:0 0 auto; width:23px; height:26px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; padding:0; }
+  .tgrid .chip .ligne2 { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .tgrid .chip select.h { border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:3px 4px; font-size:0.72rem; font-weight:700; color:#334155; }
+  .tgrid .chip .pl2-grip, .grille .chip .pl2-grip { flex:0 0 auto; cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none; color:#94a3b8; font-size:0.95rem; line-height:1; padding:1px 2px; }
+  .tgrid .chip .pl2-grip:active, .grille .chip .pl2-grip:active { cursor:grabbing; }
+  .chip.pl2-dragging { opacity:.55; outline:2px dashed #2563eb; outline-offset:-2px; }
+  .tgrid .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; }
+  .tgrid .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
+  .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
+  .tgrid .btn-note-ch.has-note { background:#fef3c7; color:#b45309; }
+  .tgrid .btn-note-ch.has-note::after { content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:#f59e0b; border:1px solid #fff; }
+  .tgrid .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
+  .tgrid .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
+  .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+
+  .tgrid .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:8px; text-align:center; font-weight:800; font-size:0.76rem; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
+  .tgrid .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px; font-weight:700; font-size:0.7rem; }
+  .tgrid .abs-day .absweek { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 6px; font-size:0.64rem; font-weight:800; cursor:pointer; }
+  .tgrid .abs-day .x { border:none; background:#fca5a5; color:#7f1d1d; border-radius:50%; width:17px; height:17px; font-size:0.6rem; cursor:pointer; padding:0; }
+
+  .tgrid .cell-actions { display:flex; gap:5px; margin-top:4px; flex-wrap:wrap; }
+  .tgrid .cell-add { flex:1 1 auto; background:#eef2f7; color:#475569; border:1px dashed #cbd5e1; border-radius:8px; font-size:0.68rem; font-weight:700; padding:5px; cursor:pointer; }
+  .tgrid .btn-abs { background:#fff; color:#b91c1c; border:1px dashed #fca5a5; border-radius:8px; font-size:0.66rem; font-weight:700; padding:5px 6px; cursor:pointer; }
+  .tgrid .cell-foot { margin-top:5px; padding-top:5px; border-top:1px dashed #cbd5e1; font-size:0.66rem; color:#475569; display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
+  .tgrid .cell-foot b { color:#0f172a; } .tgrid .ecart.pos { color:#16a34a; font-weight:800; } .tgrid .ecart.neg { color:#dc2626; font-weight:800; }
+  .tgrid .abs-day .abs-motif { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px 4px; font-weight:700; font-size:0.66rem; max-width:100%; }
+  @media print {
+    @page { size:A4 landscape; margin:8mm; }
+    body { background:#fff !important; padding:0 !important; }
+    .pl2-toolbar, .no-print { display:none !important; }
+    .wblock.print-hide { display:none !important; }
+    .twrap { overflow:visible !important; max-height:none !important; border:none !important; }
+    table.tgrid { width:100% !important; font-size:8pt; margin:0; }
+    table.tgrid thead th, table.tgrid tbody th.tsal { position:static !important; }
+    table.tgrid thead th.ttot, table.tgrid tbody td.tweek { display:none !important; }
+    table.tgrid thead th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    table.tgrid tbody td, table.tgrid tbody th.tsal, .tgrid .chip { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .tgrid .chip input.nm, .tgrid .chip select.h, .tgrid .abs-day .abs-motif, .tgrid .abs-day select { border:none !important; background:transparent !important; -webkit-appearance:none; appearance:none; padding:0 2px !important; color:#0f172a; }
+    .tgrid .chip, table.tgrid tbody tr { break-inside:avoid; }
+  }
+  /* ===== Vue MOIS vertical : semaines empilées ===== */
+  .wtitle{font-weight:800;color:#0a2a66;background:#e8eefb;border-left:5px solid #0f3a8a;border-radius:8px;padding:6px 12px;margin:16px 0 6px;font-size:0.85rem;}
+  .wtitle:first-of-type{margin-top:4px;}
+  .twrap{overflow-x:auto;overflow-y:visible;max-height:none;margin-bottom:2px;}
+  table.tgrid thead th{position:static;}
+  table.tgrid thead th.tcorner{position:sticky;left:0;z-index:8;}
+  table.tgrid tbody th.tsal{position:sticky;left:0;z-index:4;}
+  table.tgrid thead th.thhors .dn, table.tgrid thead th.thhors .dd{opacity:.45;}
+  #planning-wrapper.masquer-samedi .sam-col { display:none !important; }
+  .pl2-toolbtn.actif { background:#0f3a8a; color:#fff; border-color:#0f3a8a; }
+  </style>
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+</head>
+<body>
+
+<div class="top-bar">
+  <header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
+  <h1 class="page-title">Planning</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+  <div class="nav no-print">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+<a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html" class="active">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  </div>
+
+  <div class="fixed-tools no-print">
+    <div class="pl2-toolbar">
+      <h1 class="pl2-ptitle">Planning</h1>
+      <div class="pl2-wknav">
+        <button type="button" class="pl2-wkbtn" title="Mois précédent" onclick="pl2ChangerMois(-1)">&lsaquo;</button>
+        <span class="pl2-wklabel" id="pl2-moislabel">—</span>
+        <button type="button" class="pl2-wkbtn" title="Mois suivant" onclick="pl2ChangerMois(1)">&rsaquo;</button>
+        <button type="button" class="pl2-wkbtn" title="Mois courant" onclick="pl3MoisCourant()" style="font-size:0.8rem;">Auj.</button>
+      </div>
+      <div class="pl2-spacer"></div>
+      <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
+      <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
+      <button type="button" class="pl2-toolbtn" id="btn-samedi" onclick="pl3ToggleSamedi()">👁 Afficher le samedi</button>
+      <div class="pl2-jaugebox">
+        <svg viewBox="0 0 100 65" width="116" height="76" style="flex-shrink:0;">
+          <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
+          <path id="arc-rouge"  d="" fill="none" stroke="#dc2626" stroke-width="9" stroke-linecap="round"/>
+          <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
+          <path id="arc-vert"   d="" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round"/>
+          <text id="pourcentage" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
+          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
+        </svg>
+        <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif mois</span><b id="pl2-obj">—</b></div>
+      </div>
+      <div class="pl2-printwrap">
+        <select id="semaineSelect" class="pl2-printsel" title="Semaine à imprimer"></select>
+        <button type="button" class="pl2-toolbtn" onclick="imprimerSemaineChoix()">🖨 Imprimer</button>
+      </div>
+      <input type="month" id="moisPlanning" style="display:none">
+      <span id="tot-total" style="display:none"></span><span id="tot-prev" style="display:none"></span>
+      <span id="ligne-ecart" style="display:none"><span id="tot-ecart"></span></span>
+      <div id="dropdown-print-ch" style="display:none">
+        <input type="checkbox" id="print-ch-tous" checked>
+        <input type="checkbox" class="print-ch-cb" data-ch="1" checked><input type="checkbox" class="print-ch-cb" data-ch="2" checked>
+        <input type="checkbox" class="print-ch-cb" data-ch="3" checked><input type="checkbox" class="print-ch-cb" data-ch="4" checked>
+        <input type="checkbox" class="print-ch-cb" data-ch="5" checked>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- En-tête visible uniquement à l'impression -->
+<div id="entete-impression">
+  <div class="ent-nom" id="print-nom-entreprise"></div>
+</div>
+
+<!-- Décalage pour la barre fixe (calculé en JS après rendu) -->
+<div id="planning-wrapper"></div>
+
+<script>
+let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif || s.planningPrevu);
+let heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
+let salariesCoches = new Set();
+
+/* ====== DÉCALAGE BARRE FIXE ====== */
+function ajusterMarginTop() {
+  const topBar = document.querySelector('.top-bar');
+  const wrapper = document.getElementById('planning-wrapper');
+  if (topBar && wrapper) {
+    wrapper.style.marginTop = (topBar.offsetHeight + 8) + 'px';
+  }
+}
+
+/* Impression : la marge haute (posée en ligne ci-dessus) crée un grand vide sous l'en-tête.
+   On la met à 0 juste avant l'impression, puis on restaure après. */
+window.addEventListener('beforeprint', () => {
+  const wrapper = document.getElementById('planning-wrapper');
+  if (wrapper) wrapper.style.marginTop = '0';
+});
+window.addEventListener('afterprint', () => { ajusterMarginTop(); });
+
+/* ====== FILTRE SALARIÉS (style Excel) ====== */
+function initFiltre() {
+  salariesCoches.clear();
+  salaries.forEach(s => salariesCoches.add(s.id));
+  majBoutonFiltre();
+}
+
+function ouvrirFiltreSalaries(btn) {
+  const items = salaries.map(s => ({ value: s.id, label: s.prenom + ' ' + s.nom }));
+  FiltreExcel.ouvrir({
+    button: btn,
+    items: items,
+    selected: salariesCoches,
+    onApply: (selectedSet) => {
+      salariesCoches = selectedSet;
+      majBoutonFiltre();
+      genererPlanning();
+    }
+  });
+}
+
+function majBoutonFiltre() {
+  const btn = document.getElementById('btn-filtre-salaries');
+  if (!btn) return;
+  const total = salaries.length;
+  const items = salaries.map(s => ({ value: s.id, label: s.prenom + ' ' + s.nom }));
+  btn.textContent = FiltreExcel.libelle(salariesCoches, total, items) + ' ▼';
+  if (salariesCoches.size === total || salariesCoches.size === 0) {
+    btn.classList.remove('fexc-active');
+  } else {
+    btn.classList.add('fexc-active');
+  }
+}
+
+/* ====== JAUGE CIRCULAIRE ====== */
+/* Les seuils sont paramétrés sur la page Entreprise.
+   Ici on les lit en lecture seule depuis le localStorage. */
+
+function getSeuilsJauge() {
+  let r, o;
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    if (ent.jauge) { r = ent.jauge.rouge; o = ent.jauge.orange; }
+  } catch (_) {}
+  if (r == null) r = parseInt(localStorage.getItem('jaugeRouge'))  || 33;
+  if (o == null) o = parseInt(localStorage.getItem('jaugeOrange')) || 66;
+  return {
+    rouge:  Math.max(0, Math.min(100, r)),
+    orange: Math.max(0, Math.min(100, o))
+  };
+}
+
+function arcPathJauge(pctFrom, pctTo) {
+  if (pctTo <= pctFrom) return '';
+  const a1 = Math.PI * (1 + pctFrom / 100);
+  const a2 = Math.PI * (1 + pctTo / 100);
+  const x1 = 50 + 40 * Math.cos(a1), y1 = 60 + 40 * Math.sin(a1);
+  const x2 = 50 + 40 * Math.cos(a2), y2 = 60 + 40 * Math.sin(a2);
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A 40 40 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+
+function dessinerJauge(pct) {
+  const { rouge, orange } = getSeuilsJauge();
+  const ar = document.getElementById('arc-rouge');
+  const ao = document.getElementById('arc-orange');
+  const av = document.getElementById('arc-vert');
+  const pourcentage = document.getElementById('pourcentage');
+
+  if (!ar || !ao || !av) return;
+
+  const cap = Math.max(0, Math.min(100, pct));
+  ar.setAttribute('d', arcPathJauge(0, Math.min(cap, rouge)));
+  ao.setAttribute('d', cap > rouge ? arcPathJauge(rouge, Math.min(cap, orange)) : '');
+  av.setAttribute('d', cap > orange ? arcPathJauge(orange, cap) : '');
+
+  if (pourcentage) {
+    pourcentage.textContent = (pct || 0).toFixed(0) + '%';
+    // Couleur du chiffre selon la zone
+    let color = '#0f172a';
+    if (cap < rouge)         color = '#dc2626';
+    else if (cap < orange)   color = '#b45309';
+    else                     color = '#16a34a';
+    pourcentage.setAttribute('fill', color);
+  }
+}
+
+/* Conservées pour rétro-compatibilité — appellent les nouvelles fonctions */
+function chargerJauge() { /* plus rien à faire au chargement, les seuils sont lus dynamiquement */ }
+function sauverSeuilsLS() {}
+function majEtatFiger() {}
+function majZonesJauge() { dessinerJauge(parseFloat(document.getElementById('pourcentage')?.textContent) || 0); }
+
+/* ====== PLANNING ====== */
+// Cache des options de base (sans sélection)
+const _optionsBase = (() => {
+  const vals = [];
+  for (let i = 0; i <= 10; i += 0.25) vals.push(i);
+  return vals;
+})();
+const _optionsBaseHTML = _optionsBase.map(i => {
+  const lbl = i === Math.floor(i) ? i : i.toFixed(2);
+  return `<option value="${i}">${lbl}</option>`;
+}).join('');
+
+// Cache par valeur sélectionnée
+const _optsCache = {};
+function genOptionsHeures(v) {
+  const key = (+v || 0).toFixed(2);
+  if (_optsCache[key]) return _optsCache[key];
+  const target = +v || 0;
+  let opt = '';
+  for (const i of _optionsBase) {
+    const lbl = i === Math.floor(i) ? i : i.toFixed(2);
+    const sel = Math.abs(i - target) < 0.001 ? ' selected' : '';
+    opt += `<option value="${i}"${sel}>${lbl}</option>`;
+  }
+  _optsCache[key] = opt;
+  return opt;
+}
+
+/* Récupère les noms de chantiers du prévisionnel pour le mois en cours
+   et les 3 mois suivants (gère le passage d'année). Retourne une liste
+   de noms uniques, triés. */
+function getChantiersPrevisionnel() {
+  const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+  const noms = new Set();
+  const now  = new Date();
+  let an  = now.getFullYear();
+  let moi = now.getMonth(); // 0-11
+
+  for (let i = 0; i < 4; i++) {           // mois en cours + 3 suivants
+    const moisData = prev?.[an]?.[moi];
+    if (moisData && Array.isArray(moisData.chantiers)) {
+      moisData.chantiers.forEach(c => {
+        if (c.client && c.client.trim()) noms.add(c.client.trim());
+      });
+    }
+    moi++;
+    if (moi > 11) { moi = 0; an++; }      // passage à l'année suivante
+  }
+  return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+/* Construit le HTML d'un <datalist> à partir des chantiers du prévisionnel. */
+function genDatalistChantiers() {
+  const options = getChantiersPrevisionnel()
+    .map(nom => `<option value="${nom.replace(/"/g, '&quot;')}">`)
+    .join('');
+  return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
+}
+
+/* ─── ALTERNANCE SEMAINE A / B ───────────────────────────────
+   Un salarié "alternant" possède :
+     s.alternance = true
+     s.heuresParJourA = { lun..sam }   (semaine A)
+     s.heuresParJourB = { lun..sam }   (semaine B)
+     s.bascules = [ { date:'YYYY-MM-DD' (un lundi), semaine:'A'|'B' }, ... ]
+   Un salarié classique garde s.heuresParJour (inchangé). */
+
+/* Retourne le lundi (00:00) de la semaine contenant la date d. */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();                 // 0=dim,1=lun,...
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+
+/* Nombre de semaines entières entre deux lundis (>=0). */
+function nbSemainesEntre(lundiRef, lundiCible) {
+  const ms = lundiCible - lundiRef;
+  return Math.round(ms / (7 * 24 * 3600 * 1000));
+}
+
+/* Détermine si la date d tombe en semaine 'A' ou 'B' pour ce salarié,
+   d'après la dernière bascule applicable (date <= lundi de la semaine de d). */
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';     // par défaut A si aucune bascule
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+
+  const lundiCible = lundiDeLaSemaine(d);
+  // Dernière bascule dont la date (un lundi) est <= lundi de la semaine cible
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    // Avant la première bascule : on prend la 1re et on rétro-alterne
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb); // positif, cible avant lb
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+
+/* Renvoie la grille d'heures applicable à ce salarié pour la date d,
+   en tenant compte de l'alternance si elle est activée. */
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return s.heuresParJour || {};
+}
+
+/* ====== VUE MENSUELLE planning2 — fidèle maquette v5 ====== */
+const PL2_PALETTE = [
+  {fg:'#2563eb', bg:'#dbeafe'}, {fg:'#0d9488', bg:'#d1fae5'},
+  {fg:'#7c3aed', bg:'#ede9fe'}, {fg:'#b45309', bg:'#fef3c7'},
+  {fg:'#be123c', bg:'#ffe4e6'}, {fg:'#0369a1', bg:'#e0f2fe'},
+  {fg:'#15803d', bg:'#dcfce7'}, {fg:'#7e22ce', bg:'#f3e8ff'},
+  {fg:'#a16207', bg:'#fef9c3'}, {fg:'#0e7490', bg:'#cffafe'},
+];
+function pl2Couleur(i){ return PL2_PALETTE[i % PL2_PALETTE.length]; }
+const pl2Fmt = h => (Math.round((parseFloat(h)||0)*100)/100).toString().replace('.',',')+' h';
+const pl2Sgn = e => e>0 ? ('+'+(Math.round(e*100)/100)).replace('.',',') : (Math.round(e*100)/100).toString().replace('.',',');
+const pl2EcartCls = e => e>0?'ecart pos':e<0?'ecart neg':'ecart';
+
+function pl2NumSemaine(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const j=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-j+3);
+  const p=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  return 1+Math.round(((t-p)/86400000-3+((p.getUTCDay()+6)%7))/7);
+}
+
+function pl2AjouterChantier(btn){
+  const cell = btn.closest('td');
+  if(!cell) return;
+  const vide = cell.querySelector('.chip.vide');
+  if(!vide){ btn.style.display='none'; return; }
+  vide.classList.remove('vide');
+  const inp = vide.querySelector('input[id$="chantier"]');
+  if(inp) inp.focus();
+  if(!cell.querySelector('.chip.vide')) btn.style.display='none';
+}
+function pl2ViderPave(btn, k){
+  viderChantier(k);
+  const chip = btn.closest('.chip');
+  const e = heures[k];
+  if (chip){
+    if (!e || !(e.chantier||'').trim()) { chip.classList.remove('tna'); chip.classList.add('vide'); }
+    else if ((e.chantier||'').toUpperCase()===TNA){ chip.classList.remove('vide'); chip.classList.add('tna'); }
+  }
+  const cell = btn.closest('td');
+  if (cell){ const add = cell.querySelector('.cell-add'); if (add) add.style.display=''; }
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if (mm){ majTotalLigne(mm[1], mm[2].replace(/_/g,'-')); }
+  majCouleursChantiers(); majTotauxGlobaux();
+}
+
+const PL2_MOTIFS = ['Congé','Maladie','RTT','Récupération','Congé sans solde','Formation','Intempéries','Férié','Even. Familial','Visite médicale','Autre'];
+function pl2MotifOptions(sel){
+  let o='<option value="">— Motif ? —</option>';
+  PL2_MOTIFS.forEach(m=>{ o+=`<option ${m===sel?'selected':''}>${m}</option>`; });
+  return o;
+}
+function pl2SaveMotif(absK,val){
+  if(!heures[absK]) heures[absK]={chantier:'absence',heures:0};
+  heures[absK].motif=val;
+  localStorage.setItem('heuresdata',JSON.stringify(heures));
+}
+function pl3MajSemaine(){
+  document.querySelectorAll('table.tgrid tbody tr').forEach(tr=>{
+    const tw=tr.querySelector('.tweek'); if(!tw) return;
+    let wT=0,wC=0;
+    tr.querySelectorAll('td[data-salarie][data-date]').forEach(td=>{
+      wT += parseFloat(td.querySelector('.cell-total')?.textContent)||0;
+      const s=salaries.find(x=>String(x.id)===String(td.dataset.salarie)); if(!s) return;
+      const d=new Date(td.dataset.date+'T00:00:00');
+      const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+      wC += (grilleHeuresPourDate(s,d))[cle]||0;
+    });
+    const ecW=wT-wC;
+    tw.innerHTML = `${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span>`;
+  });
+}
+
+function pl2PoserAbsence(absK, prevu){
+  const h = (parseFloat(prevu)||0) > 0 ? prevu : 7;
+  saveHeure(absK,'absence',h);
+  onLigneRecalc(absK);
+  genererPlanning();
+}
+function pl2RetirerAbsence(absK){
+  saveHeure(absK,'absence',0);
+  onLigneRecalc(absK);
+  genererPlanning();
+}
+
+function pl2MajMoisLabel(){
+  const v=document.getElementById('moisPlanning').value;
+  const el=document.getElementById('pl2-moislabel');
+  if(el && v){ const d=new Date(v+'-01'); let t=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); el.textContent=t.charAt(0).toUpperCase()+t.slice(1); }
+}
+function imprimerSemaineChoix(){
+  const sel=document.getElementById('semaineSelect');
+  const v=sel?sel.value:'';
+  const blocs=document.querySelectorAll('.wblock');
+  if(v!==''){ blocs.forEach(b=>b.classList.toggle('print-hide', b.dataset.sem!==v)); }
+  else { blocs.forEach(b=>b.classList.remove('print-hide')); }
+  window.print();
+}
+window.addEventListener('afterprint', ()=>{ document.querySelectorAll('.wblock.print-hide').forEach(b=>b.classList.remove('print-hide')); });
+let _afficherSamedi=false;
+function pl3MajSamedi(){
+  const cont=document.getElementById('planning-wrapper');
+  if(cont) cont.classList.toggle('masquer-samedi', !_afficherSamedi);
+  const btn=document.getElementById('btn-samedi');
+  if(btn){ btn.textContent=_afficherSamedi?'🙈 Masquer le samedi':'👁 Afficher le samedi'; btn.classList.toggle('actif', _afficherSamedi); }
+}
+function pl3ToggleSamedi(){ _afficherSamedi=!_afficherSamedi; pl3MajSamedi(); }
+function pl3MoisCourant(){
+  _afficherSamedi=false;
+  const n=new Date(); document.getElementById('moisPlanning').value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+  chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
+}
+function pl2ChangerMois(delta){
+  _afficherSamedi=false;
+  const mois=document.getElementById('moisPlanning');
+  if(!mois || !mois.value) return;
+  const [a,m]=mois.value.split('-').map(Number);
+  const d=new Date(a, m-1+delta, 1);
+  mois.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
+}
+function pl2SemaineDates(salarieId, dateStr){
+  const s=salaries.find(x=>String(x.id)===String(salarieId)); if(!s) return null;
+  const d=new Date(dateStr+'T00:00:00');
+  const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
+  const entree=new Date(s.dateEntree); const sortie=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
+  const out=[];
+  // Semaine complète (lun→sam), y compris les jours d'un mois voisin (semaine à cheval) :
+  // l'absence couvre toute la semaine affichée, sans la tronquer au bord du mois.
+  for(let i=0;i<6;i++){
+    const dd=new Date(lun); dd.setDate(lun.getDate()+i);
+    if(dd<entree || (sortie&&dd>sortie)) continue;
+    out.push(dd);
+  }
+  return {s,out};
+}
+function pl2PoserAbsenceSemaine(salarieId, dateStr){
+  const r=pl2SemaineDates(salarieId,dateStr); if(!r) return;
+  // Absence du jour cliqué : on recopie son MOTIF, et si elle est partielle, sa DURÉE.
+  const safeClic=dateStr.replace(/-/g,'_');
+  const aClic=heures[`${r.s.id}${safeClic}abs`]||{};
+  const motifClic=aClic.motif||'';
+  const heuresClic=parseFloat(aClic.heures)||0;
+  const cleClic=['dim','lun','mar','mer','jeu','ven','sam'][new Date(dateStr+'T00:00:00').getDay()];
+  const prevuClic=(grilleHeuresPourDate(r.s,new Date(dateStr+'T00:00:00')))[cleClic]||0;
+  const partielle=heuresClic>0 && heuresClic<prevuClic;   // l'absence cliquée ne couvre qu'une partie de la journée
+  r.out.forEach(dd=>{
+    const cle=['dim','lun','mar','mer','jeu','ven','sam'][dd.getDay()];
+    const prevu=(grilleHeuresPourDate(r.s,dd))[cle]||0;
+    if(prevu<=0) return;
+    const valAbs=partielle ? Math.min(heuresClic,prevu) : prevu;   // partielle : même durée ; pleine : journée entière
+    const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
+    const absK=`${r.s.id}${safe}abs`;
+    saveHeure(absK,'absence',valAbs);
+    if(motifClic) pl2SaveMotif(absK,motifClic);   // duplication du motif sur toute la semaine
+    onLigneRecalc(absK);   // recalcule le TNA = max(0, contrat − absence) − Σ chantiers (l'absence partielle laisse du temps facturable)
+  });
+  genererPlanning();
+}
+function pl2RetirerAbsenceSemaine(salarieId, dateStr){
+  const r=pl2SemaineDates(salarieId,dateStr); if(!r) return;
+  r.out.forEach(dd=>{
+    const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
+    const absK=`${r.s.id}${safe}abs`;
+    saveHeure(absK,'absence',0); onLigneRecalc(absK);
+  });
+  genererPlanning();
+}
+
+/* Pastille chantier (façon v5), câblée au moteur. */
+function pl2ChipHTML(sl){
+  const data=sl.data;
+  const nom=(data.chantier||'').trim();
+  const estTNA=nom.toUpperCase()===TNA;
+  const noteG=_notesChantiers[nom.toUpperCase()]||'';
+  const noteImp=noteImpression(noteG);
+  const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
+  const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner">⠿</span>':'';
+  return `<div class="${cls}" data-k="${sl.k}">
+    <div class="ligne1">
+      ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
+        onfocus="onChantierFocus('${sl.k}')"
+        oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
+        onblur="onChantierCommit('${sl.k}')">
+    </div>
+    <div class="ligne2">
+      ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
+      <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
+      <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${noteG?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
+      <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
+    </div>
+    <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
+  </div>`;
+}
+
+/* ── Réordonnancement des pavés dans le planning prévu (glisser-déposer, poignée ⠿) ── */
+let _pl2Drag = null;
+function pl2InitDragReorder(){
+  document.querySelectorAll('#planning-wrapper .tgrid .chip .pl2-grip').forEach(g=>{
+    g.addEventListener('touchstart', pl2DragStartTouch, { passive:false });
+    g.addEventListener('mousedown',  pl2DragStartMouse);
+  });
+}
+function pl2DragBegin(chip, cell){
+  _pl2Drag = { chip, cell };
+  chip.classList.add('pl2-dragging');
+  document.body.style.userSelect='none'; document.body.style.webkitUserSelect='none';
+}
+function pl2DragPoint(x, y){
+  if(!_pl2Drag) return;
+  const { chip, cell } = _pl2Drag;
+  const el = document.elementFromPoint(x, y);
+  const cible = el && el.closest ? el.closest('.chip') : null;
+  if(!cible || cible===chip) return;
+  if(cible.closest('td') !== cell) return;                                   // rester dans la même case (jour × salarié)
+  if(cible.classList.contains('tna') || cible.classList.contains('vide')) return; // ne jamais passer après le TNA ni un slot vide
+  const r = cible.getBoundingClientRect();
+  if(y > r.top + r.height/2) cible.after(chip); else cible.before(chip);
+}
+function pl2DragFinish(){
+  if(!_pl2Drag) return;
+  const { chip, cell } = _pl2Drag;
+  chip.classList.remove('pl2-dragging');
+  document.body.style.userSelect=''; document.body.style.webkitUserSelect='';
+  const sal = cell.getAttribute('data-salarie'); const date = cell.getAttribute('data-date');
+  const ordreKeys = [...cell.querySelectorAll('.chip:not(.tna):not(.vide)')].map(c=>c.getAttribute('data-k'));
+  _pl2Drag = null;
+  pl2ReordonnerCellule(sal, date, ordreKeys);
+}
+function pl2DragStartTouch(e){
+  const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
+  if(!chip || !cell || cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2) return;
+  e.preventDefault(); e.stopPropagation();
+  pl2DragBegin(chip, cell);
+  document.addEventListener('touchmove', pl2DragMoveTouch, { passive:false });
+  document.addEventListener('touchend', pl2DragEndTouch);
+  document.addEventListener('touchcancel', pl2DragEndTouch);
+}
+function pl2DragMoveTouch(e){ if(!_pl2Drag) return; e.preventDefault(); const t=e.touches&&e.touches[0]; if(t) pl2DragPoint(t.clientX, t.clientY); }
+function pl2DragEndTouch(){
+  document.removeEventListener('touchmove', pl2DragMoveTouch, { passive:false });
+  document.removeEventListener('touchend', pl2DragEndTouch);
+  document.removeEventListener('touchcancel', pl2DragEndTouch);
+  pl2DragFinish();
+}
+function pl2DragStartMouse(e){
+  const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
+  if(!chip || !cell || cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2) return;
+  e.preventDefault();
+  pl2DragBegin(chip, cell);
+  document.addEventListener('mousemove', pl2DragMoveMouse);
+  document.addEventListener('mouseup', pl2DragEndMouse);
+}
+function pl2DragMoveMouse(e){ if(!_pl2Drag) return; pl2DragPoint(e.clientX, e.clientY); }
+function pl2DragEndMouse(){
+  document.removeEventListener('mousemove', pl2DragMoveMouse);
+  document.removeEventListener('mouseup', pl2DragEndMouse);
+  pl2DragFinish();
+}
+/* Réordonne physiquement les slots ch1..chN d'une case selon le nouvel ordre des pavés (ordreKeys). */
+function pl2ReordonnerCellule(salarieId, dateStr, ordreKeys){
+  if(!salarieId || !dateStr || !Array.isArray(ordreKeys) || !ordreKeys.length) return;
+  const safe = dateStr.replace(/-/g,'_');
+  // Données réelles (non vides, non TNA) dans le nouvel ordre — les objets restent référencés ici avant suppression des clés
+  const reels = ordreKeys
+    .map(k=>heures[k])
+    .filter(e=>e && (e.chantier||'').trim() && (e.chantier||'').toUpperCase()!==TNA);
+  if(!reels.length) return;
+  for(let i=1;i<=5;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide les 5 slots
+  reels.forEach((e,idx)=>{ heures[`${salarieId}${safe}ch${idx+1}`] = e; }); // réaffectation dans l'ordre
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  onLigneRecalc(`${salarieId}${safe}ch1`);   // recalcule/replace le TNA (1er slot libre → rendu en dernier)
+  genererPlanning();
+}
+
+function genererPlanning(calerSemaine){
+  salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif || s.planningPrevu);
+  heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
+  const cont = document.getElementById('planning-wrapper');
+  const moisInput = document.getElementById('moisPlanning');
+  if(!moisInput.value){ const n=new Date(); moisInput.value=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
+  const [anMois,moMois]=moisInput.value.split('-').map(Number);
+  const moIdx=moMois-1;
+
+  const lab=document.getElementById('pl2-moislabel');
+  if(lab){ const dl=new Date(anMois,moIdx,1); let t=dl.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); lab.textContent=t.charAt(0).toUpperCase()+t.slice(1); }
+
+  const idsAffiches = salariesCoches.size===0 ? new Set(salaries.map(s=>s.id)) : salariesCoches;
+  const sals = salaries.filter(s=>idsAffiches.has(s.id)).map((s,idx)=>({
+    s, idx, coul: pl2Couleur(idx),
+    entree:new Date(s.dateEntree), sortie:s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null
+  }));
+
+  const JNOM=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const _a=new Date(); const aujStr=`${_a.getFullYear()}-${String(_a.getMonth()+1).padStart(2,'0')}-${String(_a.getDate()).padStart(2,'0')}`;
+  const ds=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const f2=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+
+  function lireCellule(s, dateStr){
+    const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
+    for(let i=1;i<=nbCh;i++){ const k=`${s.id}${safe}ch${i}`; const data=heures[k]||{chantier:'',heures:0};
+      const rempli=(data.chantier||'').trim()!==''; if(rempli && (data.chantier||'').trim().toUpperCase()!==TNA) total+=parseFloat(data.heures)||0; slots.push({i,k,data,rempli}); }
+    const absK=`${s.id}${safe}abs`; const abs=parseFloat(heures[absK]?.heures||0);
+    return {safe,total,slots,absK,abs};
+  }
+
+  // Semaines (Lun->Sam) couvrant le mois, empilées verticalement
+  const first=new Date(anMois,moIdx,1);
+  let lun=new Date(first); lun.setDate(first.getDate()-((first.getDay()+6)%7));
+  const semaines=[];
+  for(let w=0; w<8; w++){
+    const wdays=[]; for(let i=0;i<6;i++){ const d=new Date(lun); d.setDate(lun.getDate()+i); wdays.push(d); }
+    const touche=wdays.some(x=>x.getMonth()===moIdx && x.getFullYear()===anMois);
+    if(touche) semaines.push(wdays);
+    else if(semaines.length>0) break;
+    lun=new Date(lun); lun.setDate(lun.getDate()+7);
+  }
+
+  const datesFill=new Map();
+  let html=genDatalistChantiers();
+  let optsSem='';
+
+  semaines.forEach((jours,wi)=>{
+    const numSem=pl2NumSemaine(jours[0]);
+    let thead='<th class="tcorner">Salarié</th>';
+    jours.forEach(d=>{ const auj=ds(d)===aujStr; const hors=d.getMonth()!==moIdx;
+      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}${d.getDay()===6?' sam-col':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}</div></th>`; });
+    thead+='<th class="ttot">Total<br>sem.</th>';
+
+    let body='';
+    sals.forEach(row=>{
+      const {s,coul}=row; let wT=0,wC=0,cells='';
+      jours.forEach(d=>{
+        const dateStr=ds(d); const auj=dateStr===aujStr;
+        const horsMois=(d.getMonth()!==moIdx);   // jour du mois voisin (semaine à cheval) : actif, mais hors total mensuel
+        if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
+        const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
+        const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
+        wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
+
+        let chips='';
+        if(C.abs>0){
+          chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}');genererPlanning()">${genOptionsHeures(C.abs)}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
+               +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
+        }
+        // Pavés : chantiers réels (et slots vides) d'abord, puis le TNA TOUJOURS en dernier (juste au-dessus de « ➕ chantier »)
+        const _slotsHorsTNA = C.slots.filter(sl=>(sl.data.chantier||'').toUpperCase()!==TNA);
+        const _slotTNA      = C.slots.find(sl=>(sl.data.chantier||'').toUpperCase()===TNA);
+        _slotsHorsTNA.forEach(sl=>chips+=pl2ChipHTML(sl));
+        if(_slotTNA) chips+=pl2ChipHTML(_slotTNA);
+        let actions = '';
+        if (C.abs <= 0) {
+          actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button>`
+            +`<button type="button" class="btn-abs" title="Absent ce jour" onclick="pl2PoserAbsence('${C.absK}',${prevu})">🚫 Jour</button>`
+            +`<button type="button" class="btn-abs" title="Absent toute la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">🚫 Sem.</button></div>`;
+        } else if (C.abs < prevu) {
+          // Absence partielle : il reste du temps contrat → saisie de chantiers autorisée (le TNA suit la même règle : contrat − absence − chantiers)
+          actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button></div>`;
+        }
+        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
+        cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+      });
+      const ecW=wT-wC;
+      const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
+      body+=`<tr style="--col:${coul.fg};--bg:${coul.bg};">`
+        +`<th class="tsal"><div class="snom"><span class="dot" style="background:${coul.fg}"></span><span class="snom-id"><span class="pre">${s.prenom}</span><span class="nom">${s.nom}${badge}</span></span></div></th>`
+        +`${cells}`
+        +`<td class="tweek">${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span></td>`
+        +`</tr>`;
+    });
+
+    html+=`<div class="wblock" data-sem="${wi}"><div class="wtitle">Semaine ${numSem} · ${f2(jours[0])} → ${f2(jours[5])}</div>`
+       +`<div class="twrap"><table class="tgrid"><thead><tr>${thead}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+    optsSem+=`<option value="${wi}">Semaine ${numSem} · ${f2(jours[0])} → ${f2(jours[5])}</option>`;
+  });
+
+  cont.innerHTML = html;
+  const _selSem=document.getElementById('semaineSelect');
+  if(_selSem) _selSem.innerHTML='<option value="">Mois complet</option>'+optsSem;
+
+  datesFill.forEach((salId,dateStr)=>{ majTotalLigne(salId,dateStr); });
+  majTotauxGlobaux();
+  ajusterMarginTop();
+  majCouleursChantiers();
+  pl3MajSamedi();
+  pl2InitDragReorder();
+  if (calerSemaine) defilerVersAujourdhui(moisInput.value);
+}
+
+// Cale la vue écran sur la semaine en cours : amène le bloc de la semaine
+// contenant aujourd'hui (colonne marquée .auj) juste sous la barre supérieure fixe.
+function defilerVersAujourdhui(moisSel) {
+  const cont = document.getElementById('planning-wrapper');
+  if (!cont) return;
+  const aujCol = cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
+  const bloc = aujCol ? aujCol.closest('.wblock') : null;
+
+  requestAnimationFrame(() => {
+    const topBar = document.querySelector('.top-bar');
+    const offset = (topBar ? topBar.offsetHeight : 0) + 10;
+    if (bloc) {
+      // La semaine en cours est affichée (mois courant OU mois voisin via une semaine à cheval) : on s'y cale.
+      const y = bloc.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+    } else {
+      // Mois sans la semaine en cours : on revient proprement en haut.
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  });
+}
+
+/* Colore les cases "heure" du planning selon la consommation par rapport
+   au prévisionnel (devis), pour CHAQUE chantier :
+   - orange : total planifié du chantier > 90 % des heures prévues
+   - rouge  : total planifié du chantier > heures prévues
+   - aucune couleur : chantier absent du prévisionnel (0 h prévues)
+   Toutes les cases d'un même chantier reçoivent la même couleur. */
+function majCouleursChantiers() {
+  const ORANGE = '#fed7aa';   // orange clair
+  const ROUGE  = '#f87171';   // rouge plus soutenu
+  const NEUTRE = '';          // pas de couleur
+
+  // Cache des couleurs par chantier (évite de recalculer pour chaque case)
+  const couleurParChantier = new Map(); // clé normalisée -> couleur
+
+  document.querySelectorAll('#planning-wrapper input[id$="chantier"]').forEach(input => {
+    const k   = input.id.replace(/chantier$/, '');
+    const sel = document.getElementById(k + 'h');
+    if (!sel) return;
+
+    const nom = (input.value || '').trim();
+    const estTNA = nom.toUpperCase() === TNA;
+    input.style.color      = estTNA ? '#dc2626' : '';   // TNA en rouge
+    input.style.fontWeight = estTNA ? '700'     : '';
+    if (!nom) { sel.style.background = NEUTRE; return; }
+
+    const cible = normaliserChantier(nom);
+    let couleur = couleurParChantier.get(cible);
+    if (couleur === undefined) {
+      const devis = getTotalDevisChantier(nom);
+      if (devis <= 0) {
+        couleur = NEUTRE;                       // pas de prévisionnel → neutre
+      } else {
+        const planifie = getStatsChantier(nom)?.total || 0;
+        if (planifie > devis)            couleur = ROUGE;
+        else if (planifie > 0.9 * devis) couleur = ORANGE;
+        else                             couleur = NEUTRE;
+      }
+      couleurParChantier.set(cible, couleur);
+    }
+    sel.style.background = couleur;
+  });
+}
+
+/* ====== SAUVEGARDE TEMPS RÉEL ====== */
+/* Vide le nom du chantier d'une case (les heures sont conservées). */
+function viderChantier(k) {
+  const input = document.getElementById(k + 'chantier');
+  if (!input) return;
+  input.value = '';
+  const hSel = document.getElementById(k + 'h');
+  if (hSel) hSel.value = '0';            // remet les heures saisies à 0 (affichage)
+  if (heures[k]) delete heures[k].note;  // on retire aussi la note de la cellule
+  saveHeure(k, '', 0);                   // enregistre : chantier vidé ET 0 heure saisie
+  majBoutonNote(k);                      // met à jour l'indicateur + la note imprimable
+  onLigneRecalc(k);                      // recalcule « TEMPS NON AFFECTE » si nécessaire
+  input.focus();
+}
+
+function saveHeure(k, ch, h) {
+  const noteAv = heures[k] && heures[k].note ? heures[k].note : '';
+  const rdvAv  = heures[k] && heures[k].rdv  ? heures[k].rdv  : '';
+  const rdvAutAv = heures[k] && heures[k].rdvAuteur ? heures[k].rdvAuteur : '';
+  const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
+  const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
+  const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
+  heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  if (motifAv) heures[k].motif = motifAv;
+  if (noteAv) heures[k].note = noteAv;
+  if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
+  if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
+  if (rdvDelaiAv != null) heures[k].rdvDelai = rdvDelaiAv;   // le délai spécifique suit aussi
+  if (rdvNotifAv != null) heures[k].rdvNotifie = rdvNotifAv; // ne pas re-notifier après simple édition d'heures
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  majBoutonNote(k);   // l'indicateur de note suit le nom de chantier de la cellule
+
+  const match = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if (!match) return;
+  majTotalLigne(match[1], match[2].replace(/_/g, '-'));
+  majCouleursChantiers();
+}
+
+/* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
+function saveRdv(k, val, delai) {
+  if (!heures[k]) heures[k] = { chantier: '', heures: 0 };
+  if (val) {
+    heures[k].rdv = val;
+    heures[k].rdvAuteur = 'gerant';   // planning desktop = autorité gérant
+    // Délai spécifique à ce RDV (optionnel) : vide = suit le défaut entreprise
+    if (delai === undefined || delai === null || String(delai).trim() === '') {
+      delete heures[k].rdvDelai;
+    } else {
+      const dv = parseInt(delai, 10);
+      if (isNaN(dv)) delete heures[k].rdvDelai;
+      else heures[k].rdvDelai = Math.max(0, Math.min(1440, dv));
+    }
+  } else {
+    delete heures[k].rdv;
+    delete heures[k].rdvAuteur;
+    delete heures[k].rdvDelai;
+  }
+  delete heures[k].rdvNotifie;   // toute modification doit pouvoir redéclencher un rappel
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  majRdvVisuel(k);
+}
+function majRdvVisuel(k) {
+  const btn = document.getElementById(k + 'rdv-btn');
+  if (!btn) return;
+  const v = (heures[k] && heures[k].rdv) ? heures[k].rdv : '';
+  btn.classList.toggle('has-rdv', !!v);
+  btn.textContent = v || '🕐';
+  btn.title = v ? 'RDV à ' + v : 'Heure de RDV (alerte salarié)';
+  const pr = document.getElementById(k + 'rdv-print');
+  if (pr) pr.textContent = v ? '🕐 ' + v : '';
+}
+/* Ouvre un petit panneau de saisie de l'heure JUSTE À CÔTÉ de la cellule cliquée,
+   avec sélecteur d'heure + boutons Valider / Effacer / Annuler. */
+let _rdvPopK = null;
+function ouvrirRdv(k) {
+  const btn = document.getElementById(k + 'rdv-btn');
+  if (!btn) return;
+  let pop = document.getElementById('rdv-pop');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'rdv-pop';
+    pop.className = 'no-print';
+    pop.innerHTML =
+      '<div class="rdv-pop-titre">Heure de RDV</div>' +
+      '<input type="time" id="rdv-pop-input" onkeydown="if(event.key===\'Enter\')validerRdvPop();if(event.key===\'Escape\')fermerRdvPop();">' +
+      '<div style="font-size:0.72rem;color:#475569;margin:6px 0 3px;">Prévenir avant (mn)</div>' +
+      '<input type="number" id="rdv-pop-delai" min="0" max="1440" step="5" placeholder="Défaut" onkeydown="if(event.key===\'Enter\')validerRdvPop();if(event.key===\'Escape\')fermerRdvPop();" style="width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #cbd5e1;border-radius:5px;margin-bottom:7px;font-size:0.85rem;">' +
+      '<div class="rdv-pop-actions">' +
+        '<button type="button" class="rdv-pop-ok" onclick="validerRdvPop()">Valider</button>' +
+        '<button type="button" class="rdv-pop-clear" onclick="effacerRdvPop()">Effacer</button>' +
+        '<button type="button" class="rdv-pop-cancel" onclick="fermerRdvPop()">Annuler</button>' +
+      '</div>';
+    document.body.appendChild(pop);
+  }
+  _rdvPopK = k;
+  const input = document.getElementById('rdv-pop-input');
+  input.value = (heures[k] && heures[k].rdv) ? heures[k].rdv : '';
+  const di = document.getElementById('rdv-pop-delai');
+  if (di) di.value = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : '';
+  pop.style.display = 'block';
+  // Positionnement à côté du bouton (à droite, sinon à gauche si pas la place)
+  const r  = btn.getBoundingClientRect();
+  const pw = pop.offsetWidth  || 180;
+  const ph = pop.offsetHeight || 96;
+  let left = r.right + 6;
+  if (left + pw > window.innerWidth - 8) left = r.left - pw - 6;
+  if (left < 8) left = 8;
+  let top = r.top;
+  if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+  if (top < 8) top = 8;
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+  setTimeout(() => { input.focus(); }, 20);
+}
+function validerRdvPop() {
+  const input = document.getElementById('rdv-pop-input');
+  const di = document.getElementById('rdv-pop-delai');
+  const delai = di ? (di.value || '').trim() : '';
+  if (_rdvPopK != null && input) saveRdv(_rdvPopK, (input.value || '').trim(), delai);
+  fermerRdvPop();
+}
+function effacerRdvPop() {
+  if (_rdvPopK != null) saveRdv(_rdvPopK, '');
+  fermerRdvPop();
+}
+function fermerRdvPop() {
+  const pop = document.getElementById('rdv-pop');
+  if (pop) pop.style.display = 'none';
+  _rdvPopK = null;
+}
+/* Fermer (annuler) si on clique en dehors du panneau */
+document.addEventListener('mousedown', (e) => {
+  const pop = document.getElementById('rdv-pop');
+  if (!pop || pop.style.display === 'none') return;
+  if (pop.contains(e.target)) return;
+  if (e.target.classList && e.target.classList.contains('btn-rdv-ch')) return;
+  fermerRdvPop();
+});
+
+/* ── TEMPS NON AFFECTE — auto-remplissage du planning ────────────────
+   Hors SAV, et UNIQUEMENT à partir d'aujourd'hui (jamais les jours passés).
+   Le 1er chantier saisi prend par défaut le contrat du jour (− absence),
+   le reste éventuel est porté par un chantier « TEMPS NON AFFECTE »
+   (auto-calculé, masqué quand il vaut 0). */
+const TNA = 'TEMPS NON AFFECTE';
+
+function estDatePassee(dateStr) {
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const d = new Date(a, m - 1, j); d.setHours(0, 0, 0, 0);
+  return d < auj;
+}
+
+function contratDuJour(s, dateStr) {
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const dObj = new Date(a, m - 1, j);
+  const cle = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][dObj.getDay()];
+  return (grilleHeuresPourDate(s, dObj))[cle] || 0;
+}
+
+function _eligibleTNA(s, dateStr) {
+  return !!(s && !s.sav && !estDatePassee(dateStr));
+}
+
+/* Recalcule et place/retire « TEMPS NON AFFECTE » sur une ligne (salarié × jour). */
+function appliquerTempsNonAffecte(salarieId, dateStr) {
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!_eligibleTNA(s, dateStr)) return;
+  const safeDate = dateStr.replace(/-/g, '_');
+  const abs   = parseFloat(heures[`${salarieId}${safeDate}abs`]?.heures) || 0;
+  const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
+
+  const slots = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = `${salarieId}${safeDate}ch${i}`;
+    const e = heures[k];
+    slots.push({ i, k, nom: (e?.chantier || '').trim(), h: parseFloat(e?.heures) || 0 });
+  }
+  const reels = slots.filter(sl => sl.nom && sl.nom.toUpperCase() !== TNA);
+  // Nettoyage : retirer l'ancien TNA (recalculé) et toute entrée sans nom (heures fantômes)
+  slots.forEach(sl => {
+    if (sl.nom.toUpperCase() === TNA) delete heures[sl.k];
+    else if (!sl.nom && heures[sl.k]) delete heures[sl.k];
+  });
+
+  if (reels.length > 0) {
+    const somme = reels.reduce((acc, sl) => acc + sl.h, 0);
+    const reste = Math.round((cible - somme) * 100) / 100;
+    if (reste > 0.001) {
+      const occupes = new Set(reels.map(sl => sl.i));
+      let libre = null;
+      for (let i = 1; i <= 5; i++) if (!occupes.has(i)) { libre = i; break; }
+      if (libre) heures[`${salarieId}${safeDate}ch${libre}`] = { chantier: TNA, heures: reste };
+    }
+  }
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+}
+
+/* Resynchronise l'affichage d'une ligne depuis heures (et verrouille les heures du TNA). */
+function rafraichirLigne(salarieId, dateStr) {
+  const safeDate = dateStr.replace(/-/g, '_');
+  for (let i = 1; i <= 5; i++) {
+    const k = `${salarieId}${safeDate}ch${i}`;
+    const e = heures[k] || { chantier: '', heures: 0 };
+    const inp = document.getElementById(k + 'chantier');
+    const sel = document.getElementById(k + 'h');
+    if (inp) {
+      inp.value = e.chantier || '';
+      const chip = inp.closest('.chip');
+      if (chip) {
+        chip.classList.toggle('vide', (e.chantier || '').trim() === '');
+        chip.classList.toggle('tna', (e.chantier||'').toUpperCase() === TNA);
+      }
+    }
+    if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
+    majRdvVisuel(k);
+    majBoutonNote(k);
+  }
+  majTotalLigne(salarieId, dateStr);
+  majCouleursChantiers();
+}
+
+/* Saisie/MAJ d'un nom de chantier (blur) : défaut du 1er chantier, puis recalcul TNA. */
+function onChantierFocus(k) {
+  // Au focus d'une case « TEMPS NON AFFECTE », on vide l'affichage pour rendre le menu
+  // déroulant utilisable. heures[k] garde la valeur : si rien n'est choisi, le TNA est
+  // restauré au blur par onChantierCommit (recalcul).
+  const inp = document.getElementById(k + 'chantier');
+  if (inp && (inp.value || '').trim().toUpperCase() === TNA) inp.value = '';
+}
+
+function onChantierCommit(k) {
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch\d+$/);
+  if (!mm) return;
+  const salarieId = mm[1], safe = mm[2], dateStr = safe.replace(/_/g, '-');
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!s) return;
+
+  // Resynchroniser heures[k] depuis la saisie en cours (fiabilise la sélection via le menu déroulant)
+  const inpEl = document.getElementById(k + 'chantier');
+  const selEl = document.getElementById(k + 'h');
+  if (inpEl) saveHeure(k, (inpEl.value || '').trim().toUpperCase(), selEl ? selEl.value : (heures[k]?.heures || 0));
+
+  if (_eligibleTNA(s, dateStr)) {
+    // Heures par défaut du 1er chantier + recalcul du TNA : seulement pour les jours à venir
+    const e = heures[k] || { chantier: '', heures: 0 };
+    const nom = (e.chantier || '').trim();
+    if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
+      let nbReels = 0;
+      for (let i = 1; i <= 5; i++) {
+        const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
+        if (n && n.toUpperCase() !== TNA) nbReels++;
+      }
+      if (nbReels === 1) {
+        const abs = parseFloat(heures[`${salarieId}${safe}abs`]?.heures) || 0;
+        const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
+        if (cible > 0) { heures[k] = { chantier: nom, heures: cible }; localStorage.setItem('heuresdata', JSON.stringify(heures)); }
+      }
+    }
+    appliquerTempsNonAffecte(salarieId, dateStr);
+  }
+  rafraichirLigne(salarieId, dateStr);   // affichage + jauge : TOUJOURS
+}
+
+/* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
+function onLigneRecalc(k) {
+  const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if (!mm) return;
+  const salarieId = mm[1], dateStr = mm[2].replace(/_/g, '-');
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!s) return;
+  if (_eligibleTNA(s, dateStr)) appliquerTempsNonAffecte(salarieId, dateStr);   // TNA recalculé seulement pour les jours à venir
+  rafraichirLigne(salarieId, dateStr);   // affichage de la ligne + jauge : TOUJOURS (y compris dates passées)
+}
+
+/* ── Notes de chantier (planning) : note GÉNÉRALE par chantier (cumulative) ── */
+let _noteCleCourante = null;
+let _notesChantiers = {};
+
+function chargerNotesChantiers() {
+  try { _notesChantiers = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'); }
+  catch { _notesChantiers = {}; }
+}
+chargerNotesChantiers();
+/* Quand la synchro serveur se termine (souvent APRÈS le premier rendu sur connexion
+   lente), on reconstruit le planning avec les données fraîches : sans ça, les chips de
+   notes de chantier, le calcul des TNA et les heures par défaut du 1er chantier ne
+   s'affichent pas. Garde : si l'utilisateur est en train d'éditer une case, on ne
+   reconstruit pas (on perdrait le focus) — on rafraîchit juste les notes. */
+window.addEventListener('donnees-chargees', () => {
+  chargerNotesChantiers();
+  if (typeof genererPlanning !== 'function') { rafraichirNotesAffichage(); return; }
+  // donnees-chargees ne se déclenche qu'une fois (au chargement, pas de polling).
+  // On reconstruit TOUJOURS le planning : sur connexion lente, si l'utilisateur a
+  // cliqué dans une case pendant le chargement, il ne faut PAS sauter le re-render —
+  // sinon le global `salaries` reste vide (auto-implantation du contrat KO) et les
+  // notes ne s'affichent pas. Les saisies déjà faites sont conservées (relues depuis
+  // le localStorage). On restaure le focus sur la même case si possible.
+  const actifId = document.activeElement && document.activeElement.id;
+  genererPlanning(true);
+  if (actifId) { const el = document.getElementById(actifId); if (el) el.focus(); }
+});
+
+function _nomChantierCell(k) {
+  const el = document.getElementById(k + 'chantier');
+  return el && el.value ? el.value.trim().toUpperCase() : '';
+}
+function noteDuChantier(nom) {
+  return (nom && _notesChantiers[nom]) ? _notesChantiers[nom] : '';
+}
+/* Note nettoyée pour l'impression : retire le préfixe "[JJ/MM/AAAA HH:MM – Auteur]"
+   en tête de chaque ligne pour ne garder que le texte (sans date ni éditeur). */
+function noteImpression(note) {
+  if (!note) return '';
+  return String(note)
+    .split('\n')
+    .map(l => l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, ''))
+    .filter(l => l.trim() !== '')
+    .join('\n');
+}
+
+function majBoutonNote(k) {
+  const note = noteDuChantier(_nomChantierCell(k));
+  const btn = document.getElementById(k + 'note-btn');
+  if (btn) btn.classList.toggle('has-note', !!note);
+  const pr = document.getElementById(k + 'note-print');
+  if (pr) { const np = noteImpression(note); pr.innerHTML = np ? '📝 ' + escapeHtml(np) : ''; }
+}
+
+function rafraichirNotesAffichage() {
+  document.querySelectorAll('.btn-note-ch').forEach(btn => {
+    const id = btn.id || '';
+    if (id.endsWith('note-btn')) majBoutonNote(id.slice(0, -8)); // 'note-btn'.length = 8
+  });
+}
+
+function ouvrirNoteChantier(k) {
+  _noteCleCourante = k;
+  const nom = _nomChantierCell(k);
+  document.getElementById('note-modal-sub').textContent =
+    nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
+  const hist = document.getElementById('note-modal-hist');
+  const note = noteDuChantier(nom);
+  if (hist) hist.textContent = note || '(aucune note pour ce chantier)';
+  const txt = document.getElementById('note-modal-txt');
+  txt.value = '';
+  const btnAjout = document.getElementById('note-modal-ajouter');
+  if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
+  document.getElementById('note-modal-overlay').style.display = 'flex';
+  setTimeout(() => txt.focus(), 30);
+}
+
+function fermerNoteChantier() {
+  const o = document.getElementById('note-modal-overlay');
+  if (o) o.style.display = 'none';
+  _noteCleCourante = null;
+}
+
+async function enregistrerNoteChantier() {
+  if (!_noteCleCourante) return;
+  const nom   = _nomChantierCell(_noteCleCourante);
+  const texte = document.getElementById('note-modal-txt').value.trim();
+  if (!nom)   { alert('Renseignez d’abord un chantier dans cette cellule.'); return; }
+  if (!texte) { fermerNoteChantier(); return; }
+  const btn = document.getElementById('note-modal-ajouter');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const token = localStorage.getItem('syncToken');
+    const r = await fetch('/api/data/note-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ chantier: nom, texte, auteur: 'Gérant' })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      _notesChantiers[nom] = d.note;
+      rafraichirNotesAffichage();
+      fermerNoteChantier();
+    } else {
+      alert(d.message || 'Échec de l’enregistrement de la note.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+    }
+  } catch (e) {
+    alert('Erreur réseau lors de l’enregistrement de la note.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+  }
+}
+
+function majTotalLigne(salarieId, dateStr) {
+  const tr = document.querySelector(`[data-salarie="${salarieId}"][data-date="${dateStr}"]`);
+  if (!tr) return;
+
+  const safeDate = dateStr.replace(/-/g, '_');
+  const sal   = salaries.find(s => s.id == salarieId);
+  if (!sal) return;
+  const nbCh  = sal.sav ? 10 : 5;
+  let total = 0;
+  for (let i = 1; i <= nbCh; i++) {
+    const cell = heures[`${salarieId}${safeDate}ch${i}`];
+    if ((cell?.chantier || '').trim().toUpperCase() === TNA) continue; // TNA exclu du total planifié
+    total += parseFloat(cell?.heures || 0);
+  }
+
+  const absK  = `${salarieId}${safeDate}abs`;
+  const abs   = parseFloat(heures[absK]?.heures || 0);
+
+  const jour  = new Date(dateStr).getDay();
+  const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][jour];
+  const dObj  = new Date(dateStr + 'T00:00:00');
+  const prevu = (grilleHeuresPourDate(sal, dObj))[cle] || 0;
+  const ecart = total - prevu + abs;
+
+  tr.querySelector('.cell-total').textContent = total.toFixed(1);
+
+  // Vérifier si AU MOINS UN salarié a des heures ce jour-là
+  const tousLesTrs = document.querySelectorAll(`[data-date="${dateStr}"]`);
+  let jourADesHeures = false;
+  tousLesTrs.forEach(row => {
+    const t = parseFloat(row.querySelector('.cell-total')?.textContent) || 0;
+    if (t > 0) jourADesHeures = true;
+  });
+
+  // Mettre à jour toutes les lignes de la journée
+  tousLesTrs.forEach(row => {
+    const idSal  = row.dataset.salarie;
+    const salRow = salaries.find(s => s.id == idSal);
+    if (!salRow) return;
+    const prevuRow = (grilleHeuresPourDate(salRow, dObj))[cle] || 0;
+    const totalRow = parseFloat(row.querySelector('.cell-total')?.textContent) || 0;
+    const absRow   = parseFloat(row.querySelector("select[data-type='abs']")?.value) || 0;
+    const ecartRow = totalRow - prevuRow + absRow;
+
+    const prevuCell = row.querySelector('.cell-prevu');
+    const ecCell    = row.querySelector('.cell-ecart');
+    if (jourADesHeures) {
+      prevuCell.textContent  = (prevuRow - absRow).toFixed(1);
+      ecCell.textContent     = (ecartRow >= 0 ? '+' : '') + ecartRow.toFixed(1);
+      ecCell.style.color     = ecartRow < 0 ? 'red' : 'green';
+    } else {
+      prevuCell.textContent  = '';
+      ecCell.textContent     = '';
+    }
+  });
+
+  majTotauxGlobaux();
+}
+
+function majTotauxGlobaux() {
+  let totT = 0, totA = 0, totP = 0;
+  document.querySelectorAll('[data-salarie][data-date]:not(.hors-mois)').forEach(tr => {
+    totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
+    totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
+    totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
+  });
+
+  const ec = totT - totP;
+  document.getElementById('tot-total').textContent = totT.toFixed(1) + ' h';
+  document.getElementById('tot-prev').textContent  = totP.toFixed(1) + ' h';
+  const ligneEcart = document.getElementById('ligne-ecart');
+  const tdEcart    = document.getElementById('tot-ecart');
+  tdEcart.textContent = (ec >= 0 ? '+' : '') + ec.toFixed(1) + ' h';
+  if (ec < 0) {
+    tdEcart.style.color = '#dc2626';
+    ligneEcart.style.background = '#fef2f2';
+  } else {
+    tdEcart.style.color = '#16a34a';
+    ligneEcart.style.background = '#f0fdf4';
+  }
+
+  const pct = totP > 0 ? (totT / totP) * 100 : 0;
+  dessinerJauge(pct);
+  const objEl = document.getElementById('pl2-obj');
+  if (objEl) objEl.textContent = totT.toFixed(1).replace('.',',') + ' h / ' + totP.toFixed(1).replace('.',',') + ' h';
+  if (typeof pl3MajSemaine === 'function') pl3MajSemaine();
+}
+
+/* ====== IMPRESSION ====== */
+function chargerSemaines() {
+  const m   = document.getElementById('moisPlanning').value;
+  const sel = document.getElementById('semaineSelect');
+  sel.innerHTML = '<option value="">— Mois complet —</option>';
+  if (!m) return;
+
+  const [a, mo] = m.split('-').map(Number);
+  const dL = new Date(a, mo, 0);
+  let lun = new Date(a, mo - 1, 1);
+  while (lun.getDay() !== 1) lun.setDate(lun.getDate() + 1);
+
+  let i = 1;
+  while (lun <= dL) {
+    const sam = new Date(lun);
+    sam.setDate(lun.getDate() + 5);
+    const op = document.createElement('option');
+    op.value = i;
+    op.textContent = `Semaine ${i} : ${lun.toLocaleDateString('fr-FR')} → ${sam.toLocaleDateString('fr-FR')}`;
+    sel.appendChild(op);
+    lun.setDate(lun.getDate() + 7);
+    i++;
+  }
+}
+
+/* ====== DROPDOWN CHANTIERS À IMPRIMER ====== */
+function togglePrintChDropdown() {
+  const dd = document.getElementById('dropdown-print-ch');
+  dd.style.display = (dd.style.display === 'block') ? 'none' : 'block';
+}
+function cocherTousPrintCh(coche) {
+  document.querySelectorAll('.print-ch-cb').forEach(cb => cb.checked = coche);
+  majBtnPrintCh();
+}
+function majBtnPrintCh() {
+  const cbs = [...document.querySelectorAll('.print-ch-cb')];
+  const cochees = cbs.filter(cb => cb.checked).map(cb => cb.dataset.ch);
+  const btn = document.getElementById('btn-print-ch');
+  const tous = document.getElementById('print-ch-tous');
+  if (cochees.length === cbs.length) {
+    btn.textContent = 'Tous ▼';
+    btn.style.color = ''; btn.style.fontWeight = '';
+    if (tous) tous.checked = true;
+  } else if (cochees.length === 0) {
+    btn.textContent = 'Aucun ▼';
+    btn.style.color = '#dc2626'; btn.style.fontWeight = '700';
+    if (tous) tous.checked = false;
+  } else {
+    btn.textContent = 'Ch ' + cochees.join(', ') + ' ▼';
+    btn.style.color = '#2563eb'; btn.style.fontWeight = '700';
+    if (tous) tous.checked = false;
+  }
+}
+// Fermer le dropdown sur clic extérieur
+document.addEventListener('click', e => {
+  const cont = document.getElementById('dropdown-print-ch')?.parentElement;
+  if (cont && !cont.contains(e.target)) {
+    document.getElementById('dropdown-print-ch').style.display = 'none';
+  }
+});
+
+function imprimerSemaine() {
+  const semaine = document.getElementById('semaineSelect').value;
+  const mois    = document.getElementById('moisPlanning').value;
+  if (!mois) { alert('Veuillez sélectionner un mois.'); return; }
+
+  // Appliquer le filtrage des colonnes CH selon les cases cochées
+  const classesAjoutees = [];
+  let nbChCoches = 0;
+  document.querySelectorAll('.print-ch-cb').forEach(cb => {
+    if (cb.checked) {
+      nbChCoches++;
+    } else {
+      const cls = 'hide-ch' + cb.dataset.ch;
+      document.body.classList.add(cls);
+      classesAjoutees.push(cls);
+    }
+  });
+
+  // Calcul du facteur de zoom : on agrandit le tableau proportionnellement
+  // à la largeur "perdue" par les colonnes décochées, +50% pour bien remplir.
+  // Largeur d'origine = 150 (Salariés) + 5×200 (Ch) + 55 (Total) = 1205 px
+  // Largeur restante  = 150 + nbChCoches×200 + 55
+  const LARG_ORIG = 1294;
+  const largRestante = 128 + nbChCoches * 224 + 46;
+  let zoom = nbChCoches > 0 ? (LARG_ORIG / largRestante) : 1;
+  // Bonus +50% : seulement quand des colonnes sont masquées
+  if (nbChCoches > 0 && nbChCoches < 5) zoom *= 1.5;
+
+  // Appliquer le zoom sur le contenu imprimable, centré horizontalement
+  const wrapper = document.getElementById('planning-wrapper');
+  const ancienTransform       = wrapper.style.transform;
+  const ancienTransformOrigin = wrapper.style.transformOrigin;
+  const ancienWidth           = wrapper.style.width;
+  const ancienMargin          = wrapper.style.margin;
+  if (zoom > 1) {
+    wrapper.style.transformOrigin = 'top center';
+    wrapper.style.transform = 'scale(' + zoom + ')';
+    wrapper.style.width = (100 / zoom) + '%';
+    wrapper.style.margin = '0 auto';
+  } else {
+    wrapper.style.margin = '0 auto';
+  }
+
+  const restaurer = () => {
+    classesAjoutees.forEach(cls => document.body.classList.remove(cls));
+    document.querySelectorAll('#planning-wrapper .jour-block').forEach(b => b.style.display = '');
+    wrapper.style.transform       = ancienTransform;
+    wrapper.style.transformOrigin = ancienTransformOrigin;
+    wrapper.style.width           = ancienWidth;
+    wrapper.style.margin          = ancienMargin;
+  };
+
+  if (!semaine) {
+    window.print();
+    restaurer();
+    return;
+  }
+
+  const [a, mo] = mois.split('-').map(Number);
+  let lun = new Date(a, mo - 1, 1);
+  while (lun.getDay() !== 1) lun.setDate(lun.getDate() + 1);
+  lun.setDate(lun.getDate() + (parseInt(semaine) - 1) * 7);
+  const sam = new Date(lun);
+  sam.setDate(lun.getDate() + 5);
+
+  document.querySelectorAll('#planning-wrapper .jour-block').forEach(bloc => {
+    const h3 = bloc.querySelector('h3');
+    if (!h3) return;
+    const match = h3.textContent.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (match) {
+      const dateJour = new Date(match[3], match[2] - 1, match[1]);
+      bloc.style.display = (dateJour >= lun && dateJour <= sam) ? '' : 'none';
+    }
+  });
+
+  window.print();
+  restaurer();
+}
+
+/* ====== BARRE LATÉRALE RÉTRACTABLE (planning) ====== */
+/* Replie/déplie le menu de gauche (rendu par sync.js) pour récupérer ~208px
+   de largeur. État mémorisé. N'affecte que la page planning. */
+function majToggleRail() {
+  const btn = document.getElementById('pl-rail-toggle');
+  if (!btn) return;
+  const reduit = document.documentElement.classList.contains('pl-rail-reduit');
+  btn.textContent = reduit ? '›' : '‹';
+  btn.title = reduit ? 'Afficher le menu' : 'Réduire le menu';
+}
+function togglerRail() {
+  const reduit = document.documentElement.classList.toggle('pl-rail-reduit');
+  try { localStorage.setItem('pl-rail-reduit', reduit ? '1' : '0'); } catch (e) {}
+  majToggleRail();
+  if (typeof ajusterMarginTop === 'function') setTimeout(ajusterMarginTop, 30);
+}
+function initRailRetractable() {
+  if (localStorage.getItem('pl-rail-reduit') === '1') {
+    document.documentElement.classList.add('pl-rail-reduit');
+  }
+  let btn = document.getElementById('pl-rail-toggle');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'pl-rail-toggle';
+    btn.type = 'button';
+    btn.onclick = togglerRail;
+    document.body.appendChild(btn);
+  }
+  majToggleRail();
+}
+
+/* ====== INITIALISATION ====== */
+document.addEventListener('DOMContentLoaded', () => {
+  initRailRetractable();
+  const mois = document.getElementById('moisPlanning');
+  const now  = new Date();
+  mois.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  chargerSemaines();
+  chargerJauge();
+  initFiltre();
+  genererPlanning(true);
+  majMoisImpression();
+  pl2MajMoisLabel();
+
+  mois.addEventListener('input', () => {
+    chargerSemaines();
+    initFiltre();
+    genererPlanning(true);
+    majMoisImpression();
+    pl2MajMoisLabel();
+  });
+
+  // Licence
+  const statusEl = document.getElementById('licence-status');
+  if (statusEl) {
+    const code = localStorage.getItem('licenceCode');
+    statusEl.innerHTML = code
+      ? '<span style="color:#86efac;font-size:0.85rem;">✔ Licence active</span>'
+      : '<span style="color:#fca5a5;font-size:0.85rem;">⚠ Aucune licence</span>';
+  }
+
+  // Entreprise dans le titre
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  const nomE = document.getElementById('entreprise-nom');
+  if (nomE && ent.nom) nomE.textContent = ent.nom;
+  // En-tête impression
+  const printNom = document.getElementById('print-nom-entreprise');
+  if (printNom && ent.nom) printNom.textContent = ent.nom;
+
+  window.addEventListener('resize', ajusterMarginTop);
+  ajusterMarginTop();
+});
+
+// Au retour sur la page (navigation arrière ou restauration depuis le cache
+// navigateur/PWA), DOMContentLoaded ne se redéclenche pas toujours. On réapplique
+// alors le défilement vers la date du jour.
+window.addEventListener('pageshow', (e) => {
+  const moisEl = document.getElementById('moisPlanning');
+  if (moisEl && moisEl.value) {
+    setTimeout(() => defilerVersAujourdhui(moisEl.value), 120);
+  }
+});
+
+function majMoisImpression() {
+  const moisVal = document.getElementById('moisPlanning').value;
+  const printMois = document.getElementById('print-mois');
+  if (!printMois || !moisVal) return;
+  const d = new Date(moisVal + '-01');
+  printMois.textContent = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
+
+/* ════════════════════════════════════════════════
+   TOOLTIP INFO CHANTIER (au survol d'un nom)
+   ════════════════════════════════════════════════ */
+let _tooltipEl = null;
+let _tooltipTimer = null;
+
+function getTooltipEl() {
+  if (!_tooltipEl) {
+    _tooltipEl = document.createElement('div');
+    _tooltipEl.className = 'chantier-tooltip';
+    document.body.appendChild(_tooltipEl);
+  }
+  return _tooltipEl;
+}
+
+/** Agrège les heures pour un nom de chantier donné, toutes années confondues. */
+function getStatsChantier(nomChantier) {
+  if (!nomChantier) return null;
+  const ref = normaliserChantier(nomChantier);
+  if (!ref) return null;
+
+  const heuresAll = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const salariesAll = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+  const salById = Object.fromEntries(salariesAll.map(s => [s.id, s.prenom + ' ' + s.nom]));
+
+  let total = 0;
+  const parSalarie = new Map();   // id -> heures
+  let dateMin = null, dateMax = null;
+
+  for (const k in heuresAll) {
+    const d = heuresAll[k];
+    if (!d || !d.chantier || !d.heures) continue;
+    if (normaliserChantier(d.chantier) !== ref) continue;
+    // Clé : {id}{YYYY}_{MM}_{DD}ch{N}
+    // L'id est un timestamp (13 chiffres aujourd'hui), suivi directement de l'année.
+    // On le découpe en repérant l'année 4 chiffres + _MM_DD ch{N} en fin.
+    const m = k.match(/^(\d+?)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m) continue;
+    const idSal = m[1];
+    const dateStr = `${m[2]}-${m[3]}-${m[4]}`;
+    const h = parseFloat(d.heures) || 0;
+    total += h;
+    parSalarie.set(idSal, (parSalarie.get(idSal) || 0) + h);
+    if (!dateMin || dateStr < dateMin) dateMin = dateStr;
+    if (!dateMax || dateStr > dateMax) dateMax = dateStr;
+  }
+
+  const liste = [...parSalarie.entries()]
+    .map(([id, h]) => ({ nom: salById[id] || ('Salarié #' + id), heures: h }))
+    .sort((a, b) => b.heures - a.heures);
+
+  return { total, liste, dateMin, dateMax };
+}
+
+/** Normalise un nom de chantier pour comparaison (casse, espaces, accents). */
+function normaliserChantier(s) {
+  return (s || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function formatHeures(h) {
+  if (!h) return '0h';
+  const heures = Math.floor(h);
+  const min = Math.round((h - heures) * 60);
+  if (min === 0) return heures + 'h';
+  return heures + 'h' + String(min).padStart(2, '0');
+}
+
+function formatDateFr(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Retourne la somme des heures prévues (devis) pour ce chantier
+   sur l'ensemble du prévisionnel (toutes années / tous mois confondus).
+   Compare les noms de chantier de manière souple (sans casse / espaces / accents). */
+function getTotalDevisChantier(nom) {
+  if (!nom) return 0;
+  const cible = normaliserChantier(nom);
+  let total = 0;
+  try {
+    const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+    // Structure : { '2026': { '0': {chantiers:[{client, hPrevues}]}, '1': {…}, … }, '2027': {…} }
+    for (const annee in data) {
+      const mois12 = data[annee];
+      if (!mois12) continue;
+      for (const m in mois12) {
+        const liste = mois12[m]?.chantiers;
+        if (!Array.isArray(liste)) continue;
+        liste.forEach(c => {
+          if (c && c.client && normaliserChantier(c.client) === cible) {
+            total += parseFloat(c.hPrevues) || 0;
+          }
+        });
+      }
+    }
+  } catch (_) {}
+  return total;
+}
+
+function montrerTooltipChantier(input) {
+  const nom = (input.value || '').trim();
+  const k = (input.id || '').replace(/chantier$/, '');
+  const note = noteDuChantier((nom || '').toUpperCase());
+
+  const stats = nom ? getStatsChantier(nom) : null;
+  const aStats = !!(stats && stats.total > 0);
+  if (!aStats && !note) { cacherTooltip(); return; }
+
+  const el = getTooltipEl();
+  let html = '';
+  if (nom) html += `<div class="ct-nom">${escapeHtml(nom)}</div>`;
+  if (aStats) {
+    const totalDevis = getTotalDevisChantier(nom);
+    const depasse = totalDevis > 0 && stats.total > totalDevis;
+    if (totalDevis > 0) {
+      html += `<div class="ct-total" style="color:#fff;">Total devis : <strong>${formatHeures(totalDevis)}</strong></div>`;
+    }
+    const couleurPlan = depasse ? '#ef4444' : '';
+    html += `<div class="ct-total">Total planifié : <strong style="color:${couleurPlan};">${formatHeures(stats.total)}</strong></div>`;
+    if (stats.liste.length > 0) {
+      html += '<div class="ct-label">Salariés intervenus</div>';
+      stats.liste.forEach(s => {
+        html += `<div class="ct-sal">
+          <span class="ct-sal-nom">${escapeHtml(s.nom)}</span>
+          <span class="ct-sal-h">${formatHeures(s.heures)}</span>
+        </div>`;
+      });
+    }
+    if (stats.dateMin && stats.dateMax) {
+      html += `<div class="ct-periode">Du ${formatDateFr(stats.dateMin)} au ${formatDateFr(stats.dateMax)}</div>`;
+    }
+  }
+  if (note) {
+    html += `<div class="ct-note">📝 ${escapeHtml(note)}</div>`;
+  }
+  el.innerHTML = html;
+
+  // Positionner près de l'input
+  const r = input.getBoundingClientRect();
+  el.style.visibility = 'hidden';
+  el.classList.add('visible');
+  const tt = el.getBoundingClientRect();
+  let top  = r.bottom + 6;
+  let left = r.left;
+  if (top + tt.height > window.innerHeight - 10) top = r.top - tt.height - 6;
+  if (left + tt.width  > window.innerWidth  - 10) left = window.innerWidth - tt.width - 10;
+  if (left < 6) left = 6;
+  el.style.top  = top + 'px';
+  el.style.left = left + 'px';
+  el.style.visibility = 'visible';
+}
+
+function cacherTooltip() {
+  if (_tooltipTimer) { clearTimeout(_tooltipTimer); _tooltipTimer = null; }
+  if (_tooltipEl) _tooltipEl.classList.remove('visible');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+/* Délégation d'événements sur tout le wrapper du planning. */
+document.addEventListener('DOMContentLoaded', () => {
+  const wrap = document.getElementById('planning-wrapper');
+  if (!wrap) return;
+  wrap.addEventListener('mouseover', e => {
+    const t = e.target;
+    if (t.tagName === 'INPUT' && t.id && t.id.endsWith('chantier')) {
+      // Délai léger pour ne pas spammer
+      if (_tooltipTimer) clearTimeout(_tooltipTimer);
+      _tooltipTimer = setTimeout(() => montrerTooltipChantier(t), 350);
+    }
+  });
+  wrap.addEventListener('mouseout', e => {
+    const t = e.target;
+    if (t.tagName === 'INPUT' && t.id && t.id.endsWith('chantier')) {
+      cacherTooltip();
+    }
+  });
+  // Cacher aussi à la frappe ou au focus pour ne pas gêner la saisie
+  wrap.addEventListener('input', e => {
+    if (e.target.tagName === 'INPUT') cacherTooltip();
+  });
+  wrap.addEventListener('focusin', e => {
+    if (e.target.tagName === 'INPUT' && e.target.id && e.target.id.endsWith('chantier')) {
+      cacherTooltip();
+    }
+  });
+});
+</script>
+<!-- Modale de saisie d'une note de chantier -->
+<div id="note-modal-overlay" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;align-items:center;justify-content:center;padding:16px;"
+  onclick="if(event.target===this)fermerNoteChantier()">
+  <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
+    <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
+    <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <div id="note-modal-hist"
+      style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:0.84rem;line-height:1.4;color:#374151;max-height:200px;overflow:auto;margin-bottom:10px;"></div>
+    <label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
+    <textarea id="note-modal-txt" rows="3" placeholder="Nouvelle information à ajouter…"
+      style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;margin-top:4px;"></textarea>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;">
+      <button type="button" onclick="fermerNoteChantier()"
+        style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Fermer</button>
+      <button type="button" id="note-modal-ajouter" onclick="enregistrerNoteChantier()"
+        style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Ajouter</button>
+    </div>
+  </div>
+</div>
+<script src="assets/filtre-excel.js"></script>
+<script src="assets/sync.js"></script>
+<div id="cl-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;overflow:auto;padding:26px 12px;">
+  <div style="background:#fff;border-radius:12px;max-width:660px;margin:0 auto;box-shadow:0 20px 55px rgba(0,0,0,.35);font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#0f2747;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+      <div style="font-size:1.08rem;font-weight:700;">🏗️ Chantier long</div>
+      <button type="button" onclick="clFermer()" style="border:none;background:transparent;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:16px 18px;">
+      <div id="cl-datalist-holder"></div>
+
+      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Chantier</label>
+      <input id="cl-chantier" list="cl-liste-chantiers" placeholder="Nom du chantier"
+        style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;text-transform:uppercase;margin-bottom:14px;">
+
+      <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Du</label>
+          <input type="date" id="cl-du" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+        </div>
+        <div style="flex:1;min-width:130px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Au</label>
+          <input type="date" id="cl-au" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+        </div>
+      </div>
+
+      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Salariés</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;font-weight:600;padding:4px 0;border-bottom:1px solid #eef2f7;margin-bottom:4px;">
+        <input type="checkbox" id="cl-sal-tous" onclick="clToggleTousSal(this)"> Tout sélectionner
+      </label>
+      <div id="cl-salaries" style="max-height:150px;overflow:auto;border:1px solid #e5e7eb;border-radius:7px;padding:6px 8px;margin-bottom:14px;"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" onclick="clFermer()" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:7px;font:inherit;cursor:pointer;">Annuler</button>
+        <button type="button" onclick="clAnalyser()" style="padding:8px 16px;border:none;background:#2563eb;color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;">Analyser</button>
+      </div>
+
+      <div id="cl-resultats" style="margin-top:16px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var _clAnalyse = null;
+
+  function clAujISO() { var d = new Date(); return clISO(d); }
+  function clISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function clFrDate(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    var j = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
+    return j + ' ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function clFmt(h) { return (Math.round(h * 100) / 100) + ' h'; }
+
+  function clDansContrat(s, dObj) {
+    var entree = s.dateEntree ? new Date(s.dateEntree + 'T00:00:00') : null;
+    var sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
+    if (entree && dObj < entree) return false;
+    if (sortie && dObj > sortie) return false;
+    return true;
+  }
+  function clAbs(sid, safe) { var e = heures[sid + safe + 'abs']; return parseFloat(e && e.heures) || 0; }
+  function clNbSlots(s) { return s.sav ? 10 : 5; }
+  function clSlotsLibres(sid, safe, nb) {
+    var out = [];
+    for (var i = 1; i <= nb; i++) {
+      var e = heures[sid + safe + 'ch' + i];
+      var nom = (e && e.chantier || '').trim();
+      if (!nom || nom.toUpperCase() === TNA) out.push(i);
+    }
+    return out;
+  }
+  function clChantiersReels(sid, safe, nb) {
+    var out = [];
+    for (var i = 1; i <= nb; i++) {
+      var k = sid + safe + 'ch' + i, e = heures[k];
+      var nom = (e && e.chantier || '').trim();
+      if (nom && nom.toUpperCase() !== TNA && nom.toLowerCase() !== 'absence') {
+        out.push({ i: i, k: k, nom: nom, heures: parseFloat(e.heures) || 0, entry: e });
+      }
+    }
+    return out;
+  }
+  function clPoser(sid, iso, chantier, h) {
+    var safe = iso.replace(/-/g, '_');
+    var s = salaries.find(function (x) { return String(x.id) === String(sid); });
+    var libres = clSlotsLibres(sid, safe, clNbSlots(s));
+    if (!libres.length) return false;
+    heures[sid + safe + 'ch' + libres[0]] = { chantier: chantier, heures: Math.round(h * 100) / 100 };
+    return true;
+  }
+
+  window.clOuvrir = function () {
+    document.getElementById('cl-datalist-holder').innerHTML = genDatalistChantiers().replace('id="liste-chantiers-prev"', 'id="cl-liste-chantiers"');
+    var auj = clAujISO();
+    var du = document.getElementById('cl-du'), au = document.getElementById('cl-au');
+    du.min = auj; au.min = auj;
+    if (!du.value || du.value < auj) du.value = auj;
+    var cont = document.getElementById('cl-salaries');
+    cont.innerHTML = salaries.map(function (s) {
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
+        '<input type="checkbox" class="cl-sal" value="' + s.id + '"> ' + s.prenom + ' ' + s.nom + '</label>';
+    }).join('');
+    document.getElementById('cl-sal-tous').checked = false;
+    document.getElementById('cl-resultats').innerHTML = '';
+    _clAnalyse = null;
+    document.getElementById('cl-overlay').style.display = 'block';
+  };
+  window.clFermer = function () { document.getElementById('cl-overlay').style.display = 'none'; };
+  window.clToggleTousSal = function (chk) { document.querySelectorAll('.cl-sal').forEach(function (c) { c.checked = chk.checked; }); };
+  window.clMajAction = function (i) {
+    var sel = document.getElementById('cl-act-' + i);
+    var dt = document.getElementById('cl-date-' + i);
+    if (dt) dt.style.display = (sel.value === 'deplacer') ? 'inline-block' : 'none';
+  };
+
+  window.clAnalyser = function () {
+    var chantier = (document.getElementById('cl-chantier').value || '').trim().toUpperCase();
+    var du = document.getElementById('cl-du').value;
+    var au = document.getElementById('cl-au').value;
+    var salIds = [].slice.call(document.querySelectorAll('.cl-sal:checked')).map(function (c) { return c.value; });
+    if (!chantier) { alert('Choisis un chantier.'); return; }
+    if (!du || !au) { alert('Indique la période (Du / Au).'); return; }
+    if (au < du) { alert('La date de fin doit être postérieure à la date de début.'); return; }
+    if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
+
+    var auj = clAujISO();
+    var debut = du < auj ? auj : du;
+    var aRemplir = [], conflits = [], ignores = 0;
+
+    salIds.forEach(function (sid) {
+      var s = salaries.find(function (x) { return String(x.id) === String(sid); });
+      if (!s) return;
+      var nb = clNbSlots(s);
+      var fin = new Date(au + 'T00:00:00');
+      for (var d = new Date(debut + 'T00:00:00'); d <= fin; d.setDate(d.getDate() + 1)) {
+        var dObj = new Date(d), iso = clISO(dObj), safe = iso.replace(/-/g, '_');
+        var contrat = contratDuJour(s, iso);
+        if (contrat <= 0) continue;
+        if (!clDansContrat(s, dObj)) continue;
+        var abs = clAbs(sid, safe);
+        if (abs >= contrat) { ignores++; continue; }
+        var reels = clChantiersReels(sid, safe, nb);
+        if (reels.some(function (r) { return r.nom.toUpperCase() === chantier; })) continue;
+        var libres = clSlotsLibres(sid, safe, nb);
+        var dispo = Math.round((contrat - abs - reels.reduce(function (a, r) { return a + r.heures; }, 0)) * 100) / 100;
+        if (reels.length === 0) {
+          if (dispo > 0.001 && libres.length) aRemplir.push({ sid: sid, iso: iso, s: s, heures: dispo });
+          else ignores++;
+        } else {
+          conflits.push({ sid: sid, iso: iso, s: s, reels: reels, dispo: dispo, contrat: contrat, abs: abs, libres: libres.length });
+        }
+      }
+    });
+
+    _clAnalyse = { chantier: chantier, aRemplir: aRemplir, conflits: conflits, ignores: ignores };
+    clAfficher();
+  };
+
+  function clAfficher() {
+    var a = _clAnalyse, box = document.getElementById('cl-resultats');
+    var totH = a.aRemplir.reduce(function (s, x) { return s + x.heures; }, 0);
+    var html = '<div style="border-top:1px solid #e5e7eb;padding-top:14px;">';
+
+    if (!a.aRemplir.length && !a.conflits.length) {
+      html += '<div style="color:#64748b;">Aucun jour à affecter sur cette période (jours non travaillés, absences, ou déjà pleins). ' +
+        (a.ignores ? a.ignores + ' jour(s) ignoré(s).' : '') + '</div></div>';
+      box.innerHTML = html;
+      return;
+    }
+
+    html += '<div style="font-size:0.9rem;margin-bottom:10px;">' +
+      '<b>' + a.aRemplir.length + '</b> jour(s) seront remplis directement (<b>' + clFmt(totH) + '</b>)' +
+      (a.conflits.length ? ' · <b style="color:#b45309;">' + a.conflits.length + '</b> jour(s) avec un chantier déjà programmé' : '') +
+      (a.ignores ? ' · ' + a.ignores + ' ignoré(s)' : '') + '.</div>';
+
+    if (a.conflits.length) {
+      var auj = clAujISO();
+      html += '<div style="font-size:0.82rem;font-weight:600;margin:6px 0 6px;">Jours en conflit — choisis une action :</div>';
+      html += '<div style="max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;">';
+      a.conflits.forEach(function (c, i) {
+        var noms = c.reels.map(function (r) { return r.nom + ' (' + clFmt(r.heures) + ')'; }).join(', ');
+        var plein = c.dispo <= 0.001;
+        html += '<div style="padding:8px 10px;border-bottom:1px solid #f1f5f9;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">' +
+          '<div style="flex:1;min-width:210px;font-size:0.82rem;">' +
+            '<b>' + c.s.prenom + ' ' + c.s.nom + '</b> · ' + clFrDate(c.iso) +
+            '<div style="color:#64748b;">déjà : ' + noms + ' · reste ' + clFmt(Math.max(0, c.dispo)) + (plein ? ' <span style="color:#b45309;">(jour plein)</span>' : '') + '</div>' +
+          '</div>' +
+          '<select id="cl-act-' + i + '" onchange="clMajAction(' + i + ')" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:0.8rem;">' +
+            '<option value="completer">Compléter le temps restant</option>' +
+            '<option value="deplacer">Déplacer l\'existant…</option>' +
+            '<option value="ignorer">Ignorer ce jour</option>' +
+          '</select>' +
+          '<input type="date" id="cl-date-' + i + '" min="' + auj + '" style="display:none;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:0.8rem;">' +
+          '</div>';
+      });
+      html += '</div>';
+      html += '<div style="font-size:0.76rem;color:#64748b;margin-top:6px;">« Déplacer » repose le chantier existant à la date choisie et libère le jour pour le chantier long.</div>';
+    }
+
+    html += '<div style="display:flex;justify-content:flex-end;margin-top:14px;">' +
+      '<button type="button" onclick="clValider()" style="padding:9px 18px;border:none;background:#16a34a;color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;">Valider l\'affectation</button></div>';
+    html += '</div>';
+    box.innerHTML = html;
+  }
+
+  window.clValider = function () {
+    if (!_clAnalyse) return;
+    var a = _clAnalyse, chantier = a.chantier;
+    var touched = {}, erreurs = [];
+    var auj = clAujISO();
+
+    a.aRemplir.forEach(function (x) {
+      clPoser(x.sid, x.iso, chantier, x.heures);
+      touched[x.sid + '|' + x.iso] = 1;
+    });
+
+    a.conflits.forEach(function (c, i) {
+      var sel = document.getElementById('cl-act-' + i);
+      var action = sel ? sel.value : 'completer';
+      if (action === 'ignorer') return;
+      if (action === 'completer') {
+        if (c.dispo > 0.001 && c.libres > 0) { clPoser(c.sid, c.iso, chantier, c.dispo); touched[c.sid + '|' + c.iso] = 1; }
+        return;
+      }
+      var s = c.s, nb = clNbSlots(s);
+      var cible = document.getElementById('cl-date-' + i) ? document.getElementById('cl-date-' + i).value : '';
+      var nom = s.prenom + ' ' + s.nom;
+      if (!cible) { erreurs.push(nom + ' (' + clFrDate(c.iso) + ') : date de déplacement manquante'); return; }
+      if (cible < auj) { erreurs.push(nom + ' : ' + clFrDate(cible) + ' est une date passée'); return; }
+      var dCible = new Date(cible + 'T00:00:00');
+      if (contratDuJour(s, cible) <= 0 || !clDansContrat(s, dCible)) { erreurs.push(nom + ' : ' + clFrDate(cible) + ' n\'est pas un jour travaillé'); return; }
+      var safeCible = cible.replace(/-/g, '_');
+      var libresCible = clSlotsLibres(c.sid, safeCible, nb);
+      if (libresCible.length < c.reels.length) { erreurs.push(nom + ' : pas assez de créneaux libres le ' + clFrDate(cible)); return; }
+      c.reels.forEach(function (r, idx) {
+        var copie = {};
+        for (var p in r.entry) copie[p] = r.entry[p];
+        heures[c.sid + safeCible + 'ch' + libresCible[idx]] = copie;
+        delete heures[r.k];
+      });
+      touched[c.sid + '|' + cible] = 1;
+      var libere = Math.round((c.contrat - c.abs) * 100) / 100;
+      if (libere > 0.001) { clPoser(c.sid, c.iso, chantier, libere); }
+      touched[c.sid + '|' + c.iso] = 1;
+    });
+
+    if (erreurs.length) { alert('Impossible de valider :\n\n- ' + erreurs.join('\n- ')); return; }
+
+    Object.keys(touched).forEach(function (t) {
+      var p = t.split('|');
+      appliquerTempsNonAffecte(p[0], p[1]);
+    });
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    genererPlanning(true);
+    clFermer();
+    var nb = a.aRemplir.length + a.conflits.length;
+    alert('Affectation du chantier « ' + chantier + ' » terminée.');
+  };
+})();
+</script>
+<script src="assets/aide.js"></script>
+</body>
+</html>
