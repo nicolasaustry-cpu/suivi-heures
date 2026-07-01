@@ -1254,6 +1254,7 @@ function saveRdv(k, val, delai) {
   delete heures[k].rdvNotifie;   // toute modification doit pouvoir redéclencher un rappel
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majRdvVisuel(k);
+  genererPlanning();   // redessine la case : les pavés à RDV se reclassent aussitôt par heure
 }
 function majRdvVisuel(k) {
   const btn = document.getElementById(k + 'rdv-btn');
