@@ -502,22 +502,28 @@ let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers prés
    CHANTIERS PLANNIFIÉS (depuis heuresdata)
 ═══════════════════════════════ */
 function chargerChantiersPlannifies() {
+  // Clés « nomChantier|YYYY_MM » : un chantier est considéré planifié POUR CE MOIS
+  // uniquement s'il apparaît dans le planning à une date de ce mois.
   chantiersPlannifies = new Set();
   try {
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-    Object.values(heures).forEach(entry => {
-      if (entry && entry.chantier && entry.chantier.trim()) {
-        chantiersPlannifies.add(entry.chantier.trim().toLowerCase());
-      }
+    Object.keys(heures).forEach(k => {
+      const entry = heures[k];
+      if (!entry || !entry.chantier || !entry.chantier.trim()) return;
+      // La date YYYY_MM_DD est incluse dans la clé (après l'id salarié, sans « _ »).
+      const m = k.match(/(\d{4})_(\d{2})_\d{2}/);
+      if (!m) return;
+      chantiersPlannifies.add(entry.chantier.trim().toLowerCase() + '|' + m[1] + '_' + m[2]);
     });
   } catch (e) {
     console.warn('Impossible de lire heuresdata', e);
   }
 }
 
-function estPlannifie(nomClient) {
+function estPlannifie(nomClient, annee, mi) {
   if (!nomClient) return false;
-  return chantiersPlannifies.has(nomClient.trim().toLowerCase());
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  return chantiersPlannifies.has(nomClient.trim().toLowerCase() + '|' + ym);
 }
 
 /* ═══════════════════════════════
@@ -774,7 +780,7 @@ function rendreChantiers() {
 
     // Lignes saisies
     chantiers.forEach((ch, ci) => {
-      const isPlanifie = estPlannifie(ch.client);
+      const isPlanifie = estPlannifie(ch.client, annee, mi);
       const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
       const coche   = isPlanifie ? '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>' : '';
       html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
