@@ -1530,6 +1530,22 @@ function majAccesGerant() {
   if (window.chargerDelaiNotif) window.chargerDelaiNotif(estGerant);
 }
 
+/* Classe les chantiers porteurs d'une heure de RDV du plus tôt au plus tard,
+   sans déplacer les autres. Ne s'active qu'à partir de deux RDV. */
+function _rdvMinutesChantier(nom){
+  const r = (_rdvPlanning[nom] && _rdvPlanning[nom].rdv) ? String(_rdvPlanning[nom].rdv).trim() : '';
+  const m = r.match(/^(\d{1,2})[:hH](\d{0,2})/);
+  if(!m) return null;
+  return parseInt(m[1],10)*60 + (m[2] ? parseInt(m[2],10) : 0);
+}
+function trierChantiersParRdv(list){
+  const positions = [], avec = [];
+  list.forEach((c, i) => { const mn = _rdvMinutesChantier(c.nom); if(mn !== null){ positions.push(i); avec.push({ c, mn }); } });
+  if(avec.length < 2) return;
+  avec.sort((a, b) => a.mn - b.mn);
+  positions.forEach((pos, j) => { list[pos] = avec[j].c; });
+}
+
 async function chargerChantiersPrev() {
   majAccesGerant();
   const date = document.getElementById('date-saisie').value;
@@ -1653,6 +1669,9 @@ async function chargerChantiersPrev() {
     _chantiersP.sort(parRang);
     _chantiersA.sort(parRang);
   }
+
+  // Chantiers porteurs d'un RDV : classés par heure croissante (les autres gardent leur place)
+  trierChantiersParRdv(_chantiersP);
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   rendrePrev();
@@ -1856,6 +1875,7 @@ async function serverSaveRdv(nom, val, delai) {
     if (!d.ok) { alert(d.message || 'Modification impossible'); return; }
     if (d.rdv) _rdvPlanning[nom] = { rdv: d.rdv, auteur: d.rdvAuteur || 'admin', delai: (d.rdvDelai !== '' && d.rdvDelai != null) ? d.rdvDelai : undefined };
     else delete _rdvPlanning[nom];
+    trierChantiersParRdv(_chantiersP);
     fermerRdvMobile();
     rendrePrev();
     if (typeof rendreAjout === 'function') rendreAjout();
