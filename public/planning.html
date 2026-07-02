@@ -779,9 +779,7 @@ function pl3MajSemaine(){
     tr.querySelectorAll('td[data-salarie][data-date]').forEach(td=>{
       wT += parseFloat(td.querySelector('.cell-total')?.textContent)||0;
       const s=salaries.find(x=>String(x.id)===String(td.dataset.salarie)); if(!s) return;
-      const d=new Date(td.dataset.date+'T00:00:00');
-      const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
-      wC += (grilleHeuresPourDate(s,d))[cle]||0;
+      wC += contratDuJour(s, td.dataset.date);
     });
     const ecW=wT-wC;
     tw.innerHTML = `${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span>`;
@@ -1076,7 +1074,7 @@ function genererPlanning(calerSemaine){
         const horsMois=(d.getMonth()!==moIdx);   // jour du mois voisin (semaine à cheval) : actif, mais hors total mensuel
         if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
         const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
-        const C=lireCellule(s,dateStr); const prevu=(grilleHeuresPourDate(s,d))[cle]||0;
+        const C=lireCellule(s,dateStr); const prevu=contratDuJour(s,dateStr);
         wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
 
         let chips='';
@@ -1714,7 +1712,7 @@ function majTotalLigne(salarieId, dateStr) {
   const jour  = new Date(dateStr).getDay();
   const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][jour];
   const dObj  = new Date(dateStr + 'T00:00:00');
-  const prevu = (grilleHeuresPourDate(sal, dObj))[cle] || 0;
+  const prevu = contratDuJour(sal, dateStr);
   const ecart = total - prevu + abs;
 
   tr.querySelector('.cell-total').textContent = total.toFixed(1);
@@ -1732,7 +1730,7 @@ function majTotalLigne(salarieId, dateStr) {
     const idSal  = row.dataset.salarie;
     const salRow = salaries.find(s => s.id == idSal);
     if (!salRow) return;
-    const prevuRow = (grilleHeuresPourDate(salRow, dObj))[cle] || 0;
+    const prevuRow = contratDuJour(salRow, dateStr);
     const totalRow = parseFloat(row.querySelector('.cell-total')?.textContent) || 0;
     const absRow   = parseFloat(row.querySelector("select[data-type='abs']")?.value) || 0;
     const ecartRow = totalRow - prevuRow + absRow;
