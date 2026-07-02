@@ -161,6 +161,25 @@ function afficherSalaries() {
   });
 }
 
+/* ── Apprenti / périodes d'école ── */
+let _joursEcoleModif = [];
+function toggleApprentiModif() {
+  const actif = document.getElementById('modif-apprenti')?.checked;
+  const bloc = document.getElementById('modif-bloc-apprenti');
+  if (bloc) bloc.style.display = actif ? 'block' : 'none';
+}
+function ouvrirCalendrierEcoleModif(id) {
+  const sal = salaries.find(s => s.id === id);
+  const nom = sal ? ((sal.prenom || '') + ' ' + (sal.nom || '')).trim() : '';
+  if (window.EcoleCal) {
+    window.EcoleCal.ouvrir(_joursEcoleModif, nom, function (jours) {
+      _joursEcoleModif = jours;
+      const sp = document.getElementById('modif-compteur-ecole');
+      if (sp) sp.textContent = jours.length ? (jours.length + ' jour' + (jours.length > 1 ? 's' : '') + " d'école") : 'Aucun jour';
+    });
+  }
+}
+
 /* ── Modale modification heures salarié ── */
 function ouvrirModifSalarie(id) {
   const sal = salaries.find(s => s.id === id);
@@ -169,6 +188,7 @@ function ouvrirModifSalarie(id) {
   const hA = (sal.alternance ? sal.heuresParJourA : sal.heuresParJour) || {};
   const hB = sal.heuresParJourB || {};
   const alternance = !!sal.alternance;
+  _joursEcoleModif = Array.isArray(sal.joursEcole) ? sal.joursEcole.slice() : [];
 
   let modale = document.getElementById('modale-modif-sal');
   if (!modale) {
@@ -204,6 +224,11 @@ function ouvrirModifSalarie(id) {
     + (sal.administratif ? '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#0f3a8a;margin-bottom:0.8rem;"><input type="checkbox" id="modif-planning" ' + (sal.planningPrevu ? 'checked' : '') + ' style="width:auto;"> 📋 Autoriser un planning prévu <span style="font-weight:400;color:#6b7280;font-size:0.8rem;">(affecter des chantiers, même sans heures)</span></label>' : '')
     + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.8rem;">'
     + '<input type="checkbox" id="modif-alt" ' + (alternance ? 'checked' : '') + ' onchange="toggleAltModif()" style="width:auto;"> Ce salarié alterne deux semaines (A / B)</label>'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;">'
+    + '<input type="checkbox" id="modif-apprenti" ' + (sal.apprenti ? 'checked' : '') + ' onchange="toggleApprentiModif()" style="width:auto;"> 🎓 Apprenti / alternant (périodes d\'école)</label>'
+    + '<div id="modif-bloc-apprenti" style="display:' + (sal.apprenti ? 'block' : 'none') + ';margin-bottom:0.8rem;">'
+    + '<button type="button" class="btn" onclick="ouvrirCalendrierEcoleModif(' + id + ')" style="background:#dbeafe;color:#1e40af;padding:5px 12px;font-size:0.82rem;">📅 Définir les périodes d\'école</button>'
+    + '<span id="modif-compteur-ecole" style="font-size:0.8rem;color:#6b7280;margin-left:8px;">' + (_joursEcoleModif.length ? (_joursEcoleModif.length + ' jour(s) d\'école') : 'Aucun jour') + '</span></div>'
     + '<p id="modif-labelA" style="font-size:0.85rem;color:#6b7280;margin:0 0 0.5rem;">' + (alternance ? 'Semaine A' : 'Heures contractuelles par jour') + '</p>'
     + '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:1rem;">'
     + grilleInputs('modif-', hA)
@@ -305,6 +330,15 @@ function sauverModifSalarie(id) {
     delete sal.heuresParJourA;
     delete sal.heuresParJourB;
     delete sal.bascules;
+  }
+
+  const estApprenti = document.getElementById('modif-apprenti')?.checked || false;
+  if (estApprenti) {
+    sal.apprenti = true;
+    sal.joursEcole = Array.isArray(_joursEcoleModif) ? _joursEcoleModif.slice() : [];
+  } else {
+    delete sal.apprenti;
+    delete sal.joursEcole;
   }
 
   localStorage.setItem('salariesdata', JSON.stringify(salaries));
@@ -529,6 +563,12 @@ function ajouterSalarie() {
     nouveau.bascules       = (typeof lireBascules === "function") ? lireBascules() : [];
   }
 
+  const apprenti = document.getElementById("apprentiCheck")?.checked || false;
+  if (apprenti) {
+    nouveau.apprenti = true;
+    nouveau.joursEcole = Array.isArray(window._joursEcoleAjout) ? window._joursEcoleAjout.slice() : [];
+  }
+
   salaries.push(nouveau);
   localStorage.setItem("salariesdata", JSON.stringify(salaries));
   afficherSalaries();
@@ -546,6 +586,7 @@ function ajouterSalarie() {
     const el = document.getElementById(id);
     if (el) el.value = "0";
   });
+  if (typeof window.resetApprentiAjout === "function") window.resetApprentiAjout();
 
   localStorage.setItem("majPlanning", Date.now().toString());
   alert("Salarié ajouté !");
