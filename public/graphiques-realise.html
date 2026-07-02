@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graphiques Réalisé – Suiv'Heures</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    color: #0f2747; background: #f4f7fb; font-size: 14px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px 20px 48px; }
+
+  .barre { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+  .titre { font-size: 1.15rem; font-weight: 700; margin: 0; color: #0f2747; }
+  .sous { font-size: 0.82rem; color: #64748b; }
+  .lien-retour { color: #2563eb; text-decoration: none; font-size: 0.88rem; }
+  .lien-retour:hover { text-decoration: underline; }
+
+  .filtres { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 18px; }
+  .filtres label.lbl { font-size: 0.82rem; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
+  .filtres input[type=month] { border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 0.9rem; }
+
+  .filtre-btn { min-width: 200px; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.9rem; user-select: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .filtre-btn:hover { border-color: #16a34a; }
+
+  .seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; padding: 7px 15px; font: inherit; font-size: 0.85rem; background: #fff; color: #64748b; cursor: pointer; }
+  .seg button.actif { background: #334155; color: #fff; }
+
+  .btn { border: 1px solid #cbd5e1; background: #fff; color: #0f2747; border-radius: 8px; padding: 7px 14px; font: inherit; font-size: 0.85rem; cursor: pointer; }
+  .btn:hover { background: #eef2f7; }
+
+  .cartes { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .carte { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; }
+  .carte .lbl { font-size: 0.78rem; color: #64748b; margin-bottom: 4px; }
+  .carte .val { font-size: 1.55rem; font-weight: 800; color: #0f2747; }
+  .carte .val.vert { color: #16a34a; }
+
+  .legende { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.78rem; color: #64748b; align-items: center; margin-bottom: 12px; }
+  .legende .it { display: flex; align-items: center; gap: 5px; }
+  .legende .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .legende .ln { width: 16px; height: 0; display: inline-block; }
+
+  .zone-graph { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+  .canvas-box { position: relative; width: 100%; height: 420px; }
+
+  .msg { padding: 40px; text-align: center; color: #64748b; }
+
+  .dropdown { display: none; position: fixed; background: #fff; border: 1px solid #d1d5db; min-width: 240px; max-height: 320px; z-index: 3000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px; flex-direction: column; }
+  .dropdown.open { display: flex; }
+  .dd-actions { display: flex; gap: 10px; padding: 6px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; }
+  .dd-actions span { cursor: pointer; color: #16a34a; text-decoration: underline; }
+  .dd-list { overflow-y: auto; flex: 1; padding: 4px 0; }
+  .dd-list label { display: flex; align-items: center; gap: 7px; padding: 5px 12px; font-size: 0.86rem; cursor: pointer; white-space: nowrap; }
+  .dd-list label:hover { background: #f0fdf4; }
+  .dd-footer { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid #f1f5f9; justify-content: flex-end; }
+  .dd-footer button { padding: 5px 14px; font-size: 0.82rem; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; }
+  .btn-ok { background: #16a34a; color: #fff; }
+  .btn-clr { background: #f3f4f6; color: #374151; }
+
+  .avert { display: none; }
+  @media (max-width: 820px) {
+    .avert { display: block; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; margin-bottom: 14px; }
+    .canvas-box { height: 340px; }
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    body { background: #fff; }
+    .wrap { padding: 0; max-width: none; }
+    .no-print { display: none !important; }
+    .zone-graph { border: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="barre no-print">
+    <a class="lien-retour" href="rapports-realise.html">← Rapports Réalisé</a>
+    <div>
+      <h1 class="titre">Heures contrat vs réalisé</h1>
+      <div class="sous" id="ent-nom"></div>
+    </div>
+  </div>
+
+  <div class="avert no-print">Cette vue est optimisée pour un écran d'ordinateur.</div>
+
+  <div class="filtres no-print">
+    <div>
+      <label class="lbl">Mois</label>
+      <input type="month" id="filtreMois">
+    </div>
+    <div>
+      <label class="lbl">Salarié(s)</label>
+      <div class="filtre-btn" id="btn-salarie"><span id="btn-salarie-txt">Tous</span><span>▼</span></div>
+    </div>
+    <div>
+      <label class="lbl">Affichage</label>
+      <div class="seg" id="seg">
+        <button id="btn-cumul" class="actif">Cumulé</button>
+        <button id="btn-parsal">Par salarié</button>
+      </div>
+    </div>
+    <button class="btn" id="btn-print">🖨️ Imprimer</button>
+  </div>
+
+  <div class="cartes" id="cartes" style="display:none;">
+    <div class="carte"><div class="lbl">Heures contrat</div><div class="val" id="c-contrat">—</div></div>
+    <div class="carte"><div class="lbl">Heures réalisées</div><div class="val vert" id="c-realise">—</div></div>
+    <div class="carte"><div class="lbl">Écart</div><div class="val" id="c-ecart">—</div></div>
+    <div class="carte"><div class="lbl">Taux de réalisation</div><div class="val" id="c-taux">—</div></div>
+  </div>
+
+  <div class="legende no-print" id="legende"></div>
+
+  <div class="zone-graph">
+    <div class="canvas-box">
+      <canvas id="graph"></canvas>
+    </div>
+    <div class="msg" id="msg" style="display:none;">Aucune donnée à afficher pour cette sélection.</div>
+  </div>
+
+</div>
+
+<div class="dropdown" id="dropdown">
+  <div class="dd-actions">
+    <span id="dd-tous">Tout sélectionner</span>
+    <span id="dd-aucun">Tout désélectionner</span>
+  </div>
+  <div class="dd-list" id="dd-list"></div>
+  <div class="dd-footer">
+    <button class="btn-clr" id="dd-annuler">Annuler</button>
+    <button class="btn-ok" id="dd-ok">OK</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  var ANTHRA = '#334155', VERT = '#16a34a', GRID = '#e2e8f0', INK = '#64748b';
+  var PALETTE = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function r1(x) { return Math.round(x * 10) / 10; }
+
+  var salaries = [];
+  try { salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) { salaries = []; }
+  if (!Array.isArray(salaries)) salaries = [];
+
+  try {
+    var ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    if (ent && ent.nom) document.getElementById('ent-nom').textContent = ent.nom;
+  } catch (e) {}
+
+  function token() { return localStorage.getItem('syncToken') || ''; }
+
+  /* ── Calendrier / alternance (repris de bev.html) ── */
+  function lundiDeLaSemaine(d) {
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var j = x.getDay();
+    var decal = (j === 0) ? -6 : (1 - j);
+    x.setDate(x.getDate() + decal);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+  function nbSemainesEntre(lundiRef, lundiCible) {
+    return Math.round((lundiCible - lundiRef) / (7 * 24 * 3600 * 1000));
+  }
+  function semaineAB(s, d) {
+    var bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+    if (!bascules.length) return 'A';
+    bascules.sort(function (a, b) { return a.date.localeCompare(b.date); });
+    var lundiCible = lundiDeLaSemaine(d);
+    var active = null;
+    for (var i = 0; i < bascules.length; i++) {
+      var lb = lundiDeLaSemaine(new Date(bascules[i].date + 'T00:00:00'));
+      if (lb <= lundiCible) active = { lundi: lb, semaine: bascules[i].semaine };
+    }
+    if (!active) {
+      var first = bascules[0];
+      var lbf = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+      var nf = nbSemainesEntre(lundiCible, lbf);
+      return (nf % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+    }
+    var n = nbSemainesEntre(active.lundi, lundiCible);
+    return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+  }
+  function grilleHeuresPourDate(s, d) {
+    if (s && s.alternance) {
+      var sem = semaineAB(s, d);
+      return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+    }
+    return s.heuresParJour || {};
+  }
+  var JOURS_KEYS = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];  // getDay() 1..6
+
+  function dansPeriode(s, d) {
+    if (s.dateEntree) {
+      var de = new Date(s.dateEntree + 'T00:00:00');
+      if (d < de) return false;
+    }
+    if (s.dateSortie) {
+      var ds = new Date(s.dateSortie + 'T00:00:00');
+      if (d > ds) return false;
+    }
+    return true;
+  }
+  function contratJour(s, d) {
+    if (!dansPeriode(s, d)) return 0;
+    var key = JOURS_KEYS[d.getDay()];
+    if (!key) return 0;
+    var g = grilleHeuresPourDate(s, d);
+    return parseFloat(g[key]) || 0;
+  }
+
+  /* ── État ── */
+  var selection = new Set(salaries.map(function (s) { return String(s.id); }));  // tous par défaut
+  var mode = 'cumul';
+  var chart = null;
+  var cacheReal = {};  // mois -> { salarieId -> { 'AAAA-MM-JJ' -> minutes } }
+
+  var elMois = document.getElementById('filtreMois');
+  var now = new Date();
+  elMois.value = now.getFullYear() + '-' + pad2(now.getMonth() + 1);
+
+  /* ── Dropdown salariés ── */
+  var dd = document.getElementById('dropdown');
+  var ddList = document.getElementById('dd-list');
+  var selTemp = null;
+
+  function libelle(s) { return ((s.prenom || '') + ' ' + (s.nom || '')).trim() || ('Salarié ' + s.id); }
+
+  function majBtnSalarie() {
+    var txt;
+    if (selection.size === 0) txt = 'Aucun';
+    else if (selection.size === salaries.length) txt = 'Tous';
+    else if (selection.size === 1) {
+      var only = salaries.find(function (s) { return selection.has(String(s.id)); });
+      txt = only ? libelle(only) : '1 salarié';
+    } else txt = selection.size + ' salariés';
+    document.getElementById('btn-salarie-txt').textContent = txt;
+  }
+
+  function ouvrirDropdown() {
+    selTemp = new Set(selection);
+    ddList.innerHTML = '';
+    salaries.slice().sort(function (a, b) { return libelle(a).localeCompare(libelle(b)); }).forEach(function (s) {
+      var id = String(s.id);
+      var lab = document.createElement('label');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = id; cb.checked = selTemp.has(id);
+      cb.addEventListener('change', function () {
+        if (cb.checked) selTemp.add(id); else selTemp.delete(id);
+      });
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(libelle(s)));
+      ddList.appendChild(lab);
+    });
+    var rect = document.getElementById('btn-salarie').getBoundingClientRect();
+    dd.style.left = rect.left + 'px';
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.classList.add('open');
+  }
+  function fermerDropdown() { dd.classList.remove('open'); }
+
+  document.getElementById('btn-salarie').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (dd.classList.contains('open')) fermerDropdown(); else ouvrirDropdown();
+  });
+  document.getElementById('dd-tous').addEventListener('click', function () {
+    selTemp = new Set(salaries.map(function (s) { return String(s.id); }));
+    ddList.querySelectorAll('input').forEach(function (cb) { cb.checked = true; });
+  });
+  document.getElementById('dd-aucun').addEventListener('click', function () {
+    selTemp = new Set();
+    ddList.querySelectorAll('input').forEach(function (cb) { cb.checked = false; });
+  });
+  document.getElementById('dd-annuler').addEventListener('click', fermerDropdown);
+  document.getElementById('dd-ok').addEventListener('click', function () {
+    selection = new Set(selTemp);
+    majBtnSalarie(); fermerDropdown(); recalculer();
+  });
+  document.addEventListener('click', function (e) {
+    if (dd.classList.contains('open') && !dd.contains(e.target) && e.target.id !== 'btn-salarie') fermerDropdown();
+  });
+
+  /* ── Bascule mode ── */
+  var bCumul = document.getElementById('btn-cumul');
+  var bParSal = document.getElementById('btn-parsal');
+  bCumul.addEventListener('click', function () { setMode('cumul'); });
+  bParSal.addEventListener('click', function () { setMode('parsal'); });
+  function setMode(m) {
+    mode = m;
+    bCumul.classList.toggle('actif', m === 'cumul');
+    bParSal.classList.toggle('actif', m === 'parsal');
+    render();
+  }
+
+  elMois.addEventListener('change', recalculer);
+  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+  /* ── Chargement du réalisé ── */
+  function chargerReal(mois) {
+    if (cacheReal[mois]) return Promise.resolve(cacheReal[mois]);
+    var tk = token();
+    if (!tk) { cacheReal[mois] = {}; return Promise.resolve(cacheReal[mois]); }
+    return fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + tk } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var parSal = {};
+        if (d && d.ok && Array.isArray(d.saisies)) {
+          d.saisies.forEach(function (s) {
+            var sid = String(s.salarieId);
+            var min = 0;
+            (s.chantiers || []).forEach(function (c) { min += parseFloat(c.dureeMin) || 0; });
+            if (!parSal[sid]) parSal[sid] = {};
+            parSal[sid][s.date] = (parSal[sid][s.date] || 0) + min;
+          });
+        }
+        cacheReal[mois] = parSal;
+        return parSal;
+      })
+      .catch(function () { cacheReal[mois] = {}; return cacheReal[mois]; });
+  }
+
+  /* ── Calcul de la série pour le mois + sélection ── */
+  var donnees = null;
+
+  function recalculer() {
+    var mois = elMois.value;
+    if (!mois) return;
+    chargerReal(mois).then(function (real) {
+      var parts = mois.split('-');
+      var an = parseInt(parts[0], 10), mo = parseInt(parts[1], 10) - 1;
+      var nbJours = new Date(an, mo + 1, 0).getDate();
+      var selIds = salaries.filter(function (s) { return selection.has(String(s.id)); });
+
+      var jours = [];
+      for (var jour = 1; jour <= nbJours; jour++) {
+        var d = new Date(an, mo, jour);
+        var contratTot = 0, realTot = 0;
+        var parSalJour = {};
+        selIds.forEach(function (s) {
+          var sid = String(s.id);
+          var cj = contratJour(s, d);
+          var rj = (real[sid] && real[sid][d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())]) || 0;
+          rj = rj / 60;
+          contratTot += cj;
+          realTot += rj;
+          parSalJour[sid] = { contrat: cj, real: rj };
+        });
+        if (contratTot > 0 || realTot > 0) {
+          jours.push({
+            label: pad2(jour) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()],
+            contrat: contratTot, real: realTot, parSal: parSalJour
+          });
+        }
+      }
+      donnees = { jours: jours, selIds: selIds };
+      render();
+    });
+  }
+
+  function render() {
+    var msg = document.getElementById('msg');
+    var cartes = document.getElementById('cartes');
+    var legende = document.getElementById('legende');
+    if (!donnees || !donnees.jours.length) {
+      if (chart) { chart.destroy(); chart = null; }
+      msg.style.display = 'block';
+      cartes.style.display = 'none';
+      legende.innerHTML = '';
+      return;
+    }
+    msg.style.display = 'none';
+    cartes.style.display = 'grid';
+
+    var jours = donnees.jours;
+    var labels = jours.map(function (j) { return j.label; });
+    var contrat = jours.map(function (j) { return r1(j.contrat); });
+    var real = jours.map(function (j) { return r1(j.real); });
+
+    var totC = contrat.reduce(function (a, b) { return a + b; }, 0);
+    var totR = real.reduce(function (a, b) { return a + b; }, 0);
+    var ecart = totR - totC;
+    var taux = totC > 0 ? Math.round(totR / totC * 100) : 0;
+
+    document.getElementById('c-contrat').textContent = r1(totC) + ' h';
+    document.getElementById('c-realise').textContent = r1(totR) + ' h';
+    var elE = document.getElementById('c-ecart');
+    elE.textContent = (ecart > 0 ? '+' : '') + r1(ecart) + ' h';
+    elE.style.color = ecart >= 0 ? '#16a34a' : '#dc2626';
+    var elT = document.getElementById('c-taux');
+    elT.textContent = taux + ' %';
+    elT.style.color = taux >= 100 ? '#16a34a' : (taux >= 90 ? '#f49d0a' : '#dc2626');
+
+    var cumC = [], cumR = [], aC = 0, aR = 0;
+    contrat.forEach(function (v, i) { aC += v; aR += real[i]; cumC.push(r1(aC)); cumR.push(r1(aR)); });
+
+    var datasets = [];
+    if (mode === 'cumul') {
+      datasets.push({ type: 'bar', label: 'Contrat / jour', data: contrat, backgroundColor: ANTHRA, borderRadius: 3, categoryPercentage: 0.7, barPercentage: 0.9, yAxisID: 'y', order: 3 });
+      datasets.push({ type: 'bar', label: 'Réalisé / jour', data: real, backgroundColor: VERT, borderRadius: 3, categoryPercentage: 0.7, barPercentage: 0.9, yAxisID: 'y', order: 3 });
+      datasets.push({ type: 'line', label: 'Cumul contrat', data: cumC, borderColor: ANTHRA, borderDash: [6, 4], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: ANTHRA, tension: 0.15, yAxisID: 'y1', order: 1 });
+      datasets.push({ type: 'line', label: 'Cumul réalisé', data: cumR, borderColor: VERT, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: VERT, tension: 0.15, yAxisID: 'y1', order: 1 });
+      legende.innerHTML =
+        '<span class="it"><span class="sw" style="background:' + ANTHRA + '"></span>Contrat / jour</span>' +
+        '<span class="it"><span class="sw" style="background:' + VERT + '"></span>Réalisé / jour</span>' +
+        '<span class="it"><span class="ln" style="border-top:2px dashed ' + ANTHRA + '"></span>Cumul contrat</span>' +
+        '<span class="it"><span class="ln" style="border-top:2px solid ' + VERT + '"></span>Cumul réalisé</span>';
+    } else {
+      datasets.push({ type: 'bar', label: 'Contrat / jour', data: contrat, backgroundColor: ANTHRA, borderRadius: 3, categoryPercentage: 0.7, barPercentage: 0.9, yAxisID: 'y', stack: 'ref', order: 3 });
+      var legHtml = '<span class="it"><span class="sw" style="background:' + ANTHRA + '"></span>Contrat / jour</span>';
+      donnees.selIds.forEach(function (s, idx) {
+        var sid = String(s.id);
+        var coul = PALETTE[idx % PALETTE.length];
+        var data = jours.map(function (j) { return r1((j.parSal[sid] && j.parSal[sid].real) || 0); });
+        datasets.push({ type: 'bar', label: libelle(s), data: data, backgroundColor: coul, borderRadius: 2, categoryPercentage: 0.7, barPercentage: 0.9, yAxisID: 'y', stack: 'real', order: 3 });
+        legHtml += '<span class="it"><span class="sw" style="background:' + coul + '"></span>' + libelle(s) + '</span>';
+      });
+      datasets.push({ type: 'line', label: 'Cumul contrat', data: cumC, borderColor: ANTHRA, borderDash: [6, 4], borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0.15, yAxisID: 'y1', order: 1 });
+      datasets.push({ type: 'line', label: 'Cumul réalisé (total)', data: cumR, borderColor: VERT, borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, tension: 0.15, yAxisID: 'y1', order: 1 });
+      legHtml += '<span class="it"><span class="ln" style="border-top:2px dashed ' + ANTHRA + '"></span>Cumul contrat</span>';
+      legHtml += '<span class="it"><span class="ln" style="border-top:2px solid ' + VERT + '"></span>Cumul réalisé</span>';
+      legende.innerHTML = legHtml;
+    }
+
+    var cfg = {
+      type: 'bar',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.label + ' : ' + r1(ctx.parsed.y) + ' h'; } } }
+        },
+        scales: {
+          x: { stacked: mode === 'parsal', ticks: { autoSkip: false, maxRotation: 0, minRotation: 0, color: INK, font: { size: 11 } }, grid: { display: false } },
+          y: { stacked: mode === 'parsal', beginAtZero: true, position: 'left', title: { display: true, text: 'Heures / jour', color: INK, font: { size: 11 } }, ticks: { color: INK, font: { size: 11 }, callback: function (v) { return v + 'h'; } }, grid: { color: GRID } },
+          y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'Cumul (h)', color: INK, font: { size: 11 } }, ticks: { color: INK, font: { size: 11 }, callback: function (v) { return v + 'h'; } }, grid: { display: false } }
+        }
+      }
+    };
+
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('graph'), cfg);
+  }
+
+  majBtnSalarie();
+  recalculer();
+})();
+</script>
+</body>
+</html>
