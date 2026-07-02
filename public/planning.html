@@ -286,6 +286,10 @@
 
   /* Absence */
   .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:9px; text-align:center; font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:7px; }
+  td.jour-ecole { background:#dbeafe !important; }
+  td.jour-ferie { background:#fef9c3 !important; }
+  .marque-ecole { display:flex; align-items:center; justify-content:center; gap:6px; font-weight:800; color:#1e40af; font-size:0.82rem; padding:16px 4px; border:1px dashed #93c5fd; border-radius:9px; background:#eff6ff; margin-bottom:7px; }
+  .marque-ferie { font-size:0.68rem; color:#a16207; font-weight:700; text-align:center; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px; }
   .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:3px; font-weight:700; font-size:0.72rem; }
   .abs-day .x { border:none; background:#fca5a5; color:#7f1d1d; border-radius:50%; width:18px; height:18px; font-size:0.62rem; cursor:pointer; line-height:1; padding:0; }
 
@@ -1099,7 +1103,17 @@ function genererPlanning(calerSemaine){
           actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button></div>`;
         }
         const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
-        cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}" data-salarie="${s.id}" data-date="${dateStr}"><div class="cellinner"><div class="chips">${chips}</div>${actions}${foot}</div></td>`;
+        const _estEcole = estJourEcolePl(s, dateStr);
+        const _estFerie = !_estEcole && estFeriePl(dateStr);
+        const _clsSpec = _estEcole ? ' jour-ecole' : (_estFerie ? ' jour-ferie' : '');
+        let _inner;
+        if (_estEcole) {
+          _inner = `<div class="cellinner"><div class="marque-ecole">🎓 École</div>${foot}</div>`;
+        } else {
+          const _labFerie = _estFerie ? `<div class="marque-ferie">${nomFeriePl(dateStr)}</div>` : '';
+          _inner = `<div class="cellinner">${_labFerie}<div class="chips">${chips}</div>${actions}${foot}</div>`;
+        }
+        cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}${_clsSpec}" data-salarie="${s.id}" data-date="${dateStr}">${_inner}</td>`;
       });
       const ecW=wT-wC;
       const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
@@ -1353,12 +1367,13 @@ function _plPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e
 function _plFeries(y){
   if(_plCacheFeries[y])return _plCacheFeries[y];
   var f={},pad=function(n){return String(n).padStart(2,'0');},isod=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
-  [[0,1],[4,1],[4,8],[6,14],[7,15],[10,1],[10,11],[11,25]].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=1;});
+  [[0,1,"Jour de l'an"],[4,1,'Fête du travail'],[4,8,'Victoire 1945'],[6,14,'Fête nationale'],[7,15,'Assomption'],[10,1,'Toussaint'],[10,11,'Armistice'],[11,25,'Noël']].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=x[2];});
   var p=_plPaques(y);
-  [1,39,50].forEach(function(n){var d=new Date(p);d.setDate(p.getDate()+n);f[isod(d)]=1;});
+  [[1,'Lundi de Pâques'],[39,'Ascension'],[50,'Lundi de Pentecôte']].forEach(function(x){var d=new Date(p);d.setDate(p.getDate()+x[0]);f[isod(d)]=x[1];});
   _plCacheFeries[y]=f;return f;
 }
 function estFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return !!_plFeries(y)[dateStr];}
+function nomFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return _plFeries(y)[dateStr]||'Férié';}
 function estJourEcolePl(s,dateStr){return !!(s&&s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(dateStr)!==-1);}
 
 function contratDuJour(s, dateStr) {
