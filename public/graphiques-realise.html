@@ -340,7 +340,6 @@
 
       // 1) Calcul de tous les jours du mois
       var tous = [];
-      var dernierIdxReal = -1;
       for (var jour = 1; jour <= nbJours; jour++) {
         var d = new Date(an, mo, jour);
         var contratTot = 0, realTot = 0;
@@ -358,19 +357,17 @@
           label: pad2(jour) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()],
           contrat: contratTot, real: realTot, parSal: parSalJour
         });
-        if (realTot > 0) dernierIdxReal = jour - 1;  // dernière journée effectivement pointée
       }
 
-      // 2) On ne conserve que la période réalisée (jusqu'au dernier jour pointé),
-      //    en excluant les jours totalement vides (dimanches, hors présence).
-      var jours = [];
-      if (dernierIdxReal >= 0) {
-        jours = tous.slice(0, dernierIdxReal + 1).filter(function (j) {
-          return j.contrat > 0 || j.real > 0;
-        });
-      }
+      // 2) Affichage : tout le mois (contrat à venir compris),
+      //    on retire seulement les jours totalement vides (dimanches, hors présence).
+      var jours = tous.filter(function (j) { return j.contrat > 0 || j.real > 0; });
 
-      donnees = { jours: jours, selIds: selIds };
+      // 3) Index du dernier jour effectivement pointé → borne des CALCULS (écart, taux, cumul réalisé).
+      var idxDernierReal = -1;
+      for (var i = 0; i < jours.length; i++) { if (jours[i].real > 0) idxDernierReal = i; }
+
+      donnees = { jours: jours, selIds: selIds, idxDernierReal: idxDernierReal };
       render();
     });
   }
@@ -390,12 +387,14 @@
     cartes.style.display = 'grid';
 
     var jours = donnees.jours;
+    var idxR = donnees.idxDernierReal;
     var labels = jours.map(function (j) { return j.label; });
     var contrat = jours.map(function (j) { return r1(j.contrat); });
     var real = jours.map(function (j) { return r1(j.real); });
 
-    var totC = contrat.reduce(function (a, b) { return a + b; }, 0);
-    var totR = real.reduce(function (a, b) { return a + b; }, 0);
+    // Écart et taux : uniquement sur la période réalisée (jusqu'au dernier jour pointé)
+    var totC = 0, totR = 0;
+    for (var i = 0; i <= idxR; i++) { totC += contrat[i]; totR += real[i]; }
     var ecart = totR - totC;
     var taux = totC > 0 ? Math.round(totR / totC * 100) : 0;
 
@@ -408,8 +407,14 @@
     elT.textContent = taux + ' %';
     elT.style.color = taux >= 100 ? '#16a34a' : (taux >= 90 ? '#f49d0a' : '#dc2626');
 
+    // Cumul contrat : sur tout le mois affiché. Cumul réalisé : borné à la période réalisée (coupé ensuite).
     var cumC = [], cumR = [], aC = 0, aR = 0;
-    contrat.forEach(function (v, i) { aC += v; aR += real[i]; cumC.push(r1(aC)); cumR.push(r1(aR)); });
+    contrat.forEach(function (v, i) {
+      aC += v;
+      cumC.push(r1(aC));
+      if (idxR >= 0 && i <= idxR) { aR += real[i]; cumR.push(r1(aR)); }
+      else { cumR.push(null); }
+    });
 
     var datasets = [];
     if (mode === 'cumul') {
