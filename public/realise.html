@@ -423,6 +423,20 @@ function majBtnFiltre(type) {
 }
 
 /* ══ AFFICHAGE ══ */
+/* Jours fériés français + jours d'école (neutralisés dans le contrat prévu) */
+const _reCacheFeries = {};
+function _rePaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+function _reFeries(y){
+  if(_reCacheFeries[y])return _reCacheFeries[y];
+  const f={},isod=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  [[0,1],[4,1],[4,8],[6,14],[7,15],[10,1],[10,11],[11,25]].forEach(x=>{f[isod(new Date(y,x[0],x[1]))]=1;});
+  const p=_rePaques(y);
+  [1,39,50].forEach(n=>{const d=new Date(p);d.setDate(p.getDate()+n);f[isod(d)]=1;});
+  _reCacheFeries[y]=f;return f;
+}
+function estFerieRe(d){const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');return !!_reFeries(d.getFullYear())[iso];}
+function estJourEcoleRe(sal,dateStr){return sal&&sal.apprenti&&Array.isArray(sal.joursEcole)&&sal.joursEcole.indexOf(dateStr)!==-1;}
+
 function afficherRealise() {
   const cont = document.getElementById('contenu-realise');
   const msgV = document.getElementById('msg-vide');
@@ -465,6 +479,8 @@ function afficherRealise() {
     const sortie = sal.dateSortie ? new Date(sal.dateSortie + 'T23:59:59') : null;
     if (entree && d < entree) return 0;
     if (sortie && d > sortie) return 0;
+    if (estFerieRe(d)) return 0;             // férié : personne ne travaille
+    if (estJourEcoleRe(sal, date)) return 0; // apprenti à l'école
     // Heures contractuelles : lun/mar/mer/jeu/ven/sam
     const hp = sal.heuresParJour || {};
     const nomJour = joursNoms[jourSemaine]; // 'lun','mar'...
