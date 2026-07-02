@@ -338,7 +338,9 @@
       var nbJours = new Date(an, mo + 1, 0).getDate();
       var selIds = salaries.filter(function (s) { return selection.has(String(s.id)); });
 
-      var jours = [];
+      // 1) Calcul de tous les jours du mois
+      var tous = [];
+      var dernierIdxReal = -1;
       for (var jour = 1; jour <= nbJours; jour++) {
         var d = new Date(an, mo, jour);
         var contratTot = 0, realTot = 0;
@@ -352,13 +354,22 @@
           realTot += rj;
           parSalJour[sid] = { contrat: cj, real: rj };
         });
-        if (contratTot > 0 || realTot > 0) {
-          jours.push({
-            label: pad2(jour) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()],
-            contrat: contratTot, real: realTot, parSal: parSalJour
-          });
-        }
+        tous.push({
+          label: pad2(jour) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()],
+          contrat: contratTot, real: realTot, parSal: parSalJour
+        });
+        if (realTot > 0) dernierIdxReal = jour - 1;  // dernière journée effectivement pointée
       }
+
+      // 2) On ne conserve que la période réalisée (jusqu'au dernier jour pointé),
+      //    en excluant les jours totalement vides (dimanches, hors présence).
+      var jours = [];
+      if (dernierIdxReal >= 0) {
+        jours = tous.slice(0, dernierIdxReal + 1).filter(function (j) {
+          return j.contrat > 0 || j.real > 0;
+        });
+      }
+
       donnees = { jours: jours, selIds: selIds };
       render();
     });
