@@ -445,6 +445,7 @@
       </div>
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
+      <button type="button" class="pl2-toolbtn" id="btn-absence-longue" onclick="alOuvrir()" title="Poser une absence sur une période à plusieurs salariés">🚫 Absence longue</button>
       <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
       <button type="button" class="pl2-toolbtn" id="btn-samedi" onclick="pl3ToggleSamedi()">👁 Afficher le samedi</button>
       <div class="pl2-jaugebox">
@@ -2477,6 +2478,258 @@ document.addEventListener('DOMContentLoaded', () => {
     clFermer();
     var nb = a.aRemplir.length + a.conflits.length;
     alert('Affectation du chantier « ' + chantier + ' » terminée.');
+  };
+})();
+</script>
+
+<div id="al-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;overflow:auto;padding:26px 12px;">
+  <div style="background:#fff;border-radius:12px;max-width:660px;margin:0 auto;box-shadow:0 20px 55px rgba(0,0,0,.35);font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#0f2747;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+      <div style="font-size:1.08rem;font-weight:700;">🚫 Absence longue</div>
+      <button type="button" onclick="alFermer()" style="border:none;background:transparent;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:16px 18px;">
+      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Motif de l'absence</label>
+      <select id="al-motif" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:14px;"></select>
+
+      <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Du</label>
+          <input type="date" id="al-du" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+        </div>
+        <div style="flex:1;min-width:130px;">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">Au</label>
+          <input type="date" id="al-au" style="width:100%;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+        </div>
+      </div>
+
+      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;">Salariés</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;font-weight:600;padding:4px 0;border-bottom:1px solid #eef2f7;margin-bottom:4px;">
+        <input type="checkbox" id="al-sal-tous" onclick="alToggleTousSal(this)"> Tout sélectionner
+      </label>
+      <div id="al-salaries" style="max-height:150px;overflow:auto;border:1px solid #e5e7eb;border-radius:7px;padding:6px 8px;margin-bottom:10px;"></div>
+
+      <div style="font-size:0.76rem;color:#64748b;margin-bottom:14px;">L'absence est posée sur la <b>journée entière</b> (heures du contrat). La durée reste ajustable ensuite dans le planning.</div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" onclick="alFermer()" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:7px;font:inherit;cursor:pointer;">Annuler</button>
+        <button type="button" onclick="alAnalyser()" style="padding:8px 16px;border:none;background:#2563eb;color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;">Analyser</button>
+      </div>
+
+      <div id="al-resultats" style="margin-top:16px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var _alAnalyse = null;
+
+  function alAujISO() { return alISO(new Date()); }
+  function alISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function alFrDate(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    var j = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
+    return j + ' ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function alFmt(h) { return (Math.round(h * 100) / 100) + ' h'; }
+
+  function alDansContrat(s, dObj) {
+    var entree = s.dateEntree ? new Date(s.dateEntree + 'T00:00:00') : null;
+    var sortie = s.dateSortie ? new Date(s.dateSortie + 'T23:59:59') : null;
+    if (entree && dObj < entree) return false;
+    if (sortie && dObj > sortie) return false;
+    return true;
+  }
+  function alAbs(sid, safe) { var e = heures[sid + safe + 'abs']; return parseFloat(e && e.heures) || 0; }
+  function alNbSlots(s) { return s.sav ? 10 : 5; }
+  function alSlotsLibres(sid, safe, nb) {
+    var out = [];
+    for (var i = 1; i <= nb; i++) {
+      var e = heures[sid + safe + 'ch' + i];
+      var nom = (e && e.chantier || '').trim();
+      if (!nom || nom.toUpperCase() === TNA) out.push(i);
+    }
+    return out;
+  }
+  function alChantiersReels(sid, safe, nb) {
+    var out = [];
+    for (var i = 1; i <= nb; i++) {
+      var k = sid + safe + 'ch' + i, e = heures[k];
+      var nom = (e && e.chantier || '').trim();
+      if (nom && nom.toUpperCase() !== TNA && nom.toLowerCase() !== 'absence') {
+        out.push({ i: i, k: k, nom: nom, heures: parseFloat(e.heures) || 0, entry: e });
+      }
+    }
+    return out;
+  }
+  function alPoserAbsence(sid, iso, duree, motif) {
+    var safe = iso.replace(/-/g, '_');
+    heures[sid + safe + 'abs'] = { chantier: 'absence', heures: Math.round(duree * 100) / 100, motif: motif };
+  }
+
+  window.alOuvrir = function () {
+    document.getElementById('al-motif').innerHTML = pl2MotifOptions('');
+    var auj = alAujISO();
+    var du = document.getElementById('al-du'), au = document.getElementById('al-au');
+    du.min = auj; au.min = auj;
+    if (!du.value || du.value < auj) du.value = auj;
+    var cont = document.getElementById('al-salaries');
+    cont.innerHTML = salaries.map(function (s) {
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
+        '<input type="checkbox" class="al-sal" value="' + s.id + '"> ' + s.prenom + ' ' + s.nom + '</label>';
+    }).join('');
+    document.getElementById('al-sal-tous').checked = false;
+    document.getElementById('al-resultats').innerHTML = '';
+    _alAnalyse = null;
+    document.getElementById('al-overlay').style.display = 'block';
+  };
+  window.alFermer = function () { document.getElementById('al-overlay').style.display = 'none'; };
+  window.alToggleTousSal = function (chk) { document.querySelectorAll('.al-sal').forEach(function (c) { c.checked = chk.checked; }); };
+  window.alMajAction = function (i) {
+    var sel = document.getElementById('al-act-' + i);
+    var dt = document.getElementById('al-date-' + i);
+    if (dt) dt.style.display = (sel.value === 'deplacer') ? 'inline-block' : 'none';
+  };
+
+  window.alAnalyser = function () {
+    var motif = document.getElementById('al-motif').value;
+    var du = document.getElementById('al-du').value;
+    var au = document.getElementById('al-au').value;
+    var salIds = [].slice.call(document.querySelectorAll('.al-sal:checked')).map(function (c) { return c.value; });
+    if (!motif) { alert('Choisis un motif d\'absence.'); return; }
+    if (!du || !au) { alert('Indique la période (Du / Au).'); return; }
+    if (au < du) { alert('La date de fin doit être postérieure à la date de début.'); return; }
+    if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
+
+    var auj = alAujISO();
+    var debut = du < auj ? auj : du;
+    var aPoser = [], conflits = [], ignores = 0;
+
+    salIds.forEach(function (sid) {
+      var s = salaries.find(function (x) { return String(x.id) === String(sid); });
+      if (!s) return;
+      var nb = alNbSlots(s);
+      var fin = new Date(au + 'T00:00:00');
+      for (var d = new Date(debut + 'T00:00:00'); d <= fin; d.setDate(d.getDate() + 1)) {
+        var dObj = new Date(d), iso = alISO(dObj), safe = iso.replace(/-/g, '_');
+        var contrat = contratDuJour(s, iso);
+        if (contrat <= 0) continue;
+        if (!alDansContrat(s, dObj)) continue;
+        var abs = alAbs(sid, safe);
+        if (abs >= contrat) { ignores++; continue; }
+        var reels = alChantiersReels(sid, safe, nb);
+        if (reels.length === 0) {
+          aPoser.push({ sid: sid, iso: iso, s: s, duree: contrat });
+        } else {
+          conflits.push({ sid: sid, iso: iso, s: s, reels: reels, contrat: contrat, abs: abs });
+        }
+      }
+    });
+
+    _alAnalyse = { motif: motif, aPoser: aPoser, conflits: conflits, ignores: ignores };
+    alAfficher();
+  };
+
+  function alAfficher() {
+    var a = _alAnalyse, box = document.getElementById('al-resultats');
+    var html = '<div style="border-top:1px solid #e5e7eb;padding-top:14px;">';
+
+    if (!a.aPoser.length && !a.conflits.length) {
+      html += '<div style="color:#64748b;">Aucun jour à poser sur cette période (jours non travaillés ou déjà en absence). ' +
+        (a.ignores ? a.ignores + ' jour(s) déjà absent(s).' : '') + '</div></div>';
+      box.innerHTML = html;
+      return;
+    }
+
+    html += '<div style="font-size:0.9rem;margin-bottom:10px;">' +
+      '<b>' + a.aPoser.length + '</b> jour(s) seront posés en absence « ' + a.motif + ' »' +
+      (a.conflits.length ? ' · <b style="color:#b45309;">' + a.conflits.length + '</b> jour(s) avec un chantier déjà programmé' : '') +
+      (a.ignores ? ' · ' + a.ignores + ' déjà absent(s)' : '') + '.</div>';
+
+    if (a.conflits.length) {
+      var auj = alAujISO();
+      html += '<div style="font-size:0.82rem;font-weight:600;margin:6px 0 6px;">Jours en conflit — choisis une action :</div>';
+      html += '<div style="max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;">';
+      a.conflits.forEach(function (c, i) {
+        var noms = c.reels.map(function (r) { return r.nom + ' (' + alFmt(r.heures) + ')'; }).join(', ');
+        html += '<div style="padding:8px 10px;border-bottom:1px solid #f1f5f9;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">' +
+          '<div style="flex:1;min-width:210px;font-size:0.82rem;">' +
+            '<b>' + c.s.prenom + ' ' + c.s.nom + '</b> · ' + alFrDate(c.iso) +
+            '<div style="color:#64748b;">déjà : ' + noms + '</div>' +
+          '</div>' +
+          '<select id="al-act-' + i + '" onchange="alMajAction(' + i + ')" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:0.8rem;">' +
+            '<option value="remplacer">Remplacer par l\'absence</option>' +
+            '<option value="deplacer">Déplacer le chantier…</option>' +
+            '<option value="ignorer">Ignorer ce jour</option>' +
+          '</select>' +
+          '<input type="date" id="al-date-' + i + '" min="' + auj + '" style="display:none;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font:inherit;font-size:0.8rem;">' +
+          '</div>';
+      });
+      html += '</div>';
+      html += '<div style="font-size:0.76rem;color:#64748b;margin-top:6px;">« Remplacer » retire le chantier du jour et pose l\'absence. « Déplacer » repose le chantier à la date choisie puis pose l\'absence.</div>';
+    }
+
+    html += '<div style="display:flex;justify-content:flex-end;margin-top:14px;">' +
+      '<button type="button" onclick="alValider()" style="padding:9px 18px;border:none;background:#16a34a;color:#fff;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;">Valider l\'absence</button></div>';
+    html += '</div>';
+    box.innerHTML = html;
+  }
+
+  window.alValider = function () {
+    if (!_alAnalyse) return;
+    var a = _alAnalyse, motif = a.motif;
+    var touched = {}, erreurs = [];
+    var auj = alAujISO();
+
+    a.aPoser.forEach(function (x) {
+      alPoserAbsence(x.sid, x.iso, x.duree, motif);
+      touched[x.sid + '|' + x.iso] = 1;
+    });
+
+    a.conflits.forEach(function (c, i) {
+      var sel = document.getElementById('al-act-' + i);
+      var action = sel ? sel.value : 'remplacer';
+      if (action === 'ignorer') return;
+      if (action === 'remplacer') {
+        c.reels.forEach(function (r) { delete heures[r.k]; });
+        alPoserAbsence(c.sid, c.iso, c.contrat, motif);
+        touched[c.sid + '|' + c.iso] = 1;
+        return;
+      }
+      var s = c.s, nb = alNbSlots(s);
+      var cible = document.getElementById('al-date-' + i) ? document.getElementById('al-date-' + i).value : '';
+      var nom = s.prenom + ' ' + s.nom;
+      if (!cible) { erreurs.push(nom + ' (' + alFrDate(c.iso) + ') : date de déplacement manquante'); return; }
+      if (cible < auj) { erreurs.push(nom + ' : ' + alFrDate(cible) + ' est une date passée'); return; }
+      var dCible = new Date(cible + 'T00:00:00');
+      if (contratDuJour(s, cible) <= 0 || !alDansContrat(s, dCible)) { erreurs.push(nom + ' : ' + alFrDate(cible) + ' n\'est pas un jour travaillé'); return; }
+      var safeCible = cible.replace(/-/g, '_');
+      var libresCible = alSlotsLibres(c.sid, safeCible, nb);
+      if (libresCible.length < c.reels.length) { erreurs.push(nom + ' : pas assez de créneaux libres le ' + alFrDate(cible)); return; }
+      c.reels.forEach(function (r, idx) {
+        var copie = {};
+        for (var p in r.entry) copie[p] = r.entry[p];
+        heures[c.sid + safeCible + 'ch' + libresCible[idx]] = copie;
+        delete heures[r.k];
+      });
+      touched[c.sid + '|' + cible] = 1;
+      alPoserAbsence(c.sid, c.iso, c.contrat, motif);
+      touched[c.sid + '|' + c.iso] = 1;
+    });
+
+    if (erreurs.length) { alert('Impossible de valider :\n\n- ' + erreurs.join('\n- ')); return; }
+
+    Object.keys(touched).forEach(function (t) {
+      var p = t.split('|');
+      appliquerTempsNonAffecte(p[0], p[1]);
+    });
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    genererPlanning(true);
+    alFermer();
+    alert('Absence « ' + motif + ' » posée.');
   };
 })();
 </script>
