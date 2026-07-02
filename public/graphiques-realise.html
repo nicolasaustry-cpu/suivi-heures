@@ -344,7 +344,7 @@
           d.saisies.forEach(function (s) {
             var sid = String(s.salarieId);
             var min = 0;
-            (s.chantiers || []).forEach(function (c) { min += parseFloat(c.dureeMin) || 0; });
+            (s.chantiers || []).forEach(function (c) { min += (parseFloat(c.dureeMin) || 0) + (parseFloat(c.deplacement) || 0); });
             if (!parSal[sid]) parSal[sid] = {};
             parSal[sid][s.date] = (parSal[sid][s.date] || 0) + min;
           });
