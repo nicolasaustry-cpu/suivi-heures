@@ -1148,8 +1148,8 @@ window.addEventListener('donnees-chargees', async () => {
     <div style="padding:16px;">
       <label style="font-size:0.82rem;color:#374151;">Salarié</label>
       <select id="ee-salarie" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;"></select>
-      <label style="font-size:0.82rem;color:#374151;">Jour</label>
-      <select id="ee-jour" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;"></select>
+      <label style="font-size:0.82rem;color:#374151;">Date</label>
+      <input type="date" id="ee-jour" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
       <div id="ee-conflit" style="display:none;font-size:0.82rem;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px;margin-bottom:12px;"></div>
       <div style="display:flex;gap:8px;">
         <button id="ee-valider" onclick="validerEditionEquipe()" style="flex:1;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Déplacer</button>
@@ -1176,9 +1176,7 @@ window.addEventListener('donnees-chargees', async () => {
     document.getElementById('ee-nom').textContent = nom;
     var salaries = []; try{ salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
     document.getElementById('ee-salarie').innerHTML = salaries.map(function(s){ return '<option value="'+s.id+'" '+(String(s.id)===String(salId)?'selected':'')+'>'+_eeEsc(((s.prenom||'')+' '+(s.nom||'')).trim())+'</option>'; }).join('');
-    var dates = joursSemaine();
-    var NOMS = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-    document.getElementById('ee-jour').innerHTML = dates.map(function(d){ var iso=_eeISO(d); return '<option value="'+iso+'" '+(iso===dateStr?'selected':'')+'>'+NOMS[d.getDay()]+' '+d.getDate()+'</option>'; }).join('');
+    document.getElementById('ee-jour').value = dateStr;
     var box=document.getElementById('ee-conflit'); box.style.display='none'; box.innerHTML='';
     document.getElementById('edit-equipe-modal').style.display='flex';
   };
