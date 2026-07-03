@@ -420,6 +420,9 @@
         <div class="leg-item"><div class="leg-color" style="background:#ffedd5;"></div> 90–100% (orange)</div>
         <div class="leg-item"><div class="leg-color" style="background:#dcfce7;"></div> &gt; 100% (vert)</div>
       </div>
+      <div class="info-vendables" style="font-size:0.85rem;color:#334155;text-align:center;line-height:1.35;">
+        <strong>H. vendables</strong> = (h. contrat − absences) × <b id="taux-vendables" style="color:#2563eb;">—</b>
+      </div>
       <div class="annee-selector">
         <label>Année :</label>
         <select id="selectAnnee" onchange="chargerAnnee()"></select>
@@ -676,10 +679,18 @@ function ajouterAnnee() {
 /* ═══════════════════════════════
    RENDU COMPLET
 ═══════════════════════════════ */
+function majTauxVendables() {
+  var el = document.getElementById('taux-vendables');
+  if (!el) return;
+  var s = _cvSeuilOrange();
+  if (s > 0) { el.textContent = s + ' %'; el.style.color = '#2563eb'; }
+  else { el.textContent = 'seuil non réglé'; el.style.color = '#dc2626'; }
+}
+
 function rendrePage() {
   rendreSynthese();
   rendreChantiers();
-
+  majTauxVendables();
 }
 
 /* ── LISTE DES 16 MOIS À AFFICHER ── */
