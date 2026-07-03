@@ -244,6 +244,11 @@
     var g = grilleHeuresPourDate(s, d);
     return parseFloat(g[key]) || 0;
   }
+  /* Heures d'absence posées (congé, maladie…) — à retirer du contrat */
+  function absenceJour(heures, s, isoS) {
+    var e = heures[String(s.id) + isoS.replace(/-/g, '_') + 'abs'];
+    return (e && parseFloat(e.heures)) || 0;
+  }
 
   /* ── État ── */
   var selection = new Set(salaries.map(function (s) { return String(s.id); }));  // tous par défaut
@@ -366,6 +371,8 @@
       var an = parseInt(parts[0], 10), mo = parseInt(parts[1], 10) - 1;
       var nbJours = new Date(an, mo + 1, 0).getDate();
       var selIds = salaries.filter(function (s) { return selection.has(String(s.id)); });
+      var heuresLoc = {};
+      try { heuresLoc = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) { heuresLoc = {}; }
 
       // 1) Calcul de tous les jours du mois
       var tous = [];
@@ -375,8 +382,9 @@
         var parSalJour = {};
         selIds.forEach(function (s) {
           var sid = String(s.id);
-          var cj = contratJour(s, d);
-          var rj = (real[sid] && real[sid][d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())]) || 0;
+          var isoJour = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+          var cj = Math.max(0, contratJour(s, d) - absenceJour(heuresLoc, s, isoJour));
+          var rj = (real[sid] && real[sid][isoJour]) || 0;
           rj = rj / 60;
           contratTot += cj;
           realTot += rj;

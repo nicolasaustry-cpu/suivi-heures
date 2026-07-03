@@ -224,6 +224,11 @@
     }
     return total;
   }
+  /* Heures d'absence posées (congé, maladie…) — à retirer du contrat */
+  function absenceJour(heures, s, isoS) {
+    var e = heures[String(s.id) + isoS.replace(/-/g, '_') + 'abs'];
+    return (e && parseFloat(e.heures)) || 0;
+  }
 
   /* ── État ── */
   var selection = new Set(salaries.map(function (s) { return String(s.id); }));
@@ -294,7 +299,7 @@
       var contratTot = 0, planifTot = 0, parSalJour = {};
       selIds.forEach(function (s) {
         var sid = String(s.id);
-        var cj = contratJour(s, d);
+        var cj = Math.max(0, contratJour(s, d) - absenceJour(heures, s, isoS));
         var pj = planifieJour(heures, s, isoS);
         contratTot += cj; planifTot += pj;
         parSalJour[sid] = { contrat: cj, planif: pj };
