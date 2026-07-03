@@ -650,7 +650,7 @@ function genererPlanning() {
 
       const hp    = grilleHeuresPourDate(s, d);
       const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
-      const prevu = hp[cle] || 0;
+      const prevu = (estFeriePlc(dateStr) || estJourEcolePlc(s, dateStr)) ? 0 : (hp[cle] || 0);
 
       let total = 0;
       const badgeAB = s.alternance
@@ -963,7 +963,23 @@ function estDatePassee(dateStr) {
   return d < auj;
 }
 
+/* Jours fériés français + jours d'école (neutralisés dans le contrat) */
+var _plcCacheF = {};
+function _plcPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+function _plcFeries(y){
+  if(_plcCacheF[y])return _plcCacheF[y];
+  var f={},pad=function(n){return String(n).padStart(2,'0');},isod=function(dd){return dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());};
+  [[0,1],[4,1],[4,8],[6,14],[7,15],[10,1],[10,11],[11,25]].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=1;});
+  var p=_plcPaques(y);
+  [1,39,50].forEach(function(n){var dd=new Date(p);dd.setDate(p.getDate()+n);f[isod(dd)]=1;});
+  _plcCacheF[y]=f;return f;
+}
+function estFeriePlc(dateStr){var y=parseInt(dateStr.slice(0,4),10);return !!_plcFeries(y)[dateStr];}
+function estJourEcolePlc(s,dateStr){return !!(s&&s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(dateStr)!==-1);}
+
 function contratDuJour(s, dateStr) {
+  if (estFeriePlc(dateStr)) return 0;
+  if (estJourEcolePlc(s, dateStr)) return 0;
   const [a, m, j] = dateStr.split('-').map(Number);
   const dObj = new Date(a, m - 1, j);
   const cle = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][dObj.getDay()];
