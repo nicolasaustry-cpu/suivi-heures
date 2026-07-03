@@ -182,9 +182,46 @@
     }
     return false;
   }
+  /* Contrat effectif mensuel (hors événements) pour les H. vendables auto */
+  var _gvJours = ['', 'lun','mar','mer','jeu','ven','sam'];
+  function _gvLundi(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); var j=x.getDay(); x.setDate(x.getDate()+((j===0)?-6:(1-j))); x.setHours(0,0,0,0); return x; }
+  function _gvNbSem(a,b){ return Math.round((b-a)/(7*24*3600*1000)); }
+  function _gvSemaineAB(s,d){ var bs=Array.isArray(s.bascules)?s.bascules.slice():[]; if(!bs.length)return 'A'; bs.sort(function(a,b){return a.date.localeCompare(b.date);}); var lc=_gvLundi(d),active=null; for(var i=0;i<bs.length;i++){var lb=_gvLundi(new Date(bs[i].date+'T00:00:00')); if(lb<=lc)active={lundi:lb,semaine:bs[i].semaine};} if(!active){var f=bs[0],lbf=_gvLundi(new Date(f.date+'T00:00:00')),nf=_gvNbSem(lc,lbf); return (nf%2===0)?f.semaine:(f.semaine==='A'?'B':'A');} var n=_gvNbSem(active.lundi,lc); return (n%2===0)?active.semaine:(active.semaine==='A'?'B':'A'); }
+  function _gvGrille(s,d){ if(s&&s.alternance){var sem=_gvSemaineAB(s,d); return (sem==='B'?s.heuresParJourB:s.heuresParJourA)||{};} return s.heuresParJour||{}; }
+  var _gvCacheF={};
+  function _gvPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+  function _gvFeries(y){ if(_gvCacheF[y])return _gvCacheF[y]; var f={},isod=function(dd){return dd.getFullYear()+'-'+pad2(dd.getMonth()+1)+'-'+pad2(dd.getDate());}; [[0,1],[4,1],[4,8],[6,14],[7,15],[10,1],[10,11],[11,25]].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=1;}); var p=_gvPaques(y); [1,39,50].forEach(function(n){var dd=new Date(p);dd.setDate(p.getDate()+n);f[isod(dd)]=1;}); _gvCacheF[y]=f; return f; }
+  function _gvEstFerie(d){ var iso=d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); return !!_gvFeries(d.getFullYear())[iso]; }
+  function _gvDansPeriode(s,d){ if(s.dateEntree){var de=new Date(s.dateEntree+'T00:00:00'); if(d<de)return false;} if(s.dateSortie){var ds=new Date(s.dateSortie+'T00:00:00'); if(d>ds)return false;} return true; }
+  var _gvCacheCE={};
+  function _gvContratEffectifMois(annee, mois){
+    var key=annee+'-'+mois; if(_gvCacheCE[key]!=null)return _gvCacheCE[key];
+    var salaries=[], hh={};
+    try{ salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
+    try{ hh=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
+    if(!Array.isArray(salaries)) salaries=[];
+    var nbJours=new Date(annee,mois+1,0).getDate(), total=0;
+    salaries.forEach(function(s){
+      for(var j=1;j<=nbJours;j++){
+        var d=new Date(annee,mois,j), iso=annee+'-'+pad2(mois+1)+'-'+pad2(j);
+        if(!_gvDansPeriode(s,d))continue;
+        if(_gvEstFerie(d))continue;
+        var jk=_gvJours[d.getDay()]; if(!jk)continue;
+        var contrat=parseFloat(_gvGrille(s,d)[jk])||0; if(contrat<=0)continue;
+        var absence;
+        if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;
+        else { var e=hh[String(s.id)+iso.replace(/-/g,'_')+'abs']; absence=(e&&parseFloat(e.heures))||0; }
+        total+=Math.max(0,contrat-absence);
+      }
+    });
+    _gvCacheCE[key]=total; return total;
+  }
+  function _gvSeuilOrange(){
+    try{ var ent=JSON.parse(localStorage.getItem('entreprisedata')||'{}'); if(ent&&ent.orange!=null)return parseFloat(ent.orange)||0; }catch(e){}
+    return parseInt(localStorage.getItem('jaugeOrange'))||0;
+  }
   function vendablesMois(y, m) {
-    var dm = data[y] && data[y][m];
-    return dm ? (parseFloat(dm.hVendables) || 0) : 0;
+    return _gvContratEffectifMois(y, m) * _gvSeuilOrange() / 100;
   }
   function realMois(nomUp, y, m) {
     var mois = y + '-' + pad2(m + 1);
