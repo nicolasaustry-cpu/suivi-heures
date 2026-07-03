@@ -244,7 +244,7 @@ function imprimerBEV() { ajusterEchelleBEV(); window.print(); }
 window.addEventListener('beforeprint', ajusterEchelleBEV);
 let _prevuMois = 0;
 let _compteMois = 0;
-const EVENEMENTS = ['', 'Congé', 'Maladie', 'RTT', 'Récupération', 'Congé sans solde', 'Formation', 'Intempéries', 'Autre'];
+const EVENEMENTS = ['', 'Congé', 'Maladie', 'RTT', 'Récupération', 'Congé sans solde', 'Formation', 'Intempéries', 'École', 'Autre'];
 function optionsEvt(sel) { return EVENEMENTS.map(function(e){ return '<option value="' + e + '"' + (e === sel ? ' selected' : '') + '>' + (e || '—') + '</option>'; }).join(''); }
 
 /* ── Indemnités de petits déplacements ── */
@@ -445,14 +445,18 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const k = cle(d);
     const key = JOURS_KEYS[d.getDay()];
     let contrat = 0;
-    if (key && dansContrat(sal, d) && !estFerieBev(k) && !estJourEcoleBev(sal, k)) {
+    if (key && dansContrat(sal, d) && !estFerieBev(k)) {
       const grille = grilleHeuresPourDate(sal, d);
       contrat = Number(grille[key]) || 0;
     }
     const safe = k.replace(/-/g, '_');
     const _abs = _hAbs[sal.id + safe + 'abs'];
-    const tempsEvt = parseFloat(_abs && _abs.heures || 0) || 0;
-    const motif    = (_abs && _abs.motif) || '';   // événement = motif d'absence saisi au Planning
+    let tempsEvt = parseFloat(_abs && _abs.heures || 0) || 0;
+    let motif    = (_abs && _abs.motif) || '';   // événement = motif d'absence saisi au Planning
+    if (estJourEcoleBev(sal, k)) {               // jour d'école = absence journée « École » (calendrier = source)
+      tempsEvt = contrat;
+      motif = 'École';
+    }
     const base     = Math.max(0, r2(contrat - tempsEvt));
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);

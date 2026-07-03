@@ -783,8 +783,7 @@ function pl3MajSemaine(){
     let wT=0,wC=0;
     tr.querySelectorAll('td[data-salarie][data-date]').forEach(td=>{
       wT += parseFloat(td.querySelector('.cell-total')?.textContent)||0;
-      const s=salaries.find(x=>String(x.id)===String(td.dataset.salarie)); if(!s) return;
-      wC += contratDuJour(s, td.dataset.date);
+      wC += parseFloat(td.querySelector('.cell-prevu')?.textContent)||0;
     });
     const ecW=wT-wC;
     tw.innerHTML = `${pl2Fmt(wT)}<span class="sub">contrat ${pl2Fmt(wC)} · <span class="${pl2EcartCls(ecW)}">${pl2Sgn(ecW)}</span></span>`;
@@ -1080,7 +1079,7 @@ function genererPlanning(calerSemaine){
         if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
         const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
         const C=lireCellule(s,dateStr); const prevu=contratDuJour(s,dateStr);
-        wT+=C.total; wC+=prevu; if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
+        wT+=C.total; wC+=Math.max(0,prevu-C.abs); if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
 
         let chips='';
         if(C.abs>0){
@@ -1109,7 +1108,8 @@ function genererPlanning(calerSemaine){
         const _clsSpec = _estEcole ? ' jour-ecole' : (_estFerie ? ' jour-ferie' : '');
         let _inner;
         if (_estEcole) {
-          _inner = `<div class="cellinner"><div class="marque-ecole">🎓 École</div>${foot}</div>`;
+          const _hEcole = (grilleHeuresPourDate(s, d))[cle] || 0;
+          _inner = `<div class="cellinner"><div class="abs-day" style="background:#eff6ff;border-color:#93c5fd;color:#1e40af;">🎓 École${_hEcole ? ' · ' + _hEcole.toFixed(1) + ' h' : ''}</div>${foot}</div>`;
         } else {
           const _labFerie = _estFerie ? `<div class="marque-ferie">${nomFeriePl(dateStr)}</div>` : '';
           _inner = `<div class="cellinner">${_labFerie}<div class="chips">${chips}</div>${actions}${foot}</div>`;
