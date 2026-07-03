@@ -1969,6 +1969,20 @@ function rendreMonPlanning() {
     ov.querySelector('#mon-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
     ov.querySelector('#mon-planning-prec').addEventListener('click', function () { naviguerMonPlanning(-1); });
     ov.querySelector('#mon-planning-suiv').addEventListener('click', function () { naviguerMonPlanning(1); });
+    // Swipe horizontal pour changer de semaine (mobile)
+    (function () {
+      var x0 = 0, y0 = 0, actif = false;
+      ov.addEventListener('touchstart', function (e) {
+        if (e.touches.length !== 1) { actif = false; return; }
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; actif = true;
+      }, { passive: true });
+      ov.addEventListener('touchend', function (e) {
+        if (!actif) return; actif = false;
+        var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+        if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;   // swipe horizontal net requis
+        if (dx < 0) naviguerMonPlanning(1); else naviguerMonPlanning(-1);      // gauche → suivante, droite → précédente
+      }, { passive: true });
+    })();
   }
 
   const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];

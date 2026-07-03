@@ -1230,6 +1230,25 @@ window.addEventListener('donnees-chargees', async () => {
     window.fermerEditionEquipe();
     genererGrille({conserverScroll:true});
   };
+
+  /* Swipe horizontal « au bord » pour changer de semaine (mobile) */
+  (function(){
+    var wrap = document.getElementById('grille-wrap');
+    if(!wrap) return;
+    var x0=0, y0=0, actif=false;
+    wrap.addEventListener('touchstart', function(e){
+      if(e.touches.length!==1 || (e.target.closest && e.target.closest('.drag-grip'))){ actif=false; return; }
+      x0=e.touches[0].clientX; y0=e.touches[0].clientY; actif=true;
+    }, {passive:true});
+    wrap.addEventListener('touchend', function(e){
+      if(!actif) return; actif=false;
+      var dx=e.changedTouches[0].clientX - x0, dy=e.changedTouches[0].clientY - y0;
+      if(Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)*1.5) return;   // pas un swipe horizontal net
+      var maxS = wrap.scrollWidth - wrap.clientWidth;
+      if(dx < 0 && wrap.scrollLeft >= maxS - 3){ if(typeof semaineDecalage==='function') semaineDecalage(1); }        // vers la gauche au bord droit → semaine suivante
+      else if(dx > 0 && wrap.scrollLeft <= 3){ if(typeof semaineDecalage==='function') semaineDecalage(-1); }         // vers la droite au bord gauche → semaine précédente
+    }, {passive:true});
+  })();
 })();
 </script>
 
