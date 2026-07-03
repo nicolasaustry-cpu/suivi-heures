@@ -308,7 +308,10 @@
         jours.push({ label: pad2(jour) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()], contrat: contratTot, planif: planifTot, parSal: parSalJour });
       }
     }
-    donnees = { jours: jours, selIds: selIds };
+    // Dernier jour effectivement planifié → borne des calculs (écart, taux, cumul planifié)
+    var idxDernierPlanif = -1;
+    for (var i = 0; i < jours.length; i++) { if (jours[i].planif > 0) idxDernierPlanif = i; }
+    donnees = { jours: jours, selIds: selIds, idxDernierPlanif: idxDernierPlanif };
     render();
   }
 
@@ -321,12 +324,14 @@
     msg.style.display = 'none'; cartes.style.display = 'grid';
 
     var jours = donnees.jours;
+    var idxP = donnees.idxDernierPlanif;
     var labels = jours.map(function (j) { return j.label; });
     var contrat = jours.map(function (j) { return r1(j.contrat); });
     var planif = jours.map(function (j) { return r1(j.planif); });
 
-    var totC = contrat.reduce(function (a, b) { return a + b; }, 0);
-    var totP = planif.reduce(function (a, b) { return a + b; }, 0);
+    // Écart et taux : uniquement sur la période planifiée (jusqu'au dernier jour planifié)
+    var totC = 0, totP = 0;
+    for (var i = 0; i <= idxP; i++) { totC += contrat[i]; totP += planif[i]; }
     var ecart = totP - totC;
     var taux = totC > 0 ? Math.round(totP / totC * 100) : 0;
 
@@ -339,8 +344,14 @@
     elT.textContent = taux + ' %';
     elT.style.color = taux >= 100 ? '#16a34a' : (taux >= 90 ? '#f49d0a' : '#dc2626');
 
+    // Cumul contrat : tout le mois. Cumul planifié : borné à la période planifiée (coupé ensuite).
     var cumC = [], cumP = [], aC = 0, aP = 0;
-    contrat.forEach(function (v, i) { aC += v; aP += planif[i]; cumC.push(r1(aC)); cumP.push(r1(aP)); });
+    contrat.forEach(function (v, i) {
+      aC += v;
+      cumC.push(r1(aC));
+      if (idxP >= 0 && i <= idxP) { aP += planif[i]; cumP.push(r1(aP)); }
+      else { cumP.push(null); }
+    });
 
     var datasets = [];
     if (mode === 'cumul') {
