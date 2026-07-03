@@ -457,6 +457,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       tempsEvt = contrat;
       motif = 'École';
     }
+    if (tempsEvt <= 0) motif = '';               // plus d'absence effective → pas de motif résiduel
     const base     = Math.max(0, r2(contrat - tempsEvt));
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
