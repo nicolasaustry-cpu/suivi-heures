@@ -844,10 +844,11 @@ function pl2SemaineDates(salarieId, dateStr){
   const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
   const entree=new Date(s.dateEntree); const sortie=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
   const out=[];
-  // Semaine complète (lun→sam), y compris les jours d'un mois voisin (semaine à cheval) :
-  // l'absence couvre toute la semaine affichée, sans la tronquer au bord du mois.
+  // À partir du jour cliqué jusqu'au samedi (pas d'effet rétroactif : les jours déjà
+  // passés de la semaine ne sont pas modifiés), y compris un mois voisin (semaine à cheval) :
   for(let i=0;i<6;i++){
     const dd=new Date(lun); dd.setDate(lun.getDate()+i);
+    if(dd<d) continue;   // ne rien changer avant le jour cliqué
     if(dd<entree || (sortie&&dd>sortie)) continue;
     out.push(dd);
   }
