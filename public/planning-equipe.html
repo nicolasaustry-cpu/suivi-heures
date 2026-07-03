@@ -661,8 +661,12 @@ function htmlChip(c) {
   const hrsHtml = _modeStandard
     ? `<span class="hp">h prévues : ${fmtHM(c.hPlan)}</span>`
     : `<span class="hp">h plan. : ${fmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${fmtHM(c.hReal)}</span>`;
-  return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}">
-    <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${grip}</div>
+  const _estTNA = (c.nom || '').toUpperCase() === 'TEMPS NON AFFECTE';
+  const editBtn = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim())
+    ? `<button type="button" class="chip-edit" title="Modifier / déplacer / supprimer" onclick="ouvrirEditionEquipe(this)" style="flex:0 0 auto;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">✏️</button>`
+    : '';
+  return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}">
+    <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
     <div class="chip-hrs">${hrsHtml}</div>
   </div>`;
 }
@@ -1136,6 +1140,99 @@ window.addEventListener('donnees-chargees', async () => {
   genererGrille();
   ajusterHauteur();
 });
+</script>
+
+<div id="edit-equipe-modal" style="display:none;position:fixed;inset:0;z-index:3200;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:14px;max-width:360px;width:100%;box-shadow:0 12px 44px rgba(0,0,0,0.3);overflow:hidden;">
+    <div style="background:#0f3a8a;color:#fff;padding:12px 16px;font-weight:700;">Modifier « <span id="ee-nom"></span> »</div>
+    <div style="padding:16px;">
+      <label style="font-size:0.82rem;color:#374151;">Salarié</label>
+      <select id="ee-salarie" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;"></select>
+      <label style="font-size:0.82rem;color:#374151;">Jour</label>
+      <select id="ee-jour" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;"></select>
+      <div id="ee-conflit" style="display:none;font-size:0.82rem;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button id="ee-valider" onclick="validerEditionEquipe()" style="flex:1;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Déplacer</button>
+        <button onclick="fermerEditionEquipe()" style="flex:0 0 auto;background:#eef2f7;border:none;color:#475569;border-radius:8px;padding:10px 14px;cursor:pointer;">Annuler</button>
+      </div>
+      <button onclick="supprimerEditionEquipe()" style="width:100%;margin-top:10px;background:#fee2e2;border:none;color:#b91c1c;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">🗑️ Supprimer du planning</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function _eeISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function _eeEsc(s){ return String(s||'').replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+  var _editEquipe = null;
+
+  window.ouvrirEditionEquipe = function(btn){
+    var chip = btn.closest('.chip'); var cell = btn.closest('td[data-cell]');
+    if(!chip || !cell) return;
+    var nom = chip.getAttribute('data-nom'); var rdv = chip.getAttribute('data-rdv')||'';
+    var dc = cell.getAttribute('data-cell'); var us = dc.indexOf('_');
+    var salId = dc.slice(0, us); var dateStr = dc.slice(us+1);
+    _editEquipe = { salIdSource: salId, dateSource: dateStr, nom: nom, rdv: rdv };
+    document.getElementById('ee-nom').textContent = nom;
+    var salaries = []; try{ salaries = JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
+    document.getElementById('ee-salarie').innerHTML = salaries.map(function(s){ return '<option value="'+s.id+'" '+(String(s.id)===String(salId)?'selected':'')+'>'+_eeEsc(((s.prenom||'')+' '+(s.nom||'')).trim())+'</option>'; }).join('');
+    var dates = joursSemaine();
+    var NOMS = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    document.getElementById('ee-jour').innerHTML = dates.map(function(d){ var iso=_eeISO(d); return '<option value="'+iso+'" '+(iso===dateStr?'selected':'')+'>'+NOMS[d.getDay()]+' '+d.getDate()+'</option>'; }).join('');
+    var box=document.getElementById('ee-conflit'); box.style.display='none'; box.innerHTML='';
+    document.getElementById('edit-equipe-modal').style.display='flex';
+  };
+
+  window.fermerEditionEquipe = function(){ document.getElementById('edit-equipe-modal').style.display='none'; _editEquipe=null; };
+
+  window.validerEditionEquipe = function(force){
+    if(!_editEquipe) return;
+    var heures={}, salaries=[];
+    try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
+    try{ salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
+    var salIdT=document.getElementById('ee-salarie').value;
+    var dateT=document.getElementById('ee-jour').value;
+    var nom=_editEquipe.nom, rdv=_editEquipe.rdv, salIdS=_editEquipe.salIdSource, dateS=_editEquipe.dateSource;
+    var safeS=dateS.replace(/-/g,'_'), safeT=dateT.replace(/-/g,'_');
+    var slotSourceK=null, slotSourceData=null, i, k, d;
+    for(i=1;i<=5;i++){ k=salIdS+safeS+'ch'+i; d=heures[k]; if(d && String(d.chantier||'').trim()===nom){ slotSourceK=k; slotSourceData=d; break; } }
+    if(!slotSourceK){ alert('Chantier introuvable.'); return; }
+    if(String(salIdT)===String(salIdS) && dateT===dateS){ window.fermerEditionEquipe(); return; }
+    var conflits=[], salT=salaries.find(function(s){return String(s.id)===String(salIdT);});
+    var absT=parseFloat((heures[salIdT+safeT+'abs']||{}).heures)||0;
+    var estEcole = salT && salT.apprenti && Array.isArray(salT.joursEcole) && salT.joursEcole.indexOf(dateT)!==-1;
+    if(estEcole) conflits.push('🎓 '+((salT&&salT.prenom)||'Le salarié')+' est à l\'école ce jour-là.');
+    else if(absT>0) conflits.push('🚫 '+((salT&&salT.prenom)||'Le salarié')+' est absent ce jour-là.');
+    var cibleK=null;
+    for(i=1;i<=5;i++){ k=salIdT+safeT+'ch'+i; d=heures[k]; var n=String(d&&d.chantier||'').trim(); if(!n || n.toUpperCase()==='TEMPS NON AFFECTE'){ cibleK=k; break; } }
+    if(!cibleK){ var b1=document.getElementById('ee-conflit'); b1.innerHTML='⛔ La journée de ce salarié est pleine (5 chantiers). Libère un créneau avant de déplacer.'; b1.style.display='block'; return; }
+    if(rdv){ for(i=1;i<=5;i++){ k=salIdT+safeT+'ch'+i; d=heures[k]; if(d && String(d.rdv||'').trim()===rdv){ conflits.push('🕐 '+((salT&&salT.prenom)||'Le salarié')+' a déjà un RDV à '+rdv+'.'); break; } } }
+    if(conflits.length && !force){
+      var b2=document.getElementById('ee-conflit');
+      b2.innerHTML=conflits.join('<br>')+'<div style="margin-top:8px;"><button onclick="validerEditionEquipe(true)" style="background:#dc2626;border:none;color:#fff;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;">Forcer le déplacement</button></div>';
+      b2.style.display='block'; return;
+    }
+    var copie={}; for(var p in slotSourceData) copie[p]=slotSourceData[p];
+    delete heures[slotSourceK];
+    heures[cibleK]=copie;
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
+    window.fermerEditionEquipe();
+    genererGrille({conserverScroll:true});
+  };
+
+  window.supprimerEditionEquipe = function(){
+    if(!_editEquipe) return;
+    if(!confirm('Supprimer « '+_editEquipe.nom+' » du planning de ce jour ?')) return;
+    var heures={}; try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
+    var safeS=_editEquipe.dateSource.replace(/-/g,'_');
+    for(var i=1;i<=5;i++){ var k=_editEquipe.salIdSource+safeS+'ch'+i; var d=heures[k]; if(d && String(d.chantier||'').trim()===_editEquipe.nom){ delete heures[k]; break; } }
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
+    window.fermerEditionEquipe();
+    genererGrille({conserverScroll:true});
+  };
+})();
 </script>
 
 </body>
