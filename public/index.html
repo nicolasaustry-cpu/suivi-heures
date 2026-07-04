@@ -298,10 +298,13 @@ window.addEventListener('donnees-chargees', chargerDelaiDefaut);
 <!-- Guide de prise en main : ouverture dans une fenêtre séparée qui reste affichée pendant la navigation -->
 <script>
 function ouvrirGuide() {
+  var larg = 940;
+  var haut = Math.min(880, (screen.availHeight || 900) - 40);
+  var gauche = Math.max(0, (screen.availWidth || 1280) - larg - 24);
   var w = window.open(
     'mode-emploi.html',
     'guideSuivHeures',
-    'width=920,height=820,resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no'
+    'width=' + larg + ',height=' + haut + ',left=' + gauche + ',top=40,resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no'
   );
   if (w) { w.focus(); }
 }

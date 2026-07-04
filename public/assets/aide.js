@@ -12,23 +12,27 @@
   let _charge = false;
 
   // ── Tuto par page : chaque page ouvre sa section du mode d'emploi ──
-  const GUIDE_ANCRES = {
-    'index.html': 'e1',            // Entreprise
-    'salaries.html': 'e2',         // Salariés
-    'chantiers.html': 'e3',        // Prévisionnel
-    'planning.html': 'e4',         // Planning prévu
-    'planning-equipe.html': 'e5',  // Vue équipe
-    'saisie.html': 'e6',           // Saisie mobile
-    'bev.html': 'e7'               // BEV
+  const GUIDE_FICHIERS = {
+    'index.html': 'tuto-entreprise.html',            // Entreprise
+    'salaries.html': 'tuto-salaries.html',           // Salariés
+    'chantiers.html': 'tuto-previsionnel.html',      // Prévisionnel
+    'planning.html': 'tuto-planning.html',           // Planning prévu
+    'planning-equipe.html': 'tuto-vue-equipe.html',  // Vue équipe
+    'saisie.html': 'tuto-saisie-mobile.html',        // Saisie mobile
+    'bev.html': 'tuto-bev.html'                      // BEV
   };
   function _pageActuelle() {
     return (window.location.pathname.split('/').pop() || 'index.html');
   }
-  function _ouvrirGuide(ancre) {
-    const url = 'mode-emploi.html' + (ancre ? '#' + ancre : '');
-    const w = window.open(url, 'guideSuivHeures',
-      'width=920,height=820,resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no');
-    if (w) { try { w.focus(); if (ancre) w.location.hash = ancre; } catch (e) {} }
+  // Ouvre un tuto dans une fenêtre séparée, positionnée à droite de l'écran.
+  function _ouvrirGuide(fichier) {
+    const larg = 940;
+    const haut = Math.min(880, (screen.availHeight || 900) - 40);
+    const gauche = Math.max(0, (screen.availWidth || 1280) - larg - 24);
+    const w = window.open(fichier, 'guideSuivHeures',
+      'width=' + larg + ',height=' + haut + ',left=' + gauche + ',top=40,' +
+      'resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no');
+    if (w) { try { w.focus(); } catch (e) {} }
   }
 
   // ── Recherche intelligente : normalisation, mots vides, synonymes ──
@@ -186,14 +190,14 @@
     const wrap = document.createElement('span');
     wrap.className = 'sh-entete-actions';
 
-    const ancre = GUIDE_ANCRES[_pageActuelle()];
-    if (ancre) {
+    const fichier = GUIDE_FICHIERS[_pageActuelle()];
+    if (fichier) {
       const bTuto = document.createElement('button');
       bTuto.type = 'button';
       bTuto.className = 'sh-btn-tuto';
       bTuto.innerHTML = '📘 Tuto de la page';
       bTuto.title = 'Ouvrir le tuto de cette page';
-      bTuto.addEventListener('click', function () { _ouvrirGuide(ancre); });
+      bTuto.addEventListener('click', function () { _ouvrirGuide(fichier); });
       wrap.appendChild(bTuto);
     }
 
