@@ -329,9 +329,21 @@
     var contrat = jours.map(function (j) { return r1(j.contrat); });
     var planif = jours.map(function (j) { return r1(j.planif); });
 
-    // Écart et taux : uniquement sur la période planifiée (jusqu'au dernier jour planifié)
+    // Écart et taux « à date de la dernière saisie » : chaque salarié est borné à SON
+    // propre dernier jour planifié, puis on additionne. Un salarié sans aucune saisie
+    // planifiée n'est pas compté (pas de saisie = pas de date de référence).
     var totC = 0, totP = 0;
-    for (var i = 0; i <= idxP; i++) { totC += contrat[i]; totP += planif[i]; }
+    donnees.selIds.forEach(function (s) {
+      var sid = String(s.id);
+      var lastS = -1;
+      for (var i = 0; i < jours.length; i++) {
+        if (jours[i].parSal[sid] && jours[i].parSal[sid].planif > 0) lastS = i;
+      }
+      for (var i = 0; i <= lastS; i++) {
+        var ps = jours[i].parSal[sid];
+        if (ps) { totC += ps.contrat; totP += ps.planif; }
+      }
+    });
     var ecart = totP - totC;
     var taux = totC > 0 ? Math.round(totP / totC * 100) : 0;
 
