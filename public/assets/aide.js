@@ -11,6 +11,26 @@
   let _faqs = [];
   let _charge = false;
 
+  // ── Tuto par page : chaque page ouvre sa section du mode d'emploi ──
+  const GUIDE_ANCRES = {
+    'index.html': 'e1',            // Entreprise
+    'salaries.html': 'e2',         // Salariés
+    'chantiers.html': 'e3',        // Prévisionnel
+    'planning.html': 'e4',         // Planning prévu
+    'planning-equipe.html': 'e5',  // Vue équipe
+    'saisie.html': 'e6',           // Saisie mobile
+    'bev.html': 'e7'               // BEV
+  };
+  function _pageActuelle() {
+    return (window.location.pathname.split('/').pop() || 'index.html');
+  }
+  function _ouvrirGuide(ancre) {
+    const url = 'mode-emploi.html' + (ancre ? '#' + ancre : '');
+    const w = window.open(url, 'guideSuivHeures',
+      'width=920,height=820,resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no');
+    if (w) { try { w.focus(); if (ancre) w.location.hash = ancre; } catch (e) {} }
+  }
+
   // ── Recherche intelligente : normalisation, mots vides, synonymes ──
   // Minuscules, sans accents, ponctuation remplacée par des espaces.
   function _norm(s) {
@@ -67,17 +87,27 @@
   function injecterStyles() {
     if (document.getElementById('aide-styles')) return;
     const css = `
-      #aide-bulle {
-        position: fixed; bottom: 22px; right: 22px; z-index: 9998;
-        width: 56px; height: 56px; border-radius: 50%; border: none;
-        background: ${BLEU}; color: #fff; font-size: 1.6rem; font-weight: 700;
-        cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-        display: flex; align-items: center; justify-content: center;
-        transition: transform 0.15s, background 0.15s;
+      .sh-entete-actions {
+        display: inline-flex; align-items: center; gap: 8px;
+        margin-left: 14px; vertical-align: middle;
       }
-      #aide-bulle:hover { background: ${BLEU_FONCE}; transform: scale(1.06); }
+      .sh-btn-tuto {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #f59e0b; color: #412402; border: none; border-radius: 8px;
+        padding: 7px 12px; font-size: 13px; font-weight: 700; line-height: 1;
+        cursor: pointer; font-family: Arial, sans-serif; white-space: nowrap;
+      }
+      .sh-btn-tuto:hover { background: #e08e08; }
+      .sh-btn-aide {
+        width: 30px; height: 30px; border-radius: 50%;
+        border: 1.5px solid rgba(255,255,255,0.65); background: transparent; color: #fff;
+        font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: Arial, sans-serif;
+      }
+      .sh-btn-aide:hover { background: rgba(255,255,255,0.15); }
       #aide-panneau {
-        position: fixed; bottom: 90px; right: 22px; z-index: 9999;
+        position: fixed; top: 64px; right: 22px; z-index: 9999;
         width: 360px; max-width: calc(100vw - 44px); max-height: 70vh;
         background: #fff; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.28);
         display: none; flex-direction: column; overflow: hidden;
@@ -113,7 +143,7 @@
       #aide-pied { padding: 8px 16px; font-size: 0.74rem; color: #9ca3af; border-top: 1px solid #f3f4f6; text-align: center; }
       #aide-pied a { color: ${BLEU}; font-weight: 700; text-decoration: none; }
       #aide-pied a:hover { text-decoration: underline; }
-      @media print { #aide-bulle, #aide-panneau { display: none !important; } }
+      @media print { .sh-entete-actions, #aide-panneau { display: none !important; } }
     `;
     const style = document.createElement('style');
     style.id = 'aide-styles';
@@ -123,13 +153,6 @@
 
   // ── Construire le DOM du widget ──
   function construire() {
-    const bulle = document.createElement('button');
-    bulle.id = 'aide-bulle';
-    bulle.textContent = '?';
-    bulle.title = 'Aide';
-    bulle.setAttribute('aria-label', 'Ouvrir l\'aide');
-    bulle.onclick = basculer;
-
     const panneau = document.createElement('div');
     panneau.id = 'aide-panneau';
     panneau.innerHTML =
@@ -139,12 +162,51 @@
       + '<div id="aide-liste"></div>'
       + '<div id="aide-pied">Vous ne trouvez pas ? <a href="mailto:contact@volitis.net">Contactez Volitis</a>.</div>';
 
-    document.body.appendChild(bulle);
     document.body.appendChild(panneau);
 
     document.getElementById('aide-recherche').addEventListener('input', function () {
       rendreListe(this.value.trim().toLowerCase());
     });
+
+    // Boutons dans le bandeau (tuto de la page + aide « ? »)
+    injecterBoutonsEntete();
+    // Filets de sécurité si le bandeau est (re)construit tardivement par sync.js
+    setTimeout(injecterBoutonsEntete, 400);
+    setTimeout(injecterBoutonsEntete, 1200);
+    window.addEventListener('donnees-chargees', injecterBoutonsEntete);
+  }
+
+  // ── Injecte le bouton « Tuto de la page » puis le « ? » à droite du titre ──
+  function injecterBoutonsEntete() {
+    const titre = document.querySelector('.main-header .page-title')
+               || document.querySelector('.page-title');
+    if (!titre) return;
+    if (titre.querySelector('.sh-entete-actions')) return; // déjà en place
+
+    const wrap = document.createElement('span');
+    wrap.className = 'sh-entete-actions';
+
+    const ancre = GUIDE_ANCRES[_pageActuelle()];
+    if (ancre) {
+      const bTuto = document.createElement('button');
+      bTuto.type = 'button';
+      bTuto.className = 'sh-btn-tuto';
+      bTuto.innerHTML = '📘 Tuto de la page';
+      bTuto.title = 'Ouvrir le tuto de cette page';
+      bTuto.addEventListener('click', function () { _ouvrirGuide(ancre); });
+      wrap.appendChild(bTuto);
+    }
+
+    const bAide = document.createElement('button');
+    bAide.type = 'button';
+    bAide.className = 'sh-btn-aide';
+    bAide.textContent = '?';
+    bAide.title = 'Aide';
+    bAide.setAttribute('aria-label', "Ouvrir l'aide");
+    bAide.addEventListener('click', basculer);
+    wrap.appendChild(bAide);
+
+    titre.appendChild(wrap);
   }
 
   function basculer() {
