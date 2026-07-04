@@ -65,6 +65,7 @@
       <input id="code-client" placeholder="XXXX-YYYY-ZZZZ" style="width:220px;">
     </div>
     <button class="btn btn-primary" onclick="activerLicence()">Activer la licence</button>
+    <button type="button" class="btn" onclick="ouvrirGuide()" style="background:#f59e0b;color:#0f172a;font-weight:700;">📘 Démarrer avec Suiv'Heures</button>
   </div>
   <div id="msg-licence" style="margin-top:0.5rem;"></div>
 </section>
@@ -292,6 +293,18 @@ window.sauverDelaiDefaut = async function (btn) {
 };
 window.addEventListener('DOMContentLoaded', chargerDelaiDefaut);
 window.addEventListener('donnees-chargees', chargerDelaiDefaut);
+</script>
+
+<!-- Guide de prise en main : ouverture dans une fenêtre séparée qui reste affichée pendant la navigation -->
+<script>
+function ouvrirGuide() {
+  var w = window.open(
+    'mode-emploi.html',
+    'guideSuivHeures',
+    'width=920,height=820,resizable=yes,scrollbars=yes,menubar=no,toolbar=no,location=no,status=no'
+  );
+  if (w) { w.focus(); }
+}
 </script>
 
 <!-- PWA : enregistrement du Service Worker pour permettre l'installation comme app -->
