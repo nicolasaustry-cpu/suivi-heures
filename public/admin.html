@@ -129,6 +129,10 @@
       <div class="stat-card"><div class="val" id="s-total">—</div><div class="lbl">Licences totales</div></div>
       <div class="stat-card"><div class="val" id="s-actifs">—</div><div class="lbl">Actives</div></div>
       <div class="stat-card"><div class="val" id="s-expires">—</div><div class="lbl">Expirées</div></div>
+      <div class="stat-card"><div class="val" id="s-auto">—</div><div class="lbl">Auto-inscriptions</div></div>
+      <div class="stat-card"><div class="val" id="s-prospects">—</div><div class="lbl">Prospects</div></div>
+      <div class="stat-card"><div class="val" id="s-clients">—</div><div class="lbl">Clients</div></div>
+      <div class="stat-card" style="background:#eff6ff;"><div class="val" id="s-salaries" style="color:#1d4ed8;">—</div><div class="lbl">Salariés facturables</div></div>
     </div>
 
     <!-- Nouvelle licence -->
@@ -163,6 +167,17 @@
           </select>
         </div>
         <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Statut</label>
+          <select id="f-statut" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;">
+            <option value="client">Client</option>
+            <option value="prospect">Prospect</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Date de paiement</label>
+          <input id="f-paiement" type="date" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;">
+        </div>
+        <div>
           <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Prescripteur</label>
           <select id="f-prescripteur" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;">
             <option value="">— Aucun —</option>
@@ -191,19 +206,38 @@
     <!-- Liste licences -->
     <div class="card">
       <h2>Liste des licences</h2>
+      <style>
+        .cat-tab{padding:6px 13px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;font-size:0.85rem;cursor:pointer;color:#374151;}
+        .cat-tab:hover{background:#f8fafc;}
+        .cat-tab.actif{background:#0f3a8a;border-color:#0f3a8a;color:#fff;font-weight:600;}
+        .cat-badge{border-radius:999px;padding:2px 9px;font-size:0.76rem;font-weight:700;white-space:nowrap;}
+      </style>
+      <div id="cat-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.8rem;">
+        <button class="cat-tab actif" data-cat="tous"     onclick="setCategorie('tous',this)">Tous</button>
+        <button class="cat-tab"       data-cat="auto"     onclick="setCategorie('auto',this)">Auto-inscriptions</button>
+        <button class="cat-tab"       data-cat="prospect" onclick="setCategorie('prospect',this)">Prospects</button>
+        <button class="cat-tab"       data-cat="client"   onclick="setCategorie('client',this)">Clients</button>
+        <button class="cat-tab"       data-cat="expire"   onclick="setCategorie('expire',this)">Expirés</button>
+      </div>
       <div class="search-bar">
         <input id="recherche" placeholder="Rechercher un client ou un code..." oninput="filtrerLicences()">
         <button class="btn btn-primary" onclick="chargerLicences()">↺ Actualiser</button>
+        <span id="nb-resultats" style="font-size:0.82rem;color:#9ca3af;margin-left:auto;"></span>
       </div>
+      <div style="overflow-x:auto;">
       <table>
         <thead>
           <tr>
             <th>Code</th>
             <th>Entreprise</th>
             <th>Email</th>
-            <th>Expiration</th>
-            <th>Type</th>
+            <th>Origine</th>
             <th>Statut</th>
+            <th>Type</th>
+            <th style="text-align:center;">Salariés</th>
+            <th>Expiration</th>
+            <th>Paiement</th>
+            <th>État</th>
             <th class="col-admin">Prescripteur</th>
             <th>Consulter</th>
             <th class="col-admin">Modifier</th>
@@ -212,6 +246,7 @@
         </thead>
         <tbody id="tbody-licences"></tbody>
       </table>
+      </div>
       <p id="no-licence" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune licence.</p>
     </div>
 
@@ -327,6 +362,18 @@
           <option value="standard">Standard</option>
           <option value="plus">Plus ★</option>
         </select>
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Statut</label>
+        <select id="modif-statut" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
+          <option value="client">Client</option>
+          <option value="prospect">Prospect</option>
+          <option value="essai">Essai (auto-inscription)</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Date de paiement</label>
+        <input id="modif-paiement" type="date" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
       </div>
       <div>
         <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Prescripteur</label>
@@ -488,17 +535,46 @@ async function chargerLicences() {
     const d = await r.json();
     if (!d.ok) return;
     _licences = d.licences;
-    afficherLicences(_licences);
+    majCompteurs(_licences);
+    filtrerLicences();
   } catch {}
 }
 
+let _categorie = 'tous';
+function categorieMatch(l) {
+  if (_categorie === 'tous')   return true;
+  if (_categorie === 'auto')   return l.origine === 'auto';
+  if (_categorie === 'expire') return new Date(l.dateExpiration) < new Date();
+  return (l.statut || 'client') === _categorie;
+}
+function setCategorie(cat, btn) {
+  _categorie = cat;
+  document.querySelectorAll('#cat-tabs .cat-tab').forEach(b => b.classList.remove('actif'));
+  if (btn) btn.classList.add('actif');
+  filtrerLicences();
+}
+function majCompteurs(list) {
+  const now = new Date();
+  const nb = (fn) => list.filter(fn).length;
+  const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setTxt('s-auto',      nb(l => l.origine === 'auto'));
+  setTxt('s-prospects', nb(l => (l.statut || 'client') === 'prospect'));
+  setTxt('s-clients',   nb(l => (l.statut || 'client') === 'client'));
+  const sal = list.reduce((s, l) => s + ((l.type === 'plus' && new Date(l.dateExpiration) >= now) ? (l.nbSalaries || 0) : 0), 0);
+  setTxt('s-salaries', sal);
+}
 function filtrerLicences() {
   const t = document.getElementById('recherche').value.toLowerCase();
-  afficherLicences(_licences.filter(l =>
-    (l.codeClient || '').toLowerCase().includes(t) ||
-    (l.nomClient  || '').toLowerCase().includes(t) ||
-    (l.email      || '').toLowerCase().includes(t)
-  ));
+  const liste = _licences.filter(l =>
+    categorieMatch(l) && (
+      (l.codeClient || '').toLowerCase().includes(t) ||
+      (l.nomClient  || '').toLowerCase().includes(t) ||
+      (l.email      || '').toLowerCase().includes(t)
+    )
+  );
+  afficherLicences(liste);
+  const nbEl = document.getElementById('nb-resultats');
+  if (nbEl) nbEl.textContent = liste.length + (liste.length > 1 ? ' licences' : ' licence');
 }
 
 function afficherLicences(liste) {
@@ -510,23 +586,36 @@ function afficherLicences(liste) {
   liste.forEach(l => {
     const exp     = new Date(l.dateExpiration);
     const expire  = exp < new Date();
-    const statut  = !l.actif  ? '<span class="badge badge-off">Désactivée</span>'
+    const etat    = !l.actif  ? '<span class="badge badge-off">Désactivée</span>'
                   : expire    ? '<span class="badge badge-exp">Expirée</span>'
                   :             '<span class="badge badge-on">Active</span>';
     const expStr  = exp.toLocaleDateString('fr-FR');
+    const paieStr = l.datePaiement ? new Date(l.datePaiement).toLocaleDateString('fr-FR') : '—';
+    const origine = l.origine === 'auto'
+      ? '<span class="cat-badge" style="background:#fde9c2;color:#7a4d06;">Auto-inscription</span>'
+      : '<span class="cat-badge" style="background:#f3f4f6;color:#4b5563;">Manuel</span>';
+    const st = l.statut || 'client';
+    const statutBadge = st === 'essai'    ? '<span class="cat-badge" style="background:#dbeafe;color:#1e40af;">Essai</span>'
+                      : st === 'prospect' ? '<span class="cat-badge" style="background:#f3f4f6;color:#4b5563;">Prospect</span>'
+                      :                     '<span class="cat-badge" style="background:#dcfce7;color:#166534;">Client</span>';
+    const nbSal = (l.nbSalaries != null ? l.nbSalaries : 0);
 
     tbody.innerHTML += `<tr>
       <td><strong>${l.codeClient}</strong></td>
       <td>${l.nomClient || '—'}</td>
       <td>${l.email || '—'}</td>
-      <td style="color:${expire ? '#dc2626' : '#374151'}">${expStr}</td>
-      <td>${statut}</td>
+      <td>${origine}</td>
+      <td>${statutBadge}</td>
       <td style="text-align:center;">
         <span style="background:${l.type==='plus'?'#fef9c3':'#f3f4f6'};color:${l.type==='plus'?'#92400e':'#6b7280'};
           border-radius:999px;padding:2px 10px;font-size:0.78rem;font-weight:700;">
           ${l.type === 'plus' ? 'Plus ★' : 'Standard'}
         </span>
       </td>
+      <td style="text-align:center;font-weight:700;color:#0f3a8a;">${nbSal}</td>
+      <td style="color:${expire ? '#dc2626' : '#374151'}">${expStr}</td>
+      <td>${paieStr}</td>
+      <td>${etat}</td>
       <td class="col-admin" style="text-align:center;">${l.prescripteur || '—'}</td>
       <td style="text-align:center;">
         <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;"
@@ -567,6 +656,8 @@ async function creerLicence() {
   const expiration = document.getElementById('f-expiration').value;
   const notes      = document.getElementById('f-notes').value.trim();
   const type        = document.getElementById('f-type').value;
+  const statut       = document.getElementById('f-statut').value;
+  const datePaiement = document.getElementById('f-paiement').value;
   const prescripteur = document.getElementById('f-prescripteur').value;
   const marquePartenaire = document.getElementById('f-marque').checked;
   const logoPartenaire   = _logoCreation;
@@ -579,7 +670,7 @@ async function creerLicence() {
     const r = await fetch(API + '/api/admin/licences', {
       method: 'POST',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type, prescripteur, marquePartenaire, logoPartenaire })
+      body: JSON.stringify({ codeClient: code, nomClient, email, dateExpiration: expiration, notes, type, statut, datePaiement, prescripteur, marquePartenaire, logoPartenaire })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
@@ -588,6 +679,8 @@ async function creerLicence() {
     document.getElementById('f-nom').value  = '';
     document.getElementById('f-email').value = '';
     document.getElementById('f-notes').value = '';
+    document.getElementById('f-paiement').value = '';
+    document.getElementById('f-statut').value = 'client';
     document.getElementById('f-marque').checked = false;
     effacerLogo('creation');
     majZoneLogo('creation');
@@ -826,6 +919,8 @@ function ouvrirModifLicence(code, nom, email, expiration, type, prescripteur) {
   document.getElementById('modif-type').value         = type || 'standard';
   document.getElementById('modif-prescripteur').value = prescripteur || '';
   const lic = _licences.find(l => l.codeClient === code) || {};
+  const selStatut = document.getElementById('modif-statut'); if (selStatut) selStatut.value = lic.statut || 'client';
+  const inpPaie = document.getElementById('modif-paiement'); if (inpPaie) inpPaie.value = lic.datePaiement ? String(lic.datePaiement).split('T')[0] : '';
   document.getElementById('modif-marque').checked = !!lic.marquePartenaire;
   _logoModif = lic.logoPartenaire || '';
   majApercuLogo('modif');
@@ -843,6 +938,8 @@ async function sauverModifLicence() {
   const email      = document.getElementById('modif-email').value.trim();
   const expiration = document.getElementById('modif-expiration').value;
   const type         = document.getElementById('modif-type').value;
+  const statut       = document.getElementById('modif-statut').value;
+  const datePaiement = document.getElementById('modif-paiement').value;
   const prescripteur = document.getElementById('modif-prescripteur').value;
   const marquePartenaire = document.getElementById('modif-marque').checked;
   const logoPartenaire   = _logoModif;
@@ -851,7 +948,7 @@ async function sauverModifLicence() {
     const r = await fetch(API + '/api/admin/licences/' + code, {
       method: 'PUT',
       headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type, prescripteur, marquePartenaire, logoPartenaire })
+      body: JSON.stringify({ nomClient, email, dateExpiration: expiration, type, statut, datePaiement, prescripteur, marquePartenaire, logoPartenaire })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }

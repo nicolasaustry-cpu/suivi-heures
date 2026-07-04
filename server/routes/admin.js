@@ -9,13 +9,24 @@ const router = express.Router();
 // ── Lister toutes les licences ──
 router.get("/licences", verifyToken, verifyAdmin, async (req, res) => {
   const licences = await Licence.find().sort({ dateActivation: -1 });
-  res.json({ ok: true, licences });
+  // Nombre de salariés par licence (base de facturation) : lu depuis les données du client
+  const donnees = await Donnees.find({}, { clientId: 1, salaries: 1 });
+  const nbByClient = {};
+  donnees.forEach(d => {
+    nbByClient[(d.clientId || "").toUpperCase()] = Array.isArray(d.salaries) ? d.salaries.length : 0;
+  });
+  const out = licences.map(l => {
+    const o = l.toObject();
+    o.nbSalaries = nbByClient[(l.codeClient || "").toUpperCase()] || 0;
+    return o;
+  });
+  res.json({ ok: true, licences: out });
 });
 
 // ── Créer une licence ──
 router.post("/licences", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { codeClient, nomClient, email, dateExpiration, notes, type, prescripteur, marquePartenaire, logoPartenaire } = req.body;
+    const { codeClient, nomClient, email, dateExpiration, notes, type, prescripteur, marquePartenaire, logoPartenaire, statut, datePaiement } = req.body;
     if (!codeClient || !dateExpiration)
       return res.status(400).json({ ok: false, message: "Code et date d'expiration requis" });
 
@@ -23,6 +34,9 @@ router.post("/licences", verifyToken, verifyAdmin, async (req, res) => {
       codeClient: codeClient.toUpperCase().trim(),
       nomClient, email, notes,
       type: type || "standard",
+      origine: "manuel",
+      statut: statut || "client",
+      datePaiement: datePaiement ? new Date(datePaiement) : null,
       prescripteur: (prescripteur || "").toUpperCase().trim(),
       dateExpiration: new Date(dateExpiration),
       marquePartenaire: !!marquePartenaire,
@@ -44,12 +58,14 @@ router.put("/licences/:code", verifyToken, verifyAdmin, async (req, res) => {
     const licence = await Licence.findOne({ codeClient: req.params.code.toUpperCase() });
     if (!licence) return res.status(404).json({ ok: false, message: "Licence introuvable" });
 
-    const { nomClient, email, dateExpiration, notes, type, prescripteur, marquePartenaire, logoPartenaire } = req.body;
+    const { nomClient, email, dateExpiration, notes, type, prescripteur, marquePartenaire, logoPartenaire, statut, datePaiement } = req.body;
     if (nomClient)              licence.nomClient      = nomClient;
     if (email)               licence.email          = email;
     if (dateExpiration)      licence.dateExpiration = new Date(dateExpiration);
     if (notes !== undefined) licence.notes          = notes;
     if (type)                   licence.type           = type;
+    if (statut)                 licence.statut         = statut;
+    if (datePaiement !== undefined) licence.datePaiement = datePaiement ? new Date(datePaiement) : null;
     if (prescripteur !== undefined) licence.prescripteur = (prescripteur || "").toUpperCase().trim();
     if (marquePartenaire !== undefined) licence.marquePartenaire = !!marquePartenaire;
     if (logoPartenaire !== undefined)   licence.logoPartenaire   = logoPartenaire || "";

@@ -5,6 +5,9 @@ const licenceSchema = new mongoose.Schema({
   nomClient:       { type: String, default: "" },
   email:           { type: String, default: "" },
   type:            { type: String, enum: ["standard", "plus"], default: "standard" },
+  origine:         { type: String, enum: ["auto", "manuel"], default: "manuel" },      // auto = auto-inscription (essai), manuel = créé par l'admin
+  statut:          { type: String, enum: ["prospect", "client", "essai"], default: "client" },
+  datePaiement:    { type: Date, default: null },                                       // date de paiement (facturation)
   actif:           { type: Boolean, default: true },
   dateActivation:  { type: Date, default: Date.now },
   dateExpiration:  { type: Date, required: true },
