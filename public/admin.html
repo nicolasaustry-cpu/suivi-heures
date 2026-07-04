@@ -132,6 +132,7 @@
       <div class="stat-card"><div class="val" id="s-auto">—</div><div class="lbl">Auto-inscriptions</div></div>
       <div class="stat-card"><div class="val" id="s-prospects">—</div><div class="lbl">Prospects</div></div>
       <div class="stat-card"><div class="val" id="s-clients">—</div><div class="lbl">Clients</div></div>
+      <div class="stat-card"><div class="val" id="s-gratuits">—</div><div class="lbl">Clients gratuits</div></div>
       <div class="stat-card" style="background:#eff6ff;"><div class="val" id="s-salaries" style="color:#1d4ed8;">—</div><div class="lbl">Salariés facturables</div></div>
     </div>
 
@@ -170,6 +171,7 @@
           <label style="font-size:0.82rem;font-weight:600;color:#6b7280;">Statut</label>
           <select id="f-statut" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;">
             <option value="client">Client</option>
+            <option value="gratuit">Client gratuit</option>
             <option value="prospect">Prospect</option>
           </select>
         </div>
@@ -217,6 +219,7 @@
         <button class="cat-tab"       data-cat="auto"     onclick="setCategorie('auto',this)">Auto-inscriptions</button>
         <button class="cat-tab"       data-cat="prospect" onclick="setCategorie('prospect',this)">Prospects</button>
         <button class="cat-tab"       data-cat="client"   onclick="setCategorie('client',this)">Clients</button>
+        <button class="cat-tab"       data-cat="gratuit"  onclick="setCategorie('gratuit',this)">Clients gratuits</button>
         <button class="cat-tab"       data-cat="expire"   onclick="setCategorie('expire',this)">Expirés</button>
       </div>
       <div class="search-bar">
@@ -367,6 +370,7 @@
         <label style="font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px;">Statut</label>
         <select id="modif-statut" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;">
           <option value="client">Client</option>
+          <option value="gratuit">Client gratuit</option>
           <option value="prospect">Prospect</option>
           <option value="essai">Essai (auto-inscription)</option>
         </select>
@@ -560,7 +564,8 @@ function majCompteurs(list) {
   setTxt('s-auto',      nb(l => l.origine === 'auto'));
   setTxt('s-prospects', nb(l => (l.statut || 'client') === 'prospect'));
   setTxt('s-clients',   nb(l => (l.statut || 'client') === 'client'));
-  const sal = list.reduce((s, l) => s + ((l.type === 'plus' && new Date(l.dateExpiration) >= now) ? (l.nbSalaries || 0) : 0), 0);
+  setTxt('s-gratuits',  nb(l => l.statut === 'gratuit'));
+  const sal = list.reduce((s, l) => s + ((l.type === 'plus' && l.statut !== 'gratuit' && new Date(l.dateExpiration) >= now) ? (l.nbSalaries || 0) : 0), 0);
   setTxt('s-salaries', sal);
 }
 function filtrerLicences() {
@@ -597,6 +602,7 @@ function afficherLicences(liste) {
     const st = l.statut || 'client';
     const statutBadge = st === 'essai'    ? '<span class="cat-badge" style="background:#dbeafe;color:#1e40af;">Essai</span>'
                       : st === 'prospect' ? '<span class="cat-badge" style="background:#f3f4f6;color:#4b5563;">Prospect</span>'
+                      : st === 'gratuit'  ? '<span class="cat-badge" style="background:#ede9fe;color:#6d28d9;">Client gratuit</span>'
                       :                     '<span class="cat-badge" style="background:#dcfce7;color:#166534;">Client</span>';
     const nbSal = (l.nbSalaries != null ? l.nbSalaries : 0);
 
