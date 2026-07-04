@@ -129,16 +129,24 @@
     <div class="kicker">Guide de prise en main</div>
     <h1>Démarrer avec Suiv'Heures, en 7 étapes</h1>
     <p>Ce guide suit l'ordre de mise en route, page par page. Sur chaque capture de votre écran, les repères numérotés renvoient aux explications qui suivent. Rien n'est ajouté qui ne figure sur vos écrans.</p>
+    <p style="max-width:64ch;margin-top:14px;font-size:14.5px;color:#334155">💡 Pour découvrir le fonctionnement d'une page, cliquez sur le bouton <b style="color:#0f3a8a">📘 Tuto de la page</b> situé en haut de cette page dans Suiv'Heures — ou choisissez une étape ci-dessous.</p>
     <nav class="toc">
-      <a href="tuto-entreprise.html"><span class="n">1</span>Entreprise</a>
-      <a href="tuto-salaries.html"><span class="n">2</span>Salariés</a>
-      <a href="tuto-previsionnel.html"><span class="n">3</span>Prévisionnel</a>
-      <a href="tuto-planning.html"><span class="n">4</span>Planning prévu</a>
-      <a href="tuto-vue-equipe.html"><span class="n">5</span>Vue équipe</a>
-      <a href="tuto-saisie-mobile.html"><span class="n">6</span>Saisie mobile</a>
-      <a href="tuto-bev.html"><span class="n">7</span>BEV</a>
+      <a href="tuto-entreprise.html" onclick="allerPage('index.html','tuto-entreprise.html');return false;"><span class="n">1</span>Entreprise</a>
+      <a href="tuto-salaries.html" onclick="allerPage('salaries.html','tuto-salaries.html');return false;"><span class="n">2</span>Salariés</a>
+      <a href="tuto-previsionnel.html" onclick="allerPage('chantiers.html','tuto-previsionnel.html');return false;"><span class="n">3</span>Prévisionnel</a>
+      <a href="tuto-planning.html" onclick="allerPage('planning.html','tuto-planning.html');return false;"><span class="n">4</span>Planning prévu</a>
+      <a href="tuto-vue-equipe.html" onclick="allerPage('planning-equipe.html','tuto-vue-equipe.html');return false;"><span class="n">5</span>Vue équipe</a>
+      <a href="tuto-saisie-mobile.html" onclick="allerPage('saisie.html','tuto-saisie-mobile.html');return false;"><span class="n">6</span>Saisie mobile</a>
+      <a href="tuto-bev.html" onclick="allerPage('bev.html','tuto-bev.html');return false;"><span class="n">7</span>BEV</a>
     </nav>
   </section>
 </div>
+<script>
+function allerPage(pageApp, tuto) {
+  try { if (window.opener && !window.opener.closed) window.opener.location.href = pageApp; } catch (e) {}
+  window.location.href = tuto;
+}
+</script>
+
 </body>
 </html>
