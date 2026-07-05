@@ -464,7 +464,6 @@
     var hh = function (x) { return r(x) + ' h'; };
     var html = '<div style="font-weight:600;margin-bottom:7px;">' + nomUp + ' — ' + MOIS[m] + ' ' + y + '</div>' +
       gtipLigne('Temps devis', hh(devisTot)) +
-      gtipLigne('Devis ce mois', hh(prevuMois(nomUp, y, m))) +
       gtipLigne('Planifié ce mois', hh(planifMois(nomUp, y, m)));
     if (!estPlanif) {
       var realM = realMois(nomUp, y, m);
