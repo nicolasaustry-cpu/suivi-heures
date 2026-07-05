@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suiv'Heures — Contrat pré-rempli à partir du SIRET</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0f3a8a; --navy-deep:#0b2c6b; --ink:#0f172a;
+    --bg:#f1f5f9; --card:#ffffff; --line:#cbd5e1; --line-soft:#e2e8f0;
+    --blue-card:#e0f2fe; --amber:#f59e0b; --slate:#64748b; --green:#16a34a; --blue:#2563eb; --red:#dc2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:0 22px}
+
+  .topbar{background:var(--navy);color:#fff;border-bottom:3px solid var(--amber);position:sticky;top:0;z-index:10}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;height:60px}
+  .logo{width:38px;height:38px;border-radius:9px;background:#fff;display:grid;place-items:center;padding:3px;flex:none}
+  .logo img{width:100%;height:100%;object-fit:contain;display:block}
+  .topbar b{font-size:16px;font-weight:800}
+  .topbar b small{display:block;font-size:10px;font-weight:500;color:#a9c0ea;letter-spacing:.05em}
+  .topbar .page{margin-left:auto;font-size:12.5px;color:#cfe0fb;font-weight:600}
+
+  .hero{padding:38px 0 6px}
+  .hero .kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+  .hero h1{font-size:clamp(26px,5vw,40px);font-weight:800;letter-spacing:-.015em;margin:8px 0 12px;color:var(--navy)}
+  .hero p{font-size:16px;color:#475569;max-width:66ch}
+
+  .sec{padding:30px 0 8px;border-top:1px solid var(--line-soft);margin-top:26px}
+  .sec:first-of-type{border-top:none}
+  .sec-head{display:flex;align-items:center;gap:16px;margin-bottom:6px}
+  .sec-badge{flex:none;width:48px;height:48px;border-radius:13px;background:var(--navy);color:#fff;display:grid;place-items:center;box-shadow:0 8px 22px -10px rgba(15,58,138,.6)}
+  .sec-badge b{font-size:21px;font-weight:800}
+  .sec-head h2{font-size:22px;font-weight:800;color:var(--navy);letter-spacing:-.01em}
+  .sec-intro{font-size:14.5px;color:#475569;margin:2px 0 6px}
+
+  .card{background:var(--card);border:1px solid var(--line-soft);border-radius:15px;padding:20px 22px;margin:14px 0;box-shadow:0 10px 30px -26px rgba(11,44,107,.4)}
+
+  .siret-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field .lab{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--slate)}
+  .field input,.field select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--ink);font-family:inherit;min-width:150px}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,58,138,.12)}
+  .field.grow{flex:1 1 220px}
+  .field.grow input{width:100%}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;line-height:1;cursor:pointer;border:none;font-family:inherit}
+  .btn.navy{background:var(--navy);color:#fff}
+  .btn.navy:hover{background:var(--navy-deep)}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--navy)}
+  .btn.green{background:var(--green);color:#fff}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+
+  .status{margin-top:12px;font-size:13.5px;font-weight:600;display:none}
+  .status.show{display:block}
+  .status.load{color:var(--slate)}
+  .status.ok{color:var(--green)}
+  .status.err{color:var(--red)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:620px){.grid2{grid-template-columns:1fr}}
+
+  .radios{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+  .radio{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:600;font-size:14px;flex:1 1 180px;transition:.15s;background:#fff}
+  .radio:hover{border-color:var(--navy)}
+  .radio.on{border-color:var(--navy);background:#eef4fd;box-shadow:inset 0 0 0 1px var(--navy)}
+  .radio input{accent-color:var(--navy);width:17px;height:17px}
+  .radio small{display:block;font-weight:500;font-size:12px;color:var(--slate)}
+
+  .montant{margin-top:16px;border-radius:12px;background:#eef4fd;border:1px solid #cfe0fb;padding:16px 18px}
+  .montant .row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;font-size:14.5px}
+  .montant .row.total{border-top:1px dashed #b6cdf0;margin-top:6px;padding-top:11px;font-size:16px;font-weight:800;color:var(--navy)}
+  .montant .row span:last-child{font-variant-numeric:tabular-nums;font-weight:700}
+  .montant .row small{color:var(--slate);font-weight:500;font-size:12px}
+
+  .preview{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 28px;font-size:14.5px;color:#1e293b;line-height:1.7;box-shadow:0 16px 40px -30px rgba(11,44,107,.5)}
+  .preview h4{font-size:13px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin:18px 0 6px}
+  .preview h4:first-child{margin-top:0}
+  .preview .val{color:var(--navy);font-weight:700;background:#fef6e7;padding:0 3px;border-radius:3px}
+  .preview ul{list-style:none;margin:6px 0}
+  .preview li{padding-left:16px;position:relative;margin-bottom:3px}
+  .preview li::before{content:"•";position:absolute;left:2px;color:var(--navy)}
+  .preview .sign{margin-top:16px;color:var(--slate);font-style:italic}
+
+  .call{border-radius:12px;padding:14px 16px;margin:14px 0 2px;display:flex;gap:12px;font-size:13.5px}
+  .call .ci{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:15px}
+  .call b{display:block;font-weight:700;font-size:12.5px;margin-bottom:2px}
+  .call.tip{background:#fef6e7;border:1px solid #f7dda6}.call.tip .ci{background:var(--amber);color:#fff}.call.tip b{color:#b5760a}
+  .call.info{background:#eef4fd;border:1px solid #cfe0fb}.call.info .ci{background:var(--navy);color:#fff}.call.info b{color:var(--navy)}
+  .call p{margin:0;color:#3f4d63}
+
+  .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+
+  .foot{background:var(--navy-deep);color:#c9d6ef;padding:30px 0;margin-top:40px;font-size:13px;text-align:center}
+  .foot b{color:#fff}
+
+  .subh{font-size:16px;font-weight:800;color:var(--navy);margin:24px 0 2px}
+  .lienbox{margin-top:16px}
+  .lien-row{display:flex;gap:10px;margin-top:6px}
+  .lien-row input{flex:1;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:ui-monospace,monospace}
+  .suivi{font-size:14px;color:var(--slate)}
+  .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft)}
+  .srow:last-child{border-bottom:none}
+  .srow small{display:block;color:var(--slate);font-size:12px;font-weight:500;margin-top:2px}
+  .srow b{color:var(--ink);font-size:14.5px}
+  .badge{font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;white-space:nowrap}
+  .badge.amber{background:#fef3c7;color:#92400e}
+  .badge.green{background:#dcfce7;color:#15803d}
+  .badge.red{background:#fee2e2;color:#b91c1c}
+  .badge.gray{background:#e2e8f0;color:#475569}
+
+  @media print{
+    body{background:#fff}
+    .topbar,.hero,.sec-badge,.actions,.call,.foot,#sec-siret,#sec-conditions .radios,#sec-envoi,.no-print{display:none!important}
+    .sec{border:none;padding:0;margin:0}
+    .preview{box-shadow:none;border:none;padding:0}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <div class="logo"><img src="assets/icon-512.png" alt="Suiv'Heures"></div>
+  <b>Suiv'Heures<small>VOLITIS · La gestion des heures, simplement</small></b>
+  <span class="page">Outil interne · Contrat</span>
+</div></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">Outil interne — Volitis</div>
+    <h1>Contrat pré-rempli à partir du SIRET</h1>
+    <p>Saisissez le SIRET (ou SIREN) du client&nbsp;: les coordonnées juridiques sont récupérées automatiquement
+       via l'annuaire officiel des entreprises (data.gouv.fr). Vérifiez, complétez, et l'aperçu du contrat
+       se remplit en direct — prêt à imprimer ou à envoyer en signature.</p>
+  </div>
+
+  <!-- ÉTAPE 1 -->
+  <section class="sec" id="sec-siret">
+    <div class="sec-head"><div class="sec-badge"><b>1</b></div><h2>SIRET du client</h2></div>
+    <p class="sec-intro">14 chiffres (SIRET) ou 9 chiffres (SIREN). Les espaces sont ignorés.</p>
+    <div class="card">
+      <div class="siret-row">
+        <div class="field grow">
+          <span class="lab">SIRET / SIREN</span>
+          <input id="siret" type="text" inputmode="numeric" placeholder="ex. 753 100 296 00000" autocomplete="off">
+        </div>
+        <button class="btn navy" id="btnSearch" onclick="rechercher()">Rechercher</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+  </section>
+
+  <!-- ÉTAPE 2 -->
+  <section class="sec">
+    <div class="sec-head"><div class="sec-badge"><b>2</b></div><h2>Coordonnées du client</h2></div>
+    <p class="sec-intro">Pré-remplies automatiquement. Tous les champs restent modifiables — vérifiez notamment le
+       capital social et le greffe (non fournis par l'annuaire).</p>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><span class="lab">Raison sociale</span><input id="f_raison" oninput="render()"></div>
+        <div class="field"><span class="lab">Forme juridique</span><input id="f_forme" oninput="render()" placeholder="SAS, SARL, EURL…"></div>
+        <div class="field"><span class="lab">Capital social</span><input id="f_capital" oninput="render()" placeholder="ex. 5 000,00 euros"></div>
+        <div class="field"><span class="lab">SIREN</span><input id="f_siren" oninput="render()"></div>
+        <div class="field"><span class="lab">RCS — greffe (ville) <em style="font-weight:500;text-transform:none;color:#94a3b8">à vérifier</em></span><input id="f_greffe" oninput="render()"></div>
+        <div class="field"><span class="lab">Adresse du siège</span><input id="f_adresse" oninput="render()"></div>
+        <div class="field"><span class="lab">Représentant légal</span>
+          <select id="f_dir_sel" onchange="onDirigeant()"><option value="">— saisir manuellement —</option></select>
+        </div>
+        <div class="field"><span class="lab">Nom du représentant</span><input id="f_dir_nom" oninput="render()" placeholder="Prénom NOM"></div>
+        <div class="field"><span class="lab">Civilité</span>
+          <select id="f_civ" onchange="render()"><option>Monsieur</option><option>Madame</option></select>
+        </div>
+        <div class="field"><span class="lab">Qualité</span><input id="f_qualite" oninput="render()" placeholder="Président, Gérant…"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ÉTAPE 3 -->
+  <section class="sec" id="sec-conditions">
+    <div class="sec-head"><div class="sec-badge"><b>3</b></div><h2>Formule &amp; conditions financières</h2></div>
+    <p class="sec-intro">Le forfait est calculé selon la grille tarifaire du contrat (Annexe 1).</p>
+    <div class="card">
+      <div class="radios">
+        <label class="radio on" id="rad-std"><input type="radio" name="formule" value="Standard" checked onchange="render()"><span>Standard<small>90 € HT / semestre — forfait fixe</small></span></label>
+        <label class="radio" id="rad-plus"><input type="radio" name="formule" value="Plus" onchange="render()"><span>Plus<small>par salarié + 150 € HT d'ouverture</small></span></label>
+      </div>
+
+      <div class="grid2" style="margin-top:16px">
+        <div class="field"><span class="lab">Effectif (salariés — formule Plus)</span><input id="f_eff" type="number" min="1" value="3" oninput="render()"></div>
+        <div class="field"><span class="lab">Ville de signature</span><input id="f_ville" placeholder="ex. Sargé-lès-le-Mans" oninput="render()"></div>
+        <div class="field"><span class="lab">Date</span><input id="f_date" type="date" oninput="render()"></div>
+      </div>
+
+      <div class="montant" id="montant"></div>
+    </div>
+  </section>
+
+  <!-- ÉTAPE 4 -->
+  <section class="sec">
+    <div class="sec-head"><div class="sec-badge"><b>4</b></div><h2>Aperçu du contrat</h2></div>
+    <p class="sec-intro no-print">Les zones surlignées reprennent exactement la formulation du contrat de licence Suiv'Heures.</p>
+    <div class="preview" id="preview"></div>
+    <div class="actions no-print">
+      <button class="btn navy" onclick="window.print()">🖨️ Imprimer / PDF de l'aperçu</button>
+      <button class="btn ghost" id="btnCopy" onclick="copierClient()">📋 Copier le bloc « Client »</button>
+    </div>
+  </section>
+
+  <!-- ÉTAPE 5 -->
+  <section class="sec" id="sec-envoi">
+    <div class="sec-head"><div class="sec-badge"><b>5</b></div><h2>Envoyer en signature</h2></div>
+    <p class="sec-intro">Crée la demande, puis envoie le lien au client (e-mail, SMS…). Il signe en ligne ;
+       tu suis l'état ci-dessous. Réservé à l'admin connecté.</p>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><span class="lab">Nom du signataire</span><input id="s_nom" placeholder="Prénom NOM (par défaut : le représentant)"></div>
+        <div class="field"><span class="lab">E-mail du signataire (facultatif)</span><input id="s_email" type="email" placeholder="client@exemple.fr"></div>
+      </div>
+      <div class="actions">
+        <button class="btn navy" id="btnCreer" onclick="creerDemande()">🖊️ Créer la demande de signature</button>
+      </div>
+      <div class="status" id="s_status"></div>
+      <div id="s_lien" class="lienbox" style="display:none">
+        <span class="lab">Lien à envoyer au client</span>
+        <div class="lien-row"><input id="s_url" readonly><button class="btn ghost" id="btnCopyLien" onclick="copierLien()">Copier</button></div>
+      </div>
+    </div>
+
+    <h3 class="subh">Suivi des demandes</h3>
+    <div class="card"><div id="suivi" class="suivi">Chargement…</div></div>
+  </section>
+
+</div>
+
+<div class="foot"><div class="wrap">
+  <b>Suiv'Heures</b> — Outil interne Volitis · Données entreprises&nbsp;: annuaire officiel data.gouv.fr
+</div></div>
+
+<script>
+  // ---- Grille tarifaire (Annexe 1 du contrat) ----
+  const TVA = 0.20;
+  function tarifPlus(eff){ if(eff<=4) return 8; if(eff<=8) return 7; if(eff<=15) return 6; return 5; }
+  function euro(n){ return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+  // ---- Catégories juridiques INSEE les plus courantes (fallback éditable) ----
+  const FORMES = {
+    "1000":"Entreprise individuelle","5202":"SNC","5306":"Société en commandite simple",
+    "5370":"Société en commandite par actions","5410":"SARL","5426":"SARL immobilière",
+    "5498":"EURL","5499":"SARL","5505":"SA","5510":"SA","5515":"SA","5599":"SA",
+    "5699":"SA à directoire","5710":"SAS","5720":"SASU","5785":"SAS à capital variable",
+    "6540":"SCI","6599":"Société civile"
+  };
+
+  const q = id => document.getElementById(id);
+
+  // date du jour par défaut
+  (function(){ q('f_date').value = new Date().toISOString().slice(0,10); })();
+
+  // ---- Recherche via l'annuaire officiel ----
+  async function rechercher(){
+    const raw = (q('siret').value||'').replace(/\D/g,'');
+    const siren = raw.slice(0,9);
+    const st = q('status');
+    if(siren.length !== 9){
+      st.className='status show err'; st.textContent='Saisissez un SIREN (9 chiffres) ou un SIRET (14 chiffres).'; return;
+    }
+    st.className='status show load'; st.textContent='Recherche en cours…';
+    q('btnSearch').disabled = true;
+    try{
+      const r = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=siren:${siren}&per_page=1`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const data = await r.json();
+      const e = data.results && data.results[0];
+      if(!e){ st.className='status show err'; st.textContent='Aucune entreprise trouvée pour ce numéro.'; return; }
+      remplir(e);
+      st.className='status show ok'; st.textContent='✓ Entreprise trouvée — vérifiez les champs ci-dessous.';
+    }catch(err){
+      st.className='status show err';
+      st.innerHTML='Impossible de contacter l\'annuaire (' + err.message + '). '
+        + 'En production, passe par une route serveur Express (voir mes notes) pour éviter les blocages CORS.';
+    }finally{
+      q('btnSearch').disabled = false;
+    }
+  }
+
+  function remplir(e){
+    const s = e.siege || {};
+    q('f_raison').value  = e.nom_raison_sociale || e.nom_complet || '';
+    q('f_forme').value   = FORMES[e.nature_juridique] || (e.nature_juridique ? 'code '+e.nature_juridique : '');
+    q('f_siren').value   = (e.siren||'').replace(/(\d{3})(\d{3})(\d{3})/,'$1 $2 $3');
+    q('f_adresse').value = s.adresse || s.geo_adresse || '';
+    q('f_greffe').value  = s.libelle_commune || '';
+    q('f_capital').value = e.capital ? (euro(Number(e.capital))+' euros') : ''; // rarement fourni
+
+    // Dirigeants -> menu déroulant
+    const sel = q('f_dir_sel');
+    sel.innerHTML = '<option value="">— saisir manuellement —</option>';
+    (e.dirigeants||[]).forEach((d,i)=>{
+      if(d.type_dirigeant && d.type_dirigeant!=='personne physique') return;
+      const nom = [ (d.prenoms||'').split(' ')[0], d.nom ].filter(Boolean).join(' ');
+      const o = document.createElement('option');
+      o.value = i; o.textContent = nom + (d.qualite ? ' — '+d.qualite : '');
+      o.dataset.nom = nom; o.dataset.qualite = d.qualite||'';
+      sel.appendChild(o);
+    });
+    if(sel.options.length>1){ sel.selectedIndex=1; onDirigeant(); } else { render(); }
+  }
+
+  function onDirigeant(){
+    const o = q('f_dir_sel').selectedOptions[0];
+    if(o && o.dataset.nom!==undefined){
+      q('f_dir_nom').value = o.dataset.nom;
+      const qual = (o.dataset.qualite||'');
+      q('f_qualite').value = qual.charAt(0).toUpperCase()+qual.slice(1);
+      if(/madame|présidente|gérante/i.test(qual)) q('f_civ').value='Madame';
+    }
+    render();
+  }
+
+  // ---- Rendu de l'aperçu + calcul du montant ----
+  function render(){
+    // radios visuel
+    const plus = document.querySelector('input[name=formule]:checked').value==='Plus';
+    q('rad-std').classList.toggle('on', !plus);
+    q('rad-plus').classList.toggle('on', plus);
+
+    const eff = Math.max(1, parseInt(q('f_eff').value||'1',10));
+    let htSem, mens=0, taux=0;
+    if(plus){ taux=tarifPlus(eff); mens=eff*taux; htSem=mens*6; }
+    else { htSem=90; }
+    const ttcSem = htSem*(1+TVA);
+    const fraisHT=150, fraisTTC=fraisHT*(1+TVA);
+
+    // bloc montant
+    let m = '';
+    if(plus){
+      m += `<div class="row"><span>Redevance <small>${eff} salarié(s) × ${taux} € HT × 6 mois</small></span><span>${euro(htSem)} € HT</span></div>`;
+    }else{
+      m += `<div class="row"><span>Forfait Standard <small>15 € HT/mois × 6</small></span><span>${euro(htSem)} € HT</span></div>`;
+    }
+    m += `<div class="row total"><span>Forfait semestriel</span><span>${euro(htSem)} € HT — ${euro(ttcSem)} € TTC</span></div>`;
+    if(plus){
+      m += `<div class="row" style="margin-top:6px"><span>Frais d'ouverture <small>une seule fois</small></span><span>${euro(fraisHT)} € HT — ${euro(fraisTTC)} € TTC</span></div>`;
+    }
+    q('montant').innerHTML = m;
+
+    // aperçu texte (formulation du contrat)
+    const v = id => q(id).value.trim();
+    const val = t => `<span class="val">${t || '…'}</span>`;
+    const civ = q('f_civ').value;
+    const dateFR = q('f_date').value ? new Date(q('f_date').value+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : '…';
+
+    let html = '';
+    html += `<h4>Le Client</h4>`;
+    html += `<p>La société ${val(v('f_raison'))}, ${val(v('f_forme'))}, au capital de ${val(v('f_capital'))}, `
+         +  `inscrite au Registre du Commerce et des Sociétés de ${val(v('f_greffe'))} sous le numéro ${val(v('f_siren'))}, `
+         +  `dont le siège social est ${val(v('f_adresse'))}, prise en la personne de son représentant légal, `
+         +  `${civ.toLowerCase()==='madame'?'madame':'monsieur'} ${val(v('f_dir_nom'))}, ${val(v('f_qualite'))}, domicilié audit siège.</p>`;
+
+    html += `<h4>Article 6 — Conditions particulières</h4><ul>`;
+    html += `<li>Formule retenue : ${val(plus?'Plus':'Standard')}.</li>`;
+    if(plus) html += `<li>Effectif pris en compte : ${val(eff+' salarié(s)')}.</li>`;
+    html += `<li>Forfait semestriel : ${val(euro(htSem)+' € HT')}, soit ${val(euro(ttcSem)+' € TTC')}, payable d'avance.</li>`;
+    if(plus) html += `<li>Frais d'ouverture (formule Plus) : ${val(euro(fraisHT)+' € HT')} soit ${val(euro(fraisTTC)+' € TTC')}, facturés une seule fois à la souscription.</li>`;
+    html += `</ul>`;
+
+    html += `<p class="sign">Fait à ${val(v('f_ville'))}, le ${val(dateFR)}, en deux exemplaires originaux.</p>`;
+
+    q('preview').innerHTML = html;
+  }
+
+  function copierClient(){
+    const p = q('preview').querySelector('p');
+    if(!p) return;
+    const txt = p.textContent.replace(/…/g,'________');
+    navigator.clipboard.writeText(txt).then(()=>{
+      const b=q('btnCopy'); const t=b.textContent; b.textContent='✓ Copié'; setTimeout(()=>b.textContent=t,1500);
+    });
+  }
+
+  // ---- Envoi en signature (réservé admin) ----
+  const STATUTS = {
+    en_attente:{t:'En attente',c:'amber'}, signe:{t:'Signé',c:'green'},
+    refuse:{t:'Refusé',c:'red'}, expire:{t:'Expiré',c:'gray'}
+  };
+
+  function buildContrat(){
+    const plus = document.querySelector('input[name=formule]:checked').value==='Plus';
+    const eff = Math.max(1, parseInt(q('f_eff').value||'1',10));
+    const htSem = plus ? eff*tarifPlus(eff)*6 : 90;
+    const ttcSem = Math.round(htSem*(1+TVA)*100)/100;
+    return {
+      raisonSociale:q('f_raison').value.trim(), formeJuridique:q('f_forme').value.trim(),
+      capital:q('f_capital').value.trim(), siren:q('f_siren').value.trim(),
+      greffe:q('f_greffe').value.trim(), adresseSiege:q('f_adresse').value.trim(),
+      representantCivilite:q('f_civ').value, representantNom:q('f_dir_nom').value.trim(),
+      representantQualite:q('f_qualite').value.trim(),
+      formule: plus?'Plus':'Standard', effectif: plus?eff:0,
+      forfaitHT: htSem, forfaitTTC: ttcSem,
+      fraisOuvertureHT: plus?150:0, fraisOuvertureTTC: plus?180:0,
+      villeSignature:q('f_ville').value.trim(), dateContrat:q('f_date').value
+    };
+  }
+
+  async function creerDemande(){
+    const st = q('s_status');
+    const tk = localStorage.getItem('admin_token') || '';
+    if(!tk){ st.className='status show err'; st.textContent='Tu dois être connecté en admin : ouvre la page Admin, connecte-toi, puis reviens ici.'; return; }
+    const c = buildContrat();
+    if(!c.raisonSociale){ st.className='status show err'; st.textContent='Renseigne au moins la raison sociale du client (étape 2).'; return; }
+    const nom = q('s_nom').value.trim() || c.representantNom;
+    if(!nom){ st.className='status show err'; st.textContent='Renseigne le nom du signataire.'; return; }
+
+    st.className='status show load'; st.textContent='Création en cours…';
+    q('btnCreer').disabled = true;
+    try{
+      const r = await fetch('/api/signatures',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},
+        body: JSON.stringify({ contrat:c, signataire:{ nom, email:q('s_email').value.trim() } })
+      });
+      const d = await r.json();
+      if(r.status===401 || r.status===403){ st.className='status show err'; st.textContent='Session admin expirée — reconnecte-toi dans l\'admin, puis réessaie.'; return; }
+      if(!r.ok || !d.ok){ st.className='status show err'; st.textContent=d.message||'Création impossible.'; return; }
+      st.className='status show ok'; st.textContent='✓ Demande créée. Envoie le lien ci-dessous au client.';
+      q('s_url').value = d.lien; q('s_lien').style.display='block';
+      loadSuivi();
+    }catch(e){
+      st.className='status show err'; st.textContent='Erreur réseau : '+e.message;
+    }finally{
+      q('btnCreer').disabled = false;
+    }
+  }
+
+  function copierLien(){
+    const i = q('s_url'); i.select();
+    navigator.clipboard.writeText(i.value).then(()=>{
+      const b=q('btnCopyLien'); const t=b.textContent; b.textContent='✓ Copié'; setTimeout(()=>b.textContent=t,1500);
+    });
+  }
+
+  async function loadSuivi(){
+    const box = q('suivi');
+    const tk = localStorage.getItem('admin_token') || '';
+    if(!tk){ box.textContent='Connexion admin requise pour afficher le suivi.'; return; }
+    try{
+      const r = await fetch('/api/signatures',{ headers:{'Authorization':'Bearer '+tk} });
+      if(r.status===401 || r.status===403){ box.textContent='Session admin expirée — reconnecte-toi dans l\'admin.'; return; }
+      if(!r.ok){ box.textContent='Suivi indisponible pour le moment.'; return; }
+      const d = await r.json();
+      if(!d.demandes || !d.demandes.length){ box.textContent='Aucune demande pour l\'instant.'; return; }
+      box.innerHTML = d.demandes.map(x=>{
+        const s = STATUTS[x.statut] || {t:x.statut,c:'gray'};
+        const dt = x.creeLe ? new Date(x.creeLe).toLocaleDateString('fr-FR') : '';
+        return `<div class="srow"><div><b>${x.contrat?.raisonSociale||'—'}</b>`
+             + `<small>${x.signataire?.nom||''} · créée le ${dt}</small></div>`
+             + `<span class="badge ${s.c}">${s.t}</span></div>`;
+      }).join('');
+    }catch(e){ box.textContent='Erreur de chargement du suivi.'; }
+  }
+
+  // rendu initial
+  render();
+  loadSuivi();
+</script>
+</body>
+</html>
