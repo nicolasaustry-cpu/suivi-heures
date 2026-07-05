@@ -34,72 +34,71 @@
       display:flex; align-items:center; justify-content:center; padding:24px;
     }
     .carte{
-      width:100%; max-width:920px; background:#fff; border-radius:16px;
+      width:100%; max-width:1000px; background:#fff; border-radius:16px;
       overflow:hidden; box-shadow:0 12px 40px rgba(15,23,42,.14);
       display:grid; grid-template-columns:1.05fr 1fr;
     }
 
     /* ── Colonne gauche : présentation ── */
-    .pitch{ background:var(--navy); padding:30px 28px; display:flex; flex-direction:column; }
-    .marque{ display:flex; align-items:center; gap:11px; margin-bottom:22px; }
-    .marque .logo{ width:38px; height:38px; border-radius:9px; background:#fff; display:inline-flex;
+    .pitch{ background:var(--navy); padding:34px 32px; display:flex; flex-direction:column; }
+    .marque{ display:flex; align-items:center; gap:11px; margin-bottom:24px; }
+    .marque .logo{ width:42px; height:42px; border-radius:9px; background:#fff; display:inline-flex;
       align-items:center; justify-content:center; padding:3px; }
     .marque .logo img{ width:100%; height:100%; object-fit:contain; display:block; }
-    .marque .nom{ color:#fff; font-weight:700; font-size:16px; }
-    .h1{ color:#fff; font-weight:700; font-size:25px; line-height:1.2; }
-    .h2{ color:var(--bleu-clair); font-weight:400; font-size:16px; line-height:1.4; margin-top:9px; }
+    .marque .nom{ color:#fff; font-weight:700; font-size:18px; }
+    .h1{ color:#fff; font-weight:700; font-size:27px; line-height:1.2; }
+    .h2{ color:var(--bleu-clair); font-weight:400; font-size:18px; line-height:1.4; margin-top:10px; }
     .h2 i{ font-size:0.8em; }
-    .arg{ display:flex; align-items:flex-start; gap:10px; margin-top:15px; }
-    .arg .ico{ flex-shrink:0; width:22px; height:22px; color:var(--amber); }
-    .arg b{ color:#fff; font-weight:700; font-size:14px; }
-    .arg span{ color:var(--bleu-pale); font-size:13px; line-height:1.45; }
-    .arg span i{ color:#93c5fd; font-size:11.5px; }
+    .arg{ display:flex; align-items:flex-start; gap:11px; margin-top:17px; }
+    .arg .ico{ flex-shrink:0; width:24px; height:24px; color:var(--amber); }
+    .arg b{ color:#fff; font-weight:700; font-size:16px; }
+    .arg span{ color:var(--bleu-pale); font-size:15px; line-height:1.45; }
+    .arg span i{ color:#93c5fd; font-size:13.5px; }
     .prix{ margin-top:auto; padding-top:22px; }
-    .prix .g{ color:var(--amber); font-weight:700; font-size:16px; }
-    .prix .s{ color:var(--bleu-pale); font-size:13.5px; }
+    .prix .g{ color:var(--amber); font-weight:700; font-size:18px; }
+    .prix .s{ color:var(--bleu-pale); font-size:15.5px; }
 
     /* ── Colonne droite : formulaire ── */
-    .form{ background:#f8fafc; padding:28px; display:flex; flex-direction:column; }
-    .essai{ display:flex; align-items:center; gap:9px; margin-bottom:4px; }
-    .essai .g{ color:var(--navy); font-weight:700; font-size:21px; }
-    .essai .ico{ width:24px; height:24px; color:var(--amber); }
-    .sous{ font-size:13px; color:var(--texte2); margin-bottom:16px; }
-    label{ font-size:12px; color:var(--texte2); font-weight:700; display:block; }
-    input{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px;
-      font-size:14.5px; margin-top:5px; margin-bottom:13px; }
+    .form{ background:#f8fafc; padding:34px 32px; display:flex; flex-direction:column; }
+    .essai{ display:flex; align-items:center; gap:9px; margin-bottom:5px; }
+    .essai .g{ color:var(--navy); font-weight:700; font-size:23px; }
+    .essai .ico{ width:26px; height:26px; color:var(--amber); }
+    .sous{ font-size:15px; color:var(--texte2); margin-bottom:18px; }
+    label{ font-size:14px; color:var(--texte2); font-weight:700; display:block; }
+    input{ width:100%; padding:12px 14px; border:1px solid #cbd5e1; border-radius:8px;
+      font-size:16.5px; margin-top:6px; margin-bottom:15px; }
     input:focus{ outline:2px solid #bfdbfe; border-color:var(--navy); }
-    .aide{ font-size:11.5px; color:var(--gris-clair); margin-top:-9px; margin-bottom:13px; }
-    #f-code{ text-transform:uppercase; }
+    .aide{ font-size:13.5px; color:var(--gris-clair); margin-top:-11px; margin-bottom:15px; }
     .btn{ width:100%; background:var(--amber); color:var(--amber-txt); border:none; border-radius:8px;
-      padding:12px; font-size:15px; font-weight:700; cursor:pointer; display:flex;
+      padding:14px; font-size:17px; font-weight:700; cursor:pointer; display:flex;
       align-items:center; justify-content:center; gap:8px; }
     .btn:hover{ background:#e08e08; }
     .btn:disabled{ opacity:.6; cursor:default; }
-    .rassure{ display:flex; gap:16px; justify-content:center; margin-top:13px; flex-wrap:wrap; }
-    .rassure span{ font-size:12px; color:var(--texte2); }
+    .rassure{ display:flex; gap:18px; justify-content:center; margin-top:15px; flex-wrap:wrap; }
+    .rassure span{ font-size:14px; color:var(--texte2); }
     .rassure .ok{ color:var(--vert); }
     #msg-erreur{ display:none; background:#fee2e2; border:1px solid #fca5a5; color:#991b1b;
-      padding:9px 12px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+      padding:10px 14px; border-radius:8px; font-size:15px; margin-bottom:14px; }
     /* Co-branding prescripteur */
-    #cobranding{ display:none; margin-top:auto; padding-top:16px; border-top:1px solid var(--bord);
+    #cobranding{ display:none; margin-top:auto; padding-top:18px; border-top:1px solid var(--bord);
       align-items:center; justify-content:center; gap:10px; }
-    #cobranding .lbl{ color:var(--gris-clair); font-size:11.5px; font-style:italic; }
-    #cobranding .logo-part{ max-height:34px; max-width:130px; display:block; }
+    #cobranding .lbl{ color:var(--gris-clair); font-size:13.5px; font-style:italic; }
+    #cobranding .logo-part{ max-height:38px; max-width:140px; display:block; }
 
     /* ── Écran de confirmation ── */
-    #ecran-confirm{ display:none; padding:40px 28px; text-align:center; }
-    #ecran-confirm .rond{ width:64px; height:64px; border-radius:50%; background:#dcfce7;
+    #ecran-confirm{ display:none; padding:44px 32px; text-align:center; }
+    #ecran-confirm .rond{ width:68px; height:68px; border-radius:50%; background:#dcfce7;
       display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px; }
-    #ecran-confirm .rond svg{ width:34px; height:34px; color:var(--vert); }
-    #ecran-confirm h2{ font-size:22px; margin:0 0 6px; color:var(--texte); }
-    #ecran-confirm p{ color:var(--texte2); font-size:14px; margin:0 0 18px; }
+    #ecran-confirm .rond svg{ width:36px; height:36px; color:var(--vert); }
+    #ecran-confirm h2{ font-size:24px; margin:0 0 6px; color:var(--texte); }
+    #ecran-confirm p{ color:var(--texte2); font-size:16px; margin:0 0 18px; }
     .code-box{ display:inline-block; background:#f1f5f9; border:1px dashed #94a3b8; border-radius:10px;
-      padding:12px 22px; margin-bottom:6px; }
-    .code-box .lbl{ font-size:11.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; }
-    .code-box .code{ font-size:24px; font-weight:800; color:var(--navy); letter-spacing:1px; }
-    .note-code{ font-size:12px; color:var(--gris-clair); margin-bottom:22px; }
-    .btn-entrer{ background:var(--navy); color:#fff; border:none; border-radius:8px; padding:12px 26px;
-      font-size:15px; font-weight:700; cursor:pointer; }
+      padding:14px 26px; margin-bottom:6px; }
+    .code-box .lbl{ font-size:13.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; }
+    .code-box .code{ font-size:26px; font-weight:800; color:var(--navy); letter-spacing:1px; }
+    .note-code{ font-size:14px; color:var(--gris-clair); margin-bottom:22px; }
+    .btn-entrer{ background:var(--navy); color:#fff; border:none; border-radius:8px; padding:14px 28px;
+      font-size:17px; font-weight:700; cursor:pointer; }
     .btn-entrer:hover{ background:#0c2f70; }
 
     @media (max-width:760px){
@@ -151,10 +150,6 @@
 
     <label for="f-email">E-mail</label>
     <input id="f-email" type="email" placeholder="nom@entreprise.fr" autocomplete="email">
-
-    <label for="f-code">Code d'accès mobile</label>
-    <input id="f-code" type="text" placeholder="DUPONT-BTP" oninput="this.value=this.value.toUpperCase()">
-    <div class="aide">Servira à connecter les téléphones de vos salariés.</div>
 
     <button class="btn" id="btn-creer" onclick="creerEssai()">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
@@ -221,12 +216,10 @@
   async function creerEssai() {
     var nom   = document.getElementById('f-nom').value.trim();
     var email = document.getElementById('f-email').value.trim();
-    var code  = document.getElementById('f-code').value.trim().toUpperCase();
     document.getElementById('msg-erreur').style.display = 'none';
 
     if (!nom)   return _erreur("Merci d'indiquer le nom de votre entreprise.");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return _erreur("Merci d'indiquer un e-mail valide.");
-    if (!code)  return _erreur("Merci de choisir un code d'accès mobile.");
 
     var btn = document.getElementById('btn-creer');
     btn.disabled = true; btn.textContent = 'Création en cours…';
@@ -235,7 +228,7 @@
       var r = await fetch('/api/auth/inscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nomClient: nom, email: email, codeEmploye: code, prescripteur: _prescripteur })
+        body: JSON.stringify({ nomClient: nom, email: email, prescripteur: _prescripteur })
       });
       var d = await r.json();
       if (!d.ok) {

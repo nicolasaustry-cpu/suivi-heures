@@ -132,7 +132,6 @@ router.post("/inscription", async (req, res) => {
     if (!nomClient)   return res.status(400).json({ ok: false, message: "Nom de l'entreprise requis." });
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
       return res.status(400).json({ ok: false, message: "E-mail invalide." });
-    if (!codeEmploye) return res.status(400).json({ ok: false, message: "Code d'accès mobile requis." });
 
     // Anti-abus : un seul essai par e-mail
     const dejaEssai = await Licence.findOne({ email, origine: "auto" });
