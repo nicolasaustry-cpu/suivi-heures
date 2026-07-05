@@ -55,7 +55,7 @@
   tbody td { height: 40px; vertical-align: middle; }
   .mois-actuel { box-shadow: inset 2px 0 0 #2563eb; }
 
-  .cap { height: 11px; border-radius: 6px; background: #e2e6ec; overflow: hidden; margin: 0 4px; }
+  .cap { height: 17px; border-radius: 6px; background: #e2e6ec; overflow: hidden; margin: 0 4px; }
   .cap > div { height: 100%; border-radius: 6px; }
   .num { font-size: 0.72rem; text-align: center; margin-top: 3px; }
 
@@ -269,7 +269,7 @@
     return metrique === 'planif' ? planifMois(nomUp, y, m) : realMois(nomUp, y, m);
   }
 
-  function celluleBar(prevu, val, mNom, classe) {
+  function celluleBar(prevu, val, mNom, classe, nomUp, y, m) {
     if ((prevu == null || prevu === 0) && (val == null || val === 0)) {
       return '<td class="col-mois ' + classe + '"></td>';
     }
@@ -280,9 +280,8 @@
     if (loading) { fill = '#e2e6ec'; w = 0; coulTxt = '#94a3b8'; num = '…'; }
     else if (v <= 0) { fill = '#cbd2dc'; w = 0; coulTxt = '#94a3b8'; num = '0h'; }
     else { fill = coulRatio(ratio); w = Math.min(ratio, 1) * 100; coulTxt = '#475569'; num = r(v) + 'h'; }
-    var pct = (prevu && prevu > 0 && !loading) ? r(ratio * 100) + '%' : '—';
-    var titre = 'Prévu ' + (prevu ? r(prevu) + 'h' : '—') + ' · ' + mNom + ' ' + (loading ? '…' : r(v) + 'h') + ' (' + pct + ')';
-    return '<td class="col-mois ' + classe + '" title="' + titre + '">'
+    var dn = (up(nomUp) || '').replace(/"/g, '&quot;');
+    return '<td class="col-mois ' + classe + '" data-nom="' + dn + '" data-y="' + y + '" data-m="' + m + '">'
       + '<div class="cap"><div style="width:' + w + '%;background:' + fill + ';"></div></div>'
       + '<div class="num" style="color:' + coulTxt + ';">' + num + '</div></td>';
   }
@@ -334,7 +333,7 @@
         if (v === null) svConnu = false; else sv += v;
         sp += p;
         var actuel = (c.y === curY && c.m === curM) ? ' mois-actuel' : '';
-        h += celluleBar(p, v, mNom, actuel);
+        h += celluleBar(p, v, mNom, actuel, nomUp, c.y, c.m);
       });
       h += celluleTotal(sp, sv, svConnu, mNom);
       h += '</tr>';
@@ -430,6 +429,81 @@
   construireChips();
   render();
   chargerReal();
+  /* ── Info-bulle stylée au survol d'une cellule chantier (même forme que le Prévisionnel) ── */
+  var _gtip = null, _gtipKey = null;
+  function gtipEl() {
+    if (_gtip) return _gtip;
+    var d = document.createElement('div');
+    d.id = 'gtip-chantier';
+    d.style.cssText =
+      'position:fixed;z-index:9999;pointer-events:none;display:none;' +
+      'background:#0f2747;color:#fff;border-radius:8px;padding:10px 13px;' +
+      'font-size:0.82rem;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.32);' +
+      'min-width:238px;max-width:300px;';
+    document.body.appendChild(d);
+    _gtip = d;
+    return d;
+  }
+  function gtipLigne(lbl, val) {
+    return '<div style="display:flex;justify-content:space-between;gap:20px;">' +
+      '<span style="color:#a9c0ea;">' + lbl + '</span>' +
+      '<b style="color:#fff;white-space:nowrap;">' + val + '</b></div>';
+  }
+  function gtipHTML(nomUp, y, m) {
+    var cols = colonnesActives();
+    var devisTot = 0, planTot = 0, realTot = 0, realConnu = true;
+    cols.forEach(function (c) {
+      devisTot += prevuMois(nomUp, c.y, c.m);
+      planTot  += planifMois(nomUp, c.y, c.m);
+      var rr = realMois(nomUp, c.y, c.m);
+      if (rr === null) realConnu = false; else realTot += rr;
+    });
+    var realM = realMois(nomUp, y, m);
+    var hh = function (x) { return r(x) + ' h'; };
+    return '<div style="font-weight:600;margin-bottom:7px;">' + nomUp + ' — ' + MOIS[m] + ' ' + y + '</div>' +
+      gtipLigne('Temps devis', hh(devisTot)) +
+      gtipLigne('Devis ce mois', hh(prevuMois(nomUp, y, m))) +
+      gtipLigne('Planifié ce mois', hh(planifMois(nomUp, y, m))) +
+      gtipLigne('Réalisé ce mois', realM === null ? '…' : hh(realM)) +
+      '<div style="height:6px;"></div>' +
+      gtipLigne('Restant à planifier', hh(devisTot - planTot)) +
+      gtipLigne('Restant à réaliser', realConnu ? hh(devisTot - realTot) : '…');
+  }
+  function gtipPos(e) {
+    var t = gtipEl(), ox = 16, oy = 16;
+    var x = e.clientX + ox, yy = e.clientY + oy;
+    var w = t.offsetWidth, ht = t.offsetHeight;
+    if (x + w > window.innerWidth - 8)  x = e.clientX - w - ox;
+    if (yy + ht > window.innerHeight - 8) yy = e.clientY - ht - oy;
+    t.style.left = Math.max(4, x) + 'px';
+    t.style.top  = Math.max(4, yy) + 'px';
+  }
+  function gtipCible(e) { return (e.target.closest && e.target.closest('td.col-mois[data-nom]')) || null; }
+  document.addEventListener('mouseover', function (e) {
+    var td = gtipCible(e);
+    if (!td) return;
+    var nomUp = td.getAttribute('data-nom'),
+        y = parseInt(td.getAttribute('data-y'), 10),
+        m = parseInt(td.getAttribute('data-m'), 10);
+    var key = nomUp + '|' + y + '|' + m, t = gtipEl();
+    if (t.style.display !== 'block' || _gtipKey !== key) {
+      _gtipKey = key;
+      t.innerHTML = gtipHTML(nomUp, y, m);
+      t.style.display = 'block';
+    }
+    gtipPos(e);
+  });
+  document.addEventListener('mousemove', function (e) {
+    if (!_gtip || _gtip.style.display !== 'block') return;
+    if (gtipCible(e)) gtipPos(e); else { _gtip.style.display = 'none'; _gtipKey = null; }
+  });
+  document.addEventListener('mouseout', function (e) {
+    var to = e.relatedTarget;
+    if (!to || !(to.closest && to.closest('td.col-mois[data-nom]'))) {
+      if (_gtip) { _gtip.style.display = 'none'; _gtipKey = null; }
+    }
+  });
+
 })();
 </script>
 </body>
