@@ -79,9 +79,9 @@
   .btn:hover { opacity: 0.88; }
 
   /* Tableau licences */
-  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-  th { background: #f1f5f9; padding: 8px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
-  td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  th { background: #f1f5f9; padding: 6px 7px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; white-space: nowrap; }
+  td { padding: 5px 7px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
   tr:hover td { background: #f8fafc; }
 
   .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; }
@@ -615,7 +615,7 @@ function afficherLicences(liste) {
     tbody.innerHTML += `<tr>
       <td><strong>${l.codeClient}</strong></td>
       <td>${l.nomClient || '—'}</td>
-      <td>${l.email || '—'}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.email || ''}">${l.email || '—'}</td>
       <td>${origine}</td>
       <td>${statutBadge}</td>
       <td style="text-align:center;">
@@ -630,32 +630,22 @@ function afficherLicences(liste) {
       <td>${etat}</td>
       <td class="col-admin" style="text-align:center;">${l.prescripteur || '—'}</td>
       <td style="text-align:center;">
-        <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;"
-          onclick="consulterClient('${l.codeClient}')" title="Accéder aux données de ce client">
-          👁 Consulter
-        </button>
+        <button class="btn btn-primary" style="padding:4px 8px;font-size:0.76rem;white-space:nowrap;"
+          onclick="consulterClient('${l.codeClient}')" title="Accéder aux données de ce client">👁 Consulter</button>
       </td>
       <td class="col-admin" style="text-align:center;">
-        <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
-          onclick="ouvrirModifLicence('${l.codeClient}','${l.nomClient}','${l.email}','${l.dateExpiration?.split('T')[0]}','${l.type || 'standard'}','${l.prescripteur || ''}')">
-          ✏ Modifier
-        </button>
+        <button class="btn btn-warning" style="padding:4px 8px;font-size:0.76rem;white-space:nowrap;"
+          onclick="ouvrirModifLicence('${l.codeClient}','${l.nomClient}','${l.email}','${l.dateExpiration?.split('T')[0]}','${l.type || 'standard'}','${l.prescripteur || ''}')">✏ Modifier</button>
       </td>
-      <td class="col-admin" style="white-space:nowrap;">
-        <button class="btn btn-success" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
-          onclick="exporterFinLicence('${l.codeClient}')" title="Exporter toutes les données de ce client (Excel)">
-          📦 Export
-        </button>
-        <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
-          onclick="dupliquerLicence('${l.codeClient}')" title="Créer un nouveau client, copie de celui-ci (données incluses)">
-          ⧉ Dupliquer
-        </button>
-        <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
-          onclick="toggleLicence('${l.codeClient}')">
-          ${l.actif ? '⏸ Désactiver' : '▶ Activer'}
-        </button>
-        <button class="btn btn-danger" style="padding:4px 10px;font-size:0.8rem;margin-left:4px;"
-          onclick="supprimerLicence('${l.codeClient}')">✕</button>
+      <td class="col-admin" style="white-space:nowrap;text-align:center;">
+        <button class="btn btn-success" style="padding:4px 7px;font-size:0.9rem;margin-right:3px;"
+          onclick="exporterFinLicence('${l.codeClient}')" title="Exporter toutes les données de ce client (Excel)">📦</button>
+        <button class="btn btn-primary" style="padding:4px 7px;font-size:0.9rem;margin-right:3px;"
+          onclick="dupliquerLicence('${l.codeClient}')" title="Dupliquer ce client (données incluses)">⧉</button>
+        <button class="btn btn-warning" style="padding:4px 7px;font-size:0.9rem;"
+          onclick="toggleLicence('${l.codeClient}')" title="${l.actif ? 'Désactiver' : 'Activer'}">${l.actif ? '⏸' : '▶'}</button>
+        <button class="btn btn-danger" style="padding:4px 7px;font-size:0.9rem;margin-left:3px;"
+          onclick="supprimerLicence('${l.codeClient}')" title="Supprimer">✕</button>
       </td>
     </tr>`;
   });
