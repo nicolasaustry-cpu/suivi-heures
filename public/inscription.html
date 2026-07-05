@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Essai gratuit 30 jours – Suiv'Heures</title>
+  <meta name="description" content="Pilotez et maîtrisez votre rentabilité grâce au suivi des heures, du chantier à la facturation. Essai gratuit 30 jours, sans carte bancaire.">
+  <meta name="theme-color" content="#0f3a8a">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+
+  <!-- Partage réseaux / e-mail (Open Graph + Twitter) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Suiv'Heures — Essai gratuit 30 jours">
+  <meta property="og:description" content="Pilotez et maîtrisez votre rentabilité grâce au suivi des heures, du chantier à la facturation. Essai gratuit, sans carte bancaire.">
+  <meta property="og:image" content="https://suivi-heures.volitis.net/assets/icon-512.png">
+  <meta property="og:url" content="https://suivi-heures.volitis.net/essai">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Suiv'Heures — Essai gratuit 30 jours">
+  <meta name="twitter:description" content="Le suivi des heures, du chantier à la facturation. Essai gratuit, sans carte bancaire.">
+  <meta name="twitter:image" content="https://suivi-heures.volitis.net/assets/icon-512.png">
+
+  <style>
+    :root{
+      --navy:#0f3a8a; --amber:#f59e0b; --amber-txt:#412402;
+      --bleu-pale:#bfdbfe; --bleu-clair:#dbe6fb;
+      --gris:#64748b; --gris-clair:#94a3b8; --bord:#e2e8f0;
+      --texte:#0f172a; --texte2:#475569; --vert:#16a34a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--texte);
+      background:#eef2f7; min-height:100vh;
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .carte{
+      width:100%; max-width:920px; background:#fff; border-radius:16px;
+      overflow:hidden; box-shadow:0 12px 40px rgba(15,23,42,.14);
+      display:grid; grid-template-columns:1.05fr 1fr;
+    }
+
+    /* ── Colonne gauche : présentation ── */
+    .pitch{ background:var(--navy); padding:30px 28px; display:flex; flex-direction:column; }
+    .marque{ display:flex; align-items:center; gap:11px; margin-bottom:22px; }
+    .marque .logo{ width:38px; height:38px; border-radius:9px; background:#fff; display:inline-flex;
+      align-items:center; justify-content:center; padding:3px; }
+    .marque .logo img{ width:100%; height:100%; object-fit:contain; display:block; }
+    .marque .nom{ color:#fff; font-weight:700; font-size:16px; }
+    .h1{ color:#fff; font-weight:700; font-size:25px; line-height:1.2; }
+    .h2{ color:var(--bleu-clair); font-weight:400; font-size:16px; line-height:1.4; margin-top:9px; }
+    .h2 i{ font-size:0.8em; }
+    .arg{ display:flex; align-items:flex-start; gap:10px; margin-top:15px; }
+    .arg .ico{ flex-shrink:0; width:22px; height:22px; color:var(--amber); }
+    .arg b{ color:#fff; font-weight:700; font-size:14px; }
+    .arg span{ color:var(--bleu-pale); font-size:13px; line-height:1.45; }
+    .arg span i{ color:#93c5fd; font-size:11.5px; }
+    .prix{ margin-top:auto; padding-top:22px; }
+    .prix .g{ color:var(--amber); font-weight:700; font-size:16px; }
+    .prix .s{ color:var(--bleu-pale); font-size:13.5px; }
+
+    /* ── Colonne droite : formulaire ── */
+    .form{ background:#f8fafc; padding:28px; display:flex; flex-direction:column; }
+    .essai{ display:flex; align-items:center; gap:9px; margin-bottom:4px; }
+    .essai .g{ color:var(--navy); font-weight:700; font-size:21px; }
+    .essai .ico{ width:24px; height:24px; color:var(--amber); }
+    .sous{ font-size:13px; color:var(--texte2); margin-bottom:16px; }
+    label{ font-size:12px; color:var(--texte2); font-weight:700; display:block; }
+    input{ width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px;
+      font-size:14.5px; margin-top:5px; margin-bottom:13px; }
+    input:focus{ outline:2px solid #bfdbfe; border-color:var(--navy); }
+    .aide{ font-size:11.5px; color:var(--gris-clair); margin-top:-9px; margin-bottom:13px; }
+    #f-code{ text-transform:uppercase; }
+    .btn{ width:100%; background:var(--amber); color:var(--amber-txt); border:none; border-radius:8px;
+      padding:12px; font-size:15px; font-weight:700; cursor:pointer; display:flex;
+      align-items:center; justify-content:center; gap:8px; }
+    .btn:hover{ background:#e08e08; }
+    .btn:disabled{ opacity:.6; cursor:default; }
+    .rassure{ display:flex; gap:16px; justify-content:center; margin-top:13px; flex-wrap:wrap; }
+    .rassure span{ font-size:12px; color:var(--texte2); }
+    .rassure .ok{ color:var(--vert); }
+    #msg-erreur{ display:none; background:#fee2e2; border:1px solid #fca5a5; color:#991b1b;
+      padding:9px 12px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+    /* Co-branding prescripteur */
+    #cobranding{ display:none; margin-top:auto; padding-top:16px; border-top:1px solid var(--bord);
+      align-items:center; justify-content:center; gap:10px; }
+    #cobranding .lbl{ color:var(--gris-clair); font-size:11.5px; font-style:italic; }
+    #cobranding .logo-part{ max-height:34px; max-width:130px; display:block; }
+
+    /* ── Écran de confirmation ── */
+    #ecran-confirm{ display:none; padding:40px 28px; text-align:center; }
+    #ecran-confirm .rond{ width:64px; height:64px; border-radius:50%; background:#dcfce7;
+      display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px; }
+    #ecran-confirm .rond svg{ width:34px; height:34px; color:var(--vert); }
+    #ecran-confirm h2{ font-size:22px; margin:0 0 6px; color:var(--texte); }
+    #ecran-confirm p{ color:var(--texte2); font-size:14px; margin:0 0 18px; }
+    .code-box{ display:inline-block; background:#f1f5f9; border:1px dashed #94a3b8; border-radius:10px;
+      padding:12px 22px; margin-bottom:6px; }
+    .code-box .lbl{ font-size:11.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; }
+    .code-box .code{ font-size:24px; font-weight:800; color:var(--navy); letter-spacing:1px; }
+    .note-code{ font-size:12px; color:var(--gris-clair); margin-bottom:22px; }
+    .btn-entrer{ background:var(--navy); color:#fff; border:none; border-radius:8px; padding:12px 26px;
+      font-size:15px; font-weight:700; cursor:pointer; }
+    .btn-entrer:hover{ background:#0c2f70; }
+
+    @media (max-width:760px){
+      .carte{ grid-template-columns:1fr; max-width:520px; }
+      .prix{ margin-top:20px; }
+      body{ padding:14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="carte" id="carte">
+
+  <!-- ══ Présentation ══ -->
+  <div class="pitch">
+    <div class="marque">
+      <span class="logo"><img src="assets/icon-512.png" alt="Suiv'Heures"></span>
+      <span class="nom">Suiv'Heures</span>
+    </div>
+    <div class="h1">Pilotez et maîtrisez votre rentabilité.</div>
+    <div class="h2">Le suivi <i>(en temps réel)</i> des heures, du chantier à la facturation</div>
+
+    <div class="arg">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      <div><b>Pointage mobile</b><br><span>vos salariés saisissent leurs heures sur le chantier <i>(fini la galère pour récupérer les feuilles d'heures…)</i></span></div>
+    </div>
+    <div class="arg">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <div><b>Planning des équipes</b><br><span>chantiers, RDV et absences en un coup d'œil <i>(tout le monde sait en temps réel où il doit être et combien de temps il y est prévu)</i></span></div>
+    </div>
+    <div class="arg">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>
+      <div><b>Heures maîtrisées en temps réel.</b><br><span><i>(vous maîtrisez, pour aujourd'hui et pour demain, les temps passés vs les temps devisés)</i></span></div>
+    </div>
+
+    <div class="prix">
+      <span class="g">1 mois gratuit</span><span class="s"> puis à partir de 8 € HT/mois</span>
+    </div>
+  </div>
+
+  <!-- ══ Formulaire ══ -->
+  <div class="form" id="ecran-form">
+    <div class="essai">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+      <span class="g">Essai gratuit · 30 jours</span>
+    </div>
+    <div class="sous">Créez votre espace en une minute, avec vos propres données.</div>
+
+    <div id="msg-erreur"></div>
+
+    <label for="f-nom">Nom de l'entreprise</label>
+    <input id="f-nom" type="text" placeholder="SARL Dupont" autocomplete="organization">
+
+    <label for="f-email">E-mail</label>
+    <input id="f-email" type="email" placeholder="nom@entreprise.fr" autocomplete="email">
+
+    <label for="f-code">Code d'accès mobile</label>
+    <input id="f-code" type="text" placeholder="DUPONT-BTP" oninput="this.value=this.value.toUpperCase()">
+    <div class="aide">Servira à connecter les téléphones de vos salariés.</div>
+
+    <button class="btn" id="btn-creer" onclick="creerEssai()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+      Créer mon espace d'essai
+    </button>
+
+    <div class="rassure">
+      <span><span class="ok">✓</span> Sans carte bancaire</span>
+      <span><span class="ok">✓</span> Sans engagement</span>
+    </div>
+
+    <div id="cobranding">
+      <span class="lbl">En partenariat avec :</span>
+      <img class="logo-part" id="logo-part" src="" alt="">
+    </div>
+  </div>
+
+  <!-- ══ Confirmation ══ -->
+  <div class="form" id="ecran-confirm">
+    <div class="rond">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2>Votre espace d'essai est créé&nbsp;!</h2>
+    <p>Vous disposez de <strong>30 jours d'essai gratuit</strong>, avec toutes les fonctionnalités.</p>
+    <div class="code-box">
+      <div class="lbl">Votre code d'accès</div>
+      <div class="code" id="code-genere">—</div>
+    </div>
+    <div class="note-code">Notez bien ce code : il vous servira à vous reconnecter.</div>
+    <div><button class="btn-entrer" onclick="entrer()">Entrer dans l'application →</button></div>
+  </div>
+
+</div>
+
+<script>
+  var _prescripteur = "";   // code prescripteur validé (co-branding)
+  var _codeGenere   = "";   // code d'accès renvoyé par le serveur
+
+  // ── Co-branding : si ?p=CODE présent et valide, afficher le partenaire ──
+  (function initPrescripteur() {
+    var p = (new URLSearchParams(window.location.search).get('p') || '').trim().toUpperCase();
+    if (!p) return;
+    fetch('/api/auth/prescripteur-public/' + encodeURIComponent(p))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok && d.actif) {
+          _prescripteur = p;
+          if (d.logoPartenaire) {
+            var img = document.getElementById('logo-part');
+            img.src = d.logoPartenaire;
+            img.alt = d.nom || 'Partenaire';
+            document.getElementById('cobranding').style.display = 'flex';
+          }
+        }
+      })
+      .catch(function () { /* pas de co-branding si erreur */ });
+  })();
+
+  function _erreur(txt) {
+    var e = document.getElementById('msg-erreur');
+    e.textContent = txt; e.style.display = 'block';
+  }
+
+  async function creerEssai() {
+    var nom   = document.getElementById('f-nom').value.trim();
+    var email = document.getElementById('f-email').value.trim();
+    var code  = document.getElementById('f-code').value.trim().toUpperCase();
+    document.getElementById('msg-erreur').style.display = 'none';
+
+    if (!nom)   return _erreur("Merci d'indiquer le nom de votre entreprise.");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return _erreur("Merci d'indiquer un e-mail valide.");
+    if (!code)  return _erreur("Merci de choisir un code d'accès mobile.");
+
+    var btn = document.getElementById('btn-creer');
+    btn.disabled = true; btn.textContent = 'Création en cours…';
+
+    try {
+      var r = await fetch('/api/auth/inscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomClient: nom, email: email, codeEmploye: code, prescripteur: _prescripteur })
+      });
+      var d = await r.json();
+      if (!d.ok) {
+        _erreur(d.message || "Impossible de créer l'espace d'essai. Réessayez.");
+        btn.disabled = false; btn.textContent = 'Créer mon espace d\u2019essai';
+        return;
+      }
+      _codeGenere = d.codeClient;
+      document.getElementById('code-genere').textContent = _codeGenere;
+      document.getElementById('ecran-form').style.display = 'none';
+      document.getElementById('ecran-confirm').style.display = 'flex';
+    } catch (e) {
+      _erreur("Erreur de connexion. Vérifiez votre réseau et réessayez.");
+      btn.disabled = false; btn.textContent = 'Créer mon espace d\u2019essai';
+    }
+  }
+
+  // Le bouton « Entrer » enregistre le code : l'appli connecte automatiquement au chargement.
+  function entrer() {
+    try {
+      localStorage.removeItem('syncToken');
+      localStorage.removeItem('syncClientId');
+      localStorage.setItem('licenceCode', _codeGenere);
+    } catch (e) {}
+    window.location.href = 'index.html';
+  }
+</script>
+</body>
+</html>
