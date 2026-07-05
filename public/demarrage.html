@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suiv'Heures</title>
+  <script>
+    // Aiguillage au démarrage de l'application installée (PWA) :
+    //   - Appareil mobile (téléphone) -> page de saisie des heures
+    //   - Ordinateur (PC)             -> page Entreprise (espace de gestion)
+    (function () {
+      var ua = navigator.userAgent || navigator.vendor || "";
+      var estMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+      location.replace(estMobile ? "/saisie.html" : "/index.html");
+    })();
+  </script>
+</head>
+<body style="font-family:Arial,Helvetica,sans-serif;background:#0f3a8a;color:#fff;margin:0;height:100vh;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;">
+    <div style="font-size:19px;font-weight:bold;">Suiv'Heures</div>
+    <div style="font-size:14px;opacity:.85;margin-top:6px;">Ouverture de l'application…</div>
+    <noscript>
+      <div style="margin-top:12px;">
+        <a href="/index.html" style="color:#f59e0b;">Espace gestion (PC)</a> &nbsp;·&nbsp;
+        <a href="/saisie.html" style="color:#f59e0b;">Saisie (mobile)</a>
+      </div>
+    </noscript>
+  </div>
+</body>
+</html>
