@@ -1,19 +1,24 @@
 // Service d'envoi d'e-mails (SMTP, via nodemailer).
-// Se configure par variables d'environnement — compatible Brevo, Gmail, OVH, etc.
+// nodemailer est chargé dynamiquement : si la librairie n'est pas installée
+// ou si le SMTP n'est pas configuré, les envois sont ignorés sans planter l'appli.
 //   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
 //   SMTP_SECURE = "true" pour le port 465 (sinon 587/STARTTLS)
 //   SMTP_FROM   = adresse d'expédition affichée (ex. "contact@volitis.net")
 //   APP_URL     = URL de l'application (ex. "https://suivi-heures.volitis.net")
-// Si le SMTP n'est pas configuré, les envois sont ignorés sans bloquer l'application.
-
-import nodemailer from "nodemailer";
 
 let _transport = null;
 
-function transport() {
+async function transport() {
   if (_transport) return _transport;
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null; // non configuré
+  let nodemailer;
+  try {
+    nodemailer = (await import("nodemailer")).default;
+  } catch (e) {
+    console.warn("nodemailer non installé : e-mails désactivés.");
+    return null;
+  }
   _transport = nodemailer.createTransport({
     host: SMTP_HOST,
     port: parseInt(SMTP_PORT || "587", 10),
@@ -31,7 +36,7 @@ function _fmtDate(d) {
 
 // ── E-mail de confirmation d'auto-inscription à l'essai ──
 export async function envoyerMailEssai({ email, nomClient, code, dateExpiration }) {
-  const t = transport();
+  const t = await transport();
   if (!t) { console.warn("SMTP non configuré : e-mail de confirmation non envoyé."); return false; }
 
   const from   = process.env.SMTP_FROM || process.env.SMTP_USER;
