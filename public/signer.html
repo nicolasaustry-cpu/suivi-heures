@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signature du contrat — Suiv'Heures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0f3a8a; --navy-deep:#0b2c6b; --ink:#0f172a;
+    --bg:#f1f5f9; --card:#ffffff; --line:#cbd5e1; --line-soft:#e2e8f0;
+    --amber:#f59e0b; --slate:#64748b; --green:#16a34a; --red:#dc2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:840px;margin:0 auto;padding:0 20px}
+
+  .topbar{background:var(--navy);color:#fff;border-bottom:3px solid var(--amber)}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;height:58px}
+  .logo{width:36px;height:36px;border-radius:9px;background:#fff;display:grid;place-items:center;padding:3px;flex:none}
+  .logo img{width:100%;height:100%;object-fit:contain;display:block}
+  .topbar b{font-size:16px;font-weight:800}
+  .topbar b small{display:block;font-size:10px;font-weight:500;color:#a9c0ea;letter-spacing:.05em}
+
+  .state{max-width:560px;margin:60px auto;text-align:center;padding:0 20px}
+  .state .ic{font-size:44px;margin-bottom:10px}
+  .state h2{color:var(--navy);font-size:22px;margin-bottom:8px}
+  .state p{color:var(--slate);font-size:15px}
+  .hide{display:none}
+
+  .intro{padding:30px 0 6px}
+  .intro .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+  .intro h1{font-size:clamp(24px,4.5vw,34px);font-weight:800;color:var(--navy);margin:8px 0 10px;letter-spacing:-.01em}
+  .intro p{font-size:15px;color:#475569;max-width:64ch}
+
+  /* Document contrat facon papier */
+  .doc{background:#fff;border:1px solid var(--line);border-radius:14px;padding:34px 40px;margin:18px 0;
+       box-shadow:0 20px 50px -34px rgba(11,44,107,.55);font-size:14px;color:#1f2937;line-height:1.7}
+  .doc h3.tt{text-align:center;color:var(--navy);font-size:19px;font-weight:800;margin-bottom:2px}
+  .doc .sub{text-align:center;color:var(--slate);font-size:13px;margin-bottom:22px}
+  .doc h4{color:var(--navy);font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:20px 0 6px;border-top:1px solid var(--line-soft);padding-top:16px}
+  .doc h4:first-of-type{border-top:none;padding-top:0}
+  .doc p{margin:6px 0}
+  .doc ul{list-style:none;margin:6px 0}
+  .doc li{padding-left:16px;position:relative;margin-bottom:4px}
+  .doc li::before{content:"•";position:absolute;left:2px;color:var(--navy)}
+  .doc .v{color:var(--navy);font-weight:700}
+  .doc .grid{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  .doc .grid th,.doc .grid td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+  .doc .grid th{background:#eef4fd;color:var(--navy);font-weight:700}
+  .doc .sign-tbl{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .doc .sign-box{border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:13px}
+  .doc .sign-box b{display:block;color:var(--navy);margin-bottom:6px}
+  .doc .sign-box .sig{margin-top:10px;min-height:34px;color:var(--green);font-weight:600;font-style:italic}
+
+  /* Zone de signature */
+  .signbar{background:#fff;border:2px solid var(--navy);border-radius:16px;padding:22px 24px;margin:22px 0;box-shadow:0 16px 40px -28px rgba(15,58,138,.5)}
+  .signbar h3{color:var(--navy);font-size:18px;font-weight:800;margin-bottom:4px}
+  .signbar .who{font-size:13.5px;color:var(--slate);margin-bottom:14px}
+  .consent{display:flex;gap:11px;align-items:flex-start;background:#fef6e7;border:1px solid #f7dda6;border-radius:10px;padding:13px 15px;margin-bottom:14px;cursor:pointer}
+  .consent input{width:20px;height:20px;margin-top:1px;accent-color:var(--navy);flex:none}
+  .consent span{font-size:13.5px;color:#3f4d63}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin-bottom:5px}
+  .field input{width:100%;background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px 14px;font-size:15px;font-family:inherit;color:var(--ink)}
+  .field input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,58,138,.12)}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;padding:13px 24px;border-radius:10px;border:none;cursor:pointer;font-family:inherit}
+  .btn.sign{background:var(--green);color:#fff}
+  .btn.sign:hover{filter:brightness(1.05)}
+  .btn.sign:disabled{opacity:.5;cursor:not-allowed}
+  .btn.refuse{background:transparent;color:var(--slate);border:1px solid var(--line);font-weight:600;padding:13px 18px}
+  .msg{font-size:13.5px;font-weight:600;margin-top:10px;display:none}
+  .msg.err{color:var(--red);display:block}
+
+  /* Confirmation */
+  .proof{background:#eaf6ef;border:1px solid #bfe6cd;border-radius:14px;padding:22px 24px;margin:20px 0}
+  .proof h3{color:#15803d;font-size:18px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .proof .line{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13.5px;border-bottom:1px dashed #c5e6d1}
+  .proof .line:last-child{border-bottom:none}
+  .proof .line span:first-child{color:var(--slate)}
+  .proof .line span:last-child{font-weight:600;text-align:right;word-break:break-all}
+  .proof .hash{font-family:ui-monospace,monospace;font-size:11px}
+
+  .foot{background:var(--navy-deep);color:#c9d6ef;padding:26px 0;margin-top:36px;font-size:12.5px;text-align:center}
+  .foot b{color:#fff}
+
+  @media print{ .topbar,.intro,.signbar,.foot,.no-print{display:none!important} .doc{box-shadow:none;border:none;padding:0} }
+  @media(max-width:560px){ .doc{padding:24px 22px} .doc .sign-tbl{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <div class="logo"><img src="assets/icon-512.png" alt="Suiv'Heures"></div>
+  <b>Suiv'Heures<small>VOLITIS · Signature de contrat</small></b>
+</div></div>
+
+<!-- États -->
+<div id="loading" class="state"><div class="ic">⏳</div><h2>Chargement du contrat…</h2></div>
+<div id="stateError" class="state hide"><div class="ic">🔗</div><h2 id="errTitle">Lien indisponible</h2><p id="errText"></p></div>
+
+<!-- Contrat + signature -->
+<div id="main" class="wrap hide">
+  <div class="intro no-print">
+    <div class="kicker">Contrat de licence — Suiv'Heures</div>
+    <h1>Votre contrat est prêt à être signé</h1>
+    <p>Merci de lire l'intégralité du contrat ci-dessous. Pour le signer, cochez « Lu et approuvé »,
+       saisissez votre nom, puis validez. Votre signature électronique a la même valeur qu'une signature manuscrite.</p>
+  </div>
+
+  <div class="doc" id="doc"><!-- rempli par JS --></div>
+
+  <div class="signbar no-print" id="signbar">
+    <h3>Signer le contrat</h3>
+    <div class="who" id="who"></div>
+    <label class="consent">
+      <input type="checkbox" id="consent">
+      <span>J'ai lu et j'approuve l'intégralité du présent contrat de licence, et je reconnais que ma signature
+      électronique a la même valeur juridique qu'une signature manuscrite.</span>
+    </label>
+    <div class="field">
+      <label>Votre nom et prénom</label>
+      <input id="nomTape" type="text" placeholder="Tapez votre nom complet" autocomplete="name">
+    </div>
+    <div class="row">
+      <button class="btn sign" id="btnSign" onclick="signer()" disabled>✓ Signer le contrat</button>
+      <button class="btn refuse" onclick="refuser()">Refuser</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <!-- Confirmation (après signature) -->
+  <div class="proof hide" id="proof">
+    <h3>✅ Contrat signé</h3>
+    <div class="line"><span>Signataire</span><span id="p_nom"></span></div>
+    <div class="line"><span>Date et heure</span><span id="p_date"></span></div>
+    <div class="line"><span>Empreinte du document</span><span class="hash" id="p_hash"></span></div>
+    <p style="margin-top:12px;font-size:13.5px;color:#15803d">Un exemplaire signé a été enregistré. Vous pouvez imprimer ou enregistrer cette page en PDF pour vos archives.</p>
+    <button class="btn refuse no-print" style="margin-top:12px" onclick="window.print()">🖨️ Imprimer / PDF</button>
+  </div>
+</div>
+
+<div class="foot no-print"><div class="wrap"><b>Suiv'Heures</b> — édité par VOLITIS · Signature électronique simple (eIDAS)</div></div>
+
+<script>
+  const token = (location.pathname.split('/signer/')[1] || '').split(/[/?#]/)[0];
+  const $ = id => document.getElementById(id);
+  const euro = n => Number(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const dateLongue = d => new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+
+  function erreur(titre, texte){
+    $('loading').classList.add('hide'); $('main').classList.add('hide');
+    $('stateError').classList.remove('hide');
+    $('errTitle').textContent = titre; $('errText').textContent = texte;
+  }
+
+  // Construit le texte complet du contrat à partir des conditions figées
+  function rendreContrat(c, statut, signeLe, nomSignataire){
+    const plus = c.formule === 'Plus';
+    const civ = (c.representantCivilite||'').toLowerCase()==='madame' ? 'madame' : 'monsieur';
+    const dateFR = c.dateContrat ? dateLongue(c.dateContrat+'T00:00:00') : '……………';
+    const v = t => `<span class="v">${(t===0||t)?t:'……'}</span>`;
+
+    const sigClient = statut==='signe'
+      ? `Signé électroniquement par ${nomSignataire||''}<br>le ${signeLe?dateLongue(signeLe):''}`
+      : 'En attente de signature';
+
+    return `
+      <h3 class="tt">Contrat de licence et d'abonnement</h3>
+      <div class="sub">Application Suiv'Heures — application en ligne hébergée</div>
+
+      <h4>Entre les soussignés</h4>
+      <p>La société <b>VOLITIS</b>, SASU au capital social de 5 000,00 €, dont le siège social est situé
+      370 route de Bonnétable, 72190 Sargé-lès-le-Mans, immatriculée sous le n° SIREN 837 537 570,
+      représentée par M. Nicolas AUSTRY en qualité de Président, ci-après « l'Éditeur », d'une part,</p>
+      <p>Et la société ${v(c.raisonSociale)}, ${v(c.formeJuridique)}, au capital de ${v(c.capital)},
+      inscrite au Registre du Commerce et des Sociétés de ${v(c.greffe)} sous le numéro ${v(c.siren)},
+      dont le siège social est ${v(c.adresseSiege)}, prise en la personne de son représentant légal,
+      ${civ} ${v(c.representantNom)}, ${v(c.representantQualite)}, domicilié audit siège, ci-après « le Client », d'autre part.</p>
+
+      <h4>Préambule</h4>
+      <p>L'Éditeur édite et exploite Suiv'Heures, application web de suivi des heures de travail sur chantier,
+      accessible en ligne, à destination des entreprises du bâtiment et des TPE/PME. Le Client souhaite bénéficier
+      d'un droit d'utilisation dans les conditions définies au présent contrat.</p>
+
+      <h4>Article 1 — Définitions</h4>
+      <ul>
+        <li><b>Application / Service</b> : l'application Suiv'Heures et l'ensemble de ses fonctionnalités, accessibles en ligne.</li>
+        <li><b>Licence</b> : le droit d'utilisation non exclusif, personnel et non cessible concédé au Client.</li>
+        <li><b>Utilisateur</b> : toute personne autorisée par le Client à accéder au Service (dirigeant, salariés).</li>
+        <li><b>Données du Client</b> : l'ensemble des données saisies ou générées par le Client et ses Utilisateurs.</li>
+        <li><b>Période</b> : période de facturation de six (6) mois consécutifs telle que définie à l'article 6.</li>
+      </ul>
+
+      <h4>Article 2 — Objet</h4>
+      <p>Le présent contrat définit les conditions dans lesquelles l'Éditeur concède au Client une licence
+      d'utilisation de l'Application Suiv'Heures, application en ligne hébergée, ainsi que les conditions
+      financières et les obligations réciproques des Parties. La Licence est concédée à titre non exclusif,
+      personnel, non cessible et pour les seuls besoins propres du Client.</p>
+
+      <h4>Article 3 — Description du Service et formules</h4>
+      <p>Le Service est proposé selon deux formules :</p>
+      <p><b>Licence Standard</b> — l'essentiel pour organiser et suivre l'activité :</p>
+      <ul>
+        <li>Salariés : création des équipes et de leurs horaires de référence (y compris alternance semaine A/B).</li>
+        <li>Prévisionnel : planification des devis validés, mois par mois, avec contrôle de cohérence des heures.</li>
+        <li>Planning : organisation des équipes semaine par semaine, avec alerte de dépassement des heures prévues.</li>
+        <li>Rapports : suivi des heures planifiées, salarié par salarié.</li>
+        <li>BEV : édition du bordereau d'éléments variables (heures planifiées, payées, reportées).</li>
+      </ul>
+      <p><b>Licence Plus</b> — tout le Standard, plus la remontée automatique depuis les chantiers :</p>
+      <ul>
+        <li>Saisie mobile : pointage des heures par les salariés depuis leur téléphone, avec notes dictées et photos.</li>
+        <li>Planning réalisé : comparaison automatique du prévu et du réalisé, avec indicateurs de performance.</li>
+        <li>Notes de chantier : remarques et photos du terrain, consultables, imprimables et exportables.</li>
+        <li>BEV : bordereau d'éléments variables reprenant les heures réellement réalisées.</li>
+      </ul>
+
+      <h4>Article 4 — Accès et identifiants</h4>
+      <p>L'accès s'effectue au moyen d'un identifiant (côté dirigeant) et d'un code personnel à quatre chiffres
+      (côté salariés). Le Client est responsable de la conservation et de la confidentialité de ses identifiants
+      et de ceux de ses Utilisateurs, ainsi que de toute utilisation faite sous ces identifiants, et informe sans
+      délai l'Éditeur de toute utilisation non autorisée.</p>
+
+      <h4>Article 5 — Durée et reconduction</h4>
+      <p>Le contrat prend effet à sa date de signature et est conclu pour une durée initiale de six (6) mois.
+      À son terme, il est reconduit tacitement par périodes successives de six (6) mois, sauf dénonciation par
+      l'une des Parties notifiée par écrit au moins trente (30) jours avant l'échéance de la période en cours.</p>
+
+      <h4>Article 6 — Conditions financières et facturation</h4>
+      <p>Les tarifs figurent en Annexe 1. Ils s'entendent hors taxes ; la TVA au taux en vigueur s'ajoute.
+      Conditions particulières souscrites par le Client :</p>
+      <ul>
+        <li>Formule retenue : ${v(plus?'Plus':'Standard')}.</li>
+        ${plus?`<li>Effectif pris en compte : ${v(c.effectif+' salarié(s)')}.</li>`:''}
+        <li>Forfait semestriel : ${v(euro(c.forfaitHT)+' € HT')}, soit ${v(euro(c.forfaitTTC)+' € TTC')}, payable d'avance.</li>
+        ${plus?`<li>Frais d'ouverture (formule Plus) : ${v(euro(c.fraisOuvertureHT)+' € HT')} soit ${v(euro(c.fraisOuvertureTTC)+' € TTC')}, facturés une seule fois à la souscription.</li>`:''}
+      </ul>
+      <p>Les redevances sont facturées par périodes successives de six (6) mois, payables d'avance ; la première
+      facture couvre les six premiers mois à compter de la date d'effet. La formule Plus comprend des frais
+      d'ouverture uniques de 150 € HT. Toute augmentation d'effectif est recalculée selon la grille de l'Annexe 1
+      au prorata du temps restant ; toute diminution est prise en compte pour la période suivante, sans remboursement
+      de la période en cours. Les tarifs peuvent être révisés une fois par an, moyennant un préavis écrit de trente (30) jours.</p>
+
+      <h4>Article 7 — Modalités de paiement</h4>
+      <p>Les factures sont payables à réception, par virement ou prélèvement. Conformément à l'article L441-10 du
+      Code de commerce, tout retard entraîne des pénalités au taux d'intérêt légal majoré et une indemnité forfaitaire
+      de quarante (40) euros. En cas de défaut persistant quinze (15) jours après mise en demeure, l'Éditeur pourra
+      suspendre l'accès au Service sans dégager le Client de ses obligations de paiement.</p>
+
+      <h4>Article 8 — Obligations de l'Éditeur</h4>
+      <ul>
+        <li>Mettre le Service à disposition du Client et de ses Utilisateurs pendant la durée du contrat.</li>
+        <li>Héberger les données de façon sécurisée et centralisée, et réaliser des sauvegardes quotidiennes.</li>
+        <li>Assurer la maintenance corrective et les évolutions du Service.</li>
+        <li>Apporter au Client une assistance raisonnable à l'utilisation du Service.</li>
+      </ul>
+
+      <h4>Article 9 — Obligations du Client</h4>
+      <ul>
+        <li>Utiliser le Service conformément à sa destination et au présent contrat.</li>
+        <li>S'assurer de l'exactitude et de la licéité des données saisies, notamment celles relatives à ses salariés.</li>
+        <li>Préserver la confidentialité des identifiants et codes d'accès.</li>
+        <li>Régler les sommes dues aux échéances convenues.</li>
+      </ul>
+
+      <h4>Article 10 — Données à caractère personnel (RGPD)</h4>
+      <p>Le Client agit en qualité de responsable de traitement des données de ses salariés, l'Éditeur en qualité
+      de sous-traitant, traitant ces données uniquement sur instructions du Client et pour les besoins du Service.
+      L'Éditeur met en œuvre des mesures techniques et organisationnelles appropriées. Chaque Partie respecte la
+      réglementation applicable (RGPD et loi Informatique et Libertés).</p>
+
+      <h4>Article 11 — Propriété intellectuelle</h4>
+      <p>L'Application, ses composants, sa documentation et ses marques demeurent la propriété exclusive de l'Éditeur.
+      Le contrat n'emporte aucun transfert de propriété : il confère un droit d'usage limité, le temps du contrat.
+      Le Client demeure seul propriétaire des Données qu'il enregistre dans le Service.</p>
+
+      <h4>Article 12 — Disponibilité et maintenance</h4>
+      <p>L'Éditeur s'efforce d'assurer la disponibilité du Service 24h/24, sous réserve des opérations de maintenance
+      et des aléas techniques ou de réseau. L'Éditeur est tenu d'une obligation de moyens et ne garantit pas une
+      disponibilité ininterrompue.</p>
+
+      <h4>Article 13 — Responsabilité</h4>
+      <p>La responsabilité de l'Éditeur, toutes causes confondues, est limitée aux montants versés par le Client au
+      titre des six (6) derniers mois précédant le fait générateur. L'Éditeur n'est pas responsable des dommages
+      indirects. Le Service est un outil d'aide à la gestion : le Client demeure seul responsable de ses obligations
+      légales, sociales et de paie, et des décisions prises à partir des informations fournies.</p>
+
+      <h4>Article 14 — Confidentialité</h4>
+      <p>Chaque Partie conserve confidentielles les informations de l'autre Partie auxquelles elle a accès à
+      l'occasion du contrat, pendant la durée du contrat et deux (2) ans après son terme.</p>
+
+      <h4>Article 15 — Réversibilité</h4>
+      <p>À la fin du contrat, l'Éditeur met à disposition du Client un export de ses Données dans un format
+      exploitable, pendant trente (30) jours. À l'expiration de ce délai, les Données pourront être supprimées,
+      sous réserve des durées légales de conservation.</p>
+
+      <h4>Article 16 — Résiliation</h4>
+      <p>En cas de manquement grave non réparé dans les quinze (15) jours suivant mise en demeure restée sans effet,
+      l'autre Partie pourra résilier de plein droit, sans préjudice des sommes dues. Les périodes de six (6) mois
+      entamées restent dues, sauf résiliation imputable à l'Éditeur.</p>
+
+      <h4>Article 17 — Force majeure</h4>
+      <p>Aucune Partie ne pourra être tenue responsable d'un manquement résultant d'un cas de force majeure au sens
+      de l'article 1218 du Code civil.</p>
+
+      <h4>Article 18 — Droit applicable et juridiction</h4>
+      <p>Le contrat est soumis au droit français. En cas de litige et à défaut de résolution amiable, compétence
+      est attribuée aux tribunaux du ressort du siège social de l'Éditeur.</p>
+
+      <h4>Annexe 1 — Grille tarifaire</h4>
+      <p>Tarifs hors taxes ; TVA au taux en vigueur en sus. Facturation par période de six (6) mois, payable d'avance.</p>
+      <table class="grid">
+        <tr><th>Offre</th><th>Effectif</th><th>Tarif HT</th></tr>
+        <tr><td>Découverte</td><td>Jusqu'à 3 salariés</td><td>Gratuit 30 jours</td></tr>
+        <tr><td>Standard</td><td>—</td><td>15 € HT / mois</td></tr>
+        <tr><td>Plus — frais d'ouverture</td><td>Une seule fois, à la souscription</td><td>150 € HT (unique)</td></tr>
+        <tr><td>Plus — par salarié</td><td>1 à 4 salariés</td><td>+ 8,00 € HT / salarié / mois</td></tr>
+        <tr><td>Plus — par salarié</td><td>5 à 8 salariés</td><td>+ 7,00 € HT / salarié / mois</td></tr>
+        <tr><td>Plus — par salarié</td><td>9 à 15 salariés</td><td>+ 6,00 € HT / salarié / mois</td></tr>
+        <tr><td>Plus — par salarié</td><td>16 salariés et +</td><td>+ 5,00 € HT / salarié / mois</td></tr>
+      </table>
+
+      <h4>Signatures</h4>
+      <p>Fait à ${v(c.villeSignature)}, le ${dateFR}, en deux exemplaires originaux.</p>
+      <div class="sign-tbl">
+        <div class="sign-box"><b>Pour l'Éditeur (VOLITIS)</b>Nicolas AUSTRY, Président<div class="sig">Signé</div></div>
+        <div class="sign-box"><b>Pour le Client</b>${nomSignataire||c.representantNom||''}<div class="sig">${sigClient}</div></div>
+      </div>
+    `;
+  }
+
+  async function charger(){
+    if(!token){ erreur("Lien invalide","Le lien de signature est incomplet."); return; }
+    try{
+      const r = await fetch(`/api/signatures/${token}`);
+      const data = await r.json();
+      if(!r.ok || !data.ok){ erreur("Lien indisponible", data.message || "Contrat introuvable."); return; }
+
+      if(data.statut==='expire'){ erreur("Lien expiré","Le délai de signature de ce contrat est dépassé. Contactez Volitis pour en recevoir un nouveau."); return; }
+      if(data.statut==='refuse'){ erreur("Contrat refusé","Ce contrat a été refusé. Contactez Volitis si nécessaire."); return; }
+
+      $('loading').classList.add('hide'); $('main').classList.remove('hide');
+      window._contrat = data.contrat;
+      $('doc').innerHTML = rendreContrat(data.contrat, data.statut, data.signeLe, data.signataire?.nom);
+      $('who').textContent = 'Signataire attendu : ' + (data.signataire?.nom || '—');
+
+      if(data.statut==='signe'){
+        // Déjà signé : on masque le formulaire, on montre la preuve
+        $('signbar').classList.add('hide');
+        montrerPreuve(data.signataire?.nom, data.signeLe, data.documentHash);
+      }
+    }catch(err){
+      erreur("Connexion impossible","Impossible de charger le contrat. Vérifiez votre connexion et réessayez.");
+    }
+  }
+
+  $('consent') && ($('consent').onchange = () => { $('btnSign').disabled = !$('consent').checked; });
+
+  async function signer(){
+    const nomTape = $('nomTape').value.trim();
+    const m = $('msg'); m.className='msg';
+    if(!$('consent').checked){ m.className='msg err'; m.textContent="Veuillez cocher « Lu et approuvé »."; return; }
+    if(!nomTape){ m.className='msg err'; m.textContent="Veuillez saisir votre nom."; return; }
+    $('btnSign').disabled = true; $('btnSign').textContent='Signature en cours…';
+    try{
+      const r = await fetch(`/api/signatures/${token}/signer`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ nomTape, consentement:true })
+      });
+      const data = await r.json();
+      if(!r.ok || !data.ok){ m.className='msg err'; m.textContent=data.message||"Signature impossible."; $('btnSign').disabled=false; $('btnSign').textContent='✓ Signer le contrat'; return; }
+      // Succès : rafraîchir le bloc signature du contrat + afficher la preuve
+      $('doc').innerHTML = rendreContrat(window._contrat, 'signe', data.signeLe, nomTape);
+      $('signbar').classList.add('hide');
+      montrerPreuve(nomTape, data.signeLe, data.documentHash);
+      window.scrollTo({top:0,behavior:'smooth'});
+    }catch(err){
+      m.className='msg err'; m.textContent="Erreur réseau, réessayez.";
+      $('btnSign').disabled=false; $('btnSign').textContent='✓ Signer le contrat';
+    }
+  }
+
+  async function refuser(){
+    if(!confirm("Confirmez-vous le refus de signer ce contrat ?")) return;
+    try{
+      await fetch(`/api/signatures/${token}/refuser`,{method:'POST'});
+      erreur("Contrat refusé","Votre refus a été enregistré. Vous pouvez fermer cette page.");
+    }catch(err){ erreur("Erreur","Impossible d'enregistrer le refus, réessayez."); }
+  }
+
+  function montrerPreuve(nom, signeLe, hash){
+    $('p_nom').textContent = nom || '';
+    $('p_date').textContent = signeLe ? new Date(signeLe).toLocaleString('fr-FR') : '';
+    $('p_hash').textContent = hash || '';
+    $('proof').classList.remove('hide');
+  }
+
+  charger();
+</script>
+</body>
+</html>
