@@ -321,5 +321,73 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
+<!-- ══ Pop-up d'installation de l'application (PWA) — affiché une fois au 1er passage ══ -->
+<div id="pwa-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;max-width:430px;width:100%;padding:28px 26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;font-family:Arial,Helvetica,sans-serif;">
+    <button onclick="_pwaFermer()" aria-label="Fermer" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
+    <div style="width:60px;height:60px;border-radius:14px;background:#eff6ff;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f3a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </div>
+    <div style="font-size:19px;font-weight:700;color:#0f172a;">Installez Suiv'Heures sur votre ordinateur</div>
+    <div style="font-size:14px;color:#475569;line-height:1.5;margin-top:8px;">Accédez à l'application en un clic, comme un vrai logiciel, sans passer par le navigateur.</div>
+    <button id="pwa-btn-install" onclick="_pwaInstaller()" style="display:none;margin:18px auto 0;background:#f59e0b;color:#412402;border:none;border-radius:8px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:8px;">📥 Installer l'application</button>
+    <div id="pwa-fallback" style="display:none;font-size:13.5px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-top:16px;line-height:1.5;">
+      Pour installer : cliquez sur l'icône d'installation <strong>&#8853;</strong> dans la <strong>barre d'adresse</strong>, en haut à droite de votre navigateur.
+      <span style="color:#94a3b8;">(Sur mobile : menu &#8942; &rarr; « Installer l'application ».)</span>
+    </div>
+    <div style="margin-top:16px;"><button onclick="_pwaFermer()" style="background:none;border:none;color:#64748b;font-size:13px;cursor:pointer;text-decoration:underline;">Plus tard</button></div>
+  </div>
+</div>
+<script>
+(function () {
+  var VU = 'pwaPopupInstallVu';
+  var deferredPrompt = null;
+  var dejaInstalle = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                     || window.navigator.standalone === true;
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    _pwaMajBouton();
+  });
+  window.addEventListener('appinstalled', function () { _pwaFermer(); });
+
+  function _pwaMajBouton() {
+    var btn = document.getElementById('pwa-btn-install');
+    var fb  = document.getElementById('pwa-fallback');
+    if (!btn) return;
+    if (deferredPrompt) { btn.style.display = 'inline-flex'; if (fb) fb.style.display = 'none'; }
+    else                { btn.style.display = 'none';        if (fb) fb.style.display = 'block'; }
+  }
+
+  window._pwaInstaller = async function () {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch (e) {}
+    deferredPrompt = null;
+    _pwaFermer();
+  };
+  window._pwaFermer = function () {
+    var m = document.getElementById('pwa-modal');
+    if (m) m.style.display = 'none';
+    try { localStorage.setItem(VU, '1'); } catch (e) {}
+  };
+
+  function _pwaAfficher() {
+    if (dejaInstalle) return;
+    try { if (localStorage.getItem(VU) === '1') return; } catch (e) {}
+    var m = document.getElementById('pwa-modal');
+    if (!m) return;
+    m.style.display = 'flex';
+    _pwaMajBouton();
+  }
+
+  // Petit délai pour laisser le navigateur signaler l'installabilité (beforeinstallprompt)
+  function _pwaInit() { setTimeout(_pwaAfficher, 700); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _pwaInit);
+  else _pwaInit();
+})();
+</script>
+
 </body>
 </html>
