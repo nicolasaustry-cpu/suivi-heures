@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import Licence from "../models/licence.js";
 import Prescripteur from "../models/prescripteur.js";
 import Donnees from "../models/donnees.js";
+import { envoyerMailEssai } from "../services/mail.js";
 
 const router = express.Router();
 
@@ -174,6 +175,13 @@ router.post("/inscription", async (req, res) => {
       clientId: code,
       entreprise: { nom: nomClient, codeEmploye }
     });
+
+    // E-mail de confirmation (n'échoue jamais l'inscription : le code est déjà affiché à l'écran)
+    try {
+      await envoyerMailEssai({ email, nomClient, code, dateExpiration });
+    } catch (e) {
+      console.error("E-mail de confirmation non envoyé :", e && e.message);
+    }
 
     res.status(201).json({ ok: true, codeClient: code, expiration: dateExpiration });
   } catch (err) {
