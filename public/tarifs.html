@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tarifs — Suiv'Heures</title>
+<meta name="description" content="Suiv'Heures : le suivi des heures sur chantier pour le bâtiment. Essai gratuit 30 jours, à partir de 8 € HT/salarié/mois.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0f3a8a; --navy-deep:#0b2c6b; --ink:#0f172a;
+    --bg:#f1f5f9; --card:#ffffff; --line:#cbd5e1; --line-soft:#e2e8f0;
+    --amber:#f59e0b; --amber-txt:#b5760a; --slate:#64748b; --green:#16a34a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+
+  .topbar{background:var(--navy);color:#fff;border-bottom:3px solid var(--amber)}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;height:58px}
+  .logo{width:36px;height:36px;border-radius:9px;background:#fff;display:grid;place-items:center;padding:3px;flex:none}
+  .logo img{width:100%;height:100%;object-fit:contain;display:block}
+  .topbar b{font-size:16px;font-weight:800}
+  .topbar b small{display:block;font-size:10px;font-weight:500;color:#a9c0ea;letter-spacing:.05em}
+
+  .hero{text-align:center;padding:48px 0 8px}
+  .hero .kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+  .hero h1{font-size:clamp(28px,5vw,44px);font-weight:800;color:var(--navy);margin:10px 0 12px;letter-spacing:-.015em}
+  .hero p{font-size:16px;color:#475569;max-width:60ch;margin:0 auto}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:34px 0 10px}
+  @media(max-width:860px){.cards{grid-template-columns:1fr;max-width:440px;margin-left:auto;margin-right:auto}}
+
+  .plan{background:var(--card);border:1px solid var(--line-soft);border-radius:18px;padding:26px 24px;display:flex;flex-direction:column;box-shadow:0 12px 34px -26px rgba(11,44,107,.45);position:relative}
+  .plan.feat{border:2px solid var(--navy);box-shadow:0 22px 50px -28px rgba(15,58,138,.5)}
+  .plan .tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--amber);color:#fff;font-size:11px;font-weight:800;letter-spacing:.04em;padding:5px 14px;border-radius:20px;text-transform:uppercase}
+  .plan h2{font-size:20px;font-weight:800;color:var(--navy)}
+  .plan .desc{font-size:13.5px;color:var(--slate);margin:4px 0 16px;min-height:38px}
+  .plan .price{display:flex;align-items:baseline;gap:6px;margin-bottom:2px}
+  .plan .price .big{font-size:34px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
+  .plan .price .u{font-size:13.5px;color:var(--slate);font-weight:600}
+  .plan .sub{font-size:12.5px;color:var(--slate);margin-bottom:18px;min-height:32px}
+  .plan ul{list-style:none;margin:0 0 20px;flex:1}
+  .plan li{position:relative;padding-left:26px;font-size:14px;color:#334155;margin-bottom:9px}
+  .plan li::before{content:"✓";position:absolute;left:0;top:0;color:var(--green);font-weight:800}
+  .plan li.off{color:#94a3b8}.plan li.off::before{content:"–";color:#cbd5e1}
+
+  .cta{display:block;text-align:center;text-decoration:none;font-weight:700;font-size:15px;padding:13px 18px;border-radius:11px;transition:.15s}
+  .cta.navy{background:var(--navy);color:#fff}.cta.navy:hover{background:var(--navy-deep)}
+  .cta.amber{background:var(--amber);color:#fff}.cta.amber:hover{filter:brightness(1.05)}
+  .cta.ghost{background:#fff;border:1px solid var(--line);color:var(--navy)}.cta.ghost:hover{border-color:var(--navy)}
+
+  .note{text-align:center;font-size:13px;color:var(--slate);margin:14px auto 0;max-width:64ch}
+
+  .grid-sec{margin:44px 0 10px}
+  .grid-sec h3{text-align:center;color:var(--navy);font-size:22px;font-weight:800;margin-bottom:16px}
+  table.grille{width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 12px 30px -26px rgba(11,44,107,.4);font-size:14px}
+  table.grille th,table.grille td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--line-soft)}
+  table.grille th{background:var(--navy);color:#fff;font-weight:700}
+  table.grille tr:last-child td{border-bottom:none}
+  table.grille td:last-child{font-weight:700;color:var(--navy);text-align:right;font-variant-numeric:tabular-nums}
+
+  .foot{background:var(--navy-deep);color:#c9d6ef;padding:30px 0;margin-top:44px;font-size:13px;text-align:center}
+  .foot b{color:#fff}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap">
+  <div class="logo"><img src="assets/icon-512.png" alt="Suiv'Heures"></div>
+  <b>Suiv'Heures<small>VOLITIS · La gestion des heures, simplement</small></b>
+</div></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">Tarifs</div>
+    <h1>Un tarif simple, pensé pour les TPE</h1>
+    <p>Du suivi des heures à la facturation, sans engagement au-delà de six mois. Essayez gratuitement, puis choisissez votre formule.</p>
+  </div>
+
+  <div class="cards">
+
+    <!-- Découverte -->
+    <div class="plan">
+      <h2>Découverte</h2>
+      <div class="desc">Pour tester l'outil en conditions réelles.</div>
+      <div class="price"><span class="big">Gratuit</span></div>
+      <div class="sub">30 jours · jusqu'à 3 salariés · sans carte bancaire</div>
+      <ul>
+        <li>Salariés, équipes &amp; horaires</li>
+        <li>Prévisionnel &amp; planning</li>
+        <li>Rapports &amp; BEV</li>
+        <li class="off">Sans engagement</li>
+      </ul>
+      <a class="cta ghost" href="/essai">Démarrer l'essai gratuit</a>
+    </div>
+
+    <!-- Standard -->
+    <div class="plan">
+      <h2>Standard</h2>
+      <div class="desc">L'essentiel pour organiser et suivre l'activité.</div>
+      <div class="price"><span class="big">15 €</span><span class="u">HT / mois</span></div>
+      <div class="sub">soit 90 € HT / semestre, payable d'avance</div>
+      <ul>
+        <li>Salariés : équipes &amp; horaires de référence</li>
+        <li>Prévisionnel : planification des devis validés</li>
+        <li>Planning hebdomadaire avec alertes</li>
+        <li>Rapports des heures planifiées</li>
+        <li>BEV (bordereau d'éléments variables)</li>
+        <li class="off">Saisie mobile &amp; réalisé</li>
+      </ul>
+      <a class="cta navy" href="commander.html?formule=standard">Commander</a>
+    </div>
+
+    <!-- Plus -->
+    <div class="plan feat">
+      <div class="tag">Le plus complet</div>
+      <h2>Plus</h2>
+      <div class="desc">Tout le Standard + la remontée depuis les chantiers.</div>
+      <div class="price"><span class="big">dès 8 €</span><span class="u">HT / salarié / mois</span></div>
+      <div class="sub">+ 150 € HT de frais d'ouverture (une seule fois)</div>
+      <ul>
+        <li><b>Tout le Standard</b>, plus :</li>
+        <li>Saisie mobile : pointage, notes dictées, photos</li>
+        <li>Planning réalisé : prévu vs réalisé</li>
+        <li>Notes de chantier consultables &amp; exportables</li>
+        <li>BEV sur les heures réellement réalisées</li>
+      </ul>
+      <a class="cta amber" href="commander.html?formule=plus">Commander</a>
+    </div>
+
+  </div>
+
+  <p class="note">Tous les tarifs sont hors taxes (TVA 20 % en sus). Facturation par période de six mois, payable d'avance par virement. Reconduction tacite, résiliable à tout terme avec un préavis de 30 jours.</p>
+
+  <div class="grid-sec">
+    <h3>Formule Plus — tarif dégressif</h3>
+    <table class="grille">
+      <tr><th>Effectif</th><th>Prix par salarié / mois</th></tr>
+      <tr><td>1 à 4 salariés</td><td>8 € HT</td></tr>
+      <tr><td>5 à 8 salariés</td><td>7 € HT</td></tr>
+      <tr><td>9 à 15 salariés</td><td>6 € HT</td></tr>
+      <tr><td>16 salariés et +</td><td>5 € HT</td></tr>
+    </table>
+    <p class="note">Frais d'ouverture de 150 € HT facturés une seule fois à la souscription.</p>
+  </div>
+
+</div>
+
+<div class="foot"><div class="wrap"><b>Suiv'Heures</b> — édité par VOLITIS · 370 route de Bonnétable, 72190 Sargé-lès-le-Mans</div></div>
+
+</body>
+</html>
