@@ -2,6 +2,9 @@
 <html lang="fr">
 <head>
     <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <script>/* Capte le signal d'installation PWA au plus tôt (Chrome peut l'émettre avant la fin du chargement) */
+  window.__deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__deferredInstallPrompt = e; });</script>
   <meta charset="UTF-8">
   <!-- Validation Google Search Console (propriété du site pour Play Console) -->
   <meta name="google-site-verification" content="VbMO8C8t_FwqGU7sun7NZ_btYfsF6-iVE5r2dx-llho" />
@@ -332,8 +335,7 @@ if ('serviceWorker' in navigator) {
     <div style="font-size:14px;color:#475569;line-height:1.5;margin-top:8px;">Accédez à l'application en un clic, comme un vrai logiciel, sans passer par le navigateur.</div>
     <button id="pwa-btn-install" onclick="_pwaInstaller()" style="display:none;margin:18px auto 0;background:#f59e0b;color:#412402;border:none;border-radius:8px;padding:12px 24px;font-size:15px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:8px;">📥 Installer l'application</button>
     <div id="pwa-fallback" style="display:none;font-size:13.5px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-top:16px;line-height:1.5;">
-      Pour installer : cliquez sur l'icône d'installation <strong>&#8853;</strong> dans la <strong>barre d'adresse</strong>, en haut à droite de votre navigateur.
-      <span style="color:#94a3b8;">(Sur mobile : menu &#8942; &rarr; « Installer l'application ».)</span>
+      Pour installer : cliquez sur le bouton <strong>&#8681;&nbsp;Installer</strong> situé dans la <strong>barre d'adresse</strong>, en haut à droite de votre navigateur.
     </div>
     <div style="margin-top:16px;"><button onclick="_pwaFermer()" style="background:none;border:none;color:#64748b;font-size:13px;cursor:pointer;text-decoration:underline;">Plus tard</button></div>
   </div>
@@ -341,30 +343,30 @@ if ('serviceWorker' in navigator) {
 <script>
 (function () {
   var VU = 'pwaPopupInstallVu';
-  var deferredPrompt = null;
   var dejaInstalle = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
                      || window.navigator.standalone === true;
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
-    deferredPrompt = e;
+    window.__deferredInstallPrompt = e;
     _pwaMajBouton();
   });
-  window.addEventListener('appinstalled', function () { _pwaFermer(); });
+  window.addEventListener('appinstalled', function () { window.__deferredInstallPrompt = null; _pwaFermer(); });
 
   function _pwaMajBouton() {
     var btn = document.getElementById('pwa-btn-install');
     var fb  = document.getElementById('pwa-fallback');
     if (!btn) return;
-    if (deferredPrompt) { btn.style.display = 'inline-flex'; if (fb) fb.style.display = 'none'; }
-    else                { btn.style.display = 'none';        if (fb) fb.style.display = 'block'; }
+    if (window.__deferredInstallPrompt) { btn.style.display = 'inline-flex'; if (fb) fb.style.display = 'none'; }
+    else                                { btn.style.display = 'none';        if (fb) fb.style.display = 'block'; }
   }
 
   window._pwaInstaller = async function () {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    try { await deferredPrompt.userChoice; } catch (e) {}
-    deferredPrompt = null;
+    var dp = window.__deferredInstallPrompt;
+    if (!dp) return;
+    dp.prompt();
+    try { await dp.userChoice; } catch (e) {}
+    window.__deferredInstallPrompt = null;
     _pwaFermer();
   };
   window._pwaFermer = function () {
