@@ -314,6 +314,7 @@
   .pl2-toolbtn:hover { border-color:#0f3a8a; color:#0f3a8a; }
   .pl2-jaugebox { display:flex; align-items:center; gap:6px; }
   .pl2-obj { font-size:0.74rem; color:#64748b; line-height:1.2; } .pl2-obj b { display:block; color:#0f172a; font-size:0.86rem; }
+  .pl2-tnabox { font-size:0.74rem; color:#64748b; line-height:1.2; text-align:center; padding:0 6px; } .pl2-tnabox b { display:block; color:#dc2626; font-size:0.86rem; font-weight:800; }
   .pl2-printwrap { display:inline-flex; gap:6px; align-items:center; }
   .pl2-printsel { border:1px solid #cbd5e1; border-radius:9px; padding:8px; font-size:0.82rem; font-weight:600; color:#334155; background:#fff; }
   /* Absence semaine */
@@ -463,6 +464,9 @@
           <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
         </svg>
         <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif mois</span><b id="pl2-obj">—</b></div>
+      </div>
+      <div class="pl2-tnabox" title="Total des heures non affectées sur le mois affiché">
+        <span class="pl2-obj-lbl">Temps non affecté</span><b id="pl2-tna">—</b>
       </div>
       <div class="pl2-printwrap">
         <select id="semaineSelect" class="pl2-printsel" title="Semaine à imprimer"></select>
@@ -1768,11 +1772,17 @@ function majTotalLigne(salarieId, dateStr) {
 }
 
 function majTotauxGlobaux() {
-  let totT = 0, totA = 0, totP = 0;
+  let totT = 0, totA = 0, totP = 0, totTNA = 0;
   document.querySelectorAll('[data-salarie][data-date]:not(.hors-mois)').forEach(tr => {
     totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
     totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
     totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
+    const sid = tr.getAttribute('data-salarie');
+    const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
+    for (let i = 1; i <= 10; i++) {
+      const c = heures[`${sid}${dsafe}ch${i}`];
+      if (c && (c.chantier || '').trim().toUpperCase() === TNA) totTNA += parseFloat(c.heures) || 0;
+    }
   });
 
   const ec = totT - totP;
@@ -1793,6 +1803,8 @@ function majTotauxGlobaux() {
   dessinerJauge(pct);
   const objEl = document.getElementById('pl2-obj');
   if (objEl) objEl.textContent = totT.toFixed(1).replace('.',',') + ' h / ' + totP.toFixed(1).replace('.',',') + ' h';
+  const tnaEl = document.getElementById('pl2-tna');
+  if (tnaEl) tnaEl.textContent = totTNA.toFixed(1).replace('.',',') + ' h';
   if (typeof pl3MajSemaine === 'function') pl3MajSemaine();
 }
 
