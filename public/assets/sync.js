@@ -446,9 +446,8 @@ const SYNC = (() => {
       { href: 'notes.html',    label: 'Notes', plus: true },
       { href: 'bev.html',      label: 'BEV' }
     ] },
-    { label: 'Commercial', items: [
-      { href: 'tarifs.html',            label: 'Tarifs' },
-      { href: 'contrat-prerempli.html', label: 'Contrat' }
+    { label: 'Contrat', items: [
+      { href: 'tarifs.html', label: 'Tarifs' }
     ] }
   ];
 
