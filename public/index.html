@@ -377,6 +377,11 @@ if ('serviceWorker' in navigator) {
 
   function _pwaAfficher() {
     if (dejaInstalle) return;
+    // Jamais en consultation admin (l'admin ouvre l'espace d'un client via ?admin=1)
+    try {
+      if (new URLSearchParams(window.location.search).get('admin') === '1') return;
+      if (sessionStorage.getItem('adminConsult') === '1') return;
+    } catch (e) {}
     try { if (localStorage.getItem(VU) === '1') return; } catch (e) {}
     var m = document.getElementById('pwa-modal');
     if (!m) return;
