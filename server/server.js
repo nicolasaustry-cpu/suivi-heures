@@ -46,6 +46,11 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// URL courte et partageable pour l'auto-inscription à l'essai
+app.get("/essai", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/inscription.html"));
+});
+
 // Fallback SPA : uniquement pour les requêtes qui ne sont pas /api et
 // qui ne ciblent pas un fichier statique avec extension. Évite que GET /api/inexistant
 // ou GET /favicon-inexistant.png renvoient le HTML de index.html.
