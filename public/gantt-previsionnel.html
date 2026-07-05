@@ -451,23 +451,31 @@
   }
   function gtipHTML(nomUp, y, m) {
     var cols = colonnesActives();
+    var estPlanif = (metrique === 'planif');
     var devisTot = 0, planTot = 0, realTot = 0, realConnu = true;
     cols.forEach(function (c) {
       devisTot += prevuMois(nomUp, c.y, c.m);
       planTot  += planifMois(nomUp, c.y, c.m);
-      var rr = realMois(nomUp, c.y, c.m);
-      if (rr === null) realConnu = false; else realTot += rr;
+      if (!estPlanif) {
+        var rr = realMois(nomUp, c.y, c.m);
+        if (rr === null) realConnu = false; else realTot += rr;
+      }
     });
-    var realM = realMois(nomUp, y, m);
     var hh = function (x) { return r(x) + ' h'; };
-    return '<div style="font-weight:600;margin-bottom:7px;">' + nomUp + ' — ' + MOIS[m] + ' ' + y + '</div>' +
+    var html = '<div style="font-weight:600;margin-bottom:7px;">' + nomUp + ' — ' + MOIS[m] + ' ' + y + '</div>' +
       gtipLigne('Temps devis', hh(devisTot)) +
       gtipLigne('Devis ce mois', hh(prevuMois(nomUp, y, m))) +
-      gtipLigne('Planifié ce mois', hh(planifMois(nomUp, y, m))) +
-      gtipLigne('Réalisé ce mois', realM === null ? '…' : hh(realM)) +
-      '<div style="height:6px;"></div>' +
-      gtipLigne('Restant à planifier', hh(devisTot - planTot)) +
-      gtipLigne('Restant à réaliser', realConnu ? hh(devisTot - realTot) : '…');
+      gtipLigne('Planifié ce mois', hh(planifMois(nomUp, y, m)));
+    if (!estPlanif) {
+      var realM = realMois(nomUp, y, m);
+      html += gtipLigne('Réalisé ce mois', realM === null ? '…' : hh(realM));
+    }
+    html += '<div style="height:6px;"></div>' +
+      gtipLigne('Restant à planifier', hh(devisTot - planTot));
+    if (!estPlanif) {
+      html += gtipLigne('Restant à réaliser', realConnu ? hh(devisTot - realTot) : '…');
+    }
+    return html;
   }
   function gtipPos(e) {
     var t = gtipEl(), ox = 16, oy = 16;
@@ -485,7 +493,7 @@
     var nomUp = td.getAttribute('data-nom'),
         y = parseInt(td.getAttribute('data-y'), 10),
         m = parseInt(td.getAttribute('data-m'), 10);
-    var key = nomUp + '|' + y + '|' + m, t = gtipEl();
+    var key = nomUp + '|' + y + '|' + m + '|' + metrique, t = gtipEl();
     if (t.style.display !== 'block' || _gtipKey !== key) {
       _gtipKey = key;
       t.innerHTML = gtipHTML(nomUp, y, m);
