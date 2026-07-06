@@ -553,7 +553,7 @@ async function chargerMois() {
       '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart ' + (mp ? 'Planifié' : 'Réalisé') + '/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td>' +
-      '<td>' + fmt(tcontrat) + '</td><td></td><td>' + fmt(ttevt) + '</td>' +
+      '<td></td><td></td><td>' + fmt(ttevt) + '</td>' +
       '<td><b class="base">' + fmt(tbase) + '</b></td>' +
       '<td>' + fmt(tplan) + '</td>' +
       '<td>' + fmt(treal) + '</td>' +
@@ -623,11 +623,11 @@ function majEncart() {
   const el = document.getElementById('enc-reporte');
   if (!el) return;
   const rep  = parseFloat(el.value) || 0;
-  const paye = r2(_ecartMois - rep);                          // écart d'heures payés = Écart retenu - reporté
+  const paye = r2(_ecartMois);                                // Écart d'heures Nouvelle base/Planifié (écart retenu du mois)
   const p = document.getElementById('enc-paye');
   if (p) { p.textContent = signe(paye); p.className = classeEcart(paye); }
   const tpay = document.getElementById('enc-payees');
-  if (tpay) tpay.textContent = fmt(r2(_compteMois - rep));    // heures payées = Temps pris en compte - reporté
+  if (tpay) tpay.textContent = fmt(r2(paye - rep));           // Total heures payées = Écart Nouvelle base/Planifié − Écart reportés
 }
 
 async function enregistrer() {
