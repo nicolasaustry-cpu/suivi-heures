@@ -99,8 +99,6 @@
       #bev-doc table.bev { margin:0 auto !important; }
       .signatures { display:grid !important; grid-template-columns:1fr 1fr; gap:12mm; width:auto; max-width:170mm; margin:8mm auto 0 !important; }
       .sig-box { min-height:70px; }
-      .col-tranche .tranche-sel { display:none; }
-      .col-tranche .tranche-print { display:inline; }
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
     .bev-mesure { width:200mm; }
@@ -117,9 +115,9 @@
     .bev-mesure .bev-left { min-width:0; }
     .bev-mesure table.bev { margin:0 auto; }
     .bev-mesure .signatures { display:grid; grid-template-columns:1fr 1fr; gap:12mm; width:auto; max-width:170mm; margin:8mm auto 0; }
-    .bev-mesure .col-tranche .tranche-sel { display:none; }
-    .bev-mesure .col-tranche .tranche-print { display:inline; }
-    .tranche-print { display:none; }
+    .tranche-cell { text-align:center; }
+    .tr-badge { display:inline-block; min-width:30px; padding:2px 8px; border-radius:10px;
+      font-size:0.8rem; font-weight:700; line-height:1.4; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     /* Indemnités de petits déplacements */
     .bev-indemnites { display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:6px 0 2px; font-size:0.9rem; color:#374151; }
     .bev-indemnites .bi-label { font-weight:600; }
@@ -345,9 +343,6 @@ const TRANCHES_COULEURS = {
   'IV':{bg:'#fed7aa',tx:'#9a3412'}, 'V':{bg:'#fdba74',tx:'#7c2d12'},
   'VI':{bg:'#fca5a5',tx:'#991b1b'}, 'VII':{bg:'#f87171',tx:'#7f1d1d'}
 };
-function optionsTranche(sel) {
-  return TRANCHES_IND.map(function(t){ return '<option value="' + t[0] + '"' + (t[0] === sel ? ' selected' : '') + '>' + (t[1] || '—') + '</option>'; }).join('');
-}
 function onIndemniteChange() {
   _indemnites = {
     trajet:    !!document.querySelector('.ind-chk[value="trajet"]').checked,
@@ -370,7 +365,7 @@ function rendreRecapIndemnites() {
   if (!items.length) { wrap.innerHTML = ''; return; }
   const codes = ['IA','IB','II','III','IV','V','VI','VII'];
   const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
-  document.querySelectorAll('#corps .tranche-sel').forEach(function(sel){ if (cnt[sel.value] !== undefined) cnt[sel.value]++; });
+  Object.keys(_tranches).forEach(function(k){ const c = _tranches[k]; if (cnt[c] !== undefined) cnt[c]++; });
   const tot = codes.reduce(function(a,c){ return a + cnt[c]; }, 0);
   let html = '<table class="bev-recap"><thead><tr><th>Indemnité</th>' + codes.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>';
   items.forEach(function(it){
@@ -633,7 +628,7 @@ async function chargerMois() {
       '<td><b class="base">' + fmt(l.base) + '</b></td>' +
       '<td>' + fmt(l.planifie) + '</td>' +
       cellsReel +
-      '<td class="col-tranche"><select class="tranche-sel" data-date="' + l.date + '">' + optionsTranche(_tranches[l.date] || '') + '</select><span class="tranche-print">' + (_tranches[l.date] || '') + '</span></td>' +
+      '<td class="col-tranche tranche-cell" data-date="' + l.date + '">' + badgeTranche(_tranches[l.date] || '') + '</td>' +
     '</tr>';
   });
   _prevuMois  = tbasePasse;   // base des jours passés (pour l'encart Heures payées)
@@ -678,14 +673,6 @@ async function chargerMois() {
   document.querySelector('.ind-chk[value="trajet"]').checked    = !!_indemnites.trajet;
   document.querySelector('.ind-chk[value="transport"]').checked = !!_indemnites.transport;
   document.querySelector('.ind-chk[value="repas"]').checked     = !!_indemnites.repas;
-  document.getElementById('corps').addEventListener('change', function(e){
-    if (e.target.classList && e.target.classList.contains('tranche-sel')) {
-      const sp = e.target.parentNode.querySelector('.tranche-print');
-      if (sp) sp.textContent = e.target.value || '';
-      rendreRecapIndemnites();
-    }
-    autoSave();
-  });
   appliquerIndemnites();
   rendreRecapEvenements();
   majEncart();
@@ -750,7 +737,7 @@ async function enregistrer() {
     repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
   };
   const tranches = {};
-  document.querySelectorAll('#corps .tranche-sel').forEach(function(sel){ if (sel.value) tranches[sel.dataset.date] = sel.value; });
+  Object.keys(_tranches).forEach(function(k){ if (_tranches[k]) tranches[k] = _tranches[k]; });
   const btn = document.getElementById('btn-save');
   const ancien = btn.innerHTML; btn.disabled = true; btn.textContent = 'Enregistrement…';
   try {
@@ -1000,15 +987,19 @@ function mtPeindre(key){
   } else { td.style.background = ''; if (n) n.style.color = ''; if (c) c.remove(); }
 }
 
+function badgeTranche(code){
+  if (!code) return '';
+  const c = TRANCHES_COULEURS[code] || {bg:'#e5e7eb',tx:'#334155'};
+  return '<span class="tr-badge" style="background:' + c.bg + ';color:' + c.tx + '">' + code + '</span>';
+}
+
 function validerCalendrierTranches(){
-  // Report sur les <select> jour par jour + mise à jour de _tranches
-  document.querySelectorAll('#corps .tranche-sel').forEach(function(sel){
-    const key = sel.dataset.date;
+  // Mise à jour de _tranches (source de vérité) + report sur les cellules d'affichage
+  document.querySelectorAll('#corps .tranche-cell').forEach(function(td){
+    const key = td.dataset.date;
     const code = _mtAffect[key] || '';
-    sel.value = code;
-    const sp = sel.parentNode.querySelector('.tranche-print');
-    if (sp) sp.textContent = code;
     if (code) _tranches[key] = code; else delete _tranches[key];
+    td.innerHTML = badgeTranche(code);
   });
   rendreRecapIndemnites();
   autoSave();
