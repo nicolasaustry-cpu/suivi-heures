@@ -19,6 +19,7 @@
     'planning.html': 'tuto-planning.html',           // Planning prévu
     'planning-equipe.html': 'tuto-vue-equipe.html',  // Vue équipe
     'saisie.html': 'tuto-saisie-mobile.html',        // Saisie mobile
+    'rapports.html': 'tuto-rapports.html',           // Rapports
     'bev.html': 'tuto-bev.html'                      // BEV
   };
   function _pageActuelle() {
