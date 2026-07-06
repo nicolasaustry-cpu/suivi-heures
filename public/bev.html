@@ -183,10 +183,8 @@
       <label>Année</label>
       <input type="number" id="sel-annee" min="2020" max="2100" step="1" onchange="rafraichir()" style="width:90px;">
     </div>
-    <button class="btn-outil btn-refresh" onclick="location.reload()"><i class="ti ti-refresh"></i> Rafraîchir</button>
     <button class="btn-outil btn-print" onclick="imprimerBEV()"><i class="ti ti-printer"></i> Imprimer</button>
     <button class="btn-outil btn-save no-print" id="btn-save" onclick="enregistrer()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
-    <button class="btn-outil btn-reset no-print" id="btn-reset" onclick="reinitEcartRetenu()"><i class="ti ti-rotate-2"></i> Réinitialiser l'écart retenu</button>
     <label class="no-print" id="lbl-valide" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#374151;">
       <input type="checkbox" id="chk-valide" style="width:auto;"> Mois validé
     </label>
@@ -244,6 +242,10 @@ function imprimerBEV() { ajusterEchelleBEV(); window.print(); }
 window.addEventListener('beforeprint', ajusterEchelleBEV);
 let _prevuMois = 0;
 let _compteMois = 0;
+
+/* Enregistrement automatique (anti-rebond) : sauvegarde 0,7 s après la dernière saisie */
+function debounce(fn, ms){ let t; return function(){ clearTimeout(t); t = setTimeout(fn, ms); }; }
+const autoSave = debounce(function(){ enregistrer(); }, 700);
 const EVENEMENTS = ['', 'Congé', 'Maladie', 'RTT', 'Récupération', 'Congé sans solde', 'Formation', 'Intempéries', 'École', 'Autre'];
 function optionsEvt(sel) { return EVENEMENTS.map(function(e){ return '<option value="' + e + '"' + (e === sel ? ' selected' : '') + '>' + (e || '—') + '</option>'; }).join(''); }
 
@@ -265,6 +267,7 @@ function onIndemniteChange() {
     repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
   };
   appliquerIndemnites();
+  autoSave();
 }
 function appliquerIndemnites() {
   const zone = document.getElementById('zone');
@@ -571,6 +574,7 @@ async function chargerMois() {
     '</div>';
 
   document.getElementById('corps').addEventListener('input', recalcMois);
+  document.getElementById('corps').addEventListener('input', autoSave);
   document.getElementById('corps').addEventListener('keydown', function(e){
     if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('ret')) {
       e.preventDefault();
@@ -581,6 +585,7 @@ async function chargerMois() {
     }
   });
   document.getElementById('enc-reporte').addEventListener('input', majEncart);
+  document.getElementById('enc-reporte').addEventListener('input', autoSave);
   document.querySelector('.ind-chk[value="trajet"]').checked    = !!_indemnites.trajet;
   document.querySelector('.ind-chk[value="transport"]').checked = !!_indemnites.transport;
   document.querySelector('.ind-chk[value="repas"]').checked     = !!_indemnites.repas;
@@ -590,6 +595,7 @@ async function chargerMois() {
       if (sp) sp.textContent = e.target.value || '';
       rendreRecapIndemnites();
     }
+    autoSave();
   });
   appliquerIndemnites();
   rendreRecapEvenements();
@@ -806,6 +812,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('sel-annee').value = now.getFullYear();
   remplirSalaries();
   rafraichir();
+  document.getElementById('chk-valide').addEventListener('change', autoSave);
 });
 window.addEventListener('donnees-chargees', () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
