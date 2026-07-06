@@ -569,6 +569,19 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// Quand les données serveur arrivent (jauge, salariés, absences…), on purge le
+// cache du contrat effectif et on redessine : les H. Vendables se recalculent
+// avec le seuil orange fraîchement synchronisé, sans avoir à re-figer la jauge.
+window.addEventListener('donnees-chargees', () => {
+  _cvCacheCE = {};
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  const nomE = document.getElementById('entreprise-nom');
+  if (nomE && ent.nom) nomE.textContent = ent.nom;
+  chargerChantiersPlannifies();
+  if (typeof rendreChantiers === 'function') rendreChantiers();
+  if (typeof chargerAnnee === 'function') chargerAnnee();
+});
+
 /* ═══════════════════════════════
    PERSISTANCE
 ═══════════════════════════════ */
@@ -630,7 +643,16 @@ function contratEffectifMois(annee, mois){
   _cvCacheCE[key]=total; return total;
 }
 function _cvSeuilOrange(){
-  try{ var ent=JSON.parse(localStorage.getItem('entreprisedata')||'{}'); if(ent&&ent.orange!=null) return parseFloat(ent.orange)||0; }catch(e){}
+  try{
+    var ent=JSON.parse(localStorage.getItem('entreprisedata')||'{}');
+    if(ent){
+      // Valeur persistée et synchronisée (page Entreprise → entreprisedata.jauge.orange)
+      if(ent.jauge && ent.jauge.orange!=null) return parseFloat(ent.jauge.orange)||0;
+      // Ancien emplacement à la racine (compatibilité)
+      if(ent.orange!=null) return parseFloat(ent.orange)||0;
+    }
+  }catch(e){}
+  // Dernier repli : clé locale non synchronisée (peut disparaître à la fermeture)
   return parseInt(localStorage.getItem('jaugeOrange'))||0;
 }
 function hVendablesMois(annee, mois){

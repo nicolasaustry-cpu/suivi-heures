@@ -217,8 +217,14 @@
     _gvCacheCE[key]=total; return total;
   }
   function _gvSeuilOrange(){
-    try{ var ent=JSON.parse(localStorage.getItem('entreprisedata')||'{}'); if(ent&&ent.orange!=null)return parseFloat(ent.orange)||0; }catch(e){}
-    return parseInt(localStorage.getItem('jaugeOrange'))||0;
+    try{
+      var ent=JSON.parse(localStorage.getItem('entreprisedata')||'{}');
+      if(ent){
+        if(ent.jauge && ent.jauge.orange!=null) return parseFloat(ent.jauge.orange)||0; // valeur persistée/synchronisée
+        if(ent.orange!=null) return parseFloat(ent.orange)||0;                           // ancienne racine (compat)
+      }
+    }catch(e){}
+    return parseInt(localStorage.getItem('jaugeOrange'))||0;                             // repli local non synchronisé
   }
   function vendablesMois(y, m) {
     return _gvContratEffectifMois(y, m) * _gvSeuilOrange() / 100;
@@ -509,6 +515,13 @@
     if (!to || !(to.closest && to.closest('td.col-mois[data-nom]'))) {
       if (_gtip) { _gtip.style.display = 'none'; _gtipKey = null; }
     }
+  });
+
+  // Recalcul des heures vendables quand les données serveur arrivent
+  // (jauge, salariés, absences…) : on purge le cache et on redessine.
+  window.addEventListener('donnees-chargees', function () {
+    _gvCacheCE = {};
+    if (typeof render === 'function') render();
   });
 
 })();
