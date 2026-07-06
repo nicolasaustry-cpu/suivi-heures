@@ -128,6 +128,56 @@
     #zone.ind-on .col-tranche { display:table-cell; }
     #recap-indemnites { margin-top:10px; }
     #recap-indemnites:empty { display:none; }
+
+    /* ── Bouton + fenêtre calendrier des tranches ── */
+    .btn-cal-tranches { display:inline-flex; align-items:center; gap:6px; margin-left:6px; padding:5px 12px;
+      border:1px solid #1d4ed8; background:#1d4ed8; color:#fff; border-radius:6px; font-size:0.82rem; font-weight:600; cursor:pointer; }
+    .btn-cal-tranches:hover { background:#1743b8; }
+    @media print { .btn-cal-tranches, #modale-tranches { display:none !important; } }
+    #modale-tranches { position:fixed; inset:0; z-index:9000; background:rgba(15,23,42,.5);
+      display:none; align-items:flex-start; justify-content:center; padding:24px 12px; overflow:auto; }
+    #modale-tranches.ouvert { display:flex; }
+    .mt-modale { width:100%; max-width:760px; background:#fff; border-radius:12px; overflow:hidden;
+      box-shadow:0 12px 40px rgba(15,23,42,.28); }
+    .mt-h { background:#0f3a8a; color:#fff; padding:13px 18px; border-bottom:3px solid #f59e0b;
+      display:flex; align-items:center; justify-content:space-between; }
+    .mt-h h3 { margin:0; font-size:1rem; font-weight:600; }
+    .mt-h .mt-sub { font-size:0.76rem; color:#bfdbfe; margin-top:2px; }
+    .mt-h .mt-x { background:rgba(255,255,255,.15); border:none; color:#fff; width:30px; height:30px; border-radius:6px; cursor:pointer; font-size:1rem; }
+    .mt-b { padding:14px 18px 4px; }
+    .mt-titre { font-size:0.82rem; color:#475569; font-weight:600; margin:0 0 7px; }
+    .mt-tranches { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
+    .mt-tr { display:inline-flex; align-items:center; gap:7px; border:1.5px solid #cbd5e1; border-radius:8px;
+      padding:5px 11px; font-size:0.8rem; cursor:pointer; background:#fff; color:#334155; user-select:none; }
+    .mt-tr .mt-sw { width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,.15); flex:none; }
+    .mt-tr.actif { border-color:#1d4ed8; box-shadow:0 0 0 2px rgba(29,78,216,.18); font-weight:600; }
+    .mt-tr.eff { color:#991b1b; }
+    .mt-tr.eff .mt-sw { background:repeating-linear-gradient(45deg,#fff,#fff 3px,#e5e7eb 3px,#e5e7eb 6px); }
+    .mt-hint { font-size:0.76rem; color:#64748b; margin:4px 0 12px; }
+    table.mt-cal { border-collapse:separate; border-spacing:4px; width:100%; }
+    table.mt-cal th { font-size:0.72rem; color:#64748b; font-weight:600; padding:2px 0; text-transform:uppercase; letter-spacing:.03em; }
+    table.mt-cal th.mt-sem-h { width:44px; }
+    td.mt-sem { width:44px; text-align:center; font-size:0.72rem; color:#64748b; cursor:pointer; border-radius:8px; background:#f1f5f9; }
+    td.mt-sem:hover { background:#e2e8f0; color:#334155; }
+    td.mt-j { height:50px; text-align:right; vertical-align:top; padding:5px 7px; border-radius:8px; cursor:pointer;
+      border:2px solid transparent; background:#f8fafc; position:relative; }
+    td.mt-j .mt-n { font-size:0.82rem; font-weight:600; color:#334155; }
+    td.mt-j.off { background:#eef1f4; cursor:not-allowed; }
+    td.mt-j.off .mt-n { color:#b6bec9; }
+    td.mt-j.off .mt-tag { position:absolute; left:7px; bottom:5px; font-size:0.6rem; color:#94a3b8; font-weight:600; }
+    td.mt-j.vide { background:transparent; cursor:default; }
+    td.mt-j.sel { border-color:#1d4ed8; box-shadow:0 0 0 1px #1d4ed8 inset; }
+    td.mt-j .mt-code { position:absolute; left:7px; bottom:5px; font-size:0.7rem; font-weight:700; }
+    .mt-f { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px;
+      background:#f8fafc; border-top:1px solid #e2e8f0; margin-top:12px; }
+    .mt-cnt { font-size:0.8rem; color:#475569; }
+    .mt-cnt b { color:#0f172a; }
+    .mt-actions { display:flex; gap:8px; }
+    .mt-btn { border:none; border-radius:7px; padding:8px 14px; font-size:0.85rem; cursor:pointer; font-weight:600; }
+    .mt-appliquer { background:#1d4ed8; color:#fff; }
+    .mt-appliquer:disabled { background:#cbd5e1; cursor:not-allowed; }
+    .mt-valider { background:#16a34a; color:#fff; }
+    .mt-annuler { background:#e2e8f0; color:#334155; }
     #recap-evenements { margin-top:10px; }
     #recap-evenements:empty { display:none; }
     table.bev-recap { border-collapse:collapse; font-size:0.85rem; margin-top:6px; }
@@ -195,12 +245,42 @@
     <label><input type="checkbox" class="ind-chk" value="trajet" onchange="onIndemniteChange()"> Trajet</label>
     <label><input type="checkbox" class="ind-chk" value="transport" onchange="onIndemniteChange()"> Transport</label>
     <label><input type="checkbox" class="ind-chk" value="repas" onchange="onIndemniteChange()"> Repas</label>
+    <button type="button" class="btn-cal-tranches" id="btn-cal-tranches" onclick="ouvrirCalendrierTranches()"><i class="ti ti-calendar"></i> Calendrier des tranches</button>
   </div>
 
   <div id="bev-fit"><div id="bev-doc">
     <div class="bev-titre-doc" id="titre-doc"></div>
     <div id="zone"></div>
   </div></div>
+
+  <div id="modale-tranches" class="no-print" role="dialog" aria-modal="true" aria-labelledby="mt-title" onclick="if(event.target===this) fermerCalendrierTranches()">
+    <div class="mt-modale">
+      <div class="mt-h">
+        <div>
+          <h3 id="mt-title">Saisie rapide des tranches — Petits déplacements</h3>
+          <div class="mt-sub" id="mt-sub"></div>
+        </div>
+        <button type="button" class="mt-x" title="Fermer" onclick="fermerCalendrierTranches()">✕</button>
+      </div>
+      <div class="mt-b">
+        <p class="mt-titre">Tranche à appliquer :</p>
+        <div class="mt-tranches" id="mt-tranches"></div>
+        <div class="mt-hint" id="mt-hint">Choisis une tranche, puis les jours travaillés, puis « Appliquer ».</div>
+        <table class="mt-cal">
+          <thead><tr id="mt-entetes"><th class="mt-sem-h"></th></tr></thead>
+          <tbody id="mt-corps"></tbody>
+        </table>
+      </div>
+      <div class="mt-f">
+        <div class="mt-cnt" id="mt-cnt"><b>0</b> jour sélectionné</div>
+        <div class="mt-actions">
+          <button type="button" class="mt-btn mt-annuler" onclick="fermerCalendrierTranches()">Annuler</button>
+          <button type="button" class="mt-btn mt-appliquer" id="mt-appliquer" disabled onclick="mtAppliquer()">Appliquer à la sélection</button>
+          <button type="button" class="mt-btn mt-valider" onclick="validerCalendrierTranches()">Valider et reporter</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <script src="assets/sync.js"></script>
@@ -257,6 +337,14 @@ const TRANCHES_IND = [
 ];
 let _indemnites = {};   // { trajet, transport, repas }
 let _tranches   = {};   // { 'YYYY-MM-DD': 'IA'|... }
+let _calCtx     = null; // contexte du mois courant pour le calendrier des tranches
+// Couleurs par tranche (dégradé distance : proche = vert → lointain = rouge)
+const TRANCHES_COULEURS = {
+  'IA':{bg:'#d1fae5',tx:'#065f46'}, 'IB':{bg:'#a7f3d0',tx:'#065f46'},
+  'II':{bg:'#fef08a',tx:'#854d0e'}, 'III':{bg:'#fde68a',tx:'#854d0e'},
+  'IV':{bg:'#fed7aa',tx:'#9a3412'}, 'V':{bg:'#fdba74',tx:'#7c2d12'},
+  'VI':{bg:'#fca5a5',tx:'#991b1b'}, 'VII':{bg:'#f87171',tx:'#7f1d1d'}
+};
 function optionsTranche(sel) {
   return TRANCHES_IND.map(function(t){ return '<option value="' + t[0] + '"' + (t[0] === sel ? ' selected' : '') + '>' + (t[1] || '—') + '</option>'; }).join('');
 }
@@ -516,6 +604,7 @@ async function chargerMois() {
 
   document.getElementById('chk-valide').checked = valide;
   const lignes = lignesDuMois(sal, ym, saisies, retenues);
+  _calCtx = { ym: ym, lignes: lignes, label: sal.prenom + ' ' + sal.nom + ' · ' + moisLabel(ym) };
   const mp = lignes.modePlanifie;
   let tcontrat=0, ttevt=0, tbase=0, tplan=0, treal=0, terb=0, tret=0, tcompte=0, tbasePasse=0;
   let corps = '';
@@ -783,6 +872,149 @@ async function chargerAnnee() {
 }
 
 /* ── Pilotage ── */
+/* ═══════════════════════════════
+   CALENDRIER DES TRANCHES (petits déplacements)
+═══════════════════════════════ */
+let _mtActive = null;   // tranche choisie ('' = gomme, null = aucune)
+let _mtSel    = {};     // { 'YYYY-MM-DD': true } — sélection en cours
+let _mtAffect = {};     // { 'YYYY-MM-DD': code } — travail en cours (copie de _tranches)
+
+function _mtEstTravaille(l){ return l && !l.we && !l.motif && (parseFloat(l.contrat) || 0) > 0; }
+function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()); t.setDate(t.getDate()+3-((t.getDay()+6)%7)); const s=new Date(t.getFullYear(),0,4); return 1+Math.round(((t-s)/86400000-3+((s.getDay()+6)%7))/7); }
+
+function ouvrirCalendrierTranches(){
+  if (!_calCtx || !_calCtx.lignes || !_calCtx.lignes.length) { alert('Sélectionnez d\'abord un salarié et un mois.'); return; }
+  _mtActive = null; _mtSel = {}; _mtAffect = {};
+  Object.keys(_tranches).forEach(function(k){ if (_tranches[k]) _mtAffect[k] = _tranches[k]; });
+  document.getElementById('mt-sub').textContent = _calCtx.label;
+
+  // Barre des tranches (choix + légende, une seule zone)
+  const barre = document.getElementById('mt-tranches'); barre.innerHTML = '';
+  TRANCHES_IND.forEach(function(t){
+    if (!t[0]) return;
+    const c = TRANCHES_COULEURS[t[0]] || {bg:'#e5e7eb',tx:'#334155'};
+    const b = document.createElement('span'); b.className = 'mt-tr'; b.dataset.code = t[0];
+    b.innerHTML = '<span class="mt-sw" style="background:' + c.bg + '"></span>' + t[1];
+    b.onclick = function(){ mtChoisirTranche(t[0]); };
+    barre.appendChild(b);
+  });
+  const eff = document.createElement('span'); eff.className = 'mt-tr eff'; eff.dataset.code = '';
+  eff.innerHTML = '<span class="mt-sw"></span>Effacer la tranche';
+  eff.onclick = function(){ mtChoisirTranche(''); };
+  barre.appendChild(eff);
+
+  // En-têtes jours
+  const ent = document.getElementById('mt-entetes'); ent.innerHTML = '<th class="mt-sem-h"></th>';
+  ['lun','mar','mer','jeu','ven','sam','dim'].forEach(function(n){ const th=document.createElement('th'); th.textContent=n; ent.appendChild(th); });
+
+  // Grille du mois
+  const parts = _calCtx.ym.split('-'); const an = parseInt(parts[0]), mo = parseInt(parts[1]);
+  const parLigne = {}; _calCtx.lignes.forEach(function(l){ parLigne[l.date] = l; });
+  const decalage = (new Date(an, mo-1, 1).getDay()+6) % 7;
+  const nbJours = new Date(an, mo, 0).getDate();
+  const cells = []; for (let i=0;i<decalage;i++) cells.push(null);
+  for (let j=1;j<=nbJours;j++) cells.push(j);
+  while (cells.length % 7) cells.push(null);
+
+  const corps = document.getElementById('mt-corps'); corps.innerHTML = '';
+  for (let s=0; s<cells.length/7; s++){
+    const tr = document.createElement('tr');
+    const semTd = document.createElement('td'); semTd.className = 'mt-sem';
+    let ref = null; for (let k=0;k<7;k++){ if (cells[s*7+k]) { ref = cells[s*7+k]; break; } }
+    if (ref !== null){ const d=new Date(an,mo-1,ref); semTd.textContent='S'+_mtNoSemaine(d); semTd.title='Sélectionner les jours travaillés de la semaine.'; semTd.onclick=(function(idx){ return function(){ mtToggleSemaine(idx); }; })(s); }
+    tr.appendChild(semTd);
+    for (let k=0;k<7;k++){
+      const num = cells[s*7+k];
+      const td = document.createElement('td');
+      if (num === null){ td.className = 'mt-j vide'; }
+      else {
+        const key = an + '-' + String(mo).padStart(2,'0') + '-' + String(num).padStart(2,'0');
+        const l = parLigne[key];
+        if (_mtEstTravaille(l)){
+          td.className = 'mt-j'; td.dataset.date = key;
+          td.innerHTML = '<span class="mt-n">' + num + '</span>';
+          td.onclick = (function(kk){ return function(){ mtToggleJour(kk); }; })(key);
+        } else {
+          td.className = 'mt-j off';
+          const tag = (l && l.motif) ? l.motif : '';
+          td.innerHTML = '<span class="mt-n">' + num + '</span>' + (tag ? '<span class="mt-tag">' + tag + '</span>' : '');
+        }
+      }
+      tr.appendChild(td);
+    }
+    corps.appendChild(tr);
+  }
+
+  // Pré-coloration des jours déjà affectés
+  Object.keys(_mtAffect).forEach(function(key){ mtPeindre(key); });
+  mtChoisirTranche(null);
+  mtRendreSelection();
+  document.getElementById('modale-tranches').classList.add('ouvert');
+}
+
+function fermerCalendrierTranches(){ document.getElementById('modale-tranches').classList.remove('ouvert'); }
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') { const m=document.getElementById('modale-tranches'); if (m && m.classList.contains('ouvert')) fermerCalendrierTranches(); } });
+
+function mtChoisirTranche(code){
+  _mtActive = code;
+  document.querySelectorAll('#mt-tranches .mt-tr').forEach(function(b){ b.classList.toggle('actif', b.dataset.code === code); });
+  const hint = document.getElementById('mt-hint');
+  hint.textContent = code === '' ? 'Gomme : sélectionne des jours puis « Appliquer » pour retirer leur tranche.'
+    : (code === null ? 'Choisis une tranche, puis les jours travaillés, puis « Appliquer ».'
+    : 'Tranche ' + code + ' choisie — sélectionne les jours puis « Appliquer ».');
+  mtMajBtn();
+}
+
+function mtCellByDate(key){ return document.querySelector('#mt-corps td.mt-j[data-date="' + key + '"]'); }
+function mtToggleJour(key){ if (_mtSel[key]) delete _mtSel[key]; else _mtSel[key] = true; mtRendreSelection(); }
+function mtToggleSemaine(idx){
+  const tds = document.querySelectorAll('#mt-corps tr:nth-child(' + (idx+1) + ') td.mt-j[data-date]');
+  const tout = Array.prototype.every.call(tds, function(td){ return _mtSel[td.dataset.date]; });
+  tds.forEach(function(td){ if (tout) delete _mtSel[td.dataset.date]; else _mtSel[td.dataset.date] = true; });
+  mtRendreSelection();
+}
+function mtRendreSelection(){
+  document.querySelectorAll('#mt-corps td.mt-j[data-date]').forEach(function(td){ td.classList.toggle('sel', !!_mtSel[td.dataset.date]); });
+  const n = Object.keys(_mtSel).length;
+  document.getElementById('mt-cnt').innerHTML = '<b>' + n + '</b> jour' + (n>1?'s':'') + ' sélectionné' + (n>1?'s':'');
+  mtMajBtn();
+}
+function mtMajBtn(){ const n = Object.keys(_mtSel).length; document.getElementById('mt-appliquer').disabled = (n === 0 || _mtActive === null); }
+
+function mtAppliquer(){
+  Object.keys(_mtSel).forEach(function(key){
+    if (_mtActive === '') delete _mtAffect[key]; else _mtAffect[key] = _mtActive;
+    mtPeindre(key);
+  });
+  _mtSel = {}; mtRendreSelection();
+}
+function mtPeindre(key){
+  const td = mtCellByDate(key); if (!td) return;
+  const code = _mtAffect[key];
+  const n = td.querySelector('.mt-n');
+  let c = td.querySelector('.mt-code');
+  if (code){ const col = TRANCHES_COULEURS[code] || {bg:'#e5e7eb',tx:'#334155'};
+    td.style.background = col.bg; if (n) n.style.color = col.tx;
+    if (!c){ c = document.createElement('span'); c.className = 'mt-code'; td.appendChild(c); }
+    c.textContent = code; c.style.color = col.tx;
+  } else { td.style.background = ''; if (n) n.style.color = ''; if (c) c.remove(); }
+}
+
+function validerCalendrierTranches(){
+  // Report sur les <select> jour par jour + mise à jour de _tranches
+  document.querySelectorAll('#corps .tranche-sel').forEach(function(sel){
+    const key = sel.dataset.date;
+    const code = _mtAffect[key] || '';
+    sel.value = code;
+    const sp = sel.parentNode.querySelector('.tranche-print');
+    if (sp) sp.textContent = code;
+    if (code) _tranches[key] = code; else delete _tranches[key];
+  });
+  rendreRecapIndemnites();
+  autoSave();
+  fermerCalendrierTranches();
+}
+
 function changerVue(v) {
   _vue = v;
   document.getElementById('btn-vue-mois').classList.toggle('actif', v === 'mois');
@@ -791,6 +1023,8 @@ function changerVue(v) {
   document.getElementById('bloc-annee').style.display = (v === 'annee') ? 'block' : 'none';
   document.getElementById('btn-save').style.display   = (v === 'mois')  ? 'inline-block' : 'none';
   document.getElementById('lbl-valide').style.display = (v === 'mois')  ? 'flex' : 'none';
+  const bct = document.getElementById('btn-cal-tranches');
+  if (bct) bct.style.display = (v === 'mois') ? 'inline-flex' : 'none';
   rafraichir();
 }
 function rafraichir() {
