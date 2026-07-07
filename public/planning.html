@@ -1204,7 +1204,7 @@ function genererPlanning(calerSemaine){
       let _abBadge = '';
       if (s.alternance) {
         const _ab = (typeof semaineAB === 'function') ? semaineAB(s, jours[0]) : '';
-        _abBadge = _ab ? ` <span class="ab" title="Semaine ${_ab}">Sem. ${_ab}</span>` : ' <span class="ab">A/B</span>';
+        _abBadge = _ab ? ` <span class="ab" title="Semaine ${_ab}">${_ab}</span>` : ' <span class="ab">A/B</span>';
       }
       const badge = _abBadge + (s.sav?' 🛠':'');
       body+=`<tr style="--col:${coul.fg};--bg:${coul.bg};">`
