@@ -34,7 +34,7 @@
     if (document.getElementById('coord-modal')) return;
     var st = document.createElement('style');
     st.textContent =
-      '#coord-modal{position:fixed;inset:0;z-index:9500;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:16px;}' +
+      '#coord-modal{position:fixed;inset:0;z-index:12000;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:16px;}' +
       '#coord-modal.on{display:flex;}' +
       '#coord-modal .cm{background:#fff;border-radius:14px;width:100%;max-width:360px;overflow:hidden;box-shadow:0 14px 48px rgba(0,0,0,.35);font-family:inherit;}' +
       '#coord-modal .cm-h{background:#0f3a8a;color:#fff;padding:12px 16px;border-bottom:3px solid #f59e0b;display:flex;justify-content:space-between;align-items:center;}' +
