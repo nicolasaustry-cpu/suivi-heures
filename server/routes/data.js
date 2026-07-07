@@ -129,6 +129,38 @@ router.post("/note-chantier", verifyToken, async (req, res) => {
   }
 });
 
+// ── Coordonnées d'un chantier (PC, via token licence) : écriture ciblée ──
+router.post("/coordonnees-chantier", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const chantier = (req.body.chantier || "").trim().toUpperCase();
+    const c = req.body.coordonnees || {};
+    if (!chantier) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const coords = doc.coordonneesChantiers || {};
+    const clean = {
+      adresse: String(c.adresse || "").slice(0, 500),
+      ville:   String(c.ville   || "").slice(0, 200),
+      mobile:  String(c.mobile  || "").slice(0, 40),
+      fixe:    String(c.fixe    || "").slice(0, 40)
+    };
+    const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe;
+    if (vide) delete coords[chantier]; else coords[chantier] = clean;
+
+    await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    res.json({ ok: true, chantier, coordonnees: coords[chantier] || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Sauvegarder toutes les données du client ──
 router.post("/", verifyToken, async (req, res) => {
   try {

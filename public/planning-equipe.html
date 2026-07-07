@@ -166,6 +166,8 @@
       <input id="ae-delai" type="number" min="0" max="1440" step="5" placeholder="Défaut entreprise" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 12px;font-size:0.95rem;">
       <label style="font-size:0.82rem;color:#374151;">Note de chantier (optionnel)</label>
       <button type="button" id="ae-note-btn" onclick="ouvrirNoteAE()" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.92rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📝 Ajouter une note / photos</button>
+      <label style="font-size:0.82rem;color:#374151;">Coordonnées du chantier (optionnel)</label>
+      <button type="button" id="ae-coord-btn" onclick="Coord.ouvrir((document.getElementById('ae-chantier').value||'').trim(), function(){ if(typeof render==='function') render(); })" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin:4px 0 16px;font-size:0.92rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Adresse & téléphones</button>
       <div style="display:flex;gap:8px;">
         <button id="ae-valider" onclick="validerAjoutEquipe()" style="flex:1;background:#16a34a;border:none;color:#fff;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Ajouter</button>
         <button onclick="fermerAjoutEquipe()" style="flex:0 0 auto;background:#eef2f7;border:none;color:#475569;border-radius:8px;padding:10px 14px;cursor:pointer;">Annuler</button>
@@ -197,6 +199,7 @@
 
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script>
 /* ════════════════════════════════════════════════
    Vue équipe — grille gérant
@@ -281,6 +284,7 @@ async function chargerRealiseSemaine() {
             if (d.data.entreprise) localStorage.setItem('entreprisedata', JSON.stringify(d.data.entreprise));
           }
           if (d.data.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.data.notesChantiers));
+          localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.data.coordonneesChantiers || {}));
           localStorage.setItem('notesChantiersPhotosdata', JSON.stringify(d.data.notesChantiersPhotos || {}));
         }
       } catch (_) {}
@@ -320,6 +324,7 @@ async function chargerRealiseSemaine() {
         if (d.heures)   localStorage.setItem('heuresdata',   JSON.stringify(d.heures));
         if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
         if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
+        if (d.coordonneesChantiers) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers));
         if (d.notesChantiersPhotos) localStorage.setItem('notesChantiersPhotosdata', JSON.stringify(d.notesChantiersPhotos));
         _peutReordonner = true;   // contexte gérant mobile : réordonnancement autorisé
         _moisCharges.add(m);
@@ -671,9 +676,11 @@ function htmlChip(c) {
   const noteTxt = _noteAff
     ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
     : '';
+  const coordTxt = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
     ${noteTxt}
+    ${coordTxt}
     <div class="chip-hrs">${hrsHtml}</div>
   </div>`;
 }

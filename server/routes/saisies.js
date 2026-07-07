@@ -43,6 +43,7 @@ router.post("/connect", async (req, res) => {
       previsionnel: doc.previsionnel || {},
       heures:       doc.heures       || {},
       notesChantiers: doc.notesChantiers || {},
+      coordonneesChantiers: doc.coordonneesChantiers || {},
       ordreMobile:  await getOrdresMobile(doc.clientId),
       marquePartenaire: licence ? !!licence.marquePartenaire : false,
       logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
@@ -123,6 +124,42 @@ router.post("/note-chantier", async (req, res) => {
       { $set: { notesChantiers: notes, updatedAt: new Date() } }
     );
     res.json({ ok: true, chantier, note: notes[chantier] });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Coordonnées d'un chantier (mobile : gérant ou administratif) ── */
+router.post("/coordonnees-chantier", async (req, res) => {
+  try {
+    const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
+    const salarieId = req.body.salarieId;
+    const chantier  = (req.body.chantier || "").trim().toUpperCase();
+    const c = req.body.coordonnees || {};
+    if (!codeEmp || !salarieId || !chantier)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const docs = await Donnees.find({});
+    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+    const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+    if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
+    if (!sal.administratif && !sal.gerant)
+      return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+
+    const coords = doc.coordonneesChantiers || {};
+    const clean = {
+      adresse: String(c.adresse || "").slice(0, 500),
+      ville:   String(c.ville   || "").slice(0, 200),
+      mobile:  String(c.mobile  || "").slice(0, 40),
+      fixe:    String(c.fixe    || "").slice(0, 40)
+    };
+    const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe;
+    if (vide) delete coords[chantier]; else coords[chantier] = clean;
+
+    await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    res.json({ ok: true, chantier, coordonnees: coords[chantier] || null });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -426,7 +463,7 @@ router.post("/equipe-mois", async (req, res) => {
       return reste;
     });
 
-    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {}, notesChantiers: doc.notesChantiers || {}, ordreMobile: await getOrdresMobile(doc.clientId) });
+    res.json({ ok: true, saisies, salaries: salariesSansPin, heures: doc.heures || {}, notesChantiers: doc.notesChantiers || {}, coordonneesChantiers: doc.coordonneesChantiers || {}, ordreMobile: await getOrdresMobile(doc.clientId) });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
