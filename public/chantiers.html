@@ -202,7 +202,7 @@
     color: #b45309;
     font-weight: 900;
     font-size: 0.95rem;
-    margin-left: 2px;
+    margin-right: 4px;
     line-height: 1;
     flex-shrink: 0;
   }
@@ -553,7 +553,7 @@ function injecterPlanifiesManquants(annee, mi) {
   if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
   const existantes = new Set(dm.chantiers.map(c => (c.client || '').trim().toUpperCase()));
   Object.keys(planning).forEach(nomU => {
-    if (!nomU || existantes.has(nomU)) return;     // déjà présent dans le devis
+    if (!nomU || nomU === 'TEMPS NON AFFECTE' || existantes.has(nomU)) return;   // TNA exclu ; ou déjà dans le devis
     dm.chantiers.push({ client: nomU, hPrevues: planning[nomU] || '', _depuisPlanning: true });
     existantes.add(nomU);
   });
@@ -893,13 +893,13 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 330px;width:330px;overflow:clip;">`;
+    html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 352px;width:352px;overflow:clip;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
-    html += `<table style="width:330px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
+    html += `<table style="width:352px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
       <col style="width:196px;">
       <col style="width:66px;">
-      <col style="width:68px;">
+      <col style="width:90px;">
     </colgroup>`;
     html += `<thead><tr class="tr-chantier-header">
       <th style="text-align:left;padding:4px 5px;font-size:0.88rem;">Client</th>
@@ -912,10 +912,11 @@ function rendreChantiers() {
       const depuisPlan = !!ch._depuisPlanning;
       const isPlanifie = estPlannifie(ch.client, annee, mi);
       let classes = 'tr-chantier';
-      let coche = '';
+      let coche = '';        // ✓ vert, à côté du nom (chantier du devis déjà planifié)
+      let alertePlan = '';   // ⚠ jaune, dans la colonne action (chantier planifié absent du devis)
       if (depuisPlan) {
         classes += ' depuis-planning';
-        coche = '<span class="coche-planning" title="Planifié mais absent du devis — heures cumulées du planning">⚠</span>';
+        alertePlan = '<span class="coche-planning" title="Planifié mais absent du prévisionnel - heures cumulées du planning">⚠</span>';
       } else if (isPlanifie) {
         classes += ' planifie';
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
@@ -938,7 +939,7 @@ function rendreChantiers() {
             onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
-          <button class="btn-copy-row" title="Renommer partout" style="color:#1d4ed8;" onclick="var tr=this.closest('tr');var inp=tr&&tr.querySelector('input[data-champ=client]');var nom=inp?inp.value.trim():'';if(nom)RenommerChantier.ouvrir(nom);else alert('Nommez le chantier avant de le renommer.');">✏️</button>
+          ${alertePlan}<button class="btn-copy-row" title="Renommer partout" style="color:#1d4ed8;" onclick="var tr=this.closest('tr');var inp=tr&&tr.querySelector('input[data-champ=client]');var nom=inp?inp.value.trim():'';if(nom)RenommerChantier.ouvrir(nom);else alert('Nommez le chantier avant de le renommer.');">✏️</button>
           <button class="btn-copy-row" onclick="ouvrirModaleCopie(${annee},${mi},${ci})" title="Copier">⧉</button>
           <button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>
         </td>
