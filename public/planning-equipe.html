@@ -68,6 +68,7 @@
   .chip:last-child { margin-bottom:0; }
   .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
   .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
+  .grille td.cell-cible { outline:2px dashed #16a34a; outline-offset:-3px; background:#f0fdf4 !important; }
   .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:5px; color:#6E4A12; font-size:0.8rem; }
   .chip .cn .nm { overflow-wrap:anywhere; word-break:break-word; }
   .chip.s-cours .cn { color:#0B3E78; }
@@ -359,7 +360,15 @@ function initDragReorder() {
 
 /* — Début / déplacement / fin communs — */
 function dragBegin(chip, cell) {
-  _drag = { chip, cell };
+  const dc = cell.getAttribute('data-cell'); const u = dc.indexOf('_');
+  _drag = {
+    chip, cell, targetCell: null,
+    movable: chip.getAttribute('data-move') === '1',
+    nom: chip.getAttribute('data-nom'),
+    rdv: chip.getAttribute('data-rdv') || '',
+    salIdSource: dc.slice(0, u),
+    dateSource:  dc.slice(u + 1)
+  };
   chip.style.opacity = '0.55';
   chip.style.outline = '2px dashed #2563eb';
   chip.style.outlineOffset = '-2px';
@@ -370,31 +379,85 @@ function dragPoint(x, y) {
   if (!_drag) return;
   const { chip, cell } = _drag;
   const el = document.elementFromPoint(x, y);
+  const overCell = el && el.closest ? el.closest('td[data-cell]') : null;
+  // Survol d'une AUTRE case → cible de déplacement (uniquement pour un pavé déplaçable)
+  if (_drag.movable && overCell && overCell !== cell) {
+    if (_drag.targetCell && _drag.targetCell !== overCell) _drag.targetCell.classList.remove('cell-cible');
+    _drag.targetCell = overCell; overCell.classList.add('cell-cible');
+    return;
+  }
+  if (_drag.targetCell) { _drag.targetCell.classList.remove('cell-cible'); _drag.targetCell = null; }
+  // Sinon : réordonnancement dans la même case (comportement d'origine)
   const cible = el && el.closest ? el.closest('.chip') : null;
   if (!cible || cible === chip) return;
-  if (cible.closest('td[data-cell]') !== cell) return; // rester dans la même case (jour × salarié)
+  if (cible.closest('td[data-cell]') !== cell) return;
   const r = cible.getBoundingClientRect();
   if (y > r.top + r.height / 2) cible.after(chip); else cible.before(chip);
 }
 function dragFinish() {
   if (!_drag) return;
-  const { chip, cell } = _drag;
+  const { chip, cell, targetCell } = _drag;
   chip.style.opacity = '';
   chip.style.outline = '';
   chip.style.outlineOffset = '';
   document.body.style.userSelect = '';
   document.body.style.webkitUserSelect = '';
+  if (targetCell) targetCell.classList.remove('cell-cible');
+  // Déposé sur une AUTRE case → déplacement (réaffectation) vers ce salarié / ce jour
+  if (_drag.movable && targetCell && targetCell !== cell) {
+    const dc = targetCell.getAttribute('data-cell'); const u = dc.indexOf('_');
+    const info = { salIdS: _drag.salIdSource, dateS: _drag.dateSource, nom: _drag.nom, rdv: _drag.rdv,
+                   salIdT: dc.slice(0, u), dateT: dc.slice(u + 1) };
+    _drag = null;
+    deplacerParGlisser(info);
+    return;
+  }
+  // Sinon : simple réordonnancement dans la case
   const cle  = cell.getAttribute('data-cell');
   const noms = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-nom'));
   _drag = null;
   enregistrerOrdreCellule(cle, noms);
 }
 
+/* Déplace un chantier prévu vers une autre case (salarié × jour) par glisser-déposer.
+   Reprend exactement la logique de contrôle de la modale « Modifier / déplacer » :
+   école, absence, journée pleine (5 chantiers), RDV en doublon. */
+function deplacerParGlisser(info) {
+  var heures = {}, salaries = [];
+  try { heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}'); } catch (e) {}
+  try { salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) {}
+  var nom = info.nom, rdv = info.rdv, salIdS = info.salIdS, dateS = info.dateS, salIdT = info.salIdT, dateT = info.dateT;
+  if (String(salIdT) === String(salIdS) && dateT === dateS) return;
+  var safeS = dateS.replace(/-/g, '_'), safeT = dateT.replace(/-/g, '_');
+  var slotSourceK = null, slotSourceData = null, i, k, d;
+  for (i = 1; i <= 5; i++) { k = salIdS + safeS + 'ch' + i; d = heures[k]; if (d && String(d.chantier || '').trim() === nom) { slotSourceK = k; slotSourceData = d; break; } }
+  if (!slotSourceK) { alert('Chantier introuvable.'); return; }
+  var salT = salaries.find(function (s) { return String(s.id) === String(salIdT); });
+  var absT = parseFloat((heures[salIdT + safeT + 'abs'] || {}).heures) || 0;
+  var estEcole = salT && salT.apprenti && Array.isArray(salT.joursEcole) && salT.joursEcole.indexOf(dateT) !== -1;
+  var conflits = [];
+  if (estEcole) conflits.push('🎓 ' + ((salT && salT.prenom) || 'Le salarié') + ' est à l\'école ce jour-là.');
+  else if (absT > 0) conflits.push('🚫 ' + ((salT && salT.prenom) || 'Le salarié') + ' est absent ce jour-là.');
+  var cibleK = null;
+  for (i = 1; i <= 5; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; var n = String(d && d.chantier || '').trim(); if (!n || n.toUpperCase() === 'TEMPS NON AFFECTE') { cibleK = k; break; } }
+  if (!cibleK) { alert('⛔ La journée de ce salarié est pleine (5 chantiers). Libère un créneau avant de déplacer.'); genererGrille({ conserverScroll: true }); return; }
+  if (rdv) { for (i = 1; i <= 5; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; if (d && String(d.rdv || '').trim() === rdv) { conflits.push('🕐 ' + ((salT && salT.prenom) || 'Le salarié') + ' a déjà un RDV à ' + rdv + '.'); break; } } }
+  if (conflits.length && !confirm(conflits.join('\n') + '\n\nDéplacer quand même ?')) { genererGrille({ conserverScroll: true }); return; }
+  var copie = {}; for (var p in slotSourceData) copie[p] = slotSourceData[p];
+  delete heures[slotSourceK];
+  heures[cibleK] = copie;
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  if (window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
+  genererGrille({ conserverScroll: true });
+}
+
 /* — Tactile (mobile) : touchmove NON-PASSIF + preventDefault pour bloquer le défilement — */
 function dragStartTouch(e) {
   const chip = e.target.closest('.chip');
   const cell = chip && chip.closest('td[data-cell]');
-  if (!chip || !cell || cell.querySelectorAll('.chip').length < 2) return;
+  if (!chip || !cell) return;
+  // Démarrage autorisé si : réordonnancement possible (≥2 pavés) OU pavé déplaçable vers une autre case
+  if (cell.querySelectorAll('.chip').length < 2 && chip.getAttribute('data-move') !== '1') return;
   e.preventDefault();   // empêche défilement + sélection dès le départ
   e.stopPropagation();
   dragBegin(chip, cell);
@@ -419,7 +482,8 @@ function dragEndTouch() {
 function dragStartMouse(e) {
   const chip = e.target.closest('.chip');
   const cell = chip && chip.closest('td[data-cell]');
-  if (!chip || !cell || cell.querySelectorAll('.chip').length < 2) return;
+  if (!chip || !cell) return;
+  if (cell.querySelectorAll('.chip').length < 2 && chip.getAttribute('data-move') !== '1') return;
   e.preventDefault();
   dragBegin(chip, cell);
   document.addEventListener('mousemove', dragMoveMouse);
@@ -680,7 +744,8 @@ function htmlChip(c) {
     ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
     : '';
   const coordTxt = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
-  return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}">
+  const _movable = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim()) ? '1' : '';
+  return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
     ${noteTxt}
     ${coordTxt}
