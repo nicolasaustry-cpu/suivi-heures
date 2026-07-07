@@ -1887,6 +1887,8 @@ async function serverSaveRdv(nom, val, delai) {
 /* Pavés d'une journée (planifié + réalisé), même logique que la Vue équipe. */
 function chipsJourMonPlanning(dateStr) {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  let _ngMP = {}; try { _ngMP = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}') || {}; } catch (_) {}
+  const _noteGen = (nom) => (_ngMP[(nom || '').toUpperCase()] || '').trim();
   const safeDate = dateStr.replace(/-/g, '_');
   const salId = _salarie?.id;
   const planifies = [];
@@ -1904,11 +1906,11 @@ function chipsJourMonPlanning(dateStr) {
     let etat = 'plan', hReal = 0, noteR = '';
     const idx = rs.findIndex((c, j) => !pris[j] && _mpNorm(c.nom) === _mpNorm(p.nom));
     if (idx >= 0) { pris[idx] = true; etat = _mpEtat(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR });
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: _noteGen(p.nom) || p.note || noteR });
   });
   rs.forEach((c, j) => {
     if (pris[j]) return;
-    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: _mpEtat(c), ajoute: true, note: (c.note || '').trim() });
+    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: _mpEtat(c), ajoute: true, note: _noteGen(c.nom) || (c.note || '').trim() });
   });
   const ord = _ordreMobilePour(salId, dateStr);
   if (ord) { const rang = {}; ord.forEach((n, i) => { rang[n] = i; }); chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999))); }

@@ -667,8 +667,9 @@ function htmlChip(c) {
   const editBtn = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim())
     ? `<button type="button" class="chip-edit" title="Modifier / déplacer / supprimer" onclick="ouvrirEditionEquipe(this)" style="flex:0 0 auto;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">✏️</button>`
     : '';
-  const noteTxt = (c.note && c.note.trim())
-    ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(c.note.trim())}</div>`
+  const _noteAff = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim() || (c.note || '').trim();
+  const noteTxt = _noteAff
+    ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
     : '';
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
