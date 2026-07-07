@@ -363,6 +363,7 @@
   .tgrid .chip .pl2-grip, .grille .chip .pl2-grip { flex:0 0 auto; cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none; color:#94a3b8; font-size:0.95rem; line-height:1; padding:1px 2px; }
   .tgrid .chip .pl2-grip:active, .grille .chip .pl2-grip:active { cursor:grabbing; }
   .chip.pl2-dragging { opacity:.55; outline:2px dashed #2563eb; outline-offset:-2px; }
+  table.tgrid td.cell-cible { outline:2px dashed #16a34a; outline-offset:-3px; background:#f0fdf4 !important; }
   .tgrid .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; }
   .tgrid .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
   .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
@@ -900,8 +901,9 @@ function pl2ChipHTML(sl){
   const noteJour=(data.note||'').trim();
   const noteImp=[noteImpression(noteJour), noteImpression(noteG)].filter(Boolean).join('\n');
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
-  const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner">⠿</span>':'';
-  return `<div class="${cls}" data-k="${sl.k}">
+  const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner / déplacer">⠿</span>':'';
+  const _mv=(sl.rempli && !estTNA)?'1':'';
+  return `<div class="${cls}" data-k="${sl.k}" data-move="${_mv}">
     <div class="ligne1">
       ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
         onfocus="onChantierFocus('${sl.k}')"
@@ -929,7 +931,11 @@ function pl2InitDragReorder(){
   });
 }
 function pl2DragBegin(chip, cell){
-  _pl2Drag = { chip, cell };
+  _pl2Drag = {
+    chip, cell, targetCell:null,
+    movable: chip.getAttribute('data-move')==='1',
+    sourceK: chip.getAttribute('data-k')
+  };
   chip.classList.add('pl2-dragging');
   document.body.style.userSelect='none'; document.body.style.webkitUserSelect='none';
 }
@@ -937,6 +943,15 @@ function pl2DragPoint(x, y){
   if(!_pl2Drag) return;
   const { chip, cell } = _pl2Drag;
   const el = document.elementFromPoint(x, y);
+  const overCell = el && el.closest ? el.closest('td[data-salarie][data-date]') : null;
+  // Survol d'une AUTRE case → cible de déplacement (uniquement pour un pavé déplaçable)
+  if(_pl2Drag.movable && overCell && overCell !== cell){
+    if(_pl2Drag.targetCell && _pl2Drag.targetCell !== overCell) _pl2Drag.targetCell.classList.remove('cell-cible');
+    _pl2Drag.targetCell = overCell; overCell.classList.add('cell-cible');
+    return;
+  }
+  if(_pl2Drag.targetCell){ _pl2Drag.targetCell.classList.remove('cell-cible'); _pl2Drag.targetCell=null; }
+  // Sinon : réordonnancement dans la même case (comportement d'origine)
   const cible = el && el.closest ? el.closest('.chip') : null;
   if(!cible || cible===chip) return;
   if(cible.closest('td') !== cell) return;                                   // rester dans la même case (jour × salarié)
@@ -946,17 +961,79 @@ function pl2DragPoint(x, y){
 }
 function pl2DragFinish(){
   if(!_pl2Drag) return;
-  const { chip, cell } = _pl2Drag;
+  const { chip, cell, targetCell } = _pl2Drag;
   chip.classList.remove('pl2-dragging');
   document.body.style.userSelect=''; document.body.style.webkitUserSelect='';
+  if(targetCell) targetCell.classList.remove('cell-cible');
+  // Déposé sur une AUTRE case → déplacement (réaffectation) vers ce salarié / ce jour
+  if(_pl2Drag.movable && targetCell && targetCell !== cell){
+    const salIdT = targetCell.getAttribute('data-salarie');
+    const dateT  = targetCell.getAttribute('data-date');
+    const sourceK = _pl2Drag.sourceK;
+    _pl2Drag = null;
+    pl2DeplacerParGlisser(sourceK, salIdT, dateT);
+    return;
+  }
+  // Sinon : simple réordonnancement dans la case
   const sal = cell.getAttribute('data-salarie'); const date = cell.getAttribute('data-date');
   const ordreKeys = [...cell.querySelectorAll('.chip:not(.tna):not(.vide)')].map(c=>c.getAttribute('data-k'));
   _pl2Drag = null;
   pl2ReordonnerCellule(sal, date, ordreKeys);
 }
+
+/* Déplace un chantier prévu vers une autre case (salarié × jour) par glisser-déposer.
+   Mêmes contrôles que le déplacement manuel : école, férié, jour non travaillé,
+   absence totale, journée pleine, RDV en doublon. Le TNA des deux cases est recalculé. */
+function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
+  const src = heures[sourceK];
+  if(!src) return;
+  const nom = (src.chantier||'').trim();
+  if(!nom || nom.toUpperCase()===TNA) return;
+  const mm = sourceK.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
+  if(!mm) return;
+  const salIdS = mm[1], safeS = mm[2], dateS = safeS.replace(/_/g,'-');
+  if(String(salIdT)===String(salIdS) && dateT===dateS) return;
+
+  const s = salaries.find(x=>String(x.id)===String(salIdT));
+  if(!s){ alert('Salarié introuvable.'); return; }
+  const safeT = dateT.replace(/-/g,'_');
+  const nb = s.sav ? 10 : 5;
+
+  const conflits = [];
+  const contrat  = contratDuJour(s, dateT);
+  const estEcole = estJourEcolePl(s, dateT);
+  const estFerie = !estEcole && (typeof estFeriePl==='function' && estFeriePl(dateT));
+  const abs = parseFloat((heures[salIdT+safeT+'abs']||{}).heures)||0;
+  if(estEcole)            conflits.push('🎓 '+(s.prenom||'Le salarié')+' est à l\'école ce jour-là.');
+  else if(estFerie)       conflits.push('📅 Jour férié pour '+(s.prenom||'le salarié')+'.');
+  else if(contrat<=0)     conflits.push('⚠️ '+(s.prenom||'Le salarié')+' ne travaille pas ce jour-là.');
+  else if(abs>=contrat)   conflits.push('🚫 '+(s.prenom||'Le salarié')+' est absent toute la journée.');
+
+  // Créneau cible libre (vide ou TNA)
+  let cibleK=null;
+  for(let i=1;i<=nb;i++){ const k=salIdT+safeT+'ch'+i; const d=heures[k]; const n=String(d&&d.chantier||'').trim(); if(!n || n.toUpperCase()===TNA){ cibleK=k; break; } }
+  if(!cibleK){ alert('⛔ La journée de '+(s.prenom||'ce salarié')+' est pleine ('+nb+' chantiers). Libère un créneau avant de déplacer.'); return; }
+
+  // RDV en doublon sur la journée cible
+  const rdv = (src.rdv||'').trim();
+  if(rdv){ for(let i=1;i<=nb;i++){ const k=salIdT+safeT+'ch'+i; const d=heures[k]; if(d && String(d.rdv||'').trim()===rdv){ conflits.push('🕐 '+(s.prenom||'Le salarié')+' a déjà un RDV à '+rdv+'.'); break; } } }
+
+  if(conflits.length && !confirm(conflits.join('\n')+'\n\nDéplacer quand même ?')) return;
+
+  // Déplacement : on transfère l'objet complet (heures, note, RDV, motif…)
+  const copie={}; for(const p in src) copie[p]=src[p];
+  delete heures[sourceK];
+  heures[cibleK]=copie;
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  if(window.SYNC && typeof SYNC.declencherSauvegarde==='function') SYNC.declencherSauvegarde();
+  onLigneRecalc(salIdS+safeS+'ch1');   // recalcule le TNA de la case source
+  onLigneRecalc(cibleK);               // recalcule le TNA de la case cible
+  genererPlanning();
+}
 function pl2DragStartTouch(e){
   const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
-  if(!chip || !cell || cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2) return;
+  if(!chip || !cell) return;
+  if(cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2 && chip.getAttribute('data-move') !== '1') return;
   e.preventDefault(); e.stopPropagation();
   pl2DragBegin(chip, cell);
   document.addEventListener('touchmove', pl2DragMoveTouch, { passive:false });
@@ -972,7 +1049,8 @@ function pl2DragEndTouch(){
 }
 function pl2DragStartMouse(e){
   const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
-  if(!chip || !cell || cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2) return;
+  if(!chip || !cell) return;
+  if(cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2 && chip.getAttribute('data-move') !== '1') return;
   e.preventDefault();
   pl2DragBegin(chip, cell);
   document.addEventListener('mousemove', pl2DragMoveMouse);
