@@ -1201,7 +1201,12 @@ function genererPlanning(calerSemaine){
         cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}${_clsSpec}" data-salarie="${s.id}" data-date="${dateStr}">${_inner}</td>`;
       });
       const ecW=wT-wC;
-      const badge = (s.alternance?' <span class="ab">A/B</span>':'') + (s.sav?' 🛠':'');
+      let _abBadge = '';
+      if (s.alternance) {
+        const _ab = (typeof semaineAB === 'function') ? semaineAB(s, jours[0]) : '';
+        _abBadge = _ab ? ` <span class="ab" title="Semaine ${_ab}">Sem. ${_ab}</span>` : ' <span class="ab">A/B</span>';
+      }
+      const badge = _abBadge + (s.sav?' 🛠':'');
       body+=`<tr style="--col:${coul.fg};--bg:${coul.bg};">`
         +`<th class="tsal"><div class="snom"><span class="dot" style="background:${coul.fg}"></span><span class="snom-id"><span class="pre">${s.prenom}</span><span class="nom">${s.nom}${badge}</span></span></div></th>`
         +`${cells}`
