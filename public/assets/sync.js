@@ -28,7 +28,7 @@ const SYNC = (() => {
   // Coalescence courte : regroupe quelques frappes rapprochées sans fragiliser.
   const SAVE_DELAY = 400;
 
-  const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data'];
+  const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data', 'coordonneesChantiersdata'];
 
   const PAGES_LIBRES = ['index.html', '/', ''];
   const PAGES_PLUS = ['realise.html', 'notes.html'];
