@@ -94,22 +94,38 @@
     var o = _lire();
     if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe) delete o[nomU]; else o[nomU] = coord;
     _ecrire(o);
+
+    // Choix du canal : TOKEN en priorité (PC / gérant licence), code employé seulement à défaut (vrai mobile).
+    var token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
+    var codeEmploye = localStorage.getItem('saisie_codeEmploye');
+    var url, opts;
+    if (token) {
+      url = '/api/data/coordonnees-chantier';
+      opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ chantier: nomU, coordonnees: coord }) };
+    } else if (codeEmploye) {
+      var salarieId = null; try { salarieId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+      url = '/api/saisies/coordonnees-chantier';
+      opts = { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId, chantier: nomU, coordonnees: coord }) };
+    } else {
+      alert('⚠️ Enregistrement impossible : session non authentifiée. Reconnectez-vous puis réessayez (vos données saisies restent affichées).');
+      return; // on garde le modal ouvert, rien n'est perdu
+    }
+
+    var okServeur = false;
     try {
-      var codeEmploye = localStorage.getItem('saisie_codeEmploye');
-      if (codeEmploye) {
-        var salarieId = null; try { salarieId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
-        await fetch('/api/saisies/coordonnees-chantier', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId, chantier: nomU, coordonnees: coord })
-        });
-      } else {
-        var token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
-        await fetch('/api/data/coordonnees-chantier', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ chantier: nomU, coordonnees: coord })
-        });
-      }
-    } catch (_) {}
+      var r = await fetch(url, opts);
+      var d = await r.json();
+      okServeur = !!(d && d.ok);
+    } catch (_) { okServeur = false; }
+
+    if (!okServeur) {
+      // Échec serveur : on NE ferme PAS, on prévient — évite toute perte silencieuse à la synchro suivante.
+      alert('⚠️ Les coordonnées n\'ont PAS pu être enregistrées sur le serveur (connexion ?).\n\nElles restent affichées à l\'écran. Recliquez sur « Enregistrer » une fois la connexion rétablie pour les sauvegarder définitivement.');
+      return;
+    }
+
     fermer();
     if (_onDone) _onDone();
   }
