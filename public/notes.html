@@ -121,6 +121,7 @@
 
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script>
 let _notes = [];   // { date, dateObj, dateStr, salarie, chantier, arrivee, depart, dureeMin, note }
 let _notesChantiers = {};   // { NOM CHANTIER: bloc cumulatif } (notes gérant/admin)
@@ -214,13 +215,15 @@ function rendreNotesChantiers() {
           </span>
         </div>`).join('');
       return `<div class="ncch-card" data-ch="${echap(nom)}">
-        <div class="ncch-head">${echap(nom)}</div>
+        <div class="ncch-head" style="display:flex;align-items:center;gap:8px;">${echap(nom)}<button type="button" class="ncch-coord no-print" style="margin-left:auto;background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe;border-radius:7px;padding:3px 9px;font-size:0.76rem;font-weight:600;cursor:pointer;white-space:nowrap;">📍 Coordonnées</button></div>
         ${lignesHtml}
       </div>`;
     }).join('');
 
   cont.querySelectorAll('.ncch-card').forEach(card => {
     const ch = card.dataset.ch;
+    const bc = card.querySelector('.ncch-coord');
+    if (bc) bc.addEventListener('click', () => Coord.ouvrir(ch, rendreNotesChantiers));
     card.querySelectorAll('.ncch-ligne').forEach(row => {
       const idx = parseInt(row.dataset.idx, 10);
       row.querySelector('.ncch-sup').addEventListener('click', () => supprimerLigneChantier(ch, idx));

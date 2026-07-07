@@ -1709,6 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
     <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <div id="note-modal-hist"
       style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:0.84rem;line-height:1.4;color:#374151;max-height:200px;overflow:auto;margin-bottom:10px;"></div>
     <label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
@@ -1725,5 +1726,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
 </body>
 </html>

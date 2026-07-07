@@ -1264,6 +1264,7 @@ async function reconnecterAuto(codeEmploye) {
       });
       localStorage.setItem('salariesdata', JSON.stringify(fusionne));
       if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
+      if (d.coordonneesChantiers) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers));
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
       if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
@@ -1353,6 +1354,7 @@ async function validerCodeEntreprise() {
     });
     localStorage.setItem('salariesdata', JSON.stringify(fusionne2));
     if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
+    if (d.coordonneesChantiers) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers));
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
@@ -1412,6 +1414,7 @@ async function rafraichirDonneesServeur() {
       });
       localStorage.setItem('salariesdata', JSON.stringify(fusionne3));
       if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));
+      if (d.coordonneesChantiers) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers));
     }
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
@@ -1924,8 +1927,9 @@ function _mpHtmlChip(c) {
   const note = (c.note && c.note.trim())
     ? `<div class="chip-notetxt">📝 ${_mpEsc(c.note.trim())}</div>`
     : '';
+  const coord = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
   return `<div class="chip s-${c.etat}"><div class="cn">${icone}<span class="nm">${_mpEsc(c.nom)}</span>${tag}</div>`
-       + note
+       + note + coord
        + `<div class="chip-hrs"><span class="hp">h plan. : ${_mpFmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${_mpFmtHM(c.hReal)}</span></div></div>`;
 }
 
@@ -2107,6 +2111,7 @@ function rendrePrev() {
     header.appendChild(badge);
     header.appendChild(hPrevEl);   // temps prévu, à droite de l'étiquette « Prévu »
     div.appendChild(header);
+    { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); } }
 
     // Ligne 2 : déplacement
     const deplRow = document.createElement('div');
@@ -2342,6 +2347,7 @@ function rendreAjout() {
     suppr.onclick = function() { supprimerAjout(parseInt(this.dataset.idx)); };
     header.appendChild(suppr);
     div.appendChild(header);
+    { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); } }
 
     // Ligne 2 : déplacement
     const deplRow = document.createElement('div');
@@ -3880,5 +3886,6 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 })();
 </script>
 <script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
 </body>
 </html>
