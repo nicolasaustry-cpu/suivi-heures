@@ -875,7 +875,7 @@ function rendreChantiers() {
       const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
       const coche   = isPlanifie ? '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>' : '';
       html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
-        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
+        <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder=""
               style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
@@ -1666,18 +1666,19 @@ function navEnTree(event, input) {
   }
 
   const SEL = 'tr.tr-chantier[data-ttip="1"]';
+  const ZONE = '[data-ttip-client]';   // seule la colonne Client déclenche le popup
   document.addEventListener('mouseover', e => {
-    const tr = e.target.closest && e.target.closest(SEL);
+    if (!e.target.closest || !e.target.closest(ZONE)) return;
+    const tr = e.target.closest(SEL);
     if (tr) montrer(tr, e);
   });
   document.addEventListener('mousemove', e => {
     if (!_ttipEl || _ttipEl.style.display !== 'block') return;
-    const tr = e.target.closest && e.target.closest(SEL);
-    if (tr) positionner(e);
+    if (e.target.closest && e.target.closest(ZONE)) positionner(e);
   });
   document.addEventListener('mouseout', e => {
     const to = e.relatedTarget;
-    if (!to || !(to.closest && to.closest(SEL))) cacher();
+    if (!to || !(to.closest && to.closest(ZONE))) cacher();
   });
 })();
 </script>
