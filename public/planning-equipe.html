@@ -75,6 +75,7 @@
   .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.6rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
   .chip-hrs .hr { margin-left:5px; }
   .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
+  .chip-notetxt { margin-top:4px; padding-top:4px; border-top:1px dashed rgba(0,0,0,0.18); font-size:0.62rem; line-height:1.3; color:#334155; font-weight:400; white-space:pre-wrap; overflow-wrap:anywhere; }
   .chip .pin-etat { font-size:0.85rem; line-height:1; }
   .vide { color:#9ca3af; text-align:center; padding:6px 2px; }
 
@@ -90,6 +91,7 @@
     .chip { padding:9px 13px; margin-bottom:9px; border-radius:9px; min-height:75px; }
     .chip .cn { font-size:1.2rem; gap:6px; margin-bottom:7px; }
     .chip-hrs { font-size:0.8rem; padding-top:6px; }
+    .chip-notetxt { font-size:0.82rem; padding-top:6px; }
     .chip .pin-etat { font-size:1.28rem; }
     .vide { font-size:1.2rem; padding:9px 3px; }
   }
@@ -665,8 +667,12 @@ function htmlChip(c) {
   const editBtn = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim())
     ? `<button type="button" class="chip-edit" title="Modifier / déplacer / supprimer" onclick="ouvrirEditionEquipe(this)" style="flex:0 0 auto;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">✏️</button>`
     : '';
+  const noteTxt = (c.note && c.note.trim())
+    ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(c.note.trim())}</div>`
+    : '';
   return `<div class="chip s-${c.etat}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
+    ${noteTxt}
     <div class="chip-hrs">${hrsHtml}</div>
   </div>`;
 }
