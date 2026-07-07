@@ -1241,18 +1241,24 @@ window.addEventListener('donnees-chargees', async () => {
   (function(){
     var wrap = document.getElementById('grille-wrap');
     if(!wrap) return;
-    var x0=0, y0=0, actif=false;
+    var x0=0, y0=0, actif=false, bordD0=false, bordG0=false;
     wrap.addEventListener('touchstart', function(e){
       if(e.touches.length!==1 || (e.target.closest && e.target.closest('.drag-grip'))){ actif=false; return; }
       x0=e.touches[0].clientX; y0=e.touches[0].clientY; actif=true;
+      var maxS = wrap.scrollWidth - wrap.clientWidth;
+      bordD0 = wrap.scrollLeft >= maxS - 3;   // déjà collé au bord droit AVANT le geste
+      bordG0 = wrap.scrollLeft <= 3;          // déjà collé au bord gauche AVANT le geste
     }, {passive:true});
     wrap.addEventListener('touchend', function(e){
       if(!actif) return; actif=false;
       var dx=e.changedTouches[0].clientX - x0, dy=e.changedTouches[0].clientY - y0;
-      if(Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy)*1.5) return;   // pas un swipe horizontal net
+      var SEUIL = 110;   // glissement horizontal franc et volontaire (px)
+      if(Math.abs(dx) < SEUIL || Math.abs(dx) < Math.abs(dy)*1.5) return;   // pas un swipe horizontal net
       var maxS = wrap.scrollWidth - wrap.clientWidth;
-      if(dx < 0 && wrap.scrollLeft >= maxS - 3){ if(typeof semaineDecalage==='function') semaineDecalage(1); }        // vers la gauche au bord droit → semaine suivante
-      else if(dx > 0 && wrap.scrollLeft <= 3){ if(typeof semaineDecalage==='function') semaineDecalage(-1); }         // vers la droite au bord gauche → semaine précédente
+      // On ne change de semaine que si on était DÉJÀ au bord avant le geste
+      // (le défilement jusqu'au dernier salarié ne suffit donc pas : il faut un 2e glissement).
+      if(dx < 0 && bordD0 && wrap.scrollLeft >= maxS - 3){ if(typeof semaineDecalage==='function') semaineDecalage(1); }        // au bord droit → semaine suivante
+      else if(dx > 0 && bordG0 && wrap.scrollLeft <= 3){ if(typeof semaineDecalage==='function') semaineDecalage(-1); }         // au bord gauche → semaine précédente
     }, {passive:true});
   })();
 })();
