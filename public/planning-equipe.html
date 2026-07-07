@@ -672,7 +672,10 @@ function htmlChip(c) {
   const editBtn = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim())
     ? `<button type="button" class="chip-edit" title="Modifier / déplacer / supprimer" onclick="ouvrirEditionEquipe(this)" style="flex:0 0 auto;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">✏️</button>`
     : '';
-  const _noteAff = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim() || (c.note || '').trim();
+  const _noteBrut = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim() || (c.note || '').trim();
+  const _noteAff = String(_noteBrut).split('\n')
+    .map(function(l){ return l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, ''); })
+    .filter(function(l){ return l.trim() !== ''; }).join('\n');
   const noteTxt = _noteAff
     ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
     : '';

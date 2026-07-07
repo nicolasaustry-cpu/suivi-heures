@@ -1919,13 +1919,20 @@ function chipsJourMonPlanning(dateStr) {
   if (ord) { const rang = {}; ord.forEach((n, i) => { rang[n] = i; }); chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999))); }
   return chips;
 }
+function _mpNoteSansEntete(txt){
+  return String(txt || '').split('\n')
+    .map(function(l){ return l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, ''); })
+    .filter(function(l){ return l.trim() !== ''; })
+    .join('\n');
+}
 function _mpHtmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
   const tag = c.ajoute ? '<span class="tag-add">ajouté</span>' : '';
   const depasse = (c.hPlan > 0 && c.hReal > c.hPlan) ? ' depasse' : '';
-  const note = (c.note && c.note.trim())
-    ? `<div class="chip-notetxt">📝 ${_mpEsc(c.note.trim())}</div>`
+  const _noteAff = _mpNoteSansEntete(c.note);
+  const note = _noteAff
+    ? `<div class="chip-notetxt">📝 ${_mpEsc(_noteAff)}</div>`
     : '';
   const coord = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
   return `<div class="chip s-${c.etat}"><div class="cn">${icone}<span class="nm">${_mpEsc(c.nom)}</span>${tag}</div>`
