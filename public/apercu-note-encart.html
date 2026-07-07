@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperçu — note dans l'encart</title>
+<style>
+  body{ margin:0; font-family:"Segoe UI",system-ui,Arial,sans-serif; background:#eef2f7; color:#0f172a; padding:22px; }
+  .intro{ max-width:900px; margin:0 auto 18px; font-size:0.9rem; color:#475569; }
+  .cols{ max-width:900px; margin:0 auto; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
+  .panneau{ background:#fff; border:1px solid #cbd5e1; border-radius:12px; overflow:hidden; box-shadow:0 6px 20px rgba(15,23,42,.08); }
+  .pan-h{ background:#0f3a8a; color:#fff; padding:10px 14px; font-weight:700; font-size:0.9rem; display:flex; align-items:center; gap:8px; }
+  .pan-b{ padding:12px; }
+  .note-tag{ margin-left:auto; font-size:0.7rem; background:rgba(255,255,255,.2); padding:2px 7px; border-radius:10px; font-weight:600; }
+
+  /* ── Mon planning (salarié) : styles repris de saisie.html ── */
+  .mp{ width:300px; }
+  #mon-planning-corps .jbloc{ border:1px solid #e2e8f0; border-radius:10px; margin-bottom:12px; overflow:hidden; }
+  #mon-planning-corps .jtitre{ background:#f8fafc; padding:6px 10px; font-weight:700; font-size:0.85rem; display:flex; justify-content:space-between; border-bottom:1px solid #eef2f7; }
+  #mon-planning-corps .jtitre span:last-child{ color:#6b7280; font-weight:600; }
+  #mon-planning-corps .jbody{ padding:8px 10px; }
+  #mon-planning-corps .chip { border:1px solid #EEC489; border-radius:8px; padding:8px 10px; margin-bottom:7px; background:#FCEBD2; display:flex; flex-direction:column; min-height:48px; }
+  #mon-planning-corps .chip:last-child { margin-bottom:0; }
+  #mon-planning-corps .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
+  #mon-planning-corps .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
+  #mon-planning-corps .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:5px; color:#6E4A12; font-size:0.95rem; }
+  #mon-planning-corps .chip.s-cours .cn { color:#0B3E78; }
+  #mon-planning-corps .chip.s-parti .cn { color:#1E5E12; }
+  #mon-planning-corps .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.78rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
+  #mon-planning-corps .chip-hrs .hr { margin-left:6px; }
+  #mon-planning-corps .chip-notetxt { margin-top:5px; padding-top:5px; border-top:1px dashed rgba(0,0,0,0.18); font-size:0.82rem; line-height:1.35; color:#334155; font-weight:400; white-space:pre-wrap; overflow-wrap:anywhere; }
+  #mon-planning-corps .chip .pin-etat { font-size:1rem; line-height:1; }
+
+  /* ── Vue équipe (gérant) : styles repris de planning-equipe.html ── */
+  .ve table{ border-collapse:collapse; }
+  .ve th,.ve td{ border:1px solid #e2e8f0; padding:8px; vertical-align:top; }
+  .ve th.jour{ background:#0f3a8a; color:#fff; width:70px; font-size:0.75rem; }
+  .ve th.sal{ background:#f1f5f9; font-size:0.8rem; }
+  .ve td{ width:210px; }
+  .ve .chip { border:1px solid #EEC489; border-radius:7px; padding:6px 8px; margin-bottom:6px; background:#FCEBD2; display:flex; flex-direction:column; min-height:45px; }
+  .ve .chip:last-child { margin-bottom:0; }
+  .ve .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
+  .ve .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
+  .ve .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:5px; color:#6E4A12; font-size:0.8rem; }
+  .ve .chip.s-cours .cn { color:#0B3E78; }
+  .ve .chip.s-parti .cn { color:#1E5E12; }
+  .ve .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.6rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
+  .ve .chip-hrs .hr { margin-left:5px; }
+  .ve .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
+  .ve .chip-notetxt { margin-top:4px; padding-top:4px; border-top:1px dashed rgba(0,0,0,0.18); font-size:0.62rem; line-height:1.3; color:#334155; font-weight:400; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .ve .pin-etat { font-size:0.85rem; line-height:1; }
+  .ve .chip-rdv{ flex:0 0 auto; background:#dbeafe; color:#1e3a8a; border-radius:6px; font-size:0.7rem; font-weight:600; padding:1px 5px; white-space:nowrap; }
+  .ve .chip-note{ flex:0 0 auto; background:#e0e7ff; color:#3730a3; border:none; border-radius:6px; font-size:0.72rem; line-height:1; padding:2px 6px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="intro">Aperçu du rendu <b>après</b> modification : la note du chantier s'affiche en clair dans l'encart (préfixée de 📝), entre le nom et les heures. À gauche « Mon planning » (salarié), à droite « Vue équipe » (gérant). <i>Le petit 📋 de la Vue équipe est l'ancien bouton de la note générale du chantier (avec photos), conservé.</i></div>
+
+  <div class="cols">
+    <!-- MON PLANNING -->
+    <div class="panneau mp">
+      <div class="pan-h">📅 Mon planning <span class="note-tag">salarié</span></div>
+      <div class="pan-b" id="mon-planning-corps">
+        <div class="jbloc">
+          <div class="jtitre"><span>Lundi</span><span>08/06</span></div>
+          <div class="jbody">
+            <div class="chip s-parti"><div class="cn"><span class="pin-etat">✅</span><span class="nm">Chantier 1</span></div><div class="chip-notetxt">📝 Client absent le matin, finitions reportées à demain.</div><div class="chip-hrs"><span class="hp">h plan. : 7,00 h</span><span class="hr">h réal : 6,75 h</span></div></div>
+          </div>
+        </div>
+        <div class="jbloc">
+          <div class="jtitre"><span>Mardi</span><span>09/06</span></div>
+          <div class="jbody">
+            <div class="chip s-cours"><div class="cn"><span class="pin-etat">📍</span><span class="nm">Chantier 4</span></div><div class="chip-notetxt">📝 Prévoir l'échafaudage + livraison béton 14h.</div><div class="chip-hrs"><span class="hp">h plan. : 8,00 h</span><span class="hr">h réal : —</span></div></div>
+            <div class="chip"><div class="cn"><span class="nm">Chantier 2</span></div><div class="chip-hrs"><span class="hp">h plan. : 1,00 h</span><span class="hr">h réal : —</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VUE ÉQUIPE -->
+    <div class="panneau ve">
+      <div class="pan-h">👁 Vue équipe <span class="note-tag">gérant / admin</span></div>
+      <div class="pan-b">
+        <table>
+          <thead><tr><th class="jour">Jour</th><th class="sal">Pierre TAILLÉ</th><th class="sal">Claire VOIE</th></tr></thead>
+          <tbody>
+            <tr>
+              <th class="jour">08/06<br>Lun.</th>
+              <td>
+                <div class="chip s-parti"><div class="cn"><span class="pin-etat">✅</span><span class="nm">Chantier 1</span><span class="chip-rdv">🕐 08:00</span><button class="chip-note">📋</button></div><div class="chip-notetxt">📝 Client absent le matin, finitions reportées.</div><div class="chip-hrs"><span class="hp">h plan. : 7,00 h</span><span class="hr">h réal : 6,75 h</span></div></div>
+              </td>
+              <td>
+                <div class="chip s-parti"><div class="cn"><span class="pin-etat">✅</span><span class="nm">Chantier 2</span><button class="chip-note">📋</button></div><div class="chip-notetxt">📝 Manque enduit, à recommander.</div><div class="chip-hrs"><span class="hp">h plan. : 8,00 h</span><span class="hr">h réal : 8,25 h</span></div></div>
+              </td>
+            </tr>
+            <tr>
+              <th class="jour">09/06<br>Mar.</th>
+              <td>
+                <div class="chip s-cours"><div class="cn"><span class="pin-etat">📍</span><span class="nm">Chantier 4</span><span class="chip-rdv">🕐 07:30</span><button class="chip-note">📋</button></div><div class="chip-notetxt">📝 Prévoir l'échafaudage.</div><div class="chip-hrs"><span class="hp">h plan. : 8,00 h</span><span class="hr">h réal : —</span></div></div>
+              </td>
+              <td>
+                <div class="chip"><div class="cn"><span class="nm">Chantier 2</span><button class="chip-note">📋</button></div><div class="chip-hrs"><span class="hp">h plan. : 8,00 h</span><span class="hr">h réal : —</span></div></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
