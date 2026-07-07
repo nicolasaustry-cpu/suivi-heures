@@ -485,6 +485,7 @@
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/renommer-chantier.js"></script>
 <script>
 /* ═══════════════════════════════
    CONSTANTES
@@ -891,6 +892,7 @@ function rendreChantiers() {
             onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
+          <button class="btn-copy-row" title="Renommer partout" style="color:#1d4ed8;" onclick="var tr=this.closest('tr');var inp=tr&&tr.querySelector('input[data-champ=client]');var nom=inp?inp.value.trim():'';if(nom)RenommerChantier.ouvrir(nom);else alert('Nommez le chantier avant de le renommer.');">✏️</button>
           <button class="btn-copy-row" onclick="ouvrirModaleCopie(${annee},${mi},${ci})" title="Copier">⧉</button>
           <button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>
         </td>

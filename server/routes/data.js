@@ -2,6 +2,8 @@ import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Donnees from "../models/donnees.js";
 import Licence from "../models/licence.js";
+import Saisie from "../models/saisies.js";
+import OrdreMobile from "../models/ordremobile.js";
 
 const router = express.Router();
 
@@ -156,6 +158,118 @@ router.post("/coordonnees-chantier", verifyToken, async (req, res) => {
 
     await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
     res.json({ ok: true, chantier, coordonnees: coords[chantier] || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Renommer un chantier PARTOUT (historique inclus) : opération transversale ──
+router.post("/renommer-chantier", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const U = s => String(s == null ? "" : s).trim().toUpperCase();
+    const ancien  = U(req.body.ancien);
+    const nouveau = U(req.body.nouveau);
+    if (!ancien || !nouveau) return res.status(400).json({ ok: false, message: "Ancien et nouveau nom requis" });
+    if (ancien === nouveau)  return res.status(400).json({ ok: false, message: "Le nouveau nom est identique à l'ancien" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const rapport = { heures: 0, previsionnel: 0, notes: false, coordonnees: false, chantiers: false, saisies: 0, ordreMobile: 0 };
+
+    // 1) Heures du planning
+    const heures = doc.heures || {};
+    for (const k of Object.keys(heures)) {
+      const e = heures[k];
+      if (e && U(e.chantier) === ancien) { e.chantier = nouveau; rapport.heures++; }
+    }
+
+    // 2) Prévisionnel : { "YYYY-MM": { chantiers: [{ client, hPrevues, ... }] } }
+    const prev = doc.previsionnel || {};
+    for (const mois of Object.keys(prev)) {
+      const dm = prev[mois];
+      if (!dm || !Array.isArray(dm.chantiers)) continue;
+      const cibles = dm.chantiers.filter(c => U(c.client) === ancien);
+      if (!cibles.length) continue;
+      const dejaNouveau = dm.chantiers.find(c => U(c.client) === nouveau);
+      if (dejaNouveau) { // fusion des heures prévues du mois
+        cibles.forEach(c => { dejaNouveau.hPrevues = (parseFloat(dejaNouveau.hPrevues) || 0) + (parseFloat(c.hPrevues) || 0); });
+        dm.chantiers = dm.chantiers.filter(c => U(c.client) !== ancien);
+      } else {
+        cibles.forEach(c => { c.client = nouveau; });
+      }
+      rapport.previsionnel += cibles.length;
+    }
+
+    // 3) Notes (fusion si le nouveau nom a déjà des notes)
+    const notes = doc.notesChantiers || {};
+    if (notes[ancien] != null) {
+      notes[nouveau] = notes[nouveau] ? (notes[nouveau] + "\n" + notes[ancien]) : notes[ancien];
+      delete notes[ancien];
+      rapport.notes = true;
+      doc.notesChantiers = notes;
+    }
+
+    // 4) Coordonnées (on conserve celles du nouveau si elles existent déjà)
+    const coords = doc.coordonneesChantiers || {};
+    if (coords[ancien] != null) {
+      if (coords[nouveau] == null) coords[nouveau] = coords[ancien];
+      delete coords[ancien];
+      rapport.coordonnees = true;
+      doc.coordonneesChantiers = coords;
+    }
+
+    // 5) Liste des chantiers (tableau de noms, dédupliqué)
+    if (Array.isArray(doc.chantiers)) {
+      const avant = JSON.stringify(doc.chantiers);
+      const vus = new Set();
+      doc.chantiers = doc.chantiers
+        .map(c => (U(c) === ancien ? nouveau : c))
+        .filter(c => { const u = U(c); if (vus.has(u)) return false; vus.add(u); return true; });
+      rapport.chantiers = (JSON.stringify(doc.chantiers) !== avant);
+    }
+
+    doc.markModified("heures");
+    doc.markModified("previsionnel");
+    doc.markModified("notesChantiers");
+    doc.markModified("coordonneesChantiers");
+    doc.markModified("chantiers");
+    doc.updatedAt = new Date();
+    await doc.save();
+
+    // 6) Saisies (heures réalisées)
+    const saisies = await Saisie.find({ clientId: doc.clientId });
+    for (const s of saisies) {
+      let modif = false;
+      (s.chantiers || []).forEach(ch => { if (U(ch.nom) === ancien) { ch.nom = nouveau; modif = true; } });
+      if (modif) { s.markModified("chantiers"); s.updatedAt = new Date(); await s.save(); rapport.saisies++; }
+    }
+
+    // 7) Ordre mobile des chantiers
+    const om = await OrdreMobile.findOne({ clientId: doc.clientId });
+    if (om && om.ordres) {
+      let modif = false;
+      for (const k of Object.keys(om.ordres)) {
+        const arr = om.ordres[k];
+        if (!Array.isArray(arr)) continue;
+        const vus = new Set(); const nouv = [];
+        arr.forEach(n => {
+          if (U(n) === ancien) modif = true;
+          const v = (U(n) === ancien) ? nouveau : n;
+          const u = U(v);
+          if (!vus.has(u)) { vus.add(u); nouv.push(v); }
+        });
+        om.ordres[k] = nouv;
+      }
+      if (modif) { om.markModified("ordres"); om.updatedAt = new Date(); await om.save(); rapport.ordreMobile = 1; }
+    }
+
+    res.json({ ok: true, ancien, nouveau, rapport });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
