@@ -195,6 +195,17 @@
   /* Ligne avec chantier déjà planifié dans le planning */
   .tr-chantier.planifie td { background: #dcfce7; }
   .tr-chantier.planifie:hover td { background: #bbf7d0; }
+  /* Ligne d'un chantier planifié mais ABSENT du devis (remonté automatiquement) */
+  .tr-chantier.depuis-planning td { background: #fef9c3; }
+  .tr-chantier.depuis-planning:hover td { background: #fde68a; }
+  .coche-planning {
+    color: #b45309;
+    font-weight: 900;
+    font-size: 0.95rem;
+    margin-left: 2px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
   .coche-planifie {
     color: #16a34a;
     font-weight: 900;
@@ -501,6 +512,7 @@ let anneeActive = new Date().getFullYear();
 let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrevues}] } } }
 let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fois (à l'ouverture)
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
+let planningParMois = {};            // { "YYYY_MM": { "NOM CHANTIER": heuresCumulées } }
 
 /* ═══════════════════════════════
    CHANTIERS PLANNIFIÉS (depuis heuresdata)
@@ -509,6 +521,7 @@ function chargerChantiersPlannifies() {
   // Clés « nomChantier|YYYY_MM » : un chantier est considéré planifié POUR CE MOIS
   // uniquement s'il apparaît dans le planning à une date de ce mois.
   chantiersPlannifies = new Set();
+  planningParMois = {};
   try {
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
     Object.keys(heures).forEach(k => {
@@ -517,11 +530,33 @@ function chargerChantiersPlannifies() {
       // La date YYYY_MM_DD est incluse dans la clé (après l'id salarié, sans « _ »).
       const m = k.match(/(\d{4})_(\d{2})_\d{2}/);
       if (!m) return;
-      chantiersPlannifies.add(entry.chantier.trim().toLowerCase() + '|' + m[1] + '_' + m[2]);
+      const nom = entry.chantier.trim();
+      const ym  = m[1] + '_' + m[2];
+      chantiersPlannifies.add(nom.toLowerCase() + '|' + ym);
+      // Cumul des heures planifiées pour ce chantier sur ce mois
+      const nomU = nom.toUpperCase();
+      if (!planningParMois[ym]) planningParMois[ym] = {};
+      planningParMois[ym][nomU] = (planningParMois[ym][nomU] || 0) + (parseFloat(entry.heures) || 0);
     });
   } catch (e) {
     console.warn('Impossible de lire heuresdata', e);
   }
+}
+
+/* Injecte dans le prévisionnel du mois les chantiers PLANIFIÉS mais ABSENTS du devis,
+   avec leurs heures planifiées cumulées, marqués « depuis le planning » (surlignage jaune). */
+function injecterPlanifiesManquants(annee, mi) {
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  const planning = planningParMois[ym];
+  if (!planning) return;
+  const dm = getDataMois(annee, mi);
+  if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
+  const existantes = new Set(dm.chantiers.map(c => (c.client || '').trim().toUpperCase()));
+  Object.keys(planning).forEach(nomU => {
+    if (!nomU || existantes.has(nomU)) return;     // déjà présent dans le devis
+    dm.chantiers.push({ client: nomU, hPrevues: planning[nomU] || '', _depuisPlanning: true });
+    existantes.add(nomU);
+  });
 }
 
 function estPlannifie(nomClient, annee, mi) {
@@ -832,6 +867,9 @@ function rendreChantiers() {
   const liste = getMoisAffichage();
   let html = '';
 
+  // Faire remonter dans le devis les chantiers planifiés absents (surlignés en jaune)
+  liste.forEach(({ annee, mois: mi }) => injecterPlanifiesManquants(annee, mi));
+
   // Calcul du nombre max de chantiers sur l'ensemble des mois affichés
   let maxChantiers = 0;
   liste.forEach(({ annee, mois: mi }) => {
@@ -871,9 +909,17 @@ function rendreChantiers() {
 
     // Lignes saisies
     chantiers.forEach((ch, ci) => {
+      const depuisPlan = !!ch._depuisPlanning;
       const isPlanifie = estPlannifie(ch.client, annee, mi);
-      const classes = 'tr-chantier' + (isPlanifie ? ' planifie' : '');
-      const coche   = isPlanifie ? '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>' : '';
+      let classes = 'tr-chantier';
+      let coche = '';
+      if (depuisPlan) {
+        classes += ' depuis-planning';
+        coche = '<span class="coche-planning" title="Planifié mais absent du devis — heures cumulées du planning">⚠</span>';
+      } else if (isPlanifie) {
+        classes += ' planifie';
+        coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
+      }
       html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
         <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
@@ -1073,6 +1119,7 @@ function supprimerChantier(annee, mi, ci) {
 function majChantier(annee, mi, ci, champ, val) {
   const dm = getDataMois(annee, mi);
   dm.chantiers[ci][champ] = (champ === 'client' && typeof val === 'string') ? val.toUpperCase() : val;
+  if (dm.chantiers[ci]) delete dm.chantiers[ci]._depuisPlanning;   // édité → adopté dans le devis (fin du surlignage jaune)
   sauverData();
   majLigne(`${annee}_${mi}`);
   const totH = dm.chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
