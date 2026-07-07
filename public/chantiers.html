@@ -855,13 +855,13 @@ function rendreChantiers() {
     const labelAnnee = isHors ? ` ${annee}` : '';
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
-    html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 297px;width:297px;overflow:clip;">`;
+    html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 330px;width:330px;overflow:clip;">`;
     html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
-    html += `<table style="width:297px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
+    html += `<table style="width:330px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
-      <col style="width:183px;">
-      <col style="width:70px;">
-      <col style="width:44px;">
+      <col style="width:196px;">
+      <col style="width:66px;">
+      <col style="width:68px;">
     </colgroup>`;
     html += `<thead><tr class="tr-chantier-header">
       <th style="text-align:left;padding:4px 5px;font-size:0.88rem;">Client</th>
