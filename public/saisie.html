@@ -859,6 +859,10 @@
   /* Pavés « Mon planning » : même présentation que la Vue équipe */
   #mon-planning-corps .chip { border:1px solid #EEC489; border-radius:8px; padding:8px 10px; margin-bottom:7px; background:#FCEBD2; display:flex; flex-direction:column; min-height:48px; }
   #mon-planning-corps .chip:last-child { margin-bottom:0; }
+  #mon-planning-corps .chip-abs { border:1px solid #FCA5A5; background:#FEF2F2; color:#B91C1C; border-radius:8px; padding:8px 10px; margin-bottom:7px; }
+  #mon-planning-corps .chip-abs .lib { font-weight:700; font-size:0.95rem; }
+  #mon-planning-corps .chip-abs .motif { font-weight:600; }
+  #mon-planning-corps .chip-abs .h { margin-top:3px; font-size:0.78rem; font-weight:400; color:#7f1d1d; }
   #mon-planning-corps .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
   #mon-planning-corps .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
   #mon-planning-corps .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:5px; color:#6E4A12; font-size:0.95rem; }
@@ -1925,6 +1929,10 @@ function _mpNoteSansEntete(txt){
     .filter(function(l){ return l.trim() !== ''; })
     .join('\n');
 }
+function _mpHtmlAbs(absH, motif) {
+  const m = motif ? ' · <span class="motif">' + _mpEsc(motif) + '</span>' : '';
+  return '<div class="chip-abs"><div class="lib">🚫 Absent' + m + '</div><div class="h">' + _mpFmtHM(absH) + '</div></div>';
+}
 function _mpHtmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
@@ -2009,10 +2017,14 @@ function rendreMonPlanning() {
   const corps = ov.querySelector('#mon-planning-corps');
   corps.innerHTML = '';
   const ajd = _ymd(new Date());
+  const _hMP = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   for (let i = 0; i < 6; i++) {
     const d = new Date(lundi); d.setDate(lundi.getDate() + i);
     const ds = _ymd(d);
     const chips = chipsJourMonPlanning(ds);
+    const _aMP = _hMP[`${_salarie?.id}${ds.replace(/-/g, '_')}abs`] || {};
+    const _aHMP = parseFloat(_aMP.heures) || 0;
+    const _absHtml = _aHMP > 0 ? _mpHtmlAbs(_aHMP, (_aMP.motif || '').trim()) : '';
 
     const bloc = document.createElement('div');
     bloc.style.cssText = 'border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;'
@@ -2025,8 +2037,8 @@ function rendreMonPlanning() {
 
     const body = document.createElement('div');
     body.style.cssText = 'padding:8px 10px;';
-    body.innerHTML = chips.length ? chips.map(_mpHtmlChip).join('')
-      : '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;">Rien de prévu</div>';
+    body.innerHTML = _absHtml + (chips.length ? chips.map(_mpHtmlChip).join('')
+      : (_aHMP > 0 ? '' : '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;">Rien de prévu</div>'));
     bloc.appendChild(body);
     corps.appendChild(bloc);
   }
