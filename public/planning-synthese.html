@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planning synthèse – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+  #synth-wrap { padding: 10px 14px 40px; }
+  .sy-msg { padding: 30px; text-align: center; color: #64748b; }
+  .sy-sem { margin: 0 0 18px; }
+  .sy-sem-h { font-weight: 700; color: #0f3a8a; font-size: 0.95rem; margin: 0 0 4px; padding: 4px 0; border-bottom: 2px solid #0f3a8a; }
+  table.sy-tab { border-collapse: collapse; table-layout: fixed; }
+  .sy-tab th, .sy-tab td { padding: 2px 3px; }
+  .sy-tab .sy-nom { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1e293b; padding-right: 8px; font-size: 0.82rem; }
+  .sy-tab .sy-dh { text-align: center; color: #475569; font-size: 0.72rem; font-weight: 600; line-height: 1.2; }
+  .sy-tab .sy-dh.hm { color: #b0b7c3; }
+  .sy-tab .sy-cell { vertical-align: middle; }
+  .sy-track { height: 16px; border-radius: 3px; background: #f1f5f9; border: 0.5px solid #e2e8f0; display: flex; overflow: hidden; cursor: default; }
+  .sy-track.part-abs { border-left: 3px solid #EF9F27; border-radius: 0 3px 3px 0; }
+  .sy-p { background: #1D9E75; }
+  .sy-r { background: #E24B4A; }
+  .sy-off { height: 16px; border-radius: 3px; background: repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px); border: 0.5px solid #e2e8f0; cursor: default; }
+  .sy-abs { height: 16px; border-radius: 3px; background: #FAEEDA; border: 0.5px solid #EF9F27; color: #633806; font-size: 0.62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; cursor: default; }
+  .sy-ecole { height: 16px; border-radius: 3px; background: #E6F1FB; border: 0.5px solid #85B7EB; color: #0C447C; font-size: 0.62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; padding: 0 2px; cursor: default; }
+  .sy-reste { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 6px; font-size: 0.78rem; }
+  .sy-foot td { border-top: 1px solid #e2e8f0; font-size: 0.72rem; font-weight: 700; text-align: center; padding-top: 3px; }
+  .sy-foot .sy-flab { text-align: left; color: #64748b; font-weight: 600; }
+  .sy-legende { display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 4px 12px; font-size: 0.78rem; color: #475569; }
+  .sy-legende i { display: inline-block; width: 22px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+  @media print {
+    @page { size: landscape; margin: 8mm; }
+    .no-print, .top-bar .nav, .fixed-tools { display: none !important; }
+    body { background: #fff; }
+    #synth-wrap { padding: 0; }
+    .sy-sem { page-break-inside: avoid; }
+  }
+  </style>
+</head>
+<body>
+
+<div class="top-bar" id="top-bar">
+  <header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
+  <h1 class="page-title">Planning synthèse</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+  <div class="nav no-print">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+  </div>
+
+  <div class="fixed-tools no-print">
+    <div class="wk-nav">
+      <button class="wk-btn" onclick="moisDecalage(-1)" title="Mois précédent">‹</button>
+      <div class="wk-label" id="sy-mois-label">—</div>
+      <button class="wk-btn" onclick="moisDecalage(1)" title="Mois suivant">›</button>
+      <button class="wk-btn" onclick="moisAujourdhui()" title="Revenir au mois en cours">Ce mois</button>
+      <button class="wk-btn" id="sy-btn-sam" onclick="toggleSamedi(this)" title="Afficher / masquer le samedi">Afficher le samedi</button>
+      <button class="wk-btn" onclick="window.print()" title="Imprimer la synthèse">🖨 Imprimer</button>
+    </div>
+    <div class="sy-legende">
+      <span><i style="background:#1D9E75"></i>Planifié</span>
+      <span><i style="background:#E24B4A"></i>À planifier</span>
+      <span><i style="background:#FAEEDA;border:0.5px solid #EF9F27"></i>Absence (motif)</span>
+      <span><i style="background:#E6F1FB;border:0.5px solid #85B7EB"></i>École</span>
+      <span><i style="background:repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px)"></i>Non travaillé / férié</span>
+      <span style="color:#94a3b8">Survolez un jour pour le détail</span>
+    </div>
+  </div>
+</div>
+
+<div id="synth-wrap">
+  <div class="sy-msg" id="sy-zone">Chargement…</div>
+</div>
+
+<script src="assets/script.js"></script>
+
+<script>
+/* ============================================================
+   Fonctions de calcul reprises À L'IDENTIQUE de planning.html
+   (contrat, alternance A/B, fériés, jours d'école) pour garantir
+   des chiffres cohérents avec le planning prévu.
+   ============================================================ */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function nbSemainesEntre(lundiRef, lundiCible) {
+  const ms = lundiCible - lundiRef;
+  return Math.round(ms / (7 * 24 * 3600 * 1000));
+}
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+  const lundiCible = lundiDeLaSemaine(d);
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb);
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return s.heuresParJour || {};
+}
+var _plCacheFeries = {};
+function _plPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+function _plFeries(y){
+  if(_plCacheFeries[y])return _plCacheFeries[y];
+  var f={},pad=function(n){return String(n).padStart(2,'0');},isod=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+  [[0,1,"Jour de l'an"],[4,1,'Fête du travail'],[4,8,'Victoire 1945'],[6,14,'Fête nationale'],[7,15,'Assomption'],[10,1,'Toussaint'],[10,11,'Armistice'],[11,25,'Noël']].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=x[2];});
+  var p=_plPaques(y);
+  [[1,'Lundi de Pâques'],[39,'Ascension'],[50,'Lundi de Pentecôte']].forEach(function(x){var d=new Date(p);d.setDate(p.getDate()+x[0]);f[isod(d)]=x[1];});
+  _plCacheFeries[y]=f;return f;
+}
+function estFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return !!_plFeries(y)[dateStr];}
+function nomFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return _plFeries(y)[dateStr]||'Férié';}
+function estJourEcolePl(s,dateStr){return !!(s&&s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(dateStr)!==-1);}
+function contratDuJour(s, dateStr) {
+  if (estFeriePl(dateStr)) return 0;
+  if (estJourEcolePl(s, dateStr)) return 0;
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const dObj = new Date(a, m - 1, j);
+  const cle = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][dObj.getDay()];
+  return (grilleHeuresPourDate(s, dObj))[cle] || 0;
+}
+function pl2NumSemaine(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const j=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-j+3);
+  const p=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  return 1+Math.round(((t-p)/86400000-3+((p.getUTCDay()+6)%7))/7);
+}
+const TNA = 'TEMPS NON AFFECTE';
+
+/* ============================================================
+   Rendu de la synthèse
+   ============================================================ */
+const SY_MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const SY_JN   = ['Lun.','Mar.','Mer.','Jeu.','Ven.','Sam.'];
+let syY, syM, sySam = false;
+
+function syPad2(n){ return String(n).padStart(2,'0'); }
+function syIso(d){ return d.getFullYear()+'-'+syPad2(d.getMonth()+1)+'-'+syPad2(d.getDate()); }
+function syFmt(h){ return (Math.round((parseFloat(h)||0)*100)/100).toString().replace('.',','); }
+function syEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function syChargerSalaries(){
+  let a = [];
+  try { a = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch(e){ a = []; }
+  return a.filter(s => !s.administratif || s.planningPrevu);
+}
+function syChargerHeures(){
+  try { return JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch(e){ return {}; }
+}
+
+/* Infos d'un salarié pour une date : contrat, absence + motif, heures planifiées + chantiers. */
+function syInfosJour(s, heures, d){
+  const dateStr = syIso(d);
+  const safe = dateStr.replace(/-/g,'_');
+  const contrat = contratDuJour(s, dateStr);
+  const absE = heures[String(s.id) + safe + 'abs'];
+  const abs = absE ? (parseFloat(absE.heures) || 0) : 0;
+  const motif = absE ? (String(absE.motif || '').trim()) : '';
+  let planifie = 0; const chs = [];
+  const nbSlots = s.sav ? 10 : 5;
+  for (let i = 1; i <= nbSlots; i++){
+    const e = heures[String(s.id) + safe + 'ch' + i];
+    if (!e) continue;
+    const nom = String(e.chantier || '').trim();
+    if (!nom || nom.toUpperCase() === TNA) continue;
+    const h = parseFloat(e.heures) || 0;
+    planifie += h; chs.push({ n: nom, h });
+  }
+  const ecole = estJourEcolePl(s, dateStr);
+  return { dateStr, contrat, abs, motif, planifie, chs, ecole };
+}
+
+/* Cellule d'un jour : renvoie { html, reste } */
+function syCellule(info, jLabel){
+  const { contrat, abs, motif, planifie, chs } = info;
+  const feriE = estFeriePl(info.dateStr);
+  const entete = jLabel + (feriE ? ' · ' + nomFeriePl(info.dateStr) : '');
+
+  // Jour non travaillé (aucun contrat, aucune absence)
+  if (contrat <= 0 && abs <= 0){
+    if (info.ecole){
+      const t = entete + '\nÉcole (apprenti)';
+      return { html: '<div class="sy-ecole" title="' + syEsc(t) + '">École</div>', reste: 0 };
+    }
+    const t = entete + (feriE ? '\nFérié' : '\nNon travaillé');
+    return { html: '<div class="sy-off" title="' + syEsc(t) + '"></div>', reste: 0 };
+  }
+  const effContrat = Math.max(0, contrat - abs);
+
+  // Absence totale de la journée → on affiche le motif
+  if (abs > 0 && effContrat <= 0){
+    const m = motif || 'Absence';
+    const t = entete + '\nAbsence : ' + m + ' (' + syFmt(abs) + ' h)';
+    return { html: '<div class="sy-abs" title="' + syEsc(t) + '">' + syEsc(m) + '</div>', reste: 0 };
+  }
+
+  // Barre planifié / à planifier (sur le contrat effectif = contrat - absence partielle)
+  const reste = Math.max(0, effContrat - planifie);
+  const pPct = effContrat > 0 ? Math.round(Math.min(planifie, effContrat) / effContrat * 100) : 0;
+  const rPct = 100 - pPct;
+  const lignes = [entete];
+  if (chs.length) chs.forEach(c => lignes.push('• ' + c.n + ' — ' + syFmt(c.h) + ' h'));
+  else lignes.push('• aucun chantier planifié');
+  if (abs > 0) lignes.push('Absence : ' + (motif || 'Absence') + ' (' + syFmt(abs) + ' h)');
+  lignes.push('Planifié ' + syFmt(planifie) + ' h / ' + syFmt(effContrat) + ' h'
+    + (reste > 0 ? '  —  reste ' + syFmt(reste) + ' h à planifier' : '  (complet)'));
+  const cls = 'sy-track' + (abs > 0 ? ' part-abs' : '');
+  const html = '<div class="' + cls + '" title="' + syEsc(lignes.join('\n')) + '">'
+    + (pPct > 0 ? '<div class="sy-p" style="width:' + pPct + '%"></div>' : '')
+    + (rPct > 0 ? '<div class="sy-r" style="width:' + rPct + '%"></div>' : '')
+    + '</div>';
+  return { html, reste };
+}
+
+function sySemainesDuMois(y, m){
+  const premier = new Date(y, m, 1);
+  const dernier = new Date(y, m + 1, 0);
+  let lundi = lundiDeLaSemaine(premier);
+  const semaines = [];
+  while (lundi <= dernier){
+    semaines.push(new Date(lundi));
+    const n = new Date(lundi); n.setDate(lundi.getDate() + 7); lundi = n;
+  }
+  return semaines;
+}
+
+function syRender(){
+  const label = document.getElementById('sy-mois-label');
+  if (label) label.textContent = SY_MOIS[syM] + ' ' + syY;
+  const btnSam = document.getElementById('sy-btn-sam');
+  if (btnSam) btnSam.textContent = sySam ? 'Masquer le samedi' : 'Afficher le samedi';
+
+  const salaries = syChargerSalaries();
+  const heures = syChargerHeures();
+  const zone = document.getElementById('sy-zone') || document.getElementById('synth-wrap');
+
+  if (!salaries.length){
+    document.getElementById('synth-wrap').innerHTML = '<div class="sy-msg" id="sy-zone">Aucun salarié à afficher. Vérifiez la fiche Salariés.</div>';
+    return;
+  }
+
+  const nbJ = sySam ? 6 : 5;
+  const DW = 46;
+  const semaines = sySemainesDuMois(syY, syM);
+  let out = '';
+
+  semaines.forEach(lundi => {
+    const jours = [];
+    for (let k = 0; k < nbJ; k++){ const d = new Date(lundi); d.setDate(lundi.getDate() + k); jours.push(d); }
+    const numSem = pl2NumSemaine(lundi);
+    const f2 = d => syPad2(d.getDate()) + '/' + syPad2(d.getMonth() + 1);
+
+    let cg = '<colgroup><col style="width:150px">';
+    for (let k = 0; k < nbJ; k++) cg += '<col style="width:' + DW + 'px">';
+    cg += '<col style="width:60px"></colgroup>';
+
+    let h = '<div class="sy-sem"><div class="sy-sem-h">Semaine ' + numSem + ' · '
+      + f2(jours[0]) + ' → ' + f2(jours[nbJ - 1]) + '</div>';
+    h += '<table class="sy-tab" style="width:' + (150 + nbJ * DW + 60) + 'px">' + cg + '<thead><tr><th class="sy-nom">Ouvrier</th>';
+    jours.forEach((d, i) => {
+      const hm = (d.getMonth() !== syM) ? ' hm' : '';
+      h += '<th class="sy-dh' + hm + '">' + SY_JN[i] + '<br>' + f2(d) + '</th>';
+    });
+    h += '<th class="sy-dh">À plan.</th></tr></thead><tbody>';
+
+    const totJour = new Array(nbJ).fill(0);
+    salaries.forEach(s => {
+      const nom = ((s.prenom ? s.prenom + ' ' : '') + (s.nom || '')).trim() || s.nom || '—';
+      h += '<tr><td class="sy-nom" title="' + syEsc(nom) + '">' + syEsc(nom) + '</td>';
+      let resteSem = 0;
+      jours.forEach((d, i) => {
+        const info = syInfosJour(s, heures, d);
+        const c = syCellule(info, SY_JN[i] + ' ' + f2(d));
+        h += '<td class="sy-cell">' + c.html + '</td>';
+        resteSem += c.reste; totJour[i] += c.reste;
+      });
+      h += '<td class="sy-reste" style="color:' + (resteSem > 0 ? '#A32D2D' : '#0F6E56') + '">'
+        + (resteSem > 0 ? syFmt(resteSem) + ' h' : '✓') + '</td></tr>';
+    });
+
+    h += '<tr class="sy-foot"><td class="sy-flab">À planifier (équipe)</td>';
+    let totSem = 0;
+    totJour.forEach(t => { totSem += t; h += '<td style="color:' + (t > 0 ? '#A32D2D' : '#0F6E56') + '">' + (t > 0 ? syFmt(t) : '·') + '</td>'; });
+    h += '<td class="sy-reste" style="color:' + (totSem > 0 ? '#A32D2D' : '#0F6E56') + '">' + (totSem > 0 ? syFmt(totSem) + ' h' : '✓') + '</td></tr>';
+
+    h += '</tbody></table></div>';
+    out += h;
+  });
+
+  document.getElementById('synth-wrap').innerHTML = out || '<div class="sy-msg">Aucune semaine pour ce mois.</div>';
+}
+
+function moisDecalage(n){
+  syM += n;
+  if (syM < 0){ syM = 11; syY--; }
+  else if (syM > 11){ syM = 0; syY++; }
+  syRender();
+}
+function moisAujourdhui(){ const d = new Date(); syY = d.getFullYear(); syM = d.getMonth(); syRender(); }
+function toggleSamedi(btn){ sySam = !sySam; syRender(); }
+
+function syInit(){
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+  const d = new Date();
+  if (typeof syY === 'undefined' || syY === undefined){ syY = d.getFullYear(); syM = d.getMonth(); }
+  syRender();
+}
+
+window.addEventListener('DOMContentLoaded', syInit);
+window.addEventListener('donnees-chargees', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+  syRender();
+});
+</script>
+
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+</body>
+</html>
