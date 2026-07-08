@@ -190,6 +190,9 @@
   .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
   /* Heure de RDV par chantier : bouton compact (même gabarit que la note), bleu quand renseigné */
   .btn-rdv-ch { height:30px;min-width:30px;padding:0 5px;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-size:0.78rem;line-height:1;flex:0 0 auto; }
+  .sav-ch { flex:0 0 auto; width:26px; height:26px; border-radius:50%; border:1.5px solid #cbd5e1; background:#fff; color:transparent; font-size:0.85rem; line-height:1; padding:0; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+  .sav-ch:hover { border-color:#f87171; }
+  .sav-ch.actif { background:#dc2626; border-color:#dc2626; color:transparent; }
   .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
   .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
   /* Panneau de saisie de l'heure de RDV (ouvert à côté de la cellule) */
@@ -757,6 +760,17 @@ function pl2AjouterChantier(btn){
   if(inp) inp.focus();
   if(!cell.querySelector('.chip.vide')) btn.style.display='none';
 }
+/* Marque / démarque un chantier comme SAV. Un chantier SAV est exclu du prévisionnel
+   et du total des heures réalisées (jauge), et repérable dans les rapports. */
+function pl2ToggleSav(k){
+  const e = heures[k];
+  if(!e || !((e.chantier||'').trim())) return;               // seulement sur un chantier nommé
+  if((e.chantier||'').toUpperCase()===TNA) return;           // jamais sur le Temps Non Affecté
+  e.sav = !e.sav;
+  if(!e.sav) delete e.sav;
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  genererPlanning();
+}
 function pl2ViderPave(btn, k){
   viderChantier(k);
   const chip = btn.closest('.chip');
@@ -940,6 +954,7 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      ${(sl.rempli && !estTNA) ? `<button type="button" class="sav-ch no-print${data.sav?' actif':''}" title="${data.sav?'Chantier SAV — exclu du prévisionnel et de la jauge réalisé (cliquer pour retirer)':'Marquer comme SAV (hors prévisionnel, hors jauge réalisé)'}" onclick="pl2ToggleSav('${sl.k}')">●</button>` : ''}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
@@ -1344,7 +1359,9 @@ function saveHeure(k, ch, h) {
   const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
   const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
+  const savAv = !!(heures[k] && heures[k].sav);
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  if (savAv) heures[k].sav = true;   // le marquage SAV suit le chantier lors des éditions de nom/heures
   if (motifAv) heures[k].motif = motifAv;
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
