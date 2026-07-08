@@ -427,7 +427,7 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html'];
+    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html'];
 
   // Structure canonique du menu (indépendante de la licence).
   var MENU_GROUPES = [

@@ -43,15 +43,27 @@
   .sy-legende { display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 4px 12px; font-size: 0.78rem; color: #475569; }
   .sy-legende i { display: inline-block; width: 22px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
   #synth-print { display: none; }
+  .sy-print-key { font-size: 0.72rem; color: #333; margin: 0 0 8px; }
   @media print {
     @page { size: landscape; margin: 6mm; }
     .no-print, .top-bar .nav, .fixed-tools { display: none !important; }
     body { background: #fff; }
     #synth-wrap { display: none !important; }
     #synth-print { display: block; padding: 0; }
+    #synth-print, #synth-print * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     #synth-print .sy-print-block { page-break-after: always; padding-bottom: 6px; }
     #synth-print .sy-print-block:last-child { page-break-after: auto; }
     .sy-tab .sy-nom, .sy-foot .sy-flab { position: static; box-shadow: none; }
+    /* Impression : couleurs -> gris/hachures distinctifs (lisibles en N&B) */
+    #synth-print .sy-track { border-color: #999 !important; }
+    #synth-print .sy-p { background: #555 !important; }
+    #synth-print .sy-r { background: #d0d0d0 !important; }
+    #synth-print .sy-track.part-abs { border-left-color: #000 !important; }
+    #synth-print .sy-off { background: repeating-linear-gradient(45deg,#c4c4c4 0 3px,#efefef 3px 6px) !important; border-color: #bbb !important; }
+    #synth-print .sy-abs { background: #ececec !important; border: 1px solid #777 !important; color: #000 !important; }
+    #synth-print .sy-ecole { background: #dcdcdc !important; border: 1px solid #777 !important; color: #000 !important; }
+    #synth-print .sy-ab { background: #e6e6e6 !important; color: #000 !important; border: 1px solid #999 !important; }
+    #synth-print .sy-reste, #synth-print .sy-foot td { color: #000 !important; }
   }
   </style>
 </head>
@@ -393,7 +405,9 @@ function syRender(){
   document.getElementById('synth-wrap').innerHTML = syTable(semaines, OPT_ECRAN);
 
   // Impression : blocs de 2 semaines, colonne « Noms » répétée, saut de page entre blocs
-  let pr = '';
+  let pr = '<div class="sy-print-key"><b>Légende impression :</b> '
+    + 'foncé = planifié · gris clair = à planifier · hachuré = non travaillé/férié · '
+    + 'encadré gris = absence ou école (motif indiqué dans la case).</div>';
   for (let i = 0; i < semaines.length; i += 2){
     pr += '<div class="sy-print-block">' + syTable(semaines.slice(i, i + 2), OPT_IMPR) + '</div>';
   }
