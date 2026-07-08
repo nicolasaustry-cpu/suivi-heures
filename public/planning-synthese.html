@@ -11,6 +11,15 @@
   <style>
   #synth-wrap { padding: 10px 14px 40px; overflow-x: auto; }
   .sy-msg { padding: 30px; text-align: center; color: #64748b; }
+  .top-bar { background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
+  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
+  .nav a.active { text-decoration:underline; }
+  .fixed-tools { background:#fff; border-bottom:1px solid #ccc; padding:0.45rem 0.8rem; }
+  .wk-nav { display:flex; align-items:center; gap:0.7rem; justify-content:center; flex-wrap:wrap; }
+  .wk-btn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; font-size:0.95rem; line-height:1; }
+  .wk-btn:hover { border-color:#0f3a8a; background:#eff4ff; }
+  .wk-label { font-weight:800; color:#0f3a8a; min-width:240px; text-align:center; font-size:0.95rem; }
   table.sy-tab { border-collapse: collapse; table-layout: fixed; }
   .sy-tab th, .sy-tab td { padding: 4px 5px; }
   .sy-tab .sy-nom { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1e293b; padding-right: 10px; font-size: 0.9rem; position: sticky; left: 0; background: #fff; z-index: 3; box-shadow: 1px 0 0 #e2e8f0; }
