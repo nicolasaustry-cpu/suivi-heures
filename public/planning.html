@@ -783,6 +783,30 @@ function pl2SaveMotif(absK,val){
   heures[absK].motif=val;
   localStorage.setItem('heuresdata',JSON.stringify(heures));
 }
+/* Motif d'une absence : par défaut le MÊME sur toute la semaine, sauf saisie contraire.
+   Quand on choisit le motif sur un jour, on le propage aux autres jours de la semaine
+   qui sont en absence mais dont le motif n'a pas encore été renseigné. Un jour déjà
+   renseigné (différent) n'est jamais écrasé. */
+function pl2SaveMotifSemaine(absK,val){
+  pl2SaveMotif(absK,val);
+  const m=String(absK).match(/^(.*)(\d{4})_(\d{2})_(\d{2})abs$/);
+  if(m){
+    const s=salaries.find(x=>String(x.id)===String(m[1]));
+    if(s){
+      const d=new Date(`${m[2]}-${m[3]}-${m[4]}T00:00:00`);
+      const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
+      for(let i=0;i<6;i++){
+        const dd=new Date(lun); dd.setDate(lun.getDate()+i);
+        const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
+        const k=`${s.id}${safe}abs`;
+        if(k===absK) continue;
+        const a=heures[k];
+        if(a && (parseFloat(a.heures)||0)>0 && !((a.motif||'').trim())) pl2SaveMotif(k,val);   // en absence, motif encore vide → on applique le même
+      }
+    }
+  }
+  genererPlanning();
+}
 function pl3MajSemaine(){
   document.querySelectorAll('table.tgrid tbody tr').forEach(tr=>{
     const tw=tr.querySelector('.tweek'); if(!tw) return;
@@ -1169,7 +1193,7 @@ function genererPlanning(calerSemaine){
         let chips='';
         if(C.abs>0){
           chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}');genererPlanning()">${genOptionsHeures(C.abs)}</select>`
-               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotifSemaine('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
                +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
                +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
         }
