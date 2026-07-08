@@ -13,14 +13,17 @@
 
   // ── Tuto par page : chaque page ouvre sa section du mode d'emploi ──
   const GUIDE_FICHIERS = {
-    'index.html': 'tuto-entreprise.html',            // Entreprise
-    'salaries.html': 'tuto-salaries.html',           // Salariés
-    'chantiers.html': 'tuto-previsionnel.html',      // Prévisionnel
-    'planning.html': 'tuto-planning.html',           // Planning prévu
-    'planning-equipe.html': 'tuto-vue-equipe.html',  // Vue équipe
-    'saisie.html': 'tuto-saisie-mobile.html',        // Saisie mobile
-    'rapports.html': 'tuto-rapports.html',           // Rapports
-    'bev.html': 'tuto-bev.html'                      // BEV
+    'index.html': 'tuto-entreprise.html',                 // Entreprise
+    'salaries.html': 'tuto-salaries.html',                // Salariés
+    'chantiers.html': 'tuto-previsionnel.html',           // Prévisionnel
+    'planning.html': 'tuto-planning.html',                // Planning prévu
+    'planning-classique.html': 'tuto-planning.html',      // Planning (vue classique)
+    'planning-synthese.html': 'tuto-planning.html',       // Planning (synthèse du mois)
+    'planning-equipe.html': 'tuto-vue-equipe.html',       // Vue équipe
+    'realise.html': 'tuto-rapports.html',                 // Réalisé / pointage
+    'saisie.html': 'tuto-saisie-mobile.html',             // Saisie mobile
+    'rapports.html': 'tuto-rapports.html',                // Rapports
+    'bev.html': 'tuto-bev.html'                           // BEV
   };
   function _pageActuelle() {
     return (window.location.pathname.split('/').pop() || 'index.html');
@@ -69,7 +72,15 @@
     ['previsionnel', 'devis', 'prevoir'],
     ['photo', 'photos', 'image', 'images'],
     ['absence', 'conge', 'ferie', 'maladie', 'rtt', 'evenement', 'absent'],
-    ['gantt', 'diagramme', 'barres']
+    ['gantt', 'diagramme', 'barres'],
+    // ── Vocabulaire des évolutions récentes ──
+    ['coordonnees', 'coordonnee', 'adresse', 'ville', 'contact', 'localisation'],
+    ['renommer', 'renommage', 'rebaptiser'],
+    ['synthese', 'recapitulatif', 'recap', 'mensuel', 'mensuelle'],
+    ['alternance', 'alternant', 'apprenti', 'apprentie', 'apprentissage', 'ecole'],
+    ['commander', 'commande', 'tarif', 'tarifs', 'abonnement', 'souscrire', 'souscription', 'offre', 'prix'],
+    ['signer', 'signature', 'contrat', 'electronique'],
+    ['glisser', 'deposer', 'deplacer', 'deplacement', 'reorganiser', 'reordonner']
   ];
   // Index : chaque mot pointe vers son groupe de synonymes.
   const _SYNIDX = (function () {
