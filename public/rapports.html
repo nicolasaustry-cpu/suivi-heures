@@ -210,6 +210,7 @@
     .synth-realise-flex { flex-direction: column; }
     .synth-prevu-encart { flex: 0 0 auto; }
   }
+  .sav-tag { display:inline-block; font-size:0.66rem; font-weight:700; color:#b91c1c; background:#fef2f2; border:1px solid #fca5a5; border-radius:5px; padding:0 5px; margin-left:4px; vertical-align:middle; }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -262,7 +263,7 @@
     </div>
     <div class="filtre-item">
       <label>Exclure (mot-clé)</label>
-      <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
+      <input type="text" id="exclureChantier" placeholder="ex : congé, absence, sav…" oninput="appliquerEtAfficher()"
         style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
     </div>
     <div class="filtre-item" style="margin-left:auto;">
@@ -590,7 +591,7 @@ function extrairePrev() {
     if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
-    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h });
+    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, sav: !!data.sav });
   }
   return lignes;
 }
@@ -603,6 +604,15 @@ async function extraireReal() {
   try {
     const token = localStorage.getItem('syncToken');
     if (!token) return [];
+    // Index des chantiers SAV du planning : « salarieId|YYYY-MM-DD|NOM »
+    const _h = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+    const savSet = new Set();
+    Object.keys(_h).forEach(k => {
+      const e = _h[k]; if (!e || !e.sav) return;
+      const mm = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/); if (!mm) return;
+      savSet.add(mm[1] + '|' + mm[2] + '-' + mm[3] + '-' + mm[4] + '|' + String(e.chantier || '').trim().toUpperCase());
+    });
+    const estSav = (sid, date, nom) => savSet.has(String(sid) + '|' + date + '|' + String(nom || '').trim().toUpperCase());
     const lignes = [];
     // Boucle sur chaque mois sélectionné, l'API ne renvoie qu'un mois à la fois
     for (const mois of _moisSelection) {
@@ -622,7 +632,8 @@ async function extraireReal() {
             salarieId: String(s.salarieId),
             chantier:  c.nom,
             heures:    parseFloat((((c.dureeMin || 0) + (c.deplacement || 0)) / 60).toFixed(2)),
-            deplMin:   c.deplacement || 0
+            deplMin:   c.deplacement || 0,
+            sav:       estSav(s.salarieId, s.date, c.nom)
           });
         });
       });
@@ -726,7 +737,7 @@ function filtrer(lignes) {
   return lignes.filter(l => {
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
     if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
-    if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
+    if (exclu && (String(l.chantier || '').toLowerCase() + (l.sav ? ' sav' : '')).includes(exclu)) return false;
     return true;
   });
 }
@@ -809,7 +820,7 @@ function afficherDetail(type, lignes) {
     return `<tr>
       <td>${l.dateStr}</td>
       <td>${l.salarie}</td>
-      <td>${l.chantier}</td>
+      <td>${l.chantier}${l.sav ? ' <span class="sav-tag">SAV</span>' : ''}</td>
       <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
     </tr>`;
   }).join('');

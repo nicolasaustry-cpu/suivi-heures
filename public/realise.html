@@ -57,6 +57,7 @@
     display:flex; justify-content:space-between; align-items:center;
   }
   .jour-total { font-size:0.82rem; color:#15803d; }
+  .sav-tag { display:inline-block; font-size:0.66rem; font-weight:700; color:#b91c1c; background:#fef2f2; border:1px solid #fca5a5; border-radius:5px; padding:0 5px; margin-left:4px; vertical-align:middle; }
 
   table.real-table { width:auto; max-width:100%; margin:0 auto; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
   table.real-table th { background:#e2e8f0; border:1px solid #ccc; padding:4px 6px; font-weight:700; white-space:nowrap; }
@@ -465,6 +466,17 @@ function afficherRealise() {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
 
+  // Index des chantiers marqués SAV dans le planning : « salarieId|YYYY-MM-DD|NOM »
+  const savSet = new Set();
+  Object.keys(heures).forEach(k => {
+    const e = heures[k];
+    if (!e || !e.sav) return;
+    const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m) return;
+    savSet.add(m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + String(e.chantier || '').trim().toUpperCase());
+  });
+  const estSav = (salarieId, date, nom) => savSet.has(String(salarieId) + '|' + date + '|' + String(nom || '').trim().toUpperCase());
+
   const joursNoms = ['dim','lun','mar','mer','jeu','ven','sam'];
 
   function getPrevuMin(date, salarieId) {
@@ -515,11 +527,14 @@ function afficherRealise() {
 
       chantiersFiltres.forEach(c => {
         if (!chantierVisible(c.nom)) return;
+        const _estSav = estSav(s.salarieId, date, c.nom);
         const hh = Math.floor(c.dureeMin / 60), mm = c.dureeMin % 60;
         const totMin = c.dureeMin + (c.deplacement || 0);
         const th = Math.floor(totMin / 60), tm = totMin % 60;
-        salTotalMin += c.dureeMin;
-        salDeplMin  += c.deplacement || 0;
+        if (!_estSav) {   // un chantier SAV n'entre pas dans le total des heures réalisées (jauge)
+          salTotalMin += c.dureeMin;
+          salDeplMin  += c.deplacement || 0;
+        }
 
         const idxC = (s.chantiers || []).indexOf(c);
         const iconCrayon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="#eab308" stroke="#a16207" stroke-width="1.2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
@@ -529,7 +544,7 @@ function afficherRealise() {
              <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">${iconPoubelle}</button>`;
         rows += `<tr>
           <td class="col-sal">${s.salarieNom}</td>
-          <td class="col-ch">${c.nom}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
+          <td class="col-ch">${c.nom}${_estSav ? ' <span class="sav-tag">SAV · hors total</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
           <td class="col-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
           <td class="col-pause">${c.pause ? c.pause + ' min' : '—'}</td>
           <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>
