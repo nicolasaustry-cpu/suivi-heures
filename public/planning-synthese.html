@@ -9,34 +9,36 @@
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <style>
-  #synth-wrap { padding: 10px 14px 40px; }
+  #synth-wrap { padding: 10px 14px 40px; overflow-x: auto; }
   .sy-msg { padding: 30px; text-align: center; color: #64748b; }
-  .sy-sem { margin: 0 0 18px; }
-  .sy-sem-h { font-weight: 700; color: #0f3a8a; font-size: 0.95rem; margin: 0 0 4px; padding: 4px 0; border-bottom: 2px solid #0f3a8a; }
   table.sy-tab { border-collapse: collapse; table-layout: fixed; }
-  .sy-tab th, .sy-tab td { padding: 2px 3px; }
-  .sy-tab .sy-nom { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1e293b; padding-right: 8px; font-size: 0.82rem; }
-  .sy-tab .sy-dh { text-align: center; color: #475569; font-size: 0.72rem; font-weight: 600; line-height: 1.2; }
+  .sy-tab th, .sy-tab td { padding: 4px 5px; }
+  .sy-tab .sy-nom { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1e293b; padding-right: 10px; font-size: 0.9rem; position: sticky; left: 0; background: #fff; z-index: 3; box-shadow: 1px 0 0 #e2e8f0; }
+  .sy-tab thead .sy-nom { z-index: 4; }
+  .sy-tab .sy-wk { text-align: center; color: #0f3a8a; font-weight: 700; font-size: 0.92rem; padding: 7px 5px 5px; border-bottom: 2px solid #0f3a8a; white-space: nowrap; }
+  .sy-tab .sy-wksep { width: 14px; padding: 0; border: none; background: transparent; }
+  .sy-tab .sy-dh { text-align: center; color: #475569; font-size: 0.82rem; font-weight: 600; line-height: 1.25; padding-bottom: 6px; }
   .sy-tab .sy-dh.hm { color: #b0b7c3; }
   .sy-tab .sy-cell { vertical-align: middle; }
-  .sy-track { height: 16px; border-radius: 3px; background: #f1f5f9; border: 0.5px solid #e2e8f0; display: flex; overflow: hidden; cursor: default; }
-  .sy-track.part-abs { border-left: 3px solid #EF9F27; border-radius: 0 3px 3px 0; }
+  .sy-track { height: 32px; border-radius: 4px; background: #f1f5f9; border: 0.5px solid #e2e8f0; display: flex; overflow: hidden; cursor: default; }
+  .sy-track.part-abs { border-left: 4px solid #EF9F27; border-radius: 0 4px 4px 0; }
   .sy-p { background: #1D9E75; }
   .sy-r { background: #E24B4A; }
-  .sy-off { height: 16px; border-radius: 3px; background: repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px); border: 0.5px solid #e2e8f0; cursor: default; }
-  .sy-abs { height: 16px; border-radius: 3px; background: #FAEEDA; border: 0.5px solid #EF9F27; color: #633806; font-size: 0.62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; cursor: default; }
-  .sy-ecole { height: 16px; border-radius: 3px; background: #E6F1FB; border: 0.5px solid #85B7EB; color: #0C447C; font-size: 0.62rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; padding: 0 2px; cursor: default; }
-  .sy-reste { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 6px; font-size: 0.78rem; }
-  .sy-foot td { border-top: 1px solid #e2e8f0; font-size: 0.72rem; font-weight: 700; text-align: center; padding-top: 3px; }
-  .sy-foot .sy-flab { text-align: left; color: #64748b; font-weight: 600; }
+  .sy-off { height: 32px; border-radius: 4px; background: repeating-linear-gradient(45deg,#d9dde3 0 4px,#eef1f5 4px 8px); border: 0.5px solid #e2e8f0; cursor: default; }
+  .sy-abs { height: 32px; border-radius: 4px; background: #FAEEDA; border: 0.5px solid #EF9F27; color: #633806; font-size: 0.76rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; cursor: default; }
+  .sy-ecole { height: 32px; border-radius: 4px; background: #E6F1FB; border: 0.5px solid #85B7EB; color: #0C447C; font-size: 0.76rem; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; padding: 0 4px; cursor: default; }
+  .sy-reste { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 8px; font-size: 0.86rem; }
+  .sy-ab { display: inline-block; background: #fef3c7; color: #92400e; border-radius: 4px; padding: 2px 7px; font-weight: 700; font-size: 0.78rem; line-height: 1.3; }
+  .sy-foot td { border-top: 1px solid #e2e8f0; font-size: 0.8rem; font-weight: 700; text-align: center; padding-top: 5px; }
+  .sy-foot .sy-flab { text-align: left; color: #64748b; font-weight: 600; position: sticky; left: 0; background: #fff; z-index: 3; box-shadow: 1px 0 0 #e2e8f0; }
   .sy-legende { display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 4px 12px; font-size: 0.78rem; color: #475569; }
   .sy-legende i { display: inline-block; width: 22px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
   @media print {
-    @page { size: landscape; margin: 8mm; }
+    @page { size: landscape; margin: 6mm; }
     .no-print, .top-bar .nav, .fixed-tools { display: none !important; }
     body { background: #fff; }
-    #synth-wrap { padding: 0; }
-    .sy-sem { page-break-inside: avoid; }
+    #synth-wrap { padding: 0; overflow: visible; }
+    .sy-tab .sy-nom, .sy-foot .sy-flab { position: static; box-shadow: none; }
   }
   </style>
 </head>
@@ -209,7 +211,15 @@ function syInfosJour(s, heures, d){
   return { dateStr, contrat, abs, motif, planifie, chs, ecole };
 }
 
-/* Cellule d'un jour : renvoie { html, reste } */
+/* Construit le HTML de l'infobulle (même graphisme que le prévisionnel : boîte sombre). */
+function syTip(entete, corps){
+  return '<div style="font-weight:700;margin-bottom:5px">' + syEsc(entete) + '</div>' + corps;
+}
+function syLigneTip(txt, coul){
+  return '<div' + (coul ? ' style="color:' + coul + '"' : '') + '>' + syEsc(txt) + '</div>';
+}
+
+/* Cellule d'un jour : renvoie { html, reste }. L'infobulle est portée par data-tip. */
 function syCellule(info, jLabel){
   const { contrat, abs, motif, planifie, chs } = info;
   const feriE = estFeriePl(info.dateStr);
@@ -218,33 +228,36 @@ function syCellule(info, jLabel){
   // Jour non travaillé (aucun contrat, aucune absence)
   if (contrat <= 0 && abs <= 0){
     if (info.ecole){
-      const t = entete + '\nÉcole (apprenti)';
-      return { html: '<div class="sy-ecole" title="' + syEsc(t) + '">École</div>', reste: 0 };
+      const tip = syTip(entete, syLigneTip('École (apprenti)', '#85B7EB'));
+      return { html: '<div class="sy-ecole" data-tip="' + syEsc(tip) + '">École</div>', reste: 0 };
     }
-    const t = entete + (feriE ? '\nFérié' : '\nNon travaillé');
-    return { html: '<div class="sy-off" title="' + syEsc(t) + '"></div>', reste: 0 };
+    const tip = syTip(entete, syLigneTip(feriE ? 'Férié' : 'Non travaillé', 'rgba(255,255,255,.65)'));
+    return { html: '<div class="sy-off" data-tip="' + syEsc(tip) + '"></div>', reste: 0 };
   }
   const effContrat = Math.max(0, contrat - abs);
 
   // Absence totale de la journée → on affiche le motif
   if (abs > 0 && effContrat <= 0){
     const m = motif || 'Absence';
-    const t = entete + '\nAbsence : ' + m + ' (' + syFmt(abs) + ' h)';
-    return { html: '<div class="sy-abs" title="' + syEsc(t) + '">' + syEsc(m) + '</div>', reste: 0 };
+    const tip = syTip(entete, syLigneTip('Absence : ' + m + ' (' + syFmt(abs) + ' h)', '#FAC775'));
+    return { html: '<div class="sy-abs" data-tip="' + syEsc(tip) + '">' + syEsc(m) + '</div>', reste: 0 };
   }
 
   // Barre planifié / à planifier (sur le contrat effectif = contrat - absence partielle)
   const reste = Math.max(0, effContrat - planifie);
   const pPct = effContrat > 0 ? Math.round(Math.min(planifie, effContrat) / effContrat * 100) : 0;
   const rPct = 100 - pPct;
-  const lignes = [entete];
-  if (chs.length) chs.forEach(c => lignes.push('• ' + c.n + ' — ' + syFmt(c.h) + ' h'));
-  else lignes.push('• aucun chantier planifié');
-  if (abs > 0) lignes.push('Absence : ' + (motif || 'Absence') + ' (' + syFmt(abs) + ' h)');
-  lignes.push('Planifié ' + syFmt(planifie) + ' h / ' + syFmt(effContrat) + ' h'
-    + (reste > 0 ? '  —  reste ' + syFmt(reste) + ' h à planifier' : '  (complet)'));
+  let corps = '';
+  if (chs.length) chs.forEach(c => { corps += syLigneTip('• ' + c.n + ' — ' + syFmt(c.h) + ' h'); });
+  else corps += syLigneTip('• aucun chantier planifié', 'rgba(255,255,255,.65)');
+  if (abs > 0) corps += syLigneTip('Absence : ' + (motif || 'Absence') + ' (' + syFmt(abs) + ' h)', '#FAC775');
+  corps += '<div style="margin-top:5px;border-top:1px solid rgba(255,255,255,.18);padding-top:4px">'
+    + 'Planifié <b>' + syEsc(syFmt(planifie)) + ' h</b> / ' + syEsc(syFmt(effContrat)) + ' h</div>';
+  corps += (reste > 0
+    ? syLigneTip('Reste ' + syFmt(reste) + ' h à planifier', '#F09595')
+    : syLigneTip('Complet', '#5DCAA5'));
   const cls = 'sy-track' + (abs > 0 ? ' part-abs' : '');
-  const html = '<div class="' + cls + '" title="' + syEsc(lignes.join('\n')) + '">'
+  const html = '<div class="' + cls + '" data-tip="' + syEsc(syTip(entete, corps)) + '">'
     + (pPct > 0 ? '<div class="sy-p" style="width:' + pPct + '%"></div>' : '')
     + (rPct > 0 ? '<div class="sy-r" style="width:' + rPct + '%"></div>' : '')
     + '</div>';
@@ -271,62 +284,94 @@ function syRender(){
 
   const salaries = syChargerSalaries();
   const heures = syChargerHeures();
-  const zone = document.getElementById('sy-zone') || document.getElementById('synth-wrap');
 
   if (!salaries.length){
-    document.getElementById('synth-wrap').innerHTML = '<div class="sy-msg" id="sy-zone">Aucun salarié à afficher. Vérifiez la fiche Salariés.</div>';
+    document.getElementById('synth-wrap').innerHTML = '<div class="sy-msg">Aucun salarié à afficher. Vérifiez la fiche Salariés.</div>';
     return;
   }
 
   const nbJ = sySam ? 6 : 5;
-  const DW = 46;
-  const semaines = sySemainesDuMois(syY, syM);
-  let out = '';
+  const DW = 92, WNOM = 170, WPLAN = 78, WSEP = 14, WAB = 30;
+  const hasAlt = salaries.some(s => s.alternance);
+  const f2 = d => syPad2(d.getDate()) + '/' + syPad2(d.getMonth() + 1);
 
-  semaines.forEach(lundi => {
+  // Semaines du mois, chacune avec ses jours
+  const semaines = sySemainesDuMois(syY, syM).map(lundi => {
     const jours = [];
     for (let k = 0; k < nbJ; k++){ const d = new Date(lundi); d.setDate(lundi.getDate() + k); jours.push(d); }
-    const numSem = pl2NumSemaine(lundi);
-    const f2 = d => syPad2(d.getDate()) + '/' + syPad2(d.getMonth() + 1);
+    return { lundi, jours, num: pl2NumSemaine(lundi) };
+  });
+  if (!semaines.length){ document.getElementById('synth-wrap').innerHTML = '<div class="sy-msg">Aucune semaine pour ce mois.</div>'; return; }
 
-    let cg = '<colgroup><col style="width:150px">';
-    for (let k = 0; k < nbJ; k++) cg += '<col style="width:' + DW + 'px">';
-    cg += '<col style="width:60px"></colgroup>';
+  // colgroup : Ouvrier + (par semaine : [sep] + jours + À plan.)
+  let cg = '<colgroup><col style="width:' + WNOM + 'px">';
+  let totalW = WNOM;
+  semaines.forEach((sem, w) => {
+    if (w > 0){ cg += '<col style="width:' + WSEP + 'px">'; totalW += WSEP; }
+    if (hasAlt){ cg += '<col style="width:' + WAB + 'px">'; totalW += WAB; }
+    for (let k = 0; k < nbJ; k++){ cg += '<col style="width:' + DW + 'px">'; totalW += DW; }
+    cg += '<col style="width:' + WPLAN + 'px">'; totalW += WPLAN;
+  });
+  cg += '</colgroup>';
 
-    let h = '<div class="sy-sem"><div class="sy-sem-h">Semaine ' + numSem + ' · '
-      + f2(jours[0]) + ' → ' + f2(jours[nbJ - 1]) + '</div>';
-    h += '<table class="sy-tab" style="width:' + (150 + nbJ * DW + 60) + 'px">' + cg + '<thead><tr><th class="sy-nom">Ouvrier</th>';
-    jours.forEach((d, i) => {
+  let h = '<table class="sy-tab" style="width:' + totalW + 'px">' + cg + '<thead>';
+  // Ligne 1 : titres de semaine
+  h += '<tr><th class="sy-nom" rowspan="2">Ouvrier</th>';
+  semaines.forEach((sem, w) => {
+    if (w > 0) h += '<th class="sy-wksep" rowspan="2"></th>';
+    h += '<th class="sy-wk" colspan="' + (nbJ + 1 + (hasAlt ? 1 : 0)) + '">Semaine ' + sem.num + ' · '
+      + f2(sem.jours[0]) + ' → ' + f2(sem.jours[nbJ - 1]) + '</th>';
+  });
+  h += '</tr>';
+  // Ligne 2 : en-têtes de jours + À plan.
+  h += '<tr>';
+  semaines.forEach(sem => {
+    if (hasAlt) h += '<th class="sy-dh">A/B</th>';
+    sem.jours.forEach((d, i) => {
       const hm = (d.getMonth() !== syM) ? ' hm' : '';
       h += '<th class="sy-dh' + hm + '">' + SY_JN[i] + '<br>' + f2(d) + '</th>';
     });
-    h += '<th class="sy-dh">À plan.</th></tr></thead><tbody>';
+    h += '<th class="sy-dh">À plan.</th>';
+  });
+  h += '</tr></thead><tbody>';
 
-    const totJour = new Array(nbJ).fill(0);
-    salaries.forEach(s => {
-      const nom = ((s.prenom ? s.prenom + ' ' : '') + (s.nom || '')).trim() || s.nom || '—';
-      h += '<tr><td class="sy-nom" title="' + syEsc(nom) + '">' + syEsc(nom) + '</td>';
+  // Totaux « équipe » : [semaine][jour]
+  const totJour = semaines.map(() => new Array(nbJ).fill(0));
+
+  salaries.forEach(s => {
+    const nom = ((s.prenom ? s.prenom + ' ' : '') + (s.nom || '')).trim() || s.nom || '—';
+    h += '<tr><td class="sy-nom">' + syEsc(nom) + '</td>';
+    semaines.forEach((sem, w) => {
+      if (w > 0) h += '<td class="sy-wksep"></td>';
+      if (hasAlt){
+        const lettre = s.alternance ? semaineAB(s, sem.jours[0]) : '';
+        h += '<td style="text-align:center">' + (lettre ? '<span class="sy-ab" data-tip="' + syEsc(syTip('Semaine ' + sem.num, syLigneTip('Alternance : semaine ' + lettre))) + '">' + lettre + '</span>' : '') + '</td>';
+      }
       let resteSem = 0;
-      jours.forEach((d, i) => {
+      sem.jours.forEach((d, i) => {
         const info = syInfosJour(s, heures, d);
         const c = syCellule(info, SY_JN[i] + ' ' + f2(d));
         h += '<td class="sy-cell">' + c.html + '</td>';
-        resteSem += c.reste; totJour[i] += c.reste;
+        resteSem += c.reste; totJour[w][i] += c.reste;
       });
       h += '<td class="sy-reste" style="color:' + (resteSem > 0 ? '#A32D2D' : '#0F6E56') + '">'
-        + (resteSem > 0 ? syFmt(resteSem) + ' h' : '✓') + '</td></tr>';
+        + (resteSem > 0 ? syFmt(resteSem) + ' h' : '✓') + '</td>';
     });
-
-    h += '<tr class="sy-foot"><td class="sy-flab">À planifier (équipe)</td>';
-    let totSem = 0;
-    totJour.forEach(t => { totSem += t; h += '<td style="color:' + (t > 0 ? '#A32D2D' : '#0F6E56') + '">' + (t > 0 ? syFmt(t) : '·') + '</td>'; });
-    h += '<td class="sy-reste" style="color:' + (totSem > 0 ? '#A32D2D' : '#0F6E56') + '">' + (totSem > 0 ? syFmt(totSem) + ' h' : '✓') + '</td></tr>';
-
-    h += '</tbody></table></div>';
-    out += h;
+    h += '</tr>';
   });
 
-  document.getElementById('synth-wrap').innerHTML = out || '<div class="sy-msg">Aucune semaine pour ce mois.</div>';
+  // Pied : à planifier (équipe) par jour + total semaine
+  h += '<tr class="sy-foot"><td class="sy-flab">À planifier (équipe)</td>';
+  semaines.forEach((sem, w) => {
+    if (w > 0) h += '<td class="sy-wksep"></td>';
+    if (hasAlt) h += '<td></td>';
+    let totSem = 0;
+    totJour[w].forEach(t => { totSem += t; h += '<td style="color:' + (t > 0 ? '#A32D2D' : '#0F6E56') + '">' + (t > 0 ? syFmt(t) : '·') + '</td>'; });
+    h += '<td class="sy-reste" style="color:' + (totSem > 0 ? '#A32D2D' : '#0F6E56') + '">' + (totSem > 0 ? syFmt(totSem) + ' h' : '✓') + '</td>';
+  });
+  h += '</tr></tbody></table>';
+
+  document.getElementById('synth-wrap').innerHTML = h;
 }
 
 function moisDecalage(n){
@@ -345,6 +390,49 @@ function syInit(){
   if (typeof syY === 'undefined' || syY === undefined){ syY = d.getFullYear(); syM = d.getMonth(); }
   syRender();
 }
+
+/* Infobulle custom — même graphisme que le prévisionnel (boîte sombre au curseur). */
+(function(){
+  let el = null;
+  function box(){
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'sy-ttip';
+    el.style.cssText =
+      'position:fixed;z-index:9999;pointer-events:none;display:none;' +
+      'background:#0f2747;color:#fff;border-radius:8px;padding:9px 12px;' +
+      'font-size:0.82rem;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.32);' +
+      'min-width:200px;max-width:300px;';
+    document.body.appendChild(el);
+    return el;
+  }
+  function placer(e){
+    const t = box(); const ox = 16, oy = 16;
+    let x = e.clientX + ox, y = e.clientY + oy;
+    const w = t.offsetWidth, hh = t.offsetHeight;
+    if (x + w > window.innerWidth  - 8) x = e.clientX - w - ox;
+    if (y + hh > window.innerHeight - 8) y = e.clientY - hh - oy;
+    t.style.left = Math.max(4, x) + 'px';
+    t.style.top  = Math.max(4, y) + 'px';
+  }
+  document.addEventListener('mouseover', e => {
+    const c = e.target.closest && e.target.closest('[data-tip]');
+    if (!c) return;
+    const t = box();
+    t.innerHTML = c.getAttribute('data-tip');
+    t.style.display = 'block';
+    placer(e);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!el || el.style.display !== 'block') return;
+    if (e.target.closest && e.target.closest('[data-tip]')) placer(e);
+    else el.style.display = 'none';
+  });
+  document.addEventListener('mouseout', e => {
+    const to = e.relatedTarget;
+    if (!to || !(to.closest && to.closest('[data-tip]'))) { if (el) el.style.display = 'none'; }
+  });
+})();
 
 window.addEventListener('DOMContentLoaded', syInit);
 window.addEventListener('donnees-chargees', () => {
