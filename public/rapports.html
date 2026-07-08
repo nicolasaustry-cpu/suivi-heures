@@ -263,7 +263,7 @@
     </div>
     <div class="filtre-item">
       <label>Exclure (mot-clé)</label>
-      <input type="text" id="exclureChantier" placeholder="ex : congé, absence, sav…" oninput="appliquerEtAfficher()"
+      <input type="text" id="exclureChantier" placeholder="ex : congé, absence, hnv…" oninput="appliquerEtAfficher()"
         style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
     </div>
     <div class="filtre-item" style="margin-left:auto;">
@@ -737,7 +737,7 @@ function filtrer(lignes) {
   return lignes.filter(l => {
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
     if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
-    if (exclu && (String(l.chantier || '').toLowerCase() + (l.sav ? ' sav' : '')).includes(exclu)) return false;
+    if (exclu && (String(l.chantier || '').toLowerCase() + (l.sav ? ' hnv' : '')).includes(exclu)) return false;
     return true;
   });
 }
@@ -820,7 +820,7 @@ function afficherDetail(type, lignes) {
     return `<tr>
       <td>${l.dateStr}</td>
       <td>${l.salarie}</td>
-      <td>${l.chantier}${l.sav ? ' <span class="sav-tag">SAV</span>' : ''}</td>
+      <td>${l.chantier}${l.sav ? ' <span class="sav-tag">HNV</span>' : ''}</td>
       <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
     </tr>`;
   }).join('');

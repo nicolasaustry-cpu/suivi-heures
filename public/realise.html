@@ -544,7 +544,7 @@ function afficherRealise() {
              <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">${iconPoubelle}</button>`;
         rows += `<tr>
           <td class="col-sal">${s.salarieNom}</td>
-          <td class="col-ch">${c.nom}${_estSav ? ' <span class="sav-tag">SAV · hors total</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
+          <td class="col-ch">${c.nom}${_estSav ? ' <span class="sav-tag">HNV · hors total</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
           <td class="col-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
           <td class="col-pause">${c.pause ? c.pause + ' min' : '—'}</td>
           <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>

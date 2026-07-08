@@ -760,8 +760,8 @@ function pl2AjouterChantier(btn){
   if(inp) inp.focus();
   if(!cell.querySelector('.chip.vide')) btn.style.display='none';
 }
-/* Marque / démarque un chantier comme SAV. Un chantier SAV est exclu du prévisionnel
-   et du total des heures réalisées (jauge), et repérable dans les rapports. */
+/* Marque / démarque un chantier comme HNV (Heures Non Vendables). Un chantier HNV est exclu
+   du prévisionnel et du total des heures réalisées (jauge), et repérable dans les rapports. */
 function pl2ToggleSav(k){
   const e = heures[k];
   if(!e || !((e.chantier||'').trim())) return;               // seulement sur un chantier nommé
@@ -769,7 +769,37 @@ function pl2ToggleSav(k){
   e.sav = !e.sav;
   if(!e.sav) delete e.sav;
   localStorage.setItem('heuresdata', JSON.stringify(heures));
+  if(e.sav && !window._hnvRappelVu){ window._hnvRappelVu = true; pl2InfoHNV(); }   // rappel une fois par session
   genererPlanning();
+}
+/* Pop-up de rappel « HNV = Heures Non Vendables » (même forme que la modale du prévisionnel). */
+function pl2InfoHNV(){
+  let ov = document.getElementById('hnv-info-overlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'hnv-info-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML =
+        '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.3);overflow:hidden;">'
+      +   '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;font-weight:700;">'
+      +     '<span>🔴 HNV</span>'
+      +     '<button type="button" class="hnv-x" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;border-radius:8px;padding:4px 10px;font-weight:700;cursor:pointer;">✕</button>'
+      +   '</div>'
+      +   '<div style="padding:18px 18px 8px;font-size:0.95rem;color:#1e293b;line-height:1.5;">'
+      +     '<div style="font-size:1.15rem;font-weight:800;color:#0f3a8a;margin-bottom:6px;">HNV = Heures Non Vendables</div>'
+      +     'Un chantier marqué HNV n\'est <b>pas intégré au prévisionnel</b>, n\'est <b>pas compté dans les heures réalisées</b> (jauge), et reste <b>repérable dans les rapports</b> (filtre « exclure : hnv »).'
+      +   '</div>'
+      +   '<div style="padding:12px 18px 18px;text-align:right;">'
+      +     '<button type="button" class="hnv-ok" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-weight:700;cursor:pointer;">J\'ai compris</button>'
+      +   '</div>'
+      + '</div>';
+    const fermer = () => { ov.style.display = 'none'; };
+    ov.addEventListener('click', e2 => { if(e2.target === ov) fermer(); });
+    ov.querySelector('.hnv-x').addEventListener('click', fermer);
+    ov.querySelector('.hnv-ok').addEventListener('click', fermer);
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
 }
 function pl2ViderPave(btn, k){
   viderChantier(k);
@@ -954,7 +984,7 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
-      ${(sl.rempli && !estTNA) ? `<button type="button" class="sav-ch no-print${data.sav?' actif':''}" title="${data.sav?'Chantier SAV — exclu du prévisionnel et de la jauge réalisé (cliquer pour retirer)':'Marquer comme SAV (hors prévisionnel, hors jauge réalisé)'}" onclick="pl2ToggleSav('${sl.k}')">●</button>` : ''}
+      ${(sl.rempli && !estTNA) ? `<button type="button" class="sav-ch no-print${data.sav?' actif':''}" title="${data.sav?'HNV — Heures Non Vendables : chantier exclu du prévisionnel et de la jauge réalisé (cliquer pour retirer)':'Marquer HNV — Heures Non Vendables (hors prévisionnel, hors jauge réalisé)'}" onclick="pl2ToggleSav('${sl.k}')">●</button>` : ''}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
