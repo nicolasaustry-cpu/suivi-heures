@@ -20,6 +20,18 @@
   .wk-btn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; font-size:0.95rem; line-height:1; }
   .wk-btn:hover { border-color:#0f3a8a; background:#eff4ff; }
   .wk-label { font-weight:800; color:#0f3a8a; min-width:240px; text-align:center; font-size:0.95rem; }
+  /* Barre latérale rétractable (même mécanisme que le planning prévu) */
+  #pl-rail-toggle { display:none;position:fixed;top:50%;left:208px;transform:translateY(-50%);z-index:1500;
+    width:20px;height:54px;padding:0;border:none;cursor:pointer;background:#1d8cf0;color:#fff;
+    font-size:15px;line-height:54px;text-align:center;border-radius:0 7px 7px 0;box-shadow:2px 0 8px rgba(0,0,0,0.18); }
+  #pl-rail-toggle:hover { background:#1675c9; }
+  html.sh-lateral #pl-rail-toggle { display:block; }
+  html.pl-rail-reduit #pl-rail-toggle { left:0; }
+  html.pl-rail-reduit #sh-rail { display:none !important; }
+  html.pl-rail-reduit.sh-lateral body { padding-left:0 !important; }
+  html.pl-rail-reduit.sh-lateral .main-header,
+  html.pl-rail-reduit.sh-lateral .header-desktop { margin-left:0 !important;width:100% !important; }
+  @media print { #pl-rail-toggle { display:none !important; } }
   table.sy-tab { border-collapse: collapse; table-layout: fixed; }
   .sy-tab th, .sy-tab td { padding: 4px 5px; }
   .sy-tab .sy-nom { text-align: left; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1e293b; padding-right: 10px; font-size: 0.9rem; position: sticky; left: 0; background: #fff; z-index: 3; box-shadow: 1px 0 0 #e2e8f0; }
@@ -431,12 +443,40 @@ function syAjusterHauteur(){
   if (tb && wrap) wrap.style.marginTop = Math.ceil(tb.getBoundingClientRect().height) + 'px';
 }
 
+/* Barre latérale rétractable — même mécanisme (et même état localStorage) que le planning prévu. */
+function majToggleRail(){
+  const btn = document.getElementById('pl-rail-toggle');
+  if (!btn) return;
+  const reduit = document.documentElement.classList.contains('pl-rail-reduit');
+  btn.textContent = reduit ? '›' : '‹';
+  btn.title = reduit ? 'Afficher le menu' : 'Réduire le menu';
+}
+function togglerRail(){
+  document.documentElement.classList.toggle('pl-rail-reduit');
+  try { localStorage.setItem('pl-rail-reduit', document.documentElement.classList.contains('pl-rail-reduit') ? '1' : '0'); } catch (e) {}
+  majToggleRail();
+  setTimeout(syAjusterHauteur, 30);
+}
+function initRailRetractable(){
+  try { if (localStorage.getItem('pl-rail-reduit') === '1') document.documentElement.classList.add('pl-rail-reduit'); } catch (e) {}
+  let btn = document.getElementById('pl-rail-toggle');
+  if (!btn){
+    btn = document.createElement('button');
+    btn.id = 'pl-rail-toggle';
+    btn.type = 'button';
+    btn.onclick = togglerRail;
+    document.body.appendChild(btn);
+  }
+  majToggleRail();
+}
+
 function syInit(){
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
   const d = new Date();
   if (typeof syY === 'undefined' || syY === undefined){ syY = d.getFullYear(); syM = d.getMonth(); }
   syRender();
+  initRailRetractable();
   syAjusterHauteur();
   // La hauteur de la barre fixe change quand sync.js construit/replie le menu :
   // on suit ces changements pour garder le contenu bien décalé dessous.
