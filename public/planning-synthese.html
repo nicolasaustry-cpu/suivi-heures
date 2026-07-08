@@ -11,7 +11,7 @@
   <style>
   #synth-wrap { padding: 10px 14px 40px; overflow-x: auto; }
   .sy-msg { padding: 30px; text-align: center; color: #64748b; }
-  .top-bar { background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
   .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
   .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
   .nav a.active { text-decoration:underline; }
@@ -48,6 +48,8 @@
     @page { size: landscape; margin: 6mm; }
     .no-print, .top-bar .nav, .fixed-tools { display: none !important; }
     body { background: #fff; }
+    #top-bar { position: static !important; box-shadow: none !important; }
+    #synth-wrap { margin-top: 0 !important; }
     #synth-wrap { display: none !important; }
     #synth-print { display: block; padding: 0; }
     #synth-print, #synth-print * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -423,12 +425,26 @@ function moisDecalage(n){
 function moisAujourdhui(){ const d = new Date(); syY = d.getFullYear(); syM = d.getMonth(); syRender(); }
 function toggleSamedi(btn){ sySam = !sySam; syRender(); }
 
+function syAjusterHauteur(){
+  const tb = document.getElementById('top-bar');
+  const wrap = document.getElementById('synth-wrap');
+  if (tb && wrap) wrap.style.marginTop = Math.ceil(tb.getBoundingClientRect().height) + 'px';
+}
+
 function syInit(){
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
   const d = new Date();
   if (typeof syY === 'undefined' || syY === undefined){ syY = d.getFullYear(); syM = d.getMonth(); }
   syRender();
+  syAjusterHauteur();
+  // La hauteur de la barre fixe change quand sync.js construit/replie le menu :
+  // on suit ces changements pour garder le contenu bien décalé dessous.
+  window.addEventListener('resize', syAjusterHauteur);
+  const tb = document.getElementById('top-bar');
+  if (tb && window.ResizeObserver){ try { new ResizeObserver(syAjusterHauteur).observe(tb); } catch (_) {} }
+  setTimeout(syAjusterHauteur, 300);
+  setTimeout(syAjusterHauteur, 1200);
 }
 
 /* Infobulle custom — même graphisme que le prévisionnel (boîte sombre au curseur). */
@@ -479,6 +495,7 @@ window.addEventListener('donnees-chargees', () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
   if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
   syRender();
+  syAjusterHauteur();
 });
 </script>
 
