@@ -2703,8 +2703,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('al-motif').innerHTML = pl2MotifOptions('');
     var auj = alAujISO();
     var du = document.getElementById('al-du'), au = document.getElementById('al-au');
-    du.min = auj; au.min = auj;
-    if (!du.value || du.value < auj) du.value = auj;
+    // Date de début/fin débloquée : la planification d'absences est autorisée sur des jours passés.
+    du.removeAttribute('min'); au.removeAttribute('min');
+    if (!du.value) du.value = auj;
     var cont = document.getElementById('al-salaries');
     cont.innerHTML = salaries.map(function (s) {
       return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
@@ -2733,8 +2734,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (au < du) { alert('La date de fin doit être postérieure à la date de début.'); return; }
     if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
 
-    var auj = alAujISO();
-    var debut = du < auj ? auj : du;
+    var debut = du;   // date de début respectée telle quelle, y compris dans le passé
     var aPoser = [], conflits = [], ignores = 0;
 
     salIds.forEach(function (sid) {
