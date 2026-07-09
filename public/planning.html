@@ -1140,7 +1140,7 @@ function pl2ReordonnerCellule(salarieId, dateStr, ordreKeys){
     .map(k=>heures[k])
     .filter(e=>e && (e.chantier||'').trim() && (e.chantier||'').toUpperCase()!==TNA);
   if(!reels.length) return;
-  for(let i=1;i<=5;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide les 5 slots
+  for(let i=1;i<=NB_SLOTS;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide tous les slots (aucune limite)
   reels.forEach((e,idx)=>{ heures[`${salarieId}${safe}ch${idx+1}`] = e; }); // réaffectation dans l'ordre
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   onLigneRecalc(`${salarieId}${safe}ch1`);   // recalcule/replace le TNA (1er slot libre → rendu en dernier)
@@ -1193,7 +1193,11 @@ function genererPlanning(calerSemaine){
   }
 
   function lireCellule(s, dateStr){
-    const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
+    const safe=dateStr.replace(/-/g,'_');
+    let dernierRempli=0;   // aucune limite : autant de créneaux que de chantiers saisis + des vides pour en ajouter
+    for(let i=1;i<=NB_SLOTS;i++){ const d=heures[`${s.id}${safe}ch${i}`]; if(d && (d.chantier||'').trim()!=='') dernierRempli=i; else if(i>dernierRempli+1) break; }
+    const nbCh=Math.min(NB_SLOTS, Math.max(s.sav?10:5, dernierRempli+2));
+    let total=0; const slots=[];
     for(let i=1;i<=nbCh;i++){ const k=`${s.id}${safe}ch${i}`; const data=heures[k]||{chantier:'',heures:0};
       const rempli=(data.chantier||'').trim()!==''; if(rempli && (data.chantier||'').trim().toUpperCase()!==TNA) total+=parseFloat(data.heures)||0; slots.push({i,k,data,rempli}); }
     const absK=`${s.id}${safe}abs`; const abs=parseFloat(heures[absK]?.heures||0);
@@ -1514,6 +1518,7 @@ document.addEventListener('mousedown', (e) => {
    le reste éventuel est porté par un chantier « TEMPS NON AFFECTE »
    (auto-calculé, masqué quand il vaut 0). */
 const TNA = 'TEMPS NON AFFECTE';
+const NB_SLOTS = 60;   // plafond technique large : aucune limite pratique au nombre de chantiers par jour
 
 function estDatePassee(dateStr) {
   const auj = new Date(); auj.setHours(0, 0, 0, 0);
@@ -1559,7 +1564,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
   const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
 
   const slots = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= NB_SLOTS; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k];
     slots.push({ i, k, nom: (e?.chantier || '').trim(), h: parseFloat(e?.heures) || 0 });
@@ -1577,7 +1582,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
     if (reste > 0.001) {
       const occupes = new Set(reels.map(sl => sl.i));
       let libre = null;
-      for (let i = 1; i <= 5; i++) if (!occupes.has(i)) { libre = i; break; }
+      for (let i = 1; i <= NB_SLOTS; i++) if (!occupes.has(i)) { libre = i; break; }
       if (libre) heures[`${salarieId}${safeDate}ch${libre}`] = { chantier: TNA, heures: reste };
     }
   }
@@ -1587,7 +1592,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
 /* Resynchronise l'affichage d'une ligne depuis heures (et verrouille les heures du TNA). */
 function rafraichirLigne(salarieId, dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= NB_SLOTS; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k] || { chantier: '', heures: 0 };
     const inp = document.getElementById(k + 'chantier');
@@ -1617,6 +1622,13 @@ function onChantierFocus(k) {
   if (inp && (inp.value || '').trim().toUpperCase() === TNA) inp.value = '';
 }
 
+/* Aucune limite : si la case n'a plus de créneau vide affiché, on la ré-affiche pour faire apparaître le suivant. */
+function pl2CelluleAUnVide(salarieId, dateStr){
+  const c = document.querySelector(`.chip[data-k="${salarieId}${dateStr.replace(/-/g,'_')}ch1"]`);
+  const td = c ? c.closest('td') : null;
+  if(!td) return true;
+  return td.querySelector('.chip.vide:not(.tna)') !== null;
+}
 function onChantierCommit(k) {
   const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch\d+$/);
   if (!mm) return;
@@ -1635,7 +1647,7 @@ function onChantierCommit(k) {
     const nom = (e.chantier || '').trim();
     if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
       let nbReels = 0;
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= NB_SLOTS; i++) {
         const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
         if (n && n.toUpperCase() !== TNA) nbReels++;
       }
@@ -1648,6 +1660,7 @@ function onChantierCommit(k) {
     appliquerTempsNonAffecte(salarieId, dateStr);
   }
   rafraichirLigne(salarieId, dateStr);   // affichage + jauge : TOUJOURS
+  if(!pl2CelluleAUnVide(salarieId, dateStr)) genererPlanning();   // plus de créneau vide → ré-affichage pour en ajouter un
 }
 
 /* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
@@ -1874,7 +1887,7 @@ function majTotalLigne(salarieId, dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
   const sal   = salaries.find(s => s.id == salarieId);
   if (!sal) return;
-  const nbCh  = sal.sav ? 10 : 5;
+  const nbCh  = NB_SLOTS;   // somme sur tous les créneaux (aucune limite) ; les vides valent 0
   let total = 0;
   for (let i = 1; i <= nbCh; i++) {
     const cell = heures[`${salarieId}${safeDate}ch${i}`];
@@ -1934,7 +1947,7 @@ function majTotauxGlobaux() {
     totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
     const sid = tr.getAttribute('data-salarie');
     const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= NB_SLOTS; i++) {
       const c = heures[`${sid}${dsafe}ch${i}`];
       if (c && (c.chantier || '').trim().toUpperCase() === TNA) totTNA += parseFloat(c.heures) || 0;
     }
