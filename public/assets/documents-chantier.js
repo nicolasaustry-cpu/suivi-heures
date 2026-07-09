@@ -62,7 +62,7 @@
       body.codeEmploye = opts.auth.codeEmploye;
       body.salarieId = opts.auth.salarieId;
     } else {
-      var t = (window.SYNC && SYNC.getToken) ? SYNC.getToken() : null;
+      var t = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || (function () { try { return localStorage.getItem('syncToken'); } catch (e) { return null; } })();
       if (t) headers['Authorization'] = 'Bearer ' + t;
     }
     return fetch('/api/documents/' + path, {
