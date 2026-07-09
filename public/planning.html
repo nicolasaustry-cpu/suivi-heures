@@ -190,9 +190,6 @@
   .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
   /* Heure de RDV par chantier : bouton compact (même gabarit que la note), bleu quand renseigné */
   .btn-rdv-ch { height:30px;min-width:30px;padding:0 5px;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-size:0.78rem;line-height:1;flex:0 0 auto; }
-  .sav-ch { flex:0 0 auto; width:26px; height:26px; border-radius:50%; border:1.5px solid #cbd5e1; background:#fff; color:transparent; font-size:0.85rem; line-height:1; padding:0; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
-  .sav-ch:hover { border-color:#f87171; }
-  .sav-ch.actif { background:#dc2626; border-color:#dc2626; color:transparent; }
   .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
   .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
   /* Panneau de saisie de l'heure de RDV (ouvert à côté de la cellule) */
@@ -306,7 +303,7 @@
   .cell-foot b { color:#0f172a; } .grille .ecart.pos { color:#16a34a; font-weight:800; } .grille .ecart.neg { color:#dc2626; font-weight:800; }
   .cell-foot .tna-h { color:#dc2626; font-weight:800; }
   /* ===== Barre d'outils façon v5 ===== */
-  .fixed-tools .pl2-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow-x:auto; }
+  .fixed-tools .pl2-toolbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .pl2-ptitle { font-size:1.35rem; font-weight:800; color:#0f3a8a; margin:0; letter-spacing:-0.5px; }
   .pl2-wknav { display:flex; align-items:center; gap:8px; }
   .pl2-wkbtn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; font-weight:700; border-radius:9px; padding:5px 12px; cursor:pointer; font-size:1.05rem; line-height:1; }
@@ -450,6 +447,7 @@
         <button type="button" class="pl2-wkbtn" title="Mois précédent" onclick="pl2ChangerMois(-1)">&lsaquo;</button>
         <span class="pl2-wklabel" id="pl2-moislabel">—</span>
         <button type="button" class="pl2-wkbtn" title="Mois suivant" onclick="pl2ChangerMois(1)">&rsaquo;</button>
+        <button type="button" class="pl2-wkbtn" title="Mois courant" onclick="pl3MoisCourant()" style="font-size:0.8rem;">Auj.</button>
       </div>
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
@@ -759,47 +757,6 @@ function pl2AjouterChantier(btn){
   if(inp) inp.focus();
   if(!cell.querySelector('.chip.vide')) btn.style.display='none';
 }
-/* Marque / démarque un chantier comme HNV (Heures Non Vendables). Un chantier HNV est exclu
-   du prévisionnel et du total des heures réalisées (jauge), et repérable dans les rapports. */
-function pl2ToggleSav(k){
-  const e = heures[k];
-  if(!e || !((e.chantier||'').trim())) return;               // seulement sur un chantier nommé
-  if((e.chantier||'').toUpperCase()===TNA) return;           // jamais sur le Temps Non Affecté
-  e.sav = !e.sav;
-  if(!e.sav) delete e.sav;
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
-  if(e.sav && !window._hnvRappelVu){ window._hnvRappelVu = true; pl2InfoHNV(); }   // rappel une fois par session
-  genererPlanning();
-}
-/* Pop-up de rappel « HNV = Heures Non Vendables » (même forme que la modale du prévisionnel). */
-function pl2InfoHNV(){
-  let ov = document.getElementById('hnv-info-overlay');
-  if(!ov){
-    ov = document.createElement('div');
-    ov.id = 'hnv-info-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:16px;';
-    ov.innerHTML =
-        '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.3);overflow:hidden;">'
-      +   '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;font-weight:700;">'
-      +     '<span>🔴 HNV</span>'
-      +     '<button type="button" class="hnv-x" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:#fff;border-radius:8px;padding:4px 10px;font-weight:700;cursor:pointer;">✕</button>'
-      +   '</div>'
-      +   '<div style="padding:18px 18px 8px;font-size:0.95rem;color:#1e293b;line-height:1.5;">'
-      +     '<div style="font-size:1.15rem;font-weight:800;color:#0f3a8a;margin-bottom:6px;">HNV = Heures Non Vendables</div>'
-      +     'Un chantier marqué HNV n\'est <b>pas intégré au prévisionnel</b>, n\'est <b>pas compté dans les heures réalisées</b> (jauge), et reste <b>repérable dans les rapports</b> (filtre « exclure : hnv »).'
-      +   '</div>'
-      +   '<div style="padding:12px 18px 18px;text-align:right;">'
-      +     '<button type="button" class="hnv-ok" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-weight:700;cursor:pointer;">J\'ai compris</button>'
-      +   '</div>'
-      + '</div>';
-    const fermer = () => { ov.style.display = 'none'; };
-    ov.addEventListener('click', e2 => { if(e2.target === ov) fermer(); });
-    ov.querySelector('.hnv-x').addEventListener('click', fermer);
-    ov.querySelector('.hnv-ok').addEventListener('click', fermer);
-    document.body.appendChild(ov);
-  }
-  ov.style.display = 'flex';
-}
 function pl2ViderPave(btn, k){
   viderChantier(k);
   const chip = btn.closest('.chip');
@@ -825,30 +782,6 @@ function pl2SaveMotif(absK,val){
   if(!heures[absK]) heures[absK]={chantier:'absence',heures:0};
   heures[absK].motif=val;
   localStorage.setItem('heuresdata',JSON.stringify(heures));
-}
-/* Motif d'une absence : par défaut le MÊME sur toute la semaine, sauf saisie contraire.
-   Quand on choisit le motif sur un jour, on le propage aux autres jours de la semaine
-   qui sont en absence mais dont le motif n'a pas encore été renseigné. Un jour déjà
-   renseigné (différent) n'est jamais écrasé. */
-function pl2SaveMotifSemaine(absK,val){
-  pl2SaveMotif(absK,val);
-  const m=String(absK).match(/^(.*)(\d{4})_(\d{2})_(\d{2})abs$/);
-  if(m){
-    const s=salaries.find(x=>String(x.id)===String(m[1]));
-    if(s){
-      const d=new Date(`${m[2]}-${m[3]}-${m[4]}T00:00:00`);
-      const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
-      for(let i=0;i<6;i++){
-        const dd=new Date(lun); dd.setDate(lun.getDate()+i);
-        const safe=`${dd.getFullYear()}_${String(dd.getMonth()+1).padStart(2,'0')}_${String(dd.getDate()).padStart(2,'0')}`;
-        const k=`${s.id}${safe}abs`;
-        if(k===absK) continue;
-        const a=heures[k];
-        if(a && (parseFloat(a.heures)||0)>0 && !((a.motif||'').trim())) pl2SaveMotif(k,val);   // en absence, motif encore vide → on applique le même
-      }
-    }
-  }
-  genererPlanning();
 }
 function pl3MajSemaine(){
   document.querySelectorAll('table.tgrid tbody tr').forEach(tr=>{
@@ -983,7 +916,6 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
-      ${(sl.rempli && !estTNA) ? `<button type="button" class="sav-ch no-print${data.sav?' actif':''}" title="${data.sav?'HNV — Heures Non Vendables : chantier exclu du prévisionnel et de la jauge réalisé (cliquer pour retirer)':'Marquer HNV — Heures Non Vendables (hors prévisionnel, hors jauge réalisé)'}" onclick="pl2ToggleSav('${sl.k}')">●</button>` : ''}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
@@ -1140,7 +1072,7 @@ function pl2ReordonnerCellule(salarieId, dateStr, ordreKeys){
     .map(k=>heures[k])
     .filter(e=>e && (e.chantier||'').trim() && (e.chantier||'').toUpperCase()!==TNA);
   if(!reels.length) return;
-  for(let i=1;i<=NB_SLOTS;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide tous les slots (aucune limite)
+  for(let i=1;i<=5;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide les 5 slots
   reels.forEach((e,idx)=>{ heures[`${salarieId}${safe}ch${idx+1}`] = e; }); // réaffectation dans l'ordre
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   onLigneRecalc(`${salarieId}${safe}ch1`);   // recalcule/replace le TNA (1er slot libre → rendu en dernier)
@@ -1193,11 +1125,7 @@ function genererPlanning(calerSemaine){
   }
 
   function lireCellule(s, dateStr){
-    const safe=dateStr.replace(/-/g,'_');
-    let dernierRempli=0;   // aucune limite : autant de créneaux que de chantiers saisis + des vides pour en ajouter
-    for(let i=1;i<=NB_SLOTS;i++){ const d=heures[`${s.id}${safe}ch${i}`]; if(d && (d.chantier||'').trim()!=='') dernierRempli=i; else if(i>dernierRempli+1) break; }
-    const nbCh=Math.min(NB_SLOTS, Math.max(s.sav?10:5, dernierRempli+2));
-    let total=0; const slots=[];
+    const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
     for(let i=1;i<=nbCh;i++){ const k=`${s.id}${safe}ch${i}`; const data=heures[k]||{chantier:'',heures:0};
       const rempli=(data.chantier||'').trim()!==''; if(rempli && (data.chantier||'').trim().toUpperCase()!==TNA) total+=parseFloat(data.heures)||0; slots.push({i,k,data,rempli}); }
     const absK=`${s.id}${safe}abs`; const abs=parseFloat(heures[absK]?.heures||0);
@@ -1241,7 +1169,7 @@ function genererPlanning(calerSemaine){
         let chips='';
         if(C.abs>0){
           chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}');genererPlanning()">${genOptionsHeures(C.abs)}</select>`
-               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotifSemaine('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
                +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
                +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
         }
@@ -1392,9 +1320,7 @@ function saveHeure(k, ch, h) {
   const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
   const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
-  const savAv = !!(heures[k] && heures[k].sav);
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
-  if (savAv) heures[k].sav = true;   // le marquage SAV suit le chantier lors des éditions de nom/heures
   if (motifAv) heures[k].motif = motifAv;
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
@@ -1518,7 +1444,6 @@ document.addEventListener('mousedown', (e) => {
    le reste éventuel est porté par un chantier « TEMPS NON AFFECTE »
    (auto-calculé, masqué quand il vaut 0). */
 const TNA = 'TEMPS NON AFFECTE';
-const NB_SLOTS = 60;   // plafond technique large : aucune limite pratique au nombre de chantiers par jour
 
 function estDatePassee(dateStr) {
   const auj = new Date(); auj.setHours(0, 0, 0, 0);
@@ -1564,7 +1489,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
   const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
 
   const slots = [];
-  for (let i = 1; i <= NB_SLOTS; i++) {
+  for (let i = 1; i <= 5; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k];
     slots.push({ i, k, nom: (e?.chantier || '').trim(), h: parseFloat(e?.heures) || 0 });
@@ -1582,7 +1507,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
     if (reste > 0.001) {
       const occupes = new Set(reels.map(sl => sl.i));
       let libre = null;
-      for (let i = 1; i <= NB_SLOTS; i++) if (!occupes.has(i)) { libre = i; break; }
+      for (let i = 1; i <= 5; i++) if (!occupes.has(i)) { libre = i; break; }
       if (libre) heures[`${salarieId}${safeDate}ch${libre}`] = { chantier: TNA, heures: reste };
     }
   }
@@ -1592,7 +1517,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
 /* Resynchronise l'affichage d'une ligne depuis heures (et verrouille les heures du TNA). */
 function rafraichirLigne(salarieId, dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
-  for (let i = 1; i <= NB_SLOTS; i++) {
+  for (let i = 1; i <= 5; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k] || { chantier: '', heures: 0 };
     const inp = document.getElementById(k + 'chantier');
@@ -1622,13 +1547,6 @@ function onChantierFocus(k) {
   if (inp && (inp.value || '').trim().toUpperCase() === TNA) inp.value = '';
 }
 
-/* Aucune limite : si la case n'a plus de créneau vide affiché, on la ré-affiche pour faire apparaître le suivant. */
-function pl2CelluleAUnVide(salarieId, dateStr){
-  const c = document.querySelector(`.chip[data-k="${salarieId}${dateStr.replace(/-/g,'_')}ch1"]`);
-  const td = c ? c.closest('td') : null;
-  if(!td) return true;
-  return td.querySelector('.chip.vide:not(.tna)') !== null;
-}
 function onChantierCommit(k) {
   const mm = k.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch\d+$/);
   if (!mm) return;
@@ -1647,7 +1565,7 @@ function onChantierCommit(k) {
     const nom = (e.chantier || '').trim();
     if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
       let nbReels = 0;
-      for (let i = 1; i <= NB_SLOTS; i++) {
+      for (let i = 1; i <= 5; i++) {
         const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
         if (n && n.toUpperCase() !== TNA) nbReels++;
       }
@@ -1660,7 +1578,6 @@ function onChantierCommit(k) {
     appliquerTempsNonAffecte(salarieId, dateStr);
   }
   rafraichirLigne(salarieId, dateStr);   // affichage + jauge : TOUJOURS
-  if(!pl2CelluleAUnVide(salarieId, dateStr)) genererPlanning();   // plus de créneau vide → ré-affichage pour en ajouter un
 }
 
 /* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
@@ -1755,6 +1672,7 @@ function ouvrirNoteChantier(k) {
   if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
   const btnSup = document.getElementById('note-modal-suppr');
   if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = noteDuChantier(nom) ? '' : 'none'; }
+  if (window.DocsChantier) { const _dc = document.getElementById('note-modal-docs'); if (_dc) { if (nom) DocsChantier.monter(nom, _dc); else DocsChantier.vider(_dc); } }
   document.getElementById('note-modal-overlay').style.display = 'flex';
   setTimeout(() => txt.focus(), 30);
 }
@@ -1887,7 +1805,7 @@ function majTotalLigne(salarieId, dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
   const sal   = salaries.find(s => s.id == salarieId);
   if (!sal) return;
-  const nbCh  = NB_SLOTS;   // somme sur tous les créneaux (aucune limite) ; les vides valent 0
+  const nbCh  = sal.sav ? 10 : 5;
   let total = 0;
   for (let i = 1; i <= nbCh; i++) {
     const cell = heures[`${salarieId}${safeDate}ch${i}`];
@@ -1947,7 +1865,7 @@ function majTotauxGlobaux() {
     totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
     const sid = tr.getAttribute('data-salarie');
     const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
-    for (let i = 1; i <= NB_SLOTS; i++) {
+    for (let i = 1; i <= 10; i++) {
       const c = heures[`${sid}${dsafe}ch${i}`];
       if (c && (c.chantier || '').trim().toUpperCase() === TNA) totTNA += parseFloat(c.heures) || 0;
     }
@@ -2410,6 +2328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n, function(){ if(typeof genererPlanning==='function') genererPlanning(); }); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) RenommerChantier.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">✏️ Renommer le chantier (partout)</button>
+    <div id="note-modal-docs" style="margin-bottom:12px;"></div>
     <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
     </label>
@@ -2786,9 +2705,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('al-motif').innerHTML = pl2MotifOptions('');
     var auj = alAujISO();
     var du = document.getElementById('al-du'), au = document.getElementById('al-au');
-    // Date de début/fin débloquée : la planification d'absences est autorisée sur des jours passés.
-    du.removeAttribute('min'); au.removeAttribute('min');
-    if (!du.value) du.value = auj;
+    du.min = auj; au.min = auj;
+    if (!du.value || du.value < auj) du.value = auj;
     var cont = document.getElementById('al-salaries');
     cont.innerHTML = salaries.map(function (s) {
       return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
@@ -2817,7 +2735,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (au < du) { alert('La date de fin doit être postérieure à la date de début.'); return; }
     if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
 
-    var debut = du;   // date de début respectée telle quelle, y compris dans le passé
+    var auj = alAujISO();
+    var debut = du < auj ? auj : du;
     var aPoser = [], conflits = [], ignores = 0;
 
     salIds.forEach(function (sid) {
@@ -2949,5 +2868,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/renommer-chantier.js"></script>
+<script src="assets/documents-chantier.js"></script>
 </body>
 </html>
