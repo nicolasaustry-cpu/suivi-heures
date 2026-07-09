@@ -1150,7 +1150,6 @@
   <div class="modal-box">
     <div class="modal-title">📝 Note du chantier</div>
     <div id="note-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
-    <div id="note-docs-saisie" style="margin:0 0 10px;"></div>
     <textarea class="note-textarea" id="note-texte" placeholder="Saisir une note, ou dicter…"></textarea>
     <div class="note-hint">Astuce : le micro du clavier fonctionne aussi sur tous les téléphones.</div>
     <div class="note-hint" id="note-offline-hint" style="display:none;color:#92400e;font-weight:700;">⚡ Hors connexion : la dictée vocale est indisponible. Tapez votre note (le micro du clavier peut fonctionner).</div>
@@ -1687,17 +1686,17 @@ async function chargerChantiersPrev() {
 /* Pop-up LECTURE SEULE générique (note). */
 function afficherNotePopup(titre, texte) {
   const txt = (texte || '').trim();
-  if (!txt) return;
   let ov = document.getElementById('note-planning-overlay');
   if (!ov) {
     ov = document.createElement('div');
     ov.id = 'note-planning-overlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:18px;';
     ov.innerHTML =
-        '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
+        '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
       + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note du planning</div>'
       + '<div id="note-planning-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
-      + '<div id="note-planning-txt" style="padding:8px 16px 16px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
+      + '<div id="note-planning-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
+      + '<div id="note-planning-docs" style="padding:0 16px 12px;"></div>'
       + '<div style="padding:0 16px 16px;text-align:right;"><button type="button" id="note-planning-fermer" style="background:#0f3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;">Fermer</button></div>'
       + '</div>';
     document.body.appendChild(ov);
@@ -1705,7 +1704,17 @@ function afficherNotePopup(titre, texte) {
     ov.querySelector('#note-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
   }
   ov.querySelector('#note-planning-nom').textContent = titre || '';
-  ov.querySelector('#note-planning-txt').textContent = txt;
+  ov.querySelector('#note-planning-txt').textContent = txt || '(aucune note écrite pour ce chantier)';
+  // Documents joints (PDF) — consultation ; ajout/suppression si gérant/administratif
+  if (window.DocsChantier) {
+    var _dc = ov.querySelector('#note-planning-docs');
+    if (_dc) {
+      var _ce = localStorage.getItem('saisie_codeEmploye');
+      var _sid = _salarie && _salarie.id;
+      if (titre && _ce && _sid) DocsChantier.monter(titre, _dc, { auth: { codeEmploye: _ce, salarieId: _sid }, peutModifier: _estGerantOuAdmin() });
+      else DocsChantier.vider(_dc);
+    }
+  }
   ov.style.display = 'flex';
 }
 function ouvrirNotePlanning(nom) {
@@ -3083,15 +3092,6 @@ function ouvrirNote(type, ref, btn) {
     _notePhotos  = (ch.photos || []).slice();
   }
   document.getElementById('note-chantier-nom').textContent = nom;
-  if (window.DocsChantier) {
-    var _dc = document.getElementById('note-docs-saisie');
-    if (_dc) {
-      var _ce = localStorage.getItem('saisie_codeEmploye');
-      var _sid = _salarie && _salarie.id;
-      if (nom && _ce && _sid) DocsChantier.monter(nom, _dc, { auth: { codeEmploye: _ce, salarieId: _sid }, peutModifier: _estGerantOuAdmin() });
-      else DocsChantier.vider(_dc);
-    }
-  }
   var hintOff = document.getElementById('note-offline-hint');
   if (hintOff) hintOff.style.display = (!navigator.onLine || window._reseauReel === false) ? 'block' : 'none';
   // Si la note existe déjà, on ajoute un passage à la ligne automatique pour que
