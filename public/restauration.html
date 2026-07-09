@@ -36,7 +36,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Restauration d'un client</h1>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+    <h1 style="margin:0">Restauration d'un client</h1>
+    <a href="admin.html" style="background:var(--vert);color:#fff;text-decoration:none;padding:9px 16px;border-radius:8px;font-size:14px;font-weight:600;white-space:nowrap">← Retour à l'admin</a>
+  </div>
   <p class="sub">Outil interne — réservé à l'administrateur. Restaure les données d'un client depuis les sauvegardes de nuit, avec sauvegarde de sécurité de l'état actuel avant écriture.</p>
 
   <div class="carte">
@@ -49,6 +52,10 @@
   </div>
 
   <div id="resultats"></div>
+
+  <div style="margin-top:26px;text-align:center">
+    <a href="admin.html" style="display:inline-block;background:#fff;border:1px solid var(--bord);color:#374151;text-decoration:none;padding:11px 20px;border-radius:8px;font-size:15px;font-weight:600">← Retour à l'écran admin</a>
+  </div>
 </div>
 
 <script>
