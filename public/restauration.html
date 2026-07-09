@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restauration d'un client — Suiv'Heures</title>
+<style>
+  :root { --vert:#1f8a5b; --vert-f:#166b46; --gris:#5b6570; --bord:#e2e6ea; --rouge:#c0392b; --jaune:#fff8e1; }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; margin:0; background:#f4f6f8; color:#1f2933; }
+  .wrap { max-width:840px; margin:0 auto; padding:24px 16px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--gris); margin:0 0 22px; font-size:14px; }
+  .carte { background:#fff; border:1px solid var(--bord); border-radius:10px; padding:18px; margin-bottom:16px; }
+  label { display:block; font-weight:600; font-size:14px; margin:10px 0 4px; }
+  input { width:100%; padding:10px 12px; border:1px solid var(--bord); border-radius:8px; font-size:15px; }
+  button { cursor:pointer; border:0; border-radius:8px; padding:11px 16px; font-size:15px; font-weight:600; }
+  .btn-p { background:var(--vert); color:#fff; }
+  .btn-p:hover { background:var(--vert-f); }
+  .btn-r { background:var(--rouge); color:#fff; }
+  .btn-r:hover { filter:brightness(.92); }
+  .msg { padding:10px 12px; border-radius:8px; font-size:14px; margin-top:12px; display:none; }
+  .msg.err { background:#fdecea; color:var(--rouge); display:block; }
+  .msg.ok { background:#e8f6ef; color:var(--vert-f); display:block; }
+  .snap { border:1px solid var(--bord); border-radius:10px; padding:14px; margin-bottom:12px; }
+  .snap.live { background:var(--jaune); border-color:#f0d98a; }
+  .snap h3 { margin:0 0 6px; font-size:15px; }
+  .tag { display:inline-block; font-size:12px; padding:2px 8px; border-radius:20px; background:#eef1f4; color:var(--gris); margin-left:6px; }
+  .kv { font-size:13px; color:#374151; margin:3px 0; }
+  .kv b { color:#111; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .chip { font-size:12px; background:#eef1f4; border-radius:6px; padding:2px 7px; color:#374151; }
+  .hint { font-size:12.5px; color:var(--gris); margin-top:4px; }
+  .spin { color:var(--gris); font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Restauration d'un client</h1>
+  <p class="sub">Outil interne — réservé à l'administrateur. Restaure les données d'un client depuis les sauvegardes de nuit, avec sauvegarde de sécurité de l'état actuel avant écriture.</p>
+
+  <div class="carte">
+    <label for="mdp">Mot de passe administrateur</label>
+    <input id="mdp" type="password" autocomplete="off" placeholder="Ton mot de passe admin">
+    <label for="cid">Code client à restaurer</label>
+    <input id="cid" type="text" value="2CPEBAT26" placeholder="ex. 2CPEBAT26">
+    <div style="margin-top:14px"><button class="btn-p" id="btnListe">Voir les sauvegardes</button></div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div id="resultats"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function afficheMsg(txt, type){ const m=$("msg"); m.textContent=txt; m.className="msg "+(type||""); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtDate(d){ if(!d) return "—"; try{ return new Date(d).toLocaleString("fr-FR"); }catch(_){ return String(d);} }
+
+function blocApercu(titre, tag, a, extra){
+  const chips = (a.chantiers||[]).map(c=>`<span class="chip">${esc(c)}</span>`).join("");
+  const sals  = (a.salaries||[]).join(", ");
+  return `
+    <h3>${esc(titre)} ${tag||""}</h3>
+    <div class="kv"><b>Entreprise :</b> ${esc(a.entrepriseNom)||"(sans nom)"} &nbsp; <b>Code employé :</b> ${esc(a.codeEmploye)||"—"}</div>
+    <div class="kv"><b>Heures (créneaux) :</b> ${a.nbHeures} &nbsp; <b>Salariés :</b> ${a.nbSalaries}</div>
+    ${sals ? `<div class="kv"><b>Salariés :</b> ${esc(sals)}</div>` : ""}
+    <div class="kv"><b>Chantiers vus :</b></div>
+    <div class="chips">${chips||'<span class="chip">aucun</span>'}</div>
+    ${extra||""}`;
+}
+
+async function chargerListe(){
+  const motDePasse=$("mdp").value, clientId=$("cid").value.trim();
+  if(!motDePasse){ afficheMsg("Saisis le mot de passe administrateur.","err"); return; }
+  if(!clientId){ afficheMsg("Saisis le code client.","err"); return; }
+  afficheMsg("Recherche des sauvegardes…","");
+  $("resultats").innerHTML='<p class="spin">Chargement…</p>';
+  try{
+    const r=await fetch("/api/restauration/liste",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({motDePasse,clientId})});
+    const d=await r.json();
+    if(!d.ok){ afficheMsg(d.message||"Erreur.","err"); $("resultats").innerHTML=""; return; }
+    afficheMsg(`${d.nbSauvegardes} sauvegarde(s) trouvée(s) pour ${esc(d.clientId)}.`,"ok");
+    let html="";
+    if(d.live){
+      html += `<div class="snap live">${blocApercu("État ACTUEL (ce qui est en ligne aujourd'hui)", '<span class="tag">live</span>', d.live)}
+                <div class="hint">C'est l'état à corriger. Compare-le aux sauvegardes ci-dessous.</div></div>`;
+    }
+    if(!d.sauvegardes.length){
+      html += `<div class="carte">Aucune sauvegarde de nuit trouvée pour ce client. Il faudra passer par un snapshot Atlas.</div>`;
+    }
+    d.sauvegardes.forEach(s=>{
+      const tag = s.motif==="avant-restauration" ? '<span class="tag">sécurité</span>' : `<span class="tag">${esc(s.snapshotDate)}</span>`;
+      const bouton = `<div style="margin-top:12px"><button class="btn-r" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}">Restaurer cette sauvegarde</button></div>`;
+      html += `<div class="snap">${blocApercu("Sauvegarde du "+fmtDate(s.backupAt), tag, s.apercu, bouton)}</div>`;
+    });
+    $("resultats").innerHTML=html;
+    document.querySelectorAll("button[data-at]").forEach(b=>b.addEventListener("click",()=>restaurer(b.dataset.at,b.dataset.date)));
+  }catch(e){ afficheMsg("Erreur réseau : "+e.message,"err"); $("resultats").innerHTML=""; }
+}
+
+async function restaurer(backupAt,snapshotDate){
+  const motDePasse=$("mdp").value, clientId=$("cid").value.trim();
+  if(!confirm(`Restaurer ${clientId} à la sauvegarde du ${snapshotDate} ?\n\nL'état actuel sera d'abord sauvegardé (sécurité), puis remplacé par cette sauvegarde.`)) return;
+  afficheMsg("Restauration en cours…","");
+  try{
+    const r=await fetch("/api/restauration/restaurer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({motDePasse,clientId,backupAt})});
+    const d=await r.json();
+    if(!d.ok){ afficheMsg(d.message||"Erreur.","err"); return; }
+    afficheMsg(`✅ Restauration réussie pour ${esc(d.clientId)} (sauvegarde du ${esc(d.restaureDepuis.snapshotDate)}). ${esc(d.securite)}`,"ok");
+    chargerListe();
+  }catch(e){ afficheMsg("Erreur réseau : "+e.message,"err"); }
+}
+
+$("btnListe").addEventListener("click",chargerListe);
+</script>
+</body>
+</html>

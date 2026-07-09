@@ -12,6 +12,7 @@ import faqRoutes    from "./routes/faq.js";
 import bevRoutes    from "./routes/bev.js";
 import prescRoutes  from "./routes/presc.js";
 import pushRoutes   from "./routes/push.js";
+import restaurationRoutes from "./routes/restauration.js";
 import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
 import { planifierRappelsRdv } from "./jobs/rappelsRdv.js";
 
@@ -33,6 +34,7 @@ app.use("/api/faq",     faqRoutes);
 app.use("/api/bev",     bevRoutes);
 app.use("/api/presc",   prescRoutes);
 app.use("/api/push",    pushRoutes);
+app.use("/api/restauration", restaurationRoutes);
 
 // Endpoint de santé : vérifie l'état du serveur et de la base.
 // Utile pour le monitoring (UptimeRobot…) et le diagnostic de panne.
