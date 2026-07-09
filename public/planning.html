@@ -306,7 +306,7 @@
   .cell-foot b { color:#0f172a; } .grille .ecart.pos { color:#16a34a; font-weight:800; } .grille .ecart.neg { color:#dc2626; font-weight:800; }
   .cell-foot .tna-h { color:#dc2626; font-weight:800; }
   /* ===== Barre d'outils façon v5 ===== */
-  .fixed-tools .pl2-toolbar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .fixed-tools .pl2-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow-x:auto; }
   .pl2-ptitle { font-size:1.35rem; font-weight:800; color:#0f3a8a; margin:0; letter-spacing:-0.5px; }
   .pl2-wknav { display:flex; align-items:center; gap:8px; }
   .pl2-wkbtn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; font-weight:700; border-radius:9px; padding:5px 12px; cursor:pointer; font-size:1.05rem; line-height:1; }
@@ -450,7 +450,6 @@
         <button type="button" class="pl2-wkbtn" title="Mois précédent" onclick="pl2ChangerMois(-1)">&lsaquo;</button>
         <span class="pl2-wklabel" id="pl2-moislabel">—</span>
         <button type="button" class="pl2-wkbtn" title="Mois suivant" onclick="pl2ChangerMois(1)">&rsaquo;</button>
-        <button type="button" class="pl2-wkbtn" title="Mois courant" onclick="pl3MoisCourant()" style="font-size:0.8rem;">Auj.</button>
       </div>
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
