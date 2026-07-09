@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.07.09-sync6';
+  const VERSION = 'v2026.07.09-sync7';
 
   const API = '';
   let _token    = null;
@@ -761,6 +761,15 @@ const SYNC = (() => {
     if (!rail && !tb) return;
     // ≥1000px : menu latéral. Sinon : barre du haut groupée.
     const lateral = (window.innerWidth >= 1000);
+    // Vue équipe : sur mobile, aucune barre de menu (la page n'affiche que la grille).
+    if (pageActuelle() === 'planning-equipe.html' && !lateral) {
+      document.documentElement.classList.remove('sh-lateral');
+      if (rail) rail.style.display = 'none';
+      if (tb) tb.style.display = 'none';
+      fermerDropdown();
+      _lateralPrec = lateral;
+      return;
+    }
     document.documentElement.classList.toggle('sh-lateral', lateral);
     if (rail) rail.style.display = lateral ? '' : 'none';
     if (tb) tb.style.display = lateral ? 'none' : '';
