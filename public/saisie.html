@@ -859,10 +859,6 @@
   /* Pavés « Mon planning » : même présentation que la Vue équipe */
   #mon-planning-corps .chip { border:1px solid #EEC489; border-radius:8px; padding:8px 10px; margin-bottom:7px; background:#FCEBD2; display:flex; flex-direction:column; min-height:48px; }
   #mon-planning-corps .chip:last-child { margin-bottom:0; }
-  #mon-planning-corps .chip-abs { border:1px solid #FCA5A5; background:#FEF2F2; color:#B91C1C; border-radius:8px; padding:8px 10px; margin-bottom:7px; }
-  #mon-planning-corps .chip-abs .lib { font-weight:700; font-size:0.95rem; }
-  #mon-planning-corps .chip-abs .motif { font-weight:600; }
-  #mon-planning-corps .chip-abs .h { margin-top:3px; font-size:0.78rem; font-weight:400; color:#7f1d1d; }
   #mon-planning-corps .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
   #mon-planning-corps .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
   #mon-planning-corps .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:5px; color:#6E4A12; font-size:0.95rem; }
@@ -1154,6 +1150,7 @@
   <div class="modal-box">
     <div class="modal-title">📝 Note du chantier</div>
     <div id="note-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
+    <div id="note-docs-saisie" style="margin:0 0 10px;"></div>
     <textarea class="note-textarea" id="note-texte" placeholder="Saisir une note, ou dicter…"></textarea>
     <div class="note-hint">Astuce : le micro du clavier fonctionne aussi sur tous les téléphones.</div>
     <div class="note-hint" id="note-offline-hint" style="display:none;color:#92400e;font-weight:700;">⚡ Hors connexion : la dictée vocale est indisponible. Tapez votre note (le micro du clavier peut fonctionner).</div>
@@ -1929,10 +1926,6 @@ function _mpNoteSansEntete(txt){
     .filter(function(l){ return l.trim() !== ''; })
     .join('\n');
 }
-function _mpHtmlAbs(absH, motif) {
-  const m = motif ? ' · <span class="motif">' + _mpEsc(motif) + '</span>' : '';
-  return '<div class="chip-abs"><div class="lib">🚫 Absent' + m + '</div><div class="h">' + _mpFmtHM(absH) + '</div></div>';
-}
 function _mpHtmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
@@ -2017,14 +2010,10 @@ function rendreMonPlanning() {
   const corps = ov.querySelector('#mon-planning-corps');
   corps.innerHTML = '';
   const ajd = _ymd(new Date());
-  const _hMP = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   for (let i = 0; i < 6; i++) {
     const d = new Date(lundi); d.setDate(lundi.getDate() + i);
     const ds = _ymd(d);
     const chips = chipsJourMonPlanning(ds);
-    const _aMP = _hMP[`${_salarie?.id}${ds.replace(/-/g, '_')}abs`] || {};
-    const _aHMP = parseFloat(_aMP.heures) || 0;
-    const _absHtml = _aHMP > 0 ? _mpHtmlAbs(_aHMP, (_aMP.motif || '').trim()) : '';
 
     const bloc = document.createElement('div');
     bloc.style.cssText = 'border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;overflow:hidden;'
@@ -2037,8 +2026,8 @@ function rendreMonPlanning() {
 
     const body = document.createElement('div');
     body.style.cssText = 'padding:8px 10px;';
-    body.innerHTML = _absHtml + (chips.length ? chips.map(_mpHtmlChip).join('')
-      : (_aHMP > 0 ? '' : '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;">Rien de prévu</div>'));
+    body.innerHTML = chips.length ? chips.map(_mpHtmlChip).join('')
+      : '<div style="color:#9ca3af;font-style:italic;font-size:0.85rem;">Rien de prévu</div>';
     bloc.appendChild(body);
     corps.appendChild(bloc);
   }
@@ -3094,6 +3083,15 @@ function ouvrirNote(type, ref, btn) {
     _notePhotos  = (ch.photos || []).slice();
   }
   document.getElementById('note-chantier-nom').textContent = nom;
+  if (window.DocsChantier) {
+    var _dc = document.getElementById('note-docs-saisie');
+    if (_dc) {
+      var _ce = localStorage.getItem('saisie_codeEmploye');
+      var _sid = _salarie && _salarie.id;
+      if (nom && _ce && _sid) DocsChantier.monter(nom, _dc, { auth: { codeEmploye: _ce, salarieId: _sid }, peutModifier: _estGerantOuAdmin() });
+      else DocsChantier.vider(_dc);
+    }
+  }
   var hintOff = document.getElementById('note-offline-hint');
   if (hintOff) hintOff.style.display = (!navigator.onLine || window._reseauReel === false) ? 'block' : 'none';
   // Si la note existe déjà, on ajoute un passage à la ligne automatique pour que
@@ -3483,45 +3481,6 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     } catch (_) { return null; }
   }
 
-  // Mémorise les identifiants (code employé + salarié) dans un cache lisible par le
-  // service worker, pour qu'il puisse ré-enregistrer l'abonnement en cas de rotation Android.
-  async function _memoNotifCreds() {
-    try {
-      const code = localStorage.getItem('saisie_codeEmploye');
-      const sid  = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
-      if (!code || sid == null || !('caches' in window)) return;
-      const c = await caches.open('notif-creds');
-      await c.put('/__notif_creds', new Response(
-        JSON.stringify({ codeEmploye: code, salarieId: sid }),
-        { headers: { 'Content-Type': 'application/json' } }
-      ));
-    } catch (_) {}
-  }
-
-  // Auto-réparation : à chaque ouverture, si les notifications sont autorisées et qu'un
-  // abonnement navigateur existe, on le repousse au serveur (upsert idempotent). Ça rétablit
-  // un enregistrement supprimé (410), un endpoint qui a tourné, ou un id salarié changé —
-  // sans que l'utilisateur ait à refaire quoi que ce soit.
-  async function reenregistrerNotif() {
-    try {
-      if (!pushSupporte() || Notification.permission !== 'granted') return;
-      const code = localStorage.getItem('saisie_codeEmploye');
-      const sid  = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
-      if (!code || sid == null) return;
-      const reg = await regPrete();
-      if (!reg) return;
-      const sub = await reg.pushManager.getSubscription();
-      if (!sub) return;   // pas d'abonnement navigateur → on laisse le bouton « Activer »
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codeEmploye: code, salarieId: sid, subscription: sub })
-      });
-      await _memoNotifCreds();
-    } catch (_) {}
-  }
-  window.reenregistrerNotif = reenregistrerNotif;
-
   // Affiche la bonne zone selon l'état courant
   async function majBoutonNotif() {
     const bar = document.getElementById('notif-bar');
@@ -3607,7 +3566,6 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
       if (!d.ok) throw new Error(d.message || 'enregistrement refusé');
 
       if (navigator.vibrate) navigator.vibrate(80);
-      await _memoNotifCreds();   // pour le service worker (ré-abonnement automatique en cas de rotation)
     } catch (e) {
       alert("Impossible d'activer les notifications : " + (e && e.message ? e.message : e));
     } finally {
@@ -3747,7 +3705,7 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   } else {
     majBoutonNotif();
   }
-  window.addEventListener('load', () => { majBoutonNotif(); reenregistrerNotif(); });
+  window.addEventListener('load', () => { majBoutonNotif(); });
 })();
 </script>
 </div><!-- fin phone-wrap -->
@@ -3946,5 +3904,6 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 </script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
+<script src="assets/documents-chantier.js"></script>
 </body>
 </html>
