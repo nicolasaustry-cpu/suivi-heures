@@ -66,10 +66,6 @@
 
   .chip { border:1px solid #EEC489; border-radius:7px; padding:6px 8px; margin-bottom:6px; background:#FCEBD2; display:flex; flex-direction:column; min-height:45px; }
   .chip:last-child { margin-bottom:0; }
-  .chip-abs { border:1px solid #FCA5A5; background:#FEF2F2; color:#B91C1C; border-radius:7px; padding:6px 8px; margin-bottom:6px; font-size:0.8rem; }
-  .chip-abs .lib { font-weight:700; display:flex; align-items:center; gap:5px; }
-  .chip-abs .motif { font-weight:600; }
-  .chip-abs .h { margin-top:3px; font-size:0.62rem; font-weight:400; color:#7f1d1d; }
   .chip.s-cours { background:#D4E7FB; border-color:#4F9BE8; }
   .chip.s-parti { background:#DCF0C6; border-color:#6FB23C; }
   .grille td.cell-cible { outline:2px dashed #16a34a; outline-offset:-3px; background:#f0fdf4 !important; }
@@ -94,8 +90,6 @@
     table.grille tbody th.jour .jnom { font-size:1.05rem; }
     table.grille tbody td { padding:9px; min-width:225px; width:225px; max-width:225px; }
     .chip { padding:9px 13px; margin-bottom:9px; border-radius:9px; min-height:75px; }
-    .chip-abs { padding:9px 13px; margin-bottom:9px; border-radius:9px; font-size:1.1rem; }
-    .chip-abs .h { font-size:0.8rem; }
     .chip .cn { font-size:1.2rem; gap:6px; margin-bottom:7px; }
     .chip-hrs { font-size:0.8rem; padding-top:6px; }
     .chip-notetxt { font-size:0.82rem; padding-top:6px; }
@@ -207,6 +201,7 @@
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
+<script src="assets/documents-chantier.js"></script>
 <script>
 /* ════════════════════════════════════════════════
    Vue équipe — grille gérant
@@ -569,6 +564,7 @@ function afficherNotePopup(nomChantier) {
       + '<div id="note-popup-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
       + '<div id="note-popup-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;"></div>'
       + '<div id="note-popup-photos" style="padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:8px;"></div>'
+      + '<div id="note-popup-docs" style="padding:0 16px 12px;"></div>'
       + '<div id="note-popup-edit" style="padding:0 16px 12px;display:none;">'
       +   '<label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>'
       +   '<textarea id="note-popup-input" rows="3" placeholder="Nouvelle information…" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.92rem;resize:vertical;margin-top:4px;"></textarea>'
@@ -603,6 +599,16 @@ function afficherNotePopup(nomChantier) {
   ov.querySelector('#note-popup-edit').style.display    = editable ? 'block' : 'none';
   ov.querySelector('#note-popup-ajouter').style.display = editable ? 'inline-block' : 'none';
   const inp = ov.querySelector('#note-popup-input'); if (inp) inp.value = '';
+  // Documents joints (PDF) — contexte mobile (gérant / administratif)
+  if (window.DocsChantier) {
+    const _dc = ov.querySelector('#note-popup-docs');
+    if (_dc) {
+      const _ce = localStorage.getItem('saisie_codeEmploye');
+      let _sid = null; try { _sid = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+      if (nom && _ce && _sid) DocsChantier.monter(nom, _dc, { auth: { codeEmploye: _ce, salarieId: _sid }, peutModifier: editable });
+      else DocsChantier.vider(_dc);
+    }
+  }
   ov.style.display = 'flex';
 }
 
@@ -723,11 +729,6 @@ function fmtHM(h) {
   return (Math.round(h * 100) / 100).toFixed(2).replace('.', ',') + ' h';
 }
 
-function htmlAbs(absH, motif) {
-  const m = motif ? `<span class="motif"> · ${escapeHtmlLocal(motif)}</span>` : '';
-  return `<div class="chip-abs"><div class="lib">🚫 Absent${m}</div><div class="h">${fmtHM(absH)}</div></div>`;
-}
-
 function htmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
@@ -834,11 +835,8 @@ function genererGrille(opts) {
              </th>`;
     sals.forEach(s => {
       const chips = chipsCellule(s, dateStr, heures, real);
-      const _abs  = heures[`${s.id}${dateStr.replace(/-/g,'_')}abs`] || {};
-      const _absH = parseFloat(_abs.heures) || 0;
-      const absHtml = _absH > 0 ? htmlAbs(_absH, (_abs.motif || '').trim()) : '';
       const btnCell = `<button type="button" class="cell-add" data-sal="${s.id}" data-date="${dateStr}" onclick="ouvrirAjoutEquipe(this)" title="Ajouter un chantier / RDV" style="width:100%;margin-top:5px;background:#eef2f7;color:#475569;border:1px dashed #cbd5e1;border-radius:7px;font-size:0.72rem;font-weight:700;padding:4px;cursor:pointer;">➕ chantier</button>`;
-      html += `<td data-cell="${s.id}_${dateStr}">` + absHtml + (chips.length ? chips.map(htmlChip).join('') : (_absH > 0 ? '' : '<div class="vide">—</div>')) + btnCell + '</td>';
+      html += `<td data-cell="${s.id}_${dateStr}">` + (chips.length ? chips.map(htmlChip).join('') : '<div class="vide">—</div>') + btnCell + '</td>';
     });
     html += '</tr>';
   });
