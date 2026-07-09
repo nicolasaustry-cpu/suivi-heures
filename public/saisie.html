@@ -3483,6 +3483,45 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     } catch (_) { return null; }
   }
 
+  // Mémorise les identifiants (code employé + salarié) dans un cache lisible par le
+  // service worker, pour qu'il puisse ré-enregistrer l'abonnement en cas de rotation Android.
+  async function _memoNotifCreds() {
+    try {
+      const code = localStorage.getItem('saisie_codeEmploye');
+      const sid  = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
+      if (!code || sid == null || !('caches' in window)) return;
+      const c = await caches.open('notif-creds');
+      await c.put('/__notif_creds', new Response(
+        JSON.stringify({ codeEmploye: code, salarieId: sid }),
+        { headers: { 'Content-Type': 'application/json' } }
+      ));
+    } catch (_) {}
+  }
+
+  // Auto-réparation : à chaque ouverture, si les notifications sont autorisées et qu'un
+  // abonnement navigateur existe, on le repousse au serveur (upsert idempotent). Ça rétablit
+  // un enregistrement supprimé (410), un endpoint qui a tourné, ou un id salarié changé —
+  // sans que l'utilisateur ait à refaire quoi que ce soit.
+  async function reenregistrerNotif() {
+    try {
+      if (!pushSupporte() || Notification.permission !== 'granted') return;
+      const code = localStorage.getItem('saisie_codeEmploye');
+      const sid  = (typeof _salarie !== 'undefined' && _salarie) ? _salarie.id : null;
+      if (!code || sid == null) return;
+      const reg = await regPrete();
+      if (!reg) return;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) return;   // pas d'abonnement navigateur → on laisse le bouton « Activer »
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeEmploye: code, salarieId: sid, subscription: sub })
+      });
+      await _memoNotifCreds();
+    } catch (_) {}
+  }
+  window.reenregistrerNotif = reenregistrerNotif;
+
   // Affiche la bonne zone selon l'état courant
   async function majBoutonNotif() {
     const bar = document.getElementById('notif-bar');
@@ -3568,6 +3607,7 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
       if (!d.ok) throw new Error(d.message || 'enregistrement refusé');
 
       if (navigator.vibrate) navigator.vibrate(80);
+      await _memoNotifCreds();   // pour le service worker (ré-abonnement automatique en cas de rotation)
     } catch (e) {
       alert("Impossible d'activer les notifications : " + (e && e.message ? e.message : e));
     } finally {
@@ -3707,7 +3747,7 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   } else {
     majBoutonNotif();
   }
-  window.addEventListener('load', () => { majBoutonNotif(); });
+  window.addEventListener('load', () => { majBoutonNotif(); reenregistrerNotif(); });
 })();
 </script>
 </div><!-- fin phone-wrap -->
