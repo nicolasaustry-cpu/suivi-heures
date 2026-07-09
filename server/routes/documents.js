@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import express from "express";
+import jwt from "jsonwebtoken";
 import DocumentChantier from "../models/documentchantier.js";
 
 const router = express.Router();
@@ -149,6 +150,58 @@ router.post("/supprimer", async (req, res) => {
     res.json({ ok: true, supprime: true });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Générer un lien sécurisé (5 min) pour VOIR le PDF en ligne ──
+// Permet un affichage natif fiable (surtout mobile) via une vraie URL servie
+// avec Content-Type application/pdf, plutôt qu'un aperçu en cadre (non rendu
+// par les navigateurs mobiles).
+router.post("/lien", async (req, res) => {
+  try {
+    const ctx = await resoudreContexte(req);
+    if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
+    const id = req.body.id;
+    if (!id) return res.status(400).json({ ok: false, message: "Identifiant manquant" });
+
+    const doc = await DocumentChantier.findById(id);
+    if (!doc) return res.status(404).json({ ok: false, message: "Document introuvable" });
+    if (U(doc.clientId) !== ctx.clientId)
+      return res.status(403).json({ ok: false, message: "Accès refusé" });
+
+    const jeton = jwt.sign(
+      { t: "docview", docId: String(doc._id), clientId: ctx.clientId },
+      process.env.JWT_SECRET,
+      { expiresIn: "5m" }
+    );
+    res.json({ ok: true, url: "/api/documents/fichier?jeton=" + encodeURIComponent(jeton) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Servir le PDF « en ligne » via un lien signé (GET navigable) ──
+router.get("/fichier", async (req, res) => {
+  try {
+    const jeton = req.query.jeton;
+    if (!jeton) return res.status(401).send("Lien invalide");
+    let p;
+    try { p = jwt.verify(jeton, process.env.JWT_SECRET); }
+    catch { return res.status(401).send("Lien expiré, rouvrez le document."); }
+    if (p.t !== "docview" || !p.docId) return res.status(401).send("Lien invalide");
+
+    const doc = await DocumentChantier.findById(p.docId);
+    if (!doc) return res.status(404).send("Document introuvable");
+    if (U(doc.clientId) !== U(p.clientId)) return res.status(403).send("Accès refusé");
+
+    const buf = Buffer.from(doc.data || "", "base64");
+    res.setHeader("Content-Type", doc.mime || "application/pdf");
+    res.setHeader("Content-Disposition", 'inline; filename="' + encodeURIComponent(doc.nom || "document.pdf") + '"');
+    res.setHeader("Content-Length", buf.length);
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.send(buf);
+  } catch (err) {
+    res.status(500).send("Erreur");
   }
 });
 

@@ -142,15 +142,32 @@
       });
     }
 
+    function estMobile() {
+      return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+          || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    }
+
     function apercu(d) {
+      var mobile = estMobile();
+      // Sur mobile : ouvrir l'onglet MAINTENANT (dans le geste) pour éviter le blocage popup.
+      var win = mobile ? window.open('', '_blank') : null;
       msg('Ouverture…', '');
-      appel('contenu', { id: d.id }, opts).then(function (r) {
-        if (!r.ok) { msg(r.message || 'Impossible d’ouvrir le document.', 'err'); return; }
+      appel('lien', { id: d.id }, opts).then(function (r) {
+        if (!r.ok) { msg(r.message || 'Impossible d’ouvrir le document.', 'err'); if (win) win.close(); return; }
         msg('', '');
-        var url = URL.createObjectURL(b64versBlob(r.dataBase64, r.mime));
-        elPreview.innerHTML = '<iframe title="Aperçu PDF"></iframe>';
-        elPreview.querySelector('iframe').src = url;
-      }).catch(function () { msg('Erreur réseau.', 'err'); });
+        if (mobile) {
+          if (win) { win.location.href = r.url; }
+          else {
+            // Popup bloqué : navigation via un lien (ouvre le lecteur PDF du téléphone)
+            var a = document.createElement('a');
+            a.href = r.url; a.target = '_blank'; a.rel = 'noopener';
+            document.body.appendChild(a); a.click(); a.remove();
+          }
+        } else {
+          elPreview.innerHTML = '<iframe title="Aperçu PDF"></iframe>';
+          elPreview.querySelector('iframe').src = r.url;
+        }
+      }).catch(function () { msg('Erreur réseau.', 'err'); if (win) win.close(); });
     }
 
     function telecharger(d) {
