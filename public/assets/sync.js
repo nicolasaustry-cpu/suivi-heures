@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.06.19-sync5';
+  const VERSION = 'v2026.07.09-sync6';
 
   const API = '';
   let _token    = null;
@@ -24,6 +24,11 @@ const SYNC = (() => {
   let _syncTimer = null;
   let _pendingSave = false;        // une modification locale attend d'être poussée
   let _deconnexionEnCours = false;
+
+  // Isolation inter-onglets : identifiant unique de CET onglet (change à chaque
+  // rechargement) + drapeau « un autre client est actif dans un autre onglet ».
+  let _tabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  let _verrouilleAutreClient = false;
 
   // Coalescence courte : regroupe quelques frappes rapprochées sans fragiliser.
   const SAVE_DELAY = 400;
@@ -87,7 +92,7 @@ const SYNC = (() => {
     afficherVersion();
 
     if (PAGES_LIBRES_TOTAL.includes(pageActuelle())) {
-      if (_token && _type) { majStatutLicence(true); majNav(); }
+      if (_token && _type) { majStatutLicence(true); majNav(); revendiquerOngletActif(); }
       else if (['index.html', '/', ''].includes(pageActuelle())) {
         // Page Entreprise (accueil) sans licence active : on affiche quand même
         // la barre latérale, pour la cohérence visuelle avec les autres pages.
@@ -130,6 +135,7 @@ const SYNC = (() => {
       localStorage.setItem('syncType', _type);
       if (d.nomClient) localStorage.setItem('syncNomClient', d.nomClient);
       verifierAccesPlus();
+      revendiquerOngletActif();   // cet onglet devient la session active du navigateur
       majStatutLicence(true);
       majNav();
       await chargerDonnees();
@@ -172,6 +178,7 @@ const SYNC = (() => {
       localStorage.setItem('licenceCode',  code);
       if (d.nomClient) localStorage.setItem('syncNomClient', d.nomClient);
 
+      revendiquerOngletActif();   // cet onglet devient la session active du navigateur
       majStatutLicence(true);
       majNav();
       await chargerDonnees();
@@ -267,6 +274,7 @@ const SYNC = (() => {
   /* ── Déclenchement d'une sauvegarde (immédiate, faible coalescence) ── */
   function declencherSauvegarde() {
     if (_modeAdmin) return;          // admin = lecture seule
+    if (_verrouilleAutreClient) return;   // un autre client est actif dans ce navigateur
     if (!_token) return;
     _pendingSave = true;
     clearTimeout(_syncTimer);
@@ -280,8 +288,10 @@ const SYNC = (() => {
      d'un autre. */
   function identiteCoherente() {
     return !!_token
+        && !_verrouilleAutreClient
         && localStorage.getItem('syncToken')    === _token
-        && localStorage.getItem('syncClientId') === _clientId;
+        && localStorage.getItem('syncClientId') === _clientId
+        && !autreClientActif();               // barrière dure : un autre client est l'onglet actif
   }
 
   function construirePayload() {
@@ -355,6 +365,78 @@ const SYNC = (() => {
     _setItemOriginal(cle, valeur);
     if (!_ecritureInterne && CLES.includes(cle)) declencherSauvegarde();
   };
+
+  /* ─────────────────────────────────────────────────────────────
+     Isolation inter-onglets : UN SEUL client « actif en écriture »
+     par navigateur. Le localStorage étant partagé entre tous les onglets
+     d'un même navigateur, deux sessions clients ouvertes en parallèle
+     pouvaient se marcher dessus (mélange de comptes). On empêche cela :
+       • chaque onglet, quand il devient la session utilisée, « revendique »
+         l'activité (clé partagée syncActiveTab = { tabId, clientId }) ;
+       • si un AUTRE onglet revendique l'activité pour un client DIFFÉRENT,
+         cet onglet-ci passe en lecture seule (bandeau) et n'enregistre plus ;
+       • au moment exact d'un enregistrement, on revérifie de façon synchrone
+         qu'aucun autre client n'est l'onglet actif (barrière dure, sans course).
+     Deux onglets du MÊME client restent autorisés (pas de risque de mélange).
+     ───────────────────────────────────────────────────────────── */
+  const CLE_ONGLET_ACTIF = 'syncActiveTab';
+
+  // Un client DIFFÉRENT est-il l'onglet actif de ce navigateur ? (lecture synchrone)
+  function autreClientActif() {
+    try {
+      const raw = localStorage.getItem(CLE_ONGLET_ACTIF);
+      if (!raw) return false;
+      const rec = JSON.parse(raw);
+      if (!rec || rec.tabId === _tabId) return false;        // absent ou c'est moi
+      return (rec.clientId || '') !== (_clientId || '');      // autre onglet + autre client
+    } catch (_) { return false; }
+  }
+
+  // Cet onglet (re)devient la session active du navigateur.
+  function revendiquerOngletActif() {
+    if (_modeAdmin || !_clientId) return;   // la consultation admin n'écrit jamais
+    try {
+      _setItemOriginal(CLE_ONGLET_ACTIF, JSON.stringify({ tabId: _tabId, clientId: _clientId, ts: Date.now() }));
+    } catch (_) {}
+    if (_verrouilleAutreClient) { _verrouilleAutreClient = false; retirerBanniereVerrou(); }
+  }
+
+  // Un AUTRE onglet a revendiqué l'activité → on verrouille si c'est un autre client.
+  function surChangementOngletActif(rec) {
+    if (_modeAdmin || !_clientId || !rec) return;
+    if (rec.tabId === _tabId) return;
+    if ((rec.clientId || '') === (_clientId || '')) return;   // même client → aucun risque
+    _verrouilleAutreClient = true;
+    _pendingSave = false;
+    clearTimeout(_syncTimer); _syncTimer = null;
+    afficherBanniereVerrou(rec.clientId);
+  }
+
+  window.addEventListener('storage', (e) => {
+    if (e.key !== CLE_ONGLET_ACTIF || !e.newValue) return;
+    let rec = null; try { rec = JSON.parse(e.newValue); } catch (_) { return; }
+    surChangementOngletActif(rec);
+  });
+
+  function afficherBanniereVerrou(autreClient) {
+    if (document.getElementById('sh-verrou-onglet')) return;
+    const safe = String(autreClient || '').replace(/[&<>"']/g, '');
+    const poser = () => {
+      if (!document.body || document.getElementById('sh-verrou-onglet')) return;
+      const b = document.createElement('div');
+      b.id = 'sh-verrou-onglet';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#dc2626;color:#fff;text-align:center;padding:9px 14px;font-weight:700;font-size:0.9rem;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-family:Arial,sans-serif;';
+      b.innerHTML = '⛔ Une autre session client' + (safe ? ' (' + safe + ')' : '') +
+        ' est ouverte dans ce navigateur. Cette page est en <u>lecture seule</u> pour éviter tout mélange de données. ' +
+        '<a href="#" onclick="location.reload();return false;" style="color:#fff;text-decoration:underline;">Recharger pour reprendre cette session</a>.';
+      document.body.prepend(b);
+    };
+    if (document.body) poser(); else window.addEventListener('DOMContentLoaded', poser);
+  }
+  function retirerBanniereVerrou() {
+    const b = document.getElementById('sh-verrou-onglet');
+    if (b) b.remove();
+  }
 
   // Navigation selon le type de licence
   function majNav() {
