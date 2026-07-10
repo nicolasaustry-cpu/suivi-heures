@@ -88,6 +88,11 @@ function apercuDonnees(d) {
   });
   const salaries = Array.isArray(d.salaries) ? d.salaries : [];
   let prevApercu = ""; try { prevApercu = JSON.stringify(d.previsionnel || {}).slice(0, 240); } catch (_) {}
+  const salNoms   = salaries.slice(0, 12).map(s => `${(s.prenom||"").trim()} ${(s.nom||"").trim()}`.trim()).filter(Boolean);
+  const chFieldNoms = (Array.isArray(d.chantiers) ? d.chantiers : []).map(c => String(c||"").trim()).filter(Boolean).slice(0, 12);
+  const prevChs   = chantiersDuPrevisionnel(d.previsionnel);
+  const notesNoms = Object.keys(d.notesChantiers || {}).slice(0, 12);
+  const coordNoms = Object.keys(d.coordonneesChantiers || {}).slice(0, 12);
   return {
     entrepriseNom: (d.entreprise && d.entreprise.nom) || "",
     codeEmploye:   U(d.entreprise && d.entreprise.codeEmploye),
@@ -97,9 +102,18 @@ function apercuDonnees(d) {
     chantiers:     [...chantiersVus].slice(0, 25),
     previsionnelCles:   Object.keys(d.previsionnel || {}).length,
     previsionnelSig:    empreinte(d.previsionnel),
-    previsionnelChantiers: chantiersDuPrevisionnel(d.previsionnel).slice(0, 40),
+    previsionnelChantiers: prevChs.slice(0, 40),
     previsionnelApercu: prevApercu,
-    updatedAt:     d.updatedAt || null
+    updatedAt:     d.updatedAt || null,
+    // Résumé par TYPE de donnée restaurable (compte, éléments repères, empreinte)
+    types: {
+      heures:               { libelle: "Heures / planning",        n: clesH.length,                                 apercu: [...chantiersVus].slice(0, 12), sig: empreinte(d.heures) },
+      salaries:             { libelle: "Salariés",                 n: salaries.length,                              apercu: salNoms,                        sig: empreinte(d.salaries) },
+      chantiers:            { libelle: "Liste des chantiers",      n: (Array.isArray(d.chantiers) ? d.chantiers.length : 0), apercu: chFieldNoms,           sig: empreinte(d.chantiers) },
+      previsionnel:         { libelle: "Prévisionnel",             n: Object.keys(d.previsionnel || {}).length,     apercu: prevChs.slice(0, 12),           sig: empreinte(d.previsionnel) },
+      notesChantiers:       { libelle: "Notes de chantier",        n: Object.keys(d.notesChantiers || {}).length,   apercu: notesNoms,                      sig: empreinte(d.notesChantiers) },
+      coordonneesChantiers: { libelle: "Coordonnées de chantier",  n: Object.keys(d.coordonneesChantiers || {}).length, apercu: coordNoms,                  sig: empreinte(d.coordonneesChantiers) }
+    }
   };
 }
 

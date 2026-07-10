@@ -64,31 +64,53 @@ function afficheMsg(txt, type){ const m=$("msg"); m.textContent=txt; m.className
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function fmtDate(d){ if(!d) return "—"; try{ return new Date(d).toLocaleString("fr-FR"); }catch(_){ return String(d);} }
 
-function blocApercu(titre, tag, a, extra, sigLive){
-  const chips = (a.chantiers||[]).map(c=>`<span class="chip">${esc(c)}</span>`).join("");
-  const sals  = (a.salaries||[]).join(", ");
-  let badgePrev = "";
-  if (sigLive != null) {
-    badgePrev = (a.previsionnelSig === sigLive)
+const TYPES = [
+  { key:'heures',               champs:['heures'] },
+  { key:'salaries',             champs:['salaries'] },
+  { key:'chantiers',            champs:['chantiers'] },
+  { key:'previsionnel',         champs:['previsionnel'] },
+  { key:'notesChantiers',       champs:['notesChantiers','notesChantiersPhotos'] },
+  { key:'coordonneesChantiers', champs:['coordonneesChantiers'] },
+];
+const TYPE_LIBELLES = {
+  heures:'Heures / planning', salaries:'Salariés', chantiers:'Liste des chantiers',
+  previsionnel:'Prévisionnel', notesChantiers:'Notes de chantier', coordonneesChantiers:'Coordonnées de chantier'
+};
+
+function chipsHTML(list){
+  if(!list || !list.length) return '<span class="chip">aucun</span>';
+  return list.map(c=>`<span class="chip" style="background:#fef3c7;color:#92400e">${esc(c)}</span>`).join('');
+}
+function enteteHTML(titre, tag, a){
+  return `<h3>${esc(titre)} ${tag||''}</h3>
+    <div class="kv"><b>Entreprise :</b> ${esc(a.entrepriseNom)||'(sans nom)'} &nbsp; <b>Code employé :</b> ${esc(a.codeEmploye)||'—'}</div>`;
+}
+function ligneTypeHTML(key, t, tLive, opts){
+  opts = opts || {};
+  let badge = '';
+  if (tLive) {
+    badge = (t.sig === tLive.sig)
       ? '<span class="chip" style="background:#eef1f4;color:#6b7280">identique à l\'actuel</span>'
-      : '<span class="chip" style="background:#e8f6ef;color:#166b46;font-weight:700">≠ différent de l\'actuel</span>';
+      : '<span class="chip" style="background:#e8f6ef;color:#166b46;font-weight:700">≠ différent</span>';
   }
-  const prevApercu = a.previsionnelApercu
-    ? `<div class="kv" style="color:#9ca3af;font-size:0.72rem;word-break:break-all">${esc(a.previsionnelApercu)}…</div>` : "";
-  const prevChips = (a.previsionnelChantiers||[])
-    .map(c=>`<span class="chip" style="background:#fef3c7;color:#92400e">${esc(c)}</span>`).join("");
-  return `
-    <h3>${esc(titre)} ${tag||""}</h3>
-    <div class="kv"><b>Entreprise :</b> ${esc(a.entrepriseNom)||"(sans nom)"} &nbsp; <b>Code employé :</b> ${esc(a.codeEmploye)||"—"}</div>
-    <div class="kv"><b>Heures (créneaux) :</b> ${a.nbHeures} &nbsp; <b>Salariés :</b> ${a.nbSalaries}</div>
-    ${sals ? `<div class="kv"><b>Salariés :</b> ${esc(sals)}</div>` : ""}
-    <div class="kv"><b>Chantiers vus (planning) :</b></div>
-    <div class="chips">${chips||'<span class="chip">aucun</span>'}</div>
-    <div class="kv" style="margin-top:8px"><b>Prévisionnel :</b> ${a.previsionnelCles} rubrique(s) &nbsp; ${badgePrev}</div>
-    <div class="kv"><b>➜ Chantiers DANS le prévisionnel :</b></div>
-    <div class="chips">${prevChips||'<span class="chip">aucun</span>'}</div>
-    ${prevApercu}
-    ${extra||""}`;
+  const chk = opts.checkbox
+    ? `<input type="checkbox" class="typechk" data-snap="${opts.snap}" data-type="${key}" checked style="width:18px;height:18px;flex:0 0 auto;margin-top:3px;cursor:pointer;">`
+    : '';
+  return `<div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid #eef1f4;">
+    ${chk}
+    <div style="flex:1;min-width:0;">
+      <div class="kv" style="margin:0"><b>${esc(t.libelle)}</b> — ${t.n} élément(s) &nbsp; ${badge}</div>
+      <div class="chips">${chipsHTML(t.apercu)}</div>
+    </div>
+  </div>`;
+}
+function typesHTML(a, live, opts){
+  return TYPES.map(def=>{
+    const t = a.types && a.types[def.key];
+    if (!t) return '';
+    const tLive = (live && live.types) ? live.types[def.key] : null;
+    return ligneTypeHTML(def.key, t, tLive, opts);
+  }).join('');
 }
 
 async function chargerListe(){
@@ -102,34 +124,53 @@ async function chargerListe(){
     const d=await r.json();
     if(!d.ok){ afficheMsg(d.message||"Erreur.","err"); $("resultats").innerHTML=""; return; }
     afficheMsg(`${d.nbSauvegardes} sauvegarde(s) trouvée(s) pour ${esc(d.clientId)}.`,"ok");
-    const sigLive = d.live ? d.live.previsionnelSig : null;
+    const live = d.live || null;
     let html="";
-    if(d.live){
-      html += `<div class="snap live">${blocApercu("État ACTUEL (ce qui est en ligne aujourd'hui)", '<span class="tag">live</span>', d.live)}
-                <div class="hint">C'est l'état à corriger. Compare-le aux sauvegardes ci-dessous.</div></div>`;
+    if(live){
+      html += `<div class="snap live">${enteteHTML("État ACTUEL (en ligne aujourd'hui)", '<span class="tag">live</span>', live)}
+        ${typesHTML(live, null, {checkbox:false})}
+        <div class="hint">C'est l'état à corriger. Pour chaque type, « ≠ différent » sur une sauvegarde = contenu différent de l'actuel (candidat au bon contenu).</div></div>`;
     }
     if(!d.sauvegardes.length){
       html += `<div class="carte">Aucune sauvegarde de nuit trouvée pour ce client. Il faudra passer par un snapshot Atlas.</div>`;
     }
-    d.sauvegardes.forEach(s=>{
+    d.sauvegardes.forEach((s,i)=>{
       const tag = s.motif==="avant-restauration" ? '<span class="tag">sécurité</span>' : `<span class="tag">${esc(s.snapshotDate)}</span>`;
-      const boutons = `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-r" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}">Restaurer tout</button>
-        <button class="btn-prev" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}" style="background:#0f3a8a;color:#fff;border:0;border-radius:8px;padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer">♻ Restaurer uniquement le prévisionnel</button>
+      html += `<div class="snap">
+        ${enteteHTML("Sauvegarde du "+fmtDate(s.backupAt), tag, s.apercu)}
+        <div class="hint" style="margin:6px 0"><b>Coche les données à restaurer depuis cette date :</b></div>
+        ${typesHTML(s.apercu, live, {checkbox:true, snap:i})}
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn-r" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}" data-snap="${i}">Restaurer les éléments cochés</button>
+          <button class="lien-coche" data-snap="${i}" data-on="1" style="background:none;border:0;color:#2563eb;cursor:pointer;font-size:13px;text-decoration:underline">tout cocher</button>
+          <button class="lien-coche" data-snap="${i}" data-on="0" style="background:none;border:0;color:#2563eb;cursor:pointer;font-size:13px;text-decoration:underline">tout décocher</button>
+        </div>
       </div>`;
-      html += `<div class="snap">${blocApercu("Sauvegarde du "+fmtDate(s.backupAt), tag, s.apercu, boutons, sigLive)}</div>`;
     });
     $("resultats").innerHTML=html;
-    document.querySelectorAll(".btn-r").forEach(b=>b.addEventListener("click",()=>restaurer(b.dataset.at,b.dataset.date)));
-    document.querySelectorAll(".btn-prev").forEach(b=>b.addEventListener("click",()=>restaurer(b.dataset.at,b.dataset.date,['previsionnel'])));
+    document.querySelectorAll(".btn-r").forEach(b=>b.addEventListener("click",()=>restaurerCoches(b.dataset.snap,b.dataset.at,b.dataset.date)));
+    document.querySelectorAll(".lien-coche").forEach(b=>b.addEventListener("click",()=>{
+      document.querySelectorAll('.typechk[data-snap="'+b.dataset.snap+'"]').forEach(c=>c.checked=(b.dataset.on==="1"));
+    }));
   }catch(e){ afficheMsg("Erreur réseau : "+e.message,"err"); $("resultats").innerHTML=""; }
 }
 
-async function restaurer(backupAt,snapshotDate,champs){
+function champsPourType(key){
+  const def = TYPES.find(t=>t.key===key);
+  return def ? def.champs : [key];
+}
+function restaurerCoches(snap, backupAt, snapshotDate){
+  const coches = [...document.querySelectorAll('.typechk[data-snap="'+snap+'"]')].filter(c=>c.checked);
+  if(!coches.length){ afficheMsg("Coche au moins un type de donnée à restaurer.","err"); return; }
+  const libelles = coches.map(c=>TYPE_LIBELLES[c.dataset.type]||c.dataset.type);
+  let champs=[];
+  coches.forEach(c=>{ champs = champs.concat(champsPourType(c.dataset.type)); });
+  restaurer(backupAt, snapshotDate, champs, libelles);
+}
+async function restaurer(backupAt,snapshotDate,champs,libelles){
   const motDePasse=$("mdp").value, clientId=$("cid").value.trim();
-  const prevSeul = champs && champs.length===1 && champs[0]==='previsionnel';
-  const quoi = prevSeul ? "le PRÉVISIONNEL uniquement" : "TOUTES les données";
-  if(!confirm(`Restaurer ${quoi} de ${clientId} depuis la sauvegarde du ${snapshotDate} ?\n\nL'état actuel sera d'abord sauvegardé (sécurité)${prevSeul?", et les heures/salariés ne seront PAS touchés":""}.`)) return;
+  const quoi = (libelles && libelles.length) ? libelles.join(", ") : "toutes les données";
+  if(!confirm(`Restaurer pour ${clientId}, depuis la sauvegarde du ${snapshotDate} :\n\n• ${quoi}\n\nL'état actuel sera d'abord sauvegardé (sécurité). Les autres données ne seront pas touchées.`)) return;
   afficheMsg("Restauration en cours…","");
   try{
     const body={motDePasse,clientId,backupAt};
@@ -138,7 +179,7 @@ async function restaurer(backupAt,snapshotDate,champs){
     const d=await r.json();
     if(!d.ok){ afficheMsg(d.message||"Erreur.","err"); return; }
     const champsTxt=(d.champsRestaures||[]).join(", ");
-    afficheMsg(`✅ Restauration réussie pour ${esc(d.clientId)} (sauvegarde du ${esc(d.restaureDepuis.snapshotDate)}). Champs restaurés : ${esc(champsTxt)}. ${esc(d.securite)}`,"ok");
+    afficheMsg(`✅ Restauration réussie pour ${esc(d.clientId)} (sauvegarde du ${esc(d.restaureDepuis.snapshotDate)}). Champs restaurés : ${esc(champsTxt)}. ${esc(d.securite)} — vérifie l'état ci-dessous.`,"ok");
     chargerListe();
   }catch(e){ afficheMsg("Erreur réseau : "+e.message,"err"); }
 }
