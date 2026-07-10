@@ -44,7 +44,6 @@ async function resoudreContexte(req, { ecriture = false } = {}) {
     return { clientId: U(doc.clientId), auteur: `${sal.prenom || ""} ${sal.nom || ""}`.trim() };
   }
   // Contexte PC : jeton de licence
-  const jwt = (await import("jsonwebtoken")).default;
   let token = req.headers.authorization?.split(" ")[1];
   if (!token && req.body._token) token = req.body._token;
   if (!token) return { err: [401, "Accès refusé : aucun token"] };
@@ -100,6 +99,14 @@ router.post("/ajouter", async (req, res) => {
     // Validation base64 stricte
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(brut))
       return res.status(400).json({ ok: false, message: "Fichier invalide" });
+    // Vérifie l'en-tête réel du fichier (%PDF-) pour refuser un fichier déguisé en PDF
+    try {
+      const tete = Buffer.from(brut.slice(0, 20), "base64").toString("latin1");
+      if (!tete.startsWith("%PDF-"))
+        return res.status(415).json({ ok: false, message: "Le fichier n'est pas un PDF valide" });
+    } catch (_) {
+      return res.status(400).json({ ok: false, message: "Fichier invalide" });
+    }
 
     const taille = Math.floor(brut.length * 3 / 4);
     const nom = String(req.body.nom || "document.pdf").trim().slice(0, 180) || "document.pdf";
@@ -196,6 +203,7 @@ router.get("/fichier", async (req, res) => {
 
     const buf = Buffer.from(doc.data || "", "base64");
     res.setHeader("Content-Type", doc.mime || "application/pdf");
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Disposition", 'inline; filename="' + encodeURIComponent(doc.nom || "document.pdf") + '"');
     res.setHeader("Content-Length", buf.length);
     res.setHeader("Cache-Control", "private, max-age=300");

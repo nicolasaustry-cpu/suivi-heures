@@ -131,8 +131,12 @@ router.post("/liste", async (req, res) => {
                            .sort({ backupAt: -1 })
                            .toArray();
 
-    // État actuel (live) pour comparaison en tête de liste
-    const live = await db().collection(COLL_LIVE).findOne({ clientId });
+    // État actuel (live) pour comparaison en tête de liste (casse indifférente)
+    let live = await db().collection(COLL_LIVE).findOne({ clientId });
+    if (!live) {
+      const tous = await db().collection(COLL_LIVE).find({}).toArray();
+      live = tous.find(d => U(d.clientId) === clientId) || null;
+    }
     const liveApercu = live ? apercuDonnees(live) : null;
 
     const sauvegardes = docs.map(h => ({
