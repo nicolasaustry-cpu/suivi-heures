@@ -75,14 +75,18 @@ function blocApercu(titre, tag, a, extra, sigLive){
   }
   const prevApercu = a.previsionnelApercu
     ? `<div class="kv" style="color:#9ca3af;font-size:0.72rem;word-break:break-all">${esc(a.previsionnelApercu)}…</div>` : "";
+  const prevChips = (a.previsionnelChantiers||[])
+    .map(c=>`<span class="chip" style="background:#fef3c7;color:#92400e">${esc(c)}</span>`).join("");
   return `
     <h3>${esc(titre)} ${tag||""}</h3>
     <div class="kv"><b>Entreprise :</b> ${esc(a.entrepriseNom)||"(sans nom)"} &nbsp; <b>Code employé :</b> ${esc(a.codeEmploye)||"—"}</div>
     <div class="kv"><b>Heures (créneaux) :</b> ${a.nbHeures} &nbsp; <b>Salariés :</b> ${a.nbSalaries}</div>
     ${sals ? `<div class="kv"><b>Salariés :</b> ${esc(sals)}</div>` : ""}
-    <div class="kv"><b>Chantiers vus :</b></div>
+    <div class="kv"><b>Chantiers vus (planning) :</b></div>
     <div class="chips">${chips||'<span class="chip">aucun</span>'}</div>
-    <div class="kv" style="margin-top:6px"><b>Prévisionnel :</b> ${a.previsionnelCles} rubrique(s) &nbsp; ${badgePrev}</div>
+    <div class="kv" style="margin-top:8px"><b>Prévisionnel :</b> ${a.previsionnelCles} rubrique(s) &nbsp; ${badgePrev}</div>
+    <div class="kv"><b>➜ Chantiers DANS le prévisionnel :</b></div>
+    <div class="chips">${prevChips||'<span class="chip">aucun</span>'}</div>
     ${prevApercu}
     ${extra||""}`;
 }

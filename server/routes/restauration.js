@@ -51,6 +51,26 @@ function empreinte(obj) {
   return h.toString(36) + "·" + s.length;
 }
 
+// Extrait les noms de chantiers/clients présents DANS le prévisionnel.
+// Structure : { annee: { mois(0..11) | [..] : { hVendables, chantiers:[{client,hPrevues}] } } }
+function chantiersDuPrevisionnel(prev) {
+  const noms = new Set();
+  if (!prev || typeof prev !== "object") return [];
+  for (const annee of Object.keys(prev)) {
+    const parMois = prev[annee];
+    if (!parMois || typeof parMois !== "object") continue;
+    const listeMois = Array.isArray(parMois) ? parMois : Object.values(parMois);
+    for (const m of listeMois) {
+      if (!m || !Array.isArray(m.chantiers)) continue;
+      for (const c of m.chantiers) {
+        const nom = c && c.client ? String(c.client).trim() : "";
+        if (nom) noms.add(nom.toUpperCase());
+      }
+    }
+  }
+  return [...noms];
+}
+
 function apercuDonnees(d) {
   d = d || {};
   const heures = d.heures || {};
@@ -77,6 +97,7 @@ function apercuDonnees(d) {
     chantiers:     [...chantiersVus].slice(0, 25),
     previsionnelCles:   Object.keys(d.previsionnel || {}).length,
     previsionnelSig:    empreinte(d.previsionnel),
+    previsionnelChantiers: chantiersDuPrevisionnel(d.previsionnel).slice(0, 40),
     previsionnelApercu: prevApercu,
     updatedAt:     d.updatedAt || null
   };
