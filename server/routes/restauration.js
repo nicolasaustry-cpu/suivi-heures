@@ -43,6 +43,14 @@ function motDePasseOK(mdp) {
 }
 
 // Aperçu lisible d'un document de données (pour reconnaître la bonne sauvegarde)
+// Petite empreinte stable d'un objet, pour comparer deux prévisionnels d'un coup d'œil.
+function empreinte(obj) {
+  let s; try { s = JSON.stringify(obj || {}); } catch (_) { s = ""; }
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36) + "·" + s.length;
+}
+
 function apercuDonnees(d) {
   d = d || {};
   const heures = d.heures || {};
@@ -59,6 +67,7 @@ function apercuDonnees(d) {
     if (nom) chantiersVus.add(nom.toUpperCase());
   });
   const salaries = Array.isArray(d.salaries) ? d.salaries : [];
+  let prevApercu = ""; try { prevApercu = JSON.stringify(d.previsionnel || {}).slice(0, 240); } catch (_) {}
   return {
     entrepriseNom: (d.entreprise && d.entreprise.nom) || "",
     codeEmploye:   U(d.entreprise && d.entreprise.codeEmploye),
@@ -66,6 +75,9 @@ function apercuDonnees(d) {
     nbSalaries:    salaries.length,
     salaries:      salaries.slice(0, 30).map(s => `${(s.prenom||"").trim()} ${(s.nom||"").trim()}`.trim()).filter(Boolean),
     chantiers:     [...chantiersVus].slice(0, 25),
+    previsionnelCles:   Object.keys(d.previsionnel || {}).length,
+    previsionnelSig:    empreinte(d.previsionnel),
+    previsionnelApercu: prevApercu,
     updatedAt:     d.updatedAt || null
   };
 }
@@ -144,9 +156,17 @@ router.post("/restaurer", async (req, res) => {
       });
     }
 
-    // 4) Construire le $set à partir des champs de données de la sauvegarde
+    // 4) Construire le $set à partir des champs de données de la sauvegarde.
+    //    Optionnel : req.body.champs = liste des champs à restaurer uniquement
+    //    (ex. ["previsionnel"]). Sinon, on restaure tous les champs de données.
+    const champsDemandes = Array.isArray(req.body.champs) && req.body.champs.length
+      ? CHAMPS_DONNEES.filter(c => req.body.champs.includes(c))
+      : CHAMPS_DONNEES;
+    if (!champsDemandes.length)
+      return res.status(400).json({ ok: false, message: "Aucun champ valide à restaurer." });
+
     const set = { updatedAt: new Date() };
-    for (const champ of CHAMPS_DONNEES) {
+    for (const champ of champsDemandes) {
       if (Object.prototype.hasOwnProperty.call(snap.donnees, champ)) {
         set[champ] = snap.donnees[champ];
       }
@@ -163,6 +183,7 @@ router.post("/restaurer", async (req, res) => {
     res.json({
       ok: true,
       clientId,
+      champsRestaures: champsDemandes,
       restaureDepuis: { backupAt: snap.backupAt, snapshotDate: snap.snapshotDate },
       apercuApres: apercuDonnees(apres),
       securite: liveDoc ? "État précédent sauvegardé (motif « avant-restauration »)." : "Aucun document live à sauvegarder (recréé)."

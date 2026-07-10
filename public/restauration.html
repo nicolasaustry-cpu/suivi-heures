@@ -64,9 +64,17 @@ function afficheMsg(txt, type){ const m=$("msg"); m.textContent=txt; m.className
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function fmtDate(d){ if(!d) return "—"; try{ return new Date(d).toLocaleString("fr-FR"); }catch(_){ return String(d);} }
 
-function blocApercu(titre, tag, a, extra){
+function blocApercu(titre, tag, a, extra, sigLive){
   const chips = (a.chantiers||[]).map(c=>`<span class="chip">${esc(c)}</span>`).join("");
   const sals  = (a.salaries||[]).join(", ");
+  let badgePrev = "";
+  if (sigLive != null) {
+    badgePrev = (a.previsionnelSig === sigLive)
+      ? '<span class="chip" style="background:#eef1f4;color:#6b7280">identique à l\'actuel</span>'
+      : '<span class="chip" style="background:#e8f6ef;color:#166b46;font-weight:700">≠ différent de l\'actuel</span>';
+  }
+  const prevApercu = a.previsionnelApercu
+    ? `<div class="kv" style="color:#9ca3af;font-size:0.72rem;word-break:break-all">${esc(a.previsionnelApercu)}…</div>` : "";
   return `
     <h3>${esc(titre)} ${tag||""}</h3>
     <div class="kv"><b>Entreprise :</b> ${esc(a.entrepriseNom)||"(sans nom)"} &nbsp; <b>Code employé :</b> ${esc(a.codeEmploye)||"—"}</div>
@@ -74,6 +82,8 @@ function blocApercu(titre, tag, a, extra){
     ${sals ? `<div class="kv"><b>Salariés :</b> ${esc(sals)}</div>` : ""}
     <div class="kv"><b>Chantiers vus :</b></div>
     <div class="chips">${chips||'<span class="chip">aucun</span>'}</div>
+    <div class="kv" style="margin-top:6px"><b>Prévisionnel :</b> ${a.previsionnelCles} rubrique(s) &nbsp; ${badgePrev}</div>
+    ${prevApercu}
     ${extra||""}`;
 }
 
@@ -88,6 +98,7 @@ async function chargerListe(){
     const d=await r.json();
     if(!d.ok){ afficheMsg(d.message||"Erreur.","err"); $("resultats").innerHTML=""; return; }
     afficheMsg(`${d.nbSauvegardes} sauvegarde(s) trouvée(s) pour ${esc(d.clientId)}.`,"ok");
+    const sigLive = d.live ? d.live.previsionnelSig : null;
     let html="";
     if(d.live){
       html += `<div class="snap live">${blocApercu("État ACTUEL (ce qui est en ligne aujourd'hui)", '<span class="tag">live</span>', d.live)}
@@ -98,23 +109,32 @@ async function chargerListe(){
     }
     d.sauvegardes.forEach(s=>{
       const tag = s.motif==="avant-restauration" ? '<span class="tag">sécurité</span>' : `<span class="tag">${esc(s.snapshotDate)}</span>`;
-      const bouton = `<div style="margin-top:12px"><button class="btn-r" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}">Restaurer cette sauvegarde</button></div>`;
-      html += `<div class="snap">${blocApercu("Sauvegarde du "+fmtDate(s.backupAt), tag, s.apercu, bouton)}</div>`;
+      const boutons = `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-r" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}">Restaurer tout</button>
+        <button class="btn-prev" data-at="${esc(s.backupAt)}" data-date="${esc(s.snapshotDate)}" style="background:#0f3a8a;color:#fff;border:0;border-radius:8px;padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer">♻ Restaurer uniquement le prévisionnel</button>
+      </div>`;
+      html += `<div class="snap">${blocApercu("Sauvegarde du "+fmtDate(s.backupAt), tag, s.apercu, boutons, sigLive)}</div>`;
     });
     $("resultats").innerHTML=html;
-    document.querySelectorAll("button[data-at]").forEach(b=>b.addEventListener("click",()=>restaurer(b.dataset.at,b.dataset.date)));
+    document.querySelectorAll(".btn-r").forEach(b=>b.addEventListener("click",()=>restaurer(b.dataset.at,b.dataset.date)));
+    document.querySelectorAll(".btn-prev").forEach(b=>b.addEventListener("click",()=>restaurer(b.dataset.at,b.dataset.date,['previsionnel'])));
   }catch(e){ afficheMsg("Erreur réseau : "+e.message,"err"); $("resultats").innerHTML=""; }
 }
 
-async function restaurer(backupAt,snapshotDate){
+async function restaurer(backupAt,snapshotDate,champs){
   const motDePasse=$("mdp").value, clientId=$("cid").value.trim();
-  if(!confirm(`Restaurer ${clientId} à la sauvegarde du ${snapshotDate} ?\n\nL'état actuel sera d'abord sauvegardé (sécurité), puis remplacé par cette sauvegarde.`)) return;
+  const prevSeul = champs && champs.length===1 && champs[0]==='previsionnel';
+  const quoi = prevSeul ? "le PRÉVISIONNEL uniquement" : "TOUTES les données";
+  if(!confirm(`Restaurer ${quoi} de ${clientId} depuis la sauvegarde du ${snapshotDate} ?\n\nL'état actuel sera d'abord sauvegardé (sécurité)${prevSeul?", et les heures/salariés ne seront PAS touchés":""}.`)) return;
   afficheMsg("Restauration en cours…","");
   try{
-    const r=await fetch("/api/restauration/restaurer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({motDePasse,clientId,backupAt})});
+    const body={motDePasse,clientId,backupAt};
+    if(champs) body.champs=champs;
+    const r=await fetch("/api/restauration/restaurer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const d=await r.json();
     if(!d.ok){ afficheMsg(d.message||"Erreur.","err"); return; }
-    afficheMsg(`✅ Restauration réussie pour ${esc(d.clientId)} (sauvegarde du ${esc(d.restaureDepuis.snapshotDate)}). ${esc(d.securite)}`,"ok");
+    const champsTxt=(d.champsRestaures||[]).join(", ");
+    afficheMsg(`✅ Restauration réussie pour ${esc(d.clientId)} (sauvegarde du ${esc(d.restaureDepuis.snapshotDate)}). Champs restaurés : ${esc(champsTxt)}. ${esc(d.securite)}`,"ok");
     chargerListe();
   }catch(e){ afficheMsg("Erreur réseau : "+e.message,"err"); }
 }
