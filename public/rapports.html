@@ -174,6 +174,37 @@
     color: #fff !important;
     z-index: 2;
   }
+  /* Bande d'alerte : chantiers en dépassement sur la période */
+  .alerte-depassement {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 5px solid #dc2626;
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    margin: 0 0 0.9rem 0;
+  }
+  .alerte-depassement .ad-head {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.92rem; color: #991b1b;
+  }
+  .alerte-depassement .ad-ico { font-size: 1.05rem; }
+  .alerte-depassement .ad-sous { color: #b91c1c; font-size: 0.82rem; font-weight: 600; }
+  .alerte-depassement .ad-x {
+    margin-left: auto; background: transparent; border: none; color: #b91c1c;
+    cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 2px 4px;
+  }
+  .alerte-depassement .ad-liste { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.55rem; }
+  .alerte-depassement .ad-ch {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    background: #fff; border: 1px solid #fecaca; border-radius: 20px;
+    padding: 4px 11px; font-size: 0.82rem; color: #7f1d1d; cursor: pointer;
+  }
+  .alerte-depassement .ad-ch:hover { background: #fee2e2; border-color: #f87171; }
+  .alerte-depassement .ad-ch b { font-weight: 700; }
+  .alerte-depassement .ad-ch .ad-pct { color: #dc2626; font-weight: 800; }
+  .alerte-depassement .ad-ch .ad-h { color: #9ca3af; font-size: 0.75rem; }
+  @media print { .alerte-depassement .ad-x { display: none; } }
+
   .synth-prevu-encart {
     flex: 0 0 200px;
     background: #eff6ff;
@@ -291,6 +322,17 @@
 
 <!-- Contenu défilant -->
 <div id="contenu-detail">
+
+  <!-- ALERTE : chantiers en dépassement sur la période -->
+  <div id="alerte-depassement" class="alerte-depassement" style="display:none;">
+    <div class="ad-head">
+      <span class="ad-ico">⚠</span>
+      <b id="ad-titre">Chantiers en dépassement</b>
+      <span class="ad-sous" id="ad-sous"></span>
+      <button type="button" class="ad-x" title="Masquer" onclick="document.getElementById('alerte-depassement').style.display='none';">✕</button>
+    </div>
+    <div class="ad-liste" id="ad-liste"></div>
+  </div>
 
   <!-- LIGNE 1 : Synthèses côte à côte -->
   <div class="grille-rapport">
@@ -668,8 +710,87 @@ function appliquerEtAfficher() {
   afficherDetail('real', realVisible);
   if (_vueChantier) rafraichirRegroupe();
   majEncartPrevus();
+  majAlerteDepassement();
   majBoutons();
   setTimeout(ajusterHauteur, 50);
+}
+
+/* Alerte : liste les chantiers de la période dont le RÉALISÉ dépasse les heures
+   prévues au devis (Prévisionnel). Permet de repérer les chantiers à problème
+   sans avoir à les sélectionner un par un. Un clic sur un chantier le filtre. */
+function majAlerteDepassement() {
+  const box = document.getElementById('alerte-depassement');
+  if (!box) return;
+
+  // 1) Heures réalisées cumulées par chantier, sur la période en cours.
+  //    On ignore volontairement le filtre CHANTIER (sinon l'alerte ne verrait qu'un chantier),
+  //    mais on conserve la période, le filtre salarié et l'exclusion.
+  const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
+  const lignesPeriode = lignesReal.filter(l => {
+    if (filtresActifs.salarie && filtresActifs.salarie.size && !filtresActifs.salarie.has(l.salarie)) return false;
+    if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
+    return true;
+  });
+  const realParCh = {};
+  lignesPeriode.forEach(l => {
+    const nom = (l.chantier || '').trim();
+    if (!nom) return;
+    realParCh[nom] = (realParCh[nom] || 0) + (parseFloat(l.heures) || 0);
+  });
+
+  // 2) Heures prévues au devis, par chantier (tous mois confondus)
+  const prevuParCh = {};
+  try {
+    const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+    for (const annee in data) {
+      const mois12 = data[annee];
+      if (!mois12) continue;
+      for (const m in mois12) {
+        const liste = mois12[m]?.chantiers;
+        if (!Array.isArray(liste)) continue;
+        liste.forEach(c => {
+          const nom = (c && c.client || '').trim();
+          if (!nom) return;
+          prevuParCh[nom] = (prevuParCh[nom] || 0) + (parseFloat(c.hPrevues) || 0);
+        });
+      }
+    }
+  } catch (_) {}
+
+  // 3) Chantiers en dépassement (réalisé > prévu, et un devis existe)
+  const depasses = [];
+  Object.keys(realParCh).forEach(nom => {
+    const prevu = prevuParCh[nom] || 0;
+    const real  = realParCh[nom];
+    if (prevu > 0 && real > prevu) {
+      depasses.push({ nom, real, prevu, pct: Math.round((real / prevu) * 100) });
+    }
+  });
+  depasses.sort((a, b) => b.pct - a.pct);   // les pires en premier
+
+  if (!depasses.length) { box.style.display = 'none'; return; }
+
+  const fmt = h => {
+    const e = Math.floor(h), mn = Math.round((h - e) * 60);
+    return mn > 0 ? `${e} h ${String(mn).padStart(2, '0')}` : `${e} h`;
+  };
+  document.getElementById('ad-titre').textContent =
+    depasses.length === 1 ? '1 chantier en dépassement' : depasses.length + ' chantiers en dépassement';
+  document.getElementById('ad-sous').textContent = '(réalisé supérieur aux heures prévues au devis)';
+  document.getElementById('ad-liste').innerHTML = depasses.map(d =>
+    `<span class="ad-ch" title="Cliquer pour filtrer sur ce chantier" onclick="filtrerSurChantier('${(d.nom || '').replace(/'/g, "\\'")}')">` +
+    `<b>${d.nom}</b><span class="ad-pct">${d.pct} %</span>` +
+    `<span class="ad-h">${fmt(d.real)} / ${fmt(d.prevu)}</span></span>`
+  ).join('');
+  box.style.display = 'block';
+}
+
+/* Clic sur un chantier de l'alerte → applique le filtre chantier correspondant */
+function filtrerSurChantier(nom) {
+  filtresActifs.chantier = new Set([nom]);
+  appliquerEtAfficher();
+  const el = document.getElementById('synth-prevu-encart-plan') || document.getElementById('synth-prevu-encart');
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /* Encart "Heures prévues" à droite de la Synthèse réalisée.
