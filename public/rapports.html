@@ -210,7 +210,6 @@
     .synth-realise-flex { flex-direction: column; }
     .synth-prevu-encart { flex: 0 0 auto; }
   }
-  .sav-tag { display:inline-block; font-size:0.66rem; font-weight:700; color:#b91c1c; background:#fef2f2; border:1px solid #fca5a5; border-radius:5px; padding:0 5px; margin-left:4px; vertical-align:middle; }
   </style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -263,7 +262,7 @@
     </div>
     <div class="filtre-item">
       <label>Exclure (mot-clé)</label>
-      <input type="text" id="exclureChantier" placeholder="ex : congé, absence, hnv…" oninput="appliquerEtAfficher()"
+      <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
         style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
     </div>
     <div class="filtre-item" style="margin-left:auto;">
@@ -303,16 +302,26 @@
         <span class="badge-nb prevu" id="badge-synth-prev">0 h</span>
       </div>
       <div class="synth-titre prevu" id="synth-titre-prev">Tous les chantiers</div>
-      <table class="synth-table prevu">
-        <colgroup>
-          <col class="col-sal-synth">
-          <col class="col-h-synth">
-        </colgroup>
-        <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
-        <tbody id="tbody-synth-prev"></tbody>
-        <tfoot><tr><td>Total</td><td id="total-synth-prev">0 h</td></tr></tfoot>
-      </table>
-      <p class="msg-vide" id="vide-synth-prev" style="display:none;">Aucune donnée</p>
+      <div class="synth-realise-flex">
+        <div class="synth-realise-tableau">
+          <table class="synth-table prevu">
+            <colgroup>
+              <col class="col-sal-synth">
+              <col class="col-h-synth">
+            </colgroup>
+            <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
+            <tbody id="tbody-synth-prev"></tbody>
+            <tfoot><tr><td>Total</td><td id="total-synth-prev">0 h</td></tr></tfoot>
+          </table>
+          <p class="msg-vide" id="vide-synth-prev" style="display:none;">Aucune donnée</p>
+        </div>
+        <!-- Encart "Heures prévues" : visible seulement si un filtre chantier est appliqué -->
+        <div class="synth-prevu-encart" id="synth-prevu-encart-plan" style="display:none;">
+          <div class="encart-titre">Heures prévues dans le devis</div>
+          <div class="encart-valeur" id="encart-prevu-total-plan">0 h</div>
+          <div class="encart-sous" id="encart-prevu-sous-plan"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Synthèse RÉALISÉE -->
@@ -591,7 +600,7 @@ function extrairePrev() {
     if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
-    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, sav: !!data.sav });
+    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h });
   }
   return lignes;
 }
@@ -604,15 +613,6 @@ async function extraireReal() {
   try {
     const token = localStorage.getItem('syncToken');
     if (!token) return [];
-    // Index des chantiers SAV du planning : « salarieId|YYYY-MM-DD|NOM »
-    const _h = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-    const savSet = new Set();
-    Object.keys(_h).forEach(k => {
-      const e = _h[k]; if (!e || !e.sav) return;
-      const mm = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/); if (!mm) return;
-      savSet.add(mm[1] + '|' + mm[2] + '-' + mm[3] + '-' + mm[4] + '|' + String(e.chantier || '').trim().toUpperCase());
-    });
-    const estSav = (sid, date, nom) => savSet.has(String(sid) + '|' + date + '|' + String(nom || '').trim().toUpperCase());
     const lignes = [];
     // Boucle sur chaque mois sélectionné, l'API ne renvoie qu'un mois à la fois
     for (const mois of _moisSelection) {
@@ -632,8 +632,7 @@ async function extraireReal() {
             salarieId: String(s.salarieId),
             chantier:  c.nom,
             heures:    parseFloat((((c.dureeMin || 0) + (c.deplacement || 0)) / 60).toFixed(2)),
-            deplMin:   c.deplacement || 0,
-            sav:       estSav(s.salarieId, s.date, c.nom)
+            deplMin:   c.deplacement || 0
           });
         });
       });
@@ -678,11 +677,14 @@ function appliquerEtAfficher() {
    Affiche la somme des heures prévues (page Prévisionnel) pour les chantiers cochés,
    tous mois confondus. */
 function majEncartPrevus() {
-  const encart = document.getElementById('synth-prevu-encart');
-  if (!encart) return;
+  const encarts = [
+    { box: document.getElementById('synth-prevu-encart'),      tot: 'encart-prevu-total',      sous: 'encart-prevu-sous'      },
+    { box: document.getElementById('synth-prevu-encart-plan'), tot: 'encart-prevu-total-plan', sous: 'encart-prevu-sous-plan' }
+  ].filter(e => e.box);
+  if (!encarts.length) return;
   const f = filtresActifs.chantier;
   if (!f || f.size === 0) {
-    encart.style.display = 'none';
+    encarts.forEach(e => { e.box.style.display = 'none'; });
     return;
   }
   // Structure réelle (cf. chantiers.html) :
@@ -706,10 +708,8 @@ function majEncartPrevus() {
   } catch (_) {}
   const heures = Math.floor(totalH);
   const mins   = Math.round((totalH - heures) * 60);
-  document.getElementById('encart-prevu-total').textContent =
-    mins > 0 ? `${heures} h ${String(mins).padStart(2,'0')}` : `${heures} h`;
-  document.getElementById('encart-prevu-sous').textContent =
-    f.size === 1 ? '1 chantier' : f.size + ' chantiers';
+  const txtTotal = mins > 0 ? `${heures} h ${String(mins).padStart(2,'0')}` : `${heures} h`;
+  const txtSous  = f.size === 1 ? '1 chantier' : f.size + ' chantiers';
 
   // Couleur du pavé selon le ratio réalisé / prévu
   //   < 90 %  → vert (fond vert clair, texte vert foncé)
@@ -723,13 +723,17 @@ function majEncartPrevus() {
     else if (ratio <= 100) { bg = '#ffedd5'; fg = '#c2410c'; }
     else                   { bg = '#fee2e2'; fg = '#dc2626'; }
   }
-  encart.style.background = bg;
-  const tit = encart.querySelector('.encart-titre');
-  if (tit) tit.style.color = fg;
-  document.getElementById('encart-prevu-total').style.color = fg;
-  document.getElementById('encart-prevu-sous').style.color  = fg;
 
-  encart.style.display = 'flex';
+  encarts.forEach(e => {
+    const elTot  = document.getElementById(e.tot);
+    const elSous = document.getElementById(e.sous);
+    if (elTot)  { elTot.textContent  = txtTotal; elTot.style.color  = fg; }
+    if (elSous) { elSous.textContent = txtSous;  elSous.style.color = fg; }
+    e.box.style.background = bg;
+    const tit = e.box.querySelector('.encart-titre');
+    if (tit) tit.style.color = fg;
+    e.box.style.display = 'flex';
+  });
 }
 
 function filtrer(lignes) {
@@ -737,7 +741,7 @@ function filtrer(lignes) {
   return lignes.filter(l => {
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
     if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
-    if (exclu && (String(l.chantier || '').toLowerCase() + (l.sav ? ' hnv' : '')).includes(exclu)) return false;
+    if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
     return true;
   });
 }
@@ -820,7 +824,7 @@ function afficherDetail(type, lignes) {
     return `<tr>
       <td>${l.dateStr}</td>
       <td>${l.salarie}</td>
-      <td>${l.chantier}${l.sav ? ' <span class="sav-tag">HNV</span>' : ''}</td>
+      <td>${l.chantier}</td>
       <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
     </tr>`;
   }).join('');
