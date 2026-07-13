@@ -280,9 +280,9 @@
   .grille .btn-note-ch.has-note::after { display:none; }
 
   /* TNA */
-  .grille .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
-  .grille .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
-  .grille .chip.tna .tag { font-size:0.66rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+  .grille .chip.tna { background:#fee2e2; border:1px dashed #f87171; border-left:6px solid #dc2626; }
+  .grille .chip.tna input.nm { color:#b91c1c; background:#fff; border-color:#fecaca; }
+  .grille .chip.tna .tag { font-size:0.66rem; font-weight:800; color:#b91c1c; white-space:nowrap; }
 
   /* Absence */
   .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:9px; text-align:center; font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:7px; }
@@ -369,9 +369,9 @@
   .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
   .tgrid .btn-note-ch.has-note { background:#fef3c7; color:#b45309; }
   .tgrid .btn-note-ch.has-note::after { content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:#f59e0b; border:1px solid #fff; }
-  .tgrid .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
-  .tgrid .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
-  .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+  .tgrid .chip.tna { background:#fee2e2; border:1px dashed #f87171; border-left:6px solid #dc2626; }
+  .tgrid .chip.tna input.nm { color:#b91c1c; background:#fff; border-color:#fecaca; }
+  .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#b91c1c; white-space:nowrap; }
 
   .tgrid .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:8px; text-align:center; font-weight:800; font-size:0.76rem; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
   .tgrid .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px; font-weight:700; font-size:0.7rem; }
@@ -1672,7 +1672,6 @@ function ouvrirNoteChantier(k) {
   if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
   const btnSup = document.getElementById('note-modal-suppr');
   if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = noteDuChantier(nom) ? '' : 'none'; }
-  if (window.DocsChantier) { const _dc = document.getElementById('note-modal-docs'); if (_dc) { if (nom) DocsChantier.monter(nom, _dc); else DocsChantier.vider(_dc); } }
   document.getElementById('note-modal-overlay').style.display = 'flex';
   setTimeout(() => txt.focus(), 30);
 }
@@ -2328,7 +2327,6 @@ document.addEventListener('DOMContentLoaded', () => {
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n, function(){ if(typeof genererPlanning==='function') genererPlanning(); }); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) RenommerChantier.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">✏️ Renommer le chantier (partout)</button>
-    <div id="note-modal-docs" style="margin-bottom:12px;"></div>
     <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
     </label>
@@ -2868,6 +2866,5 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/renommer-chantier.js"></script>
-<script src="assets/documents-chantier.js"></script>
 </body>
 </html>
