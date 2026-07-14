@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.07.09-sync7';
+  const VERSION = 'v2026.07.12-sync8';
 
   const API = '';
   let _token    = null;
@@ -935,16 +935,20 @@ function afficherBanniereConsultation(clientNom) {
   banniere.id = 'banniere-admin-consult';
   banniere.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:6px;font-weight:700;font-size:0.85rem;box-shadow:0 2px 6px rgba(0,0,0,0.25);';
   banniere.innerHTML = `👁 Mode consultation admin (lecture seule) – Client : <strong>${clientNom}</strong> &nbsp;|&nbsp; ` +
-    `<a href="#" onclick="SYNC_quitterConsultation(event)" style="color:#000;text-decoration:underline;">Quitter la consultation</a> &nbsp;|&nbsp; ` +
-    `<a href="/admin.html" style="color:#000;text-decoration:underline;">Retour admin</a>`;
+    `<a href="#" onclick="SYNC_quitterConsultation(event)" style="color:#000;text-decoration:underline;">Fermer la consultation</a>`;
   document.body.prepend(banniere);
 }
 
-// Quitter proprement la consultation : efface le mode pour cet onglet et revient à l'admin.
+// Quitter la consultation : purge les données du client consulté et FERME l'onglet.
+// L'onglet de consultation est ouvert par l'admin (fenêtre nommée) : le refermer évite
+// d'empiler des onglets qui afficheraient des données périmées d'un autre client.
 function SYNC_quitterConsultation(ev) {
   if (ev) ev.preventDefault();
   sessionStorage.removeItem('adminConsult');
   sessionStorage.removeItem('adminConsultNom');
   localStorage.clear();
-  location.href = '/admin.html';
+  window.close();
+  // Repli : si le navigateur refuse de fermer l'onglet (ouvert manuellement),
+  // on revient à l'admin dans CE même onglet plutôt que d'en créer un nouveau.
+  setTimeout(() => { location.replace('/admin.html'); }, 150);
 }

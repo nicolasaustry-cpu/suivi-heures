@@ -1216,8 +1216,12 @@ async function consulterClient(code) {
     sessionStorage.setItem('clientId',       d.clientId);
     sessionStorage.setItem('clientNom',      d.nomClient || code);
     sessionStorage.setItem('clientType',     d.type || 'standard');
-    // Ouvrir l'outil dans un nouvel onglet
-    window.open('/index.html?admin=1&client=' + encodeURIComponent(code), '_blank');
+    // Ouvrir l'outil dans l'onglet UNIQUE de consultation.
+    // Le nom de fenêtre 'consultation-client' fait que toute nouvelle consultation
+    // RÉUTILISE le même onglet au lieu d'en empiler un nouveau : on n'a jamais deux
+    // clients affichés côte à côte (source d'erreur d'analyse et de mélange).
+    const onglet = window.open('/index.html?admin=1&client=' + encodeURIComponent(code), 'consultation-client');
+    if (onglet) { try { onglet.focus(); } catch (_) {} }
   } catch (e) {
     msg('Erreur : ' + e.message, '#dc2626');
   }
