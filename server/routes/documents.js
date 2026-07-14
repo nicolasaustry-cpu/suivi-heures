@@ -35,8 +35,15 @@ async function resoudreContexte(req, { ecriture = false } = {}) {
   if (codeEmp) {
     const Donnees = (await import("../models/donnees.js")).default;
     const docs = await Donnees.find({});
-    const doc  = docs.find(d => U(d.entreprise?.codeEmploye) === codeEmp);
-    if (!doc) return { err: [403, "Code employé invalide"] };
+    const correspondants = docs.filter(d => U(d.entreprise?.codeEmploye) === codeEmp);
+    if (correspondants.length === 0) return { err: [403, "Code employé invalide"] };
+    if (correspondants.length > 1) {
+      // Anti-mélange : code employé partagé par plusieurs entreprises → on refuse
+      // de deviner plutôt que de risquer d'écrire dans le mauvais compte.
+      console.error(`[ANTI-MÉLANGE] Code employé « ${codeEmp} » partagé par plusieurs entreprises. Accès refusé.`);
+      return { err: [409, "Ce code employé est utilisé par plusieurs entreprises. Contactez votre administrateur."] };
+    }
+    const doc = correspondants[0];
     const sal = (doc.salaries || []).find(s => String(s.id) === String(req.body.salarieId));
     if (!sal) return { err: [401, "Salarié inconnu"] };
     if (ecriture && !sal.administratif && !sal.gerant)

@@ -5,6 +5,22 @@ import { envoyerNotif } from "../services/pushSender.js";
 
 const router = express.Router();
 
+/* Anti-mélange : résolution STRICTE de l'entreprise par code employé.
+   Si le code correspond à plusieurs entreprises, on refuse au lieu de deviner. */
+const _U = s => String(s == null ? "" : s).trim().toUpperCase();
+async function resoudreEntrepriseParCode(Donnees, codeEmploye) {
+  const code = _U(codeEmploye);
+  if (!code) return { err: [400, "Code employé manquant"] };
+  const docs = await Donnees.find({});
+  const correspondants = docs.filter(d => _U(d.entreprise?.codeEmploye) === code);
+  if (correspondants.length === 0) return { err: [403, "Code employé invalide"] };
+  if (correspondants.length > 1) {
+    console.error(`[ANTI-MÉLANGE] Code employé « ${code} » partagé par plusieurs entreprises. Accès refusé.`);
+    return { err: [409, "Ce code employé est utilisé par plusieurs entreprises. Contactez votre administrateur."] };
+  }
+  return { doc: correspondants[0] };
+}
+
 /* ───────────────────────────────────────────────────────────────
    Notifications push (Web Push / VAPID) — abonnement.
 
@@ -38,8 +54,9 @@ router.post("/subscribe", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Abonnement incomplet" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
@@ -92,8 +109,9 @@ router.post("/test", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
@@ -130,8 +148,9 @@ router.post("/delai", async (req, res) => {
     if (codeEmp) {
       // ── Contexte MOBILE : code employé ──
       const Donnees = (await import("../models/donnees.js")).default;
-      const docs = await Donnees.find({});
-      const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+      const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+      if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+      const doc = _r.doc;
       if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
       clientId = doc.clientId;
       if (aDelai) {

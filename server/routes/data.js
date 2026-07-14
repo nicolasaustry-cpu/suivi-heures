@@ -285,6 +285,25 @@ router.post("/", verifyToken, async (req, res) => {
     }
     const { entreprise, salaries, heures, chantiers, previsionnel } = req.body;
 
+    // ── ANTI-MÉLANGE (prévention à la source) ──
+    // Le code employé identifie l'entreprise pour TOUTES les routes mobiles.
+    // S'il est déjà utilisé par un AUTRE client, les salariés de l'un écriraient
+    // dans le compte de l'autre. On refuse donc l'enregistrement du doublon.
+    const codeEmpDemande = String(entreprise?.codeEmploye || "").trim().toUpperCase();
+    if (codeEmpDemande) {
+      const tousDocs = await Donnees.find({});
+      const conflit = tousDocs.find(d =>
+        String(d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmpDemande &&
+        String(d.clientId || "").toUpperCase() !== clientId
+      );
+      if (conflit) {
+        return res.status(409).json({
+          ok: false,
+          message: `Le code accès mobile « ${codeEmpDemande} » est déjà utilisé par une autre entreprise. Choisissez-en un autre (risque de mélange des comptes).`
+        });
+      }
+    }
+
     // Retrouver un document existant quelle que soit la casse de son clientId,
     // pour le mettre à jour EN PLACE et normaliser sa casse en majuscules.
     const tous = await Donnees.find({});

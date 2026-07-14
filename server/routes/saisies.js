@@ -6,6 +6,38 @@ import Licence from "../models/licence.js";
 
 const router = express.Router();
 
+/* ═══════════════════════════════════════════════════════════════
+   RÉSOLUTION STRICTE DE L'ENTREPRISE PAR CODE EMPLOYÉ
+   ═══════════════════════════════════════════════════════════════
+   FAILLE CORRIGÉE : les routes mobiles identifiaient l'entreprise en prenant
+   « la PREMIÈRE trouvée » ayant ce code employé (docs.find). Or aucune contrainte
+   n'impose l'unicité du code employé entre entreprises. Si deux clients partagent
+   le même code, TOUS les salariés du second écrivaient dans le compte du premier
+   → mélange de comptes silencieux.
+
+   Désormais : si le code correspond à PLUSIEURS entreprises, on REFUSE (409)
+   au lieu de deviner. Aucune écriture ne peut plus partir dans le mauvais compte.
+   Renvoie { doc } ou { err: [code, message] }.
+   ═══════════════════════════════════════════════════════════════ */
+const _U = s => String(s == null ? "" : s).trim().toUpperCase();
+
+async function resoudreEntrepriseParCode(Donnees, codeEmploye) {
+  const code = _U(codeEmploye);
+  if (!code) return { err: [400, "Code employé manquant"] };
+
+  const docs = await Donnees.find({});
+  const correspondants = docs.filter(d => _U(d.entreprise?.codeEmploye) === code);
+
+  if (correspondants.length === 0) return { err: [403, "Code employé invalide"] };
+  if (correspondants.length > 1) {
+    // Ambiguïté : NE JAMAIS deviner. On bloque et on trace pour correction.
+    const liste = correspondants.map(d => _U(d.clientId)).join(", ");
+    console.error(`[ANTI-MÉLANGE] Code employé « ${code} » partagé par plusieurs entreprises : ${liste}. Accès refusé.`);
+    return { err: [409, "Ce code employé est utilisé par plusieurs entreprises. Contactez votre administrateur (code à modifier)."] };
+  }
+  return { doc: correspondants[0] };
+}
+
 /* Ordre d'affichage mobile des chantiers (fixé par le gérant). { "<salId>_<date>": [noms] } */
 async function getOrdresMobile(clientId) {
   try {
@@ -21,13 +53,9 @@ router.post("/connect", async (req, res) => {
     if (!codeEmploye) return res.status(400).json({ ok: false, message: "Code employé manquant" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    // Chercher dans tous les documents (Object générique, pas de requête directe sur sous-champ)
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => {
-      const ce = (d.entreprise?.codeEmploye || "").trim().toUpperCase();
-      return ce === codeEmploye;
-    });
-    if (!doc) return res.status(404).json({ ok: false, message: "Code employé invalide" });
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmploye);
+    if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+    const doc = _r.doc;
 
     // ⚠️ Ne JAMAIS renvoyer les PIN au client. On les strippe avant envoi.
     const salariesSansPin = (doc.salaries || []).map(s => {
@@ -68,8 +96,9 @@ router.post("/auth-pin", async (req, res) => {
       return res.status(400).json({ ok: false, message: "PIN invalide" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
@@ -105,8 +134,9 @@ router.post("/note-chantier", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Note trop longue" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
@@ -140,8 +170,9 @@ router.post("/coordonnees-chantier", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
     if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
@@ -193,8 +224,9 @@ router.post("/rdv", async (req, res) => {
     let doc = null;
     let auteur = null;   // "gerant" | "admin"
     if (codeEmp) {
-      doc = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
-      if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+      const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+      if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+      doc = _r.doc;
       // Demandeur = gerantId si fourni (Vue équipe), sinon le salarié lui-même (compat mobile)
       const demandeurId = (gerantId != null && gerantId !== "") ? gerantId : salarieId;
       const dem = (doc.salaries || []).find(s => String(s.id) === String(demandeurId));
@@ -318,12 +350,9 @@ router.post("/envoyer", async (req, res) => {
     if (chantier) chantier.photos = assainirPhotos(chantier.photos);
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => {
-      const ce = (d.entreprise?.codeEmploye || "").trim().toUpperCase();
-      return ce === codeEmp;
-    });
-    if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+    const doc = _r.doc;
 
     // Chercher la saisie du jour ou la créer
     let saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
@@ -379,8 +408,9 @@ router.post("/supprimer-chantier", async (req, res) => {
     if (!nom || !date) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
@@ -419,8 +449,9 @@ router.post("/mobile-day", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     const saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
@@ -443,8 +474,9 @@ router.post("/equipe-mois", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Paramètres manquants ou invalides" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
 
     // Le salarié doit exister ET être gérant ou administratif
@@ -480,8 +512,9 @@ router.post("/mobile-mois", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Paramètres manquants ou invalides" });
 
     const Donnees = (await import("../models/donnees.js")).default;
-    const docs = await Donnees.find({});
-    const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+    const doc = _r.doc;
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
     if (!sal) return res.status(403).json({ ok: false, message: "Salarié inconnu" });
@@ -512,8 +545,9 @@ router.post("/ordre-mobile", async (req, res) => {
       // Contexte mobile : gérant authentifié par code employé
       const gerantId = req.body.gerantId;
       const Donnees = (await import("../models/donnees.js")).default;
-      const docs = await Donnees.find({});
-      const doc  = docs.find(d => (d.entreprise?.codeEmploye || "").trim().toUpperCase() === codeEmp);
+      const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+      if (_r.err) return res.status(_r.err[0]).json({ message: _r.err[1] });
+      const doc = _r.doc;
       if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
       const gerant = (doc.salaries || []).find(s => String(s.id) === String(gerantId));
       if (!gerant || (!gerant.gerant && !gerant.administratif))
