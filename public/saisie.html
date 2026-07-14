@@ -990,9 +990,11 @@
 
   <div class="pin-error" id="pin-error"></div>
 
-  <!-- Lien discret pour basculer vers une autre entreprise (changer de code employé) -->
-  <div style="margin-top:1.5rem;text-align:center;">
-    <a href="#" onclick="changerEntreprise(event)" style="color:rgba(255,255,255,0.55);font-size:0.75rem;text-decoration:underline;">Changer d'entreprise</a>
+  <!-- Bascule d'entreprise : RÉSERVÉE à l'administrateur général des comptes.
+       Masquée pour tous (salariés ET gérants). Ne s'affiche qu'avec l'URL secrète
+       saisie.html?admin-comptes=1 (voir activation plus bas). -->
+  <div id="bloc-changer-entreprise" style="margin-top:1.5rem;text-align:center;display:none;">
+    <a href="#" onclick="changerEntreprise(event)" style="color:rgba(255,255,255,0.55);font-size:0.75rem;text-decoration:underline;">Changer d'entreprise (admin)</a>
   </div>
 
   <!-- Logo du partenaire (marque blanche) -->
@@ -2751,19 +2753,79 @@ window.addEventListener('appinstalled', () => {
   localStorage.removeItem('installDismiss');
 });
 
-/* Changer d'entreprise : efface le code employé mémorisé et toutes les données
-   locales liées, puis recharge la page pour repartir sur le formulaire initial.
-   Utile pour basculer entre plusieurs comptes clients (administrateur Volitis). */
+/* ─────────────────────────────────────────────────────────────
+   BASCULE D'ENTREPRISE — RÉSERVÉE À L'ADMINISTRATEUR GÉNÉRAL
+   ─────────────────────────────────────────────────────────────
+   Le lien est masqué par défaut (salariés ET gérants). Il ne s'affiche que si
+   la page est ouverte avec l'URL secrète :  saisie.html?admin-comptes=1
+   L'activation est mémorisée sur CE téléphone (clé 'adminComptes'), pour ne pas
+   avoir à retaper l'URL à chaque fois. Pour la retirer : saisie.html?admin-comptes=0
+
+   ⚠ CORRECTIF MÉLANGE DE COMPTES :
+   L'ancienne version n'effaçait qu'une PARTIE des données locales. Les clés
+   restantes (entreprisedata, chantiersdata, coordonneesChantiersdata…) sont
+   surveillées par sync.js : après bascule, elles repartaient au serveur SOUS
+   L'IDENTITÉ DU NOUVEAU CLIENT → contamination. On purge donc TOUT.
+   ───────────────────────────────────────────────────────────── */
+
+// Toutes les clés de données/identité à purger lors d'une bascule d'entreprise.
+const CLES_A_PURGER = [
+  // Données synchronisées par sync.js (les 6 clés de CLES)
+  'entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata',
+  'previsionnel_data', 'coordonneesChantiersdata',
+  // Autres données locales liées au client
+  'notesChantiersdata', 'ordreMobiledata',
+  // Identité mobile
+  'saisie_codeEmploye', 'saisie_salarie', 'saisie_clientId',
+  // Identité licence éventuellement présente (évite tout envoi sous l'ancien jeton)
+  'syncToken', 'syncClientId', 'syncType', 'syncNomClient', 'licenceCode',
+  // Marque blanche du partenaire précédent
+  'syncMarquePartenaire', 'syncLogoPartenaire'
+];
+
+function estAdminComptes() {
+  try { return localStorage.getItem('adminComptes') === '1'; } catch (_) { return false; }
+}
+
+// Active/désactive le mode administrateur des comptes via l'URL secrète, puis
+// affiche (ou non) le lien de bascule.
+(function initAdminComptes() {
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.has('admin-comptes')) {
+      const on = p.get('admin-comptes') !== '0';
+      if (on) localStorage.setItem('adminComptes', '1');
+      else    localStorage.removeItem('adminComptes');
+    }
+  } catch (_) {}
+  const poser = () => {
+    const bloc = document.getElementById('bloc-changer-entreprise');
+    if (bloc) bloc.style.display = estAdminComptes() ? '' : 'none';
+  };
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', poser);
+  else poser();
+})();
+
 function changerEntreprise(ev) {
   if (ev) ev.preventDefault();
-  if (!confirm("Changer d'entreprise ?\n\nLe code employé actuel sera oublié sur ce téléphone, vous devrez en saisir un nouveau.")) return;
-  // Effacer tout ce qui est mémorisé côté mobile
-  localStorage.removeItem('saisie_codeEmploye');
-  localStorage.removeItem('saisie_salarie');
-  localStorage.removeItem('salariesdata');
-  localStorage.removeItem('heuresdata');
-  localStorage.removeItem('previsionnel_data');
-  location.reload();
+  if (!estAdminComptes()) return;   // sécurité : inaccessible hors mode admin
+  if (!confirm("Changer d'entreprise ?\n\nToutes les données du client actuel seront effacées de ce téléphone (elles restent sur le serveur). Vous devrez saisir un nouveau code employé.")) return;
+
+  // 1) Neutraliser l'identité AVANT tout : sans jeton ni clientId cohérents,
+  //    sync.js refuse d'enregistrer (contrôle identiteCoherente) — donc aucune
+  //    donnée de l'ancien client ne peut plus partir, même via une sauvegarde
+  //    différée déjà programmée.
+  ['syncToken', 'syncClientId', 'syncType', 'syncNomClient', 'licenceCode',
+   'saisie_codeEmploye', 'saisie_clientId', 'saisie_salarie'].forEach(k => {
+    try { localStorage.removeItem(k); } catch (_) {}
+  });
+
+  // 2) Purge COMPLÈTE des données locales du client précédent.
+  CLES_A_PURGER.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+
+  // 3) Repartir sur un écran propre (rechargement immédiat, sans laisser
+  //    à un enregistrement différé la moindre chance de s'exécuter).
+  location.replace('saisie.html');
 }
 
 function seDeconnecter() {
