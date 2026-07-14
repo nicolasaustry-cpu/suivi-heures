@@ -141,6 +141,51 @@
       <div class="stat-card" style="background:#eff6ff;"><div class="val" id="s-salaries" style="color:#1d4ed8;">—</div><div class="lbl">Salariés facturables</div></div>
     </div>
 
+    <!-- ═══ Pense-bête administrateur (procédures internes) ═══ -->
+    <details class="card bloc-admin" style="background:#fffbeb;border:1px solid #fcd34d;">
+      <summary style="cursor:pointer;font-weight:700;color:#92400e;font-size:1rem;list-style:revert;">
+        🔑 Pense-bête administrateur — procédures internes
+      </summary>
+
+      <div style="margin-top:14px;font-size:0.9rem;line-height:1.6;color:#374151;">
+
+        <h3 style="margin:0 0 6px;font-size:0.95rem;color:#92400e;">1. Changer d'entreprise sur mobile (réservé à l'admin)</h3>
+        <p style="margin:0 0 8px;">
+          Le lien « Changer d'entreprise » est <b>masqué pour tous</b> (salariés et gérants).
+          Il ne s'affiche que sur un téléphone « débloqué » par l'URL secrète ci-dessous.
+        </p>
+        <p style="margin:0 0 4px;"><b>Activer sur MON téléphone</b> (à faire une seule fois, dans le navigateur) :</p>
+        <code style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;margin-bottom:8px;word-break:break-all;font-size:0.85rem;">
+          <span class="url-base">https://…</span>/saisie.html?admin-comptes=1
+        </code>
+        <p style="margin:0 0 4px;"><b>Désactiver sur un téléphone</b> :</p>
+        <code style="display:block;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;margin-bottom:8px;word-break:break-all;font-size:0.85rem;">
+          <span class="url-base">https://…</span>/saisie.html?admin-comptes=0
+        </code>
+        <p style="margin:0 0 14px;color:#92400e;">
+          ⚠ <b>Ne jamais activer sur le téléphone d'un client</b> : l'activation reste mémorisée sur l'appareil.
+          Une fois activé, ouvrir l'appli normalement suffit — le lien reste visible sur ce téléphone.
+        </p>
+
+        <h3 style="margin:0 0 6px;font-size:0.95rem;color:#92400e;">2. Pourquoi cette précaution</h3>
+        <p style="margin:0 0 14px;">
+          La bascule d'entreprise efface toutes les données du client précédent sur le téléphone.
+          Mal utilisée (ou mal purgée, comme avant le correctif), elle pouvait renvoyer les données
+          d'un client <b>sous l'identité d'un autre</b> → mélange de comptes. D'où l'accès restreint.
+          Règle d'or : <b>ne jamais ouvrir deux clients à la fois dans le même navigateur</b>
+          (utiliser des profils Chrome distincts).
+        </p>
+
+        <h3 style="margin:0 0 6px;font-size:0.95rem;color:#92400e;">3. Réparer un compte contaminé</h3>
+        <p style="margin:0;">
+          Bouton <b>« ♻ Restauration client »</b> en haut de cette page. On y voit les sauvegardes de nuit
+          (30 j de rétention) et on peut restaurer <b>par type de donnée</b> (heures, salariés, chantiers,
+          prévisionnel, notes, coordonnées), chacune depuis sa propre date. Une sauvegarde de sécurité de
+          l'état actuel est toujours prise avant écriture.
+        </p>
+      </div>
+    </details>
+
     <!-- Nouvelle licence -->
     <div class="card bloc-admin">
       <h2>+ Nouvelle licence client</h2>
@@ -1272,6 +1317,10 @@ async function seedFaqs() {
     await chargerFaqs();
   } catch (e) { alert('Erreur : ' + e.message); }
 }
+</script>
+<script>
+/* Pense-bête admin : afficher la vraie adresse du site dans les URL d'exemple */
+document.querySelectorAll('.url-base').forEach(function (el) { el.textContent = location.origin; });
 </script>
 </body>
 </html>
