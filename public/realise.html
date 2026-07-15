@@ -57,7 +57,6 @@
     display:flex; justify-content:space-between; align-items:center;
   }
   .jour-total { font-size:0.82rem; color:#15803d; }
-  .sav-tag { display:inline-block; font-size:0.66rem; font-weight:700; color:#b91c1c; background:#fef2f2; border:1px solid #fca5a5; border-radius:5px; padding:0 5px; margin-left:4px; vertical-align:middle; }
 
   table.real-table { width:auto; max-width:100%; margin:0 auto; border-collapse:collapse; font-size:0.8rem; margin-bottom:0.3rem; }
   table.real-table th { background:#e2e8f0; border:1px solid #ccc; padding:4px 6px; font-weight:700; white-space:nowrap; }
@@ -466,16 +465,20 @@ function afficherRealise() {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
 
-  // Index des chantiers marqués SAV dans le planning : « salarieId|YYYY-MM-DD|NOM »
-  const savSet = new Set();
+  // Créneaux du planning marqués « exclu du calcul » (SAV), recoupés par salarié + date + nom.
+  // Ces temps restent AFFICHÉS (le salarié a travaillé) mais ne comptent PAS dans le
+  // total réalisé ni dans la jauge.
+  const exclusSAV = new Set();
   Object.keys(heures).forEach(k => {
     const e = heures[k];
-    if (!e || !e.sav) return;
+    if (!e || !e.exclu || !e.chantier) return;
     const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
     if (!m) return;
-    savSet.add(m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + String(e.chantier || '').trim().toUpperCase());
+    exclusSAV.add(`${m[1]}|${m[2]}-${m[3]}-${m[4]}|${e.chantier.trim().toUpperCase()}`);
   });
-  const estSav = (salarieId, date, nom) => savSet.has(String(salarieId) + '|' + date + '|' + String(nom || '').trim().toUpperCase());
+  function estExcluSAV(salarieId, date, nom) {
+    return exclusSAV.has(`${salarieId}|${date}|${String(nom || '').trim().toUpperCase()}`);
+  }
 
   const joursNoms = ['dim','lun','mar','mer','jeu','ven','sam'];
 
@@ -527,11 +530,11 @@ function afficherRealise() {
 
       chantiersFiltres.forEach(c => {
         if (!chantierVisible(c.nom)) return;
-        const _estSav = estSav(s.salarieId, date, c.nom);
+        const excl = estExcluSAV(s.salarieId, s.date, c.nom);
         const hh = Math.floor(c.dureeMin / 60), mm = c.dureeMin % 60;
         const totMin = c.dureeMin + (c.deplacement || 0);
         const th = Math.floor(totMin / 60), tm = totMin % 60;
-        if (!_estSav) {   // un chantier SAV n'entre pas dans le total des heures réalisées (jauge)
+        if (!excl) {                     // les temps exclus (SAV) ne comptent pas dans le réalisé / la jauge
           salTotalMin += c.dureeMin;
           salDeplMin  += c.deplacement || 0;
         }
@@ -542,9 +545,9 @@ function afficherRealise() {
         // Boutons d'action affichés pour TOUS les chantiers (prévus ou ajoutés librement)
         const actions = `<button class="btn-action btn-edit" title="Modifier" data-sid="${s._id}" data-idx="${idxC}" onclick="ouvrirEditChantier(this)">${iconCrayon}</button>
              <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">${iconPoubelle}</button>`;
-        rows += `<tr>
+        rows += `<tr${excl ? ' style="opacity:0.55;"' : ''}>
           <td class="col-sal">${s.salarieNom}</td>
-          <td class="col-ch">${c.nom}${_estSav ? ' <span class="sav-tag">HNV · hors total</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
+          <td class="col-ch">${c.nom}${excl ? ' <span style="font-size:0.7rem;color:#dc2626;font-weight:700;">(exclu SAV)</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
           <td class="col-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
           <td class="col-pause">${c.pause ? c.pause + ' min' : '—'}</td>
           <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>
