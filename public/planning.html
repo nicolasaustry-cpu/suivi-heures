@@ -190,6 +190,12 @@
   .btn-note-ch.has-note::after { content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#f59e0b;border:1px solid #fff; }
   /* Heure de RDV par chantier : bouton compact (même gabarit que la note), bleu quand renseigné */
   .btn-rdv-ch { height:30px;min-width:30px;padding:0 5px;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;border-radius:4px;cursor:pointer;font-size:0.78rem;line-height:1;flex:0 0 auto; }
+  /* Bouton rond « exclure ce temps du calcul » : cercle vide → rouge plein quand actif */
+  .btn-exclu-ch { width:24px;height:30px;padding:0;border:1px solid #e5e7eb;background:#fff;border-radius:4px;cursor:pointer;line-height:1;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center; }
+  .btn-exclu-ch::before { content:'';width:13px;height:13px;border-radius:50%;border:2px solid #cbd5e1;background:transparent;box-sizing:border-box; }
+  .btn-exclu-ch:hover::before { border-color:#dc2626; }
+  .btn-exclu-ch.actif { border-color:#fecaca;background:#fef2f2; }
+  .btn-exclu-ch.actif::before { border-color:#dc2626;background:#dc2626; }
   .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
   .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
   /* Panneau de saisie de l'heure de RDV (ouvert à côté de la cellule) */
@@ -280,9 +286,9 @@
   .grille .btn-note-ch.has-note::after { display:none; }
 
   /* TNA */
-  .grille .chip.tna { background:#fee2e2; border:1px dashed #f87171; border-left:6px solid #dc2626; }
-  .grille .chip.tna input.nm { color:#b91c1c; background:#fff; border-color:#fecaca; }
-  .grille .chip.tna .tag { font-size:0.66rem; font-weight:800; color:#b91c1c; white-space:nowrap; }
+  .grille .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
+  .grille .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
+  .grille .chip.tna .tag { font-size:0.66rem; font-weight:800; color:#dc2626; white-space:nowrap; }
 
   /* Absence */
   .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:9px; text-align:center; font-weight:800; font-size:0.82rem; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:7px; }
@@ -369,9 +375,9 @@
   .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
   .tgrid .btn-note-ch.has-note { background:#fef3c7; color:#b45309; }
   .tgrid .btn-note-ch.has-note::after { content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:#f59e0b; border:1px solid #fff; }
-  .tgrid .chip.tna { background:#fee2e2; border:1px dashed #f87171; border-left:6px solid #dc2626; }
-  .tgrid .chip.tna input.nm { color:#b91c1c; background:#fff; border-color:#fecaca; }
-  .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#b91c1c; white-space:nowrap; }
+  .tgrid .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
+  .tgrid .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
+  .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#dc2626; white-space:nowrap; }
 
   .tgrid .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:8px; text-align:center; font-weight:800; font-size:0.76rem; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
   .tgrid .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px; font-weight:700; font-size:0.7rem; }
@@ -916,6 +922,7 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      ${(sl.rempli && !estTNA)?`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer':'Exclure ce temps du calcul (SAV)'}" onclick="toggleExclu('${sl.k}')"></button>`:''}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
@@ -1320,8 +1327,10 @@ function saveHeure(k, ch, h) {
   const rdvDelaiAv = (heures[k] && heures[k].rdvDelai != null) ? heures[k].rdvDelai : null;
   const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
+  const excluAv = !!(heures[k] && heures[k].exclu);
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   if (motifAv) heures[k].motif = motifAv;
+  if (excluAv) heures[k].exclu = true;   // le marquage « exclu du calcul » (SAV) survit aux modifs de nom/heures
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
@@ -1334,6 +1343,28 @@ function saveHeure(k, ch, h) {
   if (!match) return;
   majTotalLigne(match[1], match[2].replace(/_/g, '-'));
   majCouleursChantiers();
+}
+
+/* ── Exclure / réintégrer un temps de chantier dans le calcul (SAV) ──
+   Marque le créneau data.exclu. N'apparaît que sur un chantier nommé (pas TNA,
+   pas pavé vide). Le temps reste affiché et compté dans le total du jour du
+   planning (le salarié a bien travaillé), mais sera exclu du prévisionnel, de la
+   jauge réalisé et repérable dans les rapports (étapes suivantes). */
+function toggleExclu(k) {
+  if (!heures[k]) return;
+  const nom = (heures[k].chantier || '').trim();
+  if (!nom || nom.toUpperCase() === TNA) return;   // sécurité : jamais sur vide ni TNA
+  heures[k].exclu = !heures[k].exclu;
+  if (!heures[k].exclu) delete heures[k].exclu;
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  const btn = document.getElementById(k + 'exclu-btn');
+  if (btn) {
+    btn.classList.toggle('actif', !!heures[k].exclu);
+    btn.title = heures[k].exclu
+      ? 'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer'
+      : 'Exclure ce temps du calcul (SAV)';
+  }
+  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
 }
 
 /* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
@@ -1672,6 +1703,7 @@ function ouvrirNoteChantier(k) {
   if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
   const btnSup = document.getElementById('note-modal-suppr');
   if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = noteDuChantier(nom) ? '' : 'none'; }
+  if (window.DocsChantier) { const _dc = document.getElementById('note-modal-docs'); if (_dc) { if (nom) DocsChantier.monter(nom, _dc); else DocsChantier.vider(_dc); } }
   document.getElementById('note-modal-overlay').style.display = 'flex';
   setTimeout(() => txt.focus(), 30);
 }
@@ -2327,6 +2359,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n, function(){ if(typeof genererPlanning==='function') genererPlanning(); }); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) RenommerChantier.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">✏️ Renommer le chantier (partout)</button>
+    <div id="note-modal-docs" style="margin-bottom:12px;"></div>
     <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
     </label>
@@ -2866,5 +2899,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/renommer-chantier.js"></script>
+<script src="assets/documents-chantier.js"></script>
 </body>
 </html>
