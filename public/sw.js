@@ -6,7 +6,7 @@
    - Ressources statiques (CSS, JS, icônes) : cache d'abord
    ======================================= */
 
-const CACHE_NAME = 'suivheures-v6';
+const CACHE_NAME = 'suivheures-v7';
 
 // Ressources statiques pré-mises en cache (PAS les pages .html, PAS le manifest)
 const FICHIERS_CACHE = [
@@ -22,12 +22,11 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-/* ── Activation : nettoyage des anciens caches (on conserve les identifiants notif) ── */
-const CACHES_A_CONSERVER = [CACHE_NAME, 'notif-creds'];
+/* ── Activation : nettoyage des anciens caches ── */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => !CACHES_A_CONSERVER.includes(k)).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -127,49 +126,4 @@ self.addEventListener('notificationclick', event => {
       if (self.clients.openWindow) return self.clients.openWindow(cible);
     })
   );
-});
-
-/* ── Convertit la clé VAPID (base64url) en Uint8Array (identique au client) ── */
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw     = atob(base64);
-  const arr     = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr;
-}
-
-/* ── Rotation d'abonnement (fréquente sur Android/FCM) ──
-   Quand le service de push invalide/renouvelle l'abonnement, on se réabonne
-   et on ré-enregistre le nouvel endpoint côté serveur, à l'aide des identifiants
-   mémorisés par la page (cache 'notif-creds'). Sans ça, le serveur garde un
-   endpoint mort et le salarié cesse SILENCIEUSEMENT de recevoir ses rappels. */
-self.addEventListener('pushsubscriptionchange', event => {
-  event.waitUntil((async () => {
-    try {
-      let creds = null;
-      try {
-        const c = await caches.open('notif-creds');
-        const r = await c.match('/__notif_creds');
-        if (r) creds = await r.json();
-      } catch (_) {}
-
-      const rk = await fetch('/api/push/vapid-public-key');
-      const dk = await rk.json().catch(() => null);
-      if (!dk || !dk.ok || !dk.key) return;
-
-      const sub = await self.registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(dk.key)
-      });
-
-      if (creds && creds.codeEmploye && creds.salarieId != null) {
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codeEmploye: creds.codeEmploye, salarieId: creds.salarieId, subscription: sub })
-        });
-      }
-    } catch (_) {}
-  })());
 });
