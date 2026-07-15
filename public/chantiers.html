@@ -527,6 +527,7 @@ function chargerChantiersPlannifies() {
     Object.keys(heures).forEach(k => {
       const entry = heures[k];
       if (!entry || !entry.chantier || !entry.chantier.trim()) return;
+      if (entry.exclu) return;   // temps marqué « exclu du calcul » (SAV) : hors prévisionnel
       if (/abs$/.test(k) || entry.chantier.trim().toLowerCase() === 'absence') return;   // les absences ne sont pas des chantiers planifiés
       // La date YYYY_MM_DD est incluse dans la clé (après l'id salarié, sans « _ »).
       const m = k.match(/(\d{4})_(\d{2})_\d{2}/);
