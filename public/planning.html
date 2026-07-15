@@ -196,6 +196,7 @@
   .btn-exclu-ch:hover::before { border-color:#dc2626; }
   .btn-exclu-ch.actif { border-color:#fecaca;background:#fef2f2; }
   .btn-exclu-ch.actif::before { border-color:#dc2626;background:#dc2626; }
+  .btn-exclu-ch.masque { display:none; }
   .btn-rdv-ch:hover { border-color:#2563eb;color:#1d4ed8; }
   .btn-rdv-ch.has-rdv { background:#dbeafe;border-color:#2563eb;color:#1e3a8a;font-weight:600; }
   /* Panneau de saisie de l'heure de RDV (ouvert à côté de la cellule) */
@@ -922,7 +923,7 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
-      ${(sl.rempli && !estTNA)?`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer':'Exclure ce temps du calcul (SAV)'}" onclick="toggleExclu('${sl.k}')"></button>`:''}
+      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer':'Exclure ce temps du calcul (SAV)'}" onclick="toggleExclu('${sl.k}')"></button>`}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
@@ -1564,6 +1565,13 @@ function rafraichirLigne(salarieId, dateStr) {
     if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
     majRdvVisuel(k);
     majBoutonNote(k);
+    const bex = document.getElementById(k + 'exclu-btn');
+    if (bex) {
+      const nomOk = (e.chantier || '').trim() !== '' && (e.chantier || '').toUpperCase() !== TNA;
+      bex.classList.toggle('masque', !nomOk);          // apparaît dès qu'un chantier est nommé
+      bex.classList.toggle('actif', !!e.exclu);
+      bex.title = e.exclu ? 'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer' : 'Exclure ce temps du calcul (SAV)';
+    }
   }
   majTotalLigne(salarieId, dateStr);
   majCouleursChantiers();
