@@ -174,37 +174,6 @@
     color: #fff !important;
     z-index: 2;
   }
-  /* Bande d'alerte : chantiers en dépassement sur la période */
-  .alerte-depassement {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-left: 5px solid #dc2626;
-    border-radius: 8px;
-    padding: 0.65rem 0.85rem;
-    margin: 0 0 0.9rem 0;
-  }
-  .alerte-depassement .ad-head {
-    display: flex; align-items: center; gap: 0.5rem;
-    font-size: 0.92rem; color: #991b1b;
-  }
-  .alerte-depassement .ad-ico { font-size: 1.05rem; }
-  .alerte-depassement .ad-sous { color: #b91c1c; font-size: 0.82rem; font-weight: 600; }
-  .alerte-depassement .ad-x {
-    margin-left: auto; background: transparent; border: none; color: #b91c1c;
-    cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 2px 4px;
-  }
-  .alerte-depassement .ad-liste { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.55rem; }
-  .alerte-depassement .ad-ch {
-    display: inline-flex; align-items: baseline; gap: 6px;
-    background: #fff; border: 1px solid #fecaca; border-radius: 20px;
-    padding: 4px 11px; font-size: 0.82rem; color: #7f1d1d; cursor: pointer;
-  }
-  .alerte-depassement .ad-ch:hover { background: #fee2e2; border-color: #f87171; }
-  .alerte-depassement .ad-ch b { font-weight: 700; }
-  .alerte-depassement .ad-ch .ad-pct { color: #dc2626; font-weight: 800; }
-  .alerte-depassement .ad-ch .ad-h { color: #9ca3af; font-size: 0.75rem; }
-  @media print { .alerte-depassement .ad-x { display: none; } }
-
   .synth-prevu-encart {
     flex: 0 0 200px;
     background: #eff6ff;
@@ -296,6 +265,13 @@
       <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
         style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
     </div>
+    <div class="filtre-item">
+      <label>SAV</label>
+      <label class="filtre-btn" style="display:inline-flex;align-items:center;gap:7px;min-width:0;font-weight:600;">
+        <input type="checkbox" id="masquerSAV" onchange="appliquerEtAfficher()" style="width:16px;height:16px;cursor:pointer;">
+        Masquer les temps SAV
+      </label>
+    </div>
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
       <div style="display:flex;gap:0.4rem;">
@@ -323,17 +299,6 @@
 <!-- Contenu défilant -->
 <div id="contenu-detail">
 
-  <!-- ALERTE : chantiers en dépassement sur la période -->
-  <div id="alerte-depassement" class="alerte-depassement" style="display:none;">
-    <div class="ad-head">
-      <span class="ad-ico">⚠</span>
-      <b id="ad-titre">Chantiers en dépassement</b>
-      <span class="ad-sous" id="ad-sous"></span>
-      <button type="button" class="ad-x" title="Masquer" onclick="document.getElementById('alerte-depassement').style.display='none';">✕</button>
-    </div>
-    <div class="ad-liste" id="ad-liste"></div>
-  </div>
-
   <!-- LIGNE 1 : Synthèses côte à côte -->
   <div class="grille-rapport">
 
@@ -344,26 +309,16 @@
         <span class="badge-nb prevu" id="badge-synth-prev">0 h</span>
       </div>
       <div class="synth-titre prevu" id="synth-titre-prev">Tous les chantiers</div>
-      <div class="synth-realise-flex">
-        <div class="synth-realise-tableau">
-          <table class="synth-table prevu">
-            <colgroup>
-              <col class="col-sal-synth">
-              <col class="col-h-synth">
-            </colgroup>
-            <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
-            <tbody id="tbody-synth-prev"></tbody>
-            <tfoot><tr><td>Total</td><td id="total-synth-prev">0 h</td></tr></tfoot>
-          </table>
-          <p class="msg-vide" id="vide-synth-prev" style="display:none;">Aucune donnée</p>
-        </div>
-        <!-- Encart "Heures prévues" : visible seulement si un filtre chantier est appliqué -->
-        <div class="synth-prevu-encart" id="synth-prevu-encart-plan" style="display:none;">
-          <div class="encart-titre">Heures prévues dans le devis</div>
-          <div class="encart-valeur" id="encart-prevu-total-plan">0 h</div>
-          <div class="encart-sous" id="encart-prevu-sous-plan"></div>
-        </div>
-      </div>
+      <table class="synth-table prevu">
+        <colgroup>
+          <col class="col-sal-synth">
+          <col class="col-h-synth">
+        </colgroup>
+        <thead><tr><th>Salarié</th><th>Heures</th></tr></thead>
+        <tbody id="tbody-synth-prev"></tbody>
+        <tfoot><tr><td>Total</td><td id="total-synth-prev">0 h</td></tr></tfoot>
+      </table>
+      <p class="msg-vide" id="vide-synth-prev" style="display:none;">Aucune donnée</p>
     </div>
 
     <!-- Synthèse RÉALISÉE -->
@@ -642,7 +597,7 @@ function extrairePrev() {
     if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
-    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h });
+    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, sav: !!data.exclu });
   }
   return lignes;
 }
@@ -655,6 +610,16 @@ async function extraireReal() {
   try {
     const token = localStorage.getItem('syncToken');
     if (!token) return [];
+    // Créneaux du planning marqués « exclu » (SAV), pour repérer les réalisées correspondantes.
+    const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+    const exclusSAV = new Set();
+    Object.keys(heures).forEach(k => {
+      const e = heures[k];
+      if (!e || !e.exclu || !e.chantier) return;
+      const mm = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (!mm) return;
+      exclusSAV.add(`${mm[1]}|${mm[2]}-${mm[3]}-${mm[4]}|${e.chantier.trim().toUpperCase()}`);
+    });
     const lignes = [];
     // Boucle sur chaque mois sélectionné, l'API ne renvoie qu'un mois à la fois
     for (const mois of _moisSelection) {
@@ -667,6 +632,7 @@ async function extraireReal() {
         (s.chantiers || []).forEach(c => {
           if (!c.dureeMin && !c.deplacement) return;
           const dt = new Date(s.date + 'T00:00:00');
+          const sav = exclusSAV.has(`${String(s.salarieId)}|${s.date}|${String(c.nom || '').trim().toUpperCase()}`);
           lignes.push({
             date:      dt,
             dateStr:   dt.toLocaleDateString('fr-FR'),
@@ -674,7 +640,8 @@ async function extraireReal() {
             salarieId: String(s.salarieId),
             chantier:  c.nom,
             heures:    parseFloat((((c.dureeMin || 0) + (c.deplacement || 0)) / 60).toFixed(2)),
-            deplMin:   c.deplacement || 0
+            deplMin:   c.deplacement || 0,
+            sav
           });
         });
       });
@@ -710,87 +677,8 @@ function appliquerEtAfficher() {
   afficherDetail('real', realVisible);
   if (_vueChantier) rafraichirRegroupe();
   majEncartPrevus();
-  majAlerteDepassement();
   majBoutons();
   setTimeout(ajusterHauteur, 50);
-}
-
-/* Alerte : liste les chantiers de la période dont le RÉALISÉ dépasse les heures
-   prévues au devis (Prévisionnel). Permet de repérer les chantiers à problème
-   sans avoir à les sélectionner un par un. Un clic sur un chantier le filtre. */
-function majAlerteDepassement() {
-  const box = document.getElementById('alerte-depassement');
-  if (!box) return;
-
-  // 1) Heures réalisées cumulées par chantier, sur la période en cours.
-  //    On ignore volontairement le filtre CHANTIER (sinon l'alerte ne verrait qu'un chantier),
-  //    mais on conserve la période, le filtre salarié et l'exclusion.
-  const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
-  const lignesPeriode = lignesReal.filter(l => {
-    if (filtresActifs.salarie && filtresActifs.salarie.size && !filtresActifs.salarie.has(l.salarie)) return false;
-    if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
-    return true;
-  });
-  const realParCh = {};
-  lignesPeriode.forEach(l => {
-    const nom = (l.chantier || '').trim();
-    if (!nom) return;
-    realParCh[nom] = (realParCh[nom] || 0) + (parseFloat(l.heures) || 0);
-  });
-
-  // 2) Heures prévues au devis, par chantier (tous mois confondus)
-  const prevuParCh = {};
-  try {
-    const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
-    for (const annee in data) {
-      const mois12 = data[annee];
-      if (!mois12) continue;
-      for (const m in mois12) {
-        const liste = mois12[m]?.chantiers;
-        if (!Array.isArray(liste)) continue;
-        liste.forEach(c => {
-          const nom = (c && c.client || '').trim();
-          if (!nom) return;
-          prevuParCh[nom] = (prevuParCh[nom] || 0) + (parseFloat(c.hPrevues) || 0);
-        });
-      }
-    }
-  } catch (_) {}
-
-  // 3) Chantiers en dépassement (réalisé > prévu, et un devis existe)
-  const depasses = [];
-  Object.keys(realParCh).forEach(nom => {
-    const prevu = prevuParCh[nom] || 0;
-    const real  = realParCh[nom];
-    if (prevu > 0 && real > prevu) {
-      depasses.push({ nom, real, prevu, pct: Math.round((real / prevu) * 100) });
-    }
-  });
-  depasses.sort((a, b) => b.pct - a.pct);   // les pires en premier
-
-  if (!depasses.length) { box.style.display = 'none'; return; }
-
-  const fmt = h => {
-    const e = Math.floor(h), mn = Math.round((h - e) * 60);
-    return mn > 0 ? `${e} h ${String(mn).padStart(2, '0')}` : `${e} h`;
-  };
-  document.getElementById('ad-titre').textContent =
-    depasses.length === 1 ? '1 chantier en dépassement' : depasses.length + ' chantiers en dépassement';
-  document.getElementById('ad-sous').textContent = '(réalisé supérieur aux heures prévues au devis)';
-  document.getElementById('ad-liste').innerHTML = depasses.map(d =>
-    `<span class="ad-ch" title="Cliquer pour filtrer sur ce chantier" onclick="filtrerSurChantier('${(d.nom || '').replace(/'/g, "\\'")}')">` +
-    `<b>${d.nom}</b><span class="ad-pct">${d.pct} %</span>` +
-    `<span class="ad-h">${fmt(d.real)} / ${fmt(d.prevu)}</span></span>`
-  ).join('');
-  box.style.display = 'block';
-}
-
-/* Clic sur un chantier de l'alerte → applique le filtre chantier correspondant */
-function filtrerSurChantier(nom) {
-  filtresActifs.chantier = new Set([nom]);
-  appliquerEtAfficher();
-  const el = document.getElementById('synth-prevu-encart-plan') || document.getElementById('synth-prevu-encart');
-  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /* Encart "Heures prévues" à droite de la Synthèse réalisée.
@@ -798,14 +686,11 @@ function filtrerSurChantier(nom) {
    Affiche la somme des heures prévues (page Prévisionnel) pour les chantiers cochés,
    tous mois confondus. */
 function majEncartPrevus() {
-  const encarts = [
-    { box: document.getElementById('synth-prevu-encart'),      tot: 'encart-prevu-total',      sous: 'encart-prevu-sous'      },
-    { box: document.getElementById('synth-prevu-encart-plan'), tot: 'encart-prevu-total-plan', sous: 'encart-prevu-sous-plan' }
-  ].filter(e => e.box);
-  if (!encarts.length) return;
+  const encart = document.getElementById('synth-prevu-encart');
+  if (!encart) return;
   const f = filtresActifs.chantier;
   if (!f || f.size === 0) {
-    encarts.forEach(e => { e.box.style.display = 'none'; });
+    encart.style.display = 'none';
     return;
   }
   // Structure réelle (cf. chantiers.html) :
@@ -829,8 +714,10 @@ function majEncartPrevus() {
   } catch (_) {}
   const heures = Math.floor(totalH);
   const mins   = Math.round((totalH - heures) * 60);
-  const txtTotal = mins > 0 ? `${heures} h ${String(mins).padStart(2,'0')}` : `${heures} h`;
-  const txtSous  = f.size === 1 ? '1 chantier' : f.size + ' chantiers';
+  document.getElementById('encart-prevu-total').textContent =
+    mins > 0 ? `${heures} h ${String(mins).padStart(2,'0')}` : `${heures} h`;
+  document.getElementById('encart-prevu-sous').textContent =
+    f.size === 1 ? '1 chantier' : f.size + ' chantiers';
 
   // Couleur du pavé selon le ratio réalisé / prévu
   //   < 90 %  → vert (fond vert clair, texte vert foncé)
@@ -844,22 +731,20 @@ function majEncartPrevus() {
     else if (ratio <= 100) { bg = '#ffedd5'; fg = '#c2410c'; }
     else                   { bg = '#fee2e2'; fg = '#dc2626'; }
   }
+  encart.style.background = bg;
+  const tit = encart.querySelector('.encart-titre');
+  if (tit) tit.style.color = fg;
+  document.getElementById('encart-prevu-total').style.color = fg;
+  document.getElementById('encart-prevu-sous').style.color  = fg;
 
-  encarts.forEach(e => {
-    const elTot  = document.getElementById(e.tot);
-    const elSous = document.getElementById(e.sous);
-    if (elTot)  { elTot.textContent  = txtTotal; elTot.style.color  = fg; }
-    if (elSous) { elSous.textContent = txtSous;  elSous.style.color = fg; }
-    e.box.style.background = bg;
-    const tit = e.box.querySelector('.encart-titre');
-    if (tit) tit.style.color = fg;
-    e.box.style.display = 'flex';
-  });
+  encart.style.display = 'flex';
 }
 
 function filtrer(lignes) {
   const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
+  const masquerSAV = !!document.getElementById('masquerSAV')?.checked;
   return lignes.filter(l => {
+    if (masquerSAV && l.sav) return false;
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
     if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
     if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
@@ -942,10 +827,10 @@ function afficherDetail(type, lignes) {
   let sum = 0;
   tbody.innerHTML = triees.map(l => {
     sum += l.heures;
-    return `<tr>
+    return `<tr${l.sav ? ' style="background:#fef2f2;"' : ''}>
       <td>${l.dateStr}</td>
       <td>${l.salarie}</td>
-      <td>${l.chantier}</td>
+      <td>${l.chantier}${l.sav ? ' <span style="font-size:0.68rem;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:999px;padding:1px 7px;">SAV</span>' : ''}</td>
       <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
     </tr>`;
   }).join('');
