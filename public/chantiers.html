@@ -638,6 +638,24 @@ function sauverData() {
   }
 }
 
+/* Filet de sécurité Safari/iOS : au masquage ou déchargement de la page, forcer
+   la validation du champ en cours d'édition (blur → onchange/onblur → sauverData),
+   pour que la saisie soit ÉCRITE en local AVANT toute navigation. Sans cela, une
+   valeur tapée dont le champ n'a pas encore « blurré » (ligne vierge notamment)
+   n'était jamais enregistrée : Safari ne déclenche pas toujours onchange avant
+   de naviguer. */
+function _cvCommitChampActif() {
+  var el = document.activeElement;
+  if (el && typeof el.blur === 'function' &&
+      (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+    el.blur();
+  }
+}
+window.addEventListener('pagehide', _cvCommitChampActif);
+window.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') _cvCommitChampActif();
+});
+
 
 /* ── Contrat effectif mensuel (hors événements) → H. Vendables automatiques ── */
 function _cvPad2(n){ return String(n).padStart(2,'0'); }
@@ -821,7 +839,7 @@ function rendreSynthese() {
           <input type="number" min="0" step="0.5" value="${val}"
             data-annee="${annee}" data-mois="${mois}" data-cle="${l.cle}" data-uid="${uid}"
             onfocus="this.select()" onmouseup="return false"
-            onchange="majValeur(this)" oninput="majLigneInput(this)">
+            onchange="majValeur(this)" oninput="majValeur(this)">
         </td>`;
 
       } else if (l.type === 'vendables') {
@@ -932,7 +950,7 @@ function rendreChantiers() {
             <input value="${ch.client||''}" placeholder=""
               style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
-              onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
+              onchange="majChantierInput(this)" oninput="majChantierInput(this)" onkeydown="navEnTree(event,this)">
             ${coche}
           </div>
         </td>
@@ -941,7 +959,7 @@ function rendreChantiers() {
             style="width:100%;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="hPrevues" data-nav="hPrevues"
             onfocus="this.select()" onmouseup="return false"
-            onchange="majChantierInput(this)" onkeydown="navEnTree(event,this)">
+            onchange="majChantierInput(this)" oninput="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
           ${alertePlan}<button class="btn-copy-row" title="Renommer partout" style="color:#1d4ed8;" onclick="var tr=this.closest('tr');var inp=tr&&tr.querySelector('input[data-champ=client]');var nom=inp?inp.value.trim():'';if(nom)RenommerChantier.ouvrir(nom);else alert('Nommez le chantier avant de le renommer.');">✏️</button>
