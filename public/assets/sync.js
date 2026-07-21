@@ -78,16 +78,34 @@ const SYNC = (() => {
     }
   }
 
+  /* Un jeton de consultation PRESCRIPTEUR porte le marqueur lectureSeule.
+     Le jeton de consultation ADMIN, lui, est identique à un jeton client
+     normal : il n'est donc PAS distinguable ici — la lecture seule admin
+     repose sur le drapeau de session 'adminConsult', posé à l'entrée. */
+  function jetonLectureSeule() {
+    try {
+      const t = _token || localStorage.getItem('syncToken');
+      if (!t) return false;
+      const p = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return !!(p && p.lectureSeule === true);
+    } catch (_) { return false; }
+  }
+
   async function init() {
     _token    = localStorage.getItem('syncToken');
     _clientId = localStorage.getItem('syncClientId');
     _type     = localStorage.getItem('syncType');
 
-    // Mode admin (consultation d'un client) = lecture seule.
-    // Détecté via l'URL (1re page) OU via sessionStorage (pages suivantes du même onglet).
-    const params = new URLSearchParams(window.location.search);
-    _modeAdmin = params.get('admin') === '1'
-              || sessionStorage.getItem('adminConsult') === '1';
+    // Consultation d'un client (admin ou prescripteur) = lecture seule.
+    // On NE se fie PLUS au simple ?admin=1 dans l'URL : un client qui aurait ce
+    // paramètre (lien partagé, marque-page) serait injustement bloqué en lecture
+    // seule et perdrait ses saisies EN SILENCE. La lecture seule ne s'active que
+    // sur le VRAI marqueur de session de consultation ('adminConsult', posé
+    // uniquement par l'entrée légitime avec jeton pré-placé) OU sur un jeton
+    // prescripteur 'lectureSeule'. Un client connecté avec son propre code ne
+    // peut donc jamais tomber en lecture seule.
+    _modeAdmin = sessionStorage.getItem('adminConsult') === '1'
+              || jetonLectureSeule();
 
     afficherVersion();
 
@@ -243,6 +261,18 @@ const SYNC = (() => {
         return;
       }
 
+      // Cas 2 bis : une saisie non synchronisée persiste d'une page précédente
+      // (drapeau syncDirty en localStorage). Typiquement un envoi au déchargement
+      // abandonné par le navigateur (Safari/iOS). On NE remplace PAS le local :
+      // on le re-pousse au serveur, pour ne jamais perdre une saisie récente.
+      if (!_modeAdmin && localStorage.getItem('syncDirty') === '1'
+          && aDesDonneesLocales && localClientId === _clientId) {
+        _pendingSave = true;
+        await sauvegarderTout();
+        window.dispatchEvent(new Event('donnees-chargees'));
+        return;
+      }
+
       // Cas 3 (par défaut) : le SERVEUR fait référence → on remplace le local.
       const entServeur = serveur.entreprise || {};
       if (!entServeur.nom) {
@@ -277,6 +307,7 @@ const SYNC = (() => {
     if (_verrouilleAutreClient) return;   // un autre client est actif dans ce navigateur
     if (!_token) return;
     _pendingSave = true;
+    try { localStorage.setItem('syncDirty', '1'); } catch (e) {}   // persiste au changement de page
     clearTimeout(_syncTimer);
     _syncTimer = setTimeout(sauvegarderTout, SAVE_DELAY);
   }
@@ -321,7 +352,7 @@ const SYNC = (() => {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
         body: JSON.stringify(construirePayload())
       });
-      if (res.ok) _pendingSave = false;
+      if (res.ok) { _pendingSave = false; try { localStorage.removeItem('syncDirty'); } catch (e) {} }
     } catch {
       console.warn('Sauvegarde échouée (sera retentée)');
     }
@@ -351,7 +382,7 @@ const SYNC = (() => {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
         body: JSON.stringify(construirePayload()),
         keepalive: true
-      }).then(() => { _pendingSave = false; }).catch(() => {});
+      }).then(() => { _pendingSave = false; try { localStorage.removeItem('syncDirty'); } catch (e) {} }).catch(() => {});
     } catch {}
   }
   window.addEventListener('pagehide', flushSauvegarde);
