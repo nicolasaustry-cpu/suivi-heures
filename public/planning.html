@@ -506,6 +506,10 @@
 let salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif || s.planningPrevu);
 let heures   = JSON.parse(localStorage.getItem('heuresdata')   || '{}');
 let salariesCoches = new Set();
+/* Plus de limite de chantiers par salarié et par jour : NB_SLOTS est un simple
+   plafond interne de sécurité (évite toute boucle infinie), très au-delà de tout
+   usage réel. En pratique : aucune limite. */
+const NB_SLOTS = 60;
 
 /* ====== DÉCALAGE BARRE FIXE ====== */
 function ajusterMarginTop() {
@@ -758,11 +762,10 @@ function pl2AjouterChantier(btn){
   const cell = btn.closest('td');
   if(!cell) return;
   const vide = cell.querySelector('.chip.vide');
-  if(!vide){ btn.style.display='none'; return; }
+  if(!vide){ genererPlanning(); return; }   // plus de créneau vide affiché → on régénère (nouveau buffer, sans limite)
   vide.classList.remove('vide');
   const inp = vide.querySelector('input[id$="chantier"]');
   if(inp) inp.focus();
-  if(!cell.querySelector('.chip.vide')) btn.style.display='none';
 }
 function pl2ViderPave(btn, k){
   viderChantier(k);
@@ -1006,7 +1009,7 @@ function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
   const s = salaries.find(x=>String(x.id)===String(salIdT));
   if(!s){ alert('Salarié introuvable.'); return; }
   const safeT = dateT.replace(/-/g,'_');
-  const nb = s.sav ? 10 : 5;
+  const nb = NB_SLOTS;
 
   const conflits = [];
   const contrat  = contratDuJour(s, dateT);
@@ -1080,7 +1083,7 @@ function pl2ReordonnerCellule(salarieId, dateStr, ordreKeys){
     .map(k=>heures[k])
     .filter(e=>e && (e.chantier||'').trim() && (e.chantier||'').toUpperCase()!==TNA);
   if(!reels.length) return;
-  for(let i=1;i<=5;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide les 5 slots
+  for(let i=1;i<=NB_SLOTS;i++){ delete heures[`${salarieId}${safe}ch${i}`]; }   // on vide tous les slots
   reels.forEach((e,idx)=>{ heures[`${salarieId}${safe}ch${idx+1}`] = e; }); // réaffectation dans l'ordre
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   onLigneRecalc(`${salarieId}${safe}ch1`);   // recalcule/replace le TNA (1er slot libre → rendu en dernier)
@@ -1133,7 +1136,13 @@ function genererPlanning(calerSemaine){
   }
 
   function lireCellule(s, dateStr){
-    const safe=dateStr.replace(/-/g,'_'); const nbCh=s.sav?10:5; let total=0; const slots=[];
+    const safe=dateStr.replace(/-/g,'_'); let total=0; const slots=[];
+    // Nombre de créneaux à afficher : au moins 5 (case vide, comportement inchangé),
+    // puis un buffer de créneaux vides au-delà du dernier chantier saisi → la case
+    // grandit à mesure qu'on remplit, sans plafond (borne interne NB_SLOTS).
+    let maxRempli=0;
+    for(let i=1;i<=NB_SLOTS;i++){ const d=heures[`${s.id}${safe}ch${i}`]; if(d && (d.chantier||'').trim()!=='') maxRempli=i; }
+    const nbCh=Math.min(NB_SLOTS, Math.max(5, maxRempli+5));
     for(let i=1;i<=nbCh;i++){ const k=`${s.id}${safe}ch${i}`; const data=heures[k]||{chantier:'',heures:0};
       const rempli=(data.chantier||'').trim()!==''; if(rempli && (data.chantier||'').trim().toUpperCase()!==TNA) total+=parseFloat(data.heures)||0; slots.push({i,k,data,rempli}); }
     const absK=`${s.id}${safe}abs`; const abs=parseFloat(heures[absK]?.heures||0);
@@ -1521,7 +1530,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
   const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
 
   const slots = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= NB_SLOTS; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k];
     slots.push({ i, k, nom: (e?.chantier || '').trim(), h: parseFloat(e?.heures) || 0 });
@@ -1539,7 +1548,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
     if (reste > 0.001) {
       const occupes = new Set(reels.map(sl => sl.i));
       let libre = null;
-      for (let i = 1; i <= 5; i++) if (!occupes.has(i)) { libre = i; break; }
+      for (let i = 1; i <= NB_SLOTS; i++) if (!occupes.has(i)) { libre = i; break; }
       if (libre) heures[`${salarieId}${safeDate}ch${libre}`] = { chantier: TNA, heures: reste };
     }
   }
@@ -1549,7 +1558,7 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
 /* Resynchronise l'affichage d'une ligne depuis heures (et verrouille les heures du TNA). */
 function rafraichirLigne(salarieId, dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= NB_SLOTS; i++) {
     const k = `${salarieId}${safeDate}ch${i}`;
     const e = heures[k] || { chantier: '', heures: 0 };
     const inp = document.getElementById(k + 'chantier');
@@ -1604,7 +1613,7 @@ function onChantierCommit(k) {
     const nom = (e.chantier || '').trim();
     if (nom && nom.toUpperCase() !== TNA && (parseFloat(e.heures) || 0) === 0) {
       let nbReels = 0;
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= NB_SLOTS; i++) {
         const n = (heures[`${salarieId}${safe}ch${i}`]?.chantier || '').trim();
         if (n && n.toUpperCase() !== TNA) nbReels++;
       }
@@ -1844,7 +1853,7 @@ function majTotalLigne(salarieId, dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
   const sal   = salaries.find(s => s.id == salarieId);
   if (!sal) return;
-  const nbCh  = sal.sav ? 10 : 5;
+  const nbCh  = NB_SLOTS;
   let total = 0;
   for (let i = 1; i <= nbCh; i++) {
     const cell = heures[`${salarieId}${safeDate}ch${i}`];
@@ -1904,7 +1913,7 @@ function majTotauxGlobaux() {
     totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
     const sid = tr.getAttribute('data-salarie');
     const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= NB_SLOTS; i++) {
       const c = heures[`${sid}${dsafe}ch${i}`];
       if (c && (c.chantier || '').trim().toUpperCase() === TNA) totTNA += parseFloat(c.heures) || 0;
     }
@@ -2452,7 +2461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
   function clAbs(sid, safe) { var e = heures[sid + safe + 'abs']; return parseFloat(e && e.heures) || 0; }
-  function clNbSlots(s) { return s.sav ? 10 : 5; }
+  function clNbSlots(s) { return NB_SLOTS; }
   function clSlotsLibres(sid, safe, nb) {
     var out = [];
     for (var i = 1; i <= nb; i++) {
@@ -2714,7 +2723,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
   function alAbs(sid, safe) { var e = heures[sid + safe + 'abs']; return parseFloat(e && e.heures) || 0; }
-  function alNbSlots(s) { return s.sav ? 10 : 5; }
+  function alNbSlots(s) { return NB_SLOTS; }
   function alSlotsLibres(sid, safe, nb) {
     var out = [];
     for (var i = 1; i <= nb; i++) {
