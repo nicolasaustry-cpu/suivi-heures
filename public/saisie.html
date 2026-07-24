@@ -438,6 +438,11 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    /* Fond de la zone des cartes. Posé ici (et non sur body) car
+       theme-volitis.css force body { background: … !important }.
+       .saisie-scroll est le conteneur qui défile avec les chantiers :
+       le sable couvre donc toute la hauteur des cartes, y compris au scroll. */
+    background: #eae6df !important;
   }
 
   /* ── ECRAN SAISIE EN FLEX COLUMN ── */
@@ -445,14 +450,10 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    /* Le fond est posé ici (et non sur body) : theme-volitis.css force
-       body { background: … !important } et écraserait toute couleur mise
-       sur body. #ecran-saisie n'est pas ciblé par ce fichier partagé. */
-    background: #eae6df !important;
   }
   @media (max-width: 599px) {
     #ecran-saisie { height: 100vh; }
-    .saisie-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .saisie-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; background: #eae6df !important; }
   }
 
   /* ═══════════════════════════════════════════════════════════════
