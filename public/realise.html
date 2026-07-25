@@ -65,6 +65,8 @@
   table.real-table tr:hover td { background:#f0fdf4; }
   table.real-table tr.ligne-total td { background:#d1fae5; font-weight:700; color:#065f46; }
   table.real-table tr.ligne-total-sal td { background:#dbeafe; font-weight:700; color:#1d4ed8; }
+  table.real-table tr.ligne-pause-jour td { background:#f5f0ff; color:#6b21a8; font-style:italic; }
+  table.real-table tr.ligne-pause-jour td.col-pause { font-weight:700; font-style:normal; }
 
   .col-sal  { font-weight:700; }
   .col-ch   { }
@@ -524,7 +526,8 @@ function afficherRealise() {
 
     parDate[date].forEach(s => {
       const chantiersFiltres = (s.chantiers || []).filter(c => chantierVisible(c.nom));
-      if (!chantiersFiltres.length) return;
+      // On garde le salarié s'il a des chantiers visibles OU une pause déjeuner à afficher.
+      if (!chantiersFiltres.length && !(s.pauseJournee > 0)) return;
 
       let salTotalMin = 0, salDeplMin = 0;
 
@@ -561,6 +564,23 @@ function afficherRealise() {
 
       // Ligne total salarié avec prévu et écart
       {
+        // Pause déjeuner hors chantier : ligne informative, JAMAIS ajoutée au réalisé.
+        const pj = s.pauseJournee || 0;
+        if (pj > 0) {
+          const ph = Math.floor(pj / 60), pm = pj % 60;
+          rows += `<tr class="ligne-pause-jour">
+            <td class="col-sal"></td>
+            <td class="col-ch">🍽️ Pause déjeuner <span style="font-size:0.7rem;font-weight:700;">(hors travail)</span></td>
+            <td class="col-h">—</td>
+            <td class="col-pause">${ph ? ph + 'h' + String(pm).padStart(2,'0') : pm + ' min'}</td>
+            <td class="col-h">—</td>
+            <td class="col-depl">—</td>
+            <td class="col-tot">—</td>
+            <td class="col-tot">—</td>
+            <td class="col-tot">—</td>
+            <td class="col-actions"></td>
+          </tr>`;
+        }
         const salPrevuMin = getPrevuMin(date, s.salarieId);
         const salRealMin  = salTotalMin + salDeplMin;
         const salEcartMin = salRealMin - salPrevuMin;
