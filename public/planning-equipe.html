@@ -217,6 +217,10 @@ let _ancre        = lundiDe(new Date());   // lundi de la semaine affichée
 let _saisies      = [];                     // réalisé chargé depuis le serveur
 let _notesChantiers = {};                   // note générale par chantier (lecture/édition)
 let _notesChantiersPhotos = {};             // photos par chantier (page Notes unifiée)
+/* Nombre de créneaux de chantier lus par salarié et par jour.
+   DOIT rester aligné sur le NB_SLOTS de planning.html (60 depuis juillet) :
+   la Vue équipe n'en lisait que 5 et perdait les chantiers au-delà du cinquième. */
+const NB_SLOTS = 60;
 const _moisCharges = new Set();             // mois (YYYY-MM) déjà récupérés
 
 const JOURS_NOM = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
@@ -549,12 +553,57 @@ function _peutEditerNote() {
   } catch { return false; }
 }
 
-function afficherNotePopup(nomChantier) {
+/* Date ISO → jj/mm/aaaa. */
+function _frDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+  return m ? (m[3] + '/' + m[2] + '/' + m[1]) : (s || '');
+}
+
+/* Agrandit une photo en plein écran. Les photos sont des data URL : les ouvrir
+   dans un onglet (window.open) est bloqué par Chrome, d'où cet aperçu interne. */
+function _ouvrirPhoto(src) {
+  let ov = document.getElementById('photo-zoom-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'photo-zoom-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:10005;display:none;align-items:center;justify-content:center;padding:12px;';
+    ov.innerHTML = '<img id="photo-zoom-img" alt="photo" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;">'
+                 + '<button type="button" id="photo-zoom-x" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.9);color:#111827;border:none;border-radius:50%;width:38px;height:38px;font-size:1.15rem;font-weight:700;cursor:pointer;">✕</button>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', () => { ov.style.display = 'none'; });
+  }
+  ov.querySelector('#photo-zoom-img').src = src;
+  ov.style.display = 'flex';
+}
+
+/* Remontée du terrain pour un chantier, un salarié et une journée :
+   la note écrite par le salarié sur son téléphone et les photos qu'il a prises.
+   Ces données voyagent dans la saisie envoyée, elles sont déjà chargées dans _saisies. */
+function _remonteeTerrain(nomChantier, salId, dateStr) {
+  if (!salId || !dateStr) return null;
+  const s = (_saisies || []).find(x => String(x.salarieId) === String(salId) && x.date === dateStr);
+  if (!s) return null;
+  const c = (s.chantiers || []).find(x => norm(x.nom) === norm(nomChantier));
+  if (!c) return null;
+  const note   = (c.note || '').trim();
+  const photos = Array.isArray(c.photos) ? c.photos : [];
+  if (!note && !photos.length) return null;
+  let auteur = '';
+  try {
+    const sal = (JSON.parse(localStorage.getItem('salariesdata') || '[]'))
+      .find(x => String(x.id) === String(salId));
+    if (sal) auteur = ((sal.prenom || '') + ' ' + (sal.nom || '')).trim();
+  } catch (_) {}
+  return { note, photos, auteur, date: dateStr };
+}
+
+function afficherNotePopup(nomChantier, salId, dateStr) {
   const nom  = (nomChantier || '').trim();
   const nomU = nom.toUpperCase();
   chargerNotesChantiers();
   const note = _notesChantiers[nomU] || '';
   const editable = _peutEditerNote();
+  const terrain = _remonteeTerrain(nom, salId, dateStr);
 
   let ov = document.getElementById('note-popup-overlay');
   if (!ov) {
@@ -565,6 +614,8 @@ function afficherNotePopup(nomChantier) {
         '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
       + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note de chantier</div>'
       + '<div id="note-popup-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
+      + '<div id="note-popup-terrain" style="display:none;padding:10px 16px 0;"></div>'
+      + '<div id="note-popup-lbl-gen" style="display:none;padding:14px 16px 0;color:#6b7280;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Note de suivi du chantier</div>'
       + '<div id="note-popup-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;"></div>'
       + '<div id="note-popup-photos" style="padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:8px;"></div>'
       + '<div id="note-popup-edit" style="padding:0 16px 12px;display:none;">'
@@ -583,6 +634,49 @@ function afficherNotePopup(nomChantier) {
   }
   ov._nom = nomU;
   ov.querySelector('#note-popup-nom').textContent = nom ? ('Chantier : ' + nom) : '';
+
+  /* ── Remontée du terrain : note et photos du salarié pour cette journée ── */
+  const tz = ov.querySelector('#note-popup-terrain');
+  const lg = ov.querySelector('#note-popup-lbl-gen');
+  if (tz) {
+    tz.innerHTML = '';
+    if (terrain) {
+      const ent = document.createElement('div');
+      ent.style.cssText = 'color:#c2410c;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;';
+      ent.textContent = '📷 Remontée du terrain';
+      tz.appendChild(ent);
+
+      const qui = document.createElement('div');
+      qui.style.cssText = 'color:#6b7280;font-size:0.78rem;margin-bottom:6px;';
+      qui.textContent = [terrain.auteur, _frDate(terrain.date)].filter(Boolean).join(' · ');
+      tz.appendChild(qui);
+
+      if (terrain.note) {
+        const txt = document.createElement('div');
+        txt.style.cssText = 'white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:9px 11px;';
+        txt.textContent = terrain.note;
+        tz.appendChild(txt);
+      }
+      if (terrain.photos.length) {
+        const strip = document.createElement('div');
+        strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
+        terrain.photos.forEach(src => {
+          const im = document.createElement('img');
+          im.src = src;
+          im.style.cssText = 'width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #fed7aa;cursor:zoom-in;';
+          im.onclick = () => _ouvrirPhoto(src);
+          strip.appendChild(im);
+        });
+        tz.appendChild(strip);
+      }
+      tz.style.display = 'block';
+      if (lg) lg.style.display = 'block';
+    } else {
+      tz.style.display = 'none';
+      if (lg) lg.style.display = 'none';
+    }
+  }
+
   ov.querySelector('#note-popup-txt').textContent = note || '(aucune note pour ce chantier)';
   // Photos rattachées au chantier (page Notes unifiée)
   const pz = ov.querySelector('#note-popup-photos');
@@ -593,7 +687,7 @@ function afficherNotePopup(nomChantier) {
       const im = document.createElement('img');
       im.src = src;
       im.style.cssText = 'width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;cursor:zoom-in;';
-      im.onclick = () => window.open(src, '_blank');
+      im.onclick = () => _ouvrirPhoto(src);
       pz.appendChild(im);
     });
     pz.style.display = fotos.length ? 'flex' : 'none';
@@ -649,7 +743,9 @@ function initChipNotes() {
   document.querySelectorAll('.grille .chip-note').forEach(b => {
     b.addEventListener('click', function (e) {
       e.stopPropagation();
-      afficherNotePopup(this.getAttribute('data-nom'));
+      afficherNotePopup(this.getAttribute('data-nom'),
+                        this.getAttribute('data-sal'),
+                        this.getAttribute('data-date'));
     });
   });
 }
@@ -679,9 +775,9 @@ function trierChipsParRdv(chips){
 function chipsCellule(sal, dateStr, heures, realParSalDate) {
   const safeDate = dateStr.replace(/-/g, '_');
 
-  // 1) Chantiers planifiés (Planning) : un pavé par case ch1..ch5 nommée
+  // 1) Chantiers planifiés (Planning) : un pavé par case nommée
   const planifies = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= NB_SLOTS; i++) {
     const data = heures[`${sal.id}${safeDate}ch${i}`];
     if (data && data.chantier && String(data.chantier).trim()) {
       planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim(), rdv: (data.rdv || '').trim() });
@@ -696,16 +792,22 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
 
   // 2a) Pavés planifiés, colorés selon le réalisé correspondant (par nom)
   planifies.forEach(p => {
-    let etat = 'plan', hReal = 0, noteR = '';
+    let etat = 'plan', hReal = 0, noteR = '', photosR = [];
     const idx = rs.findIndex((c, j) => !pris[j] && norm(c.nom) === norm(p.nom));
-    if (idx >= 0) { pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '' });
+    if (idx >= 0) {
+      pris[idx] = true; etat = etatChantier(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60;
+      noteR = (rs[idx].note || '').trim();
+      photosR = Array.isArray(rs[idx].photos) ? rs[idx].photos : [];
+    }
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '',
+                 salId: sal.id, date: dateStr, terrNote: noteR, terrPhotos: photosR.length });
   });
 
   // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
   rs.forEach((c, j) => {
     if (pris[j]) return;
-    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim() });
+    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim(),
+                 salId: sal.id, date: dateStr, terrNote: (c.note || '').trim(), terrPhotos: (Array.isArray(c.photos) ? c.photos.length : 0) });
   });
 
   // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés)
@@ -730,8 +832,16 @@ function htmlChip(c) {
     ? `<span class="drag-grip" title="Glisser pour réordonner" style="margin:-2px -2px -2px auto;flex:0 0 auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;font-size:1.25rem;line-height:1;color:#64748b;padding:4px 7px;">⠿</span>`
     : '';
   const _noteG = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim();
-  const _noteStyle = _noteG ? 'background:#e0e7ff;color:#3730a3;' : 'background:#eef2f7;color:#94a3b8;';
-  const noteBtn = `<button type="button" class="chip-note" title="Note de chantier" data-nom="${escapeHtmlLocal(c.nom)}" style="flex:0 0 auto;${_noteStyle}border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">📋</button>`;
+  /* Remontée du terrain : ce que le salarié a écrit ou photographié ce jour-là.
+     Elle prime visuellement sur la note de suivi, car c'est l'information neuve. */
+  const _nbPhotos = c.terrPhotos || 0;
+  const _aTerrain = !!(_nbPhotos || (c.terrNote || '').trim());
+  const _noteStyle = _aTerrain ? 'background:#ffedd5;color:#c2410c;'
+                   : _noteG    ? 'background:#e0e7ff;color:#3730a3;'
+                               : 'background:#eef2f7;color:#94a3b8;';
+  const _noteIcone = _nbPhotos ? ('📷' + (_nbPhotos > 1 ? _nbPhotos : '')) : '📋';
+  const _noteTitre = _aTerrain ? 'Remontée du terrain — voir la note et les photos' : 'Note de chantier';
+  const noteBtn = `<button type="button" class="chip-note" title="${_noteTitre}" data-nom="${escapeHtmlLocal(c.nom)}" data-sal="${escapeHtmlLocal(c.salId || '')}" data-date="${escapeHtmlLocal(c.date || '')}" style="flex:0 0 auto;${_noteStyle}border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">${_noteIcone}</button>`;
   const rdvHtml = c.rdv ? `<span class="chip-rdv" title="Heure de RDV" style="flex:0 0 auto;background:#dbeafe;color:#1e3a8a;border-radius:6px;font-size:0.7rem;font-weight:600;padding:1px 5px;white-space:nowrap;">🕐 ${escapeHtmlLocal(c.rdv)}</span>` : '';
   const hrsHtml = _modeStandard
     ? `<span class="hp">h prévues : ${fmtHM(c.hPlan)}</span>`
