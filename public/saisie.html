@@ -2917,22 +2917,19 @@ function rendrePauseJour() {
     `<button type="button" class="btn-pause-jour" onclick="ouvrirModalPause()">🍽️ + Ajouter une pause</button>` +
     `<span class="l"></span>`;
 
-  // Cherche la dernière carte de chantier envoyée dans le DOM
+  // Placement du déclencheur :
+  //   - s'il existe des chantiers envoyés → juste après le DERNIER envoyé ;
+  //   - sinon → juste après le PREMIER chantier de la liste (il descendra au fil des envois).
   const cartes = document.querySelectorAll('#liste-prev .chantier-card, #liste-ajout .chantier-card');
   let dernierEnvoye = null;
   cartes.forEach(c => { if (c.classList.contains('etat-envoye')) dernierEnvoye = c; });
 
   if (dernierEnvoye) {
-    // Juste après le dernier chantier envoyé
-    dernierEnvoye.after(gap);
+    dernierEnvoye.after(gap);           // sous le dernier chantier envoyé
   } else if (cartes.length) {
-    // Aucun envoyé encore → en bas de la dernière liste non vide (rattrapage possible)
-    const cible = listeAjout.querySelector('.chantier-card')
-      ? listeAjout : listePrev;
-    cible.appendChild(gap);
+    cartes[0].after(gap);               // aucun envoyé → sous le premier chantier
   } else {
-    // Aucun chantier du tout : on place le bouton sous la liste prévue
-    listePrev.appendChild(gap);
+    listePrev.appendChild(gap);         // aucun chantier du tout
   }
 }
 
