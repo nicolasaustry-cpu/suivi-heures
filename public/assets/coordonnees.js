@@ -13,6 +13,34 @@
   function _esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function _tel(n) { return String(n || '').replace(/[^0-9+]/g, ''); }
 
+  /* Lien « itinéraire » Google Maps construit depuis l'adresse + la ville.
+     Format universel : ouvre l'application Maps sur Android comme sur iPhone,
+     et bascule sur le navigateur si elle n'est pas installée. */
+  function _mapsUrl(c) {
+    var dest = [c.adresse, c.ville].filter(Boolean).join(', ')
+      .replace(/[\r\n]+/g, ', ')      // l'adresse est saisie dans un textarea
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return dest ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(dest) : '';
+  }
+
+  /* Style du bouton Itinéraire — injecté dès le chargement, car le bloc
+     d'affichage peut être rendu sans que le modal d'édition ait jamais servi
+     (cas de la saisie mobile, où le salarié ne fait que lire les coordonnées). */
+  function _styleItin() {
+    if (!document.head || document.getElementById('coord-itin-style')) return;
+    var st = document.createElement('style');
+    st.id = 'coord-itin-style';
+    st.textContent =
+      '.chip-coord .coord-itin{display:inline-block;margin:6px 0 3px;padding:6px 12px;' +
+      'border:1px solid #c7d7f5;border-radius:8px;background:#eef4fd;color:#0f3a8a;' +
+      'text-decoration:none;font-weight:700;font-size:.78rem;line-height:1.25;white-space:nowrap;}' +
+      '.chip-coord .coord-itin:active{background:#dbe7fb;}';
+    document.head.appendChild(st);
+  }
+  _styleItin();  // <head> existe déjà : le script est chargé en fin de <body>
+  if (!document.getElementById('coord-itin-style')) document.addEventListener('DOMContentLoaded', _styleItin);
+
   /* Bloc d'affichage « en clair » à insérer dans une carte de chantier. */
   function html(nom) {
     const c = get(nom);
@@ -20,6 +48,8 @@
     let l = '';
     if (c.adresse) l += _esc(c.adresse) + '<br>';
     if (c.ville)   l += _esc(c.ville) + '<br>';
+    const itin = _mapsUrl(c);
+    if (itin) l += '<a class="coord-itin" href="' + _esc(itin) + '" target="_blank" rel="noopener">🗺 Itinéraire</a><br>';
     const tels = [];
     if (c.mobile) tels.push('📱 <a href="tel:' + _tel(c.mobile) + '">' + _esc(c.mobile) + '</a>');
     if (c.fixe)   tels.push('☎ <a href="tel:' + _tel(c.fixe) + '">' + _esc(c.fixe) + '</a>');
