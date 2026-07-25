@@ -398,6 +398,41 @@ router.post("/envoyer", async (req, res) => {
   }
 });
 
+/* ── Pause déjeuner hors chantier (une par jour) ──
+   Envoi dédié depuis le mobile. Ne touche QUE le champ pauseJournee de la
+   saisie du jour ; ne modifie jamais les chantiers ni totalMin (la pause
+   déjeuner n'est PAS du temps de travail). Crée la saisie du jour si le
+   salarié pose sa pause avant d'avoir envoyé le moindre chantier. ── */
+router.post("/pause", async (req, res) => {
+  try {
+    const { codeEmploye, salarieId, salarieNom, date } = req.body;
+    const pauseJournee = Math.max(0, parseInt(req.body.pauseJournee) || 0);
+    const codeEmp = (codeEmploye || "").trim().toUpperCase();
+    if (!salarieId || !date) return res.status(400).json({ ok: false, message: "salarieId ou date manquant" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+    if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+    const doc = _r.doc;
+
+    let saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
+    if (!saisie) {
+      // Pause posée avant tout chantier : on crée une saisie du jour « vide » côté chantiers.
+      saisie = new Saisie({
+        clientId: doc.clientId, salarieId, salarieNom, date,
+        chantiers: [], totalMin: 0, pauseJournee, statut: "envoyee"
+      });
+    } else {
+      saisie.pauseJournee = pauseJournee; // 0 = pause supprimée
+      saisie.updatedAt = new Date();
+    }
+    await saisie.save();
+    res.json({ ok: true, pauseJournee: saisie.pauseJournee });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Supprimer un chantier AJOUTÉ d'une journée (route mobile : code employé,
    pas de token licence). Retire le chantier non prévisionnel correspondant ;
    si la journée n'a plus aucun chantier, supprime la saisie entière. ── */
@@ -425,8 +460,16 @@ router.post("/supprimer-chantier", async (req, res) => {
     if (saisie.chantiers.length === avant) return res.json({ ok: true, supprimee: false });
 
     if (saisie.chantiers.length === 0) {
-      await saisie.deleteOne();
-      return res.json({ ok: true, supprimee: true, saisieSupprimee: true });
+      // Plus aucun chantier : on ne supprime la saisie que s'il n'y a pas non plus
+      // de pause déjeuner. Sinon on la conserve (vidée) pour ne pas perdre la pause.
+      if (!saisie.pauseJournee) {
+        await saisie.deleteOne();
+        return res.json({ ok: true, supprimee: true, saisieSupprimee: true });
+      }
+      saisie.totalMin = 0;
+      saisie.updatedAt = new Date();
+      await saisie.save();
+      return res.json({ ok: true, supprimee: true });
     }
     saisie.totalMin = saisie.chantiers.reduce((s, c) => s + (c.dureeMin || 0) + (c.deplacement || 0), 0);
     saisie.updatedAt = new Date();

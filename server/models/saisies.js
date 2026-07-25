@@ -20,6 +20,7 @@ const saisieJournaliereSchema = new mongoose.Schema({
   date:       { type: String, required: true }, // "YYYY-MM-DD"
   chantiers:  [saisieChantierSchema],
   totalMin:   { type: Number, default: 0 },
+  pauseJournee: { type: Number, default: 0 }, // pause déjeuner hors chantier, en minutes — JAMAIS comptée comme travail
   statut:     { type: String, enum: ["envoyee", "validee"], default: "envoyee" },
   createdAt:  { type: Date, default: Date.now },
   updatedAt:  { type: Date, default: Date.now }
