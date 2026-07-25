@@ -32,7 +32,10 @@
     var st = document.createElement('style');
     st.id = 'coord-itin-style';
     st.textContent =
-      '.chip-coord .coord-itin{display:inline-block;margin:6px 0 3px;padding:6px 12px;' +
+      '.chip-coord .coord-haut{display:flex;align-items:center;gap:10px;}' +
+      '.chip-coord .coord-adr{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;}' +
+      '.chip-coord .coord-tels{margin-top:3px;}' +
+      '.chip-coord .coord-itin{flex:0 0 auto;display:inline-block;margin:0;padding:6px 12px;' +
       'border:1px solid #c7d7f5;border-radius:8px;background:#eef4fd;color:#0f3a8a;' +
       'text-decoration:none;font-weight:700;font-size:.78rem;line-height:1.25;white-space:nowrap;}' +
       '.chip-coord .coord-itin:active{background:#dbe7fb;}';
@@ -41,20 +44,27 @@
   _styleItin();  // <head> existe déjà : le script est chargé en fin de <body>
   if (!document.getElementById('coord-itin-style')) document.addEventListener('DOMContentLoaded', _styleItin);
 
-  /* Bloc d'affichage « en clair » à insérer dans une carte de chantier. */
+  /* Bloc d'affichage « en clair » à insérer dans une carte de chantier.
+     L'adresse et le bouton Itinéraire tiennent sur une même rangée,
+     les téléphones sur la ligne du dessous. */
   function html(nom) {
     const c = get(nom);
     if (!c || (!c.adresse && !c.ville && !c.mobile && !c.fixe)) return '';
     let l = '';
-    if (c.adresse) l += _esc(c.adresse) + '<br>';
-    if (c.ville)   l += _esc(c.ville) + '<br>';
-    const itin = _mapsUrl(c);
-    if (itin) l += '<a class="coord-itin" href="' + _esc(itin) + '" target="_blank" rel="noopener">🗺 Itinéraire</a><br>';
+    if (c.adresse || c.ville) {
+      let adr = '';
+      if (c.adresse) adr += _esc(c.adresse) + (c.ville ? '<br>' : '');
+      if (c.ville)   adr += _esc(c.ville);
+      const itin = _mapsUrl(c);
+      l += '<div class="coord-haut"><div class="coord-adr">📍 ' + adr + '</div>'
+         + (itin ? '<a class="coord-itin" href="' + _esc(itin) + '" target="_blank" rel="noopener">🗺 Itinéraire</a>' : '')
+         + '</div>';
+    }
     const tels = [];
     if (c.mobile) tels.push('📱 <a href="tel:' + _tel(c.mobile) + '">' + _esc(c.mobile) + '</a>');
     if (c.fixe)   tels.push('☎ <a href="tel:' + _tel(c.fixe) + '">' + _esc(c.fixe) + '</a>');
-    if (tels.length) l += tels.join(' · ');
-    return '<div class="chip-coord">📍 ' + l + '</div>';
+    if (tels.length) l += '<div class="coord-tels">' + (l ? '' : '📍 ') + tels.join(' · ') + '</div>';
+    return '<div class="chip-coord">' + l + '</div>';
   }
 
   /* ─ Modal d'édition ─ */
