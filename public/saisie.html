@@ -2894,9 +2894,65 @@ function majTotal() {
   }
 }
 
-/* Contrat du jour affiché, en minutes : lit la grille d'heures du salarié
-   (heuresParJour) pour le jour de la semaine correspondant à la date choisie.
-   Les salariés en alternance A/B ne sont pas gérés ici (repli sur heuresParJour). */
+/* ─── ALTERNANCE SEMAINE A / B (logique reprise à l'identique de planning.html) ───
+   Un salarié « alternant » possède :
+     s.alternance = true
+     s.heuresParJourA / s.heuresParJourB = { lun..sam }
+     s.bascules = [ { date:'YYYY-MM-DD' (un lundi), semaine:'A'|'B' }, ... ]
+   Un salarié classique garde s.heuresParJour (inchangé). */
+
+/* Lundi (00:00) de la semaine contenant la date d. */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();                 // 0=dim,1=lun,...
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+
+/* Nombre de semaines entières entre deux lundis. */
+function nbSemainesEntre(lundiRef, lundiCible) {
+  return Math.round((lundiCible - lundiRef) / (7 * 24 * 3600 * 1000));
+}
+
+/* La date d tombe-t-elle en semaine 'A' ou 'B' pour ce salarié ? */
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';     // par défaut A si aucune bascule
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+
+  const lundiCible = lundiDeLaSemaine(d);
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    // Avant la première bascule : on rétro-alterne depuis celle-ci
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb);
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+
+/* Grille d'heures applicable à ce salarié pour la date d.
+   Repli sur heuresParJour si l'alternance n'est pas activée — ou si le jeu de
+   données reçu du serveur ne transporte pas les grilles A/B (comportement
+   strictement identique à l'ancien, donc sans risque de régression). */
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance && (s.heuresParJourA || s.heuresParJourB)) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return (s && s.heuresParJour) || {};
+}
+
+/* Contrat du jour affiché, en minutes : lit la grille d'heures applicable au
+   salarié pour la date choisie, en tenant compte de l'alternance A/B. */
 function contratMinutesDuJour() {
   try {
     const date = document.getElementById('date-saisie').value;
@@ -2904,8 +2960,9 @@ function contratMinutesDuJour() {
     const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
     const moi  = sals.find(s => String(s.id) === String(_salarie.id));
     if (!moi) return 0;
-    const grille = moi.heuresParJour || {};
-    const nomJour = ['dim','lun','mar','mer','jeu','ven','sam'][new Date(date + 'T00:00:00').getDay()];
+    const dObj = new Date(date + 'T00:00:00');
+    const grille = grilleHeuresPourDate(moi, dObj);
+    const nomJour = ['dim','lun','mar','mer','jeu','ven','sam'][dObj.getDay()];
     return Math.round((parseFloat(grille[nomJour]) || 0) * 60);
   } catch (_) { return 0; }
 }
