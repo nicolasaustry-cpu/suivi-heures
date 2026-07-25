@@ -937,6 +937,55 @@
     font-weight: 800;
     letter-spacing: 0.01em;
   }
+  /* Sous-ligne présence / pause dans le total du jour (affichée seulement si pause > 0) */
+  .total-pause-line {
+    display: flex; justify-content: space-between;
+    font-size: 0.66rem; color: #c4b5fd; font-weight: 600;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    padding-top: 5px; margin-top: 5px;
+  }
+
+  /* ── Pause déjeuner hors chantier ──
+     Violet : couleur réservée, jamais utilisée par un chantier. */
+  .pause-gap {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 4px 2px; margin: 2px 0 8px;
+  }
+  .pause-gap .l { flex: 1; border-top: 1px dashed #c4b5fd; }
+  .btn-pause-jour {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.76rem; font-weight: 700; color: #7c3aed;
+    background: #faf5ff; border: 1px dashed #c4b5fd;
+    border-radius: 20px; padding: 7px 14px; white-space: nowrap; cursor: pointer;
+  }
+  .btn-pause-jour:active { background: #f3e8ff; }
+  .pause-posee {
+    display: flex; align-items: center; gap: 9px;
+    background: #f5f0ff; border: 1px solid #ddd0f5; border-left: 3px solid #a855f7;
+    border-radius: 11px; padding: 9px 12px; margin: 2px 0 9px; cursor: pointer;
+  }
+  .pause-posee .ic { font-size: 1rem; }
+  .pause-posee .tx { flex: 1; font-size: 0.82rem; font-weight: 700; color: #6b21a8; }
+  .pause-posee .tx small { display: block; font-weight: 500; color: #8b5cf6; font-size: 0.68rem; }
+  .pause-posee .edit { font-size: 0.72rem; font-weight: 700; color: #7c3aed; }
+
+  /* Modale pause : reprend .modal-overlay / .modal-box, accent violet */
+  #modal-pause .modal-title { color: #6b21a8 !important; }
+  .mp-sub { font-size: 0.78rem; color: #64748b; text-align: center; margin: -0.5rem 0 1rem; }
+  .mp-sub b { color: #7c3aed; }
+  .mp-lab { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #64748b; margin-bottom: 6px; display: block; }
+  #modal-pause select {
+    width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 9px;
+    font-size: 1.2rem; font-weight: 700; color: #0f172a; background: #fff; margin-bottom: 1rem;
+  }
+  .btn-pause-ok {
+    width: 100%; padding: 12px; background: #7c3aed; color: #fff; border: none;
+    border-radius: 9px; font-size: 1rem; font-weight: 700; cursor: pointer; margin-bottom: 6px;
+  }
+  .btn-pause-suppr {
+    width: 100%; padding: 10px; background: #fff; color: #dc2626; border: 1px solid #fecaca;
+    border-radius: 9px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-bottom: 6px;
+  }
 
   /* ── Modale « Ajouter un chantier » ── */
   .modal-box {
@@ -1343,6 +1392,19 @@
   </div><!-- fin saisie-scroll -->
 </div>
 
+<!-- ── MODAL PAUSE DÉJEUNER (hors chantier, non comptée comme travail) ── -->
+<div class="modal-overlay" id="modal-pause">
+  <div class="modal-box">
+    <div class="modal-title">🍽️ Pause déjeuner</div>
+    <div class="mp-sub">Non comptée comme temps de travail</div>
+    <label class="mp-lab" for="pause-duree">Durée de la pause</label>
+    <select id="pause-duree"></select>
+    <button class="btn-pause-ok" onclick="validerPauseJour()">✔ Valider la pause</button>
+    <button class="btn-pause-suppr" id="btn-pause-suppr" onclick="supprimerPauseJour()" style="display:none;">Supprimer la pause</button>
+    <button class="btn-modal-cancel" onclick="fermerModalPause()">Annuler</button>
+  </div>
+</div>
+
 <!-- ── MODAL AJOUT CHANTIER ── -->
 <div class="modal-overlay" id="modal-ajout">
   <div class="modal-box">
@@ -1386,6 +1448,7 @@ let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin
 let _rdvMobileNom = null;
 let _chantiersA = [];   // chantiers ajoutés
 let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
+let _pauseJour  = 0;    // pause déjeuner hors chantier, en minutes (0 = aucune)
 let _deplJournee = 0;  // Déplacement global de la journée
 let _selModal   = null; // chantier sélectionné dans la modal
 
@@ -1887,6 +1950,7 @@ async function chargerChantiersPrev() {
   trierChantiersParRdv(_chantiersP);
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
+  chargerPauseJour();   // relit la pause déjeuner mémorisée pour ce jour
   rendrePrev();
   rendreAjout();
   majTotal();
@@ -2766,6 +2830,7 @@ function calcMinutes(arrivee, depart, pause) {
 }
 
 function majTotal() {
+  // Total = temps TRAVAILLÉ uniquement. La pause déjeuner (_pauseJour) n'y entre JAMAIS.
   let total = 0;
   _chantiersP.forEach(c => {
     const s = _saisiesPrev[c.nom] || {};
@@ -2774,8 +2839,171 @@ function majTotal() {
   _chantiersA.forEach(c => {
     total += calcMinutes(c.arrivee, c.depart, c.pause) + (c.depl || 0);
   });
-  document.getElementById('total-jour').textContent =
-    `${Math.floor(total / 60)} h ${String(total % 60).padStart(2,'0')}`;
+  const fmt = m => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2,'0')}`;
+  document.getElementById('total-jour').textContent = fmt(total);
+
+  // Rend le déclencheur/pastille de pause après chaque mise à jour d'affichage.
+  if (typeof rendrePauseJour === 'function') rendrePauseJour();
+
+  // Sous-ligne informative « Présence − Pause », affichée seulement si une pause est posée.
+  const bar = document.querySelector('.total-bar');
+  let sous = document.getElementById('total-pause-line');
+  if (_pauseJour > 0) {
+    if (!sous) {
+      sous = document.createElement('div');
+      sous.id = 'total-pause-line';
+      sous.className = 'total-pause-line';
+      bar.appendChild(sous);
+    }
+    sous.innerHTML = `<span>Présence ${fmt(total + _pauseJour)}</span><span>− Pause ${fmt(_pauseJour)}</span>`;
+  } else if (sous) {
+    sous.remove();
+  }
+}
+
+/* ═══════════════════════════
+   PAUSE DÉJEUNER (hors chantier)
+   Une seule par jour. Non comptée comme travail. Envoi immédiat au serveur.
+═══════════════════════════ */
+
+/* Clé de persistance locale, propre au salarié + à la date affichée. */
+function _clePauseJour() {
+  const d = document.getElementById('date-saisie').value || '';
+  const sid = _salarie ? _salarie.id : '?';
+  return `saisie_pauseJour_${sid}_${d}`;
+}
+
+/* Recharge la pause mémorisée localement pour le jour affiché (survit à un reload). */
+function chargerPauseJour() {
+  let v = 0;
+  try { v = parseInt(localStorage.getItem(_clePauseJour())) || 0; } catch (_) {}
+  _pauseJour = v;
+}
+
+/* Un chantier est-il déjà envoyé ? (prévu ou ajouté) */
+function _estEnvoye(obj) { return !!(obj && (obj.envoye || obj.dejaEnvoye)); }
+
+/* Rend le déclencheur unique OU la pastille de pause posée.
+   - si une pause est posée → pastille cliquable (partout, une seule fois)
+   - sinon → un seul bouton, juste après le dernier chantier envoyé,
+     et à défaut en bas de la liste des chantiers. */
+function rendrePauseJour() {
+  // On nettoie tout élément pause déjà rendu
+  document.querySelectorAll('.pause-gap, .pause-posee').forEach(e => e.remove());
+
+  const listePrev  = document.getElementById('liste-prev');
+  const listeAjout = document.getElementById('liste-ajout');
+
+  // 1) Pause déjà posée → pastille, insérée en tête de la liste prévue
+  if (_pauseJour > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'pause-posee';
+    chip.onclick = ouvrirModalPause;
+    const h = Math.floor(_pauseJour / 60), m = _pauseJour % 60;
+    chip.innerHTML =
+      `<span class="ic">🍽️</span>` +
+      `<span class="tx">Pause · ${h} h ${String(m).padStart(2,'0')}` +
+      `<small>Non comptée comme travail</small></span>` +
+      `<span class="edit">Modifier</span>`;
+    (listePrev.firstChild) ? listePrev.insertBefore(chip, listePrev.firstChild)
+                           : listePrev.appendChild(chip);
+    return;
+  }
+
+  // 2) Pas de pause → un seul déclencheur, sous le dernier chantier envoyé.
+  const gap = document.createElement('div');
+  gap.className = 'pause-gap';
+  gap.innerHTML = `<span class="l"></span>` +
+    `<button type="button" class="btn-pause-jour" onclick="ouvrirModalPause()">🍽️ + Ajouter une pause</button>` +
+    `<span class="l"></span>`;
+
+  // Cherche la dernière carte de chantier envoyée dans le DOM
+  const cartes = document.querySelectorAll('#liste-prev .chantier-card, #liste-ajout .chantier-card');
+  let dernierEnvoye = null;
+  cartes.forEach(c => { if (c.classList.contains('etat-envoye')) dernierEnvoye = c; });
+
+  if (dernierEnvoye) {
+    // Juste après le dernier chantier envoyé
+    dernierEnvoye.after(gap);
+  } else if (cartes.length) {
+    // Aucun envoyé encore → en bas de la dernière liste non vide (rattrapage possible)
+    const cible = listeAjout.querySelector('.chantier-card')
+      ? listeAjout : listePrev;
+    cible.appendChild(gap);
+  } else {
+    // Aucun chantier du tout : on place le bouton sous la liste prévue
+    listePrev.appendChild(gap);
+  }
+}
+
+let _modalPauseOuverte = false;
+function _remplirSelectPause() {
+  const sel = document.getElementById('pause-duree');
+  if (sel.options.length) return; // déjà rempli
+  let html = '';
+  for (let min = 0; min <= 150; min += 15) {
+    const h = Math.floor(min / 60), m = min % 60;
+    const lib = min === 0 ? 'Aucune' : `${h} h ${String(m).padStart(2,'0')}`;
+    html += `<option value="${min}">${lib}</option>`;
+  }
+  sel.innerHTML = html;
+}
+
+function ouvrirModalPause() {
+  _remplirSelectPause();
+  document.getElementById('pause-duree').value = _pauseJour || 0;
+  // Bouton « Supprimer » visible uniquement si une pause existe déjà
+  document.getElementById('btn-pause-suppr').style.display = _pauseJour > 0 ? 'block' : 'none';
+  document.getElementById('modal-pause').classList.add('open');
+  _modalPauseOuverte = true;
+}
+function fermerModalPause() {
+  document.getElementById('modal-pause').classList.remove('open');
+  _modalPauseOuverte = false;
+}
+
+async function validerPauseJour() {
+  const min = parseInt(document.getElementById('pause-duree').value) || 0;
+  _pauseJour = min;
+  try { localStorage.setItem(_clePauseJour(), String(min)); } catch (_) {}
+  fermerModalPause();
+  rendrePauseJour();
+  majTotal();
+  await envoyerPauseJour(min);   // envoi immédiat (option A) ; sans blocage si hors-ligne
+}
+
+async function supprimerPauseJour() {
+  _pauseJour = 0;
+  try { localStorage.removeItem(_clePauseJour()); } catch (_) {}
+  fermerModalPause();
+  rendrePauseJour();
+  majTotal();
+  await envoyerPauseJour(0);     // 0 = efface la pause côté serveur
+}
+
+/* Envoi dédié de la pause du jour. Route serveur /api/saisies/pause (étape 2).
+   Tant que la route n'existe pas, l'échec est silencieux : la pause reste
+   valable en local et ne bloque jamais la saisie. */
+async function envoyerPauseJour(min) {
+  if (!_salarie) return;
+  const date = document.getElementById('date-saisie').value;
+  if (!date) return;
+  const payload = {
+    codeEmploye: localStorage.getItem('saisie_codeEmploye'),
+    salarieId:   _salarie.id,
+    salarieNom:  _salarie.nom,
+    date,
+    pauseJournee: min
+  };
+  try {
+    await fetch('/api/saisies/pause', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (_) {
+    // hors-ligne : la pause reste en local, réenvoyée au prochain passage si besoin
+  }
 }
 
 /* ═══════════════════════════
