@@ -1569,6 +1569,14 @@ function rafraichirLigne(salarieId, dateStr) {
       if (chip) {
         chip.classList.toggle('vide', (e.chantier || '').trim() === '');
         chip.classList.toggle('tna', (e.chantier||'').toUpperCase() === TNA);
+        /* Le bloc coordonnées n'était posé qu'au rendu complet (pl2ChipHTML) :
+           un chantier saisi ou modifié dans un pavé déjà affiché n'affichait
+           ses coordonnées qu'au rechargement suivant. On le reconstruit ici. */
+        const ancienCoord = chip.querySelector('.chip-coord');
+        if (ancienCoord) ancienCoord.remove();
+        const nomCoord = (e.chantier || '').trim();
+        const htmlCoord = (typeof Coord !== 'undefined' && nomCoord) ? Coord.html(nomCoord) : '';
+        if (htmlCoord) chip.insertAdjacentHTML('beforeend', htmlCoord);
       }
     }
     if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
