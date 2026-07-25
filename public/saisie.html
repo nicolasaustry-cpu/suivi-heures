@@ -937,12 +937,26 @@
     font-weight: 800;
     letter-spacing: 0.01em;
   }
+  /* Total du jour en 3 colonnes : Contrat / Planifié / Réalisé */
+  .total-bar-3col { display: flex !important; align-items: stretch; padding: 11px 8px !important; }
+  .total-bar-3col .tcell { flex: 1; text-align: center; padding: 2px 4px; }
+  .total-bar-3col .tcell + .tcell { border-left: 1px solid rgba(255,255,255,0.14); }
+  .total-bar-3col .tcell-lbl {
+    display: block; margin-bottom: 5px;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #94a3b8;
+  }
+  .total-bar-3col .tcell-val { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.01em; }
+  .total-bar-3col .tcell-contrat .tcell-val { color: #cbd5e1; }   /* contrat : gris clair */
+  .total-bar-3col .tcell-plan    .tcell-val { color: #93c5fd; }   /* planifié : bleu clair */
+  .total-bar-3col .tcell-real    .tcell-val { color: #fff; }      /* réalisé : blanc, mis en avant */
   /* Sous-ligne présence / pause dans le total du jour (affichée seulement si pause > 0) */
   .total-pause-line {
     display: flex; justify-content: space-between;
-    font-size: 0.66rem; color: #c4b5fd; font-weight: 600;
-    border-top: 1px solid rgba(255,255,255,0.14);
-    padding-top: 5px; margin-top: 5px;
+    font-size: 0.7rem; color: #6b21a8; font-weight: 700;
+    background: #f5f0ff; border: 1px solid #ddd0f5;
+    border-radius: 9px; padding: 7px 12px;
+    margin: -0.4rem 0.75rem 1rem;
   }
 
   /* ── Pause déjeuner hors chantier ──
@@ -1382,9 +1396,19 @@
 
   <!-- Total + Envoyer -->
   <div class="section">
-    <div class="total-bar">
-      <span class="total-lbl">Total du jour</span>
-      <span class="total-val" id="total-jour">0 h 00</span>
+    <div class="total-bar total-bar-3col">
+      <div class="tcell tcell-contrat">
+        <span class="tcell-lbl">Contrat</span>
+        <span class="tcell-val" id="total-contrat">—</span>
+      </div>
+      <div class="tcell tcell-plan">
+        <span class="tcell-lbl">Planifié</span>
+        <span class="tcell-val" id="total-planifie">—</span>
+      </div>
+      <div class="tcell tcell-real">
+        <span class="tcell-lbl">Réalisé</span>
+        <span class="tcell-val" id="total-jour">0 h 00</span>
+      </div>
     </div>
 
   </div>
@@ -2830,7 +2854,7 @@ function calcMinutes(arrivee, depart, pause) {
 }
 
 function majTotal() {
-  // Total = temps TRAVAILLÉ uniquement. La pause déjeuner (_pauseJour) n'y entre JAMAIS.
+  // Réalisé = temps TRAVAILLÉ uniquement. La pause déjeuner (_pauseJour) n'y entre JAMAIS.
   let total = 0;
   _chantiersP.forEach(c => {
     const s = _saisiesPrev[c.nom] || {};
@@ -2842,10 +2866,19 @@ function majTotal() {
   const fmt = m => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2,'0')}`;
   document.getElementById('total-jour').textContent = fmt(total);
 
+  // Contrat du jour (grille d'heures du salarié) et Planifié du jour (somme des hPrevues).
+  const elC = document.getElementById('total-contrat');
+  const elP = document.getElementById('total-planifie');
+  if (elC) { const cm = contratMinutesDuJour(); elC.textContent = cm > 0 ? fmt(cm) : '—'; }
+  if (elP) {
+    const pm = Math.round(_chantiersP.reduce((s, c) => s + (parseFloat(c.hPrevues) || 0), 0) * 60);
+    elP.textContent = pm > 0 ? fmt(pm) : '—';
+  }
+
   // Rend le déclencheur/pastille de pause après chaque mise à jour d'affichage.
   if (typeof rendrePauseJour === 'function') rendrePauseJour();
 
-  // Sous-ligne informative « Présence − Pause », affichée seulement si une pause est posée.
+  // Sous-ligne informative « Présence − Pause », placée APRÈS le pavé (le pavé est en 3 colonnes).
   const bar = document.querySelector('.total-bar');
   let sous = document.getElementById('total-pause-line');
   if (_pauseJour > 0) {
@@ -2853,12 +2886,28 @@ function majTotal() {
       sous = document.createElement('div');
       sous.id = 'total-pause-line';
       sous.className = 'total-pause-line';
-      bar.appendChild(sous);
+      bar.after(sous);   // hors du pavé flex, juste en dessous
     }
     sous.innerHTML = `<span>Présence ${fmt(total + _pauseJour)}</span><span>− Pause ${fmt(_pauseJour)}</span>`;
   } else if (sous) {
     sous.remove();
   }
+}
+
+/* Contrat du jour affiché, en minutes : lit la grille d'heures du salarié
+   (heuresParJour) pour le jour de la semaine correspondant à la date choisie.
+   Les salariés en alternance A/B ne sont pas gérés ici (repli sur heuresParJour). */
+function contratMinutesDuJour() {
+  try {
+    const date = document.getElementById('date-saisie').value;
+    if (!date || !_salarie) return 0;
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const moi  = sals.find(s => String(s.id) === String(_salarie.id));
+    if (!moi) return 0;
+    const grille = moi.heuresParJour || {};
+    const nomJour = ['dim','lun','mar','mer','jeu','ven','sam'][new Date(date + 'T00:00:00').getDay()];
+    return Math.round((parseFloat(grille[nomJour]) || 0) * 60);
+  } catch (_) { return 0; }
 }
 
 /* ═══════════════════════════
