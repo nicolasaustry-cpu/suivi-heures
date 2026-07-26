@@ -87,6 +87,15 @@
 
   .tdb-pied { border-top:1px solid #e6ecf5; margin-top:1rem; padding-top:.9rem; display:flex; gap:2.4rem; flex-wrap:wrap; }
 
+  /* La vignette de charge tient sur un tiers de page : sa légende à quatre
+     entrées et ses trois chiffres de synthèse y sont resserrés, sinon ils
+     occupent plus de place que le graphique lui-même. */
+  [data-id="charge"] .tdb-legende { font-size:.86rem; gap:.4rem 1rem; margin:.35rem 0 .6rem; }
+  [data-id="charge"] .tdb-legende .tdb-pastille { width:12px; height:12px; }
+  [data-id="charge"] .tdb-pied { gap:1.3rem; margin-top:.8rem; padding-top:.7rem; }
+  [data-id="charge"] .tdb-pied .tdb-val { font-size:1.75rem; }
+  [data-id="charge"] .tdb-pied .tdb-lbl { font-size:.82rem; }
+
   /* Mini-barres (vignettes secondaires) */
   .tdb-spark { display:flex; gap:5px; align-items:flex-end; height:62px; margin-top:1rem; }
   .tdb-spark i { flex:1; border-radius:3px; display:block; }
@@ -180,7 +189,7 @@
   <div class="tdb-grille" id="tdb-grille">
 
     <!-- ─────────────── 1 · Charge hebdomadaire ─────────────── -->
-    <section class="tdb-vignette pleine" data-id="charge">
+    <section class="tdb-vignette" data-id="charge">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
         <span class="tdb-titre">Charge hebdomadaire</span>
@@ -470,7 +479,7 @@ function tdbGraphCharge(d) {
   /* Format panoramique : au-delà d'une certaine largeur, un viewBox trop
      étroit rendait le graphique démesurément haut et étirait toute la
      première ligne de la grille. */
-  const L = 940, H = 330, mg = { g: 66, d: 12, h: 16, b: 54 };
+  const L = 520, H = 340, mg = { g: 58, d: 8, h: 14, b: 50 };
   const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
 
   let max = 0;
@@ -498,8 +507,8 @@ function tdbGraphCharge(d) {
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
       bas += seg[0];
     });
-    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="19" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="18" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
+    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="17" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
