@@ -91,7 +91,28 @@ const SYNC = (() => {
     } catch (_) { return false; }
   }
 
+  /* Page d'ouverture de l'outil.
+     Sur l'adresse nue (« / »), le gérant connecté arrive désormais sur le
+     tableau de bord. On ne touche PAS à /index.html, qui reste la page
+     Entreprise et le point d'activation de la licence — les redirections
+     existantes vers '/index.html?erreur=...' continuent donc de fonctionner.
+     Une session salarié mobile (code employé sans jeton de licence) n'est
+     jamais redirigée : le tableau de bord ne lui est pas destiné. */
+  function ouvrirSurTableauDeBord() {
+    try {
+      if (window.location.pathname !== '/') return false;
+      if (sessionStorage.getItem('adminConsult') === '1') return false;
+      const jeton = localStorage.getItem('syncToken');
+      if (!jeton && !localStorage.getItem('licenceCode')) return false;
+      if (!jeton && localStorage.getItem('saisie_codeEmploye')) return false;
+      window.location.replace('/tableau-de-bord.html');
+      return true;
+    } catch (_) { return false; }
+  }
+
   async function init() {
+    if (ouvrirSurTableauDeBord()) return;
+
     _token    = localStorage.getItem('syncToken');
     _clientId = localStorage.getItem('syncClientId');
     _type     = localStorage.getItem('syncType');
@@ -539,11 +560,16 @@ const SYNC = (() => {
   var _lateralPrec = null;
 
   // Pages où le menu latéral s'applique.
-  var MENU_PAGES = ['index.html', 'salaries.html', 'chantiers.html', 'planning.html',
+  var MENU_PAGES = ['tableau-de-bord.html', 'index.html', 'salaries.html', 'chantiers.html', 'planning.html',
     'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html'];
 
   // Structure canonique du menu (indépendante de la licence).
+  // Le premier groupe n'a pas d'intitulé : le tableau de bord est la page
+  // d'accueil, il se lit au-dessus des rubriques et non dans l'une d'elles.
   var MENU_GROUPES = [
+    { label: '', items: [
+      { href: 'tableau-de-bord.html', label: 'Tableau de bord' }
+    ] },
     { label: 'Gestion', items: [
       { href: 'index.html',     label: 'Entreprise' },
       { href: 'salaries.html',  label: 'Salariés' },
@@ -665,10 +691,12 @@ const SYNC = (() => {
     rail.id = 'sh-rail';
     rail.className = 'sh-rail';
     MENU_GROUPES.forEach(g => {
-      const gl = document.createElement('div');
-      gl.className = 'sh-grp';
-      gl.textContent = g.label;
-      rail.appendChild(gl);
+      if (g.label) {
+        const gl = document.createElement('div');
+        gl.className = 'sh-grp';
+        gl.textContent = g.label;
+        rail.appendChild(gl);
+      }
       g.items.forEach(it => {
         const verrou = !!it.plus && !estPlus;   // Standard + page Plus → teasing
         const a = document.createElement('a');
@@ -725,6 +753,19 @@ const SYNC = (() => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'sh-tb-btn' + (actif ? ' active' : '');
+      // Groupe sans intitulé et à une seule entrée (le tableau de bord) :
+      // bouton d'accès direct, sans menu déroulant ni chevron.
+      if (!g.label && g.items.length === 1) {
+        const it = g.items[0];
+        btn.appendChild(document.createTextNode(it.label));
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          fermerDropdown();
+          window.location.href = it.href;
+        });
+        bar.appendChild(btn);
+        return;
+      }
       btn.appendChild(document.createTextNode(g.label + ' '));
       const car = document.createElement('span');
       car.className = 'sh-caret';

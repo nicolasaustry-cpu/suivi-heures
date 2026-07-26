@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tableau de bord – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<style>
+  /* ── Grille de vignettes ─────────────────────────────────────────
+     Chaque vignette porte un data-id stable : c'est cette liste, dans
+     l'ordre du DOM, qui est enregistrée comme « présentation ». */
+  .tdb-wrap { padding: 1rem; }
+
+  .tdb-bandeau {
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:#fff; border:1px solid #dbe3ee; border-left:4px solid #f59e0b;
+    border-radius:8px; padding:.6rem .9rem; margin-bottom:1rem;
+    font-size:.86rem; color:#475569;
+  }
+  .tdb-bandeau b { color:#0f172a; }
+
+  .tdb-grille {
+    display:grid; grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:14px; align-items:start;
+  }
+  @media (max-width:900px) { .tdb-grille { grid-template-columns:1fr; } }
+
+  .tdb-vignette {
+    background:#fff; border:1px solid #dbe3ee; border-radius:10px;
+    padding:.85rem 1rem; position:relative;
+    box-shadow:0 1px 2px rgba(15,58,138,.04);
+  }
+  .tdb-vignette.pleine { grid-column:1 / -1; }
+
+  .tdb-vignette.tdb-drag  { opacity:.45; }
+  .tdb-vignette.tdb-cible { outline:2px dashed #f59e0b; outline-offset:3px; }
+
+  .tdb-tete { display:flex; align-items:center; gap:8px; margin-bottom:.15rem; }
+  .tdb-poignee {
+    flex:0 0 auto; cursor:grab; color:#94a3b8; font-size:1.05rem; line-height:1;
+    padding:2px 4px; margin-left:-4px; border-radius:5px;
+    touch-action:none; -webkit-user-select:none; user-select:none;
+  }
+  .tdb-poignee:hover { background:#eef2f7; color:#475569; }
+  .tdb-poignee:active { cursor:grabbing; }
+  .tdb-titre { flex:1; font-size:.95rem; font-weight:700; color:#0f172a; }
+  .tdb-lien  { flex:0 0 auto; font-size:.78rem; color:#2563eb; text-decoration:none; font-weight:600; white-space:nowrap; }
+  .tdb-lien:hover { text-decoration:underline; }
+  .tdb-sous  { font-size:.74rem; color:#94a3b8; margin-bottom:.55rem; }
+
+  .tdb-chiffres { display:flex; gap:1.4rem; flex-wrap:wrap; }
+  .tdb-val   { font-size:1.5rem; font-weight:800; color:#0f172a; line-height:1.1; }
+  .tdb-val.alerte { color:#b91c1c; }
+  .tdb-val.tension { color:#4a3aa7; }
+  .tdb-val.attention { color:#b45309; }
+  .tdb-lbl   { font-size:.72rem; color:#94a3b8; margin-top:2px; }
+
+  .tdb-legende { display:flex; flex-wrap:wrap; gap:.75rem; font-size:.72rem; color:#64748b; margin:.35rem 0 .5rem; }
+  .tdb-legende span { display:flex; align-items:center; gap:5px; }
+  .tdb-pastille { width:9px; height:9px; border-radius:2px; flex:0 0 auto; }
+  .tdb-trait { width:15px; border-top:2px dashed #0f172a; }
+
+  .tdb-pied { border-top:1px solid #eef2f7; margin-top:.6rem; padding-top:.55rem; display:flex; gap:1.4rem; flex-wrap:wrap; }
+
+  /* Mini-barres (vignettes secondaires) */
+  .tdb-spark { display:flex; gap:3px; align-items:flex-end; height:34px; margin-top:.6rem; }
+  .tdb-spark i { flex:1; border-radius:2px; display:block; }
+
+  /* Listes internes */
+  .tdb-liste { border-top:1px solid #eef2f7; margin-top:.5rem; padding-top:.4rem; font-size:.8rem; color:#475569; }
+  .tdb-liste div { display:flex; justify-content:space-between; padding:2px 0; }
+
+  .tdb-barre { height:8px; background:#eef2f7; border-radius:4px; overflow:hidden; margin-top:.45rem; }
+  .tdb-barre i { display:block; height:100%; border-radius:4px; }
+
+  .tdb-repart { font-size:.75rem; color:#475569; }
+  .tdb-repart > div { display:flex; align-items:center; gap:7px; padding:2px 0; }
+  .tdb-repart .n { width:58px; flex:0 0 auto; }
+  .tdb-repart .j { width:30px; text-align:right; }
+  .tdb-repart .b { flex:1; height:7px; background:#eef2f7; border-radius:4px; overflow:hidden; }
+  .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
+
+  .tdb-donut { display:flex; align-items:center; gap:14px; }
+  .tdb-cercle { position:relative; width:86px; height:86px; flex:0 0 auto; border-radius:50%; }
+  .tdb-cercle .creux {
+    position:absolute; inset:12px; background:#fff; border-radius:50%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .tdb-cercle .creux b { font-size:1.05rem; font-weight:800; color:#0f172a; }
+  .tdb-cercle .creux span { font-size:.66rem; color:#94a3b8; }
+  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:.76rem; color:#475569; min-width:0; }
+  .tdb-donut li { display:flex; align-items:flex-start; gap:6px; padding:2px 0; line-height:1.3; }
+  .tdb-donut li b { font-weight:700; color:#0f172a; }
+
+  /* Barre d'actions */
+  .tdb-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
+  .tdb-btn {
+    background:#fff; border:1px solid #cbd5e1; color:#334155; border-radius:7px;
+    padding:5px 11px; font-size:.78rem; font-weight:700; cursor:pointer;
+  }
+  .tdb-btn:hover { background:#f1f5f9; }
+  .tdb-etat { font-size:.75rem; color:#16a34a; font-weight:700; opacity:0; transition:opacity .25s; }
+  .tdb-etat.on { opacity:1; }
+
+  @media print { .tdb-poignee, .tdb-actions, .tdb-bandeau { display:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <header class="main-header">
+    <div class="vol-identite">
+      <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+      <div class="vol-titres">
+        <span class="vol-marque">VOLITIS</span>
+        <span class="vol-nom">Suiv'Heures</span>
+        <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+      </div>
+    </div>
+    <h1 class="page-title">Tableau de bord</h1>
+    <div class="vol-droite">
+      <div class="entreprise-nom" id="entreprise-nom"></div>
+      <div id="licence-status"></div>
+    </div>
+  </header>
+
+  <div class="nav no-print">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+  </div>
+</div>
+
+<div class="tdb-wrap">
+
+  <div class="tdb-bandeau">
+    <span>⚙️ <b>Vignettes en cours de raccordement.</b> Les valeurs affichées sont des exemples ; chaque vignette sera branchée sur vos données une par une.</span>
+    <span class="tdb-actions">
+      <span class="tdb-etat" id="tdb-etat">Présentation enregistrée ✓</span>
+      <button type="button" class="tdb-btn" onclick="tdbReinitialiser()">↺ Ordre par défaut</button>
+    </span>
+  </div>
+
+  <div class="tdb-grille" id="tdb-grille">
+
+    <!-- ─────────────── 1 · Charge hebdomadaire ─────────────── -->
+    <section class="tdb-vignette pleine" data-id="charge">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Charge hebdomadaire</span>
+        <a class="tdb-lien" href="planning.html">Planning prévu →</a>
+      </div>
+      <div class="tdb-sous" id="charge-sous">Juin à août · M-1, M et M+1</div>
+      <div class="tdb-legende">
+        <span><i class="tdb-pastille" style="background:#1baf7a"></i>Heures chantiers planifiées</span>
+        <span><i class="tdb-pastille" style="background:#f59e0b"></i>Chantiers prévus mais non planifiés</span>
+        <span><i class="tdb-pastille" style="background:#4a3aa7"></i>Au-delà de la capacité</span>
+        <span><i class="tdb-trait"></i>Capacité vendable</span>
+      </div>
+      <div id="charge-graph"></div>
+      <div class="tdb-pied">
+        <div><div class="tdb-val tension" id="charge-nbsem">4</div><div class="tdb-lbl">semaines en dépassement</div></div>
+        <div><div class="tdb-val tension" id="charge-heures">90 h</div><div class="tdb-lbl">à reporter ou sous-traiter</div></div>
+        <div><div class="tdb-val" id="charge-pire">S35</div><div class="tdb-lbl">semaine la plus tendue</div></div>
+      </div>
+    </section>
+
+    <!-- ─────────────── 2 · Semaine en cours ─────────────── -->
+    <section class="tdb-vignette" data-id="semaine">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre" id="semaine-titre">Semaine 31</span>
+        <a class="tdb-lien" href="planning.html">Planning →</a>
+      </div>
+      <div class="tdb-donut">
+        <div class="tdb-cercle" id="semaine-cercle">
+          <div class="creux"><b id="semaine-pct">94 %</b><span>engagé</span></div>
+        </div>
+        <ul>
+          <li><i class="tdb-pastille" style="background:#1baf7a;margin-top:3px"></i><span>Heures chantiers planifiées <b id="semaine-plan">178 h</b></span></li>
+          <li><i class="tdb-pastille" style="background:#f59e0b;margin-top:3px"></i><span>Chantiers prévus mais non planifiés <b id="semaine-prev">20 h</b></span></li>
+          <li><i class="tdb-pastille" style="background:#e34948;margin-top:3px"></i><span style="color:#b91c1c">Heures non vendues <b id="semaine-nonv">12 h</b></span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ─────────────── 3 · Temps non affecté ─────────────── -->
+    <section class="tdb-vignette" data-id="tna">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Temps non affecté</span>
+        <a class="tdb-lien" href="planning.html">Planning →</a>
+      </div>
+      <div class="tdb-chiffres">
+        <div><div class="tdb-val attention" id="tna-sem">12,5 h</div><div class="tdb-lbl">cette semaine</div></div>
+        <div><div class="tdb-val" id="tna-mois">37,5 h</div><div class="tdb-lbl">ce mois</div></div>
+      </div>
+      <div class="tdb-spark" id="tna-spark"></div>
+      <div class="tdb-lbl">lundi à vendredi</div>
+    </section>
+
+    <!-- ─────────────── 4 · Absences prévues ─────────────── -->
+    <section class="tdb-vignette" data-id="absences">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Absences prévues</span>
+        <a class="tdb-lien" href="planning.html">Planning prévu →</a>
+      </div>
+      <div class="tdb-chiffres" style="margin-bottom:.55rem">
+        <div><div class="tdb-val" id="abs-m">18 j</div><div class="tdb-lbl" id="abs-m-lbl">juillet · 126 h</div></div>
+        <div><div class="tdb-val" id="abs-m1">41 j</div><div class="tdb-lbl" id="abs-m1-lbl">août · 287 h</div></div>
+      </div>
+      <div class="tdb-repart" id="abs-repart"></div>
+    </section>
+
+    <!-- ─────────────── 5 · Solde compteur ─────────────── -->
+    <section class="tdb-vignette" data-id="compteur">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Solde compteur</span>
+        <a class="tdb-lien" href="bev.html">BEV →</a>
+      </div>
+      <div class="tdb-chiffres">
+        <div><div class="tdb-val attention" id="cpt-annee">+64,5 h</div><div class="tdb-lbl">depuis le 1er janvier</div></div>
+        <div><div class="tdb-val" id="cpt-mois">+11,0 h</div><div class="tdb-lbl">ce mois</div></div>
+      </div>
+      <div class="tdb-spark" id="cpt-spark"></div>
+      <div class="tdb-lbl">cumul mois par mois</div>
+    </section>
+
+    <!-- ─────────────── 6 · Chantiers à 100 % ─────────────── -->
+    <section class="tdb-vignette" data-id="chantiers100">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Chantiers à 100 %</span>
+        <a class="tdb-lien" href="chantiers.html">Prévisionnel →</a>
+      </div>
+      <div class="tdb-chiffres">
+        <div><div class="tdb-val" id="ch100-nb">4</div><div class="tdb-lbl">atteints ou dépassés ce mois</div></div>
+      </div>
+      <div class="tdb-liste" id="ch100-liste"></div>
+    </section>
+
+    <!-- ─────────────── 7 · Notes en cours ─────────────── -->
+    <section class="tdb-vignette" data-id="notes">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Notes en cours</span>
+        <a class="tdb-lien" href="notes.html">Notes →</a>
+      </div>
+      <div class="tdb-chiffres">
+        <div><div class="tdb-val alerte" id="notes-nb">7</div><div class="tdb-lbl">non traitées sur <span id="notes-tot">23</span> créées</div></div>
+      </div>
+      <div class="tdb-barre"><i id="notes-barre" style="width:70%;background:#1baf7a"></i></div>
+      <div class="tdb-lbl" id="notes-detail">3 avec photo · la plus ancienne, 9 jours</div>
+    </section>
+
+    <!-- ─────────────── 8 · Déplacements ─────────────── -->
+    <section class="tdb-vignette" data-id="deplacements">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Déplacements</span>
+        <a class="tdb-lien" href="rapports.html">Rapports →</a>
+      </div>
+      <div class="tdb-chiffres">
+        <div><div class="tdb-val" id="depl-ratio">1,41</div><div class="tdb-lbl">trajets par chantier</div></div>
+        <div><div class="tdb-val attention" id="depl-temps">31 min</div><div class="tdb-lbl">par chantier</div></div>
+      </div>
+      <div class="tdb-spark" id="depl-spark"></div>
+      <div class="tdb-lbl">six derniers mois</div>
+    </section>
+
+    <!-- ─────────────── 9 · Heures non vendables ─────────────── -->
+    <section class="tdb-vignette" data-id="hnv">
+      <div class="tdb-tete">
+        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+        <span class="tdb-titre">Heures non vendables</span>
+        <a class="tdb-lien" href="planning.html">Planning →</a>
+      </div>
+      <div class="tdb-chiffres">
+        <div><div class="tdb-val alerte" id="hnv-h">22,0 h</div><div class="tdb-lbl">sur <span id="hnv-nb">9</span> créneaux</div></div>
+        <div><div class="tdb-val" id="hnv-pct">2,4 %</div><div class="tdb-lbl">des heures du mois</div></div>
+      </div>
+      <div class="tdb-barre"><i id="hnv-barre" style="width:2.4%;background:#e34948"></i></div>
+      <div class="tdb-lbl">SAV et reprises non facturables</div>
+    </section>
+
+  </div>
+</div>
+
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+/* =====================================================================
+   TABLEAU DE BORD — présentation déplaçable + vignettes
+   ---------------------------------------------------------------------
+   Deux parties indépendantes :
+     A. l'ordre des vignettes (glisser-déposer + enregistrement)
+     B. le contenu de chaque vignette (une fonction par vignette)
+   Les fonctions de la partie B affichent aujourd'hui des valeurs
+   d'exemple : elles seront raccordées aux données une par une.
+   ===================================================================== */
+
+/* ─────────────────────── A. Présentation ─────────────────────── */
+
+const TDB_CLE   = 'tdb_presentation';
+const TDB_ORDRE_DEFAUT = ['charge','semaine','tna','absences','compteur','chantiers100','notes','deplacements','hnv'];
+
+let _tdbSale = false;   // une modification attend d'être enregistrée
+
+function tdbGrille() { return document.getElementById('tdb-grille'); }
+
+function tdbOrdreCourant() {
+  return Array.from(tdbGrille().children).map(function (el) { return el.getAttribute('data-id'); });
+}
+
+/* Applique un ordre enregistré. Les vignettes absentes de la liste (ajoutées
+   dans une version ultérieure) restent à leur place, à la fin. */
+function tdbAppliquerOrdre(ordre) {
+  if (!Array.isArray(ordre) || !ordre.length) return;
+  const g = tdbGrille();
+  ordre.forEach(function (id) {
+    const el = g.querySelector('[data-id="' + id + '"]');
+    if (el) g.appendChild(el);
+  });
+  Array.from(g.children).forEach(function (el) {
+    if (ordre.indexOf(el.getAttribute('data-id')) === -1) g.appendChild(el);
+  });
+}
+
+function tdbCharger() {
+  try {
+    const brut = localStorage.getItem(TDB_CLE);
+    if (!brut) return;
+    const o = JSON.parse(brut);
+    tdbAppliquerOrdre(o && o.ordre);
+  } catch (e) { /* présentation illisible : on garde l'ordre par défaut */ }
+}
+
+function tdbEnregistrer(silencieux) {
+  try {
+    localStorage.setItem(TDB_CLE, JSON.stringify({ ordre: tdbOrdreCourant(), maj: new Date().toISOString() }));
+    _tdbSale = false;
+    if (!silencieux) tdbClignoter();
+  } catch (e) { /* stockage indisponible : la présentation ne survivra pas */ }
+}
+
+function tdbClignoter() {
+  const t = document.getElementById('tdb-etat');
+  if (!t) return;
+  t.classList.add('on');
+  clearTimeout(tdbClignoter._t);
+  tdbClignoter._t = setTimeout(function () { t.classList.remove('on'); }, 1800);
+}
+
+function tdbReinitialiser() {
+  if (!confirm('Revenir à la disposition d\'origine des vignettes ?')) return;
+  tdbAppliquerOrdre(TDB_ORDRE_DEFAUT);
+  tdbEnregistrer();
+}
+
+/* Enregistrement en quittant la page — couvre la fermeture d'onglet,
+   le rafraîchissement et le passage à une autre page de l'outil. */
+window.addEventListener('beforeunload', function () { if (_tdbSale) tdbEnregistrer(true); });
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden' && _tdbSale) tdbEnregistrer(true);
+});
+
+/* ── Glisser-déposer, en événements pointeur : fonctionne à la souris
+      comme au doigt sur tablette, contrairement au drag HTML5. ── */
+(function () {
+  let src = null, cible = null;
+
+  function vignetteSous(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.tdb-vignette') : null;
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    const p = e.target.closest('.tdb-poignee');
+    if (!p) return;
+    src = p.closest('.tdb-vignette');
+    if (!src) return;
+    e.preventDefault();
+    p.setPointerCapture(e.pointerId);
+    src.classList.add('tdb-drag');
+  });
+
+  document.addEventListener('pointermove', function (e) {
+    if (!src) return;
+    const sur = vignetteSous(e.clientX, e.clientY);
+    if (cible && cible !== sur) cible.classList.remove('tdb-cible');
+    if (sur && sur !== src) { sur.classList.add('tdb-cible'); cible = sur; }
+    else cible = null;
+  });
+
+  document.addEventListener('pointerup', function () {
+    if (!src) return;
+    if (cible && cible !== src) {
+      const g = tdbGrille();
+      const liste = Array.from(g.children);
+      // insérer avant ou après selon le sens du déplacement
+      if (liste.indexOf(src) < liste.indexOf(cible)) g.insertBefore(src, cible.nextSibling);
+      else g.insertBefore(src, cible);
+      _tdbSale = true;
+      tdbEnregistrer();
+    }
+    src.classList.remove('tdb-drag');
+    if (cible) cible.classList.remove('tdb-cible');
+    src = null; cible = null;
+  });
+})();
+
+/* ─────────────────────── B. Contenu des vignettes ───────────────────────
+   Une fonction par vignette. Chacune reçoit ses données en argument pour
+   qu'il n'y ait qu'un point à modifier au moment du raccordement. */
+
+function tdbEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+  });
+}
+function tdbH(n) { return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',') + ' h'; }
+
+/* ── 1 · Graphique de charge, en SVG (aucune librairie externe) ──
+   d = { semaines:[{cle,mois,plan,prevu,capacite}] } — le dépassement est
+   déduit : tout ce qui passe au-dessus de la capacité. */
+function tdbGraphCharge(d) {
+  const zone = document.getElementById('charge-graph');
+  if (!zone) return;
+  const S = d.semaines || [];
+  if (!S.length) { zone.innerHTML = ''; return; }
+
+  const L = 700, H = 230, mg = { g: 42, d: 8, h: 10, b: 34 };
+  const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
+
+  let max = 0;
+  S.forEach(function (s) { max = Math.max(max, s.plan + s.prevu, s.capacite); });
+  const pas = max > 400 ? 100 : 50;
+  max = Math.ceil(max / pas) * pas;
+  const y = function (v) { return mg.h + hp - (v / max) * hp; };
+
+  const pasX = lp / S.length, larg = Math.min(26, pasX * 0.62);
+  let g = '';
+
+  for (let v = 0; v <= max; v += pas) {
+    g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#eef2f7"/>'
+       + '<text x="' + (mg.g - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="#94a3b8">' + v + ' h</text>';
+  }
+
+  S.forEach(function (s, i) {
+    const cx = mg.g + pasX * i + pasX / 2, x = cx - larg / 2;
+    const dedans = Math.max(0, Math.min(s.prevu, s.capacite - s.plan));
+    const audela = Math.max(0, s.plan + s.prevu - s.capacite);
+    let bas = 0;
+    [[s.plan, '#1baf7a'], [dedans, '#f59e0b'], [audela, '#4a3aa7']].forEach(function (seg) {
+      if (seg[0] <= 0) return;
+      g += '<rect x="' + x + '" y="' + y(bas + seg[0]) + '" width="' + larg
+         + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
+      bas += seg[0];
+    });
+    g += '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="11" fill="#94a3b8">' + tdbEsc(s.cle) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="10" fill="#64748b">' + tdbEsc(s.mois) + '</text>';
+  });
+
+  let pts = [];
+  S.forEach(function (s, i) { pts.push((mg.g + pasX * i + pasX / 2) + ',' + y(s.capacite)); });
+  g += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#0f172a" stroke-width="2" stroke-dasharray="6 4"/>';
+
+  zone.innerHTML = '<svg viewBox="0 0 ' + L + ' ' + H + '" width="100%" height="230" role="img" '
+    + 'aria-label="Charge hebdomadaire comparée à la capacité vendable">' + g + '</svg>';
+}
+
+/* ── 2 · Semaine en cours (camembert) ── */
+function tdbVignetteSemaine(d) {
+  const tot = d.plan + d.prevu + d.nonVendu;
+  const a1 = tot ? (d.plan / tot) * 360 : 0;
+  const a2 = a1 + (tot ? (d.prevu / tot) * 360 : 0);
+  const c = document.getElementById('semaine-cercle');
+  if (c) c.style.background = 'conic-gradient(#1baf7a 0deg ' + a1 + 'deg,#f59e0b ' + a1 + 'deg ' + a2 + 'deg,#e34948 ' + a2 + 'deg 360deg)';
+  const pct = tot ? Math.round(((d.plan + d.prevu) / tot) * 100) : 0;
+  tdbTexte('semaine-titre', 'Semaine ' + d.numero);
+  tdbTexte('semaine-pct', pct + ' %');
+  tdbTexte('semaine-plan', tdbH(d.plan));
+  tdbTexte('semaine-prev', tdbH(d.prevu));
+  tdbTexte('semaine-nonv', tdbH(d.nonVendu));
+}
+
+/* ── 3 · Temps non affecté ── */
+function tdbVignetteTna(d) {
+  tdbTexte('tna-sem', tdbH(d.semaine));
+  tdbTexte('tna-mois', tdbH(d.mois));
+  tdbSpark('tna-spark', d.parJour, '#f59e0b', '#fcd9a0');
+}
+
+/* ── 4 · Absences prévues ── */
+function tdbVignetteAbsences(d) {
+  tdbTexte('abs-m', d.moisJours + ' j');
+  tdbTexte('abs-m-lbl', d.moisNom + ' · ' + tdbH(d.moisHeures));
+  tdbTexte('abs-m1', d.suivantJours + ' j');
+  tdbTexte('abs-m1-lbl', d.suivantNom + ' · ' + tdbH(d.suivantHeures));
+  const zone = document.getElementById('abs-repart');
+  if (!zone) return;
+  const maxi = Math.max.apply(null, d.types.map(function (t) { return t.jours; }).concat([1]));
+  zone.innerHTML = d.types.map(function (t) {
+    return '<div><span class="n">' + tdbEsc(t.nom) + '</span>'
+         + '<span class="b"><i style="width:' + Math.round((t.jours / maxi) * 100) + '%"></i></span>'
+         + '<span class="j">' + t.jours + ' j</span></div>';
+  }).join('');
+}
+
+/* ── 5 · Solde compteur ── */
+function tdbVignetteCompteur(d) {
+  tdbTexte('cpt-annee', (d.annee >= 0 ? '+' : '') + tdbH(d.annee));
+  tdbTexte('cpt-mois', (d.mois >= 0 ? '+' : '') + tdbH(d.mois));
+  tdbSpark('cpt-spark', d.cumul, '#2563eb', '#bfdbfe');
+}
+
+/* ── 6 · Chantiers à 100 % ── */
+function tdbVignetteChantiers100(d) {
+  tdbTexte('ch100-nb', d.liste.length);
+  const zone = document.getElementById('ch100-liste');
+  if (!zone) return;
+  zone.innerHTML = d.liste.map(function (c) {
+    const coul = c.pct > 110 ? '#b91c1c' : (c.pct > 100 ? '#b45309' : '#15803d');
+    return '<div><span>' + tdbEsc(c.nom) + '</span><span style="color:' + coul + '">' + c.pct + ' %</span></div>';
+  }).join('');
+}
+
+/* ── 7 · Notes en cours ── */
+function tdbVignetteNotes(d) {
+  tdbTexte('notes-nb', d.enCours);
+  tdbTexte('notes-tot', d.total);
+  const b = document.getElementById('notes-barre');
+  if (b) b.style.width = (d.total ? Math.round(((d.total - d.enCours) / d.total) * 100) : 0) + '%';
+  tdbTexte('notes-detail', d.detail);
+}
+
+/* ── 8 · Déplacements ── */
+function tdbVignetteDeplacements(d) {
+  tdbTexte('depl-ratio', (Math.round(d.parChantier * 100) / 100).toFixed(2).replace('.', ','));
+  tdbTexte('depl-temps', Math.round(d.minutesParChantier) + ' min');
+  tdbSpark('depl-spark', d.historique, '#2563eb', '#93c5fd');
+}
+
+/* ── 9 · Heures non vendables ── */
+function tdbVignetteHnv(d) {
+  tdbTexte('hnv-h', tdbH(d.heures));
+  tdbTexte('hnv-nb', d.creneaux);
+  const pct = d.heuresMois ? (d.heures / d.heuresMois) * 100 : 0;
+  tdbTexte('hnv-pct', (Math.round(pct * 10) / 10).toFixed(1).replace('.', ',') + ' %');
+  const b = document.getElementById('hnv-barre');
+  if (b) b.style.width = Math.min(100, pct) + '%';
+}
+
+/* ── Utilitaires d'affichage ── */
+function tdbTexte(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+function tdbSpark(id, valeurs, fort, clair) {
+  const z = document.getElementById(id);
+  if (!z || !valeurs || !valeurs.length) return;
+  const maxi = Math.max.apply(null, valeurs.concat([1]));
+  z.innerHTML = valeurs.map(function (v, i) {
+    const h = Math.max(4, Math.round((v / maxi) * 100));
+    return '<i style="height:' + h + '%;background:' + (i === valeurs.length - 1 ? fort : clair) + '"></i>';
+  }).join('');
+}
+
+/* ─────────────────── Données d'exemple (à remplacer) ─────────────────── */
+function tdbDonneesExemple() {
+  tdbGraphCharge({ semaines: [
+    { cle:'S24', mois:'juin',    plan:205, prevu:0,   capacite:210 },
+    { cle:'S25', mois:'',        plan:198, prevu:0,   capacite:210 },
+    { cle:'S26', mois:'',        plan:210, prevu:0,   capacite:210 },
+    { cle:'S27', mois:'juillet', plan:190, prevu:8,   capacite:210 },
+    { cle:'S28', mois:'',        plan:178, prevu:20,  capacite:210 },
+    { cle:'S29', mois:'',        plan:178, prevu:32,  capacite:210 },
+    { cle:'S30', mois:'',        plan:120, prevu:55,  capacite:175 },
+    { cle:'S31', mois:'',        plan:90,  prevu:65,  capacite:210 },
+    { cle:'S32', mois:'août',    plan:40,  prevu:75,  capacite:105 },
+    { cle:'S33', mois:'',        plan:30,  prevu:85,  capacite:105 },
+    { cle:'S34', mois:'',        plan:55,  prevu:120, capacite:140 },
+    { cle:'S35', mois:'',        plan:80,  prevu:130, capacite:175 }
+  ]});
+  tdbVignetteSemaine({ numero:31, plan:178, prevu:20, nonVendu:12 });
+  tdbVignetteTna({ semaine:12.5, mois:37.5, parJour:[4,2.5,6,3.5,10] });
+  tdbVignetteAbsences({ moisNom:'juillet', moisJours:18, moisHeures:126,
+    suivantNom:'août', suivantJours:41, suivantHeures:287,
+    types:[{nom:'Congé',jours:40},{nom:'Récup.',jours:7},{nom:'RTT',jours:7},{nom:'Autres',jours:5}] });
+  tdbVignetteCompteur({ annee:64.5, mois:11, cumul:[12,19,27,31,42,53,64.5] });
+  tdbVignetteChantiers100({ liste:[
+    { nom:'Client 12', pct:134 }, { nom:'Terrassement nord', pct:118 },
+    { nom:'Client 27', pct:104 }, { nom:'Dépannage Leclerc', pct:100 } ]});
+  tdbVignetteNotes({ enCours:7, total:23, detail:'3 avec photo · la plus ancienne, 9 jours' });
+  tdbVignetteDeplacements({ parChantier:1.41, minutesParChantier:31, historique:[26,28,25,29,27,31] });
+  tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
+}
+
+/* ─────────────────────── Démarrage ─────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+  tdbCharger();
+  tdbDonneesExemple();
+  window.addEventListener('resize', function () {
+    clearTimeout(tdbDonneesExemple._t);
+    tdbDonneesExemple._t = setTimeout(tdbDonneesExemple, 200);
+  });
+});
+</script>
+</body>
+</html>
