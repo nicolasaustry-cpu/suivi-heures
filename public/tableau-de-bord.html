@@ -126,8 +126,17 @@
   .tdb-repart .b i { display:block; height:100%; background:#0f3a8a; }
   .tdb-repart .j { width:40px; text-align:right; color:#111827; }
 
-  .tdb-spark { display:flex; gap:4px; align-items:flex-end; height:44px; margin-top:16px; }
-  .tdb-spark i { flex:1; display:block; }
+  /* Mini-courbes. En mode « signé », une ligne de zéro coupe la zone en deux :
+     les valeurs positives montent, les négatives descendent. Sans elle, une
+     barre négative dessinée vers le haut se lit comme une valeur positive. */
+  .tdb-spark { display:flex; gap:4px; height:46px; margin-top:16px; position:relative; align-items:stretch; }
+  .tdb-spark .b { position:relative; flex:1; }
+  .tdb-spark .b i { position:absolute; left:0; right:0; display:block; }
+  .tdb-spark.signe::before {
+    content:''; position:absolute; left:0; right:0; top:50%;
+    border-top:1px solid #dfe4ec;
+  }
+  .tdb-spark + .tdb-lbl { margin-top:8px; }
 
   .tdb-sep {
     border-top:1px solid #f1f3f6; margin-top:16px; padding-top:14px;
@@ -221,6 +230,7 @@
     <div class="tdb-lbl">cette semaine</div>
     <div class="tdb-second" id="tna-mois">37,5 h ce mois</div>
     <div class="tdb-spark" id="tna-spark"></div>
+    <div class="tdb-lbl">par jour, lundi à vendredi</div>
   </section>
 
   <!-- ────── 3 · Absences prévues ────── -->
@@ -247,6 +257,7 @@
     <div class="tdb-lbl">depuis le 1er janvier</div>
     <div class="tdb-second" id="cpt-mois">+11,0 h ce mois</div>
     <div class="tdb-spark" id="cpt-spark"></div>
+    <div class="tdb-lbl" id="cpt-legende">cumul du solde, mois par mois</div>
   </section>
 
   <!-- ────── 5 · Chantiers à 100 % ────── -->
@@ -285,6 +296,7 @@
     <div class="tdb-lbl">trajets par chantier</div>
     <div class="tdb-second" id="depl-temps">31 min par chantier</div>
     <div class="tdb-spark" id="depl-spark"></div>
+    <div class="tdb-lbl">six derniers mois</div>
   </section>
 
   <!-- ────── 8 · Heures non vendables ────── -->
@@ -438,14 +450,18 @@ function tdbValeur(id, n, unite, dec) {
 function tdbSpark(id, valeurs, fort, clair) {
   const z = document.getElementById(id);
   if (!z || !valeurs || !valeurs.length) return;
-  /* Échelle sur la valeur absolue : une série qui passe en négatif (un solde
-     compteur débiteur, par exemple) reste lisible, et les barres négatives
-     prennent la couleur d'alerte au lieu de disparaître. */
+  /* Dès qu'une valeur est négative, la courbe passe en mode signé : ligne de
+     zéro au milieu, les barres négatives descendent et prennent la couleur
+     d'alerte. Sinon elles monteraient comme des valeurs positives. */
+  const signe = valeurs.some(function (v) { return v < 0; });
   const maxi = Math.max.apply(null, valeurs.map(Math.abs).concat([1]));
+  const plein = signe ? 48 : 100;
+  z.classList.toggle('signe', signe);
   z.innerHTML = valeurs.map(function (v, i) {
-    const h = Math.max(3, Math.round((Math.abs(v) / maxi) * 100));
+    const h = Math.max(v === 0 ? 0 : 3, Math.round((Math.abs(v) / maxi) * plein));
     const c = v < 0 ? '#d1495b' : (i === valeurs.length - 1 ? fort : clair);
-    return '<i style="height:' + h + '%;background:' + c + '"></i>';
+    const pos = signe ? (v < 0 ? 'top:50%;' : 'bottom:50%;') : 'bottom:0;';
+    return '<span class="b"><i style="' + pos + 'height:' + h + '%;background:' + c + '"></i></span>';
   }).join('');
 }
 
