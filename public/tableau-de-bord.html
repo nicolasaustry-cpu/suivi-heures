@@ -167,7 +167,7 @@
 </div>
 
 <div class="tdb-bandeau">
-  <span><b>Vignettes en cours de raccordement.</b> Les valeurs affichées sont des exemples.</span>
+  <span><b>Raccordement en cours.</b> Les vignettes pas encore branchées affichent des exemples.</span>
   <span class="tdb-actions">
     <span class="tdb-etat" id="tdb-etat">Présentation enregistrée</span>
     <button type="button" class="tdb-btn" onclick="tdbReinitialiser()">Ordre par défaut</button>
@@ -556,11 +556,63 @@ function tdbVignetteChantiers100(d) {
 
 /* ── 6 · Notes en cours ── */
 function tdbVignetteNotes(d) {
+  const el = document.getElementById('notes-nb');
   tdbTexte('notes-nb', d.enCours);
+  /* rouge seulement s'il reste quelque chose à traiter */
+  if (el) el.classList.toggle('alerte', d.enCours > 0);
   tdbTexte('notes-tot', d.total);
   const b = document.getElementById('notes-barre');
   if (b) b.style.width = (d.total ? Math.round(((d.total - d.enCours) / d.total) * 100) : 0) + '%';
   tdbTexte('notes-detail', d.detail);
+}
+
+/* ── Raccordement de la vignette Notes ────────────────────────────────
+   Source : GET /api/saisies/<mois>, la même que la page Notes, pour que
+   les deux affichent rigoureusement le même compte.
+   Une note existe dès qu'un chantier envoyé porte un texte OU une photo ;
+   elle est « en cours » tant que sa case Réalisé (champ noteFaite) n'est
+   pas cochée. Le périmètre est le MOIS EN COURS, comme la page Notes qui
+   s'ouvre sur ce mois — sinon les deux chiffres divergeraient. */
+async function tdbChargerNotes() {
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+             || localStorage.getItem('syncToken');
+  if (!token) return;
+  const d = new Date();
+  const mois = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  let saisies;
+  try {
+    const r = await fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await r.json();
+    if (!j || !j.ok) return;
+    saisies = j.saisies || [];
+  } catch (e) { return; }
+
+  let total = 0, enCours = 0, avecPhoto = 0, plusAncienne = null;
+  saisies.forEach(function (s) {
+    (s.chantiers || []).forEach(function (c) {
+      const note = (c.note || '').trim();
+      const photos = Array.isArray(c.photos)
+        ? c.photos.filter(function (ph) { return typeof ph === 'string' && ph.startsWith('data:image/'); })
+        : [];
+      if (!note && !photos.length) return;      // ni texte ni photo : ce n'est pas une note
+      total++;
+      if (c.noteFaite) return;
+      enCours++;
+      if (photos.length) avecPhoto++;
+      if (!plusAncienne || s.date < plusAncienne) plusAncienne = s.date;
+    });
+  });
+
+  const bouts = [];
+  if (avecPhoto) bouts.push(avecPhoto + (avecPhoto > 1 ? ' avec photo' : ' avec photo'));
+  if (plusAncienne) {
+    const j = Math.max(0, Math.round((new Date().setHours(0,0,0,0) - new Date(plusAncienne + 'T00:00:00')) / 86400000));
+    bouts.push('la plus ancienne, ' + (j === 0 ? "aujourd'hui" : j + (j > 1 ? ' jours' : ' jour')));
+  }
+  if (!total) bouts.push('aucune note ce mois-ci');
+  else if (!enCours) bouts.push('tout est traité');
+
+  tdbVignetteNotes({ enCours: enCours, total: total, detail: bouts.join(' · ') });
 }
 
 /* ── 7 · Déplacements ── */
@@ -612,7 +664,8 @@ function tdbDonneesExemple() {
 
 document.addEventListener('DOMContentLoaded', function () {
   tdbCharger();
-  tdbDonneesExemple();
+  tdbDonneesExemple();      // valeurs d'attente, remplacées vignette par vignette
+  tdbChargerNotes();        // ← raccordée
 });
 </script>
 </body>
