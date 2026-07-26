@@ -19,7 +19,7 @@
     display:flex; align-items:center; gap:10px; flex-wrap:wrap;
     background:#fff; border:1px solid #dbe3ee; border-left:5px solid #f59e0b;
     border-radius:10px; padding:.8rem 1.1rem; margin-bottom:1.2rem;
-    font-size:.95rem; color:#475569;
+    font-size:1rem; color:#475569;
   }
   .tdb-bandeau b { color:#0f172a; }
 
@@ -60,89 +60,88 @@
   .tdb-vignette.tdb-drag  { opacity:.45; }
   .tdb-vignette.tdb-cible { outline:3px dashed #f59e0b; outline-offset:3px; }
 
-  .tdb-tete { display:flex; align-items:center; gap:11px; margin-bottom:.25rem; }
+  /* ── Échelle typographique, quatre niveaux seulement ──
+     chiffre clé 2rem · chiffre secondaire 1,6rem · titre 1,15rem
+     texte courant 1rem · texte secondaire 0,9rem
+     Rien en dessous de 0,9rem : c'est le plancher de lisibilité de la page. */
+  .tdb-tete { display:flex; align-items:center; gap:10px; margin-bottom:.25rem; }
   .tdb-poignee {
-    flex:0 0 auto; cursor:grab; color:#94a3b8; font-size:1.45rem; line-height:1;
+    flex:0 0 auto; cursor:grab; color:#94a3b8; font-size:1.3rem; line-height:1;
     padding:3px 6px; margin-left:-6px; border-radius:6px;
     touch-action:none; -webkit-user-select:none; user-select:none;
   }
   .tdb-poignee:hover { background:#eef2f7; color:#475569; }
   .tdb-poignee:active { cursor:grabbing; }
-  .tdb-titre { flex:1; font-size:1.3rem; font-weight:800; color:#0f172a; letter-spacing:-.015em; }
-  .tdb-lien  { flex:0 0 auto; font-size:.98rem; color:#2563eb; text-decoration:none; font-weight:700; white-space:nowrap; }
+  .tdb-titre { flex:1; font-size:1.15rem; font-weight:800; color:#0f172a; letter-spacing:-.01em; }
+  .tdb-lien  { flex:0 0 auto; font-size:.9rem; color:#2563eb; text-decoration:none; font-weight:700; white-space:nowrap; }
   .tdb-lien:hover { text-decoration:underline; }
-  .tdb-sous  { font-size:.95rem; color:#8798ad; margin-bottom:.8rem; }
+  .tdb-sous  { font-size:.9rem; color:#8798ad; margin-bottom:.7rem; }
 
-  .tdb-chiffres { display:flex; gap:2.2rem; flex-wrap:wrap; }
-  .tdb-val   { font-size:2.5rem; font-weight:800; color:#0f172a; line-height:1.05; letter-spacing:-.02em; }
+  .tdb-chiffres { display:flex; gap:2rem; flex-wrap:wrap; }
+  .tdb-val   { font-size:2rem; font-weight:800; color:#0f172a; line-height:1.1; letter-spacing:-.02em; }
   .tdb-val.alerte { color:#b91c1c; }
-  .tdb-val.tension { color:#4a3aa7; }
+  .tdb-val.tension { color:#4a3aa7; }   /* réservé, non utilisé */
   .tdb-val.attention { color:#b45309; }
-  .tdb-lbl   { font-size:.95rem; color:#8798ad; margin-top:5px; }
+  .tdb-lbl   { font-size:.9rem; color:#8798ad; margin-top:4px; }
 
-  .tdb-legende { display:flex; flex-wrap:wrap; gap:1.2rem; font-size:.95rem; color:#5b6b81; margin:.5rem 0 .8rem; }
+  .tdb-legende { display:flex; flex-wrap:wrap; gap:.5rem 1.1rem; font-size:.9rem; color:#5b6b81; margin:.45rem 0 .7rem; }
   .tdb-legende span { display:flex; align-items:center; gap:7px; }
-  .tdb-pastille { width:14px; height:14px; border-radius:3px; flex:0 0 auto; }
-  .tdb-trait { width:24px; border-top:3px dashed #0f172a; }
+  .tdb-pastille { width:13px; height:13px; border-radius:3px; flex:0 0 auto; }
+  .tdb-trait { width:22px; border-top:3px dashed #0f172a; }
 
-  .tdb-pied { border-top:1px solid #e6ecf5; margin-top:1rem; padding-top:.9rem; display:flex; gap:2.4rem; flex-wrap:wrap; }
+  .tdb-pied { border-top:1px solid #e6ecf5; margin-top:.9rem; padding-top:.8rem; display:flex; gap:2rem; flex-wrap:wrap; }
+  .tdb-pied .tdb-val { font-size:1.6rem; }
 
   /* La vignette de charge tient sur un tiers de page : sa légende à quatre
-     entrées et ses trois chiffres de synthèse y sont resserrés, sinon ils
-     occupent plus de place que le graphique lui-même. */
-  [data-id="charge"] .tdb-legende { font-size:.86rem; gap:.4rem 1rem; margin:.35rem 0 .6rem; }
-  [data-id="charge"] .tdb-legende .tdb-pastille { width:12px; height:12px; }
-  [data-id="charge"] .tdb-pied { gap:1.3rem; margin-top:.8rem; padding-top:.7rem; }
-  [data-id="charge"] .tdb-pied .tdb-val { font-size:1.75rem; }
-  [data-id="charge"] .tdb-pied .tdb-lbl { font-size:.82rem; }
+     entrées y est resserrée en écarts, mais pas en taille de texte. */
+  [data-id="charge"] .tdb-legende { gap:.35rem .9rem; margin:.4rem 0 .6rem; }
+  [data-id="charge"] .tdb-pied { gap:1.4rem; }
 
   /* Mini-barres (vignettes secondaires) */
   .tdb-spark { display:flex; gap:5px; align-items:flex-end; height:62px; margin-top:1rem; }
   .tdb-spark i { flex:1; border-radius:3px; display:block; }
 
   /* Listes internes */
-  .tdb-liste { border-top:1px solid #e6ecf5; margin-top:.7rem; padding-top:.6rem; font-size:1.08rem; color:#3d4b5f; }
+  .tdb-liste { border-top:1px solid #e6ecf5; margin-top:.7rem; padding-top:.6rem; font-size:1rem; color:#3d4b5f; }
   .tdb-liste div { display:flex; justify-content:space-between; padding:5px 0; }
 
-  .tdb-barre { height:14px; background:#eef2f7; border-radius:7px; overflow:hidden; margin-top:.7rem; }
+  .tdb-barre { height:13px; background:#eef2f7; border-radius:7px; overflow:hidden; margin-top:.7rem; }
   .tdb-barre i { display:block; height:100%; border-radius:7px; }
 
   .tdb-repart { font-size:1rem; color:#3d4b5f; }
   .tdb-repart > div { display:flex; align-items:center; gap:11px; padding:4px 0; }
   .tdb-repart .n { width:86px; flex:0 0 auto; }
   .tdb-repart .j { width:46px; text-align:right; }
-  .tdb-repart .b { flex:1; height:13px; background:#eef2f7; border-radius:7px; overflow:hidden; }
+  .tdb-repart .b { flex:1; height:12px; background:#eef2f7; border-radius:6px; overflow:hidden; }
   .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
 
-  /* Camembert : en ligne quand la vignette est large, empilé et réparti sur
-     la hauteur quand elle est étroite et haute — sans jamais laisser de
-     grande zone vide au milieu. */
+  /* Camembert : cercle au-dessus, légende en dessous sur toute la largeur. */
   .tdb-donut {
-    display:flex; align-items:center; justify-content:space-evenly;
-    gap:22px; flex-wrap:wrap; flex:1 1 auto; padding:.4rem 0;
+    display:flex; flex-direction:column; align-items:stretch; justify-content:center;
+    gap:1.1rem; flex:1 1 auto; padding:.3rem 0;
   }
   .tdb-cercle {
-    position:relative; flex:0 0 auto; border-radius:50%;
-    width:clamp(130px, 42%, 190px); aspect-ratio:1;
+    position:relative; border-radius:50%; margin:0 auto;
+    width:clamp(140px, 58%, 200px); aspect-ratio:1;
   }
   .tdb-cercle .creux {
-    position:absolute; inset:14%; background:#fff; border-radius:50%;
+    position:absolute; inset:15%; background:#fff; border-radius:50%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
-  .tdb-cercle .creux b { font-size:2.1rem; font-weight:800; color:#0f172a; }
-  .tdb-cercle .creux span { font-size:.95rem; color:#8798ad; }
-  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1.02rem; color:#3d4b5f; flex:1 1 220px; min-width:0; }
-  .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:6px 0; line-height:1.4; }
+  .tdb-cercle .creux b { font-size:1.8rem; font-weight:800; color:#0f172a; }
+  .tdb-cercle .creux span { font-size:.9rem; color:#8798ad; }
+  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1rem; color:#3d4b5f; }
+  .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:5px 0; line-height:1.4; }
   .tdb-donut li b { font-weight:800; color:#0f172a; }
 
   /* Barre d'actions */
   .tdb-actions { display:flex; gap:10px; align-items:center; margin-left:auto; }
   .tdb-btn {
     background:#fff; border:1px solid #cbd5e1; color:#334155; border-radius:8px;
-    padding:7px 14px; font-size:.88rem; font-weight:700; cursor:pointer;
+    padding:7px 14px; font-size:.9rem; font-weight:700; cursor:pointer;
   }
   .tdb-btn:hover { background:#f1f5f9; }
-  .tdb-etat { font-size:.85rem; color:#16a34a; font-weight:700; opacity:0; transition:opacity .25s; }
+  .tdb-etat { font-size:.9rem; color:#16a34a; font-weight:700; opacity:0; transition:opacity .25s; }
   .tdb-etat.on { opacity:1; }
 
   @media print { .tdb-poignee, .tdb-actions, .tdb-bandeau { display:none !important; } }
@@ -199,13 +198,13 @@
       <div class="tdb-legende">
         <span><i class="tdb-pastille" style="background:#1baf7a"></i>Heures chantiers planifiées</span>
         <span><i class="tdb-pastille" style="background:#f59e0b"></i>Chantiers prévus mais non planifiés</span>
-        <span><i class="tdb-pastille" style="background:#4a3aa7"></i>Au-delà de la capacité</span>
+        <span><i class="tdb-pastille" style="background:#e34948"></i>Au-delà de la capacité</span>
         <span><i class="tdb-trait"></i>Capacité vendable</span>
       </div>
       <div id="charge-graph"></div>
       <div class="tdb-pied">
-        <div><div class="tdb-val tension" id="charge-nbsem">4</div><div class="tdb-lbl">semaines en dépassement</div></div>
-        <div><div class="tdb-val tension" id="charge-heures">90 h</div><div class="tdb-lbl">à reporter ou sous-traiter</div></div>
+        <div><div class="tdb-val alerte" id="charge-nbsem">4</div><div class="tdb-lbl">semaines en dépassement</div></div>
+        <div><div class="tdb-val alerte" id="charge-heures">90 h</div><div class="tdb-lbl">à reporter ou sous-traiter</div></div>
         <div><div class="tdb-val" id="charge-pire">S35</div><div class="tdb-lbl">semaine la plus tendue</div></div>
       </div>
     </section>
@@ -479,7 +478,7 @@ function tdbGraphCharge(d) {
   /* Format panoramique : au-delà d'une certaine largeur, un viewBox trop
      étroit rendait le graphique démesurément haut et étirait toute la
      première ligne de la grille. */
-  const L = 520, H = 340, mg = { g: 58, d: 8, h: 14, b: 50 };
+  const L = 520, H = 350, mg = { g: 64, d: 8, h: 14, b: 56 };
   const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
 
   let max = 0;
@@ -493,7 +492,7 @@ function tdbGraphCharge(d) {
 
   for (let v = 0; v <= max; v += pas) {
     g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e6ecf5"/>'
-       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="19" fill="#8798ad">' + v + ' h</text>';
+       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="22" fill="#8798ad">' + v + ' h</text>';
   }
 
   S.forEach(function (s, i) {
@@ -501,14 +500,19 @@ function tdbGraphCharge(d) {
     const dedans = Math.max(0, Math.min(s.prevu, s.capacite - s.plan));
     const audela = Math.max(0, s.plan + s.prevu - s.capacite);
     let bas = 0;
-    [[s.plan, '#1baf7a'], [dedans, '#f59e0b'], [audela, '#4a3aa7']].forEach(function (seg) {
+    [[s.plan, '#1baf7a'], [dedans, '#f59e0b'], [audela, '#e34948']].forEach(function (seg) {
       if (seg[0] <= 0) return;
       g += '<rect x="' + x + '" y="' + y(bas + seg[0]) + '" width="' + larg
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
       bas += seg[0];
     });
-    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="17" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
+    /* À un tiers de page, douze libellés de semaine se chevaucheraient à une
+       taille lisible : on n'en affiche qu'un sur deux, en gardant toujours
+       celui qui ouvre un mois. */
+    if (i % 2 === 0 || s.mois) {
+      g += '<text x="' + cx + '" y="' + (H - 26) + '" text-anchor="middle" font-size="20" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
+    }
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="20" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
