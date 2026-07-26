@@ -737,6 +737,121 @@ async function tdbChargerCompteur() {
   if (lbl) lbl.textContent = 'depuis le 1er janvier ' + an;
 }
 
+/* ── Raccordement des vignettes issues du PLANNING ────────────────────
+   Temps non affecté, Heures non vendables et Absences prévues se lisent
+   toutes les trois dans le planning déjà synchronisé en local, sans le
+   moindre appel serveur. Une seule lecture, trois vignettes.
+
+   Format des clés de `heuresdata`, tel que posé par planning.html :
+     <salarieId>aaaa_mm_jjch<n>  → { chantier, heures, note, rdv, exclu }
+     <salarieId>aaaa_mm_jjabs    → { chantier:'absence', heures, motif }
+   Le drapeau `exclu` est le marqueur HNV (le rond rouge du planning). */
+
+const TDB_TNA = 'TEMPS NON AFFECTE';
+const TDB_MOIS_NOMS = ['janvier','février','mars','avril','mai','juin',
+                       'juillet','août','septembre','octobre','novembre','décembre'];
+
+function tdbIso(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+       + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* Parcourt tous les créneaux du planning en ignorant ceux qui appartiennent
+   à un salarié supprimé depuis — même règle que pour le solde compteur :
+   une page de détail ne les montre jamais, le tableau de bord non plus. */
+function tdbParcourirPlanning(cb) {
+  let heures = {};
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) { return; }
+  let connus = null;
+  try {
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    if (Array.isArray(sals) && sals.length) {
+      connus = {};
+      sals.forEach(function (sa) { connus[String(sa.id)] = true; });
+    }
+  } catch (e) {}
+  Object.keys(heures).forEach(function (k) {
+    const m = k.match(/(\d{4})_(\d{2})_(\d{2})(ch\d+|abs)$/);
+    if (!m) return;
+    if (connus && !connus[k.slice(0, m.index)]) return;
+    cb(heures[k], {
+      iso: m[1] + '-' + m[2] + '-' + m[3],
+      ym:  m[1] + '-' + m[2],
+      abs: m[4] === 'abs'
+    });
+  });
+}
+
+function tdbChargerPlanning() {
+  const now = new Date();
+  const ym  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const suiv = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const ymSuiv = suiv.getFullYear() + '-' + String(suiv.getMonth() + 1).padStart(2, '0');
+
+  /* Semaine en cours, du lundi au dimanche. */
+  const lundi = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  lundi.setDate(lundi.getDate() + (lundi.getDay() === 0 ? -6 : 1 - lundi.getDay()));
+  const dimanche = new Date(lundi); dimanche.setDate(dimanche.getDate() + 6);
+  const isoL = tdbIso(lundi), isoD = tdbIso(dimanche);
+
+  let tnaSem = 0, tnaMois = 0;
+  const tnaJour = [0, 0, 0, 0, 0];
+  let hnvH = 0, hnvN = 0, hPlanMois = 0;
+  const absM = { j: 0, h: 0 }, absM1 = { j: 0, h: 0 }, motifs = {};
+
+  tdbParcourirPlanning(function (e, c) {
+    const h = parseFloat(e && e.heures) || 0;
+
+    if (c.abs) {
+      const motif = (e && e.motif) || '';
+      if (h <= 0 && !motif) return;
+      const cible = (c.ym === ym) ? absM : ((c.ym === ymSuiv) ? absM1 : null);
+      if (!cible) return;
+      /* Un jour d'absence = une journée-salarié, quelle que soit sa durée —
+         c'est le décompte du récapitulatif du BEV. */
+      cible.j += 1; cible.h += h;
+      const nom = motif || 'Autre';
+      motifs[nom] = (motifs[nom] || 0) + 1;
+      return;
+    }
+
+    const nom = ((e && e.chantier) || '').trim().toUpperCase();
+    if (!nom) return;
+
+    if (nom === TDB_TNA) {
+      if (c.ym === ym) tnaMois += h;
+      if (c.iso >= isoL && c.iso <= isoD) {
+        tnaSem += h;
+        const js = new Date(c.iso + 'T00:00:00').getDay();
+        if (js >= 1 && js <= 5) tnaJour[js - 1] += h;
+      }
+      return;
+    }
+
+    if (c.ym === ym) {
+      hPlanMois += h;                        // total planifié du mois, hors TNA
+      if (e && e.exclu) { hnvH += h; hnvN += 1; }
+    }
+  });
+
+  tdbVignetteTna({ semaine: tnaSem, mois: tnaMois, parJour: tnaJour });
+  tdbVignetteHnv({ heures: hnvH, creneaux: hnvN, heuresMois: hPlanMois });
+
+  /* Répartition des absences : les trois motifs les plus fréquents, le reste
+     regroupé sous « Autres » pour que la vignette reste lisible. */
+  const tri = Object.keys(motifs).map(function (n) { return { nom: n, jours: motifs[n] }; })
+                    .sort(function (a, b) { return b.jours - a.jours; });
+  const types = tri.slice(0, 3);
+  const reste = tri.slice(3).reduce(function (t, x) { return t + x.jours; }, 0);
+  if (reste) types.push({ nom: 'Autres', jours: reste });
+
+  tdbVignetteAbsences({
+    moisNom: TDB_MOIS_NOMS[now.getMonth()], moisJours: absM.j, moisHeures: absM.h,
+    suivantNom: TDB_MOIS_NOMS[suiv.getMonth()], suivantJours: absM1.j, suivantHeures: absM1.h,
+    types: types
+  });
+}
+
 /* ─────────────────── Données d'exemple (à remplacer) ─────────────────── */
 function tdbDonneesExemple() {
   tdbGraphCharge({ semaines: [
@@ -772,6 +887,7 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbDonneesExemple();      // valeurs d'attente, remplacées vignette par vignette
   tdbChargerNotes();        // ← raccordée
   tdbChargerCompteur();     // ← raccordée
+  tdbChargerPlanning();     // ← raccordée : temps non affecté, heures non vendables, absences
 });
 </script>
 </body>
