@@ -100,11 +100,30 @@ const SYNC = (() => {
      jamais redirigée : le tableau de bord ne lui est pas destiné. */
   function ouvrirSurTableauDeBord() {
     try {
-      if (window.location.pathname !== '/') return false;
+      /* Pages d'entrée de l'outil : l'adresse nue et index.html, qui sert de
+         page de démarrage aux raccourcis et à l'application installée. */
+      const chemin = window.location.pathname;
+      if (chemin !== '/' && chemin !== '/index.html') return false;
+
+      /* index.html est AUSSI la page Entreprise du menu. On ne détourne donc
+         que les VRAIES entrées dans l'outil : si la page précédente vient du
+         même site, c'est une navigation interne (clic sur « Entreprise »,
+         retour arrière) et on la laisse passer — sans quoi la page Entreprise
+         deviendrait inaccessible. */
+      const ref = document.referrer || '';
+      if (ref && ref.indexOf(window.location.origin) === 0) return false;
+
+      /* Un paramètre dans l'adresse signale un renvoi de l'outil lui-même
+         (?erreur=licence, ?erreur=plus) : cette page doit rester affichée
+         pour que la licence puisse être réactivée. */
+      if (window.location.search) return false;
+
       if (sessionStorage.getItem('adminConsult') === '1') return false;
-      const jeton = localStorage.getItem('syncToken');
-      if (!jeton && !localStorage.getItem('licenceCode')) return false;
-      if (!jeton && localStorage.getItem('saisie_codeEmploye')) return false;
+
+      /* Le jeton n'existe qu'après une première activation réussie : à la
+         toute première venue, on reste sur index.html pour saisir la licence. */
+      if (!localStorage.getItem('syncToken')) return false;
+
       window.location.replace('/tableau-de-bord.html');
       return true;
     } catch (_) { return false; }
