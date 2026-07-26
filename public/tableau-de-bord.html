@@ -1191,13 +1191,34 @@ function tdbDonneesExemple() {
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
 }
 
+/* ── Rafraîchissement après la synchronisation ────────────────────────
+   sync.js télécharge les données du serveur APRÈS le chargement de la page,
+   puis émet « donnees-chargees ». Au tout premier affichage, le stockage
+   local est donc encore vide quand les vignettes se calculent : sans cette
+   écoute, il fallait rafraîchir la page pour voir ses chiffres.
+   L'événement peut être émis plusieurs fois : on temporise pour ne relancer
+   le calcul qu'une fois. */
+let _tdbMajT = null;
+function tdbRafraichir() {
+  clearTimeout(_tdbMajT);
+  _tdbMajT = setTimeout(function () {
+    /* Le cache du contrat effectif a pu être rempli avec des données vides. */
+    try { _cvCacheCE = {}; } catch (e) {}
+    tdbChargerPlanning();
+    tdbChargerPrevisionnel();
+    tdbChargerCompteur();
+    tdbChargerNotes();
+  }, 80);
+}
+window.addEventListener('donnees-chargees', tdbRafraichir);
+
 document.addEventListener('DOMContentLoaded', function () {
   tdbCharger();
-  tdbDonneesExemple();      // valeurs d'attente, remplacées vignette par vignette
-  tdbChargerNotes();        // ← raccordée
-  tdbChargerCompteur();     // ← raccordée
-  tdbChargerPlanning();     // ← raccordée : temps non affecté, heures non vendables, absences
-  tdbChargerPrevisionnel(); // ← raccordée : charge, semaine, chantiers à 100 %, déplacements
+  tdbDonneesExemple();      // valeurs d'attente, remplacées dès que les données sont là
+  tdbChargerNotes();
+  tdbChargerCompteur();
+  tdbChargerPlanning();
+  tdbChargerPrevisionnel();
 });
 </script>
 </body>
