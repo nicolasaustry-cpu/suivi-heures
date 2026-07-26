@@ -165,7 +165,7 @@
   <div class="tdb-grille" id="tdb-grille">
 
     <!-- ─────────────── 1 · Charge hebdomadaire ─────────────── -->
-    <section class="tdb-vignette" data-id="charge">
+    <section class="tdb-vignette pleine" data-id="charge">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
         <span class="tdb-titre">Charge hebdomadaire</span>
@@ -455,7 +455,7 @@ function tdbGraphCharge(d) {
   /* Format panoramique : au-delà d'une certaine largeur, un viewBox trop
      étroit rendait le graphique démesurément haut et étirait toute la
      première ligne de la grille. */
-  const L = 520, H = 350, mg = { g: 64, d: 8, h: 14, b: 56 };
+  const L = 940, H = 350, mg = { g: 70, d: 12, h: 16, b: 56 };
   const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
 
   let max = 0;
@@ -469,7 +469,7 @@ function tdbGraphCharge(d) {
 
   for (let v = 0; v <= max; v += pas) {
     g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e6ecf5"/>'
-       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="22" fill="#8798ad">' + v + ' h</text>';
+       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="17" fill="#8798ad">' + v + ' h</text>';
   }
 
   S.forEach(function (s, i) {
@@ -483,13 +483,12 @@ function tdbGraphCharge(d) {
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
       bas += seg[0];
     });
-    /* À un tiers de page, douze libellés de semaine se chevaucheraient à une
-       taille lisible : on n'en affiche qu'un sur deux, en gardant toujours
-       celui qui ouvre un mois. */
-    if (i % 2 === 0 || s.mois) {
-      g += '<text x="' + cx + '" y="' + (H - 26) + '" text-anchor="middle" font-size="20" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
+    /* Tous les libellés quand la place le permet ; un sur deux sinon, en
+       gardant toujours celui qui ouvre un mois. */
+    if (pasX > 52 || i % 2 === 0 || s.mois) {
+      g += '<text x="' + cx + '" y="' + (H - 26) + '" text-anchor="middle" font-size="16" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
     }
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="20" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
