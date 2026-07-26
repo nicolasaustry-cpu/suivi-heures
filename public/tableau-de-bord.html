@@ -4,7 +4,7 @@
     <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tableau de bord – Suiv'Heures</title>
+  <title>Tableau de bord</title>
   <link rel="stylesheet" href="assets/style.css">
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
@@ -56,15 +56,18 @@
   @media (max-width:1300px) { .tdb-grille { grid-template-columns:repeat(2, minmax(0,1fr)); } }
   @media (max-width:820px)  { .tdb-grille { grid-template-columns:1fr; } }
 
+  /* Les vignettes héritent volontairement du style global des <section>
+     de style.css (fond blanc, marge, coins arrondis, ombre légère) :
+     Nicolas a validé cet aspect. On ne surcharge que la mise en page. */
   .tdb-vignette {
-    background:#fff; padding:18px 20px 20px; min-height:196px;
+    padding:18px 20px 20px; min-height:196px;
     display:flex; flex-direction:column; position:relative;
   }
   .tdb-vignette.large { grid-column:span 2; }
   @media (max-width:820px) { .tdb-vignette.large { grid-column:auto; } }
 
   .tdb-vignette.tdb-drag  { background:#fafbfc; }
-  .tdb-vignette.tdb-cible { box-shadow:inset 0 0 0 2px #0f3a8a; }
+  .tdb-vignette.tdb-cible { box-shadow:0 0 0 2px #0f3a8a; }
 
   /* ── En-tête de vignette ── */
   .tdb-tete { display:flex; align-items:baseline; gap:9px; margin-bottom:14px; }
@@ -102,7 +105,13 @@
 
   .tdb-liste { font-size:13px; color:#4b5563; line-height:1.9; }
   .tdb-liste div { display:flex; justify-content:space-between; gap:10px; }
-  .tdb-liste b { font-weight:400; color:#111827; }
+  .tdb-liste b { font-weight:500; color:#111827; }
+  /* Variante à puces : la pastille rappelle le segment de la jauge, et la
+     valeur suit l'intitulé dans le fil du texte plutôt qu'alignée à droite —
+     les intitulés longs passent alors sur deux lignes sans laisser de trou. */
+  .tdb-liste.puces div { justify-content:flex-start; align-items:flex-start; gap:9px; line-height:1.55; padding:3px 0; }
+  .tdb-liste.puces .tdb-pastille { margin-top:6px; }
+  .tdb-liste.puces b { color:inherit; }
 
   .tdb-barre { height:3px; background:#f1f3f6; margin:14px 0 10px; }
   .tdb-barre i { display:block; height:100%; }
@@ -130,8 +139,7 @@
 </head>
 <body class="tdb-page">
 
-<div class="top-bar">
-  <header class="main-header">
+<header class="main-header">
     <div class="vol-identite">
       <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
       <div class="vol-titres">
@@ -147,13 +155,12 @@
     </div>
   </header>
 
-  <div class="nav no-print">
-    <a href="index.html">Entreprise</a>
-    <a href="salaries.html">Salariés</a>
-    <a href="chantiers.html">Prévisionnel</a>
-    <a href="planning.html">Planning</a>
-    <a href="rapports.html">Rapports</a>
-  </div>
+<div class="nav no-print">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
 </div>
 
 <div class="tdb-bandeau">
@@ -201,10 +208,10 @@
       <i id="semaine-b2" style="width:9%;background:#c7d2e6"></i>
       <i id="semaine-b3" style="width:6%;background:#d1495b"></i>
     </div>
-    <div class="tdb-liste">
-      <div><span>Planifié</span><b id="semaine-plan">178 h</b></div>
-      <div><span>Prévu non planifié</span><b id="semaine-prev">20 h</b></div>
-      <div><span>Non vendues</span><b id="semaine-nonv" style="color:#d1495b">12 h</b></div>
+    <div class="tdb-liste puces">
+      <div><i class="tdb-pastille" style="background:#0f3a8a"></i><span>Heures chantiers planifiées <b id="semaine-plan">178 h</b></span></div>
+      <div><i class="tdb-pastille" style="background:#c7d2e6"></i><span>Chantiers prévus mais non planifiés <b id="semaine-prev">20 h</b></span></div>
+      <div><i class="tdb-pastille" style="background:#d1495b"></i><span style="color:#d1495b">Heures non vendues <b id="semaine-nonv">12 h</b></span></div>
     </div>
     <div class="tdb-sep">Temps non affecté</div>
     <div class="tdb-val attention" id="tna-sem">12,5<u>h</u></div>
