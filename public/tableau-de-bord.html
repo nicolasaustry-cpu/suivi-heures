@@ -679,9 +679,27 @@ async function tdbChargerCompteur() {
     prises[ym] = (prises[ym] || 0) + (parseFloat(e.heures) || 0);
   });
 
-  /* Solde de chaque mois = Σ des reports de tous les salariés − RTT/Récup. */
+  /* La base conserve des enregistrements BEV rattachés à des salariés
+     SUPPRIMÉS DEPUIS (essais, départs). Le BEV ne les montre jamais : ils
+     n'apparaissent pas dans son menu déroulant, qui liste les salariés
+     existants. Le tableau de bord doit faire pareil, sinon il additionne des
+     reports fantômes et affiche un solde d'entreprise sans rapport avec la
+     somme des BEV consultables.
+     Si la liste des salariés n'est pas encore chargée, on ne filtre pas :
+     mieux vaut un total complet qu'un total vide. */
+  let connus = null;
+  try {
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    if (Array.isArray(sals) && sals.length) {
+      connus = {};
+      sals.forEach(function (s) { connus[String(s.id)] = true; });
+    }
+  } catch (e) {}
+
+  /* Solde de chaque mois = Σ des reports des salariés connus − RTT/Récup. */
   const parMois = {};
   Object.keys(reports).forEach(function (sid) {
+    if (connus && !connus[String(sid)]) return;   // enregistrement orphelin : ignoré
     Object.keys(reports[sid] || {}).forEach(function (ym) {
       parMois[ym] = (parMois[ym] || 0) + (Number(reports[sid][ym]) || 0);
     });
