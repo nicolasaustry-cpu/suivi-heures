@@ -51,31 +51,30 @@
     border-bottom:1px solid #eef2f7; padding-bottom:.6rem; margin-bottom:.75rem;
   }
   .tdb-poignee {
-    flex:0 0 auto; cursor:grab; color:#b6c2d4; font-size:1.3rem; line-height:1;
-    padding:2px 5px; margin-left:-5px; border-radius:6px;
+    flex:0 0 auto; cursor:grab; color:#b6c2d4; font-size:1rem; line-height:1;
+    padding:5px 7px; margin-left:-7px; border-radius:6px;
     touch-action:none; -webkit-user-select:none; user-select:none;
   }
   .tdb-poignee:hover { background:#eef2f7; color:#475569; }
   .tdb-poignee:active { cursor:grabbing; }
-  .tdb-titre { flex:1; font-size:1.15rem; font-weight:800; color:#0f3a8a; letter-spacing:-.01em; }
-  .tdb-lien  { flex:0 0 auto; font-size:.9rem; color:#2563eb; text-decoration:none; font-weight:700; white-space:nowrap; }
+  .tdb-titre { flex:1; font-size:1rem; font-weight:800; color:#0f3a8a; letter-spacing:-.01em; }
+  .tdb-lien  { flex:0 0 auto; font-size:1rem; color:#2563eb; text-decoration:none; font-weight:700; white-space:nowrap; }
   .tdb-lien:hover { text-decoration:underline; }
-  .tdb-sous  { font-size:.9rem; color:#8798ad; margin:-.35rem 0 .7rem; }
+  .tdb-sous  { font-size:1rem; color:#8798ad; margin:-.35rem 0 .7rem; }
 
   .tdb-chiffres { display:flex; gap:1.6rem; flex-wrap:wrap; }
   .tdb-val   { font-size:2rem; font-weight:800; color:#0f172a; line-height:1.1; letter-spacing:-.02em; }
   .tdb-val.alerte { color:#b91c1c; }
   .tdb-val.tension { color:#4a3aa7; }   /* réservé, non utilisé */
   .tdb-val.attention { color:#b45309; }
-  .tdb-lbl   { font-size:.9rem; color:#8798ad; margin-top:3px; }
+  .tdb-lbl   { font-size:1rem; color:#8798ad; margin-top:3px; }
 
-  .tdb-legende { display:flex; flex-wrap:wrap; gap:.35rem 1rem; font-size:.9rem; color:#5b6b81; margin:.7rem 0 0; }
+  .tdb-legende { display:flex; flex-wrap:wrap; gap:.35rem 1rem; font-size:1rem; color:#5b6b81; margin:.7rem 0 0; }
   .tdb-legende span { display:flex; align-items:center; gap:7px; }
   .tdb-pastille { width:13px; height:13px; border-radius:3px; flex:0 0 auto; }
   .tdb-trait { width:22px; border-top:3px dashed #0f172a; }
 
   .tdb-pied { display:flex; gap:1.6rem; flex-wrap:wrap; margin-bottom:.9rem; }
-  .tdb-pied .tdb-val { font-size:1.6rem; }
 
   /* Mini-barres (vignettes secondaires) */
   .tdb-spark { display:flex; gap:5px; align-items:flex-end; height:76px; margin-top:1rem; }
@@ -95,10 +94,17 @@
   .tdb-repart .b { flex:1; height:12px; background:#eef2f7; border-radius:6px; overflow:hidden; }
   .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
 
+  /* ── DEUX TAILLES DE TEXTE SUR TOUTE LA PAGE ──
+     1rem  : tout le texte, quel qu'il soit
+     2rem  : les chiffres clés et le pourcentage du camembert
+     La hiérarchie passe par la GRAISSE (400 / 700 / 800) et la COULEUR
+     (navy #0f3a8a pour les titres, #0f172a pour le texte fort,
+     #8798ad pour le secondaire), jamais par la taille. */
+
   /* Sous-titre pour une vignette qui traite deux volets d'un même sujet. */
   .tdb-sep {
     border-top:1px solid #eef2f7; margin-top:1.1rem; padding-top:.7rem;
-    font-size:1rem; font-weight:800; color:#0f3a8a;
+    font-size:1rem; font-weight:700; color:#0f172a;
   }
   .tdb-sep + .tdb-chiffres { margin-top:.6rem; }
 
@@ -113,7 +119,7 @@
     display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
   .tdb-cercle .creux b { font-size:2rem; font-weight:800; color:#0f172a; }
-  .tdb-cercle .creux span { font-size:.9rem; color:#8798ad; margin-top:2px; }
+  .tdb-cercle .creux span { font-size:1rem; color:#8798ad; margin-top:2px; }
   .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1rem; color:#3d4b5f; }
   .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:5px 0; line-height:1.4; }
   .tdb-donut li b { font-weight:800; color:#0f172a; }
@@ -122,10 +128,10 @@
   .tdb-actions { display:flex; gap:10px; align-items:center; margin-left:auto; }
   .tdb-btn {
     background:#fff; border:1px solid #cbd5e1; color:#334155; border-radius:8px;
-    padding:7px 14px; font-size:.9rem; font-weight:700; cursor:pointer;
+    padding:7px 14px; font-size:1rem; font-weight:700; cursor:pointer;
   }
   .tdb-btn:hover { background:#f1f5f9; }
-  .tdb-etat { font-size:.9rem; color:#16a34a; font-weight:700; opacity:0; transition:opacity .25s; }
+  .tdb-etat { font-size:1rem; color:#16a34a; font-weight:700; opacity:0; transition:opacity .25s; }
   .tdb-etat.on { opacity:1; }
 
   @media print { .tdb-poignee, .tdb-actions, .tdb-bandeau { display:none !important; } }
@@ -486,9 +492,9 @@ function tdbGraphCharge(d) {
     /* Tous les libellés quand la place le permet ; un sur deux sinon, en
        gardant toujours celui qui ouvre un mois. */
     if (pasX > 52 || i % 2 === 0 || s.mois) {
-      g += '<text x="' + cx + '" y="' + (H - 26) + '" text-anchor="middle" font-size="16" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
+      g += '<text x="' + cx + '" y="' + (H - 26) + '" text-anchor="middle" font-size="17" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
     }
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="17" font-weight="700" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
