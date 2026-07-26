@@ -100,18 +100,25 @@ const SYNC = (() => {
      jamais redirigée : le tableau de bord ne lui est pas destiné. */
   function ouvrirSurTableauDeBord() {
     try {
+      /* Marqueur d'onglet, posé sur TOUTE page de l'outil et lu avant d'être
+         écrit. Il doit l'être avant le filtre sur le chemin : sinon quelqu'un
+         qui entre directement sur le planning, puis clique sur « Entreprise »,
+         serait détourné vers le tableau de bord. */
+      const dejaDansOutil = sessionStorage.getItem('shOnglet') === '1';
+      sessionStorage.setItem('shOnglet', '1');
+
       /* Pages d'entrée de l'outil : l'adresse nue et index.html, qui sert de
          page de démarrage aux raccourcis et à l'application installée. */
       const chemin = window.location.pathname;
       if (chemin !== '/' && chemin !== '/index.html') return false;
 
-      /* index.html est AUSSI la page Entreprise du menu. On ne détourne donc
-         que les VRAIES entrées dans l'outil : si la page précédente vient du
-         même site, c'est une navigation interne (clic sur « Entreprise »,
-         retour arrière) et on la laisse passer — sans quoi la page Entreprise
-         deviendrait inaccessible. */
-      const ref = document.referrer || '';
-      if (ref && ref.indexOf(window.location.origin) === 0) return false;
+      /* index.html est AUSSI la page Entreprise du menu : on ne détourne que
+         la PREMIÈRE page chargée dans l'onglet — raccourci, application
+         installée, nouvel onglet. Dès qu'on navigue à l'intérieur de l'outil,
+         « Entreprise » et le retour arrière atterrissent normalement.
+         Ce marqueur remplace document.referrer, que les navigateurs vident ou
+         tronquent dans trop de situations pour qu'on s'y fie. */
+      if (dejaDansOutil) return false;
 
       /* Un paramètre dans l'adresse signale un renvoi de l'outil lui-même
          (?erreur=licence, ?erreur=plus) : cette page doit rester affichée
