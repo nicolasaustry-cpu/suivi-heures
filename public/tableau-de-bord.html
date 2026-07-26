@@ -1017,20 +1017,14 @@ function tdbGraphAnnee(d) {
 async function tdbChargerAnnee() {
   const now = new Date(), an = now.getFullYear();
   const NOMS = ['janv.','févr.','mars','avril','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
-  const ym = [];
-  for (let m = 0; m < 12; m++) ym.push(an + '-' + String(m + 1).padStart(2, '0'));
-  const lots = await Promise.all(ym.map(tdbSaisiesMois));
+  const mois = await tdbAgregeAnnee(an);          // un seul appel pour les douze mois
 
   const serie = [];
   let totV = 0, totR = 0, vendEcoules = 0;
   for (let m = 0; m < 12; m++) {
     const vend = hVendablesMois(an, m);
-    let real = 0;
-    (lots[m] || []).forEach(function (s) {
-      (s.chantiers || []).forEach(function (c) {
-        if (String(c.nom || '').trim()) real += (parseFloat(c.dureeMin) || 0) / 60;
-      });
-    });
+    const ag = mois[an + '-' + String(m + 1).padStart(2, '0')];
+    const real = ag ? (ag.heures || 0) : 0;
     totV += vend; totR += real;
     if (m <= now.getMonth()) vendEcoules += vend;
     serie.push({ cle: NOMS[m], vend: vend, real: real });
@@ -1048,19 +1042,30 @@ async function tdbChargerAnnee() {
    Trois sources : le prévisionnel (localStorage previsionnel_data), le
    planning (heuresdata) et les saisies envoyées (GET /api/saisies/<mois>). */
 
-/* Saisies d'un mois, mises en cache : plusieurs vignettes en ont besoin,
-   on ne veut pas multiplier les appels. */
-const _tdbSaisies = {};
-function tdbSaisiesMois(ym) {
-  if (_tdbSaisies[ym]) return _tdbSaisies[ym];
+/* Agrégats d'une année, mis en cache.
+   On passe par /api/saisies/agrege/<annee> et NON par la route mensuelle :
+   celle-ci renvoie les saisies complètes, photos en base64 comprises, ce qui
+   représentait des dizaines de mégaoctets pour douze mois alors que le
+   tableau de bord n'a besoin que de sommes. Un seul appel par année suffit.
+   Forme reçue : { mois: { 'aaaa-mm': { heures, interventions, trajets,
+                                        deplacementMin, parChantier } } } */
+const _tdbAgrege = {};
+function tdbAgregeAnnee(an) {
+  if (_tdbAgrege[an]) return _tdbAgrege[an];
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
              || localStorage.getItem('syncToken');
-  _tdbSaisies[ym] = (!token ? Promise.resolve([]) :
-    fetch('/api/saisies/' + ym, { headers: { 'Authorization': 'Bearer ' + token } })
+  _tdbAgrege[an] = (!token ? Promise.resolve({}) :
+    fetch('/api/saisies/agrege/' + an, { headers: { 'Authorization': 'Bearer ' + token } })
       .then(function (r) { return r.json(); })
-      .then(function (j) { return (j && j.ok) ? (j.saisies || []) : []; })
-      .catch(function () { return []; }));
-  return _tdbSaisies[ym];
+      .then(function (j) { return (j && j.ok) ? (j.mois || {}) : {}; })
+      .catch(function () { return {}; }));
+  return _tdbAgrege[an];
+}
+/* Agrégat d'un mois, quelle que soit son année. */
+function tdbMoisVide() { return { heures: 0, interventions: 0, trajets: 0, deplacementMin: 0, parChantier: {} }; }
+async function tdbAgregeMois(ym) {
+  const mois = await tdbAgregeAnnee(ym.slice(0, 4));
+  return mois[ym] || tdbMoisVide();
 }
 
 /* Contrat effectif sur une PÉRIODE quelconque, en réutilisant exactement les
@@ -1188,20 +1193,8 @@ async function tdbChargerPrevisionnel() {
   const ymM  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   const prec = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const ymP  = prec.getFullYear() + '-' + String(prec.getMonth() + 1).padStart(2, '0');
-  const [sM, sP] = await Promise.all([tdbSaisiesMois(ymM), tdbSaisiesMois(ymP)]);
-
-  function realiseParChantier(saisies) {
-    const r = {};
-    (saisies || []).forEach(function (s) {
-      (s.chantiers || []).forEach(function (c) {
-        const nom = String(c.nom || '').trim().toUpperCase();
-        if (!nom) return;
-        r[nom] = (r[nom] || 0) + (parseFloat(c.dureeMin) || 0) / 60;
-      });
-    });
-    return r;
-  }
-  const rM = realiseParChantier(sM), rP = realiseParChantier(sP);
+  const [agM, agP] = await Promise.all([tdbAgregeMois(ymM), tdbAgregeMois(ymP)]);
+  const rM = agM.parChantier || {}, rP = agP.parChantier || {};
 
   /* Heures replanifiées sur M ou M+1, par chantier. */
   const replanifie = {};
@@ -1241,28 +1234,12 @@ async function tdbChargerPrevisionnel() {
     const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
     moisHisto.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
   }
-  const lots = await Promise.all(moisHisto.map(tdbSaisiesMois));
-  const histo = lots.map(function (saisies) {
-    let inter = 0, min = 0;
-    (saisies || []).forEach(function (s) {
-      (s.chantiers || []).forEach(function (c) {
-        if (!String(c.nom || '').trim()) return;
-        inter++; min += parseFloat(c.deplacement) || 0;
-      });
-    });
-    return { inter: inter, min: min };
-  });
+  const histo = await Promise.all(moisHisto.map(tdbAgregeMois));
   const dernier = histo[histo.length - 1];
-  let trajets = 0;
-  (sM || []).forEach(function (s) {
-    (s.chantiers || []).forEach(function (c) {
-      if (String(c.nom || '').trim() && (parseFloat(c.deplacement) || 0) > 0) trajets++;
-    });
-  });
   tdbVignetteDeplacements({
-    parChantier: dernier.inter ? trajets / dernier.inter : 0,
-    minutesParChantier: dernier.inter ? dernier.min / dernier.inter : 0,
-    historique: histo.map(function (h) { return h.inter ? h.min / h.inter : 0; })
+    parChantier: dernier.interventions ? dernier.trajets / dernier.interventions : 0,
+    minutesParChantier: dernier.interventions ? dernier.deplacementMin / dernier.interventions : 0,
+    historique: histo.map(function (h) { return h.interventions ? h.deplacementMin / h.interventions : 0; })
   });
 }
 

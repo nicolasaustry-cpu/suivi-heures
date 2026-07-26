@@ -678,6 +678,63 @@ router.get("/mois-list", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Agrégats d'une année, pour le tableau de bord ──
+   GET /api/saisies/agrege/:annee
+   → { ok, annee, mois: { "2026-07": { heures, interventions, trajets,
+                                       deplacementMin, parChantier } } }
+
+   Raison d'être : le tableau de bord a besoin des DURÉES de douze mois, pas
+   du contenu des saisies. Or « GET /:mois » renvoie les documents complets,
+   PHOTOS COMPRISES (plusieurs centaines de kilo-octets chacune) : douze
+   appels représentaient des dizaines de mégaoctets pour n'utiliser que des
+   sommes. La projection ci-dessous ne remonte que quatre champs, les photos
+   et les notes ne quittent donc jamais la base.
+
+   ⚠ CETTE ROUTE DOIT RESTER DÉCLARÉE AVANT « /:mois » : Express teste les
+   routes dans l'ordre, et « /agrege/2026 » correspondrait sinon à « /:mois »
+   avec mois="agrege". */
+router.get("/agrege/:annee", verifyToken, async (req, res) => {
+  try {
+    const clientId = req.user.clientId;
+    const annee = String(req.params.annee || "").trim();
+    if (!/^\d{4}$/.test(annee))
+      return res.status(400).json({ ok: false, message: "année invalide" });
+
+    const saisies = await Saisie.find(
+      { clientId, date: { $regex: `^${annee}-` } },
+      { date: 1, "chantiers.nom": 1, "chantiers.dureeMin": 1, "chantiers.deplacement": 1 }
+    ).lean();
+
+    const mois = {};
+    for (const s of saisies) {
+      if (typeof s.date !== "string" || s.date.length < 7) continue;
+      const ym = s.date.substring(0, 7);
+      if (!mois[ym]) mois[ym] = { heures: 0, interventions: 0, trajets: 0, deplacementMin: 0, parChantier: {} };
+      const m = mois[ym];
+      for (const c of (s.chantiers || [])) {
+        const nom = String(c.nom || "").trim().toUpperCase();
+        if (!nom) continue;
+        const h = (Number(c.dureeMin) || 0) / 60;
+        const d = Number(c.deplacement) || 0;
+        m.interventions += 1;
+        m.heures += h;
+        m.deplacementMin += d;
+        if (d > 0) m.trajets += 1;
+        m.parChantier[nom] = (m.parChantier[nom] || 0) + h;
+      }
+    }
+    /* Arrondi au centième : évite de transporter des flottants à quinze décimales. */
+    const r2 = (v) => Math.round(v * 100) / 100;
+    for (const ym of Object.keys(mois)) {
+      mois[ym].heures = r2(mois[ym].heures);
+      for (const n of Object.keys(mois[ym].parChantier)) mois[ym].parChantier[n] = r2(mois[ym].parChantier[n]);
+    }
+    res.json({ ok: true, annee, mois });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Récupérer les saisies d'un mois ── */
 router.get("/:mois", verifyToken, async (req, res) => {
   try {
