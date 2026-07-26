@@ -29,19 +29,22 @@
      même rangée ont la même hauteur, et toutes les rangées le même minimum. */
   .tdb-grille {
     display:grid; grid-template-columns:repeat(3, minmax(0,1fr));
-    grid-auto-rows:minmax(252px, auto);
-    gap:18px; align-items:stretch;
+    grid-auto-rows:minmax(300px, auto);
+    gap:20px; align-items:stretch;
   }
   @media (max-width:1400px) { .tdb-grille { grid-template-columns:repeat(2, minmax(0,1fr)); } }
   @media (max-width:900px)  { .tdb-grille { grid-template-columns:1fr; } }
 
   .tdb-vignette {
-    background:#fff; border:1px solid #d3ddec; border-radius:12px;
-    padding:1.1rem 1.25rem; position:relative;
-    box-shadow:0 2px 6px rgba(15,58,138,.07);
+    background:#fff; border:1px solid #d3ddec; border-radius:14px;
+    padding:1.3rem 1.5rem; position:relative;
+    box-shadow:0 2px 8px rgba(15,58,138,.08);
     display:flex; flex-direction:column;
   }
-  .tdb-vignette.pleine { grid-column:1 / -1; }
+  /* La vignette de charge occupe deux colonnes : la vignette suivante
+     (semaine en cours) se place à côté d'elle sur la première ligne. */
+  .tdb-vignette.pleine { grid-column:span 2; }
+  @media (max-width:900px) { .tdb-vignette.pleine { grid-column:auto; } }
 
   /* Le dernier bloc de chaque vignette est plaqué en bas : les mini-courbes,
      listes et barres s'alignent d'une vignette à l'autre. */
@@ -58,61 +61,61 @@
   .tdb-vignette.tdb-drag  { opacity:.45; }
   .tdb-vignette.tdb-cible { outline:3px dashed #f59e0b; outline-offset:3px; }
 
-  .tdb-tete { display:flex; align-items:center; gap:9px; margin-bottom:.2rem; }
+  .tdb-tete { display:flex; align-items:center; gap:11px; margin-bottom:.25rem; }
   .tdb-poignee {
-    flex:0 0 auto; cursor:grab; color:#94a3b8; font-size:1.25rem; line-height:1;
-    padding:3px 5px; margin-left:-5px; border-radius:6px;
+    flex:0 0 auto; cursor:grab; color:#94a3b8; font-size:1.45rem; line-height:1;
+    padding:3px 6px; margin-left:-6px; border-radius:6px;
     touch-action:none; -webkit-user-select:none; user-select:none;
   }
   .tdb-poignee:hover { background:#eef2f7; color:#475569; }
   .tdb-poignee:active { cursor:grabbing; }
-  .tdb-titre { flex:1; font-size:1.1rem; font-weight:800; color:#0f172a; letter-spacing:-.01em; }
-  .tdb-lien  { flex:0 0 auto; font-size:.88rem; color:#2563eb; text-decoration:none; font-weight:700; white-space:nowrap; }
+  .tdb-titre { flex:1; font-size:1.3rem; font-weight:800; color:#0f172a; letter-spacing:-.015em; }
+  .tdb-lien  { flex:0 0 auto; font-size:.98rem; color:#2563eb; text-decoration:none; font-weight:700; white-space:nowrap; }
   .tdb-lien:hover { text-decoration:underline; }
-  .tdb-sous  { font-size:.85rem; color:#8798ad; margin-bottom:.7rem; }
+  .tdb-sous  { font-size:.95rem; color:#8798ad; margin-bottom:.8rem; }
 
-  .tdb-chiffres { display:flex; gap:1.8rem; flex-wrap:wrap; }
-  .tdb-val   { font-size:2.05rem; font-weight:800; color:#0f172a; line-height:1.05; letter-spacing:-.02em; }
+  .tdb-chiffres { display:flex; gap:2.2rem; flex-wrap:wrap; }
+  .tdb-val   { font-size:2.5rem; font-weight:800; color:#0f172a; line-height:1.05; letter-spacing:-.02em; }
   .tdb-val.alerte { color:#b91c1c; }
   .tdb-val.tension { color:#4a3aa7; }
   .tdb-val.attention { color:#b45309; }
-  .tdb-lbl   { font-size:.84rem; color:#8798ad; margin-top:4px; }
+  .tdb-lbl   { font-size:.95rem; color:#8798ad; margin-top:5px; }
 
-  .tdb-legende { display:flex; flex-wrap:wrap; gap:1rem; font-size:.84rem; color:#5b6b81; margin:.4rem 0 .7rem; }
-  .tdb-legende span { display:flex; align-items:center; gap:6px; }
-  .tdb-pastille { width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
-  .tdb-trait { width:20px; border-top:3px dashed #0f172a; }
+  .tdb-legende { display:flex; flex-wrap:wrap; gap:1.2rem; font-size:.95rem; color:#5b6b81; margin:.5rem 0 .8rem; }
+  .tdb-legende span { display:flex; align-items:center; gap:7px; }
+  .tdb-pastille { width:14px; height:14px; border-radius:3px; flex:0 0 auto; }
+  .tdb-trait { width:24px; border-top:3px dashed #0f172a; }
 
-  .tdb-pied { border-top:1px solid #e6ecf5; margin-top:.9rem; padding-top:.8rem; display:flex; gap:2rem; flex-wrap:wrap; }
+  .tdb-pied { border-top:1px solid #e6ecf5; margin-top:1rem; padding-top:.9rem; display:flex; gap:2.4rem; flex-wrap:wrap; }
 
   /* Mini-barres (vignettes secondaires) */
-  .tdb-spark { display:flex; gap:4px; align-items:flex-end; height:48px; margin-top:.8rem; }
+  .tdb-spark { display:flex; gap:5px; align-items:flex-end; height:62px; margin-top:1rem; }
   .tdb-spark i { flex:1; border-radius:3px; display:block; }
 
   /* Listes internes */
-  .tdb-liste { border-top:1px solid #e6ecf5; margin-top:.6rem; padding-top:.5rem; font-size:.95rem; color:#3d4b5f; }
-  .tdb-liste div { display:flex; justify-content:space-between; padding:4px 0; }
+  .tdb-liste { border-top:1px solid #e6ecf5; margin-top:.7rem; padding-top:.6rem; font-size:1.08rem; color:#3d4b5f; }
+  .tdb-liste div { display:flex; justify-content:space-between; padding:5px 0; }
 
-  .tdb-barre { height:11px; background:#eef2f7; border-radius:6px; overflow:hidden; margin-top:.6rem; }
-  .tdb-barre i { display:block; height:100%; border-radius:6px; }
+  .tdb-barre { height:14px; background:#eef2f7; border-radius:7px; overflow:hidden; margin-top:.7rem; }
+  .tdb-barre i { display:block; height:100%; border-radius:7px; }
 
-  .tdb-repart { font-size:.88rem; color:#3d4b5f; }
-  .tdb-repart > div { display:flex; align-items:center; gap:9px; padding:3px 0; }
-  .tdb-repart .n { width:72px; flex:0 0 auto; }
-  .tdb-repart .j { width:38px; text-align:right; }
-  .tdb-repart .b { flex:1; height:10px; background:#eef2f7; border-radius:5px; overflow:hidden; }
+  .tdb-repart { font-size:1rem; color:#3d4b5f; }
+  .tdb-repart > div { display:flex; align-items:center; gap:11px; padding:4px 0; }
+  .tdb-repart .n { width:86px; flex:0 0 auto; }
+  .tdb-repart .j { width:46px; text-align:right; }
+  .tdb-repart .b { flex:1; height:13px; background:#eef2f7; border-radius:7px; overflow:hidden; }
   .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
 
-  .tdb-donut { display:flex; align-items:center; gap:18px; }
-  .tdb-cercle { position:relative; width:112px; height:112px; flex:0 0 auto; border-radius:50%; }
+  .tdb-donut { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+  .tdb-cercle { position:relative; width:158px; height:158px; flex:0 0 auto; border-radius:50%; }
   .tdb-cercle .creux {
-    position:absolute; inset:16px; background:#fff; border-radius:50%;
+    position:absolute; inset:23px; background:#fff; border-radius:50%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
-  .tdb-cercle .creux b { font-size:1.4rem; font-weight:800; color:#0f172a; }
-  .tdb-cercle .creux span { font-size:.78rem; color:#8798ad; }
-  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:.88rem; color:#3d4b5f; min-width:0; }
-  .tdb-donut li { display:flex; align-items:flex-start; gap:8px; padding:3px 0; line-height:1.35; }
+  .tdb-cercle .creux b { font-size:2.1rem; font-weight:800; color:#0f172a; }
+  .tdb-cercle .creux span { font-size:.95rem; color:#8798ad; }
+  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1.02rem; color:#3d4b5f; min-width:0; }
+  .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:5px 0; line-height:1.4; }
   .tdb-donut li b { font-weight:800; color:#0f172a; }
 
   /* Barre d'actions */
@@ -456,7 +459,7 @@ function tdbGraphCharge(d) {
   const S = d.semaines || [];
   if (!S.length) { zone.innerHTML = ''; return; }
 
-  const L = 700, H = 320, mg = { g: 54, d: 10, h: 14, b: 46 };
+  const L = 700, H = 340, mg = { g: 62, d: 10, h: 16, b: 52 };
   const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
 
   let max = 0;
@@ -470,7 +473,7 @@ function tdbGraphCharge(d) {
 
   for (let v = 0; v <= max; v += pas) {
     g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e6ecf5"/>'
-       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="14" fill="#8798ad">' + v + ' h</text>';
+       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="17" fill="#8798ad">' + v + ' h</text>';
   }
 
   S.forEach(function (s, i) {
@@ -484,15 +487,17 @@ function tdbGraphCharge(d) {
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
       bas += seg[0];
     });
-    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="14" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="13" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
+    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
   S.forEach(function (s, i) { pts.push((mg.g + pasX * i + pasX / 2) + ',' + y(s.capacite)); });
-  g += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#0f172a" stroke-width="2.5" stroke-dasharray="7 5"/>';
+  g += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#0f172a" stroke-width="3" stroke-dasharray="8 5"/>';
 
-  zone.innerHTML = '<svg viewBox="0 0 ' + L + ' ' + H + '" width="100%" height="320" role="img" '
+  /* height:auto plutôt qu'une hauteur figée : le tracé occupe toute la
+     largeur de la vignette au lieu de se centrer entre deux bandes blanches. */
+  zone.innerHTML = '<svg viewBox="0 0 ' + L + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" '
     + 'aria-label="Charge hebdomadaire comparée à la capacité vendable">' + g + '</svg>';
 }
 
