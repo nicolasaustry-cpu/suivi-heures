@@ -176,7 +176,7 @@
 </div>
 
 <div class="tdb-bandeau">
-  <span><b>Raccordement en cours.</b> Les vignettes pas encore branchées affichent des exemples.</span>
+  <span>Les huit vignettes sont raccordées à vos données. Glissez-les par la poignée pour les réorganiser.</span>
   <span class="tdb-actions">
     <span class="tdb-etat" id="tdb-etat">Présentation enregistrée</span>
     <button type="button" class="tdb-btn" onclick="tdbReinitialiser()">Ordre par défaut</button>
@@ -192,6 +192,7 @@
       <span class="tdb-titre">Charge hebdomadaire</span>
       <a class="tdb-lien" href="planning.html">Planning prévu →</a>
     </div>
+    <div class="tdb-sous" id="charge-sous">M-1, M et M+1</div>
     <div class="tdb-chiffres">
       <div><div class="tdb-val alerte" id="charge-nbsem">4</div><div class="tdb-lbl">semaines en dépassement</div></div>
       <div><div class="tdb-val alerte" id="charge-heures">90<u>h</u></div><div class="tdb-lbl">à reporter</div></div>
@@ -852,6 +853,321 @@ function tdbChargerPlanning() {
   });
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   BLOC RECOPIÉ VERBATIM DE chantiers.html (lignes 661-720).
+   Ne pas le réécrire : c'est lui qui définit les HEURES VENDABLES du
+   prévisionnel — contrat effectif × seuil orange de la jauge. Le moindre
+   écart ferait diverger le tableau de bord de la page Prévisionnel.
+   Si chantiers.html évolue, recopier le bloc tel quel.
+   ══════════════════════════════════════════════════════════════════════ */
+function _cvPad2(n){ return String(n).padStart(2,'0'); }
+var _CV_JOURS = ['', 'lun','mar','mer','jeu','ven','sam'];
+function _cvLundi(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); var j=x.getDay(); x.setDate(x.getDate()+((j===0)?-6:(1-j))); x.setHours(0,0,0,0); return x; }
+function _cvNbSem(a,b){ return Math.round((b-a)/(7*24*3600*1000)); }
+function _cvSemaineAB(s,d){
+  var bs=Array.isArray(s.bascules)?s.bascules.slice():[];
+  if(!bs.length) return 'A';
+  bs.sort(function(a,b){return a.date.localeCompare(b.date);});
+  var lc=_cvLundi(d), active=null;
+  for(var i=0;i<bs.length;i++){ var lb=_cvLundi(new Date(bs[i].date+'T00:00:00')); if(lb<=lc) active={lundi:lb,semaine:bs[i].semaine}; }
+  if(!active){ var f=bs[0], lbf=_cvLundi(new Date(f.date+'T00:00:00')), nf=_cvNbSem(lc,lbf); return (nf%2===0)?f.semaine:(f.semaine==='A'?'B':'A'); }
+  var n=_cvNbSem(active.lundi,lc); return (n%2===0)?active.semaine:(active.semaine==='A'?'B':'A');
+}
+function _cvGrille(s,d){ if(s&&s.alternance){ var sem=_cvSemaineAB(s,d); return (sem==='B'?s.heuresParJourB:s.heuresParJourA)||{}; } return s.heuresParJour||{}; }
+var _cvCacheF={};
+function _cvPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+function _cvFeries(y){ if(_cvCacheF[y])return _cvCacheF[y]; var f={},isod=function(dd){return dd.getFullYear()+'-'+_cvPad2(dd.getMonth()+1)+'-'+_cvPad2(dd.getDate());}; [[0,1],[4,1],[4,8],[6,14],[7,15],[10,1],[10,11],[11,25]].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=1;}); var p=_cvPaques(y); [1,39,50].forEach(function(n){var dd=new Date(p);dd.setDate(p.getDate()+n);f[isod(dd)]=1;}); _cvCacheF[y]=f; return f; }
+function _cvEstFerie(d){ var iso=d.getFullYear()+'-'+_cvPad2(d.getMonth()+1)+'-'+_cvPad2(d.getDate()); return !!_cvFeries(d.getFullYear())[iso]; }
+function _cvDansPeriode(s,d){ if(s.dateEntree){var de=new Date(s.dateEntree+'T00:00:00'); if(d<de)return false;} if(s.dateSortie){var ds=new Date(s.dateSortie+'T00:00:00'); if(d>ds)return false;} return true; }
+var _cvCacheCE={};
+function contratEffectifMois(annee, mois){
+  var key=annee+'-'+mois;
+  if(_cvCacheCE[key]!=null) return _cvCacheCE[key];
+  var salaries=[], heures={};
+  try{ salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
+  try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
+  if(!Array.isArray(salaries)) salaries=[];
+  var nbJours=new Date(annee,mois+1,0).getDate(), total=0;
+  salaries.forEach(function(s){
+    for(var j=1;j<=nbJours;j++){
+      var d=new Date(annee,mois,j), iso=annee+'-'+_cvPad2(mois+1)+'-'+_cvPad2(j);
+      if(!_cvDansPeriode(s,d)) continue;
+      if(_cvEstFerie(d)) continue;
+      var jk=_CV_JOURS[d.getDay()]; if(!jk) continue;
+      var contrat=parseFloat(_cvGrille(s,d)[jk])||0; if(contrat<=0) continue;
+      var absence;
+      if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;
+      else { var e=heures[String(s.id)+iso.replace(/-/g,'_')+'abs']; absence=(e&&parseFloat(e.heures))||0; }
+      total+=Math.max(0,contrat-absence);
+    }
+  });
+  _cvCacheCE[key]=total; return total;
+}
+function _cvSeuilOrange(){
+  try{
+    var ent=JSON.parse(localStorage.getItem('entreprisedata')||'{}');
+    if(ent){
+      // Valeur persistée et synchronisée (page Entreprise → entreprisedata.jauge.orange)
+      if(ent.jauge && ent.jauge.orange!=null) return parseFloat(ent.jauge.orange)||0;
+      // Ancien emplacement à la racine (compatibilité)
+      if(ent.orange!=null) return parseFloat(ent.orange)||0;
+    }
+  }catch(e){}
+  // Dernier repli : clé locale non synchronisée (peut disparaître à la fermeture)
+  return parseInt(localStorage.getItem('jaugeOrange'))||0;
+}
+function hVendablesMois(annee, mois){
+  return contratEffectifMois(annee, mois) * _cvSeuilOrange() / 100;
+}
+
+/* ── Raccordement des vignettes issues du PRÉVISIONNEL et du RÉALISÉ ───
+   Charge hebdomadaire, Semaine en cours, Chantiers à 100 % et Déplacements.
+   Trois sources : le prévisionnel (localStorage previsionnel_data), le
+   planning (heuresdata) et les saisies envoyées (GET /api/saisies/<mois>). */
+
+/* Saisies d'un mois, mises en cache : plusieurs vignettes en ont besoin,
+   on ne veut pas multiplier les appels. */
+const _tdbSaisies = {};
+function tdbSaisiesMois(ym) {
+  if (_tdbSaisies[ym]) return _tdbSaisies[ym];
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+             || localStorage.getItem('syncToken');
+  _tdbSaisies[ym] = (!token ? Promise.resolve([]) :
+    fetch('/api/saisies/' + ym, { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { return (j && j.ok) ? (j.saisies || []) : []; })
+      .catch(function () { return []; }));
+  return _tdbSaisies[ym];
+}
+
+/* Contrat effectif sur une PÉRIODE quelconque, en réutilisant exactement les
+   règles du prévisionnel (grille et alternance, fériés, période de contrat,
+   jours d'école comptés comme absence). Sommée sur un mois entier, cette
+   fonction redonne contratEffectifMois. */
+function tdbContratEffectif(d1, d2) {
+  let salaries = [], heures = {};
+  try { salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) {}
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  if (!Array.isArray(salaries)) salaries = [];
+  let total = 0;
+  salaries.forEach(function (s) {
+    const d = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+    while (d <= d2) {
+      const iso = tdbIso(d);
+      if (_cvDansPeriode(s, d) && !_cvEstFerie(d)) {
+        const jk = _CV_JOURS[d.getDay()];
+        const contrat = jk ? (parseFloat(_cvGrille(s, d)[jk]) || 0) : 0;
+        if (contrat > 0) {
+          let absence;
+          if (s.apprenti && Array.isArray(s.joursEcole) && s.joursEcole.indexOf(iso) !== -1) absence = contrat;
+          else { const e = heures[String(s.id) + iso.replace(/-/g, '_') + 'abs']; absence = (e && parseFloat(e.heures)) || 0; }
+          total += Math.max(0, contrat - absence);
+        }
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  });
+  return total;
+}
+function tdbCapacite(d1, d2) { return tdbContratEffectif(d1, d2) * _cvSeuilOrange() / 100; }
+
+/* Heures planifiées (hors temps non affecté) sur une période, par mois et
+   par semaine — lues dans le planning, salariés supprimés exclus. */
+function tdbPlanifie(bornes) {
+  const parJour = {};
+  tdbParcourirPlanning(function (e, c) {
+    if (c.abs) return;
+    const nom = ((e && e.chantier) || '').trim().toUpperCase();
+    if (!nom || nom === TDB_TNA) return;
+    parJour[c.iso] = (parJour[c.iso] || 0) + (parseFloat(e && e.heures) || 0);
+  });
+  return function (d1, d2) {
+    let t = 0;
+    const d = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+    while (d <= d2) { t += parJour[tdbIso(d)] || 0; d.setDate(d.getDate() + 1); }
+    return t;
+  };
+}
+
+/* Chantiers du prévisionnel pour un mois donné : { NOM: heures prévues }. */
+function tdbPrevisionnelMois(annee, mois) {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}'); } catch (e) {}
+  const dm = (data[annee] && data[annee][mois]) ? data[annee][mois] : null;
+  const out = {};
+  if (dm && Array.isArray(dm.chantiers)) {
+    dm.chantiers.forEach(function (ch) {
+      const nom = String(ch.client || '').trim().toUpperCase();
+      if (!nom) return;
+      out[nom] = (out[nom] || 0) + (parseFloat(ch.hPrevues) || 0);
+    });
+  }
+  return out;
+}
+
+async function tdbChargerPrevisionnel() {
+  const now = new Date();
+  const auj = tdbIso(now);
+  const planifieSur = tdbPlanifie();
+
+  /* ── Fenêtre : M-1, M, M+1, découpée en semaines du lundi au dimanche ── */
+  const debut = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const fin   = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+  const l0 = new Date(debut); l0.setDate(l0.getDate() + (l0.getDay() === 0 ? -6 : 1 - l0.getDay()));
+
+  const semaines = [];
+  for (let d = new Date(l0); d <= fin; d.setDate(d.getDate() + 7)) {
+    const lundi = new Date(d), dim = new Date(d); dim.setDate(dim.getDate() + 6);
+    semaines.push({ lundi: lundi, dim: dim, plan: planifieSur(lundi, dim), capacite: tdbCapacite(lundi, dim), prevu: 0 });
+  }
+
+  /* ── Reste à planifier, mois par mois ──
+     = heures du devis − heures déjà posées au planning. Réparti sur les
+     semaines du mois QUI NE SONT PAS TERMINÉES : ce qui n'a pas été planifié
+     sur une semaine écoulée ne le sera plus. */
+  [0, 1, 2].forEach(function (k) {
+    const ref = new Date(now.getFullYear(), now.getMonth() - 1 + k, 1);
+    const an = ref.getFullYear(), mi = ref.getMonth();
+    const dernier = new Date(an, mi + 1, 0);
+    const devis = tdbPrevisionnelMois(an, mi);
+    let hDevis = 0;
+    Object.keys(devis).forEach(function (n) { hDevis += devis[n]; });
+    const reste = Math.max(0, hDevis - planifieSur(new Date(an, mi, 1), dernier));
+    if (reste <= 0) return;
+    const cibles = semaines.filter(function (s) {
+      return s.lundi <= dernier && s.dim >= new Date(an, mi, 1) && tdbIso(s.dim) >= auj;
+    });
+    if (!cibles.length) return;
+    const part = reste / cibles.length;
+    cibles.forEach(function (s) { s.prevu += part; });
+  });
+
+  /* ── 1 · Graphique de charge ── */
+  const MOIS_COURTS = ['janv.','févr.','mars','avril','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  let dernierMois = -1, nbDep = 0, hDep = 0, pire = null;
+  const series = semaines.map(function (s) {
+    const depass = Math.max(0, s.plan + s.prevu - s.capacite);
+    if (depass > 0) { nbDep++; hDep += depass; if (!pire || depass > pire.d) pire = { d: depass, s: s }; }
+    const m = s.lundi.getMonth();
+    const nouveau = (m !== dernierMois); dernierMois = m;
+    return {
+      cle: 'S' + tdbNumSemaine(s.lundi),
+      mois: nouveau ? MOIS_COURTS[m] : '',
+      plan: s.plan, prevu: s.prevu, capacite: s.capacite
+    };
+  });
+  tdbGraphCharge({ semaines: series });
+  tdbTexte('charge-nbsem', nbDep);
+  tdbValeur('charge-heures', hDep, 'h', 0);
+  tdbTexte('charge-pire', pire ? ('S' + tdbNumSemaine(pire.s.lundi)) : '—');
+  const sous = document.getElementById('charge-sous');
+  if (sous) sous.textContent = MOIS_COURTS[debut.getMonth()] + ' à ' + MOIS_COURTS[fin.getMonth()] + ' · M-1, M et M+1';
+
+  /* ── 2 · Semaine en cours ── */
+  const courante = semaines.filter(function (s) { return tdbIso(s.lundi) <= auj && auj <= tdbIso(s.dim); })[0];
+  if (courante) {
+    tdbVignetteSemaine({
+      numero: tdbNumSemaine(courante.lundi),
+      plan: courante.plan,
+      prevu: courante.prevu,
+      nonVendu: Math.max(0, courante.capacite - courante.plan - courante.prevu)
+    });
+  }
+
+  /* ── 3 · Chantiers à 100 % ──
+     Règle de Nicolas : ceux du mois en cours qui atteignent ou dépassent
+     100 %, plus ceux du mois précédent qui les ont atteints ET sur lesquels
+     des heures sont de nouveau planifiées sur M ou M+1 — ceux-là continuent
+     de consommer alors qu'ils sont déjà soldés. */
+  const ymM  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const prec = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const ymP  = prec.getFullYear() + '-' + String(prec.getMonth() + 1).padStart(2, '0');
+  const [sM, sP] = await Promise.all([tdbSaisiesMois(ymM), tdbSaisiesMois(ymP)]);
+
+  function realiseParChantier(saisies) {
+    const r = {};
+    (saisies || []).forEach(function (s) {
+      (s.chantiers || []).forEach(function (c) {
+        const nom = String(c.nom || '').trim().toUpperCase();
+        if (!nom) return;
+        r[nom] = (r[nom] || 0) + (parseFloat(c.dureeMin) || 0) / 60;
+      });
+    });
+    return r;
+  }
+  const rM = realiseParChantier(sM), rP = realiseParChantier(sP);
+
+  /* Heures replanifiées sur M ou M+1, par chantier. */
+  const replanifie = {};
+  const debutM = new Date(now.getFullYear(), now.getMonth(), 1);
+  const finM1  = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+  tdbParcourirPlanning(function (e, c) {
+    if (c.abs || c.iso < tdbIso(debutM) || c.iso > tdbIso(finM1)) return;
+    const nom = ((e && e.chantier) || '').trim().toUpperCase();
+    if (!nom || nom === TDB_TNA) return;
+    replanifie[nom] = (replanifie[nom] || 0) + (parseFloat(e && e.heures) || 0);
+  });
+
+  const liste = [];
+  const devisM = tdbPrevisionnelMois(now.getFullYear(), now.getMonth());
+  Object.keys(devisM).forEach(function (nom) {
+    if (devisM[nom] <= 0) return;
+    const pct = Math.round(((rM[nom] || 0) / devisM[nom]) * 100);
+    if (pct >= 100) liste.push({ nom: nom, pct: pct });
+  });
+  const devisP = tdbPrevisionnelMois(prec.getFullYear(), prec.getMonth());
+  Object.keys(devisP).forEach(function (nom) {
+    if (devisP[nom] <= 0) return;
+    if (!(replanifie[nom] > 0)) return;                    // plus rien de planifié : on l'oublie
+    if (liste.some(function (x) { return x.nom === nom; })) return;
+    const pct = Math.round(((rP[nom] || 0) / devisP[nom]) * 100);
+    if (pct >= 100) liste.push({ nom: nom, pct: pct });
+  });
+  liste.sort(function (a, b) { return b.pct - a.pct; });
+  tdbVignetteChantiers100({ liste: liste });
+
+  /* ── 4 · Déplacements ──
+     Dénominateur choisi par Nicolas : l'INTERVENTION (une ligne de chantier
+     saisie), et non le chantier distinct — c'est ce qui prend en compte le
+     déplacement de chaque ouvrier sur un même chantier. */
+  const moisHisto = [];
+  for (let k = 5; k >= 0; k--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+    moisHisto.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
+  const lots = await Promise.all(moisHisto.map(tdbSaisiesMois));
+  const histo = lots.map(function (saisies) {
+    let inter = 0, min = 0;
+    (saisies || []).forEach(function (s) {
+      (s.chantiers || []).forEach(function (c) {
+        if (!String(c.nom || '').trim()) return;
+        inter++; min += parseFloat(c.deplacement) || 0;
+      });
+    });
+    return { inter: inter, min: min };
+  });
+  const dernier = histo[histo.length - 1];
+  let trajets = 0;
+  (sM || []).forEach(function (s) {
+    (s.chantiers || []).forEach(function (c) {
+      if (String(c.nom || '').trim() && (parseFloat(c.deplacement) || 0) > 0) trajets++;
+    });
+  });
+  tdbVignetteDeplacements({
+    parChantier: dernier.inter ? trajets / dernier.inter : 0,
+    minutesParChantier: dernier.inter ? dernier.min / dernier.inter : 0,
+    historique: histo.map(function (h) { return h.inter ? h.min / h.inter : 0; })
+  });
+}
+
+/* Numéro de semaine ISO 8601. */
+function tdbNumSemaine(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const j1 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil((((t - j1) / 86400000) + 1) / 7);
+}
+
 /* ─────────────────── Données d'exemple (à remplacer) ─────────────────── */
 function tdbDonneesExemple() {
   tdbGraphCharge({ semaines: [
@@ -888,6 +1204,7 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbChargerNotes();        // ← raccordée
   tdbChargerCompteur();     // ← raccordée
   tdbChargerPlanning();     // ← raccordée : temps non affecté, heures non vendables, absences
+  tdbChargerPrevisionnel(); // ← raccordée : charge, semaine, chantiers à 100 %, déplacements
 });
 </script>
 </body>
