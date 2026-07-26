@@ -438,10 +438,14 @@ function tdbValeur(id, n, unite, dec) {
 function tdbSpark(id, valeurs, fort, clair) {
   const z = document.getElementById(id);
   if (!z || !valeurs || !valeurs.length) return;
-  const maxi = Math.max.apply(null, valeurs.concat([1]));
+  /* Échelle sur la valeur absolue : une série qui passe en négatif (un solde
+     compteur débiteur, par exemple) reste lisible, et les barres négatives
+     prennent la couleur d'alerte au lieu de disparaître. */
+  const maxi = Math.max.apply(null, valeurs.map(Math.abs).concat([1]));
   z.innerHTML = valeurs.map(function (v, i) {
-    const h = Math.max(3, Math.round((v / maxi) * 100));
-    return '<i style="height:' + h + '%;background:' + (i === valeurs.length - 1 ? fort : clair) + '"></i>';
+    const h = Math.max(3, Math.round((Math.abs(v) / maxi) * 100));
+    const c = v < 0 ? '#d1495b' : (i === valeurs.length - 1 ? fort : clair);
+    return '<i style="height:' + h + '%;background:' + c + '"></i>';
   }).join('');
 }
 
@@ -632,6 +636,73 @@ function tdbVignetteHnv(d) {
   if (b) b.style.width = Math.min(100, pct) + '%';
 }
 
+/* ── Raccordement de la vignette Solde compteur ───────────────────────
+   Le solde d'un mois vaut, comme dans le BEV : heures REPORTÉES moins
+   heures RTT et RÉCUPÉRATION prises.
+     · les heures reportées sont saisies à la main dans le BEV et vivent
+       côté serveur → GET /api/bev/annee/<annee>, un seul appel pour tous
+       les salariés et tous les mois ;
+     · les heures RTT et récupération viennent du MOTIF D'ABSENCE saisi au
+       planning, déjà présent en local dans heuresdata — exactement la même
+       source que la page BEV, qui les lit là aussi.
+   ⚠ Cette formule DOIT rester alignée sur celle du BEV (bev.html,
+   « Solde compteur heure » = reporte − RTT/Récupération). Si le BEV change,
+   changer ici aussi. */
+const TDB_MOTIFS_SOLDE = ['RTT', 'Récupération'];
+
+async function tdbChargerCompteur() {
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+             || localStorage.getItem('syncToken');
+  if (!token) return;
+  const maintenant = new Date();
+  const an = maintenant.getFullYear();
+
+  let reports;
+  try {
+    const r = await fetch('/api/bev/annee/' + an, { headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await r.json();
+    if (!j || !j.ok) return;
+    reports = j.reports || {};
+  } catch (e) { return; }
+
+  /* Heures RTT et récupération prises, par mois, tous salariés confondus.
+     Les clés d'absence du planning ont la forme <salarieId>aaaa_mm_jjabs. */
+  let heures = {};
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const prises = {};
+  Object.keys(heures).forEach(function (k) {
+    const m = k.match(/(\d{4})_(\d{2})_\d{2}abs$/);
+    if (!m || m[1] !== String(an)) return;
+    const e = heures[k];
+    if (!e || TDB_MOTIFS_SOLDE.indexOf(e.motif) === -1) return;
+    const ym = m[1] + '-' + m[2];
+    prises[ym] = (prises[ym] || 0) + (parseFloat(e.heures) || 0);
+  });
+
+  /* Solde de chaque mois = Σ des reports de tous les salariés − RTT/Récup. */
+  const parMois = {};
+  Object.keys(reports).forEach(function (sid) {
+    Object.keys(reports[sid] || {}).forEach(function (ym) {
+      parMois[ym] = (parMois[ym] || 0) + (Number(reports[sid][ym]) || 0);
+    });
+  });
+  Object.keys(prises).forEach(function (ym) { parMois[ym] = (parMois[ym] || 0) - prises[ym]; });
+
+  const dernierMois = maintenant.getMonth() + 1;
+  const cumul = [];
+  let total = 0;
+  for (let m = 1; m <= dernierMois; m++) {
+    const ym = an + '-' + String(m).padStart(2, '0');
+    total += parMois[ym] || 0;
+    cumul.push(Math.round(total * 100) / 100);
+  }
+  const ymCourant = an + '-' + String(dernierMois).padStart(2, '0');
+
+  tdbVignetteCompteur({ annee: total, mois: parMois[ymCourant] || 0, cumul: cumul });
+  const lbl = document.querySelector('[data-id="compteur"] .tdb-lbl');
+  if (lbl) lbl.textContent = 'depuis le 1er janvier ' + an;
+}
+
 /* ─────────────────── Données d'exemple (à remplacer) ─────────────────── */
 function tdbDonneesExemple() {
   tdbGraphCharge({ semaines: [
@@ -666,6 +737,7 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbCharger();
   tdbDonneesExemple();      // valeurs d'attente, remplacées vignette par vignette
   tdbChargerNotes();        // ← raccordée
+  tdbChargerCompteur();     // ← raccordée
 });
 </script>
 </body>

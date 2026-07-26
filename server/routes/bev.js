@@ -4,6 +4,37 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+/* GET /api/bev/annee/:annee → { ok, annee, reports: { "<salarieId>": { "2026-01": 0, … } } }
+   Renvoie, en UN seul aller-retour, les heures reportées de tous les salariés
+   pour tous les mois d'une année. Sert au tableau de bord, qui a besoin du
+   solde compteur de l'entreprise : sans elle il faudrait un appel par salarié
+   et par mois.
+   ⚠ CETTE ROUTE DOIT RESTER DÉCLARÉE AVANT « /:mois/:salarieId » : Express
+   teste les routes dans l'ordre, et « /annee/2026 » correspondrait sinon à
+   « /:mois/:salarieId » avec mois="annee", renvoyant un résultat vide. */
+router.get("/annee/:annee", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const annee = String(req.params.annee || "").trim();
+    if (!/^\d{4}$/.test(annee))
+      return res.status(400).json({ ok: false, message: "année invalide" });
+
+    const docs = await Bev.find({ mois: { $regex: "^" + annee + "-" } });
+    const reports = {};
+    for (const d of docs) {
+      // Même cloisonnement par client que la route mensuelle : comparaison
+      // en majuscules, la casse n'étant pas garantie en base.
+      if ((d.clientId || "").toUpperCase() !== clientId) continue;
+      const sid = String(d.salarieId);
+      if (!reports[sid]) reports[sid] = {};
+      reports[sid][d.mois] = Number(d.reporte) || 0;
+    }
+    res.json({ ok: true, annee, reports });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // GET /api/bev/:mois/:salarieId → { ok, retenues, valide }
 router.get("/:mois/:salarieId", verifyToken, async (req, res) => {
   try {
