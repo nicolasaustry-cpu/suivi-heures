@@ -101,6 +101,7 @@
   .tdb-legende { display:flex; flex-wrap:wrap; gap:7px 20px; font-size:13px; color:#6b7684; margin-top:16px; }
   .tdb-legende span { display:flex; align-items:center; gap:6px; }
   .tdb-pastille { width:9px; height:9px; flex:0 0 auto; }
+  .tdb-pastille.cadre { background:#fff; box-shadow:inset 0 0 0 1px #b9c4d6; }
   .tdb-trait { width:18px; border-top:2px dashed #111827; }
 
   .tdb-jauge { display:flex; height:5px; overflow:hidden; margin:14px 0 12px; background:#f1f3f6; }
@@ -201,9 +202,8 @@
     <div id="charge-graph" style="margin-top:16px"></div>
     <div class="tdb-legende">
       <span><i class="tdb-pastille" style="background:#0f3a8a"></i>Heures chantiers planifiées</span>
-      <span><i class="tdb-pastille" style="background:#c7d2e6"></i>Chantiers prévus mais non planifiés</span>
       <span><i class="tdb-pastille" style="background:#d1495b"></i>Au-delà de la capacité</span>
-      <span><i class="tdb-trait"></i>Capacité vendable</span>
+      <span><i class="tdb-trait"></i>Heures vendables sur la semaine</span>
     </div>
   </section>
 
@@ -217,14 +217,13 @@
     <div class="tdb-val" id="semaine-pct">94<u>%</u></div>
     <div class="tdb-lbl">de la capacité engagée</div>
     <div class="tdb-jauge">
-      <i id="semaine-b1" style="width:85%;background:#0f3a8a"></i>
-      <i id="semaine-b2" style="width:9%;background:#c7d2e6"></i>
-      <i id="semaine-b3" style="width:6%;background:#d1495b"></i>
+      <i id="semaine-b1" style="width:0%;background:#0f3a8a"></i>
+      <i id="semaine-b2" style="width:0%;background:#d1495b"></i>
     </div>
     <div class="tdb-liste puces">
-      <div><i class="tdb-pastille" style="background:#0f3a8a"></i><span>Heures chantiers planifiées <b id="semaine-plan">178 h</b></span></div>
-      <div><i class="tdb-pastille" style="background:#c7d2e6"></i><span>Chantiers prévus mais non planifiés <b id="semaine-prev">20 h</b></span></div>
-      <div><i class="tdb-pastille" style="background:#d1495b"></i><span style="color:#d1495b">Heures non vendues <b id="semaine-nonv">12 h</b></span></div>
+      <div><i class="tdb-pastille cadre"></i><span>Heures vendables sur la semaine <b id="semaine-vend">0 h</b></span></div>
+      <div><i class="tdb-pastille" style="background:#0f3a8a"></i><span>Heures chantiers planifiées <b id="semaine-plan">0 h</b></span></div>
+      <div><i class="tdb-pastille" style="background:#d1495b"></i><span style="color:#d1495b">Heures non vendues <b id="semaine-nonv">0 h</b></span></div>
     </div>
     <div class="tdb-sep">Temps non affecté</div>
     <div class="tdb-val attention" id="tna-sem">12,5<u>h</u></div>
@@ -479,7 +478,7 @@ function tdbGraphCharge(d) {
   const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
 
   let max = 0;
-  S.forEach(function (s) { max = Math.max(max, s.plan + s.prevu, s.capacite); });
+  S.forEach(function (s) { max = Math.max(max, s.plan, s.capacite); });
   const pas = max > 400 ? 100 : 50;
   max = Math.ceil(max / pas) * pas;
   const y = function (v) { return mg.h + hp - (v / max) * hp; };
@@ -494,10 +493,13 @@ function tdbGraphCharge(d) {
 
   S.forEach(function (s, i) {
     const cx = mg.g + pasX * i + pasX / 2, x = cx - larg / 2;
-    const dedans = Math.max(0, Math.min(s.prevu, s.capacite - s.plan));
-    const audela = Math.max(0, s.plan + s.prevu - s.capacite);
+    /* Deux segments seulement : ce qui est planifié, et ce qui dépasse la
+       capacité. L'espace laissé entre le sommet de la barre et la ligne des
+       heures vendables SE LIT comme les heures encore vendables. */
+    const dedans = Math.min(s.plan, s.capacite);
+    const audela = Math.max(0, s.plan - s.capacite);
     let bas = 0;
-    [[s.plan, '#0f3a8a'], [dedans, '#c7d2e6'], [audela, '#d1495b']].forEach(function (seg) {
+    [[dedans, '#0f3a8a'], [audela, '#d1495b']].forEach(function (seg) {
       if (seg[0] <= 0) return;
       g += '<rect x="' + x + '" y="' + y(bas + seg[0]) + '" width="' + larg
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
@@ -520,19 +522,27 @@ function tdbGraphCharge(d) {
 }
 
 /* ── 2a · Semaine en cours ── */
+/* Les trois lignes sont toutes HEBDOMADAIRES et se bouclent entre elles :
+   heures vendables = heures planifiées + heures non vendues.
+   Au-delà de 100 %, il n'y a plus rien à vendre : les heures non vendues
+   tombent à zéro et le pourcentage dépasse 100, ce qui signale la surcharge. */
 function tdbVignetteSemaine(d) {
-  const tot = d.plan + d.prevu + d.nonVendu;
+  const vend = Math.max(0, d.vendables || 0);
+  const plan = Math.max(0, d.planifie || 0);
+  const nonV = Math.max(0, vend - plan);
+  const pct  = vend ? (plan / vend) * 100 : 0;
   /* arrondi à deux décimales : évite des largeurs à quinze chiffres dans le DOM */
-  const p = function (v) { return tot ? (Math.round((v / tot) * 10000) / 100) : 0; };
+  const part = vend ? Math.round(Math.min(100, (plan / vend) * 100) * 100) / 100 : 0;
   tdbTexte('semaine-titre', 'Semaine ' + d.numero);
-  tdbValeur('semaine-pct', tot ? ((d.plan + d.prevu) / tot) * 100 : 0, '%', 0);
-  const b1 = document.getElementById('semaine-b1'), b2 = document.getElementById('semaine-b2'), b3 = document.getElementById('semaine-b3');
-  if (b1) b1.style.width = p(d.plan) + '%';
-  if (b2) b2.style.width = p(d.prevu) + '%';
-  if (b3) b3.style.width = p(d.nonVendu) + '%';
-  tdbTexte('semaine-plan', tdbNb(d.plan, 1) + ' h');
-  tdbTexte('semaine-prev', tdbNb(d.prevu, 1) + ' h');
-  tdbTexte('semaine-nonv', tdbNb(d.nonVendu, 1) + ' h');
+  tdbValeur('semaine-pct', pct, '%', 0);
+  const b1 = document.getElementById('semaine-b1'), b2 = document.getElementById('semaine-b2');
+  if (b1) b1.style.width = part + '%';
+  /* Sans capacité (semaine sans contrat, données absentes), la jauge reste
+     vide : sinon le segment « non vendues » la remplirait entièrement. */
+  if (b2) b2.style.width = (vend ? Math.round((100 - part) * 100) / 100 : 0) + '%';
+  tdbTexte('semaine-vend', tdbNb(vend, 1) + ' h');
+  tdbTexte('semaine-plan', tdbNb(plan, 1) + ' h');
+  tdbTexte('semaine-nonv', tdbNb(nonV, 1) + ' h');
 }
 
 /* ── 2b · Temps non affecté ── */
@@ -1018,42 +1028,26 @@ async function tdbChargerPrevisionnel() {
   const semaines = [];
   for (let d = new Date(l0); d <= fin; d.setDate(d.getDate() + 7)) {
     const lundi = new Date(d), dim = new Date(d); dim.setDate(dim.getDate() + 6);
-    semaines.push({ lundi: lundi, dim: dim, plan: planifieSur(lundi, dim), capacite: tdbCapacite(lundi, dim), prevu: 0 });
+    semaines.push({ lundi: lundi, dim: dim, plan: planifieSur(lundi, dim), capacite: tdbCapacite(lundi, dim) });
   }
 
-  /* ── Reste à planifier, mois par mois ──
-     = heures du devis − heures déjà posées au planning. Réparti sur les
-     semaines du mois QUI NE SONT PAS TERMINÉES : ce qui n'a pas été planifié
-     sur une semaine écoulée ne le sera plus. */
-  [0, 1, 2].forEach(function (k) {
-    const ref = new Date(now.getFullYear(), now.getMonth() - 1 + k, 1);
-    const an = ref.getFullYear(), mi = ref.getMonth();
-    const dernier = new Date(an, mi + 1, 0);
-    const devis = tdbPrevisionnelMois(an, mi);
-    let hDevis = 0;
-    Object.keys(devis).forEach(function (n) { hDevis += devis[n]; });
-    const reste = Math.max(0, hDevis - planifieSur(new Date(an, mi, 1), dernier));
-    if (reste <= 0) return;
-    const cibles = semaines.filter(function (s) {
-      return s.lundi <= dernier && s.dim >= new Date(an, mi, 1) && tdbIso(s.dim) >= auj;
-    });
-    if (!cibles.length) return;
-    const part = reste / cibles.length;
-    cibles.forEach(function (s) { s.prevu += part; });
-  });
+  /* Le « reste à planifier » du prévisionnel n'apparaît plus sur ce graphique :
+     c'était une donnée MENSUELLE qu'il fallait répartir par semaine, donc une
+     hypothèse déguisée en mesure. Les trois séries affichées sont désormais
+     toutes des mesures hebdomadaires. */
 
   /* ── 1 · Graphique de charge ── */
   const MOIS_COURTS = ['janv.','févr.','mars','avril','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
   let dernierMois = -1, nbDep = 0, hDep = 0, pire = null;
   const series = semaines.map(function (s) {
-    const depass = Math.max(0, s.plan + s.prevu - s.capacite);
+    const depass = Math.max(0, s.plan - s.capacite);
     if (depass > 0) { nbDep++; hDep += depass; if (!pire || depass > pire.d) pire = { d: depass, s: s }; }
     const m = s.lundi.getMonth();
     const nouveau = (m !== dernierMois); dernierMois = m;
     return {
       cle: 'S' + tdbNumSemaine(s.lundi),
       mois: nouveau ? MOIS_COURTS[m] : '',
-      plan: s.plan, prevu: s.prevu, capacite: s.capacite
+      plan: s.plan, capacite: s.capacite
     };
   });
   tdbGraphCharge({ semaines: series });
@@ -1068,9 +1062,8 @@ async function tdbChargerPrevisionnel() {
   if (courante) {
     tdbVignetteSemaine({
       numero: tdbNumSemaine(courante.lundi),
-      plan: courante.plan,
-      prevu: courante.prevu,
-      nonVendu: Math.max(0, courante.capacite - courante.plan - courante.prevu)
+      vendables: courante.capacite,
+      planifie: courante.plan
     });
   }
 
@@ -1171,20 +1164,20 @@ function tdbNumSemaine(d) {
 /* ─────────────────── Données d'exemple (à remplacer) ─────────────────── */
 function tdbDonneesExemple() {
   tdbGraphCharge({ semaines: [
-    { cle:'S24', mois:'juin',    plan:205, prevu:0,   capacite:210 },
-    { cle:'S25', mois:'',        plan:198, prevu:0,   capacite:210 },
-    { cle:'S26', mois:'',        plan:210, prevu:0,   capacite:210 },
-    { cle:'S27', mois:'juillet', plan:190, prevu:8,   capacite:210 },
-    { cle:'S28', mois:'',        plan:178, prevu:20,  capacite:210 },
-    { cle:'S29', mois:'',        plan:178, prevu:32,  capacite:210 },
-    { cle:'S30', mois:'',        plan:120, prevu:55,  capacite:175 },
-    { cle:'S31', mois:'',        plan:90,  prevu:65,  capacite:210 },
-    { cle:'S32', mois:'août',    plan:40,  prevu:75,  capacite:105 },
-    { cle:'S33', mois:'',        plan:30,  prevu:85,  capacite:105 },
-    { cle:'S34', mois:'',        plan:55,  prevu:120, capacite:140 },
-    { cle:'S35', mois:'',        plan:80,  prevu:130, capacite:175 }
+    { cle:'S24', mois:'juin', plan:205, capacite:210 },
+    { cle:'S25', mois:'', plan:198, capacite:210 },
+    { cle:'S26', mois:'', plan:210, capacite:210 },
+    { cle:'S27', mois:'juillet', plan:190, capacite:210 },
+    { cle:'S28', mois:'', plan:178, capacite:210 },
+    { cle:'S29', mois:'', plan:178, capacite:210 },
+    { cle:'S30', mois:'', plan:120, capacite:175 },
+    { cle:'S31', mois:'', plan:90, capacite:210 },
+    { cle:'S32', mois:'août', plan:40, capacite:105 },
+    { cle:'S33', mois:'', plan:30, capacite:105 },
+    { cle:'S34', mois:'', plan:55, capacite:140 },
+    { cle:'S35', mois:'', plan:80, capacite:175 }
   ]});
-  tdbVignetteSemaine({ numero:31, plan:178, prevu:20, nonVendu:12 });
+  tdbVignetteSemaine({ numero:31, vendables:210, planifie:178 });
   tdbVignetteTna({ semaine:12.5, mois:37.5, parJour:[4,2.5,6,3.5,10] });
   tdbVignetteAbsences({ moisNom:'juillet', moisJours:18, moisHeures:126,
     suivantNom:'août', suivantJours:41, suivantHeures:287,
