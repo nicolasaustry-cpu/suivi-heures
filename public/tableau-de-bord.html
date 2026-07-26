@@ -56,7 +56,6 @@
   .tdb-vignette.pleine .tdb-liste,
   .tdb-vignette.pleine .tdb-repart,
   .tdb-vignette.pleine .tdb-barre { margin-top:0; }
-  .tdb-vignette .tdb-donut { margin:auto 0; }
 
   .tdb-vignette.tdb-drag  { opacity:.45; }
   .tdb-vignette.tdb-cible { outline:3px dashed #f59e0b; outline-offset:3px; }
@@ -106,16 +105,25 @@
   .tdb-repart .b { flex:1; height:13px; background:#eef2f7; border-radius:7px; overflow:hidden; }
   .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
 
-  .tdb-donut { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
-  .tdb-cercle { position:relative; width:158px; height:158px; flex:0 0 auto; border-radius:50%; }
+  /* Camembert : en ligne quand la vignette est large, empilé et réparti sur
+     la hauteur quand elle est étroite et haute — sans jamais laisser de
+     grande zone vide au milieu. */
+  .tdb-donut {
+    display:flex; align-items:center; justify-content:space-evenly;
+    gap:22px; flex-wrap:wrap; flex:1 1 auto; padding:.4rem 0;
+  }
+  .tdb-cercle {
+    position:relative; flex:0 0 auto; border-radius:50%;
+    width:clamp(130px, 42%, 190px); aspect-ratio:1;
+  }
   .tdb-cercle .creux {
-    position:absolute; inset:23px; background:#fff; border-radius:50%;
+    position:absolute; inset:14%; background:#fff; border-radius:50%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
   .tdb-cercle .creux b { font-size:2.1rem; font-weight:800; color:#0f172a; }
   .tdb-cercle .creux span { font-size:.95rem; color:#8798ad; }
-  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1.02rem; color:#3d4b5f; min-width:0; }
-  .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:5px 0; line-height:1.4; }
+  .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1.02rem; color:#3d4b5f; flex:1 1 220px; min-width:0; }
+  .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:6px 0; line-height:1.4; }
   .tdb-donut li b { font-weight:800; color:#0f172a; }
 
   /* Barre d'actions */
@@ -459,7 +467,10 @@ function tdbGraphCharge(d) {
   const S = d.semaines || [];
   if (!S.length) { zone.innerHTML = ''; return; }
 
-  const L = 700, H = 340, mg = { g: 62, d: 10, h: 16, b: 52 };
+  /* Format panoramique : au-delà d'une certaine largeur, un viewBox trop
+     étroit rendait le graphique démesurément haut et étirait toute la
+     première ligne de la grille. */
+  const L = 940, H = 330, mg = { g: 66, d: 12, h: 16, b: 54 };
   const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
 
   let max = 0;
@@ -468,12 +479,12 @@ function tdbGraphCharge(d) {
   max = Math.ceil(max / pas) * pas;
   const y = function (v) { return mg.h + hp - (v / max) * hp; };
 
-  const pasX = lp / S.length, larg = Math.min(34, pasX * 0.66);
+  const pasX = lp / S.length, larg = Math.min(46, pasX * 0.66);
   let g = '';
 
   for (let v = 0; v <= max; v += pas) {
     g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e6ecf5"/>'
-       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="17" fill="#8798ad">' + v + ' h</text>';
+       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="19" fill="#8798ad">' + v + ' h</text>';
   }
 
   S.forEach(function (s, i) {
@@ -487,8 +498,8 @@ function tdbGraphCharge(d) {
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
       bas += seg[0];
     });
-    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
+    g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="19" fill="#8798ad">' + tdbEsc(s.cle) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="18" font-weight="600" fill="#5b6b81">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
