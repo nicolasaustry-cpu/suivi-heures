@@ -25,11 +25,13 @@
 
   /* Trois vignettes par largeur sur grand écran, deux sur écran moyen,
      une sur tablette en portrait et sur téléphone.
-     Chaque vignette prend sa HAUTEUR NATURELLE : forcer une hauteur commune
-     creusait de grandes zones vides dans les vignettes peu chargées. */
+     Les vignettes d'une même rangée s'alignent en hauteur (align-items par
+     défaut = stretch). L'espace en trop reste EN BAS de la vignette, comme
+     une marge : c'est le fait de plaquer le dernier bloc contre le bas qui
+     creusait des trous, pas l'alignement lui-même. */
   .tdb-grille {
     display:grid; grid-template-columns:repeat(3, minmax(0,1fr));
-    gap:18px; align-items:start;
+    gap:18px;
   }
   @media (max-width:1400px) { .tdb-grille { grid-template-columns:repeat(2, minmax(0,1fr)); } }
   @media (max-width:900px)  { .tdb-grille { grid-template-columns:1fr; } }
@@ -63,7 +65,7 @@
   .tdb-sous  { font-size:1rem; color:#8798ad; margin:-.35rem 0 .7rem; }
 
   .tdb-chiffres { display:flex; gap:1.6rem; flex-wrap:wrap; }
-  .tdb-val   { font-size:2rem; font-weight:800; color:#0f172a; line-height:1.1; letter-spacing:-.02em; }
+  .tdb-val   { font-size:1.5rem; font-weight:800; color:#0f172a; line-height:1.1; letter-spacing:-.02em; }
   .tdb-val.alerte { color:#b91c1c; }
   .tdb-val.tension { color:#4a3aa7; }   /* réservé, non utilisé */
   .tdb-val.attention { color:#b45309; }
@@ -95,8 +97,8 @@
   .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
 
   /* ── DEUX TAILLES DE TEXTE SUR TOUTE LA PAGE ──
-     1rem  : tout le texte, quel qu'il soit
-     2rem  : les chiffres clés et le pourcentage du camembert
+     1rem    : tout le texte, quel qu'il soit
+     1,5rem  : les chiffres clés et le pourcentage du camembert
      La hiérarchie passe par la GRAISSE (400 / 700 / 800) et la COULEUR
      (navy #0f3a8a pour les titres, #0f172a pour le texte fort,
      #8798ad pour le secondaire), jamais par la taille. */
@@ -118,7 +120,7 @@
     position:absolute; inset:17%; background:#fff; border-radius:50%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
-  .tdb-cercle .creux b { font-size:2rem; font-weight:800; color:#0f172a; }
+  .tdb-cercle .creux b { font-size:1.5rem; font-weight:800; color:#0f172a; }
   .tdb-cercle .creux span { font-size:1rem; color:#8798ad; margin-top:2px; }
   .tdb-donut ul { list-style:none; margin:0; padding:0; font-size:1rem; color:#3d4b5f; }
   .tdb-donut li { display:flex; align-items:flex-start; gap:10px; padding:5px 0; line-height:1.4; }
