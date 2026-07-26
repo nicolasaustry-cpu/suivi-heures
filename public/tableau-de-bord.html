@@ -18,14 +18,17 @@
       l'écart d'un pixel laisse voir le fond : ce sont ces filets qui
       séparent, rien d'autre.
    2. TROIS TAILLES DE TEXTE, pas une de plus :
-        11px  titres de vignette (petites capitales) et libellés
-        13px  texte courant : listes, légendes, lignes secondaires
-        28px  chiffres
+        13px  titres de vignette (petites capitales) et légendes
+        15px  tout le texte courant : libellés, listes, liens, lignes
+              secondaires, répartitions
+        30px  chiffres
+      Ces valeurs sont calibrées pour un ÉCRAN DE BUREAU LARGE : en dessous
+      de 15px, un texte gris devient illisible sur un 24 pouces.
    3. LA HIÉRARCHIE PASSE PAR LA COULEUR, jamais par la taille :
         #111827  chiffre principal et valeurs fortes
-        #4b5563  texte courant
-        #9aa4b2  libellés, unités, chiffres secondaires
-        #c3c9d4  mentions les plus discrètes
+        #374151  texte courant
+        #5f6b7a  libellés, unités, lignes secondaires
+        #6b7684  titres de vignette et légendes
       Accents : #0f3a8a navy · #c7d2e6 bleu pâle · #d1495b rouge sourd
                 #b45309 ambre, réservé aux valeurs à surveiller
    ═══════════════════════════════════════════════════════════════ */
@@ -34,17 +37,17 @@
 
   .tdb-bandeau {
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-    padding:13px 20px; border-bottom:1px solid #edeff3;
-    font-size:13px; color:#6b7280;
+    padding:14px 20px; border-bottom:1px solid #edeff3;
+    font-size:15px; color:#4b5563;
   }
   .tdb-bandeau b { color:#111827; font-weight:500; }
   .tdb-actions { display:flex; gap:12px; align-items:center; margin-left:auto; }
   .tdb-btn {
     background:none; border:none; color:#0f3a8a; border-radius:0;
-    padding:0; font-size:13px; font-weight:500; cursor:pointer;
+    padding:0; font-size:15px; font-weight:500; cursor:pointer;
   }
   .tdb-btn:hover { text-decoration:underline; }
-  .tdb-etat { font-size:13px; color:#0f766e; opacity:0; transition:opacity .25s; }
+  .tdb-etat { font-size:15px; color:#0f766e; opacity:0; transition:opacity .25s; }
   .tdb-etat.on { opacity:1; }
 
   /* ── Grille : trois colonnes, première ligne à deux blocs ──
@@ -72,38 +75,38 @@
   /* ── En-tête de vignette ── */
   .tdb-tete { display:flex; align-items:baseline; gap:9px; margin-bottom:14px; }
   .tdb-poignee {
-    flex:0 0 auto; cursor:grab; color:#d3d8e0; font-size:13px; line-height:1;
+    flex:0 0 auto; cursor:grab; color:#c2c9d4; font-size:15px; line-height:1;
     padding:2px 4px; margin-left:-4px;
     touch-action:none; -webkit-user-select:none; user-select:none;
   }
   .tdb-poignee:hover { color:#9aa4b2; }
   .tdb-poignee:active { cursor:grabbing; }
   .tdb-titre {
-    flex:1; font-size:11px; font-weight:500; letter-spacing:.09em;
-    text-transform:uppercase; color:#9aa4b2;
+    flex:1; font-size:13px; font-weight:600; letter-spacing:.07em;
+    text-transform:uppercase; color:#6b7684;
   }
-  .tdb-lien { flex:0 0 auto; font-size:13px; color:#0f3a8a; text-decoration:none; font-weight:500; white-space:nowrap; }
+  .tdb-lien { flex:0 0 auto; font-size:15px; color:#0f3a8a; text-decoration:none; font-weight:500; white-space:nowrap; }
   .tdb-lien:hover { text-decoration:underline; }
 
   /* ── Chiffres ── */
   .tdb-chiffres { display:flex; gap:30px; flex-wrap:wrap; }
-  .tdb-val  { font-size:28px; font-weight:400; color:#111827; line-height:1; letter-spacing:-.02em; }
+  .tdb-val  { font-size:30px; font-weight:400; color:#111827; line-height:1; letter-spacing:-.02em; }
   .tdb-val.alerte    { color:#d1495b; }
   .tdb-val.attention { color:#b45309; }
-  .tdb-val u  { font-size:13px; color:#9aa4b2; text-decoration:none; margin-left:2px; }
-  .tdb-lbl    { font-size:11px; color:#9aa4b2; margin-top:6px; }
-  .tdb-second { font-size:13px; color:#9aa4b2; margin-top:4px; }
+  .tdb-val u  { font-size:15px; color:#5f6b7a; text-decoration:none; margin-left:2px; }
+  .tdb-lbl    { font-size:15px; color:#5f6b7a; margin-top:7px; }
+  .tdb-second { font-size:15px; color:#5f6b7a; margin-top:6px; }
 
   /* ── Blocs internes ── */
-  .tdb-legende { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:11px; color:#9aa4b2; margin-top:14px; }
+  .tdb-legende { display:flex; flex-wrap:wrap; gap:7px 20px; font-size:13px; color:#6b7684; margin-top:16px; }
   .tdb-legende span { display:flex; align-items:center; gap:6px; }
-  .tdb-pastille { width:7px; height:7px; flex:0 0 auto; }
+  .tdb-pastille { width:9px; height:9px; flex:0 0 auto; }
   .tdb-trait { width:18px; border-top:2px dashed #111827; }
 
   .tdb-jauge { display:flex; height:5px; overflow:hidden; margin:14px 0 12px; background:#f1f3f6; }
   .tdb-jauge i { display:block; height:100%; }
 
-  .tdb-liste { font-size:13px; color:#4b5563; line-height:1.9; }
+  .tdb-liste { font-size:15px; color:#374151; line-height:1.85; }
   .tdb-liste div { display:flex; justify-content:space-between; gap:10px; }
   .tdb-liste b { font-weight:500; color:#111827; }
   /* Variante à puces : la pastille rappelle le segment de la jauge, et la
@@ -116,23 +119,23 @@
   .tdb-barre { height:3px; background:#f1f3f6; margin:14px 0 10px; }
   .tdb-barre i { display:block; height:100%; }
 
-  .tdb-repart { font-size:11px; color:#6b7280; margin-top:14px; }
+  .tdb-repart { font-size:15px; color:#374151; margin-top:16px; }
   .tdb-repart > div { display:flex; align-items:center; gap:9px; padding:4px 0; }
-  .tdb-repart .n { width:56px; flex:0 0 auto; }
+  .tdb-repart .n { width:76px; flex:0 0 auto; }
   .tdb-repart .b { flex:1; height:3px; background:#f1f3f6; }
   .tdb-repart .b i { display:block; height:100%; background:#0f3a8a; }
-  .tdb-repart .j { width:30px; text-align:right; color:#111827; }
+  .tdb-repart .j { width:40px; text-align:right; color:#111827; }
 
   .tdb-spark { display:flex; gap:4px; align-items:flex-end; height:44px; margin-top:16px; }
   .tdb-spark i { flex:1; display:block; }
 
   .tdb-sep {
     border-top:1px solid #f1f3f6; margin-top:16px; padding-top:14px;
-    font-size:11px; font-weight:500; letter-spacing:.09em;
-    text-transform:uppercase; color:#9aa4b2; margin-bottom:11px;
+    font-size:13px; font-weight:600; letter-spacing:.07em;
+    text-transform:uppercase; color:#6b7684; margin-bottom:12px;
   }
 
-  .tdb-axe { display:flex; gap:6px; margin-top:7px; font-size:11px; color:#9aa4b2; }
+  .tdb-axe { display:flex; gap:6px; margin-top:7px; font-size:13px; color:#6b7684; }
 
   @media print { .tdb-poignee, .tdb-actions, .tdb-bandeau { display:none !important; } }
 </style>
@@ -464,8 +467,8 @@ function tdbGraphCharge(d) {
   let g = '';
 
   for (let v = 0; v <= max; v += pas) {
-    g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#f1f3f6"/>'
-       + '<text x="' + (mg.g - 10) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="15" fill="#9aa4b2">' + v + ' h</text>';
+    g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e8ebf0"/>'
+       + '<text x="' + (mg.g - 10) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="17" fill="#6b7684">' + v + ' h</text>';
   }
 
   S.forEach(function (s, i) {
@@ -482,9 +485,9 @@ function tdbGraphCharge(d) {
     /* Tous les libellés quand la place le permet, un sur deux sinon,
        en gardant toujours celui qui ouvre un mois. */
     if (pasX > 52 || i % 2 === 0 || s.mois) {
-      g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="15" fill="#9aa4b2">' + tdbEsc(s.cle) + '</text>';
+      g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" fill="#6b7684">' + tdbEsc(s.cle) + '</text>';
     }
-    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="15" fill="#6b7280">' + tdbEsc(s.mois) + '</text>';
+    if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="17" fill="#4b5563">' + tdbEsc(s.mois) + '</text>';
   });
 
   let pts = [];
