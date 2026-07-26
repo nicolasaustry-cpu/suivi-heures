@@ -95,6 +95,13 @@
   .tdb-repart .b { flex:1; height:12px; background:#eef2f7; border-radius:6px; overflow:hidden; }
   .tdb-repart .b i { display:block; height:100%; background:#2563eb; }
 
+  /* Sous-titre pour une vignette qui traite deux volets d'un même sujet. */
+  .tdb-sep {
+    border-top:1px solid #eef2f7; margin-top:1.1rem; padding-top:.7rem;
+    font-size:1rem; font-weight:800; color:#0f3a8a;
+  }
+  .tdb-sep + .tdb-chiffres { margin-top:.6rem; }
+
   /* Camembert : cercle au-dessus, légende en dessous sur toute la largeur. */
   .tdb-donut { display:flex; flex-direction:column; align-items:stretch; gap:1.1rem; }
   .tdb-cercle {
@@ -186,7 +193,7 @@
       </div>
     </section>
 
-    <!-- ─────────────── 2 · Semaine en cours ─────────────── -->
+    <!-- ────── 2 · Semaine en cours : engagement + temps non affecté ────── -->
     <section class="tdb-vignette" data-id="semaine">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -203,15 +210,8 @@
           <li><i class="tdb-pastille" style="background:#e34948;margin-top:3px"></i><span style="color:#b91c1c">Heures non vendues <b id="semaine-nonv">12 h</b></span></li>
         </ul>
       </div>
-    </section>
 
-    <!-- ─────────────── 3 · Temps non affecté ─────────────── -->
-    <section class="tdb-vignette" data-id="tna">
-      <div class="tdb-tete">
-        <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-        <span class="tdb-titre">Temps non affecté</span>
-        <a class="tdb-lien" href="planning.html">Planning →</a>
-      </div>
+      <div class="tdb-sep">Temps non affecté</div>
       <div class="tdb-chiffres">
         <div><div class="tdb-val attention" id="tna-sem">12,5 h</div><div class="tdb-lbl">cette semaine</div></div>
         <div><div class="tdb-val" id="tna-mois">37,5 h</div><div class="tdb-lbl">ce mois</div></div>
@@ -220,7 +220,7 @@
       <div class="tdb-lbl">lundi à vendredi</div>
     </section>
 
-    <!-- ─────────────── 4 · Absences prévues ─────────────── -->
+    <!-- ─────────────── 3 · Absences prévues ─────────────── -->
     <section class="tdb-vignette" data-id="absences">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -234,7 +234,7 @@
       <div class="tdb-repart" id="abs-repart"></div>
     </section>
 
-    <!-- ─────────────── 5 · Solde compteur ─────────────── -->
+    <!-- ─────────────── 4 · Solde compteur ─────────────── -->
     <section class="tdb-vignette" data-id="compteur">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -249,7 +249,7 @@
       <div class="tdb-lbl">cumul mois par mois</div>
     </section>
 
-    <!-- ─────────────── 6 · Chantiers à 100 % ─────────────── -->
+    <!-- ─────────────── 5 · Chantiers à 100 % ─────────────── -->
     <section class="tdb-vignette" data-id="chantiers100">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -262,7 +262,7 @@
       <div class="tdb-liste" id="ch100-liste"></div>
     </section>
 
-    <!-- ─────────────── 7 · Notes en cours ─────────────── -->
+    <!-- ─────────────── 6 · Notes en cours ─────────────── -->
     <section class="tdb-vignette" data-id="notes">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -276,7 +276,7 @@
       <div class="tdb-lbl" id="notes-detail">3 avec photo · la plus ancienne, 9 jours</div>
     </section>
 
-    <!-- ─────────────── 8 · Déplacements ─────────────── -->
+    <!-- ─────────────── 7 · Déplacements ─────────────── -->
     <section class="tdb-vignette" data-id="deplacements">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -291,7 +291,7 @@
       <div class="tdb-lbl">six derniers mois</div>
     </section>
 
-    <!-- ─────────────── 9 · Heures non vendables ─────────────── -->
+    <!-- ─────────────── 8 · Heures non vendables ─────────────── -->
     <section class="tdb-vignette" data-id="hnv">
       <div class="tdb-tete">
         <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
@@ -325,7 +325,7 @@
 /* ─────────────────────── A. Présentation ─────────────────────── */
 
 const TDB_CLE   = 'tdb_presentation';
-const TDB_ORDRE_DEFAUT = ['charge','semaine','tna','absences','compteur','chantiers100','notes','deplacements','hnv'];
+const TDB_ORDRE_DEFAUT = ['charge','semaine','absences','compteur','chantiers100','notes','deplacements','hnv'];
 
 let _tdbSale = false;   // une modification attend d'être enregistrée
 
@@ -523,7 +523,7 @@ function tdbVignetteTna(d) {
   tdbSpark('tna-spark', d.parJour, '#f59e0b', '#fcd9a0');
 }
 
-/* ── 4 · Absences prévues ── */
+/* ── 3 · Absences prévues ── */
 function tdbVignetteAbsences(d) {
   tdbTexte('abs-m', d.moisJours + ' j');
   tdbTexte('abs-m-lbl', d.moisNom + ' · ' + tdbH(d.moisHeures));
@@ -539,14 +539,14 @@ function tdbVignetteAbsences(d) {
   }).join('');
 }
 
-/* ── 5 · Solde compteur ── */
+/* ── 4 · Solde compteur ── */
 function tdbVignetteCompteur(d) {
   tdbTexte('cpt-annee', (d.annee >= 0 ? '+' : '') + tdbH(d.annee));
   tdbTexte('cpt-mois', (d.mois >= 0 ? '+' : '') + tdbH(d.mois));
   tdbSpark('cpt-spark', d.cumul, '#2563eb', '#bfdbfe');
 }
 
-/* ── 6 · Chantiers à 100 % ── */
+/* ── 5 · Chantiers à 100 % ── */
 function tdbVignetteChantiers100(d) {
   tdbTexte('ch100-nb', d.liste.length);
   const zone = document.getElementById('ch100-liste');
@@ -557,7 +557,7 @@ function tdbVignetteChantiers100(d) {
   }).join('');
 }
 
-/* ── 7 · Notes en cours ── */
+/* ── 6 · Notes en cours ── */
 function tdbVignetteNotes(d) {
   tdbTexte('notes-nb', d.enCours);
   tdbTexte('notes-tot', d.total);
@@ -566,14 +566,14 @@ function tdbVignetteNotes(d) {
   tdbTexte('notes-detail', d.detail);
 }
 
-/* ── 8 · Déplacements ── */
+/* ── 7 · Déplacements ── */
 function tdbVignetteDeplacements(d) {
   tdbTexte('depl-ratio', (Math.round(d.parChantier * 100) / 100).toFixed(2).replace('.', ','));
   tdbTexte('depl-temps', Math.round(d.minutesParChantier) + ' min');
   tdbSpark('depl-spark', d.historique, '#2563eb', '#93c5fd');
 }
 
-/* ── 9 · Heures non vendables ── */
+/* ── 8 · Heures non vendables ── */
 function tdbVignetteHnv(d) {
   tdbTexte('hnv-h', tdbH(d.heures));
   tdbTexte('hnv-nb', d.creneaux);
