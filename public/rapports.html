@@ -695,6 +695,10 @@ function majEncartPrevus() {
   }
   // Structure réelle (cf. chantiers.html) :
   // { '2026': { '0': {chantiers:[{client, hPrevues}]}, '1': {…}, … }, '2027': {…} }
+  // Rapprochement insensible à la casse/aux espaces : un même chantier peut être
+  // saisi "Chantier X" à un endroit et "CHANTIER X" à un autre.
+  const _clefCh = s => (s || '').toString().trim().replace(/\s+/g, ' ').toUpperCase();
+  const fNorm = new Set([...f].map(_clefCh));
   let totalH = 0;
   try {
     const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
@@ -705,7 +709,7 @@ function majEncartPrevus() {
         const liste = mois12[m]?.chantiers;
         if (!Array.isArray(liste)) continue;
         liste.forEach(c => {
-          if (c && c.client && f.has(c.client)) {
+          if (c && c.client && fNorm.has(_clefCh(c.client))) {
             totalH += parseFloat(c.hPrevues) || 0;
           }
         });
