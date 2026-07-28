@@ -814,15 +814,24 @@ function tdbParcourirPlanning(cb) {
     const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
     if (Array.isArray(sals) && sals.length) {
       connus = {};
-      sals.forEach(function (sa) { connus[String(sa.id)] = true; });
+      sals.forEach(function (sa) { connus[String(sa.id)] = sa; });
     }
   } catch (e) {}
   Object.keys(heures).forEach(function (k) {
     const m = k.match(/(\d{4})_(\d{2})_(\d{2})(ch\d+|abs)$/);
     if (!m) return;
-    if (connus && !connus[k.slice(0, m.index)]) return;
+    const iso = m[1] + '-' + m[2] + '-' + m[3];
+    if (connus) {
+      const sa = connus[k.slice(0, m.index)];
+      if (!sa) return;                                   // salarié supprimé depuis
+      /* Hors période de contrat : le planning ne dessine même pas la case
+         (planning.html ligne 1181) et n'en tient donc aucun compte. Sans ce
+         filtre, des heures saisies AVANT qu'une date de sortie ne soit
+         renseignée resteraient comptées ici et nulle part ailleurs. */
+      if (!_cvDansPeriode(sa, new Date(iso + 'T00:00:00'))) return;
+    }
     cb(heures[k], {
-      iso: m[1] + '-' + m[2] + '-' + m[3],
+      iso: iso,
       ym:  m[1] + '-' + m[2],
       abs: m[4] === 'abs'
     });
