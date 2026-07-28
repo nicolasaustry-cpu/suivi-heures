@@ -1174,6 +1174,13 @@ function genererPlanning(calerSemaine){
 
     let body='';
     sals.forEach(row=>{
+      /* Un salarié sorti disparaît des semaines POSTÉRIEURES à son départ :
+         sa ligne n'était plus qu'une suite de cases hachurées qui encombrait
+         le planning des mois suivants. La semaine du départ reste affichée,
+         puisque ce jour-là est encore travaillé. Symétrique à l'entrée :
+         un salarié à venir n'apparaît pas avant sa première semaine. */
+      if(row.sortie && jours[0] > row.sortie) return;
+      if(row.entree && !isNaN(row.entree) && row.entree > jours[5]) return;
       const {s,coul}=row; let wT=0,wC=0,cells='';
       jours.forEach(d=>{
         const dateStr=ds(d); const auj=dateStr===aujStr;
