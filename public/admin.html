@@ -1194,16 +1194,18 @@ async function supprimerPrescripteur(id) {
 /* ── Consulter les données d'un client ── */
 async function consulterClient(code) {
   try {
-    // Admin : connexion directe ; Prescripteur : via /api/presc/consulter (vérif. d'appartenance côté serveur)
+    // Les DEUX rôles reçoivent un jeton marqué lectureSeule : le serveur refuse
+    // ensuite toute écriture. Le prescripteur passe par /api/presc/consulter
+    // (vérification d'appartenance), l'admin par /api/admin/consulter.
     const r = _role === 'prescripteur'
       ? await fetch(API + '/api/presc/consulter', {
           method: 'POST',
           headers: { ...auth(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ code })
         })
-      : await fetch(API + '/api/auth/login', {
+      : await fetch(API + '/api/admin/consulter', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...auth(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ code })
         });
     const d = await r.json();

@@ -1,10 +1,38 @@
 import express from "express";
+import jwt from "jsonwebtoken";
 import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
 import Licence from "../models/licence.js";
 import Donnees from "../models/donnees.js";
 import Prescripteur from "../models/prescripteur.js";
 
 const router = express.Router();
+
+/* ── Ouvrir un client en consultation ──────────────────────────────────
+   Jusqu'ici la console appelait /api/auth/login avec le seul code client et
+   recevait un jeton client ORDINAIRE : un administrateur en consultation
+   pouvait donc écrire chez son client, la lecture seule n'étant qu'un
+   affichage du navigateur. Cette route délivre un jeton marqué lectureSeule,
+   exactement comme /api/presc/consulter, que le middleware refuse ensuite
+   sur toute écriture. Symétrie voulue : les deux consultations se comportent
+   désormais pareil. */
+router.post("/consulter", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const code = String(req.body?.code || "").trim().toUpperCase();
+    if (!code) return res.status(400).json({ ok: false, message: "Code client manquant" });
+
+    const licence = await Licence.findOne({ codeClient: code });
+    if (!licence) return res.status(404).json({ ok: false, message: "Client introuvable" });
+
+    const token = jwt.sign(
+      { clientId: code, nomClient: licence.nomClient, role: "client", type: licence.type, lectureSeule: true },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+    res.json({ ok: true, token, clientId: code, nomClient: licence.nomClient, type: licence.type });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
 
 // ── Lister toutes les licences ──
 router.get("/licences", verifyToken, verifyAdmin, async (req, res) => {
