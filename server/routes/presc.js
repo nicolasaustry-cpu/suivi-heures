@@ -16,7 +16,15 @@ function verifyPresc(req, res, next) {
 router.get("/licences", verifyToken, verifyPresc, async (req, res) => {
   try {
     const presId = (req.user.presId || "").toUpperCase();
-    const licences = await Licence.find({ prescripteur: presId }).sort({ dateActivation: -1 });
+    /* Projection : on ne renvoie QUE les champs affichés par la console.
+       Sans elle, le document entier partait dans le navigateur du
+       prescripteur — dont le champ `notes`, qui contient les remarques
+       internes sur le client. Les colonnes masquées de la console le sont
+       par une simple règle CSS : elles n'ont jamais protégé la donnée.
+       Sont aussi écartés `logoPartenaire` (une image en base64 par ligne,
+       inutile ici et lourde) et `marquePartenaire`. */
+    const CHAMPS = "codeClient nomClient email origine statut type actif dateExpiration datePaiement";
+    const licences = await Licence.find({ prescripteur: presId }, CHAMPS).sort({ dateActivation: -1 });
     res.json({ ok: true, licences, nom: req.user.nom || "" });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
