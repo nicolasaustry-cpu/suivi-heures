@@ -1104,6 +1104,12 @@ function afficherPrescripteurs() {
           : `<span style="color:#9ca3af;font-style:italic;">non mémorisé ici</span>`
       }</td>
       <td style="white-space:nowrap;">
+        ${
+          _prescMdp[pr.identifiant]
+            ? `<button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
+                 onclick="copierMessagePresc('${pr.identifiant}')" title="Copier le message d'accès prêt à envoyer">📋 Copier le message</button>`
+            : ''
+        }
         <button class="btn btn-primary" style="padding:4px 10px;font-size:0.8rem;margin-right:4px;"
           onclick="reinitMdpPrescripteur('${pr.identifiant}')">🔑 Mot de passe</button>
         <button class="btn btn-warning" style="padding:4px 10px;font-size:0.8rem;"
@@ -1153,6 +1159,49 @@ async function creerPrescripteur() {
     document.getElementById('p-nom').value = '';
     await chargerPrescripteurs();
   } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+function messagePrescripteur(pr) {
+  const mdp = _prescMdp[pr.identifiant];
+  return `Bonjour,
+
+Voici vos accès de consultation à Suiv'Heures :
+
+Adresse : https://suivi-heures.volitis.net/admin.html
+Identifiant : ${pr.identifiant}
+Mot de passe : ${mdp}
+
+Vous y retrouverez la liste de vos clients équipés. Le bouton « Consulter » ouvre leur outil en lecture seule.`;
+}
+
+async function copierMessagePresc(id) {
+  const pr = _prescripteurs.find(p => p.identifiant === id);
+  if (!pr) return;
+  if (!_prescMdp[id]) {
+    alert('Mot de passe non mémorisé localement pour ce prescripteur : impossible de composer le message. Utilisez « 🔑 Mot de passe » pour lui en attribuer un nouveau, puis recopiez.');
+    return;
+  }
+  const texte = messagePrescripteur(pr);
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texte);
+    } else {
+      throw new Error('clipboard API indisponible');
+    }
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = texte;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e2) {
+      alert('Copie impossible : ' + e2.message);
+      return;
+    }
+  }
+  msg('✔ Message copié dans le presse-papiers');
 }
 
 async function reinitMdpPrescripteur(id) {
