@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Licence from "../models/licence.js";
+import Donnees from "../models/donnees.js";
 
 const router = express.Router();
 
@@ -25,7 +26,29 @@ router.get("/licences", verifyToken, verifyPresc, async (req, res) => {
        inutile ici et lourde) et `marquePartenaire`. */
     const CHAMPS = "codeClient nomClient email origine statut type actif dateExpiration datePaiement";
     const licences = await Licence.find({ prescripteur: presId }, CHAMPS).sort({ dateActivation: -1 });
-    res.json({ ok: true, licences, nom: req.user.nom || "" });
+
+    /* Nombre de salariés, comme la console admin : c'est la longueur du
+       tableau `salaries` des données du client, et non un champ de la licence.
+       Sans cet enrichissement la colonne affichait 0 pour tout le monde.
+       À la différence de la route admin, on ne charge QUE les clients de ce
+       prescripteur. La comparaison est insensible à la casse : les documents
+       Donnees n'ont pas tous leur clientId en majuscules. */
+    const codes = licences.map(l => l.codeClient).filter(Boolean);
+    const motifs = codes.map(c => new RegExp("^" + c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$", "i"));
+    const donnees = motifs.length
+      ? await Donnees.find({ clientId: { $in: motifs } }, { clientId: 1, salaries: 1 })
+      : [];
+    const nbParClient = {};
+    donnees.forEach(d => {
+      nbParClient[(d.clientId || "").toUpperCase()] = Array.isArray(d.salaries) ? d.salaries.length : 0;
+    });
+    const out = licences.map(l => {
+      const o = l.toObject();
+      o.nbSalaries = nbParClient[(l.codeClient || "").toUpperCase()] || 0;
+      return o;
+    });
+
+    res.json({ ok: true, licences: out, nom: req.user.nom || "" });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
