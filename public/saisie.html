@@ -1675,11 +1675,27 @@ async function validerCodeEntreprise() {
   }
 }
 
+/* Un salarié est proposé tant qu'il est dans sa période de contrat.
+   Le JOUR DU DÉPART reste travaillé : seuls les jours strictement postérieurs
+   le font disparaître — même règle que le planning, le prévisionnel et le BEV.
+   Le filtre est fait ICI et non côté serveur : les saisies passées d'un
+   salarié parti restent ainsi consultables par le gérant. */
+function salarieEnPoste(s, iso) {
+  if (!s) return false;
+  if (s.dateEntree && iso < s.dateEntree) return false;
+  if (s.dateSortie && iso > s.dateSortie) return false;
+  return true;
+}
+
 function chargerSalaries() {
   const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
   const sel  = document.getElementById('pin-salarie');
+  const d = new Date();
+  const auj = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+            + '-' + String(d.getDate()).padStart(2, '0');
   sel.innerHTML = '<option value="">Choisir votre nom...</option>';
   sals.forEach(s => {
+    if (!salarieEnPoste(s, auj)) return;
     const opt = document.createElement('option');
     opt.value = s.id;
     opt.textContent = s.prenom + ' ' + s.nom;
