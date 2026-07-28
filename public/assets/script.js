@@ -346,13 +346,175 @@ function sauverModifSalarie(id) {
   afficherSalaries();
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   DATE DE SORTIE — repérage et réaffectation des chantiers orphelins
+   -------------------------------------------------------------------
+   Poser une date de sortie rend inertes toutes les journées suivantes du
+   planning : les cellules ne sont plus dessinées et leurs heures cessent
+   d'être comptées. Or elles ne sont PAS effacées — elles disparaissaient
+   donc en silence. On les liste avant d'enregistrer, et on propose de les
+   réaffecter à un autre salarié.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const _MS_TNA = 'TEMPS NON AFFECTE';
+const _MS_SLOTS = 60;                 // aligné sur le NB_SLOTS de planning.html
+
+function _msIso(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+       + '-' + String(d.getDate()).padStart(2, '0');
+}
+function _msEnPoste(s, iso) {
+  if (!s) return false;
+  if (s.dateEntree && iso < s.dateEntree) return false;
+  if (s.dateSortie && iso > s.dateSortie) return false;
+  return true;
+}
+
+/* Chantiers planifiés STRICTEMENT après la date de sortie.
+   Le temps non affecté est ignoré : il se recalcule tout seul. */
+function _msChantiersOrphelins(salarieId, dateSortie) {
+  if (!dateSortie) return [];
+  const prefixe = String(salarieId);
+  const out = [];
+  for (const k in heures) {
+    if (!k.startsWith(prefixe)) continue;
+    const m = k.slice(prefixe.length).match(/^(\d{4})_(\d{2})_(\d{2})ch(\d+)$/);
+    if (!m) continue;
+    const iso = m[1] + '-' + m[2] + '-' + m[3];
+    if (iso <= dateSortie) continue;
+    const e = heures[k];
+    const nom = String((e && e.chantier) || '').trim();
+    if (!nom || nom.toUpperCase() === _MS_TNA) continue;
+    out.push({ cle: k, iso: iso, chantier: nom, h: parseFloat(e && e.heures) || 0 });
+  }
+  out.sort((a, b) => (a.iso === b.iso ? a.chantier.localeCompare(b.chantier) : a.iso.localeCompare(b.iso)));
+  return out;
+}
+
+/* Déplace un créneau vers un autre salarié, sur la même journée.
+   Renvoie true si une place a été trouvée. Le créneau est déplacé ENTIER
+   (heures, note, RDV, marquage HNV) pour ne rien perdre en route. */
+function _msDeplacer(ligne, cibleId) {
+  const safe = ligne.iso.replace(/-/g, '_');
+  for (let i = 1; i <= _MS_SLOTS; i++) {
+    const kc = String(cibleId) + safe + 'ch' + i;
+    const occupe = heures[kc] && String(heures[kc].chantier || '').trim();
+    if (occupe) continue;
+    heures[kc] = heures[ligne.cle];
+    delete heures[ligne.cle];
+    return true;
+  }
+  return false;                        // journée pleine chez le salarié visé
+}
+
+function _msEnregistrer(sal, nouvelleDate) {
+  sal.dateSortie = nouvelleDate || "";
+  localStorage.setItem("salariesdata", JSON.stringify(salaries));
+  localStorage.setItem("heuresdata", JSON.stringify(heures));
+  afficherSalaries();
+  localStorage.setItem("majPlanning", Date.now().toString());
+  if (typeof SYNC !== 'undefined' && SYNC.sauvegarderTout) { try { SYNC.sauvegarderTout(); } catch (_) {} }
+}
+
 function majDateSortie(id, nouvelleDate) {
   const sal = salaries.find(s => s.id === id);
   if (!sal) return;
-  sal.dateSortie = nouvelleDate || "";
-  localStorage.setItem("salariesdata", JSON.stringify(salaries));
-  afficherSalaries();
-  localStorage.setItem("majPlanning", Date.now().toString());
+  const orphelins = _msChantiersOrphelins(id, nouvelleDate);
+  if (!orphelins.length) { _msEnregistrer(sal, nouvelleDate); return; }
+  _msOuvrirModale(sal, nouvelleDate, orphelins);
+}
+
+/* ── Fenêtre de réaffectation ──────────────────────────────────────── */
+function _msOuvrirModale(sal, nouvelleDate, lignes) {
+  const nom = ((sal.prenom || '') + ' ' + (sal.nom || '')).trim();
+  const totalH = lignes.reduce((t, l) => t + l.h, 0);
+  const jours = new Set(lignes.map(l => l.iso)).size;
+  const frDate = iso => { const p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; };
+
+  const ancien = document.getElementById('ms-overlay');
+  if (ancien) ancien.remove();
+
+  const ov = document.createElement('div');
+  ov.id = 'ms-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:11000;display:flex;'
+    + 'align-items:flex-start;justify-content:center;padding:26px 16px;overflow:auto;font-family:Arial,Helvetica,sans-serif;';
+
+  /* Candidats : les salariés encore en poste, sauf celui qui part. */
+  function candidats(iso) {
+    return salaries.filter(s => s.id !== sal.id && _msEnPoste(s, iso));
+  }
+  const optionsPour = iso => '<option value="">— laisser sans affectation —</option>'
+    + candidats(iso).map(s => '<option value="' + s.id + '">'
+        + ((s.prenom || '') + ' ' + (s.nom || '')).trim() + '</option>').join('');
+
+  const rangs = lignes.map((l, i) =>
+      '<tr>'
+    + '<td style="padding:7px 10px;border-bottom:1px solid #eef2f7;white-space:nowrap;">' + frDate(l.iso) + '</td>'
+    + '<td style="padding:7px 10px;border-bottom:1px solid #eef2f7;font-weight:600;">' + l.chantier + '</td>'
+    + '<td style="padding:7px 10px;border-bottom:1px solid #eef2f7;text-align:right;white-space:nowrap;">'
+        + (Math.round(l.h * 100) / 100).toString().replace('.', ',') + ' h</td>'
+    + '<td style="padding:7px 10px;border-bottom:1px solid #eef2f7;">'
+        + '<select data-i="' + i + '" class="ms-cible" style="width:100%;padding:5px 6px;">' + optionsPour(l.iso) + '</select></td>'
+    + '</tr>').join('');
+
+  ov.innerHTML =
+      '<div style="background:#fff;border-radius:12px;max-width:820px;width:100%;box-shadow:0 14px 48px rgba(0,0,0,.35);overflow:hidden;">'
+    + '<div style="background:#0f3a8a;color:#fff;padding:14px 18px;border-bottom:3px solid #f59e0b;">'
+    +   '<b style="font-size:1rem;">Chantiers planifiés après le départ de ' + nom + '</b>'
+    +   '<div style="font-size:.82rem;color:#bfdbfe;margin-top:3px;">Sortie au ' + frDate(nouvelleDate)
+    +   ' · ' + lignes.length + ' chantier(s) sur ' + jours + ' journée(s), soit '
+    +   (Math.round(totalH * 100) / 100).toString().replace('.', ',') + ' h</div>'
+    + '</div>'
+    + '<div style="padding:14px 18px;font-size:.88rem;color:#475569;">'
+    +   'Ces créneaux ne seront plus comptés à partir du ' + frDate(nouvelleDate) + '. '
+    +   'Choisissez à qui les confier, ou laissez-les sans affectation : ils resteront alors en base sans apparaître nulle part.'
+    + '</div>'
+    + '<div style="padding:0 18px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    +   '<label style="font-size:.85rem;color:#334155;">Tout réaffecter à</label>'
+    +   '<select id="ms-tous" style="padding:6px 8px;min-width:200px;">' + optionsPour(lignes[0].iso) + '</select>'
+    + '</div>'
+    + '<div style="max-height:46vh;overflow:auto;padding:0 18px;">'
+    +   '<table style="width:100%;border-collapse:collapse;font-size:.88rem;">'
+    +     '<thead><tr style="text-align:left;color:#64748b;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">'
+    +       '<th style="padding:6px 10px;">Date</th><th style="padding:6px 10px;">Chantier</th>'
+    +       '<th style="padding:6px 10px;text-align:right;">Heures</th><th style="padding:6px 10px;">Réaffecter à</th></tr></thead>'
+    +     '<tbody>' + rangs + '</tbody></table>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:14px 18px;background:#f8fafc;border-top:1px solid #e2e8f0;flex-wrap:wrap;">'
+    +   '<button type="button" id="ms-annuler" style="flex:1;min-width:130px;background:#e2e8f0;color:#334155;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Annuler</button>'
+    +   '<button type="button" id="ms-sans" style="flex:1;min-width:170px;background:#fff;color:#b45309;border:1px solid #f59e0b;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Enregistrer sans réaffecter</button>'
+    +   '<button type="button" id="ms-ok" style="flex:1;min-width:170px;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer;">Réaffecter et enregistrer</button>'
+    + '</div></div>';
+
+  document.body.appendChild(ov);
+
+  /* Le choix global ne s'applique qu'aux lignes dont le salarié est en poste
+     ce jour-là : sélectionner quelqu'un ne doit jamais créer un créneau hors
+     de sa propre période de contrat. */
+  ov.querySelector('#ms-tous').addEventListener('change', function () {
+    const v = this.value;
+    ov.querySelectorAll('.ms-cible').forEach(sel => {
+      if (!v) { sel.value = ''; return; }
+      if (Array.prototype.some.call(sel.options, o => o.value === v)) sel.value = v;
+    });
+  });
+
+  ov.querySelector('#ms-annuler').addEventListener('click', () => { ov.remove(); afficherSalaries(); });
+  ov.querySelector('#ms-sans').addEventListener('click', () => { ov.remove(); _msEnregistrer(sal, nouvelleDate); });
+  ov.querySelector('#ms-ok').addEventListener('click', () => {
+    const pleins = [];
+    ov.querySelectorAll('.ms-cible').forEach(sel => {
+      const cible = sel.value;
+      if (!cible) return;
+      const l = lignes[parseInt(sel.getAttribute('data-i'), 10)];
+      if (!_msDeplacer(l, cible)) pleins.push(l.chantier + ' du ' + frDate(l.iso));
+    });
+    ov.remove();
+    _msEnregistrer(sal, nouvelleDate);
+    if (pleins.length) {
+      alert('Journée déjà complète pour ces créneaux, ils n\'ont pas pu être déplacés :\n\n' + pleins.join('\n'));
+    }
+  });
 }
 
 /* Change l'ordre d'un salarié : ▲ (sens = -1) le monte, ▼ (sens = +1) le descend.
