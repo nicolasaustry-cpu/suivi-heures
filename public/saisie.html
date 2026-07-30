@@ -2451,9 +2451,9 @@ function rendrePrev() {
     deplRow.className = 'depl-row';
     deplRow.innerHTML = '<label>🚚 Déplacement depuis chantier précédent</label>'
       + '<div class="stepper">'
-      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="-15" onclick="majDeplData(this)">−</div>'
+      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="-5" onclick="majDeplData(this)">−</div>'
       + '<span class="step-val" id="depl-' + nomId + '">' + (s.depl || 0) + '</span>'
-      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="15" onclick="majDeplData(this)">+</div>'
+      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="5" onclick="majDeplData(this)">+</div>'
       + '<span class="step-unite">min</span>'
       + '</div>';
     div.appendChild(deplRow);
@@ -2690,9 +2690,9 @@ function rendreAjout() {
     deplRow.className = 'depl-row';
     deplRow.innerHTML = '<label>🚚 Déplacement depuis chantier précédent</label>'
       + '<div class="stepper">'
-      + '<div class="step-btn" data-type="ajout" data-idx="' + i + '" data-delta="-15" onclick="majDeplData(this)">−</div>'
+      + '<div class="step-btn" data-type="ajout" data-idx="' + i + '" data-delta="-5" onclick="majDeplData(this)">−</div>'
       + '<span class="step-val" id="depl-ajout-' + i + '">' + (ch.depl || 0) + '</span>'
-      + '<div class="step-btn" data-type="ajout" data-idx="' + i + '" data-delta="15" onclick="majDeplData(this)">+</div>'
+      + '<div class="step-btn" data-type="ajout" data-idx="' + i + '" data-delta="5" onclick="majDeplData(this)">+</div>'
       + '<span class="step-unite">min</span>'
       + '</div>';
     div.appendChild(deplRow);
