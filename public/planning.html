@@ -1726,9 +1726,7 @@ function ouvrirNoteChantier(k) {
   const nom = _nomChantierCell(k);
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
-  const hist = document.getElementById('note-modal-hist');
-  const note = noteDuChantier(nom);
-  if (hist) hist.textContent = note || '(aucune note pour ce chantier)';
+  rendreHistNoteChantier(nom);
   const txt = document.getElementById('note-modal-txt');
   txt.value = '';
   const btnAjout = document.getElementById('note-modal-ajouter');
@@ -1757,11 +1755,12 @@ function clToggleNoteJour() {
     if (btn) { btn.disabled = false; btn.textContent = 'Enregistrer'; }
     if (sup) sup.style.display = dn ? '' : 'none';
   } else {
-    const note = noteDuChantier(_nomChantierCell(k));
-    if (hist) hist.textContent = note || '(aucune note pour ce chantier)';
+    const nomCh = _nomChantierCell(k);
+    const note = noteDuChantier(nomCh);
+    rendreHistNoteChantier(nomCh);
     if (txt) txt.value = '';
     if (lbl) lbl.textContent = 'Ajouter une ligne';
-    if (btn) { btn.disabled = !_nomChantierCell(k); btn.textContent = 'Ajouter'; }
+    if (btn) { btn.disabled = !nomCh; btn.textContent = 'Ajouter'; }
     if (sup) sup.style.display = note ? '' : 'none';
   }
   if (txt) setTimeout(() => txt.focus(), 20);
@@ -1858,6 +1857,92 @@ async function enregistrerNoteChantier() {
   } catch (e) {
     alert('Erreur réseau lors de l’enregistrement de la note.');
     if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+  }
+}
+
+/* Rendu de l'historique de la note GÉNÉRALE (cumulative, tous les jours) sous forme
+   de lignes modifiables/supprimables individuellement. Ne concerne JAMAIS la note
+   "pour cette journée uniquement" (heures[k].note) : celle-ci est un bloc unique,
+   déjà modifiable en réécrivant directement le texte puis "Enregistrer" — elle
+   n'appelle pas cette fonction (voir ouvrirNoteChantier / clToggleNoteJour). */
+function _lignesNoteChantier(nom) {
+  return (noteDuChantier(nom) || '').split('\n').filter(l => l.trim());
+}
+
+function rendreHistNoteChantier(nom) {
+  const hist = document.getElementById('note-modal-hist');
+  if (!hist) return;
+  const lignes = _lignesNoteChantier(nom);
+  if (!lignes.length) {
+    hist.innerHTML = '<span style="color:#9ca3af;">(aucune note pour ce chantier)</span>';
+    return;
+  }
+  hist.innerHTML = lignes.map((l, idx) => `
+    <div class="nmh-ligne" data-idx="${idx}" style="display:flex;align-items:center;gap:8px;padding:4px 2px;">
+      <span class="nmh-txt" style="flex:1;min-width:0;white-space:pre-wrap;word-break:break-word;">${escapeHtml(l)}</span>
+      <span class="no-print" style="display:flex;gap:2px;flex:0 0 auto;">
+        <button type="button" class="nmh-mod" title="Modifier la ligne" style="border:none;background:transparent;cursor:pointer;font-size:0.9rem;padding:2px 4px;">✏️</button>
+        <button type="button" class="nmh-sup" title="Supprimer la ligne" style="border:none;background:transparent;cursor:pointer;font-size:0.9rem;padding:2px 4px;">🗑</button>
+      </span>
+    </div>`).join('');
+  hist.querySelectorAll('.nmh-ligne').forEach(row => {
+    const idx = parseInt(row.dataset.idx, 10);
+    row.querySelector('.nmh-mod').addEventListener('click', () => modifierLigneNoteChantier(nom, idx, row));
+    row.querySelector('.nmh-sup').addEventListener('click', () => supprimerLigneNoteChantier(nom, idx));
+  });
+}
+
+function modifierLigneNoteChantier(nom, idx, row) {
+  const lignes = _lignesNoteChantier(nom);
+  const ligne = lignes[idx] || '';
+  const pos = ligne.indexOf('] ');
+  const prefixe = pos >= 0 ? ligne.slice(0, pos + 1) : '';
+  const texte   = pos >= 0 ? ligne.slice(pos + 2) : ligne;
+  row.innerHTML = `
+    <input type="text" class="nmh-edit" value="${escapeHtml(texte).replace(/"/g, '&quot;')}" style="flex:1;min-width:0;border:1px solid #d1d5db;border-radius:6px;padding:5px 7px;font:inherit;font-size:0.84rem;box-sizing:border-box;">
+    <span style="display:flex;gap:2px;flex:0 0 auto;">
+      <button type="button" class="nmh-ok" title="Enregistrer">✔️</button>
+      <button type="button" class="nmh-annul" title="Annuler">✖️</button>
+    </span>`;
+  const inp = row.querySelector('.nmh-edit');
+  inp.focus();
+  row.querySelector('.nmh-ok').addEventListener('click', () => {
+    const nv = (inp.value || '').trim();
+    if (!nv) { supprimerLigneNoteChantier(nom, idx); return; }
+    lignes[idx] = prefixe ? `${prefixe} ${nv}` : nv;
+    enregistrerRemplacementNoteChantier(nom, lignes.join('\n'));
+  });
+  row.querySelector('.nmh-annul').addEventListener('click', () => rendreHistNoteChantier(nom));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') row.querySelector('.nmh-ok').click(); });
+}
+
+function supprimerLigneNoteChantier(nom, idx) {
+  if (!confirm('Supprimer cette ligne de note ?')) return;
+  const lignes = _lignesNoteChantier(nom);
+  lignes.splice(idx, 1);
+  enregistrerRemplacementNoteChantier(nom, lignes.join('\n'));
+}
+
+async function enregistrerRemplacementNoteChantier(nom, texte) {
+  const token = localStorage.getItem('syncToken');
+  try {
+    const r = await fetch('/api/data/note-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ chantier: nom, texte, mode: 'remplacer', auteur: 'Gérant' })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      if (d.note) _notesChantiers[nom] = d.note; else delete _notesChantiers[nom];
+      rafraichirNotesAffichage();
+      rendreHistNoteChantier(nom);
+      const btnSup = document.getElementById('note-modal-suppr');
+      if (btnSup) btnSup.style.display = noteDuChantier(nom) ? '' : 'none';
+    } else {
+      alert(d.message || 'Échec de la mise à jour de la note.');
+    }
+  } catch (e) {
+    alert('Erreur réseau lors de la mise à jour de la note.');
   }
 }
 
