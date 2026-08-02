@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suivi des entretiens – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <style>
+    .se-count { font-size:0.82rem; color:#6b7280; margin-bottom:0.6rem; }
+    #table-se { width:100%; border-collapse:collapse; font-size:0.9rem; }
+    #table-se th { background:#0f3a8a; color:#fff; text-align:left; padding:9px 12px; }
+    #table-se td { border-bottom:1px solid #e5e7eb; padding:9px 12px; }
+    #table-se tbody tr:hover td { background:#f8fafc; }
+    .se-badge { font-size:0.78rem; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+    .se-ok    { background:#eaf3de; color:#27500a; }
+    .se-retard{ background:#fcebeb; color:#501313; }
+    tr.se-retard-row td { background:#fef2f2; }
+    tr.se-retard-row:hover td { background:#fce9e9; }
+    .se-vide { text-align:center; color:#9ca3af; font-size:0.9rem; padding:2.5rem; }
+    .se-inactif { text-align:center; padding:3rem 1.5rem; color:#475569; }
+    .se-inactif a { color:#0f3a8a; font-weight:700; text-decoration:none; }
+    .se-inactif a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+
+<header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
+  <h1 class="page-title">Suivi des entretiens</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  <a href="notes.html">Notes</a>
+</div>
+
+<section id="se-inactif" class="se-inactif" style="display:none;">
+  Cette page n'est pas activée. Rendez-vous dans <a href="index.html">Entreprise</a> pour l'activer, section « Suivi des entretiens ».
+</section>
+
+<section id="se-actif" style="display:none;">
+  <div class="se-count" id="se-count"></div>
+  <table id="table-se">
+    <thead>
+      <tr>
+        <th>Chantier</th>
+        <th>Dernière intervention</th>
+        <th>Prochaine échéance</th>
+        <th>Statut</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-se"></tbody>
+  </table>
+  <div class="se-vide" id="se-vide" style="display:none;">
+    Aucun chantier n'est encore marqué « Contrat entretien annuel ». Cochez-les dans <a href="notes.html">Notes</a>, à côté du nom du chantier.
+  </div>
+</section>
+
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+const SENTINEL_CONTRAT = '[CONTRAT_ENTRETIEN]';
+
+function frVersIso(fr) {
+  const m = (fr || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+function parseLigneMeta(ligne) {
+  const m = ligne.match(/^\[([^\]]+)\](?:\[I:([^\]]*)\])?\s(.*)$/);
+  if (!m) return { entretien: false, interv: '' };
+  const metaRaw = m[2] || '';
+  const entretien = /(^|;)E(;|$)/.test(metaRaw);
+  const dm = metaRaw.match(/^(\d{2}\/\d{2}\/\d{4})/);
+  return { entretien, interv: dm ? dm[1] : '' };
+}
+function echap(t) {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fmtDateFr(d) {
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+/* Pour chaque chantier suivi (ligne sentinelle présente) : cherche la date
+   d'intervention la plus récente parmi les lignes taguées « Entretien ».
+   Sans aucune ligne taguée, le chantier apparaît quand même (échéance inconnue),
+   pour rappeler qu'il faut renseigner une première intervention. */
+function calculerSuivi(notesChantiers) {
+  const resultats = [];
+  Object.keys(notesChantiers || {}).forEach(nom => {
+    const brut = notesChantiers[nom] || '';
+    const lignes = brut.split('\n').filter(l => l.trim());
+    if (!lignes.includes(SENTINEL_CONTRAT)) return;
+    let derniere = null;
+    lignes.forEach(l => {
+      if (l === SENTINEL_CONTRAT) return;
+      const meta = parseLigneMeta(l);
+      if (!meta.entretien || !meta.interv) return;
+      const iso = frVersIso(meta.interv);
+      if (!iso) return;
+      const d = new Date(iso + 'T00:00:00');
+      if (isNaN(d)) return;
+      if (!derniere || d > derniere) derniere = d;
+    });
+    let echeance = null, enRetard = false;
+    if (derniere) {
+      echeance = new Date(derniere);
+      echeance.setFullYear(echeance.getFullYear() + 1);
+      const auj = new Date(); auj.setHours(0,0,0,0);
+      enRetard = echeance < auj;
+    }
+    resultats.push({ nom, derniere, echeance, enRetard });
+  });
+  // En retard d'abord, puis par échéance croissante, puis les chantiers sans date à la fin.
+  resultats.sort((a, b) => {
+    if (a.enRetard !== b.enRetard) return a.enRetard ? -1 : 1;
+    if (a.echeance && b.echeance) return a.echeance - b.echeance;
+    if (a.echeance) return -1;
+    if (b.echeance) return 1;
+    return a.nom.localeCompare(b.nom, 'fr');
+  });
+  return resultats;
+}
+
+function rendre(liste) {
+  document.getElementById('se-count').textContent =
+    liste.length ? (liste.length + ' chantier' + (liste.length > 1 ? 's' : '') + ' sous contrat') : '';
+  const tbody = document.getElementById('tbody-se');
+  const vide  = document.getElementById('se-vide');
+  if (!liste.length) { tbody.innerHTML = ''; vide.style.display = 'block'; return; }
+  vide.style.display = 'none';
+  tbody.innerHTML = liste.map(r => `
+    <tr${r.enRetard ? ' class="se-retard-row"' : ''}>
+      <td>${echap(r.nom)}</td>
+      <td>${r.derniere ? fmtDateFr(r.derniere) : '—'}</td>
+      <td>${r.echeance ? fmtDateFr(r.echeance) : '—'}</td>
+      <td>${r.derniere
+        ? `<span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span>`
+        : `<span class="se-badge se-retard">Aucune intervention taguée</span>`}</td>
+    </tr>`).join('');
+}
+
+async function charger() {
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null;
+  if (!token) return;
+  try {
+    const r = await fetch('/api/data', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    const notesChantiers = (d.ok && d.data && d.data.notesChantiers) ? d.data.notesChantiers : {};
+    rendre(calculerSuivi(notesChantiers));
+  } catch (e) {
+    rendre([]);
+  }
+}
+
+function verifierActivation() {
+  let ent = {};
+  try { ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch (e) {}
+  const actif = !!ent.suiviEntretien;
+  document.getElementById('se-inactif').style.display = actif ? 'none' : 'block';
+  document.getElementById('se-actif').style.display    = actif ? 'block' : 'none';
+  return actif;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  if (verifierActivation()) charger();
+});
+window.addEventListener('donnees-chargees', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom) document.getElementById('entreprise-nom').textContent = ent.nom;
+  if (verifierActivation()) charger();
+});
+</script>
+</body>
+</html>

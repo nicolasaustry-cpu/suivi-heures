@@ -52,6 +52,12 @@
     .ncch-lact button { border:none; background:transparent; cursor:pointer; font-size:0.95rem; padding:2px 5px; border-radius:5px; }
     .ncch-lact button:hover { background:#fde68a; }
     .ncch-edit { flex:1; min-width:0; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px; font-family:inherit; font-size:0.9rem; box-sizing:border-box; }
+    .ncch-meta-interv { display:flex; align-items:center; gap:6px; flex:0 0 auto; font-size:0.78rem; color:#92400e; }
+    .ncch-date { border:1px solid #fde68a; border-radius:5px; padding:2px 5px; font-size:0.78rem; background:#fff; }
+    .ncch-entr { display:flex; align-items:center; gap:3px; cursor:pointer; user-select:none; white-space:nowrap; }
+    .ncch-entr input { width:13px; height:13px; cursor:pointer; }
+    .ncch-contrat { display:flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:600; color:#0f3a8a; cursor:pointer; user-select:none; white-space:nowrap; }
+    .ncch-contrat input { width:14px; height:14px; cursor:pointer; }
     @media print {
       .main-header, .nav, .filtres-notes, .barre-outils, .nc-actions, #licence-status, #photo-zoom { display:none !important; }
       .note-card { break-inside: avoid; }
@@ -178,7 +184,39 @@ async function chargerNotes() {
   }
 }
 
-/* ── Notes de chantier (gérant/admin) : affichage + modif/suppression ligne par ligne ── */
+/* ── Notes de chantier (gérant/admin) : affichage + modif/suppression ligne par ligne ──
+   Format d'une ligne : [DD/MM/YYYY HH:MM – Auteur][I:DD/MM/YYYY;E] texte libre
+   Le second bloc [I:...] est optionnel et facultatif rétrocompatible (les lignes
+   anciennes n'en ont pas) : DD/MM/YYYY = date d'intervention, ;E = tag « Entretien ».
+   Le suivi du chantier (« sous contrat entretien annuel ») est encodé par une ligne
+   sentinelle dédiée, jamais affichée comme une note normale. */
+const SENTINEL_CONTRAT = '[CONTRAT_ENTRETIEN]';
+function frVersIso(fr) {
+  const m = (fr || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+function isoVersFr(iso) {
+  const m = (iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+function parseLigneMeta(ligne) {
+  const m = ligne.match(/^\[([^\]]+)\](?:\[I:([^\]]*)\])?\s(.*)$/);
+  if (!m) return { entete: '', interv: '', intervIso: '', entretien: false, texte: ligne };
+  const entete = m[1];
+  const metaRaw = m[2] || '';
+  const entretien = /(^|;)E(;|$)/.test(metaRaw);
+  const dm = metaRaw.match(/^(\d{2}\/\d{2}\/\d{4})/);
+  const interv = dm ? dm[1] : '';
+  return { entete, interv, intervIso: frVersIso(interv), entretien, texte: m[3] };
+}
+function construireLigne(entete, interv, entretien, texte) {
+  const meta = [];
+  if (interv) meta.push(interv);
+  if (entretien) meta.push('E');
+  const metaStr = meta.length ? `[I:${meta.join(';')}]` : '';
+  return `[${entete}]${metaStr} ${texte}`;
+}
+
 async function chargerNotesChantiers() {
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null;
   if (!token) return;
@@ -205,17 +243,31 @@ function rendreNotesChantiers() {
 
   cont.innerHTML = '<div class="ncch-titre">📋 Notes de chantier (gérant / administratif)</div>' +
     noms.map(nom => {
-      const lignes = _notesChantiers[nom].split('\n').filter(l => l.trim());
-      const lignesHtml = lignes.map((l, idx) => `
+      const lignes = _lignesDe(nom);
+      const lignesHtml = lignes.map((l, idx) => {
+        const meta = parseLigneMeta(l);
+        return `
         <div class="ncch-ligne" data-idx="${idx}">
-          <span class="ncch-ltxt">${echap(l)}</span>
+          <span class="ncch-ltxt">${meta.entete ? `[${echap(meta.entete)}] ` : ''}${echap(meta.texte)}</span>
+          <span class="ncch-meta-interv no-print">
+            <input type="date" class="ncch-date" value="${meta.intervIso}" title="Date d'intervention">
+            <label class="ncch-entr" title="Marquer cette ligne comme une intervention d'entretien">
+              <input type="checkbox" class="ncch-chk-entr"${meta.entretien ? ' checked' : ''}> Entretien
+            </label>
+          </span>
           <span class="ncch-lact no-print">
-            <button class="ncch-mod" title="Modifier la ligne">✏️</button>
+            <button class="ncch-mod" title="Modifier le texte">✏️</button>
             <button class="ncch-sup" title="Supprimer la ligne">🗑</button>
           </span>
-        </div>`).join('');
+        </div>`;
+      }).join('');
       return `<div class="ncch-card" data-ch="${echap(nom)}">
-        <div class="ncch-head" style="display:flex;align-items:center;gap:8px;">${echap(nom)}<button type="button" class="ncch-coord no-print" style="margin-left:auto;background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe;border-radius:7px;padding:3px 9px;font-size:0.76rem;font-weight:600;cursor:pointer;white-space:nowrap;">📍 Coordonnées</button></div>
+        <div class="ncch-head" style="display:flex;align-items:center;gap:8px;">${echap(nom)}
+          <label class="ncch-contrat no-print" title="Suivre ce chantier dans la page Suivi des entretiens">
+            <input type="checkbox" class="ncch-chk-contrat"${estSuiviEntretien(nom) ? ' checked' : ''}> Contrat entretien annuel
+          </label>
+          <button type="button" class="ncch-coord no-print" style="margin-left:auto;background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe;border-radius:7px;padding:3px 9px;font-size:0.76rem;font-weight:600;cursor:pointer;white-space:nowrap;">📍 Coordonnées</button>
+        </div>
         ${lignesHtml}
       </div>`;
     }).join('');
@@ -224,26 +276,46 @@ function rendreNotesChantiers() {
     const ch = card.dataset.ch;
     const bc = card.querySelector('.ncch-coord');
     if (bc) bc.addEventListener('click', () => Coord.ouvrir(ch, rendreNotesChantiers));
+    const cc = card.querySelector('.ncch-chk-contrat');
+    if (cc) cc.addEventListener('change', () => toggleSuiviEntretien(ch));
     card.querySelectorAll('.ncch-ligne').forEach(row => {
       const idx = parseInt(row.dataset.idx, 10);
       row.querySelector('.ncch-sup').addEventListener('click', () => supprimerLigneChantier(ch, idx));
       row.querySelector('.ncch-mod').addEventListener('click', () => modifierLigneChantier(ch, idx, row));
+      const dateInp = row.querySelector('.ncch-date');
+      if (dateInp) dateInp.addEventListener('change', () => majMetaLigne(ch, idx, { interv: dateInp.value }));
+      const chkEntr = row.querySelector('.ncch-chk-entr');
+      if (chkEntr) chkEntr.addEventListener('change', () => majMetaLigne(ch, idx, { entretien: chkEntr.checked }));
     });
   });
 }
 
+/* Lignes affichables d'un chantier : la ligne sentinelle de suivi de contrat
+   (SENTINEL_CONTRAT) n'est jamais incluse — elle n'est jamais une note à afficher. */
 function _lignesDe(ch) {
-  return (_notesChantiers[ch] || '').split('\n').filter(l => l.trim());
+  return (_notesChantiers[ch] || '').split('\n').filter(l => l.trim() && l !== SENTINEL_CONTRAT);
+}
+function estSuiviEntretien(ch) {
+  return (_notesChantiers[ch] || '').split('\n').includes(SENTINEL_CONTRAT);
+}
+/* Réinjecte la ligne sentinelle (si présente) avant d'enregistrer, pour ne jamais
+   la perdre lors d'une modif/suppression de note normale. */
+function _sauverLignes(ch, lignes) {
+  const sentinel = estSuiviEntretien(ch) ? [SENTINEL_CONTRAT] : [];
+  remplacerNoteChantier(ch, [...sentinel, ...lignes].join('\n'));
+}
+function toggleSuiviEntretien(ch) {
+  const lignes = _lignesDe(ch);
+  const sentinel = estSuiviEntretien(ch) ? [] : [SENTINEL_CONTRAT];
+  remplacerNoteChantier(ch, [...sentinel, ...lignes].join('\n'));
 }
 
 function modifierLigneChantier(ch, idx, row) {
   const lignes = _lignesDe(ch);
   const ligne = lignes[idx] || '';
-  const pos = ligne.indexOf('] ');
-  const prefixe = pos >= 0 ? ligne.slice(0, pos + 1) : '';
-  const texte   = pos >= 0 ? ligne.slice(pos + 2) : ligne;
+  const meta = parseLigneMeta(ligne);
   row.innerHTML = `
-    <input type="text" class="ncch-edit" value="${echap(texte).replace(/"/g, '&quot;')}">
+    <input type="text" class="ncch-edit" value="${echap(meta.texte).replace(/"/g, '&quot;')}">
     <span class="ncch-lact no-print">
       <button class="ncch-ok" title="Enregistrer">✔️</button>
       <button class="ncch-annul" title="Annuler">✖️</button>
@@ -253,18 +325,29 @@ function modifierLigneChantier(ch, idx, row) {
   row.querySelector('.ncch-ok').addEventListener('click', () => {
     const nv = (inp.value || '').trim();
     if (!nv) { supprimerLigneChantier(ch, idx); return; }
-    lignes[idx] = prefixe ? `${prefixe} ${nv}` : nv;
-    remplacerNoteChantier(ch, lignes.join('\n'));
+    lignes[idx] = meta.entete ? construireLigne(meta.entete, meta.interv, meta.entretien, nv) : nv;
+    _sauverLignes(ch, lignes);
   });
   row.querySelector('.ncch-annul').addEventListener('click', () => rendreNotesChantiers());
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') row.querySelector('.ncch-ok').click(); });
+}
+
+function majMetaLigne(ch, idx, patch) {
+  const lignes = _lignesDe(ch);
+  const ligne = lignes[idx];
+  if (ligne == null) return;
+  const meta = parseLigneMeta(ligne);
+  const interv    = patch.interv !== undefined ? isoVersFr(patch.interv) : meta.interv;
+  const entretien = patch.entretien !== undefined ? patch.entretien : meta.entretien;
+  lignes[idx] = meta.entete ? construireLigne(meta.entete, interv, entretien, meta.texte) : ligne;
+  _sauverLignes(ch, lignes);
 }
 
 function supprimerLigneChantier(ch, idx) {
   if (!confirm('Supprimer cette ligne de note ?')) return;
   const lignes = _lignesDe(ch);
   lignes.splice(idx, 1);
-  remplacerNoteChantier(ch, lignes.join('\n'));
+  _sauverLignes(ch, lignes);
 }
 
 async function remplacerNoteChantier(ch, texte) {

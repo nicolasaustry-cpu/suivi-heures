@@ -144,6 +144,47 @@
   </div>
 </section>
 
+<!-- Suivi des entretiens : activation de la page de suivi des contrats d'entretien annuel -->
+<section>
+  <h2>Suivi des entretiens</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Liste les chantiers marqués « Contrat entretien annuel » (case à cocher dans <strong>Notes</strong>) avec la date de leur
+    dernière intervention taguée « Entretien » et l'échéance à venir (+ 1 an), signalée en rouge en cas de dépassement.
+  </p>
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:1rem 1.2rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <input type="checkbox" id="suiviEntretienActif" onchange="sauverSuiviEntretien()">
+      <label for="suiviEntretienActif" style="font-size:0.9rem;">Activer la page « Suivi des entretiens »</label>
+    </div>
+    <a id="lien-suivi-entretiens" href="suivi-entretiens.html" class="btn btn-primary" style="display:none;text-decoration:none;">📋 Ouvrir le suivi des entretiens</a>
+  </div>
+</section>
+
+<script>
+function _entLire() {
+  try { return JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch (e) { return {}; }
+}
+function chargerSuiviEntretien() {
+  const ent = _entLire();
+  const actif = !!ent.suiviEntretien;
+  const cb = document.getElementById('suiviEntretienActif');
+  const lien = document.getElementById('lien-suivi-entretiens');
+  if (cb) cb.checked = actif;
+  if (lien) lien.style.display = actif ? 'inline-block' : 'none';
+}
+function sauverSuiviEntretien() {
+  const actif = document.getElementById('suiviEntretienActif').checked;
+  const ent = _entLire();
+  ent.suiviEntretien = actif;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const lien = document.getElementById('lien-suivi-entretiens');
+  if (lien) lien.style.display = actif ? 'inline-block' : 'none';
+  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+}
+window.addEventListener('DOMContentLoaded', chargerSuiviEntretien);
+window.addEventListener('donnees-chargees', chargerSuiviEntretien);
+</script>
+
 <script>
 function _getEntreprise() {
   try { return JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch { return {}; }
