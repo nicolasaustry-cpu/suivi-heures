@@ -234,7 +234,7 @@
   </section>
 
   <!-- ────── Heures vendables, vendues et exclues, janvier à décembre ────── -->
-  <section class="tdb-vignette large3" data-id="ventequalite">
+  <section class="tdb-vignette large" data-id="ventequalite">
     <div class="tdb-tete">
       <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
       <span class="tdb-titre">Vendables, vendues, exclues <span id="vq-an"></span></span>
@@ -257,6 +257,20 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- ────── Heures non vendables (à droite de la vue annuelle) ────── -->
+  <section class="tdb-vignette" data-id="hnv">
+    <div class="tdb-tete">
+      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+      <span class="tdb-titre">Heures non vendables</span>
+      <a class="tdb-lien" href="planning.html">Planning →</a>
+    </div>
+    <div class="tdb-val" id="hnv-h">22,0<u>h</u></div>
+    <div class="tdb-lbl">sur <span id="hnv-nb">9</span> créneaux</div>
+    <div class="tdb-second" id="hnv-pct">2,4 % des heures du mois</div>
+    <div class="tdb-barre"><i id="hnv-barre" style="width:2.4%;background:#d1495b"></i></div>
+    <div class="tdb-second">SAV et reprises non facturables</div>
   </section>
 
   <!-- ────── 1 · Charge hebdomadaire (deux colonnes) ────── -->
@@ -372,20 +386,6 @@
     <div class="tdb-lbl">six derniers mois</div>
   </section>
 
-  <!-- ────── 8 · Heures non vendables ────── -->
-  <section class="tdb-vignette" data-id="hnv">
-    <div class="tdb-tete">
-      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-      <span class="tdb-titre">Heures non vendables</span>
-      <a class="tdb-lien" href="planning.html">Planning →</a>
-    </div>
-    <div class="tdb-val" id="hnv-h">22,0<u>h</u></div>
-    <div class="tdb-lbl">sur <span id="hnv-nb">9</span> créneaux</div>
-    <div class="tdb-second" id="hnv-pct">2,4 % des heures du mois</div>
-    <div class="tdb-barre"><i id="hnv-barre" style="width:2.4%;background:#d1495b"></i></div>
-    <div class="tdb-second">SAV et reprises non facturables</div>
-  </section>
-
 </div>
 
 <script src="assets/sync.js"></script>
@@ -404,7 +404,7 @@
 /* ─────────────────────── A. Présentation ─────────────────────── */
 
 const TDB_CLE = 'tdb_presentation';
-const TDB_ORDRE_DEFAUT = ['annee','charge','semaine','absences','compteur','chantiers100','notes','deplacements','hnv'];
+const TDB_ORDRE_DEFAUT = ['annee','ventequalite','hnv','charge','semaine','absences','compteur','chantiers100','notes','deplacements'];
 
 let _tdbSale = false;
 
