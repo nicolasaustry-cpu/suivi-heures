@@ -222,6 +222,32 @@
     </div>
   </section>
 
+  <!-- ────── Heures vendables, vendues et exclues, janvier à décembre ────── -->
+  <section class="tdb-vignette large3" data-id="ventequalite">
+    <div class="tdb-tete">
+      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+      <span class="tdb-titre">Vendables, vendues, exclues <span id="vq-an"></span></span>
+      <a class="tdb-lien" href="rapports.html">Rapports →</a>
+    </div>
+    <div class="tdb-sous">Heures vendables (prévisionnel), heures vendues (réalisé hors exclusions) et heures exclues par motif, de janvier à décembre</div>
+    <div class="tdb-cote">
+      <div class="tdb-cote-chiffres">
+        <div><div class="tdb-val" id="vq-vend">0<u>h</u></div><div class="tdb-lbl">vendables sur l'année</div></div>
+        <div><div class="tdb-val" id="vq-vendu">0<u>h</u></div><div class="tdb-lbl">vendues à ce jour</div></div>
+        <div><div class="tdb-val alerte" id="vq-exclu">0<u>h</u></div><div class="tdb-lbl">exclues à ce jour</div></div>
+        <div class="tdb-liste" id="vq-detail-motifs" style="margin-top:2px;"></div>
+      </div>
+      <div class="tdb-cote-graph">
+        <div id="vq-graph"></div>
+        <div class="tdb-legende">
+          <span><i class="tdb-trait"></i>Heures vendables</span>
+          <span><i class="tdb-trait" style="border-top-style:solid;border-top-color:#0f3a8a;"></i>Heures vendues</span>
+          <span><i class="tdb-pastille" style="background:#d1495b"></i>Heures exclues (% affiché = part des vendables)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ────── 1 · Charge hebdomadaire (deux colonnes) ────── -->
   <section class="tdb-vignette large" data-id="charge">
     <div class="tdb-tete">
@@ -1046,6 +1072,126 @@ async function tdbChargerAnnee() {
   tdbValeur('annee-taux', vendEcoules ? (totR / vendEcoules) * 100 : 0, '%', 0);
 }
 
+/* ── Vignette Vendables / Vendues / Exclues ────────────────────────────
+   Vendables : somme du prévisionnel (previsionnel_data), mois par mois —
+   même source que la vignette « Chantiers à 100 % ».
+   Exclues : lues dans le planning local (heuresdata), en durée PRÉVUE
+   (data.heures) des créneaux marqués .exclu, groupées par motif. Choix
+   volontaire pour rester léger (aucun appel serveur supplémentaire : cette
+   vignette réutilise le cache de /api/saisies/agrege/<annee> déjà chargé
+   par la vignette Année) — la précision à l'heure près par créneau réalisé
+   est dans rapports.html si besoin.
+   Vendues : réalisé de l'agrégat serveur, moins les heures exclues du mois
+   (approximation raisonnable : le prévu et le réalisé d'un créneau exclu
+   divergent rarement assez pour changer la lecture du graphique). */
+function tdbExclusionsAnnee(an) {
+  let heures = {};
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const parMois = {}; // 'aaaa-mm' -> { total, parMotif:{} }
+  Object.keys(heures).forEach(function (k) {
+    const e = heures[k];
+    if (!e || !e.exclu || !e.chantier) return;
+    const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m || m[2] !== String(an)) return;
+    const ym = m[2] + '-' + m[3];
+    const h = parseFloat(e.heures) || 0;
+    const motif = e.motifExclu || 'SAV';
+    if (!parMois[ym]) parMois[ym] = { total: 0, parMotif: {} };
+    parMois[ym].total += h;
+    parMois[ym].parMotif[motif] = (parMois[ym].parMotif[motif] || 0) + h;
+  });
+  return parMois;
+}
+
+function tdbGraphVenteQualite(d) {
+  const zone = document.getElementById('vq-graph');
+  if (!zone) return;
+  const M = d.mois || [];
+  if (!M.length) { zone.innerHTML = ''; return; }
+
+  const L = 940, H = 196, mg = { g: 56, d: 10, h: 24, b: 30 };
+  const lp = L - mg.g - mg.d, hp = H - mg.h - mg.b;
+
+  let max = 0;
+  M.forEach(function (m) { max = Math.max(max, m.vend, m.vendu, m.exclu); });
+  const pas = max > 2000 ? 500 : (max > 800 ? 200 : (max > 400 ? 100 : 50));
+  max = Math.ceil((max || 1) / pas) * pas;
+  const y = function (v) { return mg.h + hp - (v / max) * hp; };
+
+  const pasX = lp / M.length, larg = Math.min(40, pasX * 0.52);
+  let g = '';
+
+  for (let v = 0; v <= max; v += pas) {
+    g += '<line x1="' + mg.g + '" x2="' + (L - mg.d) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e8ebf0"/>'
+       + '<text x="' + (mg.g - 9) + '" y="' + (y(v) + 5) + '" text-anchor="end" font-size="16" fill="#6b7684">' + v + ' h</text>';
+  }
+
+  M.forEach(function (m, i) {
+    const cx = mg.g + pasX * i + pasX / 2;
+    if (m.exclu > 0) {
+      g += '<rect x="' + (cx - larg / 2) + '" y="' + y(m.exclu) + '" width="' + larg
+         + '" height="' + (y(0) - y(m.exclu)) + '" fill="#d1495b" fill-opacity="0.75"/>';
+      const pct = m.vend > 0 ? Math.round((m.exclu / m.vend) * 100) : 0;
+      const yPct = Math.max(mg.h + 11, y(m.exclu) - 6);
+      g += '<text x="' + cx + '" y="' + yPct + '" text-anchor="middle" font-size="13" font-weight="600" fill="#b45309">' + pct + '%</text>';
+    }
+    g += '<text x="' + cx + '" y="' + (H - 9) + '" text-anchor="middle" font-size="16" fill="#6b7684">' + tdbEsc(m.cle) + '</text>';
+  });
+
+  let ptsVend = [], ptsVendu = [];
+  M.forEach(function (m, i) {
+    const cx = mg.g + pasX * i + pasX / 2;
+    ptsVend.push(cx + ',' + y(m.vend));
+    ptsVendu.push(cx + ',' + y(m.vendu));
+  });
+  g += '<polyline points="' + ptsVend.join(' ') + '" fill="none" stroke="#111827" stroke-width="2" stroke-dasharray="6 4"/>';
+  g += '<polyline points="' + ptsVendu.join(' ') + '" fill="none" stroke="#0f3a8a" stroke-width="2.5"/>';
+
+  zone.innerHTML = '<svg viewBox="0 0 ' + L + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" '
+    + 'aria-label="Heures vendables, vendues et exclues, mois par mois sur l\'année, avec le taux d\'exclusion au-dessus de chaque barre">' + g + '</svg>';
+}
+
+async function tdbChargerVenteQualite() {
+  const now = new Date(), an = now.getFullYear();
+  const NOMS = ['janv.','févr.','mars','avril','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  const exclusions = tdbExclusionsAnnee(an);
+  const mois = await tdbAgregeAnnee(an);   // même cache que la vignette Année : aucun appel supplémentaire
+
+  const serie = [];
+  let totVend = 0, totVendu = 0, totExclu = 0;
+  const parMotifAnnee = {};
+
+  for (let m = 0; m < 12; m++) {
+    const ym = an + '-' + String(m + 1).padStart(2, '0');
+    const devis = tdbPrevisionnelMois(an, m);
+    const vend = Object.keys(devis).reduce(function (s, k) { return s + devis[k]; }, 0);
+    const exMois = exclusions[ym] || { total: 0, parMotif: {} };
+    const ag = mois[ym];
+    const realBrut = ag ? (ag.heures || 0) : 0;
+    const vendu = Math.max(0, realBrut - exMois.total);
+
+    totVend += vend; totVendu += vendu; totExclu += exMois.total;
+    Object.keys(exMois.parMotif).forEach(function (mo) {
+      parMotifAnnee[mo] = (parMotifAnnee[mo] || 0) + exMois.parMotif[mo];
+    });
+    serie.push({ cle: NOMS[m], vend: vend, vendu: vendu, exclu: exMois.total });
+  }
+
+  tdbTexte('vq-an', an);
+  tdbGraphVenteQualite({ mois: serie });
+  tdbValeur('vq-vend', totVend, 'h', 0);
+  tdbValeur('vq-vendu', totVendu, 'h', 0);
+  tdbValeur('vq-exclu', totExclu, 'h', 0);
+
+  const detailEl = document.getElementById('vq-detail-motifs');
+  if (detailEl) {
+    const motifs = Object.keys(parMotifAnnee).sort(function (a, b) { return parMotifAnnee[b] - parMotifAnnee[a]; });
+    detailEl.innerHTML = motifs.map(function (mo) {
+      return '<div><span>' + tdbEsc(mo) + '</span><b>' + tdbNb(parMotifAnnee[mo], 0) + ' h</b></div>';
+    }).join('');
+  }
+}
+
 /* ── Raccordement des vignettes issues du PRÉVISIONNEL et du RÉALISÉ ───
    Charge hebdomadaire, Semaine en cours, Chantiers à 100 % et Déplacements.
    Trois sources : le prévisionnel (localStorage previsionnel_data), le
@@ -1288,6 +1434,20 @@ function tdbDonneesExemple() {
   tdbVignetteNotes({ enCours:7, total:23, detail:'3 avec photo · la plus ancienne, 9 jours' });
   tdbVignetteDeplacements({ parChantier:1.41, minutesParChantier:31, historique:[26,28,25,29,27,31] });
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
+  tdbGraphVenteQualite({ mois: [
+    { cle:'janv.', vend:800, vendu:740, exclu:60 },
+    { cle:'févr.', vend:760, vendu:705, exclu:45 },
+    { cle:'mars',  vend:840, vendu:790, exclu:38 },
+    { cle:'avril', vend:820, vendu:760, exclu:70 },
+    { cle:'mai',   vend:790, vendu:735, exclu:55 },
+    { cle:'juin',  vend:810, vendu:0,   exclu:0  },
+    { cle:'juil.', vend:600, vendu:0,   exclu:0  },
+    { cle:'août',  vend:400, vendu:0,   exclu:0  },
+    { cle:'sept.', vend:820, vendu:0,   exclu:0  },
+    { cle:'oct.',  vend:830, vendu:0,   exclu:0  },
+    { cle:'nov.',  vend:800, vendu:0,   exclu:0  },
+    { cle:'déc.',  vend:700, vendu:0,   exclu:0  }
+  ]});
 }
 
 /* ── Rafraîchissement après la synchronisation ────────────────────────
@@ -1306,6 +1466,7 @@ function tdbRafraichir() {
     tdbChargerPlanning();
     tdbChargerPrevisionnel();
     tdbChargerAnnee();
+    tdbChargerVenteQualite();
     tdbChargerCompteur();
     tdbChargerNotes();
   }, 80);
@@ -1320,6 +1481,7 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbChargerPlanning();
   tdbChargerPrevisionnel();
   tdbChargerAnnee();
+  tdbChargerVenteQualite();
 });
 </script>
 </body>
