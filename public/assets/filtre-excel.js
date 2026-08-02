@@ -21,6 +21,8 @@ window.FiltreExcel = (function () {
    * @param {Function}    cfg.onApply  - callback(selectedSet) à chaque changement
    * @param {string}      [cfg.labelTous='(Sélectionner tout)']
    * @param {string}      [cfg.placeholderRecherche='Rechercher…']
+   * @param {Array|Set}   [cfg.epingles] - valeurs toujours visibles (ignorent la recherche)
+   *                                       et dont l'état de coche n'est pas modifié par la recherche
    */
   function ouvrir(cfg) {
     fermer();
@@ -37,16 +39,18 @@ window.FiltreExcel = (function () {
     document.body.appendChild(dd);
     positionner(dd, cfg.button);
 
-    const list      = dd.querySelector('.fexc-list');
-    const search    = dd.querySelector('.fexc-search');
-    const labelTous = cfg.labelTous || '(Sélectionner tout)';
-    const selectedSet = new Set(cfg.selected || []);
+    const list        = dd.querySelector('.fexc-list');
+    const search      = dd.querySelector('.fexc-search');
+    const labelTous    = cfg.labelTous || '(Sélectionner tout)';
+    const selectedSet  = new Set(cfg.selected || []);
+    const epinglesSet  = new Set(cfg.epingles || []);
 
     /* Rendu de la liste (filtre = texte de recherche éventuel). */
     function rendreListe(filtre = '') {
       list.innerHTML = '';
       const f = normaliser(filtre);
-      const itemsVisibles = cfg.items.filter(it => !f || normaliser(it.label).includes(f));
+      const itemsVisibles = cfg.items.filter(it =>
+        !f || normaliser(it.label).includes(f) || epinglesSet.has(it.value));
 
       // Ligne "(Sélectionner tout)" : cochée si tous les éléments visibles sont sélectionnés
       const toutCoches = itemsVisibles.length > 0 &&
@@ -98,9 +102,13 @@ window.FiltreExcel = (function () {
        - sinon       → on COCHE les valeurs dont le libellé correspond. */
     function appliquerRecherche(txt) {
       const f = normaliser(txt);
+      // Les valeurs épinglées gardent leur état de coche : la recherche ne les coche/décoche jamais.
+      const epingleesCochees = [...selectedSet].filter(v => epinglesSet.has(v));
       selectedSet.clear();
+      epingleesCochees.forEach(v => selectedSet.add(v));
       if (f) {
         cfg.items.forEach(it => {
+          if (epinglesSet.has(it.value)) return;
           if (normaliser(it.label).includes(f)) selectedSet.add(it.value);
         });
       }

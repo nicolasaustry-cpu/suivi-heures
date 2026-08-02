@@ -945,6 +945,7 @@ function ouvrirFiltre(col, event) {
     button: btn,
     items: valeurs.map(v => ({ value: v, label: libelleChantierAffiche(v) })),
     selected: selection,
+    epingles: col === 'chantier' ? [SAV_MARKER] : [],
     onApply: (sel) => {
       // Si tout est sélectionné, on annule le filtre
       filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
