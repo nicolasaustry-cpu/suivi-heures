@@ -257,6 +257,10 @@
       <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
     </div>
     <div class="filtre-item">
+      <label>Motif d'exclusion</label>
+      <div class="filtre-btn" id="btn-motif" onclick="ouvrirFiltre('motif',event)">Tous ▼</div>
+    </div>
+    <div class="filtre-item">
       <label>Affichage</label>
       <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Situation par chantier : heures planifiées et réalisées regroupées par chantier">Situation par chantier</div>
     </div>
@@ -449,30 +453,14 @@ const entreprise = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
 let lignesPrev  = []; // heures planning (prévues)
 let lignesReal  = []; // saisies salariés (réalisées)
 
-// Valeur spéciale insérée dans le filtre "Chantier(s)" pour isoler les temps SAV
-// (tous chantiers confondus), sans dépendre d'un nom de chantier réel.
-const SAV_MARKER = '__SAV__';
-const SAV_LABEL  = '🔴 Temps SAV (tous chantiers)';
-function libelleChantierAffiche(v) { return v === SAV_MARKER ? SAV_LABEL : v; }
-// Une ligne correspond au filtre chantier selon le contexte :
-// - aucun filtre actif -> tout affiché
-// - la ligne SAV n'affecte QUE les lignes SAV, la sélection des chantiers QUE les lignes normales
-// - si aucun chantier précis n'est coché, la ligne SAV (si cochée) montre le SAV de TOUS les chantiers
-// - si un ou plusieurs chantiers sont cochés, la ligne SAV (si cochée) ne montre le SAV QUE de ces chantiers
-function chantierMatch(l, set) {
-  if (!set || !set.size) return true;
-  const savOn = set.has(SAV_MARKER);
-  const chantiersCoches = [...set].some(v => v !== SAV_MARKER);
-  if (l.sav) {
-    if (!savOn) return false;
-    return chantiersCoches ? set.has(l.chantier) : true;
-  }
-  if (!chantiersCoches) return false; // seule la ligne SAV est cochée : n'afficher que le SAV
-  return set.has(l.chantier);
-}
 let prevVisible = [], realVisible = [];
 
-const filtresActifs = { salarie: null, chantier: null };
+// Échappement minimal pour l'affichage d'un motif d'exclusion (texte libre saisi par l'utilisateur).
+function escapeHtmlRapport(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+const filtresActifs = { salarie: null, chantier: null, motif: null };
 let _vueChantier = false;
 
 const triEtat = {
@@ -612,7 +600,7 @@ function extrairePrev() {
     if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
-    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, sav: !!data.exclu });
+    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, motif: data.exclu ? (data.motifExclu || 'SAV') : null });
   }
   return lignes;
 }
@@ -625,15 +613,15 @@ async function extraireReal() {
   try {
     const token = localStorage.getItem('syncToken');
     if (!token) return [];
-    // Créneaux du planning marqués « exclu » (SAV), pour repérer les réalisées correspondantes.
+    // Créneaux du planning marqués « exclu » (avec motif), pour repérer les réalisées correspondantes.
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-    const exclusSAV = new Set();
+    const motifsExclus = new Map(); // clé "salId|date|NOM" -> motif
     Object.keys(heures).forEach(k => {
       const e = heures[k];
       if (!e || !e.exclu || !e.chantier) return;
       const mm = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
       if (!mm) return;
-      exclusSAV.add(`${mm[1]}|${mm[2]}-${mm[3]}-${mm[4]}|${e.chantier.trim().toUpperCase()}`);
+      motifsExclus.set(`${mm[1]}|${mm[2]}-${mm[3]}-${mm[4]}|${e.chantier.trim().toUpperCase()}`, e.motifExclu || 'SAV');
     });
     const lignes = [];
     // Boucle sur chaque mois sélectionné, l'API ne renvoie qu'un mois à la fois
@@ -647,7 +635,7 @@ async function extraireReal() {
         (s.chantiers || []).forEach(c => {
           if (!c.dureeMin && !c.deplacement) return;
           const dt = new Date(s.date + 'T00:00:00');
-          const sav = exclusSAV.has(`${String(s.salarieId)}|${s.date}|${String(c.nom || '').trim().toUpperCase()}`);
+          const motif = motifsExclus.get(`${String(s.salarieId)}|${s.date}|${String(c.nom || '').trim().toUpperCase()}`) || null;
           lignes.push({
             date:      dt,
             dateStr:   dt.toLocaleDateString('fr-FR'),
@@ -656,7 +644,7 @@ async function extraireReal() {
             chantier:  c.nom,
             heures:    parseFloat((((c.dureeMin || 0) + (c.deplacement || 0)) / 60).toFixed(2)),
             deplMin:   c.deplacement || 0,
-            sav
+            motif
           });
         });
       });
@@ -674,6 +662,7 @@ async function genererRapport() {
 
   filtresActifs.salarie  = null;
   filtresActifs.chantier = null;
+  filtresActifs.motif    = null;
   majBoutons();
   appliquerEtAfficher();
   setTimeout(ajusterHauteur, 50);
@@ -713,8 +702,7 @@ function majEncartPrevus() {
   // Rapprochement insensible à la casse/aux espaces : un même chantier peut être
   // saisi "Chantier X" à un endroit et "CHANTIER X" à un autre.
   const _clefCh = s => (s || '').toString().trim().replace(/\s+/g, ' ').toUpperCase();
-  const fNorm = new Set([...f].filter(v => v !== SAV_MARKER).map(_clefCh));
-  if (!fNorm.size) { encart.style.display = 'none'; return; } // sélection SAV seule : pas de "prévu" à comparer
+  const fNorm = new Set([...f].map(_clefCh));
   let totalH = 0;
   try {
     const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
@@ -764,16 +752,19 @@ function filtrer(lignes) {
   const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
   return lignes.filter(l => {
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
-    if (!chantierMatch(l, filtresActifs.chantier)) return false;
+    if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
+    // Motif d'exclusion : aucun filtre = tout affiché (exclus et normaux) ;
+    // un filtre actif isole les lignes exclues correspondant aux motifs cochés.
+    if (filtresActifs.motif && filtresActifs.motif.size) {
+      if (l.motif == null || !filtresActifs.motif.has(l.motif)) return false;
+    }
     if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
     return true;
   });
 }
 
 function majBoutons() {
-  // Construire les valeurs disponibles depuis les deux sources
-  const toutesLignes = [...lignesPrev, ...lignesReal];
-  ['salarie','chantier'].forEach(col => {
+  ['salarie','chantier','motif'].forEach(col => {
     const btn = document.getElementById('btn-' + col);
     if (!btn) return;
     const f = filtresActifs[col];
@@ -793,7 +784,7 @@ function afficherSynthese(type, lignes) {
   const titreEl  = document.getElementById('synth-titre-' + type);
 
   const chActifs = filtresActifs.chantier;
-  titreEl.textContent = (chActifs && chActifs.size === 1) ? libelleChantierAffiche([...chActifs][0]) : 'Tous les chantiers';
+  titreEl.textContent = (chActifs && chActifs.size === 1) ? [...chActifs][0] : 'Tous les chantiers';
 
   if (!lignes.length) {
     tbody.innerHTML = '';
@@ -845,10 +836,10 @@ function afficherDetail(type, lignes) {
   let sum = 0;
   tbody.innerHTML = triees.map(l => {
     sum += l.heures;
-    return `<tr${l.sav ? ' style="background:#fef2f2;"' : ''}>
+    return `<tr${l.motif ? ' style="background:#fef2f2;"' : ''}>
       <td>${l.dateStr}</td>
       <td>${l.salarie}</td>
-      <td>${l.chantier}${l.sav ? ' <span style="font-size:0.68rem;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:999px;padding:1px 7px;">SAV</span>' : ''}</td>
+      <td>${l.chantier}${l.motif ? ' <span style="font-size:0.68rem;font-weight:700;color:#dc2626;background:#fee2e2;border-radius:999px;padding:1px 7px;">' + escapeHtmlRapport(l.motif) + '</span>' : ''}</td>
       <td style="text-align:right;font-weight:600;">${l.heures.toFixed(2)} h</td>
     </tr>`;
   }).join('');
@@ -926,16 +917,17 @@ function ouvrirFiltre(col, event) {
   const btn = document.getElementById('btn-' + col);
   if (!btn) return;
 
-  // Calcul des valeurs disponibles, croisé avec le filtre de l'autre colonne
+  // Calcul des valeurs disponibles, croisé avec les filtres actifs des AUTRES colonnes
   const toutesLignes = [...lignesPrev, ...lignesReal];
-  const autreCol = col === 'salarie' ? 'chantier' : 'salarie';
-  const lf = filtresActifs[autreCol]
-    ? toutesLignes.filter(l => autreCol === 'chantier' ? chantierMatch(l, filtresActifs.chantier) : filtresActifs.salarie.has(l.salarie))
-    : toutesLignes;
-  const valeurs = [...new Set(lf.map(l => l[col]))]
-    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
-  // Sur la colonne "chantier", ajouter la ligne spéciale SAV si des temps SAV existent dans les données visibles
-  if (col === 'chantier' && lf.some(l => l.sav)) valeurs.unshift(SAV_MARKER);
+  const colonnes = ['salarie', 'chantier', 'motif'];
+  const lf = colonnes.filter(c => c !== col).reduce((acc, c) => {
+    if (!filtresActifs[c] || !filtresActifs[c].size) return acc;
+    return acc.filter(l => c === 'motif' ? filtresActifs.motif.has(l.motif) : filtresActifs[c].has(l[c]));
+  }, toutesLignes);
+
+  const valeurs = col === 'motif'
+    ? [...new Set(lf.map(l => l.motif).filter(v => v != null))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
+    : [...new Set(lf.map(l => l[col]))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
   const selection = filtresActifs[col]
     ? new Set(filtresActifs[col])
@@ -943,14 +935,13 @@ function ouvrirFiltre(col, event) {
 
   FiltreExcel.ouvrir({
     button: btn,
-    items: valeurs.map(v => ({ value: v, label: libelleChantierAffiche(v) })),
+    items: valeurs.map(v => ({ value: v, label: v })),
     selected: selection,
-    epingles: col === 'chantier' ? [SAV_MARKER] : [],
     onApply: (sel) => {
       // Si tout est sélectionné, on annule le filtre
       filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
       // Mettre à jour le label du bouton
-      const items = valeurs.map(v => ({ value: v, label: libelleChantierAffiche(v) }));
+      const items = valeurs.map(v => ({ value: v, label: v }));
       if (!filtresActifs[col]) {
         btn.textContent = 'Tous ▼';
         btn.classList.remove('fexc-active');

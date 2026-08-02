@@ -214,6 +214,21 @@
   #rdv-pop .rdv-pop-clear:hover { background:#e2e8f0; }
   #rdv-pop .rdv-pop-cancel { background:#fee2e2;color:#b91c1c; }
   #rdv-pop .rdv-pop-cancel:hover { background:#fecaca; }
+  /* Panneau de choix du motif d'exclusion (ouvert à côté du bouton rond) */
+  #excl-pop { position:fixed;z-index:2000;display:none;background:#fff;border:1px solid #cbd5e1;
+    border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);padding:10px;min-width:190px; }
+  #excl-pop .excl-pop-titre { font-size:0.78rem;color:#475569;font-weight:600;margin-bottom:6px; }
+  #excl-pop select, #excl-pop input[type="text"] { width:100%;box-sizing:border-box;padding:5px 7px;
+    border:1px solid #cbd5e1;border-radius:5px;font-size:0.85rem;margin-bottom:7px; }
+  #excl-pop .excl-pop-actions { display:flex;gap:6px;flex-wrap:wrap; }
+  #excl-pop .excl-pop-actions button { flex:1 1 auto;padding:6px 4px;border:none;border-radius:5px;cursor:pointer;
+    font-size:0.76rem;font-weight:600;white-space:nowrap; }
+  #excl-pop .excl-pop-ok { background:#2563eb;color:#fff; }
+  #excl-pop .excl-pop-ok:hover { background:#1d4ed8; }
+  #excl-pop .excl-pop-clear { background:#f1f5f9;color:#475569; }
+  #excl-pop .excl-pop-clear:hover { background:#e2e8f0; }
+  #excl-pop .excl-pop-cancel { background:#fee2e2;color:#b91c1c; }
+  #excl-pop .excl-pop-cancel:hover { background:#fecaca; }
   /* ── Barre latérale rétractable (page planning) ── */
   #pl-rail-toggle { display:none;position:fixed;top:50%;left:208px;transform:translateY(-50%);z-index:1500;
     width:20px;height:54px;padding:0;border:none;cursor:pointer;background:#1d8cf0;color:#fff;
@@ -926,7 +941,7 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
-      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer':'Exclure ce temps du calcul (SAV)'}" onclick="toggleExclu('${sl.k}')"></button>`}
+      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(data.motifExclu||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
@@ -1345,9 +1360,11 @@ function saveHeure(k, ch, h) {
   const rdvNotifAv = (heures[k] && heures[k].rdvNotifie != null) ? heures[k].rdvNotifie : null;
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
   const excluAv = !!(heures[k] && heures[k].exclu);
+  const motifExcluAv = (heures[k] && heures[k].motifExclu) ? heures[k].motifExclu : '';
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
   if (motifAv) heures[k].motif = motifAv;
-  if (excluAv) heures[k].exclu = true;   // le marquage « exclu du calcul » (SAV) survit aux modifs de nom/heures
+  if (excluAv) heures[k].exclu = true;   // le marquage « exclu du calcul » survit aux modifs de nom/heures
+  if (motifExcluAv) heures[k].motifExclu = motifExcluAv;
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
@@ -1362,24 +1379,124 @@ function saveHeure(k, ch, h) {
   majCouleursChantiers();
 }
 
-/* ── Exclure / réintégrer un temps de chantier dans le calcul (SAV) ──
-   Marque le créneau data.exclu. N'apparaît que sur un chantier nommé (pas TNA,
-   pas pavé vide). Le temps reste affiché et compté dans le total du jour du
-   planning (le salarié a bien travaillé), mais sera exclu du prévisionnel, de la
-   jauge réalisé et repérable dans les rapports (étapes suivantes). */
-function toggleExclu(k) {
+/* ── Exclure / réintégrer un temps de chantier dans le calcul, avec motif ──
+   Marque le créneau data.exclu + data.motifExclu. N'apparaît que sur un chantier
+   nommé (pas TNA, pas pavé vide). Le temps reste affiché et compté dans le total
+   du jour du planning (le salarié a bien travaillé), mais sera exclu du
+   prévisionnel, de la jauge réalisé, et son motif est repérable dans les rapports. */
+const MOTIFS_EXCLU = ['SAV', 'Fournisseur', 'Visite client'];
+let _exclPopK = null;
+function ouvrirExclu(k) {
+  const btn = document.getElementById(k + 'exclu-btn');
+  if (!btn || !heures[k]) return;
+  const nom = (heures[k].chantier || '').trim();
+  if (!nom || nom.toUpperCase() === TNA) return;   // sécurité : jamais sur vide ni TNA
+
+  let pop = document.getElementById('excl-pop');
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'excl-pop';
+    pop.className = 'no-print';
+    pop.innerHTML =
+      '<div class="excl-pop-titre">Exclure ce temps du calcul</div>' +
+      '<select id="excl-pop-motif" onchange="majExclPopAutre()" onkeydown="if(event.key===\'Escape\')fermerExclPop();">' +
+        MOTIFS_EXCLU.map(m => `<option value="${m}">${m}</option>`).join('') +
+        '<option value="Autres">Autres…</option>' +
+      '</select>' +
+      '<input type="text" id="excl-pop-autre" placeholder="Préciser le motif" style="display:none;" onkeydown="if(event.key===\'Enter\')validerExclPop();if(event.key===\'Escape\')fermerExclPop();">' +
+      '<div class="excl-pop-actions">' +
+        '<button type="button" class="excl-pop-ok" onclick="validerExclPop()">Valider</button>' +
+        '<button type="button" class="excl-pop-clear" onclick="effacerExclPop()">Réintégrer</button>' +
+        '<button type="button" class="excl-pop-cancel" onclick="fermerExclPop()">Annuler</button>' +
+      '</div>';
+    document.body.appendChild(pop);
+  }
+  _exclPopK = k;
+  const sel   = document.getElementById('excl-pop-motif');
+  const autre = document.getElementById('excl-pop-autre');
+  const actif = !!heures[k].exclu;
+  const motifActuel = actif ? (heures[k].motifExclu || 'SAV') : '';
+  if (!motifActuel || MOTIFS_EXCLU.includes(motifActuel)) {
+    sel.value = motifActuel || 'SAV';
+    autre.style.display = 'none';
+    autre.value = '';
+  } else {
+    sel.value = 'Autres';
+    autre.style.display = 'block';
+    autre.value = motifActuel;
+  }
+  const btnClear = pop.querySelector('.excl-pop-clear');
+  if (btnClear) btnClear.style.display = actif ? '' : 'none';
+  pop.style.display = 'block';
+  // Positionnement à côté du bouton (à droite, sinon à gauche si pas la place)
+  const r  = btn.getBoundingClientRect();
+  const pw = pop.offsetWidth  || 190;
+  const ph = pop.offsetHeight || 130;
+  let left = r.right + 6;
+  if (left + pw > window.innerWidth - 8) left = r.left - pw - 6;
+  if (left < 8) left = 8;
+  let top = r.top;
+  if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+  if (top < 8) top = 8;
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+  setTimeout(() => { sel.focus(); }, 20);
+}
+function majExclPopAutre() {
+  const sel = document.getElementById('excl-pop-motif');
+  const autre = document.getElementById('excl-pop-autre');
+  if (!sel || !autre) return;
+  autre.style.display = sel.value === 'Autres' ? 'block' : 'none';
+  if (sel.value === 'Autres') autre.focus();
+}
+function validerExclPop() {
+  if (_exclPopK == null) return;
+  const sel   = document.getElementById('excl-pop-motif');
+  const autre = document.getElementById('excl-pop-autre');
+  let motif = sel ? sel.value : 'SAV';
+  if (motif === 'Autres') {
+    motif = (autre && autre.value || '').trim();
+    if (!motif) { if (autre) autre.focus(); return; }   // motif libre obligatoire
+  }
+  appliquerExclu(_exclPopK, true, motif);
+  fermerExclPop();
+}
+function effacerExclPop() {
+  if (_exclPopK != null) appliquerExclu(_exclPopK, false, '');
+  fermerExclPop();
+}
+function fermerExclPop() {
+  const pop = document.getElementById('excl-pop');
+  if (pop) pop.style.display = 'none';
+  _exclPopK = null;
+}
+/* Fermer (annuler) si on clique en dehors du panneau */
+document.addEventListener('mousedown', (e) => {
+  const pop = document.getElementById('excl-pop');
+  if (!pop || pop.style.display === 'none') return;
+  if (pop.contains(e.target)) return;
+  if (e.target.classList && e.target.classList.contains('btn-exclu-ch')) return;
+  fermerExclPop();
+});
+
+function appliquerExclu(k, actif, motif) {
   if (!heures[k]) return;
   const nom = (heures[k].chantier || '').trim();
   if (!nom || nom.toUpperCase() === TNA) return;   // sécurité : jamais sur vide ni TNA
-  heures[k].exclu = !heures[k].exclu;
-  if (!heures[k].exclu) delete heures[k].exclu;
+  if (actif) {
+    heures[k].exclu = true;
+    heures[k].motifExclu = motif || 'SAV';
+  } else {
+    delete heures[k].exclu;
+    delete heures[k].motifExclu;
+  }
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   const btn = document.getElementById(k + 'exclu-btn');
   if (btn) {
     btn.classList.toggle('actif', !!heures[k].exclu);
     btn.title = heures[k].exclu
-      ? 'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer'
-      : 'Exclure ce temps du calcul (SAV)';
+      ? 'Temps EXCLU du calcul (' + heures[k].motifExclu + ') — cliquer pour modifier'
+      : 'Exclure ce temps du calcul';
   }
   if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
 }
@@ -1594,7 +1711,7 @@ function rafraichirLigne(salarieId, dateStr) {
       const nomOk = (e.chantier || '').trim() !== '' && (e.chantier || '').toUpperCase() !== TNA;
       bex.classList.toggle('masque', !nomOk);          // apparaît dès qu'un chantier est nommé
       bex.classList.toggle('actif', !!e.exclu);
-      bex.title = e.exclu ? 'Temps EXCLU du calcul (SAV) — cliquer pour réintégrer' : 'Exclure ce temps du calcul (SAV)';
+      bex.title = e.exclu ? 'Temps EXCLU du calcul (' + (e.motifExclu || 'SAV') + ') — cliquer pour modifier' : 'Exclure ce temps du calcul';
     }
   }
   majTotalLigne(salarieId, dateStr);

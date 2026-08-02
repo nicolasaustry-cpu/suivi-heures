@@ -180,6 +180,12 @@
         <div class="filtre-btn" id="btn-ch" onclick="ouvrirFiltreCh(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.9rem;min-width:120px;user-select:none;display:inline-block;">Tous ▼</div>
       </div>
 
+      <!-- Filtre motif d'exclusion -->
+      <div>
+        <label style="font-size:0.82rem;font-weight:600;">Motif d'exclusion :</label><br>
+        <div class="filtre-btn" id="btn-motif" onclick="ouvrirFiltreMotif(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.9rem;min-width:120px;user-select:none;display:inline-block;">Tous ▼</div>
+      </div>
+
       <!-- Exclusion par mot-clé -->
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Exclure les chantiers contenant :</label><br>
@@ -244,33 +250,35 @@
 <script>
 let _saisies  = [];
 let _salaries = [];
+
+// Échappement minimal pour l'affichage d'un motif d'exclusion (texte libre saisi par l'utilisateur).
+function escapeHtmlRe(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
 let _cochésSal = new Set();
 let _cochesCh  = new Set();
+let _cochesMotif = new Set();
 let _tousSals  = [];
 let _tousChs   = [];
+let _tousMotifs = [];
 let _moisSelection = new Set();   // Set de 'YYYY-MM'
 
-// Valeur spéciale insérée dans le filtre "Chantiers" pour isoler les créneaux exclus SAV
-// (mêmes conventions que rapports.html).
-const SAV_MARKER = '__SAV__';
-const SAV_LABEL  = '🔴 Temps SAV (tous chantiers)';
-function libelleChantierAffiche(v) { return v === SAV_MARKER ? SAV_LABEL : v; }
-
-/* Créneaux du planning marqués « exclu du calcul » (SAV), à recouper avec salarié + date + nom. */
-function calculerExclusSAV() {
+/* Créneaux du planning marqués « exclu du calcul », avec leur motif, à recouper avec salarié + date + nom. */
+function calculerExclusMotifs() {
   const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
-  const exclusSAV = new Set();
+  const motifsExclus = new Map(); // clé "salId|date|NOM" -> motif
   Object.keys(heures).forEach(k => {
     const e = heures[k];
     if (!e || !e.exclu || !e.chantier) return;
     const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
     if (!m) return;
-    exclusSAV.add(`${m[1]}|${m[2]}-${m[3]}-${m[4]}|${e.chantier.trim().toUpperCase()}`);
+    motifsExclus.set(`${m[1]}|${m[2]}-${m[3]}-${m[4]}|${e.chantier.trim().toUpperCase()}`, e.motifExclu || 'SAV');
   });
-  return exclusSAV;
+  return motifsExclus;
 }
-function estExcluSAV(exclusSAV, salarieId, date, nom) {
-  return exclusSAV.has(`${salarieId}|${date}|${String(nom || '').trim().toUpperCase()}`);
+// Renvoie le motif d'exclusion du créneau, ou null s'il n'est pas exclu.
+function motifExclu(motifsExclus, salarieId, date, nom) {
+  return motifsExclus.get(`${salarieId}|${date}|${String(nom || '').trim().toUpperCase()}`) || null;
 }
 
 /* ══ SÉLECTION MULTI-MOIS ══ */
@@ -395,17 +403,24 @@ async function chargerRealise(garderEtat) {
   // Construire les listes de filtres (en préservant la sélection courante si demandé)
   const ancSal = garderEtat ? _cochésSal : null;
   const ancCh  = garderEtat ? _cochesCh  : null;
+  const ancMotif = garderEtat ? _cochesMotif : null;
   _tousSals = [...new Set(_saisies.map(s => s.salarieNom))].sort();
   _tousChs  = [...new Set(_saisies.flatMap(s => (s.chantiers||[]).map(c => c.nom)))].sort();
-  const exclusSAVInit = calculerExclusSAV();
-  const aDuSAV = _saisies.some(s => (s.chantiers||[]).some(c => estExcluSAV(exclusSAVInit, s.salarieId, s.date, c.nom)));
-  if (aDuSAV) _tousChs.unshift(SAV_MARKER);
+  const motifsExclusInit = calculerExclusMotifs();
+  const motifsTrouves = new Set();
+  _saisies.forEach(s => (s.chantiers||[]).forEach(c => {
+    const m = motifExclu(motifsExclusInit, s.salarieId, s.date, c.nom);
+    if (m) motifsTrouves.add(m);
+  }));
+  _tousMotifs = [...motifsTrouves].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   _cochésSal = ancSal ? new Set(_tousSals.filter(v => ancSal.has(v))) : new Set();
   _cochesCh  = ancCh  ? new Set(_tousChs.filter(v => ancCh.has(v)))  : new Set();
+  _cochesMotif = ancMotif ? new Set(_tousMotifs.filter(v => ancMotif.has(v))) : new Set();
   if (garderEtat) _supprimerScroll = true;
 
   majBtnFiltre('sal');
   majBtnFiltre('ch');
+  majBtnFiltre('motif');
   afficherRealise();
 }
 
@@ -426,9 +441,8 @@ function ouvrirFiltreSal(btn) {
 function ouvrirFiltreCh(btn) {
   FiltreExcel.ouvrir({
     button: btn,
-    items: _tousChs.map(v => ({ value: v, label: libelleChantierAffiche(v) })),
+    items: _tousChs.map(v => ({ value: v, label: v })),
     selected: _cochesCh,
-    epingles: [SAV_MARKER],
     onApply: (sel) => {
       _cochesCh = sel;
       majBtnFiltre('ch');
@@ -437,12 +451,25 @@ function ouvrirFiltreCh(btn) {
   });
 }
 
+function ouvrirFiltreMotif(btn) {
+  FiltreExcel.ouvrir({
+    button: btn,
+    items: _tousMotifs.map(v => ({ value: v, label: v })),
+    selected: _cochesMotif,
+    onApply: (sel) => {
+      _cochesMotif = sel;
+      majBtnFiltre('motif');
+      afficherRealise();
+    }
+  });
+}
+
 function majBtnFiltre(type) {
   const btn    = document.getElementById('btn-' + type);
   if (!btn) return;
-  const coches = type === 'sal' ? _cochésSal : _cochesCh;
-  const tous   = type === 'sal' ? _tousSals  : _tousChs;
-  const items  = tous.map(v => ({ value: v, label: type === 'ch' ? libelleChantierAffiche(v) : v }));
+  const coches = type === 'sal' ? _cochésSal : type === 'motif' ? _cochesMotif : _cochesCh;
+  const tous   = type === 'sal' ? _tousSals  : type === 'motif' ? _tousMotifs  : _tousChs;
+  const items  = tous.map(v => ({ value: v, label: v }));
   btn.textContent = FiltreExcel.libelle(coches, tous.length, items) + ' ▼';
   if (coches.size === tous.length || coches.size === 0) {
     btn.classList.remove('fexc-active');
@@ -493,10 +520,10 @@ function afficherRealise() {
   // Pré-calculer les heures prévues par salarié par jour depuis le planning
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
 
-  // Créneaux du planning marqués « exclu du calcul » (SAV), recoupés par salarié + date + nom.
+  // Créneaux du planning marqués « exclu du calcul », avec leur motif, recoupés par salarié + date + nom.
   // Ces temps restent AFFICHÉS (le salarié a travaillé) mais ne comptent PAS dans le
   // total réalisé ni dans la jauge.
-  const exclusSAV = calculerExclusSAV();
+  const motifsExclus = calculerExclusMotifs();
 
   const joursNoms = ['dim','lun','mar','mer','jeu','ven','sam'];
 
@@ -524,25 +551,22 @@ function afficherRealise() {
   // Détermine si un chantier doit être affiché.
   // - Si le champ "Exclure ... contenant" est rempli : on affiche TOUS les chantiers
   //   SAUF ceux dont le nom contient le texte saisi (le filtre coché est ignoré).
-  // - Sinon, logique contextuelle chantier + SAV (mêmes règles que rapports.html) :
-  //   - aucune case cochée -> tout affiché
-  //   - la ligne SAV du filtre ne concerne QUE les créneaux exclus SAV
-  //   - si aucun chantier précis n'est coché, la case SAV (si cochée) affiche le SAV de TOUS les chantiers
-  //   - si un ou plusieurs chantiers sont cochés, la case SAV (si cochée) n'affiche que LEUR SAV
-  function chantierVisible(nom, excl) {
+  // - Sinon : on applique le filtre coché habituel.
+  function chantierVisible(nom) {
     const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
     if (exclu) {
       return !String(nom || '').toLowerCase().includes(exclu);
     }
-    if (!_cochesCh.size) return true;
-    const savOn = _cochesCh.has(SAV_MARKER);
-    const chantiersCoches = [..._cochesCh].some(v => v !== SAV_MARKER);
-    if (excl) {
-      if (!savOn) return false;
-      return chantiersCoches ? _cochesCh.has(nom) : true;
-    }
-    if (!chantiersCoches) return false;
-    return _cochesCh.has(nom);
+    return !_cochesCh.size || _cochesCh.has(nom);
+  }
+
+  // Détermine si le motif d'exclusion (ou son absence) doit être affiché.
+  // - Aucun filtre motif actif -> tout affiché (créneaux exclus et normaux).
+  // - Un filtre actif -> isole les créneaux exclus dont le motif est coché.
+  function motifVisible(motif) {
+    if (!_cochesMotif.size) return true;
+    if (motif == null) return false;
+    return _cochesMotif.has(motif);
   }
 
   cont.innerHTML = Object.keys(parDate).sort().map(date => {
@@ -554,18 +578,19 @@ function afficherRealise() {
 
     parDate[date].forEach(s => {
       const chantiersFiltres = (s.chantiers || []).filter(c =>
-        chantierVisible(c.nom, estExcluSAV(exclusSAV, s.salarieId, s.date, c.nom)));
+        chantierVisible(c.nom) && motifVisible(motifExclu(motifsExclus, s.salarieId, s.date, c.nom)));
       // On garde le salarié s'il a des chantiers visibles OU une pause déjeuner à afficher.
       if (!chantiersFiltres.length && !(s.pauseJournee > 0)) return;
 
       let salTotalMin = 0, salDeplMin = 0;
 
       chantiersFiltres.forEach(c => {
-        const excl = estExcluSAV(exclusSAV, s.salarieId, s.date, c.nom);
+        const motif = motifExclu(motifsExclus, s.salarieId, s.date, c.nom);
+        const excl = motif != null;
         const hh = Math.floor(c.dureeMin / 60), mm = c.dureeMin % 60;
         const totMin = c.dureeMin + (c.deplacement || 0);
         const th = Math.floor(totMin / 60), tm = totMin % 60;
-        if (!excl) {                     // les temps exclus (SAV) ne comptent pas dans le réalisé / la jauge
+        if (!excl) {                     // les temps exclus ne comptent pas dans le réalisé / la jauge
           salTotalMin += c.dureeMin;
           salDeplMin  += c.deplacement || 0;
         }
@@ -578,7 +603,7 @@ function afficherRealise() {
              <button class="btn-action btn-del" title="Supprimer" data-sid="${s._id}" data-idx="${idxC}" onclick="supprimerChantierSaisie(this)">${iconPoubelle}</button>`;
         rows += `<tr${excl ? ' style="opacity:0.55;"' : ''}>
           <td class="col-sal">${s.salarieNom}</td>
-          <td class="col-ch">${c.nom}${excl ? ' <span style="font-size:0.7rem;color:#dc2626;font-weight:700;">(exclu SAV)</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
+          <td class="col-ch">${c.nom}${excl ? ' <span style="font-size:0.7rem;color:#dc2626;font-weight:700;">(exclu ' + escapeHtmlRe(motif) + ')</span>' : ''}${c.isPrevisionnel ? ' <span style="font-size:0.7rem;color:#2563eb;">(prévu)</span>' : ''}</td>
           <td class="col-h">${c.heureArrivee || '—'} → ${c.heureDepart || '—'}</td>
           <td class="col-pause">${c.pause ? c.pause + ' min' : '—'}</td>
           <td class="col-h">${hh}h${String(mm).padStart(2,'0')}</td>
