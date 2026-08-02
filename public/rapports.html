@@ -455,6 +455,18 @@ const entreprise = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
 ═══════════════════════════ */
 let lignesPrev  = []; // heures planning (prévues)
 let lignesReal  = []; // saisies salariés (réalisées)
+
+// Valeur spéciale insérée dans le filtre "Chantier(s)" pour isoler les temps SAV
+// (tous chantiers confondus), sans dépendre d'un nom de chantier réel.
+const SAV_MARKER = '__SAV__';
+const SAV_LABEL  = '🔴 Temps SAV (tous chantiers)';
+function libelleChantierAffiche(v) { return v === SAV_MARKER ? SAV_LABEL : v; }
+// Une ligne correspond au filtre chantier si son nom est coché,
+// OU si le marqueur SAV est coché et que la ligne est un temps SAV.
+function chantierMatch(l, set) {
+  if (!set || !set.size) return true;
+  return set.has(l.chantier) || (set.has(SAV_MARKER) && l.sav);
+}
 let prevVisible = [], realVisible = [];
 
 const filtresActifs = { salarie: null, chantier: null };
@@ -698,7 +710,8 @@ function majEncartPrevus() {
   // Rapprochement insensible à la casse/aux espaces : un même chantier peut être
   // saisi "Chantier X" à un endroit et "CHANTIER X" à un autre.
   const _clefCh = s => (s || '').toString().trim().replace(/\s+/g, ' ').toUpperCase();
-  const fNorm = new Set([...f].map(_clefCh));
+  const fNorm = new Set([...f].filter(v => v !== SAV_MARKER).map(_clefCh));
+  if (!fNorm.size) { encart.style.display = 'none'; return; } // sélection SAV seule : pas de "prévu" à comparer
   let totalH = 0;
   try {
     const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
@@ -750,7 +763,7 @@ function filtrer(lignes) {
   return lignes.filter(l => {
     if (masquerSAV && l.sav) return false;
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
-    if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
+    if (!chantierMatch(l, filtresActifs.chantier)) return false;
     if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
     return true;
   });
@@ -779,7 +792,7 @@ function afficherSynthese(type, lignes) {
   const titreEl  = document.getElementById('synth-titre-' + type);
 
   const chActifs = filtresActifs.chantier;
-  titreEl.textContent = (chActifs && chActifs.size === 1) ? [...chActifs][0] : 'Tous les chantiers';
+  titreEl.textContent = (chActifs && chActifs.size === 1) ? libelleChantierAffiche([...chActifs][0]) : 'Tous les chantiers';
 
   if (!lignes.length) {
     tbody.innerHTML = '';
@@ -916,10 +929,12 @@ function ouvrirFiltre(col, event) {
   const toutesLignes = [...lignesPrev, ...lignesReal];
   const autreCol = col === 'salarie' ? 'chantier' : 'salarie';
   const lf = filtresActifs[autreCol]
-    ? toutesLignes.filter(l => filtresActifs[autreCol].has(l[autreCol]))
+    ? toutesLignes.filter(l => autreCol === 'chantier' ? chantierMatch(l, filtresActifs.chantier) : filtresActifs.salarie.has(l.salarie))
     : toutesLignes;
   const valeurs = [...new Set(lf.map(l => l[col]))]
     .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  // Sur la colonne "chantier", ajouter la ligne spéciale SAV si des temps SAV existent dans les données visibles
+  if (col === 'chantier' && lf.some(l => l.sav)) valeurs.unshift(SAV_MARKER);
 
   const selection = filtresActifs[col]
     ? new Set(filtresActifs[col])
@@ -927,13 +942,13 @@ function ouvrirFiltre(col, event) {
 
   FiltreExcel.ouvrir({
     button: btn,
-    items: valeurs.map(v => ({ value: v, label: v })),
+    items: valeurs.map(v => ({ value: v, label: libelleChantierAffiche(v) })),
     selected: selection,
     onApply: (sel) => {
       // Si tout est sélectionné, on annule le filtre
       filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
       // Mettre à jour le label du bouton
-      const items = valeurs.map(v => ({ value: v, label: v }));
+      const items = valeurs.map(v => ({ value: v, label: libelleChantierAffiche(v) }));
       if (!filtresActifs[col]) {
         btn.textContent = 'Tous ▼';
         btn.classList.remove('fexc-active');
