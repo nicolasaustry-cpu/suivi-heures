@@ -938,8 +938,10 @@ function ouvrirFiltre(col, event) {
     items: valeurs.map(v => ({ value: v, label: v })),
     selected: selection,
     onApply: (sel) => {
-      // Si tout est sélectionné, on annule le filtre
-      filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
+      // Si tout est sélectionné, on annule le filtre — SAUF pour "motif" : cocher tous
+      // les motifs isole les lignes exclues (peu importe le motif), ce qui n'a pas le
+      // même sens que "aucun filtre" (qui montre aussi les lignes non exclues).
+      filtresActifs[col] = (sel.size && (col === 'motif' || !valeurs.every(v => sel.has(v)))) ? sel : null;
       // Mettre à jour le label du bouton
       const items = valeurs.map(v => ({ value: v, label: v }));
       if (!filtresActifs[col]) {
