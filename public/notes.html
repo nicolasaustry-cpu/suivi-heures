@@ -200,7 +200,7 @@ function isoVersFr(iso) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
 }
 function parseLigneMeta(ligne) {
-  const m = ligne.match(/^\[([^\]]+)\](?:\[I:([^\]]*)\])?\s(.*)$/);
+  const m = ligne.match(/^\[([^\]]+)\]\s*(?:\[I:([^\]]*)\])?\s(.*)$/);
   if (!m) return { entete: '', interv: '', intervIso: '', entretien: false, texte: ligne };
   const entete = m[1];
   const metaRaw = m[2] || '';

@@ -83,7 +83,7 @@ function frVersIso(fr) {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
 }
 function parseLigneMeta(ligne) {
-  const m = ligne.match(/^\[([^\]]+)\](?:\[I:([^\]]*)\])?\s(.*)$/);
+  const m = ligne.match(/^\[([^\]]+)\]\s*(?:\[I:([^\]]*)\])?\s(.*)$/);
   if (!m) return { entretien: false, interv: '' };
   const metaRaw = m[2] || '';
   const entretien = /(^|;)E(;|$)/.test(metaRaw);
