@@ -69,15 +69,13 @@
     <tbody id="tbody-se"></tbody>
   </table>
   <div class="se-vide" id="se-vide" style="display:none;">
-    Aucun chantier n'est encore marqué « Contrat entretien annuel ». Cochez-les dans <a href="notes.html">Notes</a>, à côté du nom du chantier.
+    Aucun chantier n'a encore de note taguée « Entretien annuel ». Cochez la case lors de la création d'une note dans <a href="planning.html">Planning</a>.
   </div>
 </section>
 
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script>
-const SENTINEL_CONTRAT = '[CONTRAT_ENTRETIEN]';
-
 function frVersIso(fr) {
   const m = (fr || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
@@ -97,19 +95,16 @@ function fmtDateFr(d) {
   return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
-/* Pour chaque chantier suivi (ligne sentinelle présente) : cherche la date
-   d'intervention la plus récente parmi les lignes taguées « Entretien ».
-   Sans aucune ligne taguée, le chantier apparaît quand même (échéance inconnue),
-   pour rappeler qu'il faut renseigner une première intervention. */
+/* Un chantier apparaît dès qu'il a au moins une note taguée « Entretien annuel »
+   (case cochée à la création dans planning.html) — pas besoin d'un réglage séparé.
+   La date retenue est la plus récente parmi ces notes taguées. */
 function calculerSuivi(notesChantiers) {
   const resultats = [];
   Object.keys(notesChantiers || {}).forEach(nom => {
     const brut = notesChantiers[nom] || '';
     const lignes = brut.split('\n').filter(l => l.trim());
-    if (!lignes.includes(SENTINEL_CONTRAT)) return;
     let derniere = null;
     lignes.forEach(l => {
-      if (l === SENTINEL_CONTRAT) return;
       const meta = parseLigneMeta(l);
       if (!meta.entretien || !meta.interv) return;
       const iso = frVersIso(meta.interv);
@@ -125,6 +120,7 @@ function calculerSuivi(notesChantiers) {
       const auj = new Date(); auj.setHours(0,0,0,0);
       enRetard = echeance < auj;
     }
+    if (!derniere) return;   // aucune note taguée Entretien annuel pour ce chantier
     resultats.push({ nom, derniere, echeance, enRetard });
   });
   // En retard d'abord, puis par échéance croissante, puis les chantiers sans date à la fin.
@@ -140,7 +136,7 @@ function calculerSuivi(notesChantiers) {
 
 function rendre(liste) {
   document.getElementById('se-count').textContent =
-    liste.length ? (liste.length + ' chantier' + (liste.length > 1 ? 's' : '') + ' sous contrat') : '';
+    liste.length ? (liste.length + ' chantier' + (liste.length > 1 ? 's' : '') + ' suivi' + (liste.length > 1 ? 's' : '')) : '';
   const tbody = document.getElementById('tbody-se');
   const vide  = document.getElementById('se-vide');
   if (!liste.length) { tbody.innerHTML = ''; vide.style.display = 'block'; return; }
@@ -148,11 +144,9 @@ function rendre(liste) {
   tbody.innerHTML = liste.map(r => `
     <tr${r.enRetard ? ' class="se-retard-row"' : ''}>
       <td>${echap(r.nom)}</td>
-      <td>${r.derniere ? fmtDateFr(r.derniere) : '—'}</td>
-      <td>${r.echeance ? fmtDateFr(r.echeance) : '—'}</td>
-      <td>${r.derniere
-        ? `<span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span>`
-        : `<span class="se-badge se-retard">Aucune intervention taguée</span>`}</td>
+      <td>${fmtDateFr(r.derniere)}</td>
+      <td>${fmtDateFr(r.echeance)}</td>
+      <td><span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span></td>
     </tr>`).join('');
 }
 
