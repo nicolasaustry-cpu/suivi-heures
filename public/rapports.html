@@ -454,11 +454,20 @@ let lignesReal  = []; // saisies salariés (réalisées)
 const SAV_MARKER = '__SAV__';
 const SAV_LABEL  = '🔴 Temps SAV (tous chantiers)';
 function libelleChantierAffiche(v) { return v === SAV_MARKER ? SAV_LABEL : v; }
-// Une ligne correspond au filtre chantier : si c'est un temps SAV, uniquement quand la ligne
-// spéciale SAV est cochée (indépendamment du nom du chantier) ; sinon quand son nom est coché.
+// Une ligne correspond au filtre chantier selon le contexte :
+// - aucun filtre actif -> tout affiché
+// - la ligne SAV n'affecte QUE les lignes SAV, la sélection des chantiers QUE les lignes normales
+// - si aucun chantier précis n'est coché, la ligne SAV (si cochée) montre le SAV de TOUS les chantiers
+// - si un ou plusieurs chantiers sont cochés, la ligne SAV (si cochée) ne montre le SAV QUE de ces chantiers
 function chantierMatch(l, set) {
   if (!set || !set.size) return true;
-  if (l.sav) return set.has(SAV_MARKER);
+  const savOn = set.has(SAV_MARKER);
+  const chantiersCoches = [...set].some(v => v !== SAV_MARKER);
+  if (l.sav) {
+    if (!savOn) return false;
+    return chantiersCoches ? set.has(l.chantier) : true;
+  }
+  if (!chantiersCoches) return false; // seule la ligne SAV est cochée : n'afficher que le SAV
   return set.has(l.chantier);
 }
 let prevVisible = [], realVisible = [];
