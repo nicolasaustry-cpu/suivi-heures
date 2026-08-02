@@ -265,13 +265,6 @@
       <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
         style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
     </div>
-    <div class="filtre-item">
-      <label>SAV</label>
-      <label class="filtre-btn" style="display:inline-flex;align-items:center;gap:7px;min-width:0;font-weight:600;">
-        <input type="checkbox" id="masquerSAV" onchange="appliquerEtAfficher()" style="width:16px;height:16px;cursor:pointer;">
-        Masquer les temps SAV
-      </label>
-    </div>
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
       <div style="display:flex;gap:0.4rem;">
@@ -461,11 +454,12 @@ let lignesReal  = []; // saisies salariés (réalisées)
 const SAV_MARKER = '__SAV__';
 const SAV_LABEL  = '🔴 Temps SAV (tous chantiers)';
 function libelleChantierAffiche(v) { return v === SAV_MARKER ? SAV_LABEL : v; }
-// Une ligne correspond au filtre chantier si son nom est coché,
-// OU si le marqueur SAV est coché et que la ligne est un temps SAV.
+// Une ligne correspond au filtre chantier : si c'est un temps SAV, uniquement quand la ligne
+// spéciale SAV est cochée (indépendamment du nom du chantier) ; sinon quand son nom est coché.
 function chantierMatch(l, set) {
   if (!set || !set.size) return true;
-  return set.has(l.chantier) || (set.has(SAV_MARKER) && l.sav);
+  if (l.sav) return set.has(SAV_MARKER);
+  return set.has(l.chantier);
 }
 let prevVisible = [], realVisible = [];
 
@@ -759,9 +753,7 @@ function majEncartPrevus() {
 
 function filtrer(lignes) {
   const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
-  const masquerSAV = !!document.getElementById('masquerSAV')?.checked;
   return lignes.filter(l => {
-    if (masquerSAV && l.sav) return false;
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
     if (!chantierMatch(l, filtresActifs.chantier)) return false;
     if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
