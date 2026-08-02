@@ -600,7 +600,10 @@ function extrairePrev() {
     if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
     const nomSal = indexSal[m[1]];
     if (!nomSal) continue;
-    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, motif: data.exclu ? (data.motifExclu || 'SAV') : null });
+    // Temps Non Affecté : traité comme un motif, au même titre que les exclusions (SAV, etc.)
+    const estTNA = chantier.trim().toUpperCase() === 'TEMPS NON AFFECTE';
+    const motif = estTNA ? 'Temps non affecté' : (data.exclu ? (data.motifExclu || 'SAV') : null);
+    lignes.push({ date: d, dateStr: d.toLocaleDateString('fr-FR'), salarie: nomSal, salarieId: m[1], chantier, heures: h, motif });
   }
   return lignes;
 }

@@ -234,7 +234,7 @@
   </section>
 
   <!-- ────── Heures vendables, vendues et exclues, janvier à décembre ────── -->
-  <section class="tdb-vignette large" data-id="ventequalite">
+  <section class="tdb-vignette large3" data-id="ventequalite">
     <div class="tdb-tete">
       <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
       <span class="tdb-titre">Vendables, vendues, exclues <span id="vq-an"></span></span>
@@ -253,24 +253,14 @@
         <div class="tdb-legende">
           <span><i class="tdb-trait"></i>Heures vendables</span>
           <span><i class="tdb-trait" style="border-top-style:solid;border-top-color:#0f3a8a;"></i>Heures vendues</span>
-          <span><i class="tdb-pastille" style="background:#d1495b"></i>Heures exclues (% affiché = part des vendables)</span>
+          <span><i class="tdb-pastille" style="background:#d1495b"></i>SAV</span>
+          <span><i class="tdb-pastille" style="background:#b45309"></i>Fournisseur</span>
+          <span><i class="tdb-pastille" style="background:#7c3aed"></i>Visite client</span>
+          <span><i class="tdb-pastille" style="background:#64748b"></i>Temps non affecté</span>
+          <span>% affiché = part des vendables</span>
         </div>
       </div>
     </div>
-  </section>
-
-  <!-- ────── Heures non vendables (à droite de la vue annuelle) ────── -->
-  <section class="tdb-vignette" data-id="hnv">
-    <div class="tdb-tete">
-      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-      <span class="tdb-titre">Heures non vendables</span>
-      <a class="tdb-lien" href="planning.html">Planning →</a>
-    </div>
-    <div class="tdb-val" id="hnv-h">22,0<u>h</u></div>
-    <div class="tdb-lbl">sur <span id="hnv-nb">9</span> créneaux</div>
-    <div class="tdb-second" id="hnv-pct">2,4 % des heures du mois</div>
-    <div class="tdb-barre"><i id="hnv-barre" style="width:2.4%;background:#d1495b"></i></div>
-    <div class="tdb-second">SAV et reprises non facturables</div>
   </section>
 
   <!-- ────── 1 · Charge hebdomadaire (deux colonnes) ────── -->
@@ -338,7 +328,7 @@
     <div class="tdb-tete">
       <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
       <span class="tdb-titre">Solde compteur</span>
-      <a class="tdb-lien" href="bev.html">BEV →</a>
+      <a class="tdb-lien" href="bev.html">Éléments Pointage Paie →</a>
     </div>
     <div class="tdb-val attention" id="cpt-annee">+64,5<u>h</u></div>
     <div class="tdb-lbl">depuis le 1er janvier</div>
@@ -386,6 +376,19 @@
     <div class="tdb-lbl">six derniers mois</div>
   </section>
 
+  <section class="tdb-vignette" data-id="hnv">
+    <div class="tdb-tete">
+      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+      <span class="tdb-titre">Heures non vendables</span>
+      <a class="tdb-lien" href="planning.html">Planning →</a>
+    </div>
+    <div class="tdb-val" id="hnv-h">22,0<u>h</u></div>
+    <div class="tdb-lbl">sur <span id="hnv-nb">9</span> créneaux</div>
+    <div class="tdb-second" id="hnv-pct">2,4 % des heures du mois</div>
+    <div class="tdb-barre"><i id="hnv-barre" style="width:2.4%;background:#d1495b"></i></div>
+    <div class="tdb-second">SAV et reprises non facturables</div>
+  </section>
+
 </div>
 
 <script src="assets/sync.js"></script>
@@ -404,7 +407,7 @@
 /* ─────────────────────── A. Présentation ─────────────────────── */
 
 const TDB_CLE = 'tdb_presentation';
-const TDB_ORDRE_DEFAUT = ['annee','ventequalite','hnv','charge','semaine','absences','compteur','chantiers100','notes','deplacements'];
+const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','notes','deplacements','hnv'];
 
 let _tdbSale = false;
 
@@ -797,16 +800,16 @@ function tdbVignetteHnv(d) {
 }
 
 /* ── Raccordement de la vignette Solde compteur ───────────────────────
-   Le solde d'un mois vaut, comme dans le BEV : heures REPORTÉES moins
+   Le solde d'un mois vaut, comme dans les Éléments Pointage Paie : heures REPORTÉES moins
    heures RTT et RÉCUPÉRATION prises.
-     · les heures reportées sont saisies à la main dans le BEV et vivent
+     · les heures reportées sont saisies à la main dans les Éléments Pointage Paie et vivent
        côté serveur → GET /api/bev/annee/<annee>, un seul appel pour tous
        les salariés et tous les mois ;
      · les heures RTT et récupération viennent du MOTIF D'ABSENCE saisi au
        planning, déjà présent en local dans heuresdata — exactement la même
-       source que la page BEV, qui les lit là aussi.
-   ⚠ Cette formule DOIT rester alignée sur celle du BEV (bev.html,
-   « Solde compteur heure » = reporte − RTT/Récupération). Si le BEV change,
+       source que la page Éléments Pointage Paie, qui les lit là aussi.
+   ⚠ Cette formule DOIT rester alignée sur celle des Éléments Pointage Paie (bev.html,
+   « Solde compteur heure » = reporte − RTT/Récupération). Si les Éléments Pointage Paie changent,
    changer ici aussi. */
 const TDB_MOTIFS_SOLDE = ['RTT', 'Récupération'];
 
@@ -839,12 +842,12 @@ async function tdbChargerCompteur() {
     prises[ym] = (prises[ym] || 0) + (parseFloat(e.heures) || 0);
   });
 
-  /* La base conserve des enregistrements BEV rattachés à des salariés
-     SUPPRIMÉS DEPUIS (essais, départs). Le BEV ne les montre jamais : ils
+  /* La base conserve des enregistrements Éléments Pointage Paie rattachés à des salariés
+     SUPPRIMÉS DEPUIS (essais, départs). Les Éléments Pointage Paie ne les montrent jamais : ils
      n'apparaissent pas dans son menu déroulant, qui liste les salariés
      existants. Le tableau de bord doit faire pareil, sinon il additionne des
      reports fantômes et affiche un solde d'entreprise sans rapport avec la
-     somme des BEV consultables.
+     somme des Éléments Pointage Paie consultables.
      Si la liste des salariés n'est pas encore chargée, on ne filtre pas :
      mieux vaut un total complet qu'un total vide. */
   let connus = null;
@@ -963,7 +966,7 @@ function tdbChargerPlanning() {
       const cible = (c.ym === ym) ? absM : ((c.ym === ymSuiv) ? absM1 : null);
       if (!cible) return;
       /* Un jour d'absence = une journée-salarié, quelle que soit sa durée —
-         c'est le décompte du récapitulatif du BEV. */
+         c'est le décompte du récapitulatif des Éléments Pointage Paie. */
       cible.j += 1; cible.h += h;
       const nom = motif || 'Autre';
       motifs[nom] = (motifs[nom] || 0) + 1;
@@ -1179,20 +1182,40 @@ async function tdbChargerAnnee() {
 function tdbExclusionsAnnee(an) {
   let heures = {};
   try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
-  const parMois = {}; // 'aaaa-mm' -> { total, parMotif:{} }
+  const parMois = {}; // 'aaaa-mm' -> { totalExclu, totalTNA, parMotif:{} }
   Object.keys(heures).forEach(function (k) {
     const e = heures[k];
-    if (!e || !e.exclu || !e.chantier) return;
+    if (!e || !e.chantier) return;
+    const nom = String(e.chantier).trim().toUpperCase();
+    const estTNA = nom === 'TEMPS NON AFFECTE';
+    if (!e.exclu && !estTNA) return;
     const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
     if (!m || m[2] !== String(an)) return;
     const ym = m[2] + '-' + m[3];
     const h = parseFloat(e.heures) || 0;
-    const motif = e.motifExclu || 'SAV';
-    if (!parMois[ym]) parMois[ym] = { total: 0, parMotif: {} };
-    parMois[ym].total += h;
+    const motif = estTNA ? 'Temps non affecté' : (e.motifExclu || 'SAV');
+    if (!parMois[ym]) parMois[ym] = { totalExclu: 0, totalTNA: 0, parMotif: {} };
+    if (estTNA) parMois[ym].totalTNA += h; else parMois[ym].totalExclu += h;
     parMois[ym].parMotif[motif] = (parMois[ym].parMotif[motif] || 0) + h;
   });
   return parMois;
+}
+
+/* Couleur stable par motif, pour l'empilement de la barre. Motifs connus =
+   couleur fixe (cohérence mois après mois) ; motifs personnalisés = couleur
+   dérivée du nom, toujours la même pour un même libellé. */
+const TDB_COULEURS_MOTIF = {
+  'SAV': '#d1495b',
+  'Fournisseur': '#b45309',
+  'Visite client': '#7c3aed',
+  'Temps non affecté': '#64748b'
+};
+const TDB_PALETTE_MOTIF_FALLBACK = ['#0891b2', '#be185d', '#166534', '#9333ea'];
+function tdbCouleurMotif(motif) {
+  if (TDB_COULEURS_MOTIF[motif]) return TDB_COULEURS_MOTIF[motif];
+  let h = 0;
+  for (let i = 0; i < motif.length; i++) h = (h * 31 + motif.charCodeAt(i)) >>> 0;
+  return TDB_PALETTE_MOTIF_FALLBACK[h % TDB_PALETTE_MOTIF_FALLBACK.length];
 }
 
 let _tdbVqData = [];
@@ -1223,8 +1246,15 @@ function tdbGraphVenteQualite(d) {
   M.forEach(function (m, i) {
     const cx = mg.g + pasX * i + pasX / 2;
     if (m.exclu > 0) {
-      g += '<rect x="' + (cx - larg / 2) + '" y="' + y(m.exclu) + '" width="' + larg
-         + '" height="' + (y(0) - y(m.exclu)) + '" fill="#d1495b" fill-opacity="0.75"/>';
+      const motifs = Object.keys(m.motifsMois || {}).sort();
+      let base = 0;
+      motifs.forEach(function (mo) {
+        const val = m.motifsMois[mo];
+        if (!(val > 0)) return;
+        g += '<rect x="' + (cx - larg / 2) + '" y="' + y(base + val) + '" width="' + larg
+           + '" height="' + (y(base) - y(base + val)) + '" fill="' + tdbCouleurMotif(mo) + '" fill-opacity="0.85"/>';
+        base += val;
+      });
       const pct = m.vend > 0 ? Math.round((m.exclu / m.vend) * 100) : 0;
       const yPct = Math.max(mg.h + 11, y(m.exclu) - 6);
       g += '<text x="' + cx + '" y="' + yPct + '" text-anchor="middle" font-size="13" font-weight="600" fill="#b45309">' + pct + '%</text>';
@@ -1257,11 +1287,16 @@ function tdbVqSurvol(evt, i) {
   const m = _tdbVqData[i];
   if (!m) return;
   const pct = m.vend > 0 ? Math.round((m.exclu / m.vend) * 100) : 0;
+  const motifs = Object.keys(m.motifsMois || {}).sort();
+  const detail = motifs.map(function (mo) {
+    return '<div><span>' + tdbEsc(mo) + '</span><b>' + tdbNb(m.motifsMois[mo], 0) + ' h</b></div>';
+  }).join('');
   tdbTooltipMontrer(evt,
     '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + '</b>' +
     '<div><span>Vendables</span><b>' + tdbNb(m.vend, 0) + ' h</b></div>' +
     '<div><span>Vendues</span><b>' + tdbNb(m.vendu, 0) + ' h</b></div>' +
-    '<div><span>Exclues</span><b>' + tdbNb(m.exclu, 0) + ' h · ' + pct + ' %</b></div>'
+    '<div><span>Exclues (total)</span><b>' + tdbNb(m.exclu, 0) + ' h · ' + pct + ' %</b></div>' +
+    detail
   );
 }
 function tdbVqCacher() { tdbTooltipCacher(); }
@@ -1280,16 +1315,20 @@ async function tdbChargerVenteQualite() {
     const ym = an + '-' + String(m + 1).padStart(2, '0');
     const devis = tdbPrevisionnelMois(an, m);
     const vend = Object.keys(devis).reduce(function (s, k) { return s + devis[k]; }, 0);
-    const exMois = exclusions[ym] || { total: 0, parMotif: {} };
+    const exMois = exclusions[ym] || { totalExclu: 0, totalTNA: 0, parMotif: {} };
     const ag = mois[ym];
     const realBrut = ag ? (ag.heures || 0) : 0;
-    const vendu = Math.max(0, realBrut - exMois.total);
+    // Le TNA n'existe que côté planning (jamais saisi par un salarié) : il ne fait
+    // jamais partie de realBrut, donc on ne le soustrait pas des heures vendues —
+    // seules les vraies exclusions (SAV, etc.) réduisent le réalisé.
+    const vendu = Math.max(0, realBrut - exMois.totalExclu);
+    const exCumul = exMois.totalExclu + exMois.totalTNA;
 
-    totVend += vend; totVendu += vendu; totExclu += exMois.total;
+    totVend += vend; totVendu += vendu; totExclu += exCumul;
     Object.keys(exMois.parMotif).forEach(function (mo) {
       parMotifAnnee[mo] = (parMotifAnnee[mo] || 0) + exMois.parMotif[mo];
     });
-    serie.push({ cle: NOMS[m], vend: vend, vendu: vendu, exclu: exMois.total });
+    serie.push({ cle: NOMS[m], vend: vend, vendu: vendu, exclu: exCumul, motifsMois: exMois.parMotif });
   }
 
   tdbTexte('vq-an', an);
@@ -1553,18 +1592,18 @@ function tdbDonneesExemple() {
   tdbVignetteDeplacements({ parChantier:1.41, minutesParChantier:31, historique:[26,28,25,29,27,31] });
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
   tdbGraphVenteQualite({ mois: [
-    { cle:'janv.', vend:800, vendu:740, exclu:60 },
-    { cle:'févr.', vend:760, vendu:705, exclu:45 },
-    { cle:'mars',  vend:840, vendu:790, exclu:38 },
-    { cle:'avril', vend:820, vendu:760, exclu:70 },
-    { cle:'mai',   vend:790, vendu:735, exclu:55 },
-    { cle:'juin',  vend:810, vendu:0,   exclu:0  },
-    { cle:'juil.', vend:600, vendu:0,   exclu:0  },
-    { cle:'août',  vend:400, vendu:0,   exclu:0  },
-    { cle:'sept.', vend:820, vendu:0,   exclu:0  },
-    { cle:'oct.',  vend:830, vendu:0,   exclu:0  },
-    { cle:'nov.',  vend:800, vendu:0,   exclu:0  },
-    { cle:'déc.',  vend:700, vendu:0,   exclu:0  }
+    { cle:'janv.', vend:800, vendu:740, exclu:60, motifsMois:{ 'SAV':40, 'Temps non affecté':20 } },
+    { cle:'févr.', vend:760, vendu:705, exclu:45, motifsMois:{ 'SAV':30, 'Fournisseur':15 } },
+    { cle:'mars',  vend:840, vendu:790, exclu:38, motifsMois:{ 'SAV':25, 'Temps non affecté':13 } },
+    { cle:'avril', vend:820, vendu:760, exclu:70, motifsMois:{ 'SAV':45, 'Visite client':15, 'Temps non affecté':10 } },
+    { cle:'mai',   vend:790, vendu:735, exclu:55, motifsMois:{ 'SAV':35, 'Fournisseur':20 } },
+    { cle:'juin',  vend:810, vendu:0,   exclu:0,  motifsMois:{} },
+    { cle:'juil.', vend:600, vendu:0,   exclu:0,  motifsMois:{} },
+    { cle:'août',  vend:400, vendu:0,   exclu:0,  motifsMois:{} },
+    { cle:'sept.', vend:820, vendu:0,   exclu:0,  motifsMois:{} },
+    { cle:'oct.',  vend:830, vendu:0,   exclu:0,  motifsMois:{} },
+    { cle:'nov.',  vend:800, vendu:0,   exclu:0,  motifsMois:{} },
+    { cle:'déc.',  vend:700, vendu:0,   exclu:0,  motifsMois:{} }
   ]});
 }
 
