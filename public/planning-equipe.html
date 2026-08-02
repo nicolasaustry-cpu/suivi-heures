@@ -677,7 +677,8 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
     }
   }
 
-  ov.querySelector('#note-popup-txt').textContent = note || '(aucune note pour ce chantier)';
+  const noteAffPopup = (note || '').split('\n').map(_nettoyerTagEntretien).join('\n');
+  ov.querySelector('#note-popup-txt').textContent = noteAffPopup || '(aucune note pour ce chantier)';
   // Photos rattachées au chantier (page Notes unifiée)
   const pz = ov.querySelector('#note-popup-photos');
   if (pz) {
@@ -722,7 +723,7 @@ async function ajouterLigneNote() {
     if (d.ok) {
       _notesChantiers[nomU] = d.note;
       localStorage.setItem('notesChantiersdata', JSON.stringify(_notesChantiers));
-      ov.querySelector('#note-popup-txt').textContent = d.note;
+      ov.querySelector('#note-popup-txt').textContent = (d.note || '').split('\n').map(_nettoyerTagEntretien).join('\n');
       inp.value = '';
       document.querySelectorAll('.grille .chip-note').forEach(b => {
         if ((b.getAttribute('data-nom') || '').toUpperCase() === nomU) {
@@ -823,6 +824,15 @@ function fmtHM(h) {
   return (Math.round(h * 100) / 100).toFixed(2).replace('.', ',') + ' h';
 }
 
+/* Tag interne [I:date;E] posé par la case « Entretien » (planning.html / notes.html) :
+   jamais affiché tel quel, remplacé par un libellé lisible juste devant la note.
+   Fonctionne que l'horodatage [date heure – auteur] soit encore présent devant ou non. */
+function _nettoyerTagEntretien(ligne) {
+  return ligne.replace(/\[I:([^\]]*)\]\s*/, function (_, meta) {
+    return /(^|;)E(;|$)/.test(meta || '') ? 'Entretien — ' : '';
+  });
+}
+
 function htmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
@@ -852,7 +862,7 @@ function htmlChip(c) {
     : '';
   const _noteBrut = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim() || (c.note || '').trim();
   const _noteAff = String(_noteBrut).split('\n')
-    .map(function(l){ return l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, ''); })
+    .map(function(l){ return _nettoyerTagEntretien(l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, '')); })
     .filter(function(l){ return l.trim() !== ''; }).join('\n');
   const noteTxt = _noteAff
     ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
