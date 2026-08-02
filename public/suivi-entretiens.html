@@ -7,6 +7,7 @@
   <title>Suivi des entretiens – Suiv'Heures</title>
   <link rel="stylesheet" href="assets/style.css">
   <link rel="stylesheet" href="assets/theme-volitis.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     .se-count { font-size:0.82rem; color:#6b7280; margin-bottom:0.6rem; }
     #table-se { width:100%; border-collapse:collapse; font-size:0.9rem; }
@@ -22,6 +23,11 @@
     .se-inactif { text-align:center; padding:3rem 1.5rem; color:#475569; }
     .se-inactif a { color:#0f3a8a; font-weight:700; text-decoration:none; }
     .se-inactif a:hover { text-decoration:underline; }
+    .se-filtres { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem; }
+    .se-filtres label { font-size:0.85rem; font-weight:600; display:block; margin-bottom:3px; }
+    .se-filtres input[type=month] { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
+    .btn-se-reset { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:7px 12px; font-size:0.85rem; cursor:pointer; }
+    .btn-se-xlsx { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; margin-left:auto; }
   </style>
 </head>
 <body>
@@ -56,6 +62,14 @@
 </section>
 
 <section id="se-actif" style="display:none;">
+  <div class="se-filtres">
+    <div>
+      <label for="se-filtre-mois">Échéance (mois)</label>
+      <input type="month" id="se-filtre-mois" onchange="appliquerFiltreMois()">
+    </div>
+    <button type="button" class="btn-se-reset" onclick="effacerFiltreMois()">Tous les mois</button>
+    <button type="button" class="btn-se-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
+  </div>
   <div class="se-count" id="se-count"></div>
   <table id="table-se">
     <thead>
@@ -134,6 +148,8 @@ function calculerSuivi(notesChantiers) {
   return resultats;
 }
 
+let _listeComplete = [];
+
 function rendre(liste) {
   document.getElementById('se-count').textContent =
     liste.length ? (liste.length + ' chantier' + (liste.length > 1 ? 's' : '') + ' suivi' + (liste.length > 1 ? 's' : '')) : '';
@@ -150,6 +166,38 @@ function rendre(liste) {
     </tr>`).join('');
 }
 
+/* Filtre par mois d'ÉCHÉANCE (pas la date de dernière intervention) : sert à
+   planifier ce qu'il faut faire tel mois, pas à consulter l'historique. */
+function listeFiltree() {
+  const mois = document.getElementById('se-filtre-mois').value;   // 'aaaa-mm' ou ''
+  if (!mois) return _listeComplete;
+  return _listeComplete.filter(r => {
+    const ym = r.echeance.getFullYear() + '-' + String(r.echeance.getMonth() + 1).padStart(2, '0');
+    return ym === mois;
+  });
+}
+function appliquerFiltreMois() { rendre(listeFiltree()); }
+function effacerFiltreMois() {
+  document.getElementById('se-filtre-mois').value = '';
+  rendre(listeFiltree());
+}
+
+function exporterXlsx() {
+  if (typeof XLSX === 'undefined') { alert('Module Excel non chargé, réessayez dans un instant.'); return; }
+  const liste = listeFiltree();
+  if (!liste.length) { alert('Aucun chantier à exporter pour cette sélection.'); return; }
+  const rows = [['Chantier', 'Dernière intervention', 'Prochaine échéance', 'Statut']];
+  liste.forEach(r => rows.push([
+    r.nom, fmtDateFr(r.derniere), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour'
+  ]));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch:28 }, { wch:20 }, { wch:20 }, { wch:12 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Suivi entretiens');
+  const mois = document.getElementById('se-filtre-mois').value || 'tous';
+  XLSX.writeFile(wb, `Suivi_entretiens_${mois}.xlsx`);
+}
+
 async function charger() {
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null;
   if (!token) return;
@@ -157,8 +205,10 @@ async function charger() {
     const r = await fetch('/api/data', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
     const notesChantiers = (d.ok && d.data && d.data.notesChantiers) ? d.data.notesChantiers : {};
-    rendre(calculerSuivi(notesChantiers));
+    _listeComplete = calculerSuivi(notesChantiers);
+    rendre(listeFiltree());
   } catch (e) {
+    _listeComplete = [];
     rendre([]);
   }
 }
