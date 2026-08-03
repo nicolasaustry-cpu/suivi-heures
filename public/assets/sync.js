@@ -898,7 +898,7 @@ const SYNC = (() => {
     afficherBadgeLicence(actif, message);
     const el = document.getElementById('licence-status');
     if (!el) return;
-    el.style.cssText = 'background:none;border:none;padding:0;margin:0;border-radius:0;box-shadow:none;';
+    el.style.cssText = 'background:none !important;border:none !important;padding:0 !important;margin:0 !important;border-radius:0 !important;box-shadow:none !important;';
     if (actif) {
       el.innerHTML =
         `<button onclick="SYNC.seDeconnecter()" title="Se déconnecter et changer de licence" ` +
@@ -938,7 +938,7 @@ const SYNC = (() => {
   function afficherBoutonConnexion() {
     const el = document.getElementById('licence-status');
     if (!el) return;
-    el.style.cssText = 'background:none;border:none;padding:0;margin:0;border-radius:0;box-shadow:none;';
+    el.style.cssText = 'background:none !important;border:none !important;padding:0 !important;margin:0 !important;border-radius:0 !important;box-shadow:none !important;';
     el.innerHTML =
       `<button onclick="SYNC.ouvrirModalConnexion()" ` +
       `style="background:#f59e0b;border:none;color:#0f172a;border-radius:6px;padding:6px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;">` +
