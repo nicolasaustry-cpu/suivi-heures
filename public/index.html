@@ -43,10 +43,35 @@
   <a href="rapports.html">Rapports</a>
 </div>
 
+<style>
+.ent-grille {
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px;
+  margin:1.2rem 0;
+}
+.ent-tuile {
+  border-left:4px solid #cbd5e1; border-radius:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.08); padding:1.2rem 1.4rem;
+}
+.ent-tuile h2 {
+  font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  margin:0 0 12px; border:none; padding:0;
+}
+.ent-tuile.large { grid-column:span 2; }
+@media (max-width:1000px) {
+  .ent-grille { grid-template-columns:repeat(2, minmax(0,1fr)); }
+}
+@media (max-width:640px) {
+  .ent-grille { grid-template-columns:1fr; }
+  .ent-tuile.large { grid-column:auto; }
+}
+</style>
+
+<div class="ent-grille">
+
 <!-- Informations de l'entreprise -->
-<section>
-  <h2>Informations de l'entreprise</h2>
-  <div class="flex" style="flex-direction:column;align-items:flex-start;background:#e0f2fe;padding:1rem;border-radius:8px;gap:1rem;">
+<section class="ent-tuile large" style="background:#fff;border-left-color:#0f3a8a;">
+  <h2 style="color:#0f3a8a;">Informations de l'entreprise</h2>
+  <div class="flex" style="flex-direction:column;align-items:flex-start;gap:1rem;">
     <div>
       <label>Nom de l'entreprise :</label><br>
       <input id="nom-entreprise" placeholder="Ex : Dupont Bâtiment" style="width:300px;">
@@ -60,9 +85,9 @@
 </section>
 
 <!-- Licence -->
-<section>
-  <h2>Kit de démarrage</h2>
-  <div class="flex" style="align-items:flex-end;gap:1rem;">
+<section class="ent-tuile" style="background:#fffbeb;border-left-color:#f59e0b;">
+  <h2 style="color:#b45309;">Kit de démarrage</h2>
+  <div class="flex" style="flex-direction:column;align-items:flex-start;gap:1rem;">
     <div style="display:none;">
       <label>Code client :</label><br>
       <input id="code-client" placeholder="XXXX-YYYY-ZZZZ" style="width:220px;">
@@ -74,13 +99,13 @@
 </section>
 
 <!-- Paramétrage des jauges (utilisé par Planning et Planning Réalisé) -->
-<section>
-  <h2>Paramétrage des jauges</h2>
+<section class="ent-tuile" style="background:#f0fdfa;border-left-color:#0d9488;">
+  <h2 style="color:#0d9488;">Paramétrage des jauges</h2>
   <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
     Ces seuils s'appliquent aux jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong>. Ils déterminent à partir de quel pourcentage d'avancement l'indicateur passe au rouge, à l'orange ou au vert.
   </p>
 
-  <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:1rem 1.2rem;">
+  <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;">
 
     <!-- Aperçu en direct -->
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
@@ -128,13 +153,13 @@
 </section>
 
 <!-- Notifications de RDV : délai de rappel par défaut (réglage entreprise) -->
-<section>
-  <h2>Notifications de RDV</h2>
+<section class="ent-tuile" style="background:#fef2f2;border-left-color:#d1495b;">
+  <h2 style="color:#b91c1c;">Notifications de RDV</h2>
   <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
     Délai par défaut d'envoi du rappel (notification) aux salariés, <strong>avant l'heure de leur RDV</strong>.
     Ce délai peut être ajusté ponctuellement sur chaque RDV depuis le <strong>Planning</strong> ou le mobile.
   </p>
-  <div class="flex" id="delai-defaut-bloc" style="align-items:flex-end;gap:1rem;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:1rem 1.2rem;">
+  <div class="flex" id="delai-defaut-bloc" style="align-items:flex-end;gap:1rem;">
     <div>
       <label for="delai-defaut">Prévenir avant (minutes) :</label><br>
       <input id="delai-defaut" type="number" min="0" max="1440" step="5" style="width:120px;">
@@ -145,13 +170,13 @@
 </section>
 
 <!-- Suivi des entretiens : activation de la page de suivi des contrats d'entretien annuel -->
-<section>
-  <h2>Suivi des entretiens</h2>
+<section class="ent-tuile" style="background:#f8fafc;border-left-color:#64748b;">
+  <h2 style="color:#475569;">Suivi des entretiens</h2>
   <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
     Liste les chantiers marqués « Contrat entretien annuel » (case à cocher dans <strong>Notes</strong>) avec la date de leur
     dernière intervention taguée « Entretien » et l'échéance à venir (+ 1 an), signalée en rouge en cas de dépassement.
   </p>
-  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:1rem 1.2rem;">
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:0.5rem;">
       <input type="checkbox" id="suiviEntretienActif" onchange="sauverSuiviEntretien()">
       <label for="suiviEntretienActif" style="font-size:0.9rem;">Activer la page « Suivi des entretiens »</label>
@@ -159,6 +184,9 @@
     <a id="lien-suivi-entretiens" href="suivi-entretiens.html" class="btn btn-primary" style="display:none;text-decoration:none;">📋 Ouvrir le suivi des entretiens</a>
   </div>
 </section>
+
+</div>
+
 
 <script>
 function _entLire() {
