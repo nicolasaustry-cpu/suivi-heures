@@ -69,16 +69,16 @@
 <div class="ent-grille">
 
 <!-- Informations de l'entreprise -->
-<section class="ent-tuile large" style="background:#fff;border-left-color:#0f3a8a;">
+<section class="ent-tuile" style="background:#fff;border-left-color:#0f3a8a;">
   <h2 style="color:#0f3a8a;">Informations de l'entreprise</h2>
   <div class="flex" style="flex-direction:column;align-items:flex-start;gap:1rem;">
     <div>
       <label>Nom de l'entreprise :</label><br>
-      <input id="nom-entreprise" placeholder="Ex : Dupont Bâtiment" style="width:300px;">
+      <input id="nom-entreprise" placeholder="Ex : Dupont Bâtiment" style="width:100%;max-width:320px;box-sizing:border-box;">
     </div>
     <div>
       <label>Code accès mobile :</label><br>
-      <input id="code-employe" placeholder="Ex : VOLITIS-SAL" style="width:220px;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <input id="code-employe" placeholder="Ex : VOLITIS-SAL" style="width:100%;max-width:240px;box-sizing:border-box;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
     </div>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
