@@ -250,7 +250,12 @@ const SYNC = (() => {
       majNav();
       await chargerDonnees();
 
-      if (changementClient) { location.reload(); return true; }
+      if (changementClient) {
+        const cible = sessionStorage.getItem('shRedirectApresConnexion');
+        if (cible) { sessionStorage.removeItem('shRedirectApresConnexion'); location.href = cible; }
+        else { location.reload(); }
+        return true;
+      }
       return true;
     } catch {
       majStatutLicence(true, 'local');
@@ -1011,9 +1016,11 @@ const SYNC = (() => {
     if (!code) { if (erreur) erreur.textContent = 'Veuillez saisir un code client.'; return; }
     if (erreur) erreur.textContent = '';
     if (btn) { btn.textContent = 'Vérification…'; btn.disabled = true; }
+    sessionStorage.setItem('shRedirectApresConnexion', '/tableau-de-bord.html');
     const ok = await connecter(code);
     if (btn) { btn.textContent = 'Se connecter'; btn.disabled = false; }
     if (ok) {
+      sessionStorage.removeItem('shRedirectApresConnexion');
       fermerModalConnexion();
       afficherNotif('✔ Connexion réussie !');
       setTimeout(() => { location.href = '/tableau-de-bord.html'; }, 400);
