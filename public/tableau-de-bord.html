@@ -216,17 +216,17 @@
       <span class="tdb-titre">Année <span id="annee-an"></span></span>
       <a class="tdb-lien" href="rapports.html">Rapports →</a>
     </div>
-    <div class="tdb-sous">Heures vendables et heures réalisées, de janvier à décembre</div>
+    <div class="tdb-sous" id="annee-sous">Heures vendables et heures réalisées, de janvier à décembre</div>
     <div class="tdb-cote">
       <div class="tdb-cote-chiffres">
         <div><div class="tdb-val" id="annee-vend">0<u>h</u></div><div class="tdb-lbl">vendables sur l'année</div></div>
-        <div><div class="tdb-val" id="annee-real">0<u>h</u></div><div class="tdb-lbl">réalisées à ce jour</div></div>
-        <div><div class="tdb-val" id="annee-taux">0<u>%</u></div><div class="tdb-lbl">de réalisation, sur les mois écoulés</div></div>
+        <div><div class="tdb-val" id="annee-real">0<u>h</u></div><div class="tdb-lbl" id="annee-real-lbl">réalisées à ce jour</div></div>
+        <div><div class="tdb-val" id="annee-taux">0<u>%</u></div><div class="tdb-lbl" id="annee-taux-lbl">de réalisation, sur les mois écoulés</div></div>
       </div>
       <div class="tdb-cote-graph">
         <div id="annee-graph"></div>
         <div class="tdb-legende">
-          <span><i class="tdb-pastille" style="background:#0f3a8a"></i>Heures réalisées</span>
+          <span><i class="tdb-pastille" style="background:#0f3a8a"></i>Heures <span id="annee-legende-mot">réalisées</span></span>
           <span><i class="tdb-trait"></i>Heures vendables</span>
         </div>
       </div>
@@ -237,22 +237,22 @@
   <section class="tdb-vignette large3" data-id="ventequalite">
     <div class="tdb-tete">
       <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-      <span class="tdb-titre">Vendables, vendues, exclues <span id="vq-an"></span></span>
+      <span class="tdb-titre">Vendables, <span id="vq-titre-mot">vendues</span>, exclues <span id="vq-an"></span></span>
       <a class="tdb-lien" href="rapports.html">Rapports →</a>
     </div>
-    <div class="tdb-sous">Heures vendables (prévisionnel), heures vendues (réalisé hors exclusions) et heures exclues par motif, de janvier à décembre</div>
+    <div class="tdb-sous" id="vq-sous">Heures vendables (prévisionnel), heures vendues (réalisé hors exclusions) et heures exclues par motif, de janvier à décembre</div>
     <div class="tdb-cote">
       <div class="tdb-cote-chiffres">
         <div><div class="tdb-val" id="vq-vend">0<u>h</u></div><div class="tdb-lbl">vendables sur l'année</div></div>
-        <div><div class="tdb-val" id="vq-vendu">0<u>h</u></div><div class="tdb-lbl">vendues à ce jour</div></div>
-        <div><div class="tdb-val alerte" id="vq-exclu">0<u>h</u></div><div class="tdb-lbl">exclues à ce jour</div></div>
+        <div><div class="tdb-val" id="vq-vendu">0<u>h</u></div><div class="tdb-lbl" id="vq-vendu-lbl">vendues à ce jour</div></div>
+        <div><div class="tdb-val alerte" id="vq-exclu">0<u>h</u></div><div class="tdb-lbl" id="vq-exclu-lbl">exclues à ce jour</div></div>
         <div class="tdb-liste" id="vq-detail-motifs" style="margin-top:2px;"></div>
       </div>
       <div class="tdb-cote-graph">
         <div id="vq-graph"></div>
         <div class="tdb-legende">
           <span><i class="tdb-trait"></i>Heures vendables</span>
-          <span><i class="tdb-trait" style="border-top-style:solid;border-top-color:#0f3a8a;"></i>Heures vendues</span>
+          <span><i class="tdb-trait" style="border-top-style:solid;border-top-color:#0f3a8a;"></i>Heures <span id="vq-legende-mot">vendues</span></span>
           <span><i class="tdb-pastille" style="background:#d1495b"></i>SAV</span>
           <span><i class="tdb-pastille" style="background:#b45309"></i>Fournisseur</span>
           <span><i class="tdb-pastille" style="background:#7c3aed"></i>Visite client</span>
@@ -349,32 +349,6 @@
     <div class="tdb-liste" id="ch100-liste" style="margin-top:14px"></div>
   </section>
 
-  <!-- ────── 6 · Notes en cours ────── -->
-  <section class="tdb-vignette" data-id="notes">
-    <div class="tdb-tete">
-      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-      <span class="tdb-titre">Notes en cours</span>
-      <a class="tdb-lien" href="notes.html">Notes →</a>
-    </div>
-    <div class="tdb-val alerte" id="notes-nb">7</div>
-    <div class="tdb-lbl">non traitées sur <span id="notes-tot">23</span> créées</div>
-    <div class="tdb-barre"><i id="notes-barre" style="width:70%;background:#0f3a8a"></i></div>
-    <div class="tdb-second" id="notes-detail">3 avec photo · la plus ancienne, 9 jours</div>
-  </section>
-
-  <!-- ────── 7 · Déplacements ────── -->
-  <section class="tdb-vignette" data-id="deplacements">
-    <div class="tdb-tete">
-      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-      <span class="tdb-titre">Déplacements</span>
-      <a class="tdb-lien" href="rapports.html">Rapports →</a>
-    </div>
-    <div class="tdb-val" id="depl-ratio">1,41</div>
-    <div class="tdb-lbl">trajets par chantier</div>
-    <div class="tdb-second" id="depl-temps">31 min par chantier</div>
-    <div class="tdb-spark" id="depl-spark"></div>
-    <div class="tdb-lbl">six derniers mois</div>
-  </section>
 
   <section class="tdb-vignette" data-id="hnv">
     <div class="tdb-tete">
@@ -407,7 +381,7 @@
 /* ─────────────────────── A. Présentation ─────────────────────── */
 
 const TDB_CLE = 'tdb_presentation';
-const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','notes','deplacements','hnv'];
+const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','hnv'];
 
 let _tdbSale = false;
 
@@ -721,74 +695,6 @@ function tdbVignetteChantiers100(d) {
   }).join('');
 }
 
-/* ── 6 · Notes en cours ── */
-function tdbVignetteNotes(d) {
-  const el = document.getElementById('notes-nb');
-  tdbTexte('notes-nb', d.enCours);
-  /* rouge seulement s'il reste quelque chose à traiter */
-  if (el) el.classList.toggle('alerte', d.enCours > 0);
-  tdbTexte('notes-tot', d.total);
-  const b = document.getElementById('notes-barre');
-  if (b) b.style.width = (d.total ? Math.round(((d.total - d.enCours) / d.total) * 100) : 0) + '%';
-  tdbTexte('notes-detail', d.detail);
-}
-
-/* ── Raccordement de la vignette Notes ────────────────────────────────
-   Source : GET /api/saisies/<mois>, la même que la page Notes, pour que
-   les deux affichent rigoureusement le même compte.
-   Une note existe dès qu'un chantier envoyé porte un texte OU une photo ;
-   elle est « en cours » tant que sa case Réalisé (champ noteFaite) n'est
-   pas cochée. Le périmètre est le MOIS EN COURS, comme la page Notes qui
-   s'ouvre sur ce mois — sinon les deux chiffres divergeraient. */
-async function tdbChargerNotes() {
-  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
-             || localStorage.getItem('syncToken');
-  if (!token) return;
-  const d = new Date();
-  const mois = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-  let saisies;
-  try {
-    const r = await fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + token } });
-    const j = await r.json();
-    if (!j || !j.ok) return;
-    saisies = j.saisies || [];
-  } catch (e) { return; }
-
-  let total = 0, enCours = 0, avecPhoto = 0, plusAncienne = null;
-  saisies.forEach(function (s) {
-    (s.chantiers || []).forEach(function (c) {
-      const note = (c.note || '').trim();
-      const photos = Array.isArray(c.photos)
-        ? c.photos.filter(function (ph) { return typeof ph === 'string' && ph.startsWith('data:image/'); })
-        : [];
-      if (!note && !photos.length) return;      // ni texte ni photo : ce n'est pas une note
-      total++;
-      if (c.noteFaite) return;
-      enCours++;
-      if (photos.length) avecPhoto++;
-      if (!plusAncienne || s.date < plusAncienne) plusAncienne = s.date;
-    });
-  });
-
-  const bouts = [];
-  if (avecPhoto) bouts.push(avecPhoto + (avecPhoto > 1 ? ' avec photo' : ' avec photo'));
-  if (plusAncienne) {
-    const j = Math.max(0, Math.round((new Date().setHours(0,0,0,0) - new Date(plusAncienne + 'T00:00:00')) / 86400000));
-    bouts.push('la plus ancienne, ' + (j === 0 ? "aujourd'hui" : j + (j > 1 ? ' jours' : ' jour')));
-  }
-  if (!total) bouts.push('aucune note ce mois-ci');
-  else if (!enCours) bouts.push('tout est traité');
-
-  tdbVignetteNotes({ enCours: enCours, total: total, detail: bouts.join(' · ') });
-}
-
-/* ── 7 · Déplacements ── */
-function tdbVignetteDeplacements(d) {
-  tdbTexte('depl-ratio', tdbNb(d.parChantier, 2));
-  tdbTexte('depl-temps', Math.round(d.minutesParChantier) + ' min par chantier');
-  tdbSpark('depl-spark', d.historique, '#0f3a8a', '#c7d2e6', d.labels, 'min');
-}
-
 /* ── 8 · Heures non vendables ── */
 function tdbVignetteHnv(d) {
   tdbValeur('hnv-h', d.heures, 'h', 1);
@@ -1077,12 +983,41 @@ function hVendablesMois(annee, mois){
   return contratEffectifMois(annee, mois) * _cvSeuilOrange() / 100;
 }
 
-/* ── Vignette Année : heures vendables et heures réalisées ────────────
+/* ── Adaptation Standard / Plus ─────────────────────────────────────
+   Les heures RÉALISÉES (temps réellement pointé par les salariés) ne
+   sont disponibles que via la saisie mobile, fonctionnalité Plus. En
+   licence Standard, les vignettes « Année » et « Vendables/vendues/
+   exclues » basculent donc sur les heures PLANIFIÉES (issues du
+   Planning, disponible dès le Standard) : même lecture, autre source. */
+function tdbEstPlus() {
+  return !!(typeof SYNC !== 'undefined' && SYNC.estPlus && SYNC.estPlus());
+}
+function tdbAdapterTextesLicence() {
+  const plus = tdbEstPlus();
+  tdbTexte('annee-sous', plus
+    ? 'Heures vendables et heures réalisées, de janvier à décembre'
+    : 'Heures vendables et heures planifiées, de janvier à décembre');
+  tdbTexte('annee-real-lbl', plus ? 'réalisées à ce jour' : 'planifiées à ce jour');
+  tdbTexte('annee-taux-lbl', plus ? 'de réalisation, sur les mois écoulés' : 'de planification, sur les mois écoulés');
+  tdbTexte('annee-legende-mot', plus ? 'réalisées' : 'planifiées');
+  tdbTexte('vq-titre-mot', plus ? 'vendues' : 'planifiées');
+  tdbTexte('vq-sous', plus
+    ? 'Heures vendables (prévisionnel), heures vendues (réalisé hors exclusions) et heures exclues par motif, de janvier à décembre'
+    : 'Heures vendables (prévisionnel), heures planifiées (hors exclusions) et heures planifiées exclues par motif, de janvier à décembre');
+  tdbTexte('vq-vendu-lbl', plus ? 'vendues à ce jour' : 'planifiées à ce jour');
+  tdbTexte('vq-exclu-lbl', plus ? 'exclues à ce jour' : 'planifiées exclues à ce jour');
+  tdbTexte('vq-legende-mot', plus ? 'vendues' : 'planifiées');
+}
+
+/* ── Vignette Année : heures vendables et heures réalisées (Plus)
+   ou heures planifiées (Standard) ─────────────────────────────────
    Douze mois, de janvier à décembre. Les heures vendables viennent du
    prévisionnel (hVendablesMois, bloc recopié) ; les heures réalisées sont
-   la somme des durées saisies par les salariés, mois par mois.
-   Les mois à venir n'ont pas de réalisé : leurs barres sont vides et
-   l'écart avec la ligne se lit comme la capacité restant à vendre. */
+   la somme des durées saisies par les salariés, mois par mois (Plus) ou
+   les heures planifiées au Planning, mois par mois (Standard).
+   Les mois à venir n'ont pas de réalisé/planifié : leurs barres sont
+   vides et l'écart avec la ligne se lit comme la capacité restant à
+   vendre. */
 let _tdbAnneeData = [];
 function tdbGraphAnnee(d) {
   const zone = document.getElementById('annee-graph');
@@ -1132,7 +1067,7 @@ function tdbGraphAnnee(d) {
   });
 
   zone.innerHTML = '<svg viewBox="0 0 ' + L + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" '
-    + 'aria-label="Heures vendables et heures réalisées, mois par mois sur l\'année">' + g + '</svg>';
+    + 'aria-label="Heures vendables et heures ' + (tdbEstPlus() ? 'réalisées' : 'planifiées') + ', mois par mois sur l\'année">' + g + '</svg>';
 }
 function tdbAnneeSurvol(evt, i) {
   const m = _tdbAnneeData[i];
@@ -1140,21 +1075,31 @@ function tdbAnneeSurvol(evt, i) {
   tdbTooltipMontrer(evt,
     '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + '</b>' +
     '<div><span>Vendables</span><b>' + tdbNb(m.vend, 0) + ' h</b></div>' +
-    '<div><span>Réalisées</span><b>' + tdbNb(m.real, 0) + ' h</b></div>'
+    '<div><span>' + (tdbEstPlus() ? 'Réalisées' : 'Planifiées') + '</span><b>' + tdbNb(m.real, 0) + ' h</b></div>'
   );
 }
 
 async function tdbChargerAnnee() {
   const now = new Date(), an = now.getFullYear();
   const NOMS = ['janv.','févr.','mars','avril','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
-  const mois = await tdbAgregeAnnee(an);          // un seul appel pour les douze mois
+  const plus = tdbEstPlus();
+  /* Plus : réalisé lu sur l'agrégat serveur (saisie mobile).
+     Standard : pas de saisie mobile → planifié lu en local (Planning),
+     même source que les vignettes Charge hebdomadaire / Semaine. */
+  const mois = plus ? await tdbAgregeAnnee(an) : null;
+  const planifieSur = plus ? null : tdbPlanifie();
 
   const serie = [];
   let totV = 0, totR = 0, vendEcoules = 0;
   for (let m = 0; m < 12; m++) {
     const vend = hVendablesMois(an, m);
-    const ag = mois[an + '-' + String(m + 1).padStart(2, '0')];
-    const real = ag ? (ag.heures || 0) : 0;
+    let real;
+    if (plus) {
+      const ag = mois[an + '-' + String(m + 1).padStart(2, '0')];
+      real = ag ? (ag.heures || 0) : 0;
+    } else {
+      real = planifieSur(new Date(an, m, 1), new Date(an, m + 1, 0));
+    }
     totV += vend; totR += real;
     if (m <= now.getMonth()) vendEcoules += vend;
     serie.push({ cle: NOMS[m], vend: vend, real: real });
@@ -1280,7 +1225,7 @@ function tdbGraphVenteQualite(d) {
   });
 
   zone.innerHTML = '<svg viewBox="0 0 ' + L + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" '
-    + 'aria-label="Heures vendables, vendues et exclues, mois par mois sur l\'année, avec le taux d\'exclusion au-dessus de chaque barre">' + g + '</svg>';
+    + 'aria-label="Heures vendables, ' + (tdbEstPlus() ? 'vendues' : 'planifiées') + ' et exclues, mois par mois sur l\'année, avec le taux d\'exclusion au-dessus de chaque barre">' + g + '</svg>';
 }
 
 function tdbVqSurvol(evt, i) {
@@ -1294,7 +1239,7 @@ function tdbVqSurvol(evt, i) {
   tdbTooltipMontrer(evt,
     '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + '</b>' +
     '<div><span>Vendables</span><b>' + tdbNb(m.vend, 0) + ' h</b></div>' +
-    '<div><span>Vendues</span><b>' + tdbNb(m.vendu, 0) + ' h</b></div>' +
+    '<div><span>' + (tdbEstPlus() ? 'Vendues' : 'Planifiées') + '</span><b>' + tdbNb(m.vendu, 0) + ' h</b></div>' +
     '<div><span>Exclues (total)</span><b>' + tdbNb(m.exclu, 0) + ' h · ' + pct + ' %</b></div>' +
     detail
   );
@@ -1305,7 +1250,12 @@ async function tdbChargerVenteQualite() {
   const now = new Date(), an = now.getFullYear();
   const NOMS = ['janv.','févr.','mars','avril','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
   const exclusions = tdbExclusionsAnnee(an);
-  const mois = await tdbAgregeAnnee(an);   // même cache que la vignette Année : aucun appel supplémentaire
+  const plus = tdbEstPlus();
+  /* Plus : « vendu » = réalisé serveur net des exclusions.
+     Standard : pas de réalisé → « vendu » devient le planifié (Planning),
+     net des mêmes exclusions (déjà lues en local, indépendant de la licence). */
+  const mois = plus ? await tdbAgregeAnnee(an) : null;   // même cache que la vignette Année : aucun appel supplémentaire
+  const planifieSur = plus ? null : tdbPlanifie();
 
   const serie = [];
   let totVend = 0, totVendu = 0, totExclu = 0;
@@ -1316,12 +1266,17 @@ async function tdbChargerVenteQualite() {
     const devis = tdbPrevisionnelMois(an, m);
     const vend = Object.keys(devis).reduce(function (s, k) { return s + devis[k]; }, 0);
     const exMois = exclusions[ym] || { totalExclu: 0, totalTNA: 0, parMotif: {} };
-    const ag = mois[ym];
-    const realBrut = ag ? (ag.heures || 0) : 0;
+    let brut;
+    if (plus) {
+      const ag = mois[ym];
+      brut = ag ? (ag.heures || 0) : 0;
+    } else {
+      brut = planifieSur(new Date(an, m, 1), new Date(an, m + 1, 0));
+    }
     // Le TNA n'existe que côté planning (jamais saisi par un salarié) : il ne fait
-    // jamais partie de realBrut, donc on ne le soustrait pas des heures vendues —
-    // seules les vraies exclusions (SAV, etc.) réduisent le réalisé.
-    const vendu = Math.max(0, realBrut - exMois.totalExclu);
+    // jamais partie du brut réalisé, donc on ne le soustrait pas des heures vendues —
+    // seules les vraies exclusions (SAV, etc.) réduisent le réalisé/planifié.
+    const vendu = Math.max(0, brut - exMois.totalExclu);
     const exCumul = exMois.totalExclu + exMois.totalTNA;
 
     totVend += vend; totVendu += vendu; totExclu += exCumul;
@@ -1533,26 +1488,6 @@ async function tdbChargerPrevisionnel() {
   });
   liste.sort(function (a, b) { return b.pct - a.pct; });
   tdbVignetteChantiers100({ liste: liste });
-
-  /* ── 4 · Déplacements ──
-     Dénominateur choisi par Nicolas : l'INTERVENTION (une ligne de chantier
-     saisie), et non le chantier distinct — c'est ce qui prend en compte le
-     déplacement de chaque ouvrier sur un même chantier. */
-  const moisHisto = [];
-  const moisHistoLbl = [];
-  for (let k = 5; k >= 0; k--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
-    moisHisto.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
-    moisHistoLbl.push(tdbMoisCourt(d.getMonth()));
-  }
-  const histo = await Promise.all(moisHisto.map(tdbAgregeMois));
-  const dernier = histo[histo.length - 1];
-  tdbVignetteDeplacements({
-    parChantier: dernier.interventions ? dernier.trajets / dernier.interventions : 0,
-    minutesParChantier: dernier.interventions ? dernier.deplacementMin / dernier.interventions : 0,
-    historique: histo.map(function (h) { return h.interventions ? h.deplacementMin / h.interventions : 0; }),
-    labels: moisHistoLbl
-  });
 }
 
 /* Numéro de semaine ISO 8601. */
@@ -1588,8 +1523,6 @@ function tdbDonneesExemple() {
   tdbVignetteChantiers100({ liste:[
     { nom:'Client 12', pct:134 }, { nom:'Terrassement nord', pct:118 },
     { nom:'Client 27', pct:104 }, { nom:'Dépannage Leclerc', pct:100 } ]});
-  tdbVignetteNotes({ enCours:7, total:23, detail:'3 avec photo · la plus ancienne, 9 jours' });
-  tdbVignetteDeplacements({ parChantier:1.41, minutesParChantier:31, historique:[26,28,25,29,27,31] });
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
   tdbGraphVenteQualite({ mois: [
     { cle:'janv.', vend:800, vendu:740, exclu:60, motifsMois:{ 'SAV':40, 'Temps non affecté':20 } },
@@ -1620,20 +1553,20 @@ function tdbRafraichir() {
   _tdbMajT = setTimeout(function () {
     /* Le cache du contrat effectif a pu être rempli avec des données vides. */
     try { _cvCacheCE = {}; } catch (e) {}
+    tdbAdapterTextesLicence();   // le type de licence peut n'être connu qu'après la synchro
     tdbChargerPlanning();
     tdbChargerPrevisionnel();
     tdbChargerAnnee();
     tdbChargerVenteQualite();
     tdbChargerCompteur();
-    tdbChargerNotes();
   }, 80);
 }
 window.addEventListener('donnees-chargees', tdbRafraichir);
 
 document.addEventListener('DOMContentLoaded', function () {
+  tdbAdapterTextesLicence();
   tdbCharger();
   tdbDonneesExemple();      // valeurs d'attente, remplacées dès que les données sont là
-  tdbChargerNotes();
   tdbChargerCompteur();
   tdbChargerPlanning();
   tdbChargerPrevisionnel();
