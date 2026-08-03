@@ -160,8 +160,10 @@ const SYNC = (() => {
       if (_token && _type) { majStatutLicence(true); majNav(); revendiquerOngletActif(); }
       else if (['index.html', '/', ''].includes(pageActuelle())) {
         // Page Entreprise (accueil) sans licence active : on affiche quand même
-        // la barre latérale, pour la cohérence visuelle avec les autres pages.
+        // la barre latérale, pour la cohérence visuelle avec les autres pages,
+        // et le bouton Connexion là où apparaît Déconnexion une fois connecté.
         majNav();
+        afficherBoutonConnexion();
       }
       return;
     }
@@ -893,17 +895,128 @@ const SYNC = (() => {
   }
 
   function majStatutLicence(actif, message) {
+    afficherBadgeLicence(actif, message);
     const el = document.getElementById('licence-status');
     if (!el) return;
     if (actif) {
-      const badge = _type === 'plus' ? ' <span style="background:#fbbf24;color:#78350f;border-radius:999px;padding:1px 6px;font-size:0.7rem;font-weight:700;">PLUS</span>' : '';
       el.innerHTML =
-        `<div><span style="color:#86efac;font-size:0.85rem;">✔ Licence active${badge}</span></div>` +
         `<button onclick="SYNC.seDeconnecter()" title="Se déconnecter et changer de licence" ` +
-        `style="margin-top:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;">` +
+        `style="background:#64748b;border:none;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;">` +
         `⏻ Déconnexion</button>`;
     } else {
-      el.innerHTML = `<span style="color:#fca5a5;font-size:0.85rem;">⚠ ${message || 'Licence invalide'}</span>`;
+      el.innerHTML = '';
+    }
+  }
+
+  /* ── Badge de type de licence (Standard / Plus) ──
+     Indicateur d'abonnement, sans rapport avec l'action Connexion/Déconnexion :
+     posé à part dans la têtière, avant le nom de l'entreprise. */
+  function afficherBadgeLicence(actif, message) {
+    let el = document.getElementById('sync-badge-licence');
+    if (!el) {
+      const conteneur = document.querySelector('.vol-droite');
+      if (!conteneur) return;
+      el = document.createElement('div');
+      el.id = 'sync-badge-licence';
+      el.style.cssText = 'font-size:0.85rem;text-align:right;';
+      conteneur.insertBefore(el, conteneur.firstChild);
+    }
+    if (actif) {
+      const badge = _type === 'plus' ? ' <span style="background:#fbbf24;color:#78350f;border-radius:999px;padding:1px 6px;font-size:0.7rem;font-weight:700;">PLUS</span>' : '';
+      el.innerHTML = `<span style="color:#86efac;">✔ Licence active${badge}</span>`;
+    } else {
+      el.innerHTML = message ? `<span style="color:#fca5a5;">⚠ ${message}</span>` : '';
+    }
+  }
+
+  /* ── Bouton et fenêtre de connexion (page Entreprise, avant toute licence active) ──
+     Miroir du bouton Déconnexion : même emplacement en haut à droite, pour que
+     « se connecter » et « se déconnecter » soient le même geste, avant/après.
+     Le formulaire « Code client / Activer la licence » de la page Entreprise
+     reste inchangé et fonctionne toujours en parallèle. */
+  function afficherBoutonConnexion() {
+    const el = document.getElementById('licence-status');
+    if (!el) return;
+    el.innerHTML =
+      `<button onclick="SYNC.ouvrirModalConnexion()" ` +
+      `style="background:#f59e0b;border:none;color:#0f172a;border-radius:6px;padding:6px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;">` +
+      `🔑 Connexion</button>`;
+  }
+
+  function styleModalConnexion() {
+    if (document.getElementById('sync-modal-connexion-style')) return;
+    const s = document.createElement('style');
+    s.id = 'sync-modal-connexion-style';
+    s.textContent =
+      '#sync-modal-connexion-overlay{display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;}' +
+      '#sync-modal-connexion{background:#fff;border-radius:16px;max-width:380px;width:100%;padding:28px 26px;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,Helvetica,sans-serif;position:relative;}' +
+      '#sync-modal-connexion h3{margin:0 0 6px;font-size:19px;color:#0f172a;}' +
+      '#sync-modal-connexion p{margin:0 0 16px;font-size:14px;color:#475569;line-height:1.5;}' +
+      '#sync-modal-connexion input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:15px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;}' +
+      '#sync-modal-connexion .sync-mc-erreur{color:#b91c1c;font-size:13px;margin:-2px 0 10px;min-height:16px;}' +
+      '#sync-modal-connexion .sync-mc-actions{display:flex;gap:10px;justify-content:flex-end;}' +
+      '#sync-modal-connexion button.sync-mc-annuler{background:none;border:none;color:#64748b;font-size:14px;cursor:pointer;padding:10px 8px;}' +
+      '#sync-modal-connexion button.sync-mc-valider{background:#0f3a8a;border:none;color:#fff;border-radius:8px;padding:10px 20px;font-size:15px;font-weight:700;cursor:pointer;}' +
+      '#sync-modal-connexion button.sync-mc-valider:disabled{opacity:.6;cursor:default;}' +
+      '#sync-modal-connexion button.sync-mc-fermer{position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;line-height:1;}';
+    document.head.appendChild(s);
+  }
+
+  function construireModalConnexion() {
+    if (document.getElementById('sync-modal-connexion-overlay')) return;
+    styleModalConnexion();
+    const overlay = document.createElement('div');
+    overlay.id = 'sync-modal-connexion-overlay';
+    overlay.innerHTML =
+      '<div id="sync-modal-connexion">' +
+        '<button class="sync-mc-fermer" onclick="SYNC.fermerModalConnexion()" aria-label="Fermer">&times;</button>' +
+        '<h3>Connexion</h3>' +
+        '<p>Saisissez votre code client pour accéder à votre espace.</p>' +
+        '<input id="sync-mc-code" placeholder="XXXX-YYYY-ZZZZ" autocomplete="off">' +
+        '<div class="sync-mc-erreur" id="sync-mc-erreur"></div>' +
+        '<div class="sync-mc-actions">' +
+          '<button class="sync-mc-annuler" onclick="SYNC.fermerModalConnexion()">Annuler</button>' +
+          '<button class="sync-mc-valider" id="sync-mc-valider" onclick="SYNC.validerModalConnexion()">Se connecter</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) fermerModalConnexion(); });
+    const input = document.getElementById('sync-mc-code');
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') validerModalConnexion(); });
+  }
+
+  function ouvrirModalConnexion() {
+    construireModalConnexion();
+    const overlay = document.getElementById('sync-modal-connexion-overlay');
+    const input   = document.getElementById('sync-mc-code');
+    const erreur  = document.getElementById('sync-mc-erreur');
+    if (erreur) erreur.textContent = '';
+    if (input) input.value = localStorage.getItem('licenceCode') || '';
+    overlay.style.display = 'flex';
+    setTimeout(() => input && input.focus(), 50);
+  }
+
+  function fermerModalConnexion() {
+    const overlay = document.getElementById('sync-modal-connexion-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  async function validerModalConnexion() {
+    const input  = document.getElementById('sync-mc-code');
+    const erreur = document.getElementById('sync-mc-erreur');
+    const btn    = document.getElementById('sync-mc-valider');
+    const code   = input ? input.value.trim() : '';
+    if (!code) { if (erreur) erreur.textContent = 'Veuillez saisir un code client.'; return; }
+    if (erreur) erreur.textContent = '';
+    if (btn) { btn.textContent = 'Vérification…'; btn.disabled = true; }
+    const ok = await connecter(code);
+    if (btn) { btn.textContent = 'Se connecter'; btn.disabled = false; }
+    if (ok) {
+      fermerModalConnexion();
+      afficherNotif('✔ Connexion réussie !');
+      setTimeout(() => { location.href = '/tableau-de-bord.html'; }, 400);
+    } else {
+      if (erreur) erreur.textContent = 'Code licence invalide ou expiré.';
     }
   }
 
@@ -946,6 +1059,7 @@ const SYNC = (() => {
     VERSION,
     init, connecter, sauvegarderTout, declencherSauvegarde, flushSauvegarde,
     afficherNotif, seDeconnecter,
+    ouvrirModalConnexion, fermerModalConnexion, validerModalConnexion,
     estConnecte: () => !!_token,
     estAdmin:    () => _modeAdmin,
     getClientId: () => _clientId,
