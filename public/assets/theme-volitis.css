@@ -46,8 +46,9 @@ body .main-header {
   align-items: center !important;
   justify-content: space-between !important;
   gap: 16px !important;
-  position: relative;
-  z-index: 10;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
   min-height: 0 !important;
 }
 
@@ -158,19 +159,10 @@ body .main-header .entreprise-nom::before {
   margin-bottom: 1px;
 }
 
-/* Badge licence */
+/* Bloc Connexion / Déconnexion : n'habille plus qu'un bouton, qui porte son propre style */
 body #licence-status {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  padding: 5px 11px !important;
-  border-radius: 3px !important;
-  letter-spacing: 0.04em !important;
-  background: var(--vol-success) !important;
-  color: #fff !important;
-  white-space: nowrap !important;
   display: inline-block !important;
 }
-body #licence-status span { color: #fff !important; font-size: 11px !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    NAVIGATION EN ONGLETS (style Direction B)

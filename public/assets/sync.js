@@ -920,12 +920,13 @@ const SYNC = (() => {
   function afficherBadgeLicence(actif, message) {
     let el = document.getElementById('sync-badge-licence');
     if (!el) {
-      const conteneur = document.querySelector('.vol-droite');
-      if (!conteneur) return;
+      const droite = document.querySelector('.vol-droite');
+      const conteneur = droite && droite.parentElement;
+      if (!conteneur || !droite) return;
       el = document.createElement('div');
       el.id = 'sync-badge-licence';
-      el.style.cssText = 'font-size:0.85rem;text-align:right;';
-      conteneur.insertBefore(el, conteneur.firstChild);
+      el.style.cssText = 'font-size:0.85rem;text-align:right;align-self:center;';
+      conteneur.insertBefore(el, droite);
     }
     if (actif) {
       const badge = _type === 'plus' ? ' <span style="background:#fbbf24;color:#78350f;border-radius:999px;padding:1px 6px;font-size:0.7rem;font-weight:700;">PLUS</span>' : '';
