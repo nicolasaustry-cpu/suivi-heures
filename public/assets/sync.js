@@ -544,7 +544,7 @@ const SYNC = (() => {
         { href: 'realise.html', label: 'Planning réalisé' },
         { href: 'notes.html',   label: 'Notes' },
         { href: 'rapports.html', label: 'Rapports' },
-        { href: 'bev.html',     label: 'BEV' },
+        { href: 'bev.html',     label: 'Éléments Pointage Paie' },
       ];
       liens.forEach(l => {
         const a = document.createElement('a');
@@ -564,10 +564,10 @@ const SYNC = (() => {
           planningLink.insertAdjacentElement('afterend', ve);
         }
       }
-      // BEV accessible aussi (après Rapports)
+      // Éléments Pointage Paie accessible aussi (après Rapports)
       if (!nav.querySelector('a[href="bev.html"]')) {
         const a = document.createElement('a');
-        a.href = 'bev.html'; a.textContent = 'BEV'; a.className = 'nav-plus';
+        a.href = 'bev.html'; a.textContent = 'Éléments Pointage Paie'; a.className = 'nav-plus';
         if (page === 'bev.html') a.classList.add('active');
         nav.appendChild(a);
       }
@@ -611,7 +611,7 @@ const SYNC = (() => {
       { href: 'rapports.html', label: 'Rapports' },
       { href: 'notes.html',    label: 'Notes', plus: true },
       { href: 'suivi-entretiens.html', label: 'Suivi des entretiens' },
-      { href: 'bev.html',      label: 'BEV' }
+      { href: 'bev.html',      label: 'Éléments Pointage Paie' }
     ] },
     { label: 'Contrat', items: [
       { href: 'tarifs.html', label: 'Tarifs' }
