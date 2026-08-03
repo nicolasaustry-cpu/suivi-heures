@@ -30,6 +30,13 @@
   }
   .chip.on { background: #0f2747; color: #fff; border-color: #0f2747; }
 
+  .periode-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .periode-lbl { display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; color: #475569; }
+  .periode-lbl input[type="month"] {
+    border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 7px;
+    font: inherit; font-size: 0.82rem; color: #0f2747; background: #fff;
+  }
+
   .btn {
     border: 1px solid #cbd5e1; background: #fff; color: #0f2747; border-radius: 8px;
     padding: 7px 14px; font: inherit; font-size: 0.85rem; cursor: pointer;
@@ -103,7 +110,15 @@
       <button id="btn-planif">Planifié vs prévu</button>
       <button id="btn-real" class="actif">Réalisé vs prévu</button>
     </div>
-    <div class="chips" id="chips-annees"></div>
+    <div class="periode-ctrl" id="periode-ctrl">
+      <div class="seg" id="seg-periode">
+        <button id="btn-p3" class="actif">3 mois</button>
+        <button id="btn-p12">12 mois</button>
+        <button id="btn-ptout">Tout</button>
+      </div>
+      <label class="periode-lbl">Du <input type="month" id="periode-debut"></label>
+      <label class="periode-lbl">au <input type="month" id="periode-fin"></label>
+    </div>
     <button class="btn" id="btn-print">🖨️ Imprimer</button>
   </div>
 
@@ -137,7 +152,11 @@
 
   var _cacheReal = {};
   var metrique = 'real';
-  var anneesActives = null;
+  function moisDelta(y, m, delta) {
+    var idx = y * 12 + m + delta;
+    return { y: Math.floor(idx / 12), m: ((idx % 12) + 12) % 12 };
+  }
+  var periode = { du: moisDelta(curY, curM, -1), au: moisDelta(curY, curM, 1) };
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function r(x) { return Math.round(x); }
@@ -236,28 +255,28 @@
     return null;
   }
 
-  function listeChantiers() {
+  function chantiersPourCols(cols) {
     var set = {};
-    var annees = anneesPresentes();
-    annees.forEach(function (y) {
-      var mois = data[y] || {};
-      for (var m in mois) {
-        var dm = mois[m];
-        if (!dm || !dm.chantiers) continue;
-        dm.chantiers.forEach(function (ch) {
-          var nom = up(ch.client);
-          if (nom && nom !== 'ABSENCE') set[nom] = true;
-        });
-      }
+    cols.forEach(function (c) {
+      var dm = data[c.y] && data[c.y][c.m];
+      if (!dm || !dm.chantiers) return;
+      dm.chantiers.forEach(function (ch) {
+        var nom = up(ch.client);
+        if (nom && nom !== 'ABSENCE') set[nom] = true;
+      });
     });
     return Object.keys(set).sort();
   }
 
   function colonnesActives() {
     var cols = [];
-    var annees = anneesPresentes().filter(function (y) { return anneesActives.has(y); });
+    var borneDu = periode.du.y * 12 + periode.du.m;
+    var borneAu = periode.au.y * 12 + periode.au.m;
+    var annees = anneesPresentes().filter(function (y) { return y * 12 + 11 >= borneDu && y * 12 <= borneAu; });
     annees.forEach(function (y) {
       for (var m = 0; m < 12; m++) {
+        var key = y * 12 + m;
+        if (key < borneDu || key > borneAu) continue;
         var actif = vendablesMois(y, m) > 0 || planifMoisTous(y, m);
         if (!actif) {
           var dm = data[y] && data[y][m];
@@ -306,8 +325,8 @@
 
   function render() {
     var g = document.getElementById('gantt');
-    var chantiers = listeChantiers();
     var cols = colonnesActives();
+    var chantiers = chantiersPourCols(cols);
     var mNom = metrique === 'planif' ? 'Planifié' : 'Réalisé';
 
     if (!chantiers.length || !cols.length) {
@@ -399,23 +418,56 @@
     })).then(function () { render(); });
   }
 
-  function construireChips() {
-    var cont = document.getElementById('chips-annees');
-    cont.innerHTML = '';
-    anneesPresentes().forEach(function (y) {
-      var b = document.createElement('button');
-      b.className = 'chip' + (anneesActives.has(y) ? ' on' : '');
-      b.textContent = y;
-      b.addEventListener('click', function () {
-        if (anneesActives.has(y)) { if (anneesActives.size > 1) anneesActives.delete(y); }
-        else anneesActives.add(y);
-        construireChips();
-        render();
-        chargerReal();
-      });
-      cont.appendChild(b);
-    });
+  var inpDu = document.getElementById('periode-debut');
+  var inpFin = document.getElementById('periode-fin');
+  var btnP3 = document.getElementById('btn-p3');
+  var btnP12 = document.getElementById('btn-p12');
+  var btnPTout = document.getElementById('btn-ptout');
+
+  function majPeriodeInputs() {
+    inpDu.value = periode.du.y + '-' + pad2(periode.du.m + 1);
+    inpFin.value = periode.au.y + '-' + pad2(periode.au.m + 1);
   }
+  function lireInputMois(inp) {
+    var v = inp.value;
+    if (!v) return null;
+    var p = v.split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1;
+    if (isNaN(y) || isNaN(m)) return null;
+    return { y: y, m: m };
+  }
+  function periodeTout() {
+    var annees = anneesPresentes();
+    if (!annees.length) return { du: moisDelta(curY, curM, -1), au: moisDelta(curY, curM, 1) };
+    return { du: { y: annees[0], m: 0 }, au: { y: annees[annees.length - 1], m: 11 } };
+  }
+  function marquerPreset(btn) {
+    [btnP3, btnP12, btnPTout].forEach(function (b) { b.classList.toggle('actif', b === btn); });
+  }
+  function appliquerPeriode(p, btnPreset) {
+    periode = p;
+    majPeriodeInputs();
+    marquerPreset(btnPreset || null);
+    render();
+    chargerReal();
+  }
+  btnP3.addEventListener('click', function () {
+    appliquerPeriode({ du: moisDelta(curY, curM, -1), au: moisDelta(curY, curM, 1) }, btnP3);
+  });
+  btnP12.addEventListener('click', function () {
+    appliquerPeriode({ du: moisDelta(curY, curM, -5), au: moisDelta(curY, curM, 6) }, btnP12);
+  });
+  btnPTout.addEventListener('click', function () {
+    appliquerPeriode(periodeTout(), btnPTout);
+  });
+  function onPeriodeInputChange() {
+    var du = lireInputMois(inpDu), au = lireInputMois(inpFin);
+    if (!du || !au) return;
+    if (du.y * 12 + du.m > au.y * 12 + au.m) { var t = du; du = au; au = t; }
+    appliquerPeriode({ du: du, au: au }, null);
+  }
+  inpDu.addEventListener('change', onPeriodeInputChange);
+  inpFin.addEventListener('change', onPeriodeInputChange);
 
   var bP = document.getElementById('btn-planif');
   var bR = document.getElementById('btn-real');
@@ -430,9 +482,7 @@
   bR.addEventListener('click', function () { setMetrique('real'); });
   document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
 
-  var annees = anneesPresentes();
-  anneesActives = new Set(annees.length ? annees : [curY]);
-  construireChips();
+  majPeriodeInputs();
   render();
   chargerReal();
   /* ── Info-bulle stylée au survol d'une cellule chantier (même forme que le Prévisionnel) ── */
