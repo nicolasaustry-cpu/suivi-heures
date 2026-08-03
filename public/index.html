@@ -45,24 +45,25 @@
 
 <style>
 .ent-grille {
-  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px;
-  margin:1.2rem 0; align-items:start;
+  columns:3 280px; column-gap:14px;
+  margin:1.2rem 0;
 }
 .ent-tuile {
   border-left:4px solid #cbd5e1; border-radius:10px;
   box-shadow:0 1px 3px rgba(0,0,0,.08); padding:1.2rem 1.4rem;
+  break-inside:avoid; -webkit-column-break-inside:avoid; page-break-inside:avoid;
+  display:inline-block; width:100%; box-sizing:border-box;
+  margin:0 0 14px;
 }
 .ent-tuile h2 {
   font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
   margin:0 0 12px; border:none; padding:0;
 }
-.ent-tuile.large { grid-column:span 2; }
 @media (max-width:1000px) {
-  .ent-grille { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .ent-grille { columns:2 280px; }
 }
 @media (max-width:640px) {
-  .ent-grille { grid-template-columns:1fr; }
-  .ent-tuile.large { grid-column:auto; }
+  .ent-grille { columns:1; }
 }
 </style>
 
