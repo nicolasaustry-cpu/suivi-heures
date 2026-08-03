@@ -3835,8 +3835,9 @@ function dicterNote() {
   catch (e) { arreterDictee(); }
 }
 
-/* ── Photos de la note (3 max, compressées côté téléphone) ── */
-const PHOTOS_MAX = 3;
+/* ── Photos de la note (compressées côté téléphone) ── */
+/* Plafond selon le rôle : 8 pour le gérant, 3 pour les autres (salarié/administratif). */
+function _photosMax() { return _monRole() === 'gerant' ? 8 : 3; }
 let _notePhotos = [];
 
 function rendrePhotosNote() {
@@ -3859,14 +3860,14 @@ function rendrePhotosNote() {
     v.appendChild(img); v.appendChild(x);
     strip.appendChild(v);
   });
-  cpt.textContent = _notePhotos.length + '/' + PHOTOS_MAX;
-  const plein = _notePhotos.length >= PHOTOS_MAX;
+  cpt.textContent = _notePhotos.length + '/' + _photosMax();
+  const plein = _notePhotos.length >= _photosMax();
   btn.disabled = plein;
   btn.style.opacity = plein ? '0.45' : '1';
 }
 
 function prendrePhoto() {
-  if (_notePhotos.length >= PHOTOS_MAX) return;
+  if (_notePhotos.length >= _photosMax()) return;
   document.getElementById('photo-input').click();
 }
 
@@ -3876,7 +3877,7 @@ function photoChoisie(input) {
   if (!fichier) return;
   compresserPhoto(fichier, function(dataUrl) {
     if (!dataUrl) { alert('Impossible de lire cette photo.'); return; }
-    if (_notePhotos.length >= PHOTOS_MAX) return;
+    if (_notePhotos.length >= _photosMax()) return;
     _notePhotos.push(dataUrl);
     rendrePhotosNote();
   });
