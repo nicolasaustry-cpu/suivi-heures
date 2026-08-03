@@ -315,14 +315,15 @@ router.post("/rdv", async (req, res) => {
 /* ── Envoyer un chantier (avec code employé) ──
    Upsert par nom : si le chantier existe déjà pour ce jour/salarié, on le met à jour
    (permet la saisie progressive : arrivée seule, puis départ, etc.) */
-/* Assainit les photos d'un chantier : images data-URL uniquement, ≤ ~675 Ko chacune, 3 max.
+/* Assainit les photos d'un chantier : images data-URL uniquement, ≤ ~675 Ko chacune.
+   Plafond variable (8 pour le gérant, 3 pour les autres) — voir appel dans /envoyer.
    Renvoie null si rien n'a été envoyé (pour ne pas écraser l'existant à la fusion). */
-function assainirPhotos(p) {
+function assainirPhotos(p, max = 3) {
   if (p == null) return null;
   if (!Array.isArray(p)) return [];
   return p
     .filter(x => typeof x === "string" && x.startsWith("data:image/") && x.length <= 900000)
-    .slice(0, 3);
+    .slice(0, max);
 }
 
 /* Recalcule la durée (minutes, pause déduite) à partir des heures d'arrivée et de
@@ -347,12 +348,17 @@ router.post("/envoyer", async (req, res) => {
   try {
     const { codeEmploye, salarieId, salarieNom, date, chantier } = req.body;
     const codeEmp = (codeEmploye || "").trim().toUpperCase();
-    if (chantier) chantier.photos = assainirPhotos(chantier.photos);
 
     const Donnees = (await import("../models/donnees.js")).default;
     const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
     if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
     const doc = _r.doc;
+
+    if (chantier) {
+      const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
+      const maxPhotos = (sal && sal.gerant) ? 8 : 3;
+      chantier.photos = assainirPhotos(chantier.photos, maxPhotos);
+    }
 
     // Chercher la saisie du jour ou la créer
     let saisie = await Saisie.findOne({ clientId: doc.clientId, salarieId, date });
