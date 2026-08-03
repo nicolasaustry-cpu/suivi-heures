@@ -1583,7 +1583,7 @@ async function reconnecterAuto(codeEmploye) {
         // Restaurer directement la feuille de saisie sans PIN
         document.getElementById('nom-salarie').textContent = _salarie.nom;
         document.getElementById('pin-screen').style.display = 'none';
-        document.getElementById('ecran-saisie').style.display = 'block';
+        document.getElementById('ecran-saisie').style.display = 'flex';
         chargerChantiersPrev();
       } else {
         // Pas de salarié mémorisé → afficher le PIN
@@ -1607,7 +1607,7 @@ async function reconnecterAuto(codeEmploye) {
       _salarie = JSON.parse(salMemorize);
       document.getElementById('nom-salarie').textContent = _salarie.nom;
       document.getElementById('pin-screen').style.display = 'none';
-      document.getElementById('ecran-saisie').style.display = 'block';
+      document.getElementById('ecran-saisie').style.display = 'flex';
       chargerChantiersPrev();
     } else {
       document.getElementById('pin-screen').style.display = 'flex';
@@ -1804,7 +1804,7 @@ async function pinValider() {
 
     document.getElementById('nom-salarie').textContent = _salarie.nom;
     document.getElementById('pin-screen').style.display = 'none';
-    document.getElementById('ecran-saisie').style.display = 'block';
+    document.getElementById('ecran-saisie').style.display = 'flex';
     chargerChantiersPrev();
   } catch (e) {
     errEl.textContent = 'Erreur réseau, réessayez';
