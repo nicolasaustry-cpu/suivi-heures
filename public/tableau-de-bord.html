@@ -349,6 +349,20 @@
     <div class="tdb-liste" id="ch100-liste" style="margin-top:14px"></div>
   </section>
 
+  <!-- ────── Déplacements (licence Plus uniquement : nécessite la saisie mobile) ────── -->
+  <section class="tdb-vignette" data-id="deplacements" id="vignette-deplacements">
+    <div class="tdb-tete">
+      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+      <span class="tdb-titre">Déplacements</span>
+      <a class="tdb-lien" href="rapports.html">Rapports →</a>
+    </div>
+    <div class="tdb-val" id="depl-ratio">1,41</div>
+    <div class="tdb-lbl">trajets par chantier</div>
+    <div class="tdb-second" id="depl-temps">31 min par chantier</div>
+    <div class="tdb-spark" id="depl-spark"></div>
+    <div class="tdb-lbl">six derniers mois</div>
+  </section>
+
 
   <section class="tdb-vignette" data-id="hnv">
     <div class="tdb-tete">
@@ -381,7 +395,7 @@
 /* ─────────────────────── A. Présentation ─────────────────────── */
 
 const TDB_CLE = 'tdb_presentation';
-const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','hnv'];
+const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','deplacements','hnv'];
 
 let _tdbSale = false;
 
@@ -705,6 +719,15 @@ function tdbVignetteHnv(d) {
   if (b) b.style.width = Math.min(100, pct) + '%';
 }
 
+/* ── Déplacements (licence Plus uniquement) ──
+   Basé sur les trajets/temps de déplacement saisis en mobile — n'existe
+   que si la saisie mobile est active, donc réservé à la licence Plus. */
+function tdbVignetteDeplacements(d) {
+  tdbTexte('depl-ratio', tdbNb(d.parChantier, 2));
+  tdbTexte('depl-temps', Math.round(d.minutesParChantier) + ' min par chantier');
+  tdbSpark('depl-spark', d.historique, '#0f3a8a', '#c7d2e6', d.labels, 'min');
+}
+
 /* ── Raccordement de la vignette Solde compteur ───────────────────────
    Le solde d'un mois vaut, comme dans les Éléments Pointage Paie : heures REPORTÉES moins
    heures RTT et RÉCUPÉRATION prises.
@@ -1007,6 +1030,10 @@ function tdbAdapterTextesLicence() {
   tdbTexte('vq-vendu-lbl', plus ? 'vendues à ce jour' : 'planifiées à ce jour');
   tdbTexte('vq-exclu-lbl', plus ? 'exclues à ce jour' : 'planifiées exclues à ce jour');
   tdbTexte('vq-legende-mot', plus ? 'vendues' : 'planifiées');
+
+  /* Déplacements : n'a de sens qu'avec la saisie mobile (licence Plus). */
+  const vDepl = document.getElementById('vignette-deplacements');
+  if (vDepl) vDepl.style.display = plus ? '' : 'none';
 }
 
 /* ── Vignette Année : heures vendables et heures réalisées (Plus)
@@ -1488,6 +1515,30 @@ async function tdbChargerPrevisionnel() {
   });
   liste.sort(function (a, b) { return b.pct - a.pct; });
   tdbVignetteChantiers100({ liste: liste });
+
+  /* ── Déplacements (licence Plus uniquement) ──
+     Dénominateur choisi par Nicolas : l'INTERVENTION (une ligne de chantier
+     saisie), et non le chantier distinct — c'est ce qui prend en compte le
+     déplacement de chaque ouvrier sur un même chantier. Sans objet en
+     licence Standard : les temps de trajet sont saisis en mobile, une
+     fonctionnalité Plus — la vignette reste masquée (voir tdbAdapterTextesLicence). */
+  if (tdbEstPlus()) {
+    const moisHisto = [];
+    const moisHistoLbl = [];
+    for (let k = 5; k >= 0; k--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      moisHisto.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+      moisHistoLbl.push(tdbMoisCourt(d.getMonth()));
+    }
+    const histo = await Promise.all(moisHisto.map(tdbAgregeMois));
+    const dernier = histo[histo.length - 1];
+    tdbVignetteDeplacements({
+      parChantier: dernier.interventions ? dernier.trajets / dernier.interventions : 0,
+      minutesParChantier: dernier.interventions ? dernier.deplacementMin / dernier.interventions : 0,
+      historique: histo.map(function (h) { return h.interventions ? h.deplacementMin / h.interventions : 0; }),
+      labels: moisHistoLbl
+    });
+  }
 }
 
 /* Numéro de semaine ISO 8601. */
@@ -1538,6 +1589,9 @@ function tdbDonneesExemple() {
     { cle:'nov.',  vend:800, vendu:0,   exclu:0,  motifsMois:{} },
     { cle:'déc.',  vend:700, vendu:0,   exclu:0,  motifsMois:{} }
   ]});
+  if (tdbEstPlus()) {
+    tdbVignetteDeplacements({ parChantier:1.41, minutesParChantier:31, historique:[26,28,25,29,27,31] });
+  }
 }
 
 /* ── Rafraîchissement après la synchronisation ────────────────────────
