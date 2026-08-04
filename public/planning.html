@@ -1825,7 +1825,7 @@ function _periodeEntretienActuelle(nom) {
     if (!em2) return;
     const ecrit = new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]);
     if (isNaN(ecrit)) return;
-    if (!ecritRetenu || ecrit > ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : 1; }
+    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : 1; }
   });
   return periode;
 }

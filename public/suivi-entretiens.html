@@ -138,7 +138,7 @@ function calculerSuivi(notesChantiers) {
       // (heure/minute), pas sur la seule date d'intervention : deux entretiens tagués
       // le même jour doivent quand même se départager (la dernière ligne écrite gagne).
       const rang = meta.ecrit || d;
-      if (!ecritRetenu || rang > ecritRetenu) { derniere = d; periodeRetenue = meta.periode; ecritRetenu = rang; }
+      if (!ecritRetenu || rang >= ecritRetenu) { derniere = d; periodeRetenue = meta.periode; ecritRetenu = rang; }
     });
     let echeance = null, enRetard = false;
     if (derniere) {
