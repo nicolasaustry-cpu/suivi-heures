@@ -1836,12 +1836,23 @@ function rafraichirNotesAffichage() {
   });
 }
 
+/* Les deux cases de périodicité se comportent comme un groupe à choix unique :
+   cocher l'une décoche l'autre. Aucune case cochée = pas d'entretien tagué. */
+function clToggleEntretienPeriode(qui) {
+  const c1an = document.getElementById('note-modal-entretien-1an');
+  const c2ans = document.getElementById('note-modal-entretien-2ans');
+  if (qui === '1an' && c1an.checked) c2ans.checked = false;
+  if (qui === '2ans' && c2ans.checked) c1an.checked = false;
+}
+
 function ouvrirNoteChantier(k) {
   _noteCleCourante = k;
   const chk = document.getElementById('note-modal-jour');
   if (chk) chk.checked = false;
-  const chkEntr = document.getElementById('note-modal-entretien');
-  if (chkEntr) chkEntr.checked = false;
+  const c1an = document.getElementById('note-modal-entretien-1an');
+  if (c1an) c1an.checked = false;
+  const c2ans = document.getElementById('note-modal-entretien-2ans');
+  if (c2ans) c2ans.checked = false;
   const entrLbl = document.getElementById('note-modal-entr-lbl');
   if (entrLbl) entrLbl.style.display = 'flex';
   const nom = _nomChantierCell(k);
@@ -1959,14 +1970,16 @@ async function enregistrerNoteChantier() {
     return;
   }
   if (!texte) { fermerNoteChantier(); return; }
-  const chkEntr = document.getElementById('note-modal-entretien');
+  const c1an = document.getElementById('note-modal-entretien-1an');
+  const c2ans = document.getElementById('note-modal-entretien-2ans');
   let texteEnvoye = texte;
-  if (chkEntr && chkEntr.checked) {
+  if ((c1an && c1an.checked) || (c2ans && c2ans.checked)) {
+    const periode = (c2ans && c2ans.checked) ? '2' : '1';
     const d = new Date(), p = n => String(n).padStart(2, '0');
     const dateInterv = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    // Repris tel quel par notes.html / suivi-entretiens.html (format [I:date;E]),
+    // Repris tel quel par notes.html / suivi-entretiens.html (format [I:date;E1] ou [I:date;E2]),
     // la date d'intervention pourra être ajustée depuis Notes si besoin.
-    texteEnvoye = `[I:${dateInterv};E] ${texte}`;
+    texteEnvoye = `[I:${dateInterv};E${periode}] ${texte}`;
   }
   const btn = document.getElementById('note-modal-ajouter');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -2612,9 +2625,15 @@ document.addEventListener('DOMContentLoaded', () => {
     <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
     </label>
-    <label id="note-modal-entr-lbl" style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#92400e;margin-bottom:10px;cursor:pointer;user-select:none;">
-      <input type="checkbox" id="note-modal-entretien" style="width:16px;height:16px;"> Entretien annuel (utilisé par le Suivi des entretiens)
-    </label>
+    <div id="note-modal-entr-lbl" style="display:flex;align-items:center;gap:14px;font-size:0.82rem;color:#92400e;margin-bottom:10px;">
+      <span>Entretien :</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="note-modal-entretien-1an" onchange="clToggleEntretienPeriode('1an')" style="width:16px;height:16px;"> 1 an
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="note-modal-entretien-2ans" onchange="clToggleEntretienPeriode('2ans')" style="width:16px;height:16px;"> 2 ans
+      </label>
+    </div>
     <div id="note-modal-hist"
       style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:0.84rem;line-height:1.4;color:#374151;max-height:200px;overflow:auto;margin-bottom:10px;"></div>
     <label id="note-modal-lbl" style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>
