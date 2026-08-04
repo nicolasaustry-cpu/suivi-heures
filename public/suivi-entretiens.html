@@ -97,14 +97,19 @@ function frVersIso(fr) {
 }
 function parseLigneMeta(ligne) {
   const m = ligne.match(/^\[([^\]]+)\]\s*(?:\[I:([^\]]*)\])?\s(.*)$/);
-  if (!m) return { entretien: false, interv: '', periode: 1 };
+  if (!m) return { entretien: false, interv: '', periode: 1, ecrit: null };
+  const entete = m[1] || '';
   const metaRaw = m[2] || '';
   const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
   const entretien = !!em;
   // Notes existantes sans chiffre (ancien format [I:date;E]) = 1 an, comportement historique.
   const periode = (em && em[2]) ? parseInt(em[2], 10) : 1;
   const dm = metaRaw.match(/^(\d{2}\/\d{2}\/\d{4})/);
-  return { entretien, interv: dm ? dm[1] : '', periode };
+  // Horodatage d'écriture de la ligne (heure/minute), tiré de l'en-tête [JJ/MM/AAAA HH:MM – Auteur] :
+  // sert à départager deux entretiens tagués la MÊME date d'intervention (voir calculerSuivi).
+  const em2 = entete.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+  const ecrit = em2 ? new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]) : null;
+  return { entretien, interv: dm ? dm[1] : '', periode, ecrit };
 }
 function echap(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -121,7 +126,7 @@ function calculerSuivi(notesChantiers) {
   Object.keys(notesChantiers || {}).forEach(nom => {
     const brut = notesChantiers[nom] || '';
     const lignes = brut.split('\n').filter(l => l.trim());
-    let derniere = null, periodeRetenue = 1;
+    let derniere = null, periodeRetenue = 1, ecritRetenu = null;
     lignes.forEach(l => {
       const meta = parseLigneMeta(l);
       if (!meta.entretien || !meta.interv) return;
@@ -129,7 +134,11 @@ function calculerSuivi(notesChantiers) {
       if (!iso) return;
       const d = new Date(iso + 'T00:00:00');
       if (isNaN(d)) return;
-      if (!derniere || d > derniere) { derniere = d; periodeRetenue = meta.periode; }
+      // Le classement « plus récent » se fait sur l'horodatage d'ÉCRITURE de la ligne
+      // (heure/minute), pas sur la seule date d'intervention : deux entretiens tagués
+      // le même jour doivent quand même se départager (la dernière ligne écrite gagne).
+      const rang = meta.ecrit || d;
+      if (!ecritRetenu || rang > ecritRetenu) { derniere = d; periodeRetenue = meta.periode; ecritRetenu = rang; }
     });
     let echeance = null, enRetard = false;
     if (derniere) {
