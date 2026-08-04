@@ -349,6 +349,19 @@
     <div class="tdb-liste" id="ch100-liste" style="margin-top:14px"></div>
   </section>
 
+  <!-- ────── Notes en cours (licence Plus uniquement : nécessite la saisie mobile) ────── -->
+  <section class="tdb-vignette" data-id="notes" id="vignette-notes">
+    <div class="tdb-tete">
+      <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
+      <span class="tdb-titre">Notes en cours</span>
+      <a class="tdb-lien" href="notes.html">Notes →</a>
+    </div>
+    <div class="tdb-val alerte" id="notes-nb">7</div>
+    <div class="tdb-lbl">non traitées sur <span id="notes-tot">23</span> créées</div>
+    <div class="tdb-barre"><i id="notes-barre" style="width:70%;background:#0f3a8a"></i></div>
+    <div class="tdb-second" id="notes-detail">3 avec photo · la plus ancienne, 9 jours</div>
+  </section>
+
   <!-- ────── Déplacements (licence Plus uniquement : nécessite la saisie mobile) ────── -->
   <section class="tdb-vignette" data-id="deplacements" id="vignette-deplacements">
     <div class="tdb-tete">
@@ -395,7 +408,7 @@
 /* ─────────────────────── A. Présentation ─────────────────────── */
 
 const TDB_CLE = 'tdb_presentation';
-const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','deplacements','hnv'];
+const TDB_ORDRE_DEFAUT = ['annee','ventequalite','charge','semaine','absences','compteur','chantiers100','notes','deplacements','hnv'];
 
 let _tdbSale = false;
 
@@ -719,6 +732,71 @@ function tdbVignetteHnv(d) {
   if (b) b.style.width = Math.min(100, pct) + '%';
 }
 
+/* ── Notes en cours (licence Plus uniquement) ──
+   Une note existe dès qu'un chantier envoyé porte un texte OU une photo ;
+   ces champs (c.note/c.photos) ne sont saisis que côté mobile, donc réservé
+   à la licence Plus, comme la vignette Déplacements. */
+function tdbVignetteNotes(d) {
+  const el = document.getElementById('notes-nb');
+  tdbTexte('notes-nb', d.enCours);
+  /* rouge seulement s'il reste quelque chose à traiter */
+  if (el) el.classList.toggle('alerte', d.enCours > 0);
+  tdbTexte('notes-tot', d.total);
+  const b = document.getElementById('notes-barre');
+  if (b) b.style.width = (d.total ? Math.round(((d.total - d.enCours) / d.total) * 100) : 0) + '%';
+  tdbTexte('notes-detail', d.detail);
+}
+
+/* ── Raccordement de la vignette Notes ────────────────────────────────
+   Source : GET /api/saisies/<mois>, la même que la page Notes, pour que
+   les deux affichent rigoureusement le même compte.
+   Une note existe dès qu'un chantier envoyé porte un texte OU une photo ;
+   elle est « en cours » tant que sa case Réalisé (champ noteFaite) n'est
+   pas cochée. Le périmètre est le MOIS EN COURS, comme la page Notes qui
+   s'ouvre sur ce mois — sinon les deux chiffres divergeraient. */
+async function tdbChargerNotes() {
+  if (!tdbEstPlus()) return;
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+             || localStorage.getItem('syncToken');
+  if (!token) return;
+  const d = new Date();
+  const mois = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  let saisies;
+  try {
+    const r = await fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await r.json();
+    if (!j || !j.ok) return;
+    saisies = j.saisies || [];
+  } catch (e) { return; }
+
+  let total = 0, enCours = 0, avecPhoto = 0, plusAncienne = null;
+  saisies.forEach(function (s) {
+    (s.chantiers || []).forEach(function (c) {
+      const note = (c.note || '').trim();
+      const photos = Array.isArray(c.photos)
+        ? c.photos.filter(function (ph) { return typeof ph === 'string' && ph.startsWith('data:image/'); })
+        : [];
+      if (!note && !photos.length) return;      // ni texte ni photo : ce n'est pas une note
+      total++;
+      if (c.noteFaite) return;
+      enCours++;
+      if (photos.length) avecPhoto++;
+      if (!plusAncienne || s.date < plusAncienne) plusAncienne = s.date;
+    });
+  });
+
+  const bouts = [];
+  if (avecPhoto) bouts.push(avecPhoto + (avecPhoto > 1 ? ' avec photo' : ' avec photo'));
+  if (plusAncienne) {
+    const j = Math.max(0, Math.round((new Date().setHours(0,0,0,0) - new Date(plusAncienne + 'T00:00:00')) / 86400000));
+    bouts.push('la plus ancienne, ' + (j === 0 ? "aujourd'hui" : j + (j > 1 ? ' jours' : ' jour')));
+  }
+  if (!total) bouts.push('aucune note ce mois-ci');
+  else if (!enCours) bouts.push('tout est traité');
+
+  tdbVignetteNotes({ enCours: enCours, total: total, detail: bouts.join(' · ') });
+}
+
 /* ── Déplacements (licence Plus uniquement) ──
    Basé sur les trajets/temps de déplacement saisis en mobile — n'existe
    que si la saisie mobile est active, donc réservé à la licence Plus. */
@@ -1034,6 +1112,9 @@ function tdbAdapterTextesLicence() {
   /* Déplacements : n'a de sens qu'avec la saisie mobile (licence Plus). */
   const vDepl = document.getElementById('vignette-deplacements');
   if (vDepl) vDepl.style.display = plus ? '' : 'none';
+  /* Notes en cours : idem, la note/photo n'existe que côté saisie mobile. */
+  const vNotes = document.getElementById('vignette-notes');
+  if (vNotes) vNotes.style.display = plus ? '' : 'none';
 }
 
 /* ── Vignette Année : heures vendables et heures réalisées (Plus)
@@ -1590,6 +1671,7 @@ function tdbDonneesExemple() {
     { cle:'déc.',  vend:700, vendu:0,   exclu:0,  motifsMois:{} }
   ]});
   if (tdbEstPlus()) {
+    tdbVignetteNotes({ enCours:7, total:23, detail:'3 avec photo · la plus ancienne, 9 jours' });
     tdbVignetteDeplacements({ parChantier:1.41, minutesParChantier:31, historique:[26,28,25,29,27,31] });
   }
 }
@@ -1613,6 +1695,7 @@ function tdbRafraichir() {
     tdbChargerAnnee();
     tdbChargerVenteQualite();
     tdbChargerCompteur();
+    tdbChargerNotes();
   }, 80);
 }
 window.addEventListener('donnees-chargees', tdbRafraichir);
@@ -1626,6 +1709,7 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbChargerPrevisionnel();
   tdbChargerAnnee();
   tdbChargerVenteQualite();
+  tdbChargerNotes();
 });
 </script>
 </body>
