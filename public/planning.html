@@ -1809,14 +1809,15 @@ function noteDuChantier(nom) {
 /* Relit l'historique d'un chantier pour retrouver la périodicité (1 ou 2 ans)
    de la note « Entretien » la plus RÉCENTE — même logique que suivi-entretiens.html,
    pour que la case cochée à l'ouverture de la modale reflète l'existant. */
-function _periodeEntretienActuelle(nom) {
+function _derniereEntretienInfo(nom) {
   const lignes = _lignesNoteChantier(nom);
-  let periode = null, ecritRetenu = null;
+  let periode = null, commentaire = '', ecritRetenu = null;
   lignes.forEach(l => {
-    const m = l.match(/^\[([^\]]+)\]\s*\[I:([^\]]*)\]/);
+    const m = l.match(/^\[([^\]]+)\]\s*\[I:([^\]]*)\]\s(.*)$/);
     if (!m) return;
     const entete = m[1] || '';
     const metaRaw = m[2] || '';
+    const texte = m[3] || '';
     const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
     if (!em) return;
     // Horodatage d'écriture (heure/minute) pour départager deux entretiens tagués
@@ -1825,9 +1826,9 @@ function _periodeEntretienActuelle(nom) {
     if (!em2) return;
     const ecrit = new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]);
     if (isNaN(ecrit)) return;
-    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : 1; }
+    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : 1; commentaire = texte; }
   });
-  return periode;
+  return { periode, commentaire };
 }
 /* Note nettoyée pour l'impression : retire le préfixe "[JJ/MM/AAAA HH:MM – Auteur]"
    en tête de chaque ligne pour ne garder que le texte (sans date ni éditeur). */
@@ -1866,6 +1867,8 @@ function clToggleEntretienPeriode(qui) {
   const c2ans = document.getElementById('note-modal-entretien-2ans');
   if (qui === '1an' && c1an.checked) c2ans.checked = false;
   if (qui === '2ans' && c2ans.checked) c1an.checked = false;
+  const comBloc = document.getElementById('note-modal-entr-com-bloc');
+  if (comBloc) comBloc.style.display = (c1an.checked || c2ans.checked) ? 'block' : 'none';
 }
 
 function ouvrirNoteChantier(k) {
@@ -1873,11 +1876,15 @@ function ouvrirNoteChantier(k) {
   const chk = document.getElementById('note-modal-jour');
   if (chk) chk.checked = false;
   const nom = _nomChantierCell(k);
-  const periodeActuelle = nom ? _periodeEntretienActuelle(nom) : null;
+  const infoEntretien = nom ? _derniereEntretienInfo(nom) : { periode: null, commentaire: '' };
   const c1an = document.getElementById('note-modal-entretien-1an');
-  if (c1an) c1an.checked = (periodeActuelle === 1);
+  if (c1an) c1an.checked = (infoEntretien.periode === 1);
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (c2ans) c2ans.checked = (periodeActuelle === 2);
+  if (c2ans) c2ans.checked = (infoEntretien.periode === 2);
+  const comBloc = document.getElementById('note-modal-entr-com-bloc');
+  const comTxt = document.getElementById('note-modal-entr-com');
+  if (comTxt) comTxt.value = infoEntretien.commentaire || '';
+  if (comBloc) comBloc.style.display = infoEntretien.periode ? 'block' : 'none';
   const entrLbl = document.getElementById('note-modal-entr-lbl');
   if (entrLbl) entrLbl.style.display = 'flex';
   document.getElementById('note-modal-sub').textContent =
@@ -1905,6 +1912,10 @@ function clToggleNoteJour() {
   const sup = document.getElementById('note-modal-suppr');
   const entrLbl = document.getElementById('note-modal-entr-lbl');
   if (entrLbl) entrLbl.style.display = jour ? 'none' : 'flex';
+  const comBloc = document.getElementById('note-modal-entr-com-bloc');
+  const c1an = document.getElementById('note-modal-entretien-1an');
+  const c2ans = document.getElementById('note-modal-entretien-2ans');
+  if (comBloc) comBloc.style.display = (!jour && c1an && c2ans && (c1an.checked || c2ans.checked)) ? 'block' : 'none';
   if (jour) {
     const dn = (heures[k] && heures[k].note) ? String(heures[k].note) : '';
     if (hist) hist.textContent = dn || '(aucune note pour cette journée)';
@@ -1993,38 +2004,47 @@ async function enregistrerNoteChantier() {
     fermerNoteChantier();
     return;
   }
-  if (!texte) { fermerNoteChantier(); return; }
   const c1an = document.getElementById('note-modal-entretien-1an');
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  let texteEnvoye = texte;
-  if ((c1an && c1an.checked) || (c2ans && c2ans.checked)) {
-    const periode = (c2ans && c2ans.checked) ? '2' : '1';
-    const d = new Date(), p = n => String(n).padStart(2, '0');
-    const dateInterv = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-    // Repris tel quel par notes.html / suivi-entretiens.html (format [I:date;E1] ou [I:date;E2]),
-    // la date d'intervention pourra être ajustée depuis Notes si besoin.
-    texteEnvoye = `[I:${dateInterv};E${periode}] ${texte}`;
+  const entretienCoche = !!((c1an && c1an.checked) || (c2ans && c2ans.checked));
+  const comEl = document.getElementById('note-modal-entr-com');
+  const commentaireEntretien = comEl ? comEl.value.trim() : '';
+  if (entretienCoche && !commentaireEntretien) {
+    alert('Ajoutez un commentaire d’entretien, ou décochez 1 an / 2 ans.');
+    return;
   }
+  if (!texte && !(entretienCoche && commentaireEntretien)) { fermerNoteChantier(); return; }
   const btn = document.getElementById('note-modal-ajouter');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try {
-    const token = localStorage.getItem('syncToken');
+  const token = localStorage.getItem('syncToken');
+  async function envoyerLigne(txt) {
     const r = await fetch('/api/data/note-chantier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ chantier: nom, texte: texteEnvoye, auteur: 'Gérant' })
+      body: JSON.stringify({ chantier: nom, texte: txt, auteur: 'Gérant' })
     });
-    const d = await r.json();
-    if (d.ok) {
-      _notesChantiers[nom] = d.note;
-      rafraichirNotesAffichage();
-      fermerNoteChantier();
-    } else {
-      alert(d.message || 'Échec de l’enregistrement de la note.');
-      if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+    return r.json();
+  }
+  try {
+    let dernier = null;
+    if (texte) {
+      dernier = await envoyerLigne(texte);
+      if (!dernier.ok) throw new Error(dernier.message || 'Échec de l’enregistrement de la note.');
     }
+    if (entretienCoche && commentaireEntretien) {
+      const periode = (c2ans && c2ans.checked) ? '2' : '1';
+      const d = new Date(), p = n => String(n).padStart(2, '0');
+      const dateInterv = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+      // Repris tel quel par notes.html / suivi-entretiens.html (format [I:date;E1] ou [I:date;E2]),
+      // la date d'intervention pourra être ajustée depuis Notes si besoin.
+      const texteEntretien = `[I:${dateInterv};E${periode}] ${commentaireEntretien}`;
+      dernier = await envoyerLigne(texteEntretien);
+      if (!dernier.ok) throw new Error(dernier.message || 'Échec de l’enregistrement de l’entretien.');
+    }
+    if (dernier) { _notesChantiers[nom] = dernier.note; rafraichirNotesAffichage(); }
+    fermerNoteChantier();
   } catch (e) {
-    alert('Erreur réseau lors de l’enregistrement de la note.');
+    alert(e.message || 'Erreur réseau lors de l’enregistrement de la note.');
     if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
   }
 }
@@ -2646,10 +2666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n, function(){ if(typeof genererPlanning==='function') genererPlanning(); }); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) RenommerChantier.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">✏️ Renommer le chantier (partout)</button>
     <div id="note-modal-docs" style="margin-bottom:12px;"></div>
-    <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
-      <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
-    </label>
-    <div id="note-modal-entr-lbl" style="display:flex;align-items:center;gap:14px;font-size:0.82rem;color:#92400e;margin-bottom:10px;">
+    <div id="note-modal-entr-lbl" style="display:flex;align-items:center;gap:14px;font-size:0.82rem;color:#92400e;margin-bottom:8px;">
       <span>Entretien :</span>
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
         <input type="checkbox" id="note-modal-entretien-1an" onchange="clToggleEntretienPeriode('1an')" style="width:16px;height:16px;"> 1 an
@@ -2658,6 +2675,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <input type="checkbox" id="note-modal-entretien-2ans" onchange="clToggleEntretienPeriode('2ans')" style="width:16px;height:16px;"> 2 ans
       </label>
     </div>
+    <div id="note-modal-entr-com-bloc" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;margin-bottom:12px;">
+      <label for="note-modal-entr-com" style="font-size:0.78rem;color:#92400e;font-weight:600;display:block;margin-bottom:4px;">Commentaire de l'entretien</label>
+      <textarea id="note-modal-entr-com" rows="2" placeholder="Ex : filtre changé, prochain RDV à prévoir…"
+        style="width:100%;box-sizing:border-box;border:1px solid #fcd34d;border-radius:6px;padding:8px;font-family:inherit;font-size:0.85rem;background:#fff;color:#78350f;resize:vertical;"></textarea>
+    </div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:10px;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="note-modal-jour" onchange="clToggleNoteJour()" style="width:16px;height:16px;"> Note pour cette journée uniquement
+    </label>
     <div id="note-modal-hist"
       style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px;font-size:0.84rem;line-height:1.4;color:#374151;max-height:200px;overflow:auto;margin-bottom:10px;"></div>
     <label id="note-modal-lbl" style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>

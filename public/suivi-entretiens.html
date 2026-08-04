@@ -79,6 +79,7 @@
         <th>Périodicité</th>
         <th>Prochaine échéance</th>
         <th>Statut</th>
+        <th>Commentaire</th>
       </tr>
     </thead>
     <tbody id="tbody-se"></tbody>
@@ -109,7 +110,7 @@ function parseLigneMeta(ligne) {
   // sert à départager deux entretiens tagués la MÊME date d'intervention (voir calculerSuivi).
   const em2 = entete.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
   const ecrit = em2 ? new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]) : null;
-  return { entretien, interv: dm ? dm[1] : '', periode, ecrit };
+  return { entretien, interv: dm ? dm[1] : '', periode, ecrit, commentaire: m[3] || '' };
 }
 function echap(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -126,7 +127,7 @@ function calculerSuivi(notesChantiers) {
   Object.keys(notesChantiers || {}).forEach(nom => {
     const brut = notesChantiers[nom] || '';
     const lignes = brut.split('\n').filter(l => l.trim());
-    let derniere = null, periodeRetenue = 1, ecritRetenu = null;
+    let derniere = null, periodeRetenue = 1, ecritRetenu = null, commentaireRetenu = '';
     lignes.forEach(l => {
       const meta = parseLigneMeta(l);
       if (!meta.entretien || !meta.interv) return;
@@ -138,7 +139,7 @@ function calculerSuivi(notesChantiers) {
       // (heure/minute), pas sur la seule date d'intervention : deux entretiens tagués
       // le même jour doivent quand même se départager (la dernière ligne écrite gagne).
       const rang = meta.ecrit || d;
-      if (!ecritRetenu || rang >= ecritRetenu) { derniere = d; periodeRetenue = meta.periode; ecritRetenu = rang; }
+      if (!ecritRetenu || rang >= ecritRetenu) { derniere = d; periodeRetenue = meta.periode; ecritRetenu = rang; commentaireRetenu = meta.commentaire; }
     });
     let echeance = null, enRetard = false;
     if (derniere) {
@@ -148,7 +149,7 @@ function calculerSuivi(notesChantiers) {
       enRetard = echeance < auj;
     }
     if (!derniere) return;   // aucune note taguée Entretien annuel pour ce chantier
-    resultats.push({ nom, derniere, echeance, enRetard, periode: periodeRetenue });
+    resultats.push({ nom, derniere, echeance, enRetard, periode: periodeRetenue, commentaire: commentaireRetenu });
   });
   // En retard d'abord, puis par échéance croissante, puis les chantiers sans date à la fin.
   resultats.sort((a, b) => {
@@ -177,6 +178,7 @@ function rendre(liste) {
       <td>${r.periode} an${r.periode > 1 ? 's' : ''}</td>
       <td>${fmtDateFr(r.echeance)}</td>
       <td><span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span></td>
+      <td>${echap(r.commentaire || '')}</td>
     </tr>`).join('');
 }
 
@@ -200,12 +202,12 @@ function exporterXlsx() {
   if (typeof XLSX === 'undefined') { alert('Module Excel non chargé, réessayez dans un instant.'); return; }
   const liste = listeFiltree();
   if (!liste.length) { alert('Aucun chantier à exporter pour cette sélection.'); return; }
-  const rows = [['Chantier', 'Dernière intervention', 'Périodicité', 'Prochaine échéance', 'Statut']];
+  const rows = [['Chantier', 'Dernière intervention', 'Périodicité', 'Prochaine échéance', 'Statut', 'Commentaire']];
   liste.forEach(r => rows.push([
-    r.nom, fmtDateFr(r.derniere), r.periode + ' an' + (r.periode > 1 ? 's' : ''), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour'
+    r.nom, fmtDateFr(r.derniere), r.periode + ' an' + (r.periode > 1 ? 's' : ''), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour', r.commentaire || ''
   ]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch:28 }, { wch:20 }, { wch:12 }, { wch:20 }, { wch:12 }];
+  ws['!cols'] = [{ wch:28 }, { wch:20 }, { wch:12 }, { wch:20 }, { wch:12 }, { wch:40 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Suivi entretiens');
   const mois = document.getElementById('se-filtre-mois').value || 'tous';
