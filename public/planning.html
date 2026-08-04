@@ -1806,6 +1806,26 @@ function _nomChantierCell(k) {
 function noteDuChantier(nom) {
   return (nom && _notesChantiers[nom]) ? _notesChantiers[nom] : '';
 }
+/* Relit l'historique d'un chantier pour retrouver la périodicité (1 ou 2 ans)
+   de la note « Entretien » la plus RÉCENTE — même logique que suivi-entretiens.html,
+   pour que la case cochée à l'ouverture de la modale reflète l'existant. */
+function _periodeEntretienActuelle(nom) {
+  const lignes = _lignesNoteChantier(nom);
+  let derniere = null, periode = null;
+  lignes.forEach(l => {
+    const m = l.match(/^\[([^\]]+)\]\s*\[I:([^\]]*)\]/);
+    if (!m) return;
+    const metaRaw = m[2] || '';
+    const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
+    if (!em) return;
+    const dm = metaRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!dm) return;
+    const d = new Date(`${dm[3]}-${dm[2]}-${dm[1]}T00:00:00`);
+    if (isNaN(d)) return;
+    if (!derniere || d > derniere) { derniere = d; periode = em[2] ? parseInt(em[2], 10) : 1; }
+  });
+  return periode;
+}
 /* Note nettoyée pour l'impression : retire le préfixe "[JJ/MM/AAAA HH:MM – Auteur]"
    en tête de chaque ligne pour ne garder que le texte (sans date ni éditeur). */
 function noteImpression(note) {
@@ -1849,13 +1869,14 @@ function ouvrirNoteChantier(k) {
   _noteCleCourante = k;
   const chk = document.getElementById('note-modal-jour');
   if (chk) chk.checked = false;
+  const nom = _nomChantierCell(k);
+  const periodeActuelle = nom ? _periodeEntretienActuelle(nom) : null;
   const c1an = document.getElementById('note-modal-entretien-1an');
-  if (c1an) c1an.checked = false;
+  if (c1an) c1an.checked = (periodeActuelle === 1);
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (c2ans) c2ans.checked = false;
+  if (c2ans) c2ans.checked = (periodeActuelle === 2);
   const entrLbl = document.getElementById('note-modal-entr-lbl');
   if (entrLbl) entrLbl.style.display = 'flex';
-  const nom = _nomChantierCell(k);
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
   rendreHistNoteChantier(nom);
