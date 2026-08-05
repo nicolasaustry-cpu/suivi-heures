@@ -214,13 +214,11 @@ async function validerSuiviEntretien() {
   if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
     await SYNC.sauvegarderTout();
   }
-  if (window.SYNC && typeof SYNC.rafraichirMenu === 'function') {
-    SYNC.rafraichirMenu();
-  }
-  if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
-  if (window.SYNC && typeof SYNC.afficherNotif === 'function') {
-    SYNC.afficherNotif('✔ Modification enregistrée');
-  }
+  // Le menu (barre latérale + barre du haut) n'est construit qu'au chargement
+  // de la page ; le rafraîchir « en direct » s'est révélé peu fiable. On
+  // recharge donc la page une fois la donnée bien enregistrée, ce qui
+  // garantit un menu à jour sans action manuelle de l'utilisateur.
+  location.reload();
 }
 window.addEventListener('DOMContentLoaded', chargerSuiviEntretien);
 window.addEventListener('donnees-chargees', chargerSuiviEntretien);
