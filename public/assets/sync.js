@@ -1080,6 +1080,7 @@ const SYNC = (() => {
     init, connecter, sauvegarderTout, declencherSauvegarde, flushSauvegarde,
     afficherNotif, seDeconnecter,
     ouvrirModalConnexion, fermerModalConnexion, validerModalConnexion,
+    rafraichirMenu: () => { construireMenuLateral(); },
     estConnecte: () => !!_token,
     estAdmin:    () => _modeAdmin,
     getClientId: () => _clientId,

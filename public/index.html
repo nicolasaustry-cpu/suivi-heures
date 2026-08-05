@@ -180,10 +180,9 @@
   </p>
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:0.5rem;">
-      <input type="checkbox" id="suiviEntretienActif" onchange="sauverSuiviEntretien()">
+      <input type="checkbox" id="suiviEntretienActif">
       <label for="suiviEntretienActif" style="font-size:0.9rem;">Activer la page « Suivi des entretiens »</label>
     </div>
-    <a id="lien-suivi-entretiens" href="suivi-entretiens.html" class="btn btn-primary" style="display:none;text-decoration:none;">📋 Ouvrir le suivi des entretiens</a>
     <button type="button" id="btn-valider-suivi-entretien" class="btn btn-success" onclick="validerSuiviEntretien()">💾 Valider</button>
   </div>
 </section>
@@ -197,32 +196,26 @@ function _entLire() {
 }
 function chargerSuiviEntretien() {
   const ent = _entLire();
-  const actif = !!ent.suiviEntretien;
   const cb = document.getElementById('suiviEntretienActif');
-  const lien = document.getElementById('lien-suivi-entretiens');
-  if (cb) cb.checked = actif;
-  if (lien) lien.style.display = actif ? 'inline-block' : 'none';
+  if (cb) cb.checked = !!ent.suiviEntretien;
 }
-function sauverSuiviEntretien() {
+/* Un seul bouton pour cocher ET décocher : la case elle-même ne déclenche plus
+   rien au changement (pas de sauvegarde partielle), tout passe par ce bouton,
+   qui enregistre localement, force l'envoi immédiat au serveur (sans attendre
+   le délai de synchro habituel) puis rafraîchit le menu de CETTE page (les
+   autres pages le liront à jour dès leur prochain chargement). */
+async function validerSuiviEntretien() {
   const actif = document.getElementById('suiviEntretienActif').checked;
   const ent = _entLire();
   ent.suiviEntretien = actif;
   localStorage.setItem('entreprisedata', JSON.stringify(ent));
-  const lien = document.getElementById('lien-suivi-entretiens');
-  if (lien) lien.style.display = actif ? 'inline-block' : 'none';
-  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
-}
-/* Le changement de case est déjà répercuté localement (lien affiché/masqué),
-   mais la sauvegarde vers le serveur est différée (debounce). Ce bouton force
-   un envoi immédiat, pour que la modification (notamment le masquage du menu
-   « Suivi des entretiens » sur les autres pages) soit effective sans attendre
-   ni recharger. */
-async function validerSuiviEntretien() {
-  sauverSuiviEntretien();
   const btn = document.getElementById('btn-valider-suivi-entretien');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
     await SYNC.sauvegarderTout();
+  }
+  if (window.SYNC && typeof SYNC.rafraichirMenu === 'function') {
+    SYNC.rafraichirMenu();
   }
   if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
   if (window.SYNC && typeof SYNC.afficherNotif === 'function') {
