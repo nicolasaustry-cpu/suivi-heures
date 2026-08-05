@@ -617,7 +617,7 @@ const SYNC = (() => {
     { label: 'Suivi', items: [
       { href: 'rapports.html', label: 'Rapports' },
       { href: 'notes.html',    label: 'Notes', plus: true },
-      { href: 'suivi-entretiens.html', label: 'Suivi des entretiens' },
+      { href: 'suivi-entretiens.html', label: 'Suivi des entretiens', requiert: 'suiviEntretien' },
       { href: 'bev.html',      label: 'Éléments Pointage Paie' }
     ] },
     { label: 'Contrat', items: [
@@ -711,6 +711,14 @@ const SYNC = (() => {
     });
   }
 
+  /* Certaines entrées de menu dépendent d'une case à cocher activée depuis la
+     page Entreprise (ex. entreprisedata.suiviEntretien) — elles ne s'affichent
+     dans aucun menu (latéral ou barre du haut) tant que ce n'est pas activé. */
+  function _featureActive(nomChamp) {
+    try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}')[nomChamp]; }
+    catch (e) { return false; }
+  }
+
   function construireMenuLateral() {
     const page = pageActuelle();
     if (!MENU_PAGES.includes(page)) return;
@@ -732,6 +740,7 @@ const SYNC = (() => {
         rail.appendChild(gl);
       }
       g.items.forEach(it => {
+        if (it.requiert && !_featureActive(it.requiert)) return;
         const verrou = !!it.plus && !estPlus;   // Standard + page Plus → teasing
         const a = document.createElement('a');
         a.href = verrou ? '#' : it.href;
@@ -828,6 +837,7 @@ const SYNC = (() => {
     dd.id = 'sh-dropdown';
     dd.className = 'sh-dropdown';
     g.items.forEach(it => {
+      if (it.requiert && !_featureActive(it.requiert)) return;
       const verrou = !!it.plus && !estPlus;
       const a = document.createElement('a');
       a.href = verrou ? '#' : it.href;

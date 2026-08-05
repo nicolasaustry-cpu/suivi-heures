@@ -1799,6 +1799,15 @@ window.addEventListener('donnees-chargees', () => {
   if (actifId) { const el = document.getElementById(actifId); if (el) el.focus(); }
 });
 
+/* Le bloc « Entretien » (cases 1 an/2 ans + commentaire) n'a de sens que si le
+   suivi des entretiens est activé côté Entreprise (case à cocher de la page
+   index.html, stockée dans entreprisedata.suiviEntretien) — sinon les données
+   saisies ne seraient reprises nulle part. */
+function _suiviEntretienActif() {
+  try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').suiviEntretien; }
+  catch (e) { return false; }
+}
+
 function _nomChantierCell(k) {
   const el = document.getElementById(k + 'chantier');
   return el && el.value ? el.value.trim().toUpperCase() : '';
@@ -1876,7 +1885,8 @@ function ouvrirNoteChantier(k) {
   const chk = document.getElementById('note-modal-jour');
   if (chk) chk.checked = false;
   const nom = _nomChantierCell(k);
-  const infoEntretien = nom ? _derniereEntretienInfo(nom) : { periode: null, commentaire: '' };
+  const suiviActif = _suiviEntretienActif();
+  const infoEntretien = (suiviActif && nom) ? _derniereEntretienInfo(nom) : { periode: null, commentaire: '' };
   const c1an = document.getElementById('note-modal-entretien-1an');
   if (c1an) c1an.checked = (infoEntretien.periode === 1);
   const c2ans = document.getElementById('note-modal-entretien-2ans');
@@ -1886,7 +1896,7 @@ function ouvrirNoteChantier(k) {
   if (comTxt) comTxt.value = infoEntretien.commentaire || '';
   if (comBloc) comBloc.style.display = infoEntretien.periode ? 'block' : 'none';
   const entrLbl = document.getElementById('note-modal-entr-lbl');
-  if (entrLbl) entrLbl.style.display = 'flex';
+  if (entrLbl) entrLbl.style.display = suiviActif ? 'flex' : 'none';
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
   rendreHistNoteChantier(nom);
@@ -1911,11 +1921,12 @@ function clToggleNoteJour() {
   const btn = document.getElementById('note-modal-ajouter');
   const sup = document.getElementById('note-modal-suppr');
   const entrLbl = document.getElementById('note-modal-entr-lbl');
-  if (entrLbl) entrLbl.style.display = jour ? 'none' : 'flex';
+  const suiviActif = _suiviEntretienActif();
+  if (entrLbl) entrLbl.style.display = (jour || !suiviActif) ? 'none' : 'flex';
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
   const c1an = document.getElementById('note-modal-entretien-1an');
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (comBloc) comBloc.style.display = (!jour && c1an && c2ans && (c1an.checked || c2ans.checked)) ? 'block' : 'none';
+  if (comBloc) comBloc.style.display = (!jour && suiviActif && c1an && c2ans && (c1an.checked || c2ans.checked)) ? 'block' : 'none';
   if (jour) {
     const dn = (heures[k] && heures[k].note) ? String(heures[k].note) : '';
     if (hist) hist.textContent = dn || '(aucune note pour cette journée)';
@@ -2006,7 +2017,7 @@ async function enregistrerNoteChantier() {
   }
   const c1an = document.getElementById('note-modal-entretien-1an');
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  const entretienCoche = !!((c1an && c1an.checked) || (c2ans && c2ans.checked));
+  const entretienCoche = _suiviEntretienActif() && !!((c1an && c1an.checked) || (c2ans && c2ans.checked));
   const comEl = document.getElementById('note-modal-entr-com');
   const commentaireEntretien = comEl ? comEl.value.trim() : '';
   if (entretienCoche && !commentaireEntretien) {
