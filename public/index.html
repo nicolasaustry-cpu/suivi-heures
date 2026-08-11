@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+  <script>/* Sur mobile/tablette, l'écran patron (PC) n'est pas utilisé : on bascule tout de suite
+     vers l'écran de saisie. Échappatoire : ajouter ?pc=1 à l'URL pour forcer l'affichage patron. */
+  (function () {
+    try {
+      if (/[?&]pc=1(&|$)/.test(location.search)) return;
+      var estMobile = /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (navigator.maxTouchPoints > 1 && window.matchMedia('(max-width: 1024px)').matches);
+      if (estMobile) { location.replace('saisie.html'); }
+    } catch (e) {}
+  })();</script>
     <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
   <script>/* Capte le signal d'installation PWA au plus tôt (Chrome peut l'émettre avant la fin du chargement) */
   window.__deferredInstallPrompt = null;
