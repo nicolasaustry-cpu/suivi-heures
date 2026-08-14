@@ -1378,7 +1378,8 @@ async function tdbChargerVenteQualite() {
     let brut;
     if (plus) {
       const ag = mois[ym];
-      brut = ag ? (ag.heures || 0) : 0;
+      // Déplacement inclus : le temps de trajet est facturé au client, donc vendable.
+      brut = ag ? ((ag.heures || 0) + (ag.deplacementMin || 0) / 60) : 0;
     } else {
       brut = planifieSur(new Date(an, m, 1), new Date(an, m + 1, 0));
     }
