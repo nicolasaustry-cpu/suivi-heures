@@ -381,7 +381,9 @@ function ajusterMarginTop() {
 
 /* ══ CHARGEMENT ══ */
 let _supprimerScroll = false;
+let _chargeSeq = 0;   // garde anti-course : seule la requête la plus récente applique son résultat
 async function chargerRealise(garderEtat) {
+  const seq = ++_chargeSeq;
   if (!_moisSelection || _moisSelection.size === 0) { _saisies = []; afficherRealise(); return; }
 
   const token = (typeof SYNC !== 'undefined' && SYNC.getToken()) || localStorage.getItem('syncToken');
@@ -398,6 +400,7 @@ async function chargerRealise(garderEtat) {
       if (d.ok && d.saisies) tout.push(...d.saisies);
     } catch (_) {}
   }
+  if (seq !== _chargeSeq) return;   // une sélection plus récente est arrivée pendant les requêtes → on ignore ce résultat périmé
   _saisies = tout;
 
   // Construire les listes de filtres (en préservant la sélection courante si demandé)
