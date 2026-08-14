@@ -1204,7 +1204,8 @@ async function tdbChargerAnnee() {
     let real;
     if (plus) {
       const ag = mois[an + '-' + String(m + 1).padStart(2, '0')];
-      real = ag ? (ag.heures || 0) : 0;
+      // Réalisé = temps sur chantier + déplacement (pour coller au Planning réalisé).
+      real = ag ? ((ag.heures || 0) + (ag.deplacementMin || 0) / 60) : 0;
     } else {
       real = planifieSur(new Date(an, m, 1), new Date(an, m + 1, 0));
     }
