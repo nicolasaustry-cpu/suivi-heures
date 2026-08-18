@@ -470,21 +470,24 @@ if ('serviceWorker' in navigator) {
              '<div style="margin-bottom:10px;">' +
              '<strong>Option 1 — Ajouter au Dock (Safari 17 / macOS Sonoma ou plus récent)</strong><br>' +
              'Dans la barre de menus en haut de l\'écran, cliquez sur <strong>Fichier</strong> → <strong>Ajouter au Dock…</strong> puis validez. ' +
-             'L\'application apparaîtra dans votre Dock, comme un logiciel classique.' +
+             'L\'application apparaîtra dans votre Dock, comme un logiciel classique. ' +
+             '<em>Si cette option n\'existe pas dans votre menu Fichier, votre version de macOS est trop ancienne — voir les options 2 ou 3 ci-dessous.</em>' +
              '</div>' +
              '<div style="margin-bottom:10px;">' +
-             '<strong>Option 2 — Utiliser Chrome ou Edge</strong><br>' +
-             'Si l\'option ci-dessus n\'existe pas dans votre menu Fichier, votre version de macOS est plus ancienne. ' +
-             'Installez <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong> : ' +
-             'ces navigateurs proposent un bouton <strong>Installer</strong> en un clic dans la barre d\'adresse.' +
+             '<strong>Option 2 — Utiliser Chrome ou Edge</strong> <span style="color:#1d4ed8;font-size:12.5px;">(à privilégier par rapport à l\'option 3)</span><br>' +
+             'Ces navigateurs installent Suiv\'Heures en un clic, avec la vraie icône.<br>' +
+             '1. Téléchargez Chrome (<em>google.com/chrome</em>) ou Edge (<em>microsoft.com/edge</em>) et installez-le.<br>' +
+             '2. Ouvrez Chrome ou Edge et tapez <em>suivi-heures.volitis.net</em> dans la barre d\'adresse.<br>' +
+             '3. Un bouton <strong>Installer</strong> apparaît à droite de la barre d\'adresse : cliquez dessus.<br>' +
+             '4. Confirmez l\'installation. Une icône Suiv\'Heures est créée dans votre Dock et votre Launchpad.' +
              '</div>' +
              '<div>' +
-             '<strong>Option 3 — Créer un raccourci sur le bureau</strong><br>' +
-             'Pour rester sur Safari sans installer d\'app :<br>' +
+             '<strong>Option 3 — Créer un raccourci sur le bureau (dépannage)</strong><br>' +
+             'Solution rapide sans installation, mais l\'icône du raccourci sera générique (pas le logo Suiv\'Heures) :<br>' +
              '1. Réduisez la fenêtre Safari pour voir le bureau.<br>' +
-             '2. Cliquez sur l\'icône à gauche de l\'adresse <em>suivi-heures.volitis.net</em> (le petit cadenas ou l\'icône du site).<br>' +
-             '3. Sans relâcher, faites-la <strong>glisser sur le bureau</strong>.<br>' +
-             'Un raccourci apparaîtra : un double-clic ouvrira Suiv\'Heures directement dans Safari.' +
+             '2. Cliquez sur le petit <strong>cadenas 🔒</strong> à gauche de l\'adresse <em>suivi-heures.volitis.net</em>.<br>' +
+             '3. Sans relâcher, faites-le <strong>glisser sur le bureau</strong>.<br>' +
+             'Un raccourci apparaîtra : un double-clic ouvrira Suiv\'Heures dans Safari.' +
              '</div>';
     } else if (nav === 'safari-ios') {
       html = '<div style="font-weight:700;color:#0f172a;margin-bottom:6px;">Sur iPhone / iPad :</div>' +
