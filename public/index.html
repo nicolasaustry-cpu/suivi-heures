@@ -332,6 +332,11 @@ window.addEventListener('donnees-chargees', chargerSeuilsJauge);
     if (btn) { btn.textContent = "Activer la licence"; btn.disabled = false; }
     if (ok) {
       SYNC.afficherNotif("✔ Licence activée !");
+      // Proposer l'installation PWA maintenant que l'utilisateur est connecté
+      // (meilleur moment : il vient de valider son intention d'utiliser l'app).
+      if (typeof window._pwaAfficherApresConnexion === 'function') {
+        window._pwaAfficherApresConnexion();
+      }
     } else {
       alert("Code licence invalide ou expiré.");
     }
@@ -416,7 +421,7 @@ if ('serviceWorker' in navigator) {
 
 <!-- ══ Pop-up d'installation de l'application (PWA) — affiché une fois au 1er passage ══ -->
 <div id="pwa-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;">
-  <div style="background:#fff;border-radius:16px;max-width:430px;width:100%;padding:28px 26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;font-family:Arial,Helvetica,sans-serif;">
+  <div style="background:#fff;border-radius:16px;max-width:580px;width:100%;padding:28px 26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;font-family:Arial,Helvetica,sans-serif;">
     <button onclick="_pwaFermer()" aria-label="Fermer" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1;">&times;</button>
     <div style="width:60px;height:60px;border-radius:14px;background:#eff6ff;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0f3a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -476,7 +481,7 @@ if ('serviceWorker' in navigator) {
              '<div style="margin-bottom:10px;">' +
              '<strong>Option 2 — Utiliser Chrome ou Edge</strong> <span style="color:#1d4ed8;font-size:12.5px;">(à privilégier par rapport à l\'option 3)</span><br>' +
              'Ces navigateurs installent Suiv\'Heures en un clic, avec la vraie icône.<br>' +
-             '1. Téléchargez Chrome (<em>google.com/chrome</em>) ou Edge (<em>microsoft.com/edge</em>) et installez-le.<br>' +
+             '1. Téléchargez <a href="https://www.google.com/chrome/" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:underline;font-weight:700;">Chrome</a> ou <a href="https://www.microsoft.com/edge/download" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:underline;font-weight:700;">Edge</a> et installez-le.<br>' +
              '2. Ouvrez Chrome ou Edge et tapez <em>suivi-heures.volitis.net</em> dans la barre d\'adresse.<br>' +
              '3. Un bouton <strong>Installer</strong> apparaît à droite de la barre d\'adresse : cliquez dessus.<br>' +
              '4. Confirmez l\'installation. Une icône Suiv\'Heures est créée dans votre Dock et votre Launchpad.' +
@@ -546,12 +551,33 @@ if ('serviceWorker' in navigator) {
       if (new URLSearchParams(window.location.search).get('admin') === '1') return;
       if (sessionStorage.getItem('adminConsult') === '1') return;
     } catch (e) {}
+    // N'afficher QUE si une licence est déjà active (syncToken présent).
+    // À la toute première venue (avant saisie de licence), on ne dérange pas
+    // l'utilisateur avec une invitation à installer un service qu'il ne connaît pas.
+    try { if (!localStorage.getItem('syncToken')) return; } catch (e) {}
     try { if (localStorage.getItem(VU) === '1') return; } catch (e) {}
     var m = document.getElementById('pwa-modal');
     if (!m) return;
     m.style.display = 'flex';
     _pwaMajBouton();
   }
+
+  // Fonction publique déclenchable APRÈS une connexion réussie
+  // (appelée depuis le script de connexion de la page Entreprise).
+  window._pwaAfficherApresConnexion = function() {
+    // On force l'affichage même si le flag "déjà vu" n'est pas encore posé.
+    // Ce moment (juste après une connexion) est le meilleur pour proposer
+    // l'installation : l'utilisateur vient de valider son intention d'utiliser l'app.
+    if (dejaInstalle) return;
+    try { if (localStorage.getItem(VU) === '1') return; } catch (e) {}
+    // Petit délai pour laisser la page se stabiliser après la connexion
+    setTimeout(function() {
+      var m = document.getElementById('pwa-modal');
+      if (!m) return;
+      m.style.display = 'flex';
+      _pwaMajBouton();
+    }, 800);
+  };
 
   // Petit délai pour laisser le navigateur signaler l'installabilité (beforeinstallprompt)
   function _pwaInit() { setTimeout(_pwaAfficher, 700); }
