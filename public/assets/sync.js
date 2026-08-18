@@ -444,12 +444,84 @@ const SYNC = (() => {
     if (document.visibilityState === 'hidden') flushSauvegarde();
   });
 
-  // Intercepter localStorage.setItem : toute écriture applicative déclenche une sauvegarde
+  /* ─────────────────────────────────────────────────────────────
+     Détection Safari strict : sur certains Mac, Safari bloque l'écriture
+     localStorage avec « SecurityError: the operation is insecure », même sans
+     mode privé actif. Symptôme utilisateur : « mes saisies disparaissent après
+     rechargement ». On détecte le problème à l'ouverture et, si l'écriture est
+     bloquée, on bascule en mode dégradé :
+     - un cache mémoire remplace le localStorage pour les clés applicatives ;
+     - la sync serveur reste opérationnelle (le payload est reconstruit depuis
+       ce cache mémoire au lieu du localStorage) ;
+     - un bandeau explique la situation à l'utilisateur.
+     ───────────────────────────────────────────────────────────── */
+  let _localStorageBloque = false;
+  const _cacheMemoire = {};   // { cle: valeurString } quand localStorage est HS
+
+  // Test simple à l'ouverture : essayer d'écrire puis effacer une clé témoin.
+  (function detecterLocalStorageBloque() {
+    try {
+      const cleTest = '__sh_test_' + Math.random();
+      localStorage.setItem(cleTest, '1');
+      localStorage.removeItem(cleTest);
+    } catch (e) {
+      _localStorageBloque = true;
+      console.warn('localStorage bloqué par le navigateur (mode dégradé activé). Raison :', e && e.message);
+    }
+  })();
+
+  // Intercepter localStorage.setItem : toute écriture applicative déclenche une sauvegarde.
+  // Protection SecurityError : si l'écriture disque échoue, on retombe sur un cache mémoire
+  // pour ne rien perdre, et on force l'envoi serveur (source de vérité).
   const _setItemOriginal = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(cle, valeur) {
-    _setItemOriginal(cle, valeur);
-    if (!_ecritureInterne && CLES.includes(cle)) declencherSauvegarde();
+    let echecEcriture = false;
+    try {
+      _setItemOriginal(cle, valeur);
+    } catch (e) {
+      // Safari peut lever SecurityError, QuotaExceededError, InvalidStateError…
+      echecEcriture = true;
+      _localStorageBloque = true;
+      _cacheMemoire[cle] = String(valeur);
+      afficherBanniereStockageBloque();
+    }
+    if (!_ecritureInterne && CLES.includes(cle)) {
+      // Si l'écriture disque a échoué, la sauvegarde serveur est ESSENTIELLE :
+      // c'est la seule copie fiable du travail de l'utilisateur.
+      if (echecEcriture) sauvegarderTout();   // envoi immédiat
+      else declencherSauvegarde();            // envoi coalescé standard
+    }
   };
+
+  // Interception symétrique de getItem : servir depuis la mémoire si présent
+  // (utile quand l'écriture disque a échoué mais qu'on relit la valeur juste après).
+  const _getItemOriginal = localStorage.getItem.bind(localStorage);
+  localStorage.getItem = function(cle) {
+    if (_localStorageBloque && Object.prototype.hasOwnProperty.call(_cacheMemoire, cle)) {
+      return _cacheMemoire[cle];
+    }
+    try { return _getItemOriginal(cle); }
+    catch (e) { return _cacheMemoire[cle] != null ? _cacheMemoire[cle] : null; }
+  };
+
+  // Bandeau informatif si le stockage local est bloqué (une seule fois par session).
+  let _banniereStockageAffichee = false;
+  function afficherBanniereStockageBloque() {
+    if (_banniereStockageAffichee) return;
+    _banniereStockageAffichee = true;
+    const poser = () => {
+      if (!document.body || document.getElementById('sh-storage-bloque')) return;
+      const b = document.createElement('div');
+      b.id = 'sh-storage-bloque';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99998;background:#dc2626;color:#fff;text-align:center;padding:8px 14px;font-weight:700;font-size:0.88rem;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-family:Arial,sans-serif;';
+      b.innerHTML = '⚠ Votre navigateur bloque le stockage local. ' +
+        'Les saisies sont envoyées directement au serveur (sauvegarde garantie), mais pour un fonctionnement optimal, ' +
+        '<u>autorisez les cookies et le stockage pour ce site</u> dans les réglages navigateur, ou utilisez Chrome. ' +
+        '<a href="#" onclick="document.getElementById(\'sh-storage-bloque\').remove();return false;" style="color:#fff;margin-left:8px;">×</a>';
+      document.body.prepend(b);
+    };
+    if (document.body) poser(); else window.addEventListener('DOMContentLoaded', poser);
+  }
 
   /* ─────────────────────────────────────────────────────────────
      Isolation inter-onglets : UN SEUL client « actif en écriture »
