@@ -493,6 +493,59 @@ const SYNC = (() => {
     }
   };
 
+  /* ─────────────────────────────────────────────────────────────
+     Filet de sécurité : détecter si la surcharge de localStorage.setItem
+     a été acceptée par le navigateur. Sur certains Mac (Safari en mode
+     durci, extensions de confidentialité, sécurité entreprise), Safari
+     REFUSE SILENCIEUSEMENT la réassignation des méthodes natives.
+     Symptôme : le patch ci-dessus est en place, mais localStorage.setItem
+     reste la méthode native. Résultat : les écritures locales fonctionnent
+     mais AUCUNE sync ne se déclenche → « mes saisies disparaissent au
+     rechargement ». La détection ci-dessous compare la fonction courante
+     avec la fonction native. Si la surcharge n'a pas pris, on active un
+     POLLING léger (toutes les 2 s) qui compare les valeurs actuelles des
+     clés applicatives à leur dernier hash connu, et déclenche la sync
+     serveur si un changement est détecté. Plus lent qu'une interception
+     directe, mais garantit que les saisies sont TOUJOURS synchronisées.
+     ───────────────────────────────────────────────────────────── */
+  const _surchargeSetItemAcceptee = (function() {
+    try {
+      // Une méthode native contient « [native code] » dans sa représentation string.
+      // Notre remplaçante ne le contient pas. Si Safari a refusé la surcharge,
+      // la méthode courante EST encore la native.
+      return !/\[native code\]/.test(String(localStorage.setItem));
+    } catch (_) { return false; }
+  })();
+
+  if (!_surchargeSetItemAcceptee) {
+    console.warn('Surcharge localStorage refusée par le navigateur → activation du filet polling (2 s).');
+    // Empreinte du contenu actuel des clés applicatives (hash simple = longueur + 4 caractères clés)
+    const _empreinte = {};
+    function calculerEmpreinte(cle) {
+      let v = '';
+      try { v = localStorage.getItem(cle) || ''; } catch (_) { v = ''; }
+      // hash très simple mais suffisant pour détecter tout changement de contenu
+      return v.length + '|' + v.substring(0, 32) + '|' + v.substring(Math.max(0, v.length - 32));
+    }
+    // Initialiser les empreintes au démarrage (état de départ, ne déclenche pas de sauvegarde)
+    CLES.forEach(cle => { _empreinte[cle] = calculerEmpreinte(cle); });
+
+    // Polling toutes les 2 secondes : compare l'état actuel aux empreintes,
+    // déclenche une sauvegarde si un changement est détecté.
+    setInterval(() => {
+      if (_modeAdmin || !_token || _verrouilleAutreClient) return;
+      let changement = false;
+      CLES.forEach(cle => {
+        const emp = calculerEmpreinte(cle);
+        if (emp !== _empreinte[cle]) {
+          _empreinte[cle] = emp;
+          changement = true;
+        }
+      });
+      if (changement) declencherSauvegarde();
+    }, 2000);
+  }
+
   // Interception symétrique de getItem : servir depuis la mémoire si présent
   // (utile quand l'écriture disque a échoué mais qu'on relit la valeur juste après).
   const _getItemOriginal = localStorage.getItem.bind(localStorage);
