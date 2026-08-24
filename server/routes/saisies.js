@@ -684,6 +684,23 @@ router.get("/mois-list", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Carnet de chantier (gérant), lecture côté PC (token licence) ──
+   notesChantiers n'était jusqu'ici renvoyé que par les routes mobiles
+   (code employé) : /connect et /equipe-mois. Cette route l'expose aussi
+   au token licence, pour un usage PC (fiche chantier imprimable).
+   ⚠ Déclarée avant /:mois pour la même raison que /mois-list ci-dessus. */
+router.get("/notes-chantiers", verifyToken, async (req, res) => {
+  try {
+    const clientId = req.user.clientId;
+    const Donnees = (await import("../models/donnees.js")).default;
+    const doc = await Donnees.findOne({ clientId });
+    if (!doc) return res.status(404).json({ ok: false, message: "Entreprise introuvable" });
+    res.json({ ok: true, notesChantiers: doc.notesChantiers || {} });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Agrégats d'une année, pour le tableau de bord ──
    GET /api/saisies/agrege/:annee
    → { ok, annee, mois: { "2026-07": { heures, interventions, trajets,

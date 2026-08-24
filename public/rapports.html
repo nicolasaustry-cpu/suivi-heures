@@ -276,6 +276,7 @@
           style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">📊 Excel</button>
         <button onclick="exporterPDF()" title="Exporter au format PDF"
           style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">📄 PDF</button>
+        <button onclick="ouvrirFicheChantier()" id="btn-fiche-chantier" title="Fiche récapitulative imprimable du chantier sélectionné" style="display:none;background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">🖨 Fiche chantier</button>
       </div>
     </div>
   </div>
@@ -647,6 +648,8 @@ async function extraireReal() {
             chantier:  c.nom,
             heures:    parseFloat((((c.dureeMin || 0) + (c.deplacement || 0)) / 60).toFixed(2)),
             deplMin:   c.deplacement || 0,
+            note:      c.note || '',
+            photos:    c.photos || [],
             motif
           });
         });
@@ -694,8 +697,10 @@ function appliquerEtAfficher() {
    tous mois confondus. */
 function majEncartPrevus() {
   const encart = document.getElementById('synth-prevu-encart');
-  if (!encart) return;
+  const btnFiche = document.getElementById('btn-fiche-chantier');
   const f = filtresActifs.chantier;
+  if (btnFiche) btnFiche.style.display = (f && f.size === 1) ? '' : 'none';
+  if (!encart) return;
   if (!f || f.size === 0) {
     encart.style.display = 'none';
     return;
@@ -1031,6 +1036,125 @@ function genererSyntheseParSalarie(lignes) {
     .map(s => ({ salarie: s, heures: map[s] }));
 }
 
+/* ── FICHE CHANTIER IMPRIMABLE ── */
+
+/* Normalisation d'un nom de chantier pour comparaison (mêmes règles que côté serveur/Coord). */
+function _clefChantierFiche(s) { return (s || '').toString().trim().replace(/\s+/g, ' ').toUpperCase(); }
+
+async function ouvrirFicheChantier() {
+  const f = filtresActifs.chantier;
+  if (!f || f.size !== 1) return;
+  const nomChantier = [...f][0];
+
+  // Coordonnées client (assets/coordonnees.js, chargé en fin de page)
+  const coord = (typeof Coord !== 'undefined') ? Coord.get(nomChantier) : null;
+
+  // Interventions : lignes réalisées déjà filtrées à l'écran (mois + chantier + autres filtres actifs)
+  const interventions = realVisible
+    .filter(l => _clefChantierFiche(l.chantier) === _clefChantierFiche(nomChantier))
+    .slice()
+    .sort((a, b) => a.date - b.date);
+
+  // Carnet de chantier (notes datées du gérant)
+  let carnet = '';
+  try {
+    const token = localStorage.getItem('syncToken');
+    if (token) {
+      const r = await fetch('/api/saisies/notes-chantiers', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.ok) carnet = d.notesChantiers[_clefChantierFiche(nomChantier)] || '';
+    }
+  } catch (_) {}
+
+  const libellePeriode = [..._moisSelection].sort().map(libelleMoisCourt).join(', ') || 'Toutes périodes';
+  const html = construireFicheHTML(nomChantier, coord, interventions, carnet, libellePeriode);
+
+  const w = window.open('', '_blank');
+  if (!w) { alert("Le navigateur a bloqué l'ouverture de la fiche. Autorisez les pop-ups pour ce site puis réessayez."); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
+function construireFicheHTML(nomChantier, coord, interventions, carnet, libellePeriode) {
+  const nomEnt = escapeHtmlRapport(entreprise.nom || '');
+  const nomCh  = escapeHtmlRapport(nomChantier);
+
+  // Bloc coordonnées
+  let blocCoord = '<p class="fc-vide">Aucune coordonnée enregistrée pour ce chantier.</p>';
+  if (coord && (coord.adresse || coord.ville || coord.mobile || coord.fixe)) {
+    const lignes = [];
+    if (coord.adresse || coord.ville) {
+      lignes.push('<div>📍 ' + escapeHtmlRapport(coord.adresse || '') + (coord.adresse && coord.ville ? '<br>' : '') + escapeHtmlRapport(coord.ville || '') + '</div>');
+    }
+    if (coord.mobile) lignes.push('<div>📱 ' + escapeHtmlRapport(coord.mobile) + '</div>');
+    if (coord.fixe)   lignes.push('<div>☎ ' + escapeHtmlRapport(coord.fixe) + '</div>');
+    blocCoord = lignes.join('');
+  }
+
+  // Tableau des interventions + total
+  const totalH = interventions.reduce((s, l) => s + (parseFloat(l.heures) || 0), 0);
+  const lignesTable = interventions.length
+    ? interventions.map(l =>
+        '<tr><td>' + escapeHtmlRapport(l.dateStr) + '</td><td>' + escapeHtmlRapport(l.salarie) + '</td><td style="text-align:right;">' + l.heures.toFixed(2) + ' h</td></tr>'
+      ).join('')
+    : '<tr><td colspan="3" class="fc-vide">Aucune intervention sur la période sélectionnée.</td></tr>';
+
+  // Notes + photos par intervention (uniquement celles qui en contiennent)
+  const avecNotesOuPhotos = interventions.filter(l => (l.note && l.note.trim()) || (l.photos && l.photos.length));
+  const blocNotes = avecNotesOuPhotos.length
+    ? avecNotesOuPhotos.map(l => {
+        const photosHtml = (l.photos || []).map(p => '<img src="' + p + '" alt="Photo chantier">').join('');
+        return '<div class="fc-note-item">'
+          + '<div class="fc-note-meta">' + escapeHtmlRapport(l.dateStr) + ' — ' + escapeHtmlRapport(l.salarie) + '</div>'
+          + (l.note ? '<div class="fc-note-texte">' + escapeHtmlRapport(l.note).replace(/\n/g, '<br>') + '</div>' : '')
+          + (photosHtml ? '<div class="fc-photos">' + photosHtml + '</div>' : '')
+          + '</div>';
+      }).join('')
+    : '<p class="fc-vide">Aucune note ni photo saisie sur la période sélectionnée.</p>';
+
+  // Carnet de chantier (gérant)
+  const blocCarnet = carnet
+    ? '<div class="fc-carnet-texte">' + escapeHtmlRapport(carnet).replace(/\n/g, '<br>') + '</div>'
+    : '<p class="fc-vide">Aucune note de carnet pour ce chantier.</p>';
+
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
+    + '<title>Fiche chantier – ' + nomCh + '</title><style>'
+    + 'body{font-family:Segoe UI,Arial,sans-serif;color:#1e293b;margin:0;padding:24px 32px;}'
+    + '.fc-entete{border-bottom:3px solid #0f3a8a;padding-bottom:10px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;}'
+    + '.fc-entete h1{margin:0;font-size:1.4rem;color:#0f3a8a;}'
+    + '.fc-entete .fc-ent{font-size:0.82rem;color:#64748b;}'
+    + '.fc-periode{font-size:0.82rem;color:#64748b;margin-bottom:20px;}'
+    + '.fc-section{margin-bottom:22px;}'
+    + '.fc-section h2{font-size:0.95rem;color:#0f3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:10px;}'
+    + '.fc-vide{color:#9ca3af;font-style:italic;font-size:0.85rem;}'
+    + 'table{width:100%;border-collapse:collapse;font-size:0.85rem;}'
+    + 'th{background:#0f3a8a;color:#fff;text-align:left;padding:6px 10px;}'
+    + 'th:last-child,td:last-child{text-align:right;}'
+    + 'td{padding:5px 10px;border-bottom:1px solid #f1f5f9;}'
+    + 'tfoot td{font-weight:700;border-top:2px solid #0f3a8a;padding-top:6px;}'
+    + '.fc-note-item{border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid;}'
+    + '.fc-note-meta{font-size:0.76rem;font-weight:700;color:#0f3a8a;margin-bottom:4px;}'
+    + '.fc-note-texte{font-size:0.85rem;margin-bottom:6px;white-space:pre-wrap;}'
+    + '.fc-photos{display:flex;flex-wrap:wrap;gap:8px;}'
+    + '.fc-photos img{max-width:180px;max-height:180px;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover;}'
+    + '.fc-carnet-texte{font-size:0.85rem;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;}'
+    + '.fc-print-bar{text-align:right;margin-bottom:16px;}'
+    + '.fc-print-bar button{background:#0f3a8a;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:0.85rem;}'
+    + '@media print{.fc-print-bar{display:none;}body{padding:0;}}'
+    + '</style></head><body>'
+    + '<div class="fc-print-bar"><button onclick="window.print()">🖨 Imprimer / Enregistrer en PDF</button></div>'
+    + '<div class="fc-entete"><h1>Fiche chantier — ' + nomCh + '</h1><div class="fc-ent">' + nomEnt + '</div></div>'
+    + '<div class="fc-periode">Période : ' + escapeHtmlRapport(libellePeriode) + '</div>'
+    + '<div class="fc-section"><h2>Coordonnées</h2>' + blocCoord + '</div>'
+    + '<div class="fc-section"><h2>Dates d\'intervention</h2><table><thead><tr><th>Date</th><th>Salarié</th><th>Heures</th></tr></thead>'
+    + '<tbody>' + lignesTable + '</tbody>'
+    + (interventions.length ? '<tfoot><tr><td colspan="2">Total</td><td>' + totalH.toFixed(2) + ' h</td></tr></tfoot>' : '')
+    + '</table></div>'
+    + '<div class="fc-section"><h2>Notes et photos des interventions</h2>' + blocNotes + '</div>'
+    + '<div class="fc-section"><h2>Carnet de chantier</h2>' + blocCarnet + '</div>'
+    + '</body></html>';
+}
+
 /* ── EXCEL ── */
 function exporterExcel() {
   if (typeof XLSX === 'undefined') {
@@ -1175,6 +1299,7 @@ function exporterPDF() {
 }
 </script>
 <script src="assets/filtre-excel.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 </body>
