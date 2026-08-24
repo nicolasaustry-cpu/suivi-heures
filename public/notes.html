@@ -58,6 +58,7 @@
     #modal-note label { display:block; font-size:.76rem; font-weight:600; color:#475569; margin:0 0 4px; }
     #modal-note select { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; font-family:inherit; }
     #modal-note .mn-info { font-size:.85rem; font-weight:600; color:#0f3a8a; background:#eef4fd; border-radius:8px; padding:9px 11px; }
+    #modal-note .mn-btn-renommer { background:none; border:none; cursor:pointer; font-size:.85rem; vertical-align:middle; padding:0 2px; }
     #modal-note .mn-photos { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
     #modal-note .mn-photo-item { position:relative; width:72px; height:72px; }
     #modal-note .mn-photo-item img { width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0; }
@@ -345,7 +346,12 @@ function ouvrirEditionNote(item) {
   document.getElementById('mn-titre').textContent = 'Modifier la note';
   document.getElementById('mn-lecture').style.display = '';
   document.getElementById('mn-choix').style.display = 'none';
-  document.getElementById('mn-info-lecture').textContent = item.chantier + ' — ' + item.salarie + ' — ' + item.dateStr;
+  document.getElementById('mn-info-lecture').innerHTML =
+    '<span>' + echap(item.chantier) + ' — ' + echap(item.salarie) + ' — ' + echap(item.dateStr) + '</span> ' +
+    '<button type="button" class="mn-btn-renommer" title="Renommer ce chantier">✏️</button>';
+  document.querySelector('#mn-info-lecture .mn-btn-renommer').onclick = function () {
+    RenommerChantier.ouvrir(item.chantier, () => location.reload());
+  };
   document.getElementById('mn-texte').value = item.note || '';
   rendrePhotosModal();
   document.getElementById('modal-note').classList.add('on');
