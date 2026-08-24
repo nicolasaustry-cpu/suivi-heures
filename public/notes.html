@@ -46,6 +46,29 @@
       .note-card { break-inside: avoid; }
       body { background:#fff; }
     }
+    .btn-edit { background:#eef4fd; color:#0f3a8a; border:1px solid #c7d7f5; border-radius:6px; padding:4px 9px; cursor:pointer; font-size:0.9rem; line-height:1; }
+    .btn-edit:hover { background:#dbe7fb; }
+    #modal-note.mn-overlay { position:fixed; inset:0; z-index:12000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
+    #modal-note.mn-overlay.on { display:flex; }
+    #modal-note .mn-box { background:#fff; border-radius:14px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; box-shadow:0 14px 48px rgba(0,0,0,.35); font-family:inherit; }
+    #modal-note .mn-head { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; }
+    #modal-note .mn-head b { font-size:.95rem; }
+    #modal-note .mn-x { background:rgba(255,255,255,.15); border:none; color:#fff; width:28px; height:28px; border-radius:6px; cursor:pointer; font-size:1rem; }
+    #modal-note .mn-body { padding:14px 16px; }
+    #modal-note label { display:block; font-size:.76rem; font-weight:600; color:#475569; margin:0 0 4px; }
+    #modal-note select { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; font-family:inherit; }
+    #modal-note .mn-info { font-size:.85rem; font-weight:600; color:#0f3a8a; background:#eef4fd; border-radius:8px; padding:9px 11px; }
+    #modal-note .mn-photos { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+    #modal-note .mn-photo-item { position:relative; width:72px; height:72px; }
+    #modal-note .mn-photo-item img { width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0; }
+    #modal-note .mn-photo-suppr { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:#dc2626; color:#fff; font-size:.7rem; line-height:1; cursor:pointer; }
+    #modal-note .mn-photos-vide { font-size:.8rem; color:#9ca3af; font-style:italic; }
+    #modal-note .mn-add-photo { border:1px dashed #93c5fd; background:#eff6ff; color:#1d4ed8; border-radius:7px; padding:7px 12px; font-size:.82rem; font-weight:600; cursor:pointer; width:100%; box-sizing:border-box; margin-bottom:4px; }
+    #modal-note .mn-foot { display:flex; gap:8px; padding:12px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; position:sticky; bottom:0; }
+    #modal-note .mn-foot button { flex:1; border:none; border-radius:8px; padding:10px; font-weight:700; font-size:.86rem; cursor:pointer; }
+    #modal-note .mn-ok { background:#16a34a; color:#fff; }
+    #modal-note .mn-ok:disabled { background:#cbd5e1; cursor:not-allowed; }
+    #modal-note .mn-annuler { background:#e2e8f0; color:#334155; }
   </style>
 </head>
 <body>
@@ -86,7 +109,12 @@
     </div>
     <div>
       <label>Chantier</label>
-      <select id="filtreChantier" onchange="rendre()"><option value="">Tous</option></select>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="filtreChantier" onchange="rendre(); majBoutonRenommer();"><option value="">Tous</option></select>
+        <button type="button" id="btn-renommer" class="btn-outil" style="display:none;background:#f59e0b;color:#000;padding:6px 10px;"
+          onclick="RenommerChantier.ouvrir(document.getElementById('filtreChantier').value, () => location.reload())"
+          title="Renommer ce chantier partout dans l'application">✏️</button>
+      </div>
     </div>
     <div style="flex:1;min-width:180px;">
       <label>Recherche</label>
@@ -96,6 +124,7 @@
 
   <div class="barre-outils">
     <button class="btn-outil btn-refresh" onclick="location.reload()">↻ Rafraîchir</button>
+    <button class="btn-outil" style="background:#7c3aed;color:#fff;" onclick="ouvrirAjoutNote()">✚ Ajouter une note</button>
     <button class="btn-outil btn-print" onclick="window.print()">🖨 Imprimer</button>
     <button class="btn-outil btn-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
   </div>
@@ -107,10 +136,44 @@
 
 <div id="photo-zoom" onclick="this.style.display='none'"><img id="photo-zoom-img" alt="photo"></div>
 
+<div id="modal-note" class="mn-overlay" onclick="if(event.target===this) fermerModalNote()">
+  <div class="mn-box">
+    <div class="mn-head">
+      <b id="mn-titre">Note de chantier</b>
+      <button type="button" class="mn-x" onclick="fermerModalNote()">✕</button>
+    </div>
+    <div class="mn-body">
+      <div id="mn-lecture" style="display:none;margin-bottom:12px;">
+        <div class="mn-info" id="mn-info-lecture"></div>
+      </div>
+      <div id="mn-choix" style="display:none;margin-bottom:12px;">
+        <label>Intervenant</label>
+        <select id="mn-sel-salarie" onchange="majChoixIntervention()"><option value="">— Choisir —</option></select>
+        <div style="height:8px"></div>
+        <label>Intervention</label>
+        <select id="mn-sel-intervention"><option value="">— Choisir un intervenant d'abord —</option></select>
+      </div>
+      <label>Note</label>
+      <textarea id="mn-texte" rows="5" placeholder="Texte de la note…"
+        style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:0.9rem;resize:vertical;margin-bottom:12px;"></textarea>
+      <label>Photos</label>
+      <div class="mn-photos" id="mn-photos"></div>
+      <button type="button" class="mn-add-photo" onclick="document.getElementById('mn-fichier').click()">+ Ajouter des photos</button>
+      <input type="file" id="mn-fichier" accept="image/*" multiple style="display:none" onchange="ajouterPhotosModal(this.files)">
+    </div>
+    <div class="mn-foot">
+      <button type="button" class="mn-annuler" onclick="fermerModalNote()">Annuler</button>
+      <button type="button" class="mn-ok" id="mn-ok" onclick="enregistrerModalNote()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/renommer-chantier.js"></script>
 <script>
-let _notes = [];   // { date, dateObj, dateStr, salarie, chantier, arrivee, depart, dureeMin, note }
+let _notes = [];   // { date, dateObj, dateStr, salarie, chantier, arrivee, depart, dureeMin, note, photos } — uniquement celles avec note/photo
+let _toutesInterventions = [];   // idem, TOUTES les interventions du mois (avec ou sans note) — sert au picker « Ajouter une note »
 
 function echap(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -132,13 +195,13 @@ async function chargerNotes() {
     const d = await r.json();
     const saisies = d.ok ? (d.saisies || []) : [];
     _notes = [];
+    _toutesInterventions = [];
     saisies.forEach(s => {
       (s.chantiers || []).forEach(c => {
         const note   = (c.note || '').trim();
         const photos = Array.isArray(c.photos) ? c.photos.filter(ph => typeof ph === 'string' && ph.startsWith('data:image/')) : [];
-        if (!note && !photos.length) return;   // ni note ni photo → on ignore
         const dObj = new Date(s.date + 'T00:00:00');
-        _notes.push({
+        const item = {
           date:     s.date,
           salarieId: s.salarieId,
           faite:    !!c.noteFaite,
@@ -151,7 +214,9 @@ async function chargerNotes() {
           dureeMin: c.dureeMin || 0,
           note:     note,
           photos:   photos
-        });
+        };
+        _toutesInterventions.push(item);
+        if (note || photos.length) _notes.push(item);   // ni note ni photo → absente de la liste affichée
       });
     });
     // Plus récente en premier (puis par intervenant)
@@ -174,6 +239,13 @@ function majFiltres() {
   selCh.innerHTML  = '<option value="">Tous</option>' + chs.map(c => `<option value="${echap(c)}">${echap(c)}</option>`).join('');
   if (sals.includes(valSal)) selSal.value = valSal;
   if (chs.includes(valCh))   selCh.value  = valCh;
+  majBoutonRenommer();
+}
+
+function majBoutonRenommer() {
+  const v = document.getElementById('filtreChantier').value;
+  const btn = document.getElementById('btn-renommer');
+  if (btn) btn.style.display = v ? '' : 'none';
 }
 
 function notesFiltrees() {
@@ -204,6 +276,7 @@ function rendre() {
         <span class="nc-chantier">${echap(n.chantier)}</span>
         <div class="nc-actions no-print">
           <label class="nc-realise"><input type="checkbox" class="chk-realise"${n.faite ? ' checked' : ''}> Réalisé</label>
+          <button class="btn-edit" title="Modifier la note">✏️</button>
           <button class="btn-suppr" title="Supprimer la note">🗑</button>
         </div>
       </div>
@@ -223,6 +296,11 @@ function rendre() {
     const date = card.dataset.date, sal = card.dataset.sal, ch = card.dataset.ch;
     const cb = card.querySelector('.chk-realise');
     if (cb) cb.addEventListener('change', e => basculerRealise(date, sal, ch, e.target.checked, card));
+    const be = card.querySelector('.btn-edit');
+    if (be) be.addEventListener('click', () => {
+      const n = _notes.find(x => x.date === date && String(x.salarieId) === String(sal) && x.chantier === ch);
+      if (n) ouvrirEditionNote(n);
+    });
     const bs = card.querySelector('.btn-suppr');
     if (bs) bs.addEventListener('click', () => supprimerNote(date, sal, ch, card));
   });
@@ -253,6 +331,116 @@ async function supprimerNote(date, sal, ch, card) {
   _notes = _notes.filter(x => !(x.date === date && String(x.salarieId) === String(sal) && x.chantier === ch));
   majFiltres();
   rendre();
+}
+
+/* ── Modale d'édition / ajout de note ── */
+let _modalMode = null;      // 'edit' | 'add'
+let _modalCible = null;     // référence directe vers l'entrée (_notes ou _toutesInterventions)
+let _modalPhotos = [];
+
+function ouvrirEditionNote(item) {
+  _modalMode = 'edit';
+  _modalCible = item;
+  _modalPhotos = (item.photos || []).slice();
+  document.getElementById('mn-titre').textContent = 'Modifier la note';
+  document.getElementById('mn-lecture').style.display = '';
+  document.getElementById('mn-choix').style.display = 'none';
+  document.getElementById('mn-info-lecture').textContent = item.chantier + ' — ' + item.salarie + ' — ' + item.dateStr;
+  document.getElementById('mn-texte').value = item.note || '';
+  rendrePhotosModal();
+  document.getElementById('modal-note').classList.add('on');
+}
+
+function ouvrirAjoutNote() {
+  const candidats = _toutesInterventions.filter(x => !(x.note && x.note.trim()) && !(x.photos && x.photos.length));
+  if (!candidats.length) { alert("Aucune intervention sans note ce mois-ci. Changez de mois si besoin, ou éditez une note existante avec ✏️."); return; }
+  _modalMode = 'add';
+  _modalCible = null;
+  _modalPhotos = [];
+  document.getElementById('mn-titre').textContent = 'Ajouter une note';
+  document.getElementById('mn-lecture').style.display = 'none';
+  document.getElementById('mn-choix').style.display = '';
+  document.getElementById('mn-texte').value = '';
+  rendrePhotosModal();
+  const sals = [...new Set(candidats.map(x => x.salarie))].sort();
+  const selSal = document.getElementById('mn-sel-salarie');
+  selSal.innerHTML = '<option value="">— Choisir —</option>' + sals.map(s => `<option value="${echap(s)}">${echap(s)}</option>`).join('');
+  document.getElementById('mn-sel-intervention').innerHTML = '<option value="">— Choisir un intervenant d\'abord —</option>';
+  document.getElementById('modal-note').classList.add('on');
+}
+
+function majChoixIntervention() {
+  const sal = document.getElementById('mn-sel-salarie').value;
+  const selInt = document.getElementById('mn-sel-intervention');
+  const candidats = _toutesInterventions
+    .filter(x => x.salarie === sal && !(x.note && x.note.trim()) && !(x.photos && x.photos.length))
+    .sort((a, b) => a.dateObj - b.dateObj);
+  selInt.innerHTML = '<option value="">— Choisir —</option>' + candidats.map((x, i) =>
+    `<option value="${i}">${x.dateObj.toLocaleDateString('fr-FR')} – ${echap(x.chantier)}${x.dureeMin ? ' (' + fmtDuree(x.dureeMin) + ')' : ''}</option>`
+  ).join('');
+  selInt._candidats = candidats;
+}
+
+function fermerModalNote() {
+  document.getElementById('modal-note').classList.remove('on');
+}
+
+function rendrePhotosModal() {
+  const cont = document.getElementById('mn-photos');
+  cont.innerHTML = _modalPhotos.length
+    ? _modalPhotos.map((p, i) =>
+        `<div class="mn-photo-item"><img src="${p.replace(/"/g, '&quot;')}" alt="photo ${i + 1}"><button type="button" class="mn-photo-suppr" onclick="supprimerPhotoModal(${i})">✕</button></div>`
+      ).join('')
+    : '<span class="mn-photos-vide">Aucune photo.</span>';
+}
+
+function supprimerPhotoModal(i) {
+  _modalPhotos.splice(i, 1);
+  rendrePhotosModal();
+}
+
+function ajouterPhotosModal(files) {
+  if (!files || !files.length) return;
+  Promise.all([...files].map(f => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload  = () => resolve(r.result);
+    r.onerror = () => resolve(null);
+    r.readAsDataURL(f);
+  }))).then(resultats => {
+    resultats.filter(Boolean).forEach(d => _modalPhotos.push(d));
+    rendrePhotosModal();
+  });
+  document.getElementById('mn-fichier').value = '';
+}
+
+async function enregistrerModalNote() {
+  let cible = _modalCible;
+  if (_modalMode === 'add') {
+    const selInt = document.getElementById('mn-sel-intervention');
+    const idx = selInt.value;
+    if (idx === '' || !selInt._candidats || !selInt._candidats[idx]) { alert('Choisissez un intervenant puis une intervention.'); return; }
+    cible = selInt._candidats[idx];
+  }
+  if (!cible) { alert('Aucune intervention sélectionnée.'); return; }
+  const texte = document.getElementById('mn-texte').value || '';
+  if (!texte.trim() && !_modalPhotos.length) { alert('Ajoutez au moins un texte ou une photo.'); return; }
+
+  const btn = document.getElementById('mn-ok');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  const ok = await postSaisieNote('/api/saisies/note-modifier', {
+    date: cible.date, salarieId: cible.salarieId, chantier: cible.chantier,
+    note: texte, photos: _modalPhotos
+  });
+  btn.disabled = false; btn.textContent = 'Enregistrer';
+  if (!ok) { alert('Échec de l\'enregistrement.'); return; }
+
+  cible.note = texte;
+  cible.photos = _modalPhotos.slice();
+  if (!_notes.includes(cible)) _notes.push(cible);
+  _notes.sort((a, b) => (b.dateObj - a.dateObj) || a.salarie.localeCompare(b.salarie));
+  majFiltres();
+  rendre();
+  fermerModalNote();
 }
 
 function zoomPhoto(src) {

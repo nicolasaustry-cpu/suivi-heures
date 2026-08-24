@@ -918,4 +918,31 @@ router.post("/note-supprimer", verifyToken, async (req, res) => {
   }
 });
 
+// Éditer le texte et/ou les photos d'une note (existante ou à créer sur une
+// intervention qui n'en avait pas encore) : remplace intégralement note+photos.
+router.post("/note-modifier", verifyToken, async (req, res) => {
+  try {
+    const clientId  = req.user.clientId;
+    const { date, chantier } = req.body;
+    const salarieId = Number(req.body.salarieId);
+    const note = typeof req.body.note === 'string' ? req.body.note : '';
+    const photos = Array.isArray(req.body.photos)
+      ? req.body.photos.filter(p => typeof p === 'string' && p.startsWith('data:image/'))
+      : [];
+    if (!date || !chantier || !salarieId)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    const saisie = await Saisie.findOne({ clientId, salarieId, date });
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    const c = (saisie.chantiers || []).find(x => x.nom === chantier);
+    if (!c) return res.status(404).json({ ok: false, message: "Chantier introuvable" });
+    c.note = note;
+    c.photos = photos;
+    saisie.markModified("chantiers");
+    await saisie.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 export default router;
