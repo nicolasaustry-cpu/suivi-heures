@@ -119,6 +119,17 @@
     }
     .qr-panel button:hover { background: #1d4ed8; }
   }
+  /* Mode saisie (salarié) : interface plein écran même sur tablette —
+     masque le cadre téléphone, le panneau QR et le bandeau patron. */
+  body.mode-saisie .header-desktop { display: none !important; }
+  body.mode-saisie .qr-panel { display: none !important; }
+  body.mode-saisie .desktop-layout { display: block !important; padding: 0 !important; }
+  body.mode-saisie .phone-wrap {
+    width: 100% !important; height: 100vh !important; height: 100dvh !important;
+    margin: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+    transform: none !important;
+  }
+
   /* Mobile : pas de header desktop, pas de QR panel */
   @media (max-width: 599px) {
     .header-desktop { display: none !important; }
@@ -1213,6 +1224,16 @@
 <div class="phone-wrap">
 
 <!-- ── ÉCRAN PIN ── -->
+<!-- Écran d'aiguillage : s'affiche au premier lancement (appareil sans code mémorisé, hors patron) -->
+<div id="ecran-choix" style="display:none;position:fixed;inset:0;z-index:5000;background:#0f3a8a;color:#fff;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;box-sizing:border-box;">
+  <img src="assets/icon-512.png" alt="Suiv'Heures" style="width:88px;height:88px;border-radius:20px;box-shadow:0 6px 20px rgba(0,0,0,.3);margin-bottom:18px;">
+  <h1 style="font-size:1.5rem;font-weight:800;margin:0 0 6px;">Bienvenue sur Suiv'Heures</h1>
+  <p style="font-size:1.05rem;opacity:.9;margin:0 0 32px;max-width:360px;line-height:1.4;">Avez-vous déjà un code entreprise&nbsp;?</p>
+  <button onclick="choixSaisie()" style="width:100%;max-width:320px;padding:15px;border:none;border-radius:12px;background:#fff;color:#0f3a8a;font-size:1.05rem;font-weight:800;cursor:pointer;margin-bottom:14px;">Oui, je saisis mes heures</button>
+  <button onclick="choixEssai()" style="width:100%;max-width:320px;padding:15px;border:2px solid rgba(255,255,255,.7);border-radius:12px;background:transparent;color:#fff;font-size:1.05rem;font-weight:700;cursor:pointer;">Non — découvrir / essai gratuit</button>
+  <p style="margin-top:26px;font-size:.85rem;opacity:.75;max-width:320px;">Essai gratuit 30 jours, sans carte bancaire.</p>
+</div>
+
 <div class="pin-screen" id="pin-screen" style="display:none;">
   <img src="assets/icon-512.png" alt="Suiv'Heures" id="pin-logo" class="pin-logo">
   <h2>Suiv'Heures</h2>
@@ -1521,10 +1542,13 @@ window.addEventListener('DOMContentLoaded', () => {
     reconnecterAuto(codeU);
   } else if (codeMemorize) {
     reconnecterAuto(codeMemorize);
-  } else {
-    // Pas de code mémorisé → afficher l'écran de connexion
+  } else if (localStorage.getItem('syncToken') || localStorage.getItem('licenceCode')) {
+    // Patron connecté (licence) : comportement inchangé (vue PC / partage du QR)
     document.getElementById('pin-screen').style.display = 'flex';
     chargerSalaries();
+  } else {
+    // Appareil vierge (prospect) → écran d'aiguillage
+    document.getElementById('ecran-choix').style.display = 'flex';
   }
   majLogoPinMobile();   // logo partenaire (depuis le cache) sur l'écran PIN
 });
@@ -1539,7 +1563,20 @@ function majLogoPinMobile() {
   else { img.removeAttribute('src'); img.style.display = 'none'; }
 }
 
+// Écran d'aiguillage au démarrage (appareil vierge / prospect)
+function choixSaisie() {
+  document.getElementById('ecran-choix').style.display = 'none';
+  document.body.classList.add('mode-saisie');   // interface de saisie plein écran (tablette incluse)
+  document.getElementById('pin-screen').style.display = 'flex';
+  chargerSalaries();
+}
+function choixEssai() {
+  location.href = 'essai';
+}
+
 async function reconnecterAuto(codeEmploye) {
+  // Salarié (pas de licence patron) : interface de saisie plein écran, même sur tablette
+  if (!localStorage.getItem('syncToken')) document.body.classList.add('mode-saisie');
   try {
     const r = await fetch('/api/saisies/connect', {
       method: 'POST',
