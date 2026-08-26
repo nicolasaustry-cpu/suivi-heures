@@ -1214,7 +1214,7 @@ function genererPlanning(calerSemaine){
         let chips='';
         if(C.abs>0){
           chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}');genererPlanning()">${genOptionsHeures(C.abs)}</select>`
-               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value);genererPlanning()">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
                +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
                +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
         }
