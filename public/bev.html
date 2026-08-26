@@ -544,7 +544,14 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       motif = 'École';
     }
     if (tempsEvt <= 0) motif = '';               // plus d'absence effective → pas de motif résiduel
-    const base     = Math.max(0, r2(contrat - tempsEvt));
+    let base = Math.max(0, r2(contrat - tempsEvt));
+    // Férié / Even. Familial : la Nouvelle Base part de 7h (ou du contractuel du jour s'il est < 7)
+    // au lieu de 0 — le salarié est réputé avoir fait sa journée. Point de départ volontairement
+    // simple : on utilise le `contrat` du jour tel que calculé ci-dessus (donc déjà à 0 si jour férié
+    // calendaire réel — cas à retravailler séparément si besoin).
+    if (motif === 'Férié' || motif === 'Even. Familial') {
+      base = r2(contrat >= 7 ? 7 : contrat);
+    }
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
     const ecartRB  = r2(realise - base);
