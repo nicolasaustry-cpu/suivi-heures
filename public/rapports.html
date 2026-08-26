@@ -1043,23 +1043,40 @@ function _clefChantierFiche(s) { return (s || '').toString().trim().replace(/\s+
 
 const _MOIS_FICHE = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
-/* Heures planifiées (Prévisionnel) pour ce chantier, tous mois confondus — utilisé en licence Standard,
-   où il n'existe pas de réalisé mobile. Source : localStorage 'previsionnel_data' (chantiers.html). */
-function _heuresPlanifieesFiche(nomChantier) {
-  let data = {};
-  try { data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}'); } catch (_) {}
+/* Interventions du Planning prévu pour ce chantier (jour par jour, avec le salarié affecté) — utilisé en
+   licence Standard, où il n'existe pas de réalisé mobile. Source : localStorage 'heuresdata' (planning.html),
+   clé de forme `${salarieId}${AAAA_MM_JJ}ch${n}` → { chantier, heures }. Filtré sur les mois sélectionnés
+   à l'écran, comme le réalisé en licence Plus. */
+function _interventionsPlanningFiche(nomChantier) {
+  let heures = {}, salariesAll = [];
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (_) {}
+  try { salariesAll = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (_) {}
+  const salById = {};
+  salariesAll.forEach(s => { salById[String(s.id)] = ((s.prenom || '') + ' ' + (s.nom || '')).trim(); });
   const cible = _clefChantierFiche(nomChantier);
   const rows = [];
-  Object.keys(data).sort().forEach(annee => {
-    const anneeObj = data[annee] || {};
-    Object.keys(anneeObj).sort((a, b) => Number(a) - Number(b)).forEach(mi => {
-      const dm = anneeObj[mi];
-      if (!dm || !Array.isArray(dm.chantiers)) return;
-      let heures = 0;
-      dm.chantiers.forEach(ch => { if (_clefChantierFiche(ch.client) === cible) heures += parseFloat(ch.hPrevues) || 0; });
-      if (heures > 0) rows.push({ label: _MOIS_FICHE[Number(mi)] + ' ' + annee, heures });
-    });
+  Object.keys(heures).forEach(k => {
+    for (const s of salariesAll) {
+      const idStr = String(s.id);
+      if (!k.startsWith(idStr)) continue;
+      const m = k.slice(idStr.length).match(/^(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (!m) continue;
+      const e = heures[k];
+      if (!e || _clefChantierFiche(e.chantier) !== cible) break;
+      const moisStr = m[1] + '-' + m[2];
+      if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) break;
+      const dateObj = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      rows.push({
+        date: dateObj,
+        dateStr: dateObj.toLocaleDateString('fr-FR'),
+        salarie: salById[idStr] || 'Salarié',
+        heures: parseFloat(e.heures) || 0,
+        note: '', photos: []
+      });
+      break;
+    }
   });
+  rows.sort((a, b) => a.date - b.date || a.salarie.localeCompare(b.salarie));
   return rows;
 }
 
@@ -1097,7 +1114,7 @@ async function ouvrirFicheChantier() {
   // Coordonnées client (assets/coordonnees.js, chargé en fin de page)
   const coord = (typeof Coord !== 'undefined') ? Coord.get(nomChantier) : null;
 
-  let interventions = [], planifie = [], documents = [];
+  let interventions, documents = [];
   if (estPlus) {
     // Interventions réalisées : lignes déjà filtrées à l'écran (mois + chantier + autres filtres actifs)
     interventions = realVisible
@@ -1105,8 +1122,8 @@ async function ouvrirFicheChantier() {
       .slice()
       .sort((a, b) => a.date - b.date);
   } else {
-    // Standard : pas de réalisé → heures planifiées + documents joints à la place
-    planifie = _heuresPlanifieesFiche(nomChantier);
+    // Standard : pas de réalisé → jours d'intervention du planning prévu + documents joints à la place
+    interventions = _interventionsPlanningFiche(nomChantier);
     documents = await _listerDocumentsFiche(nomChantier);
   }
 
@@ -1122,7 +1139,7 @@ async function ouvrirFicheChantier() {
   } catch (_) {}
 
   const libellePeriode = [..._moisSelection].sort().map(libelleMoisCourt).join(', ') || 'Toutes périodes';
-  const html = construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet, libellePeriode, planifie, documents);
+  const html = construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet, libellePeriode, documents);
 
   const w = window.open('', '_blank');
   if (!w) { alert("Le navigateur a bloqué l'ouverture de la fiche. Autorisez les pop-ups pour ce site puis réessayez."); return; }
@@ -1130,7 +1147,7 @@ async function ouvrirFicheChantier() {
   w.document.close();
 }
 
-function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet, libellePeriode, planifie, documents) {
+function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet, libellePeriode, documents) {
   const nomEnt = escapeHtmlRapport(entreprise.nom || '');
   const nomCh  = escapeHtmlRapport(nomChantier);
 
@@ -1151,23 +1168,24 @@ function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet,
     ? '<div class="fc-carnet-texte">' + escapeHtmlRapport(carnet).replace(/\n/g, '<br>') + '</div>'
     : '<p class="fc-vide">Aucune note de carnet pour ce chantier.</p>';
 
-  let sectionPrincipale, sectionSecondaire;
+  // Tableau des dates d'intervention + total — commun aux deux licences (réalisé en Plus, planning prévu en Standard)
+  const titreTable = estPlus ? "Dates d'intervention" : "Jours d'intervention prévus";
+  const totalH = interventions.reduce((s, l) => s + (parseFloat(l.heures) || 0), 0);
+  const lignesTable = interventions.length
+    ? interventions.map(l =>
+        '<tr><td>' + escapeHtmlRapport(l.dateStr) + '</td><td>' + escapeHtmlRapport(l.salarie) + '</td><td style="text-align:right;">' + l.heures.toFixed(2) + ' h</td></tr>'
+      ).join('')
+    : '<tr><td colspan="3" class="fc-vide">Aucune intervention sur la période sélectionnée.</td></tr>';
 
+  const sectionPrincipale =
+    '<div class="fc-section"><h2>' + titreTable + '</h2><table><thead><tr><th>Date</th><th>Salarié</th><th>Heures</th></tr></thead>'
+    + '<tbody>' + lignesTable + '</tbody>'
+    + (interventions.length ? '<tfoot><tr><td colspan="2">Total</td><td>' + totalH.toFixed(2) + ' h</td></tr></tfoot>' : '')
+    + '</table></div>';
+
+  let sectionSecondaire;
   if (estPlus) {
-    // ── Licence Plus : dates d'intervention réalisées + notes/photos ──
-    const totalH = interventions.reduce((s, l) => s + (parseFloat(l.heures) || 0), 0);
-    const lignesTable = interventions.length
-      ? interventions.map(l =>
-          '<tr><td>' + escapeHtmlRapport(l.dateStr) + '</td><td>' + escapeHtmlRapport(l.salarie) + '</td><td style="text-align:right;">' + l.heures.toFixed(2) + ' h</td></tr>'
-        ).join('')
-      : '<tr><td colspan="3" class="fc-vide">Aucune intervention sur la période sélectionnée.</td></tr>';
-
-    sectionPrincipale =
-      '<div class="fc-section"><h2>Dates d\'intervention</h2><table><thead><tr><th>Date</th><th>Salarié</th><th>Heures</th></tr></thead>'
-      + '<tbody>' + lignesTable + '</tbody>'
-      + (interventions.length ? '<tfoot><tr><td colspan="2">Total</td><td>' + totalH.toFixed(2) + ' h</td></tr></tfoot>' : '')
-      + '</table></div>';
-
+    // ── Licence Plus : notes/photos saisies par les salariés sur chaque intervention réalisée ──
     const avecNotesOuPhotos = interventions.filter(l => (l.note && l.note.trim()) || (l.photos && l.photos.length));
     const blocNotes = avecNotesOuPhotos.length
       ? avecNotesOuPhotos.map(l => {
@@ -1179,25 +1197,12 @@ function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet,
             + '</div>';
         }).join('')
       : '<p class="fc-vide">Aucune note ni photo saisie sur la période sélectionnée.</p>';
-
     sectionSecondaire = '<div class="fc-section"><h2>Notes et photos des interventions</h2>' + blocNotes + '</div>';
   } else {
-    // ── Licence Standard : pas de réalisé → heures planifiées + documents joints ──
-    const totalPlan = planifie.reduce((s, r) => s + r.heures, 0);
-    const lignesPlan = planifie.length
-      ? planifie.map(r => '<tr><td>' + escapeHtmlRapport(r.label) + '</td><td style="text-align:right;">' + r.heures.toFixed(2) + ' h</td></tr>').join('')
-      : '<tr><td colspan="2" class="fc-vide">Aucune heure planifiée pour ce chantier.</td></tr>';
-
-    sectionPrincipale =
-      '<div class="fc-section"><h2>Heures planifiées</h2><table><thead><tr><th>Mois</th><th>Heures</th></tr></thead>'
-      + '<tbody>' + lignesPlan + '</tbody>'
-      + (planifie.length ? '<tfoot><tr><td>Total</td><td>' + totalPlan.toFixed(2) + ' h</td></tr></tfoot>' : '')
-      + '</table></div>';
-
+    // ── Licence Standard : pas de réalisé → documents joints au chantier à la place ──
     const blocDocs = (documents && documents.length)
       ? '<ul class="fc-docs">' + documents.map(d => '<li>📎 ' + escapeHtmlRapport(d.nom || '') + (d.taille ? ' <span class="fc-doc-taille">(' + _fmtTailleFiche(d.taille) + ')</span>' : '') + '</li>').join('') + '</ul>'
       : '<p class="fc-vide">Aucun document joint à ce chantier.</p>';
-
     sectionSecondaire = '<div class="fc-section"><h2>Documents joints</h2>' + blocDocs + '</div>';
   }
 
