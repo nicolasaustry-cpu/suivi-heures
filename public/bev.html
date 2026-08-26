@@ -182,6 +182,8 @@
     table.bev-recap th, table.bev-recap td { border:1px solid #cbd5e1; padding:3px 8px; text-align:center; }
     table.bev-recap th { background:#eef2f7; color:#0f3a8a; font-weight:700; }
     table.bev-recap td:first-child, table.bev-recap th:first-child { text-align:left; font-weight:600; white-space:nowrap; }
+    .btn-mois-nav { border:1px solid #d1d5db; background:#fff; color:#374151; border-radius:6px; width:28px; height:28px; font-size:0.85rem; cursor:pointer; line-height:1; padding:0; }
+    .btn-mois-nav:hover { background:#f1f5f9; }
   </style>
 </head>
 <body>
@@ -225,7 +227,11 @@
     </div>
     <div id="bloc-mois">
       <label>Mois</label>
-      <input type="month" id="sel-mois" onchange="rafraichir()">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <button type="button" class="btn-mois-nav" onclick="changerMois(-1)" title="Mois précédent">◀</button>
+        <input type="month" id="sel-mois" onchange="rafraichir()">
+        <button type="button" class="btn-mois-nav" onclick="changerMois(1)" title="Mois suivant">▶</button>
+      </div>
     </div>
     <div id="bloc-annee" style="display:none;">
       <label>Année</label>
@@ -1026,6 +1032,15 @@ function changerVue(v) {
   if (bct) bct.style.display = (v === 'mois') ? 'inline-flex' : 'none';
   rafraichir();
 }
+function changerMois(delta) {
+  const inp = document.getElementById('sel-mois');
+  if (!inp.value) return;
+  const [an, mo] = inp.value.split('-').map(Number);
+  const d = new Date(an, mo - 1 + delta, 1);
+  inp.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  rafraichir();
+}
+
 function rafraichir() {
   if (_vue === 'mois') chargerMois(); else chargerAnnee();
 }
