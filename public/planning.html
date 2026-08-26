@@ -1203,7 +1203,13 @@ function genererPlanning(calerSemaine){
         if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
         const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
         const C=lireCellule(s,dateStr); const prevu=contratDuJour(s,dateStr);
-        wT+=C.total; wC+=Math.max(0,prevu-C.abs); if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
+        // Férié / Even. Familial posé en absence : compte comme du temps travaillé (7 h, ou le contractuel
+        // s'il est < 7), sans toucher au calcul du TNA (wC reste prevu − abs, inchangé juste en dessous).
+        const _motifAbsJour = heures[C.absK]?.motif || '';
+        const _equivFerieEvt = (C.abs > 0 && (_motifAbsJour === 'Férié' || _motifAbsJour === 'Even. Familial'))
+          ? (prevu >= 7 ? 7 : prevu) : 0;
+        const _totalJour = C.total + _equivFerieEvt;
+        wT+=_totalJour; wC+=Math.max(0,prevu-C.abs); if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
 
         let chips='';
         if(C.abs>0){
@@ -1226,7 +1232,7 @@ function genererPlanning(calerSemaine){
           // Absence partielle : il reste du temps contrat → saisie de chantiers autorisée (le TNA suit la même règle : contrat − absence − chantiers)
           actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button></div>`;
         }
-        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
+        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${_totalJour.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
         const _estEcole = estJourEcolePl(s, dateStr);
         const _estFerie = !_estEcole && estFeriePl(dateStr);
         const _clsSpec = _estEcole ? ' jour-ecole' : (_estFerie ? ' jour-ferie' : '');
