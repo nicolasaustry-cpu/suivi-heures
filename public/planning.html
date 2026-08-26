@@ -1203,18 +1203,12 @@ function genererPlanning(calerSemaine){
         if(d<row.entree||(row.sortie&&d>row.sortie)){ cells+=`<td class="thors${d.getDay()===6?' sam-col':''}"></td>`; return; }
         const cle=['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()];
         const C=lireCellule(s,dateStr); const prevu=contratDuJour(s,dateStr);
-        // Férié / Even. Familial posé en absence : compte comme du temps travaillé (7 h, ou le contractuel
-        // s'il est < 7), sans toucher au calcul du TNA (wC reste prevu − abs, inchangé juste en dessous).
-        const _motifAbsJour = heures[C.absK]?.motif || '';
-        const _equivFerieEvt = (C.abs > 0 && (_motifAbsJour === 'Férié' || _motifAbsJour === 'Even. Familial'))
-          ? (prevu >= 7 ? 7 : prevu) : 0;
-        const _totalJour = C.total + _equivFerieEvt;
-        wT+=_totalJour; wC+=Math.max(0,prevu-C.abs); if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
+        wT+=C.total; wC+=Math.max(0,prevu-C.abs); if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
 
         let chips='';
         if(C.abs>0){
           chips+=`<div class="abs-day">🚫 Absent <select data-type="abs" id="${C.absK}h" onchange="saveHeure('${C.absK}','absence',this.value);onLigneRecalc('${C.absK}');genererPlanning()">${genOptionsHeures(C.abs)}</select>`
-               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value);genererPlanning()">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
+               +`<select class="abs-motif" title="Motif de l'absence" onchange="pl2SaveMotif('${C.absK}',this.value)">${pl2MotifOptions(heures[C.absK]?.motif||'')}</select>`
                +`<button type="button" class="absweek no-print" title="Étendre à la semaine" onclick="pl2PoserAbsenceSemaine('${s.id}','${dateStr}')">Sem.</button>`
                +`<button type="button" class="x no-print" title="Retirer" onclick="pl2RetirerAbsence('${C.absK}')">✕</button></div>`;
         }
@@ -1232,7 +1226,7 @@ function genererPlanning(calerSemaine){
           // Absence partielle : il reste du temps contrat → saisie de chantiers autorisée (le TNA suit la même règle : contrat − absence − chantiers)
           actions = `<div class="cell-actions no-print"><button type="button" class="cell-add" onclick="pl2AjouterChantier(this)">➕ chantier</button></div>`;
         }
-        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${_totalJour.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
+        const foot=`<div class="cell-foot"><span>T <b class="cell-total">${C.total.toFixed(1)}</b></span><span>C <b class="cell-prevu"></b></span><b class="cell-ecart"></b></div>`;
         const _estEcole = estJourEcolePl(s, dateStr);
         const _estFerie = !_estEcole && estFeriePl(dateStr);
         const _clsSpec = _estEcole ? ' jour-ecole' : (_estFerie ? ' jour-ferie' : '');
