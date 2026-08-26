@@ -530,11 +530,12 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const d = new Date(an, mo - 1, j);
     const k = cle(d);
     const key = JOURS_KEYS[d.getDay()];
-    let contrat = 0;
-    if (key && dansContrat(sal, d) && !estFerieBev(k)) {
+    let contratNormal = 0;                         // contractuel « théorique » du jour, sans neutralisation férié
+    if (key && dansContrat(sal, d)) {
       const grille = grilleHeuresPourDate(sal, d);
-      contrat = Number(grille[key]) || 0;
+      contratNormal = Number(grille[key]) || 0;
     }
+    const contrat = estFerieBev(k) ? 0 : contratNormal;
     const safe = k.replace(/-/g, '_');
     const _abs = _hAbs[sal.id + safe + 'abs'];
     let tempsEvt = parseFloat(_abs && _abs.heures || 0) || 0;
@@ -546,11 +547,11 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     if (tempsEvt <= 0) motif = '';               // plus d'absence effective → pas de motif résiduel
     let base = Math.max(0, r2(contrat - tempsEvt));
     // Férié / Even. Familial : la Nouvelle Base part de 7h (ou du contractuel du jour s'il est < 7)
-    // au lieu de 0 — le salarié est réputé avoir fait sa journée. Point de départ volontairement
-    // simple : on utilise le `contrat` du jour tel que calculé ci-dessus (donc déjà à 0 si jour férié
-    // calendaire réel — cas à retravailler séparément si besoin).
+    // au lieu de 0 — le salarié est réputé avoir fait sa journée. On utilise ici `contratNormal`
+    // (grille habituelle du salarié pour ce jour de semaine), PAS `contrat` : sur un vrai jour férié
+    // calendaire, `contrat` est déjà neutralisé à 0 juste au-dessus, ce qui annulerait la règle.
     if (motif === 'Férié' || motif === 'Even. Familial') {
-      base = r2(contrat >= 7 ? 7 : contrat);
+      base = r2(contratNormal >= 7 ? 7 : contratNormal);
     }
     const planifie = r2(planifMap[k] || 0);
     const realise  = r2(realMap[k] || 0);
