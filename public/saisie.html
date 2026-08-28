@@ -318,6 +318,7 @@
   .input-libre {
     width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
     border-radius: 8px; font-size: 0.95rem; margin-bottom: 0.8rem;
+    text-transform: uppercase;
   }
   .btn-modal-ok {
     width: 100%; padding: 12px; background: #2563eb; color: #fff;
@@ -1031,6 +1032,7 @@
     border-radius: 9px !important;
     border: 1px solid #cbd5e1 !important;
     background: #fff !important;
+    text-transform: uppercase !important;
   }
   .btn-modal-ok {
     background: #0f3a8a !important;
@@ -3212,7 +3214,7 @@ function fermerModal() {
 
 function validerAjout() {
   const libre = document.getElementById('input-libre').value.trim();
-  const nom   = libre || _selModal;
+  const nom   = (libre || _selModal || '').toUpperCase();
   if (!nom) { alert('Saisissez le nom du chantier'); return; }
   const nowA = new Date();
   const hhA  = String(nowA.getHours()).padStart(2,'0');
