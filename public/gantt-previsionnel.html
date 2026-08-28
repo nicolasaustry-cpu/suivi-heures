@@ -505,6 +505,11 @@
       '<span style="color:#a9c0ea;">' + lbl + '</span>' +
       '<b style="color:#fff;white-space:nowrap;">' + val + '</b></div>';
   }
+  function gtipTitre(txt) {
+    return '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;' +
+      'color:#f0ab3d;border-top:1px solid rgba(255,255,255,.18);margin-top:8px;padding-top:6px;margin-bottom:4px;">' +
+      txt + '</div>';
+  }
   function gtipHTML(nomUp, y, m) {
     var cols = colonnesActives();
     var estPlanif = (metrique === 'planif');
@@ -518,14 +523,15 @@
       }
     });
     var hh = function (x) { return r(x) + ' h'; };
-    var html = '<div style="font-weight:600;margin-bottom:7px;">' + nomUp + ' — ' + MOIS[m] + ' ' + y + '</div>' +
-      gtipLigne('Temps devis', hh(devisTot)) +
+    var html = '<div style="font-weight:600;margin-bottom:2px;">' + nomUp + ' — ' + MOIS[m] + ' ' + y + '</div>';
+    html += gtipTitre('Mois en cours') +
       gtipLigne('Planifié ce mois', hh(planifMois(nomUp, y, m)));
     if (!estPlanif) {
       var realM = realMois(nomUp, y, m);
       html += gtipLigne('Réalisé ce mois', realM === null ? '…' : hh(realM));
     }
-    html += '<div style="height:6px;"></div>' +
+    html += gtipTitre('Totalité du chantier') +
+      gtipLigne('Temps devis', hh(devisTot)) +
       gtipLigne('Restant à planifier', hh(devisTot - planTot));
     if (!estPlanif) {
       html += gtipLigne('Restant à réaliser', realConnu ? hh(devisTot - realTot) : '…');
