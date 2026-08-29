@@ -699,7 +699,7 @@ function majEncartPrevus() {
   const encart = document.getElementById('synth-prevu-encart');
   const btnFiche = document.getElementById('btn-fiche-chantier');
   const f = filtresActifs.chantier;
-  if (btnFiche) btnFiche.style.display = (f && f.size === 1) ? '' : 'none';
+  if (btnFiche) btnFiche.style.display = (f && f.size >= 1 && _memePrefixeFiche([...f])) ? '' : 'none';
   if (!encart) return;
   if (!f || f.size === 0) {
     encart.style.display = 'none';
@@ -1041,6 +1041,17 @@ function genererSyntheseParSalarie(lignes) {
 /* Normalisation d'un nom de chantier pour comparaison (mêmes règles que côté serveur/Coord). */
 function _clefChantierFiche(s) { return (s || '').toString().trim().replace(/\s+/g, ' ').toUpperCase(); }
 
+/* Préfixe = premier mot du nom (avant le premier espace), normalisé. */
+function _prefixeChantierFiche(nom) { return _clefChantierFiche((nom || '').trim().split(' ')[0] || ''); }
+
+/* Vrai si tous les noms donnés partagent le même préfixe (et qu'il y en a au moins un). */
+function _memePrefixeFiche(noms) {
+  if (!noms || !noms.length) return false;
+  const p0 = _prefixeChantierFiche(noms[0]);
+  if (!p0) return false;
+  return noms.every(n => _prefixeChantierFiche(n) === p0);
+}
+
 const _MOIS_FICHE = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 /* Interventions du Planning prévu pour ce chantier (jour par jour, avec le salarié affecté) — utilisé en
@@ -1105,41 +1116,55 @@ function _fmtTailleFiche(o) {
 
 async function ouvrirFicheChantier() {
   const f = filtresActifs.chantier;
-  if (!f || f.size !== 1) return;
-  const nomChantier = [...f][0];
+  const noms = [...(f || [])];
+  if (!noms.length || !_memePrefixeFiche(noms)) return;
+  const prefixe = _prefixeChantierFiche(noms[0]);
 
   // Licence Standard vs Plus (assets/sync.js) — en Plus, comportement inchangé.
   const estPlus = (typeof SYNC !== 'undefined' && typeof SYNC.estPlus === 'function') ? SYNC.estPlus() : true;
 
-  // Coordonnées client (assets/coordonnees.js, chargé en fin de page)
-  const coord = (typeof Coord !== 'undefined') ? Coord.get(nomChantier) : null;
+  // Coordonnées client (assets/coordonnees.js) : on essaie d'abord le préfixe lui-même (si une fiche
+  // coordonnées a été saisie sous ce nom de regroupement), sinon le premier chantier sélectionné qui en a.
+  let coord = (typeof Coord !== 'undefined') ? Coord.get(prefixe) : null;
+  if (!coord && typeof Coord !== 'undefined') {
+    for (const n of noms) { const c = Coord.get(n); if (c && (c.adresse || c.ville || c.mobile || c.fixe)) { coord = c; break; } }
+  }
 
   let interventions, documents = [];
   if (estPlus) {
-    // Interventions réalisées : lignes déjà filtrées à l'écran (mois + chantier + autres filtres actifs)
-    interventions = realVisible
-      .filter(l => _clefChantierFiche(l.chantier) === _clefChantierFiche(nomChantier))
-      .slice()
-      .sort((a, b) => a.date - b.date);
+    // Interventions réalisées : lignes déjà filtrées à l'écran (mois + chantier(s) + autres filtres actifs)
+    // — realVisible est déjà restreint à l'ensemble des chantiers cochés, cumul automatique.
+    interventions = realVisible.slice().sort((a, b) => a.date - b.date);
   } else {
-    // Standard : pas de réalisé → jours d'intervention du planning prévu + documents joints à la place
-    interventions = _interventionsPlanningFiche(nomChantier);
-    documents = await _listerDocumentsFiche(nomChantier);
+    // Standard : pas de réalisé → jours d'intervention du planning prévu (cumulés) + documents joints
+    interventions = noms.flatMap(n => _interventionsPlanningFiche(n)).sort((a, b) => a.date - b.date);
+    const listes = await Promise.all(noms.map(n => _listerDocumentsFiche(n)));
+    documents = listes.flat();
   }
 
-  // Carnet de chantier (notes datées du gérant) — disponible dans les deux licences
+  // Carnet de chantier (notes datées du gérant) — disponible dans les deux licences.
+  // On regroupe le carnet du préfixe (s'il existe) et celui de chaque chantier sélectionné.
   let carnet = '';
   try {
     const token = localStorage.getItem('syncToken');
     if (token) {
       const r = await fetch('/api/saisies/notes-chantiers', { headers: { 'Authorization': 'Bearer ' + token } });
       const d = await r.json();
-      if (d.ok) carnet = d.notesChantiers[_clefChantierFiche(nomChantier)] || '';
+      if (d.ok) {
+        const morceaux = [];
+        const cPrefixe = (d.notesChantiers[_clefChantierFiche(prefixe)] || '').trim();
+        if (cPrefixe) morceaux.push(cPrefixe);
+        noms.forEach(n => {
+          const c = (d.notesChantiers[_clefChantierFiche(n)] || '').trim();
+          if (c) morceaux.push(noms.length > 1 ? '— ' + n + ' —\n' + c : c);
+        });
+        carnet = morceaux.join('\n\n');
+      }
     }
   } catch (_) {}
 
   const libellePeriode = [..._moisSelection].sort().map(libelleMoisCourt).join(', ') || 'Toutes périodes';
-  const html = construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet, libellePeriode, documents);
+  const html = construireFicheHTML(prefixe, noms, coord, estPlus, interventions, carnet, libellePeriode, documents);
 
   const w = window.open('', '_blank');
   if (!w) { alert("Le navigateur a bloqué l'ouverture de la fiche. Autorisez les pop-ups pour ce site puis réessayez."); return; }
@@ -1147,9 +1172,12 @@ async function ouvrirFicheChantier() {
   w.document.close();
 }
 
-function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet, libellePeriode, documents) {
+function construireFicheHTML(nomChantier, noms, coord, estPlus, interventions, carnet, libellePeriode, documents) {
   const nomEnt = escapeHtmlRapport(entreprise.nom || '');
   const nomCh  = escapeHtmlRapport(nomChantier);
+  const sousTitreRegroupement = (noms && noms.length > 1)
+    ? '<div class="fc-regroupe">Regroupe : ' + noms.map(escapeHtmlRapport).join(', ') + '</div>'
+    : '';
 
   // Bloc coordonnées
   let blocCoord = '<p class="fc-vide">Aucune coordonnée enregistrée pour ce chantier.</p>';
@@ -1213,6 +1241,7 @@ function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet,
     + '.fc-entete h1{margin:0;font-size:1.4rem;color:#0f3a8a;}'
     + '.fc-entete .fc-ent{font-size:0.82rem;color:#64748b;}'
     + '.fc-periode{font-size:0.82rem;color:#64748b;margin-bottom:20px;}'
+    + '.fc-regroupe{font-size:0.8rem;color:#7c3aed;font-style:italic;margin-bottom:4px;}'
     + '.fc-section{margin-bottom:22px;}'
     + '.fc-section h2{font-size:0.95rem;color:#0f3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:10px;}'
     + '.fc-vide{color:#9ca3af;font-style:italic;font-size:0.85rem;}'
@@ -1236,6 +1265,7 @@ function construireFicheHTML(nomChantier, coord, estPlus, interventions, carnet,
     + '</style></head><body>'
     + '<div class="fc-print-bar"><button onclick="window.print()">🖨 Imprimer / Enregistrer en PDF</button></div>'
     + '<div class="fc-entete"><h1>Fiche chantier — ' + nomCh + '</h1><div class="fc-ent">' + nomEnt + '</div></div>'
+    + sousTitreRegroupement
     + '<div class="fc-periode">Période : ' + escapeHtmlRapport(libellePeriode) + '</div>'
     + '<div class="fc-section"><h2>Coordonnées</h2>' + blocCoord + '</div>'
     + sectionPrincipale
