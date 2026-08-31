@@ -755,6 +755,58 @@ function _viderChampsModale() {
   document.getElementById('me-dep').value   = '';
   document.getElementById('me-depl').value  = 0;
   document.getElementById('me-pause').value = 0;
+  document.getElementById('me-exclu-chk').checked = false;
+  document.getElementById('me-exclu-bloc').style.display = 'none';
+  document.getElementById('me-exclu-motif').value = 'SAV';
+  document.getElementById('me-exclu-autre').value = '';
+  document.getElementById('me-exclu-autre').style.display = 'none';
+}
+
+const MOTIFS_EXCLU_RE = ['SAV', 'Fournisseur', 'Visite client'];
+
+/* Renseigne les champs « Exclure ce temps du calcul » d'après le motif déjà présent (ou non) pour ce créneau. */
+function _remplirExclusionModale(salarieId, date, nom) {
+  const motifsExclus = calculerExclusMotifs();
+  const motif = motifExclu(motifsExclus, salarieId, date, nom);
+  document.getElementById('me-exclu-chk').checked = !!motif;
+  document.getElementById('me-exclu-bloc').style.display = motif ? '' : 'none';
+  if (motif && !MOTIFS_EXCLU_RE.includes(motif)) {
+    document.getElementById('me-exclu-motif').value = 'Autres';
+    document.getElementById('me-exclu-autre').value = motif;
+    document.getElementById('me-exclu-autre').style.display = '';
+  } else {
+    document.getElementById('me-exclu-motif').value = motif || 'SAV';
+    document.getElementById('me-exclu-autre').value = '';
+    document.getElementById('me-exclu-autre').style.display = 'none';
+  }
+}
+
+/* Marque (ou retire) l'exclusion d'un créneau dans le Planning prévu (heuresdata), seule source lue par
+   motifExclu() côté affichage. Recherche d'abord un créneau planning existant pour ce salarié+date+nom
+   (on met juste à jour son exclu/motifExclu) ; sinon crée un créneau synthétique (heures:0) pour porter
+   le marquage — sync.js pousse automatiquement la modification (localStorage.setItem est intercepté). */
+function _appliquerExclusionPlanning(salarieId, date, nom, exclu, motif) {
+  let heures = {};
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (_) {}
+  const cible  = (nom || '').trim().toUpperCase();
+  const prefix = String(salarieId) + date.replace(/-/g, '_') + 'ch';
+  let cle = Object.keys(heures).find(k =>
+    k.startsWith(prefix) && /^\d+$/.test(k.slice(prefix.length)) &&
+    heures[k] && (heures[k].chantier || '').trim().toUpperCase() === cible);
+  if (!cle) {
+    let i = 0;
+    while (heures[prefix + i]) i++;
+    cle = prefix + i;
+    heures[cle] = { chantier: nom, heures: 0 };
+  }
+  if (exclu) {
+    heures[cle].exclu = true;
+    heures[cle].motifExclu = motif || 'SAV';
+  } else {
+    delete heures[cle].exclu;
+    delete heures[cle].motifExclu;
+  }
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
 }
 
 function ouvrirEditChantier(btn) {
@@ -765,7 +817,7 @@ function ouvrirEditChantier(btn) {
   const c = saisie.chantiers?.[idx];
   if (!c) { alert('Chantier introuvable'); return; }
 
-  _edition = { mode: 'edit', sid, idx };
+  _edition = { mode: 'edit', sid, idx, salarieId: saisie.salarieId, date: saisie.date };
   document.getElementById('modale-edit-titre').textContent = 'Modifier le chantier';
   _majBlocsModale('edit');
   document.getElementById('me-info-lecture').textContent = saisie.salarieNom + ' — ' + new Date(saisie.date + 'T00:00:00').toLocaleDateString('fr-FR');
@@ -774,6 +826,7 @@ function ouvrirEditChantier(btn) {
   document.getElementById('me-dep').value  = c.heureDepart || '';
   document.getElementById('me-depl').value  = c.deplacement || 0;
   document.getElementById('me-pause').value = c.pause || 0;
+  _remplirExclusionModale(saisie.salarieId, saisie.date, c.nom);
   document.getElementById('modale-edit').style.display = 'flex';
 }
 
@@ -783,7 +836,7 @@ function ouvrirAjoutChantierExistant(btn) {
   const saisie = _saisies.find(s => String(s._id) === String(sid));
   if (!saisie) { alert('Saisie introuvable'); return; }
 
-  _edition = { mode: 'add-existing', sid };
+  _edition = { mode: 'add-existing', sid, salarieId: saisie.salarieId, date: saisie.date };
   document.getElementById('modale-edit-titre').textContent = 'Ajouter un chantier';
   _majBlocsModale('add-existing');
   document.getElementById('me-info-lecture').textContent = saisie.salarieNom + ' — ' + new Date(saisie.date + 'T00:00:00').toLocaleDateString('fr-FR');
@@ -823,7 +876,15 @@ async function enregistrerEditChantier() {
   if (!nom) { alert('Le nom du chantier est obligatoire.'); return; }
   if (arr && dep && arr >= dep) { alert('L\'heure de départ doit être après l\'heure d\'arrivée.'); return; }
 
+  const exclu = document.getElementById('me-exclu-chk').checked;
+  let motifExclu = '';
+  if (exclu) {
+    const selMotif = document.getElementById('me-exclu-motif').value;
+    motifExclu = (selMotif === 'Autres') ? (document.getElementById('me-exclu-autre').value.trim() || 'Autres') : selMotif;
+  }
+
   const token = localStorage.getItem('syncToken');
+  let salarieIdPourExclu = _edition.salarieId, datePourExclu = _edition.date;
   try {
     let r, d;
     if (_edition.mode === 'edit') {
@@ -844,6 +905,7 @@ async function enregistrerEditChantier() {
       if (!date) { alert('La date est obligatoire.'); return; }
       const salarieId = parseInt(sel.value);
       const salarieNom = sel.options[sel.selectedIndex]?.textContent || '';
+      salarieIdPourExclu = salarieId; datePourExclu = date;
       r = await fetch('/api/saisies/nouvelle-pc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -852,6 +914,9 @@ async function enregistrerEditChantier() {
     }
     d = await r.json();
     if (!d.ok) { alert('Erreur : ' + (d.message || 'opération refusée')); return; }
+
+    _appliquerExclusionPlanning(salarieIdPourExclu, datePourExclu, nom, exclu, motifExclu);
+
     fermerEditChantier();
     const y = window.scrollY;
     await chargerRealise(true);
@@ -1031,6 +1096,21 @@ function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
       <div class="champ">
         <label>Déplacement (minutes)</label>
         <input type="number" id="me-depl" min="0" max="600" step="15">
+      </div>
+    </div>
+    <div class="champ">
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600;cursor:pointer;">
+        <input type="checkbox" id="me-exclu-chk" onchange="document.getElementById('me-exclu-bloc').style.display=this.checked?'':'none'">
+        Exclure ce temps du calcul
+      </label>
+      <div id="me-exclu-bloc" style="display:none;margin-top:6px;">
+        <select id="me-exclu-motif" onchange="document.getElementById('me-exclu-autre').style.display=(this.value==='Autres')?'':'none'">
+          <option value="SAV">SAV</option>
+          <option value="Fournisseur">Fournisseur</option>
+          <option value="Visite client">Visite client</option>
+          <option value="Autres">Autres…</option>
+        </select>
+        <input type="text" id="me-exclu-autre" placeholder="Préciser le motif" style="display:none;margin-top:6px;width:100%;box-sizing:border-box;">
       </div>
     </div>
     <div class="actions">
