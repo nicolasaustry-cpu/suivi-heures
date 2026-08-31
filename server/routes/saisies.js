@@ -945,4 +945,82 @@ router.post("/note-modifier", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Ajouter un chantier à une saisie EXISTANTE (patron, depuis le PC) ── */
+router.post("/:id/chantier", verifyToken, async (req, res) => {
+  try {
+    const saisie = await Saisie.findById(req.params.id);
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    if (saisie.clientId !== req.user.clientId)
+      return res.status(403).json({ ok: false, message: "Accès refusé" });
+
+    const body = req.body || {};
+    const nom = String(body.nom || '').trim();
+    if (!nom) return res.status(400).json({ ok: false, message: "Le nom du chantier est obligatoire" });
+
+    const c = {
+      nom,
+      heureArrivee: body.heureArrivee ? String(body.heureArrivee) : '',
+      heureDepart:  body.heureDepart  ? String(body.heureDepart)  : '',
+      deplacement:  parseInt(body.deplacement) || 0,
+      pause:        parseInt(body.pause) || 0,
+      dureeMin: 0
+    };
+    if (c.heureArrivee && c.heureDepart) {
+      const [h1, m1] = c.heureArrivee.split(':').map(Number);
+      const [h2, m2] = c.heureDepart.split(':').map(Number);
+      c.dureeMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1) - (c.pause || 0));
+    }
+
+    saisie.chantiers.push(c);
+    saisie.totalMin = saisie.chantiers.reduce((sum, x) => sum + (x.dureeMin || 0) + (x.deplacement || 0), 0);
+    saisie.updatedAt = new Date();
+    await saisie.save();
+    res.json({ ok: true, saisie });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Créer une intervention depuis le PC pour un salarié/jour qui n'a AUCUNE saisie ce jour-là ──
+   (patron uniquement). Si une saisie existe déjà pour ce salarié+date, le chantier y est simplement
+   ajouté au lieu d'en créer une seconde. */
+router.post("/nouvelle-pc", verifyToken, async (req, res) => {
+  try {
+    const clientId = req.user.clientId;
+    const body = req.body || {};
+    const { date, salarieNom } = body;
+    const salarieId = Number(body.salarieId);
+    const nom = String(body.nom || '').trim();
+    if (!date || !salarieId) return res.status(400).json({ ok: false, message: "Date et salarié obligatoires" });
+    if (!nom) return res.status(400).json({ ok: false, message: "Le nom du chantier est obligatoire" });
+
+    const c = {
+      nom,
+      heureArrivee: body.heureArrivee ? String(body.heureArrivee) : '',
+      heureDepart:  body.heureDepart  ? String(body.heureDepart)  : '',
+      deplacement:  parseInt(body.deplacement) || 0,
+      pause:        parseInt(body.pause) || 0,
+      dureeMin: 0
+    };
+    if (c.heureArrivee && c.heureDepart) {
+      const [h1, m1] = c.heureArrivee.split(':').map(Number);
+      const [h2, m2] = c.heureDepart.split(':').map(Number);
+      c.dureeMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1) - (c.pause || 0));
+    }
+
+    let saisie = await Saisie.findOne({ clientId, salarieId, date });
+    if (saisie) {
+      saisie.chantiers.push(c);
+    } else {
+      saisie = new Saisie({ clientId, salarieId, salarieNom: salarieNom || '', date, chantiers: [c] });
+    }
+    saisie.totalMin = saisie.chantiers.reduce((sum, x) => sum + (x.dureeMin || 0) + (x.deplacement || 0), 0);
+    saisie.updatedAt = new Date();
+    await saisie.save();
+    res.json({ ok: true, saisie });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 export default router;

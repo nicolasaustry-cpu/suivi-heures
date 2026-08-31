@@ -87,7 +87,14 @@
     .no-print { display:none !important; }
     #planning-wrapper { margin-top:0 !important; }
     .col-actions, th.col-actions { display:none !important; }
+    .ligne-ajout-chantier { display:none !important; }
   }
+
+  .btn-ajout-chantier {
+    background:#eef4fd; color:#0f3a8a; border:1px dashed #93c5fd; border-radius:6px;
+    padding:3px 10px; font-size:0.76rem; font-weight:600; cursor:pointer;
+  }
+  .btn-ajout-chantier:hover { background:#dbe7fb; }
 
   /* Colonne Actions et boutons */
   .col-actions { width:80px; text-align:center; white-space:nowrap; }
@@ -196,6 +203,7 @@
 
       <div style="align-self:flex-end;" class="no-print">
         <button onclick="location.reload()" style="background:#3b82f6;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;margin-right:6px;">↻ Rafraîchir</button>
+        <button onclick="ouvrirAjoutChantierNouveau()" style="background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;margin-right:6px;">✚ Ajouter une intervention</button>
         <button onclick="window.print()" style="background:#f59e0b;color:#000;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;margin-right:6px;">🖨 Imprimer</button>
         <button onclick="location.href='graphiques-realise.html'" style="background:#16a34a;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-weight:700;cursor:pointer;">📊 Graphiques</button>
       </div>
@@ -618,6 +626,14 @@ function afficherRealise() {
         </tr>`;
       });
 
+      rows += `<tr class="ligne-ajout-chantier">
+        <td class="col-sal"></td>
+        <td colspan="8" style="padding:3px 0;">
+          <button type="button" class="btn-ajout-chantier" data-sid="${s._id}" onclick="ouvrirAjoutChantierExistant(this)">+ Ajouter un chantier</button>
+        </td>
+        <td class="col-actions"></td>
+      </tr>`;
+
       // Ligne total salarié avec prévu et écart
       {
         // Pause déjeuner hors chantier : ligne informative, JAMAIS ajoutée au réalisé.
@@ -735,7 +751,21 @@ function afficherRealise() {
 /* ═══════════════════════════
    ÉDITION / SUPPRESSION D'UN CHANTIER (patron uniquement)
 ═══════════════════════════ */
-let _edition = null; // { sid, idx }
+let _edition = null; // { mode:'edit'|'add-existing'|'add-new', sid?, idx?, salarieId?, salarieNom?, date? }
+
+function _majBlocsModale(mode) {
+  document.getElementById('me-bloc-lecture').style.display = (mode === 'edit' || mode === 'add-existing') ? '' : 'none';
+  document.getElementById('me-bloc-salarie').style.display = (mode === 'add-new') ? '' : 'none';
+  document.getElementById('me-bloc-date').style.display    = (mode === 'add-new') ? '' : 'none';
+}
+
+function _viderChampsModale() {
+  document.getElementById('me-nom').value   = '';
+  document.getElementById('me-arr').value   = '';
+  document.getElementById('me-dep').value   = '';
+  document.getElementById('me-depl').value  = 0;
+  document.getElementById('me-pause').value = 0;
+}
 
 function ouvrirEditChantier(btn) {
   const sid = btn.dataset.sid;
@@ -745,12 +775,46 @@ function ouvrirEditChantier(btn) {
   const c = saisie.chantiers?.[idx];
   if (!c) { alert('Chantier introuvable'); return; }
 
-  _edition = { sid, idx };
+  _edition = { mode: 'edit', sid, idx };
+  document.getElementById('modale-edit-titre').textContent = 'Modifier le chantier';
+  _majBlocsModale('edit');
+  document.getElementById('me-info-lecture').textContent = saisie.salarieNom + ' — ' + new Date(saisie.date + 'T00:00:00').toLocaleDateString('fr-FR');
   document.getElementById('me-nom').value  = c.nom || '';
   document.getElementById('me-arr').value  = c.heureArrivee || '';
   document.getElementById('me-dep').value  = c.heureDepart || '';
   document.getElementById('me-depl').value  = c.deplacement || 0;
   document.getElementById('me-pause').value = c.pause || 0;
+  document.getElementById('modale-edit').style.display = 'flex';
+}
+
+/* + Ajouter un chantier à une saisie déjà existante (salarié déjà présent ce jour-là) */
+function ouvrirAjoutChantierExistant(btn) {
+  const sid = btn.dataset.sid;
+  const saisie = _saisies.find(s => String(s._id) === String(sid));
+  if (!saisie) { alert('Saisie introuvable'); return; }
+
+  _edition = { mode: 'add-existing', sid };
+  document.getElementById('modale-edit-titre').textContent = 'Ajouter un chantier';
+  _majBlocsModale('add-existing');
+  document.getElementById('me-info-lecture').textContent = saisie.salarieNom + ' — ' + new Date(saisie.date + 'T00:00:00').toLocaleDateString('fr-FR');
+  _viderChampsModale();
+  document.getElementById('modale-edit').style.display = 'flex';
+}
+
+/* + Ajouter une intervention pour un salarié qui n'a rien de saisi ce jour-là (choix salarié + date) */
+function ouvrirAjoutChantierNouveau() {
+  let salariesAll = [];
+  try { salariesAll = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif || s.planningPrevu); } catch (_) {}
+  if (!salariesAll.length) { alert('Aucun salarié disponible.'); return; }
+
+  _edition = { mode: 'add-new' };
+  document.getElementById('modale-edit-titre').textContent = 'Ajouter une intervention';
+  _majBlocsModale('add-new');
+  const sel = document.getElementById('me-sel-salarie');
+  sel.innerHTML = salariesAll.map(s => `<option value="${s.id}">${escapeHtmlRe((s.prenom || '') + ' ' + (s.nom || ''))}</option>`).join('');
+  const auj = new Date();
+  document.getElementById('me-date').value = auj.getFullYear() + '-' + String(auj.getMonth() + 1).padStart(2, '0') + '-' + String(auj.getDate()).padStart(2, '0');
+  _viderChampsModale();
   document.getElementById('modale-edit').style.display = 'flex';
 }
 
@@ -761,7 +825,6 @@ function fermerEditChantier() {
 
 async function enregistrerEditChantier() {
   if (!_edition) return;
-  const { sid, idx } = _edition;
   const nom  = document.getElementById('me-nom').value.trim();
   const arr  = document.getElementById('me-arr').value;
   const dep  = document.getElementById('me-dep').value;
@@ -770,15 +833,35 @@ async function enregistrerEditChantier() {
   if (!nom) { alert('Le nom du chantier est obligatoire.'); return; }
   if (arr && dep && arr >= dep) { alert('L\'heure de départ doit être après l\'heure d\'arrivée.'); return; }
 
+  const token = localStorage.getItem('syncToken');
   try {
-    const token = localStorage.getItem('syncToken');
-    const r = await fetch(`/api/saisies/${sid}/chantier/${idx}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ nom, heureArrivee: arr, heureDepart: dep, deplacement: depl, pause })
-    });
-    const d = await r.json();
-    if (!d.ok) { alert('Erreur : ' + (d.message || 'modification refusée')); return; }
+    let r, d;
+    if (_edition.mode === 'edit') {
+      r = await fetch(`/api/saisies/${_edition.sid}/chantier/${_edition.idx}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ nom, heureArrivee: arr, heureDepart: dep, deplacement: depl, pause })
+      });
+    } else if (_edition.mode === 'add-existing') {
+      r = await fetch(`/api/saisies/${_edition.sid}/chantier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ nom, heureArrivee: arr, heureDepart: dep, deplacement: depl, pause })
+      });
+    } else { // add-new
+      const sel = document.getElementById('me-sel-salarie');
+      const date = document.getElementById('me-date').value;
+      if (!date) { alert('La date est obligatoire.'); return; }
+      const salarieId = parseInt(sel.value);
+      const salarieNom = sel.options[sel.selectedIndex]?.textContent || '';
+      r = await fetch('/api/saisies/nouvelle-pc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ date, salarieId, salarieNom, nom, heureArrivee: arr, heureDepart: dep, deplacement: depl, pause })
+      });
+    }
+    d = await r.json();
+    if (!d.ok) { alert('Erreur : ' + (d.message || 'opération refusée')); return; }
     fermerEditChantier();
     const y = window.scrollY;
     await chargerRealise(true);
@@ -925,6 +1008,17 @@ function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
 <div class="modale-edit-bg" id="modale-edit" style="display:none;" onclick="if(event.target===this)fermerEditChantier();">
   <div class="modale-edit">
     <h3 id="modale-edit-titre">Modifier le chantier</h3>
+    <div class="champ" id="me-bloc-lecture" style="display:none;">
+      <div id="me-info-lecture" style="font-weight:600;color:#0f3a8a;background:#eef4fd;border-radius:8px;padding:8px 10px;font-size:0.85rem;"></div>
+    </div>
+    <div class="champ" id="me-bloc-salarie" style="display:none;">
+      <label>Salarié</label>
+      <select id="me-sel-salarie"></select>
+    </div>
+    <div class="champ" id="me-bloc-date" style="display:none;">
+      <label>Date</label>
+      <input type="date" id="me-date">
+    </div>
     <div class="champ">
       <label>Nom du chantier</label>
       <input type="text" id="me-nom">
