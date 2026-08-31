@@ -461,13 +461,37 @@ function dansContrat(sal, d) {
   return true;
 }
 
-/* Réalisé (heures décimales) par date pour un salarié, à partir des saisies d'un mois. */
+/* Créneaux marqués « exclu du calcul » dans le Planning (heuresdata), recoupés par salarié+date+nom —
+   même mécanisme que realise.html/planning.html, lu ici pour que le Réalisé du BEV les ignore aussi. */
+function calculerExclusMotifsBev() {
+  let heures = {};
+  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const motifsExclus = {};
+  Object.keys(heures).forEach(k => {
+    const e = heures[k];
+    if (!e || !e.exclu || !e.chantier) return;
+    const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m) return;
+    motifsExclus[m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + e.chantier.trim().toUpperCase()] = e.motifExclu || 'SAV';
+  });
+  return motifsExclus;
+}
+function estExcluBev(motifsExclus, salarieId, date, nom) {
+  return !!motifsExclus[salarieId + '|' + date + '|' + (nom || '').trim().toUpperCase()];
+}
+
+/* Réalisé (heures décimales) par date pour un salarié, à partir des saisies d'un mois.
+   Les créneaux marqués « exclu du calcul » dans le Planning n'y comptent pas. */
 function realiseParJour(saisies, salarieId) {
   const map = {};
+  const motifsExclus = calculerExclusMotifsBev();
   (saisies || []).forEach(s => {
     if (String(s.salarieId) !== String(salarieId)) return;
     let min = 0;
-    (s.chantiers || []).forEach(c => { min += (c.dureeMin || 0) + (c.deplacement || 0); });
+    (s.chantiers || []).forEach(c => {
+      if (estExcluBev(motifsExclus, salarieId, s.date, c.nom)) return;
+      min += (c.dureeMin || 0) + (c.deplacement || 0);
+    });
     map[s.date] = (map[s.date] || 0) + min / 60;
   });
   return map;
