@@ -904,7 +904,11 @@ let _mtActive = null;   // tranche choisie ('' = gomme, null = aucune)
 let _mtSel    = {};     // { 'YYYY-MM-DD': true } — sélection en cours
 let _mtAffect = {};     // { 'YYYY-MM-DD': code } — travail en cours (copie de _tranches)
 
-function _mtEstTravaille(l){ return l && !l.we && !l.motif && (parseFloat(l.contrat) || 0) > 0; }
+/* Un jour est sélectionnable pour une tranche dès qu'il y a du temps réalisé (ou planifié en licence
+   Standard) — même si un motif (Autre, Even. Familial, etc.) est aussi présent ce jour-là : un
+   événement partiel n'empêche pas le déplacement d'avoir eu lieu. Seul un jour à 0h réel/planifié
+   (week-end ou absence pleine journée) reste non sélectionnable. */
+function _mtEstTravaille(l){ return !!(l && !l.we && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
 function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()); t.setDate(t.getDate()+3-((t.getDay()+6)%7)); const s=new Date(t.getFullYear(),0,4); return 1+Math.round(((t-s)/86400000-3+((s.getDay()+6)%7))/7); }
 
 function ouvrirCalendrierTranches(){
@@ -957,7 +961,8 @@ function ouvrirCalendrierTranches(){
         const l = parLigne[key];
         if (_mtEstTravaille(l)){
           td.className = 'mt-j'; td.dataset.date = key;
-          td.innerHTML = '<span class="mt-n">' + num + '</span>';
+          const tagPartiel = (l && l.motif) ? '<span class="mt-tag">' + l.motif + '</span>' : '';
+          td.innerHTML = '<span class="mt-n">' + num + '</span>' + tagPartiel;
           td.onclick = (function(kk){ return function(){ mtToggleJour(kk); }; })(key);
         } else {
           td.className = 'mt-j off';
