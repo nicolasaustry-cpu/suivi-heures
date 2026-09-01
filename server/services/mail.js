@@ -49,7 +49,9 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
     `Votre espace d'essai est créé.\n` +
     `Votre code d'accès : ${code}\n` +
     (fin ? `Essai gratuit valable jusqu'au ${fin}.\n` : "") +
-    `\nConnectez-vous ici : ${appUrl}\n` +
+    `\nCe code sert à vous connecter sur ORDINATEUR, pour configurer votre espace (salariés, chantiers, planning).\n` +
+    `Ce n'est pas le code de l'application mobile : celle-ci est réservée à vos salariés, pour pointer.\n` +
+    `\nConnectez-vous sur ordinateur ici : ${appUrl}\n` +
     `Conservez bien ce code : il vous permettra de vous reconnecter.\n\n` +
     `L'équipe Volitis`;
 
@@ -70,9 +72,13 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
         </td></tr>
       </table>
       ${fin ? `<div style="font-size:14px;color:#64748b;margin-bottom:22px;">Essai gratuit valable jusqu'au <strong>${fin}</strong>.</div>` : `<div style="margin-bottom:22px;"></div>`}
+      <div style="font-size:14px;color:#475569;line-height:1.55;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin:0 0 20px;">
+        &#128187; <strong>Ce code se connecte sur ordinateur</strong>, &agrave; l'adresse suivi-heures.volitis.net, pour configurer votre espace (salari&eacute;s, chantiers, planning&hellip;).<br>
+        Ce n'est pas le code de l'application mobile&nbsp;: celle-ci est r&eacute;serv&eacute;e &agrave; vos salari&eacute;s, pour pointer.
+      </div>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
         <tr><td align="center" bgcolor="#f59e0b" style="border-radius:8px;">
-          <a href="${appUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#412402;text-decoration:none;border-radius:8px;">Accéder à Suiv'Heures&nbsp;&rarr;</a>
+          <a href="${appUrl}/?pc=1" target="_blank" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#412402;text-decoration:none;border-radius:8px;">Acc&eacute;der sur ordinateur&nbsp;&rarr;</a>
         </td></tr>
       </table>
       <div style="font-size:13px;color:#94a3b8;">Conservez bien ce code : il vous permettra de vous reconnecter.</div>
