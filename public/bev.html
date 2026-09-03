@@ -238,6 +238,13 @@
       <label>Année</label>
       <input type="number" id="sel-annee" min="2020" max="2100" step="1" onchange="rafraichir()" style="width:90px;">
     </div>
+    <div id="bloc-detail-annee" class="vue-toggle" style="display:none;">
+      <label>Tableau</label>
+      <div>
+        <button id="btn-detail-simple" class="actif" onclick="changerDetailAnnee('simple')">Simplifié</button>
+        <button id="btn-detail-complet" onclick="changerDetailAnnee('complet')">Complet</button>
+      </div>
+    </div>
     <button class="btn-outil btn-print" onclick="imprimerBEV()"><i class="ti ti-printer"></i> Imprimer</button>
     <button class="btn-outil btn-save no-print" id="btn-save" onclick="enregistrer()"><i class="ti ti-device-floppy"></i> Enregistrer</button>
     <label class="no-print" id="lbl-valide" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#374151;">
@@ -292,6 +299,16 @@
 <script src="assets/aide.js"></script>
 <script>
 let _vue = 'mois';
+let _chargerMoisToken = 0;   // jeton anti-course : ignore une réponse réseau devenue obsolète (mois changé entre-temps)
+let _detailAnnee = 'simple'; // 'simple' | 'complet' — mise en forme du tableau annuel
+let _anneeCtx = null;        // données déjà calculées de la vue annuelle en cours (pour rebasculer sans refaire les requêtes)
+
+function changerDetailAnnee(mode) {
+  _detailAnnee = mode;
+  document.getElementById('btn-detail-simple').classList.toggle('actif', mode === 'simple');
+  document.getElementById('btn-detail-complet').classList.toggle('actif', mode === 'complet');
+  if (_anneeCtx) rendreTableauAnnee();
+}
 let _ecartMois = 0;
 
 /* ── Impression sur UNE seule page (toute imprimante / PDF) ──
@@ -829,10 +846,10 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let corps = '', TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0;
+  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, soldeCumule=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
-  let corpsEvt = '';
+  const moisData = [];
   res.forEach((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
     const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
@@ -851,43 +868,94 @@ async function chargerAnnee() {
     evtsAnnee.forEach(function(e){ TEVT[e] += cntEvt[e]; });
     // Mois entièrement à venir et sans contrat : ligne vide
     if (cContrat === 0 && !moisPasse) {
-      corps += '<tr class="futur"><td>' + moisNoms[idx] + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
-      corpsEvt += '<tr class="futur"><td>' + moisNoms[idx] + '</td>' + evtsAnnee.map(function(){ return '<td></td>'; }).join('') + '<td></td></tr>';
+      moisData.push({ nom: moisNoms[idx], vide: true, cntEvt: cntEvt, totEvtMois: 0 });
       return;
     }
     const blanc = !moisPasse;                       // mois pas encore commencé : pas de réalisé
     const payees = moisPasse ? r2(cCompte - reporte) : 0;
+    const ecart  = r2(cReal - cBase);
     TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan; TRTTRECUP += cRttRecup;
-    if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; }
-    corps += '<tr' + (blanc ? ' class="futur"' : '') + '><td>' + moisNoms[idx] + '</td>' +
-      '<td>' + fmt(cContrat) + '</td>' +
-      '<td>' + fmt(cTevt) + '</td>' +
-      '<td>' + fmt(cRttRecup) + '</td>' +
-      '<td><b class="base">' + fmt(cBase) + '</b></td>' +
-      '<td>' + fmt(cPlan) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(cReal)) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(cCompte)) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(payees)) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(reporte)) + '</td></tr>';
-    corpsEvt += '<tr><td>' + moisNoms[idx] + '</td>' +
-      evtsAnnee.map(function(e){ return '<td>' + (cntEvt[e] || '') + '</td>'; }).join('') +
-      '<td>' + (totEvtMois || '') + '</td></tr>';
+    if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; TPAYEES += payees; }
+    soldeCumule = r2(soldeCumule + reporte);         // cumul du compteur mois après mois
+    moisData.push({
+      nom: moisNoms[idx], vide: false, blanc: blanc,
+      contrat: cContrat, tevt: cTevt, rttRecup: cRttRecup, base: cBase, plan: cPlan,
+      real: cReal, compte: cCompte, ecart: ecart, payees: payees, reporte: reporte,
+      soldeCumule: soldeCumule, cntEvt: cntEvt, totEvtMois: totEvtMois
+    });
   });
-  zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Solde compteur heure</th></tr></thead>' +
-    '<tbody>' + corps + '</tbody>' +
-    '<tfoot><tr><td>Total année</td>' +
+
+  _anneeCtx = {
+    moisData: moisData, evtsAnnee: evtsAnnee, TEVT: TEVT,
+    totaux: { TC:TC, TTE:TTE, TBASE:TBASE, TPLAN:TPLAN, TREAL:TREAL, TCOMPTE:TCOMPTE,
+      TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, soldeCumule:soldeCumule,
+      TECART: r2(TREAL - TBASE) }
+  };
+  rendreTableauAnnee();
+}
+
+function rendreTableauAnnee() {
+  const zone = document.getElementById('zone');
+  if (!_anneeCtx) return;
+  const { moisData, evtsAnnee, TEVT, totaux } = _anneeCtx;
+
+  let corps = '', thead, tfoot;
+  if (_detailAnnee === 'simple') {
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Payé ce mois</th><th>Solde compteur</th></tr>';
+    moisData.forEach(function(md){
+      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
+        '<td>' + fmt(md.contrat) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.real)) + '</td>' +
+        '<td class="' + (md.blanc ? '' : classeEcart(md.ecart)) + '">' + (md.blanc ? '' : signe(md.ecart)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
+    });
+    tfoot = '<tr><td>Total année</td><td></td>' +
+      '<td>' + fmt(totaux.TREAL) + '</td>' +
+      '<td class="' + classeEcart(totaux.TECART) + '">' + signe(totaux.TECART) + '</td>' +
+      '<td>' + fmt(totaux.TPAYEES) + '</td>' +
+      '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
+  } else {
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Solde compteur heure</th></tr>';
+    moisData.forEach(function(md){
+      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
+        '<td>' + fmt(md.contrat) + '</td>' +
+        '<td>' + fmt(md.tevt) + '</td>' +
+        '<td>' + fmt(md.rttRecup) + '</td>' +
+        '<td><b class="base">' + fmt(md.base) + '</b></td>' +
+        '<td>' + fmt(md.plan) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.real)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.compte)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.reporte)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
+    });
+    tfoot = '<tr><td>Total année</td>' +
       '<td></td>' +   /* total Contrat masqué (comme la vue Mois) */
-      '<td>' + fmt(TTE) + '</td>' +
-      '<td>' + fmt(TRTTRECUP) + '</td>' +
-      '<td><b class="base">' + fmt(TBASE) + '</b></td>' +
-      '<td>' + fmt(TPLAN) + '</td>' +
-      '<td>' + fmt(TREAL) + '</td>' +
-      '<td>' + fmt(TCOMPTE) + '</td>' +
-      '<td>' + fmt(r2(TCOMPTE - TREPORTE)) + '</td>' +
-      '<td>' + fmt(TREPORTE) + '</td>' +
-      '<td>' + fmt(TREPORTE) + '</td></tr></tfoot></table>' +
+      '<td>' + fmt(totaux.TTE) + '</td>' +
+      '<td>' + fmt(totaux.TRTTRECUP) + '</td>' +
+      '<td><b class="base">' + fmt(totaux.TBASE) + '</b></td>' +
+      '<td>' + fmt(totaux.TPLAN) + '</td>' +
+      '<td>' + fmt(totaux.TREAL) + '</td>' +
+      '<td>' + fmt(totaux.TCOMPTE) + '</td>' +
+      '<td>' + fmt(r2(totaux.TCOMPTE - totaux.TREPORTE)) + '</td>' +
+      '<td>' + fmt(totaux.TREPORTE) + '</td>' +
+      '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
+  }
+
+  const corpsEvt = moisData.map(function(md){
+    if (md.vide) return '<tr class="futur"><td>' + md.nom + '</td>' + evtsAnnee.map(function(){ return '<td></td>'; }).join('') + '<td></td></tr>';
+    return '<tr><td>' + md.nom + '</td>' +
+      evtsAnnee.map(function(e){ return '<td>' + (md.cntEvt[e] || '') + '</td>'; }).join('') +
+      '<td>' + (md.totEvtMois || '') + '</td></tr>';
+  }).join('');
+
+  zone.innerHTML =
+    '<table class="bev"><thead>' + thead + '</thead>' +
+    '<tbody>' + corps + '</tbody>' +
+    '<tfoot>' + tfoot + '</tfoot></table>' +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
     '<table class="bev"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
@@ -1056,6 +1124,7 @@ function changerVue(v) {
   document.getElementById('btn-vue-annee').classList.toggle('actif', v === 'annee');
   document.getElementById('bloc-mois').style.display  = (v === 'mois')  ? 'block' : 'none';
   document.getElementById('bloc-annee').style.display = (v === 'annee') ? 'block' : 'none';
+  document.getElementById('bloc-detail-annee').style.display = (v === 'annee') ? 'block' : 'none';
   document.getElementById('btn-save').style.display   = (v === 'mois')  ? 'inline-block' : 'none';
   document.getElementById('lbl-valide').style.display = (v === 'mois')  ? 'flex' : 'none';
   const bct = document.getElementById('btn-cal-tranches');
