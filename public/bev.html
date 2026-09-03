@@ -856,6 +856,9 @@ async function chargerAnnee() {
   let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, soldeCumule=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
+  // Régime CIBTP (réglage entreprise, page Entreprise) : décompte en jours ouvrables → 1 jour de Congé posé vaut 1,2 jour
+  let entCIBTP = false;
+  try { entCIBTP = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').cibtp; } catch (e) {}
   const moisData = [];
   res.forEach((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
@@ -869,10 +872,10 @@ async function chargerAnnee() {
       cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie;
       if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; moisPasse = true; }
       if (l.motif === 'RTT' || l.motif === 'Récupération') cRttRecup += l.tempsEvt;
-      if (cntEvt[l.motif] !== undefined) cntEvt[l.motif]++;
+      if (cntEvt[l.motif] !== undefined) cntEvt[l.motif] = r2(cntEvt[l.motif] + ((entCIBTP && l.motif === 'Congé') ? 1.2 : 1));
     });
-    const totEvtMois = evtsAnnee.reduce(function(a,e){ return a + cntEvt[e]; }, 0);
-    evtsAnnee.forEach(function(e){ TEVT[e] += cntEvt[e]; });
+    const totEvtMois = evtsAnnee.reduce(function(a,e){ return r2(a + cntEvt[e]); }, 0);
+    evtsAnnee.forEach(function(e){ TEVT[e] = r2(TEVT[e] + cntEvt[e]); });
     // Mois entièrement à venir et sans contrat : ligne vide
     if (cContrat === 0 && !moisPasse) {
       moisData.push({ nom: moisNoms[idx], vide: true, cntEvt: cntEvt, totEvtMois: 0 });
@@ -952,22 +955,23 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   }
 
+  function fmtJours(v) { return v ? (Number.isInteger(v) ? String(v) : v.toFixed(1)) : ''; }
   const corpsEvt = moisData.map(function(md){
     if (md.vide) return '<tr class="futur"><td>' + md.nom + '</td>' + evtsAnnee.map(function(){ return '<td></td>'; }).join('') + '<td></td></tr>';
     return '<tr><td>' + md.nom + '</td>' +
-      evtsAnnee.map(function(e){ return '<td>' + (md.cntEvt[e] || '') + '</td>'; }).join('') +
-      '<td>' + (md.totEvtMois || '') + '</td></tr>';
+      evtsAnnee.map(function(e){ return '<td>' + fmtJours(md.cntEvt[e]) + '</td>'; }).join('') +
+      '<td>' + fmtJours(md.totEvtMois) + '</td></tr>';
   }).join('');
 
   zone.innerHTML =
     '<table class="bev bev-annee"><thead>' + thead + '</thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot>' + tfoot + '</tfoot></table>' +
-    '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
+    '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois' + (entCIBTP ? ' <span style="font-weight:400;font-size:0.8rem;color:#6366f1;">(Congé compté en jours ouvrables : 1 jour posé = 1,2 jour, régime CIBTP)</span>' : '') + '</div>' +
     '<table class="bev bev-annee"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
-    '<tfoot><tr><td>Total année</td>' + evtsAnnee.map(function(e){ return '<td>' + (TEVT[e] || '') + '</td>'; }).join('') +
-      '<td>' + (evtsAnnee.reduce(function(a,e){ return a + TEVT[e]; }, 0) || '') + '</td></tr></tfoot></table>' +
+    '<tfoot><tr><td>Total année</td>' + evtsAnnee.map(function(e){ return '<td>' + fmtJours(TEVT[e]) + '</td>'; }).join('') +
+      '<td>' + fmtJours(r2(evtsAnnee.reduce(function(a,e){ return a + TEVT[e]; }, 0))) + '</td></tr></tfoot></table>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>';
 }
