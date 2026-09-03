@@ -896,7 +896,7 @@ async function chargerAnnee() {
   });
 
   _anneeCtx = {
-    moisData: moisData, evtsAnnee: evtsAnnee, TEVT: TEVT,
+    moisData: moisData, evtsAnnee: evtsAnnee, TEVT: TEVT, entCIBTP: entCIBTP,
     totaux: { TC:TC, TTE:TTE, TBASE:TBASE, TPLAN:TPLAN, TREAL:TREAL, TCOMPTE:TCOMPTE,
       TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, soldeCumule:soldeCumule,
       TECART: r2(TREAL - TBASE) }
@@ -907,7 +907,7 @@ async function chargerAnnee() {
 function rendreTableauAnnee() {
   const zone = document.getElementById('zone');
   if (!_anneeCtx) return;
-  const { moisData, evtsAnnee, TEVT, totaux } = _anneeCtx;
+  const { moisData, evtsAnnee, TEVT, totaux, entCIBTP } = _anneeCtx;
 
   let corps = '', thead, tfoot;
   if (_detailAnnee === 'simple') {
