@@ -856,9 +856,10 @@ async function chargerAnnee() {
   let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, soldeCumule=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
-  // Régime CIBTP (réglage entreprise, page Entreprise) : décompte en jours ouvrables → 1 jour de Congé posé vaut 1,2 jour
+  // Régime CIBTP (réglage entreprise, page Entreprise) : décompte en jours ouvrables → coefficient (25/12)/(30/12)
   let entCIBTP = false;
   try { entCIBTP = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').cibtp; } catch (e) {}
+  const COEF_CIBTP = (30 / 12) / (25 / 12);
   const moisData = [];
   res.forEach((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
@@ -872,7 +873,7 @@ async function chargerAnnee() {
       cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie;
       if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; moisPasse = true; }
       if (l.motif === 'RTT' || l.motif === 'Récupération') cRttRecup += l.tempsEvt;
-      if (cntEvt[l.motif] !== undefined) cntEvt[l.motif] = r2(cntEvt[l.motif] + ((entCIBTP && l.motif === 'Congé') ? 1.2 : 1));
+      if (cntEvt[l.motif] !== undefined) cntEvt[l.motif] = r2(cntEvt[l.motif] + ((entCIBTP && l.motif === 'Congé') ? COEF_CIBTP : 1));
     });
     const totEvtMois = evtsAnnee.reduce(function(a,e){ return r2(a + cntEvt[e]); }, 0);
     evtsAnnee.forEach(function(e){ TEVT[e] = r2(TEVT[e] + cntEvt[e]); });
@@ -967,7 +968,7 @@ function rendreTableauAnnee() {
     '<table class="bev bev-annee"><thead>' + thead + '</thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot>' + tfoot + '</tfoot></table>' +
-    '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois' + (entCIBTP ? ' <span style="font-weight:400;font-size:0.8rem;color:#6366f1;">(Congé compté en jours ouvrables : 1 jour posé = 1,2 jour, régime CIBTP)</span>' : '') + '</div>' +
+    '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois' + (entCIBTP ? ' <span style="font-weight:400;font-size:0.8rem;color:#6366f1;">(Congé compté en jours ouvrables, coefficient (30/12)/(25/12) ≈ ' + (Math.round((30/12)/(25/12)*1000)/1000) + ', régime CIBTP)</span>' : '') + '</div>' +
     '<table class="bev bev-annee"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
     '<tfoot><tr><td>Total année</td>' + evtsAnnee.map(function(e){ return '<td>' + fmtJours(TEVT[e]) + '</td>'; }).join('') +
