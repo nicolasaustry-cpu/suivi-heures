@@ -78,9 +78,9 @@
       #zone { max-width: none; }
       /* Tenir sur UNE seule page, quelle que soit l'imprimante / le PDF :
          zoom met à l'échelle la MISE EN PAGE (fiable à l'impression), facteur calculé au moment de l'impression. */
-      #bev-doc { width: 200mm; zoom: var(--bev-scale, 1); }
-      .bev-titre-doc { display:block; text-align:center; }
-      table.bev { break-inside:avoid; page-break-inside:avoid; }
+      #bev-doc { width: 200mm; margin:0 auto; zoom: var(--bev-scale, 1); }
+      .bev-titre-doc { display:block; text-align:center; margin-bottom:6mm; }
+      table.bev { break-inside:avoid; page-break-inside:avoid; margin-top:12px; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .signatures { break-inside:avoid; page-break-inside:avoid; }
       /* Tableau compact (vue Mois uniquement) : police réduite, dates sur une ligne, en-têtes sur 2 lignes possibles */
@@ -106,18 +106,20 @@
     }
     /* Gabarit de MESURE (hors écran) : reproduit le rendu d'impression compact. */
     .bev-mesure { width:200mm; }
-    .bev-mesure table.bev { width:auto; font-size:0.66rem; }
-    .bev-mesure table.bev th { padding:1px 3px; white-space:normal; vertical-align:middle; text-align:center; }
-    .bev-mesure table.bev td { padding:1px 4px; white-space:nowrap; }
-    .bev-mesure table.bev th, .bev-mesure table.bev td { width:12mm; }
-    .bev-mesure table.bev th:first-child, .bev-mesure table.bev td:first-child { width:auto; }
-    .bev-mesure table.bev th:nth-child(3), .bev-mesure table.bev td:nth-child(3) { width:16mm; }
-    .bev-mesure table.bev th:nth-child(10), .bev-mesure table.bev td:nth-child(10) { width:15mm; }
+    .bev-mesure table.bev:not(.bev-annee) { width:auto; font-size:0.66rem; }
+    .bev-mesure table.bev:not(.bev-annee) th { padding:1px 3px; white-space:normal; vertical-align:middle; text-align:center; }
+    .bev-mesure table.bev:not(.bev-annee) td { padding:1px 4px; white-space:nowrap; }
+    .bev-mesure table.bev:not(.bev-annee) th, .bev-mesure table.bev:not(.bev-annee) td { width:12mm; }
+    .bev-mesure table.bev:not(.bev-annee) th:first-child, .bev-mesure table.bev:not(.bev-annee) td:first-child { width:auto; }
+    .bev-mesure table.bev:not(.bev-annee) th:nth-child(3), .bev-mesure table.bev:not(.bev-annee) td:nth-child(3) { width:16mm; }
+    .bev-mesure table.bev:not(.bev-annee) th:nth-child(10), .bev-mesure table.bev:not(.bev-annee) td:nth-child(10) { width:15mm; }
     .bev-mesure table.bev select.evt { width:100%; }
-    .bev-mesure table.bev input { width:11mm; }
+    .bev-mesure table.bev:not(.bev-annee) input { width:11mm; }
+    .bev-mesure table.bev-annee { width:100% !important; font-size:0.72rem; }
+    .bev-mesure table.bev-annee th, .bev-mesure table.bev-annee td { width:auto !important; padding:2px 4px; }
     .bev-mesure .bev-flow { display:block; }
     .bev-mesure .bev-left { min-width:0; }
-    .bev-mesure table.bev { margin:0 auto; }
+    .bev-mesure table.bev { margin:12px auto 0; }
     .bev-mesure .signatures { display:grid; grid-template-columns:1fr 1fr; gap:12mm; width:auto; max-width:170mm; margin:8mm auto 0; }
     .tranche-cell { text-align:center; }
     .tr-badge { display:inline-block; min-width:30px; padding:2px 8px; border-radius:10px;
