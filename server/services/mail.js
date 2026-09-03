@@ -1,32 +1,10 @@
-// Service d'envoi d'e-mails (SMTP, via nodemailer).
-// nodemailer est chargé dynamiquement : si la librairie n'est pas installée
-// ou si le SMTP n'est pas configuré, les envois sont ignorés sans planter l'appli.
-//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-//   SMTP_SECURE = "true" pour le port 465 (sinon 587/STARTTLS)
-//   SMTP_FROM   = adresse d'expédition affichée (ex. "contact@volitis.net")
-//   APP_URL     = URL de l'application (ex. "https://suivi-heures.volitis.net")
-
-let _transport = null;
-
-async function transport() {
-  if (_transport) return _transport;
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null; // non configuré
-  let nodemailer;
-  try {
-    nodemailer = (await import("nodemailer")).default;
-  } catch (e) {
-    console.warn("nodemailer non installé : e-mails désactivés.");
-    return null;
-  }
-  _transport = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: parseInt(SMTP_PORT || "587", 10),
-    secure: String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
-  });
-  return _transport;
-}
+// Service d'envoi d'e-mails via l'API HTTPS de Resend.
+// Railway bloque le SMTP sortant : on envoie donc par l'API REST de Resend (port 443),
+// avec un simple fetch (intégré à Node 18+, aucune librairie à installer).
+//   RESEND_API_KEY = clé API Resend (commence par "re_")
+//   MAIL_FROM      = adresse d'expédition, sur un domaine vérifié dans Resend
+//                    (ex. "contact@volitis.net")
+//   APP_URL        = URL de l'application (ex. "https://suivi-heures.volitis.net")
 
 function _fmtDate(d) {
   try {
@@ -36,10 +14,13 @@ function _fmtDate(d) {
 
 // ── E-mail de confirmation d'auto-inscription à l'essai ──
 export async function envoyerMailEssai({ email, nomClient, code, dateExpiration }) {
-  const t = await transport();
-  if (!t) { console.warn("SMTP non configuré : e-mail de confirmation non envoyé."); return false; }
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY non configurée : e-mail de confirmation non envoyé.");
+    return false;
+  }
 
-  const from   = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from   = process.env.MAIL_FROM || process.env.SMTP_FROM || "contact@volitis.net";
   const appUrl = process.env.APP_URL || "https://suivi-heures.volitis.net";
   const fin    = _fmtDate(dateExpiration);
   const nom    = (nomClient || "").trim();
@@ -91,12 +72,24 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
 </table>
 </body></html>`;
 
-  await t.sendMail({
-    from: `"Suiv'Heures" <${from}>`,
-    to: email,
-    subject: "Bienvenue sur Suiv'Heures — votre essai de 30 jours",
-    text,
-    html
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: `Suiv'Heures <${from}>`,
+      to: [email],
+      subject: "Bienvenue sur Suiv'Heures — votre essai de 30 jours",
+      text,
+      html
+    })
   });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => "");
+    throw new Error(`Resend ${resp.status} : ${detail}`);
+  }
   return true;
 }
