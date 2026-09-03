@@ -197,6 +197,26 @@
   </div>
 </section>
 
+<!-- Congés payés — régime CIBTP (jours ouvrables) -->
+<section class="ent-tuile" style="background:#eef2ff;border-left-color:#6366f1;">
+  <h2 style="color:#4338ca;">Congés payés — Régime CIBTP</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Pour les entreprises concernées par la <strong>CIBTP</strong>, le décompte des congés se fait en <strong>jours ouvrables</strong> (et non en jours ouvrés) : <strong>2,5 jours acquis par mois</strong>, soit <strong>30 jours par an</strong> (hors ancienneté). Concrètement, dans le suivi des congés, <strong>1 journée posée sur une semaine de 5 jours vaut 1,2 jour</strong>.
+  </p>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:1.2rem;">
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="cibtp" id="cibtpOui" value="oui"> Oui
+      </label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="cibtp" id="cibtpNon" value="non"> Non
+      </label>
+    </div>
+    <button type="button" id="btn-valider-cibtp" class="btn btn-success" onclick="validerCIBTP()">💾 Valider</button>
+    <span id="cibtp-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+</section>
+
 </div>
 
 
@@ -232,6 +252,32 @@ async function validerSuiviEntretien() {
 }
 window.addEventListener('DOMContentLoaded', chargerSuiviEntretien);
 window.addEventListener('donnees-chargees', chargerSuiviEntretien);
+</script>
+
+<script>
+function chargerCIBTP() {
+  const ent = _entLire();
+  const oui = document.getElementById('cibtpOui');
+  const non = document.getElementById('cibtpNon');
+  if (oui && non) { oui.checked = !!ent.cibtp; non.checked = !ent.cibtp; }
+}
+async function validerCIBTP() {
+  const actif = !!document.getElementById('cibtpOui').checked;
+  if (!actif && !document.getElementById('cibtpNon').checked) { alert('Choisissez Oui ou Non.'); return; }
+  const ent = _entLire();
+  ent.cibtp = actif;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-cibtp');
+  const msg = document.getElementById('cibtp-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
+  if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+window.addEventListener('DOMContentLoaded', chargerCIBTP);
+window.addEventListener('donnees-chargees', chargerCIBTP);
 </script>
 
 <script>
