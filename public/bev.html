@@ -83,16 +83,20 @@
       table.bev { break-inside:avoid; page-break-inside:avoid; }
       table.bev th { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .signatures { break-inside:avoid; page-break-inside:avoid; }
-      /* Tableau compact : police réduite, dates sur une ligne, en-têtes sur 2 lignes possibles */
-      #bev-doc table.bev { width:auto; font-size:0.66rem; }
-      #bev-doc table.bev th { padding:1px 3px; white-space:normal; vertical-align:middle; text-align:center; }
-      #bev-doc table.bev td { padding:1px 4px; white-space:nowrap; }
-      #bev-doc table.bev th, #bev-doc table.bev td { width:12mm; }
-      #bev-doc table.bev th:first-child, #bev-doc table.bev td:first-child { width:auto; }
-      #bev-doc table.bev th:nth-child(3), #bev-doc table.bev td:nth-child(3) { width:16mm; }
-      #bev-doc table.bev th:nth-child(10), #bev-doc table.bev td:nth-child(10) { width:15mm; }
+      /* Tableau compact (vue Mois uniquement) : police réduite, dates sur une ligne, en-têtes sur 2 lignes possibles */
+      #bev-doc table.bev:not(.bev-annee) { width:auto; font-size:0.66rem; }
+      #bev-doc table.bev:not(.bev-annee) th { padding:1px 3px; white-space:normal; vertical-align:middle; text-align:center; }
+      #bev-doc table.bev:not(.bev-annee) td { padding:1px 4px; white-space:nowrap; }
+      #bev-doc table.bev:not(.bev-annee) th, #bev-doc table.bev:not(.bev-annee) td { width:12mm; }
+      #bev-doc table.bev:not(.bev-annee) th:first-child, #bev-doc table.bev:not(.bev-annee) td:first-child { width:auto; }
+      #bev-doc table.bev:not(.bev-annee) th:nth-child(3), #bev-doc table.bev:not(.bev-annee) td:nth-child(3) { width:16mm; }
+      #bev-doc table.bev:not(.bev-annee) th:nth-child(10), #bev-doc table.bev:not(.bev-annee) td:nth-child(10) { width:15mm; }
       #bev-doc table.bev select.evt { width:100%; }
-      #bev-doc table.bev input { width:11mm; }
+      #bev-doc table.bev:not(.bev-annee) input { width:11mm; }
+      /* Tableaux annuels (Simplifié ou Complet) : étirés sur toute la largeur de la page */
+      #bev-doc table.bev-annee { width:100% !important; font-size:0.72rem; }
+      #bev-doc table.bev-annee th, #bev-doc table.bev-annee td { width:auto !important; padding:2px 4px; }
+      #bev-doc table.bev-annee th:first-child, #bev-doc table.bev-annee td:first-child { width:auto; }
       /* Tableau centré, signatures en bas de page (2 colonnes) */
       .bev-flow { display:block; }
       .bev-left { min-width:0; }
@@ -953,11 +957,11 @@ function rendreTableauAnnee() {
   }).join('');
 
   zone.innerHTML =
-    '<table class="bev"><thead>' + thead + '</thead>' +
+    '<table class="bev bev-annee"><thead>' + thead + '</thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot>' + tfoot + '</tfoot></table>' +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
-    '<table class="bev"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
+    '<table class="bev bev-annee"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
     '<tfoot><tr><td>Total année</td>' + evtsAnnee.map(function(e){ return '<td>' + (TEVT[e] || '') + '</td>'; }).join('') +
       '<td>' + (evtsAnnee.reduce(function(a,e){ return a + TEVT[e]; }, 0) || '') + '</td></tr></tfoot></table>' +
