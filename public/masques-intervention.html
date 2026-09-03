@@ -104,12 +104,13 @@
 <script src="assets/sync.js"></script>
 <script>
   var TYPES_CHAMPS = [
-    { valeur: 'texte',     label: 'Texte libre' },
-    { valeur: 'case',      label: 'Case à cocher' },
-    { valeur: 'liste',     label: 'Liste déroulante' },
-    { valeur: 'photo',     label: 'Photo' },
-    { valeur: 'signature', label: 'Signature électronique' },
-    { valeur: 'datetime',  label: 'Date / heure / durée' }
+    { valeur: 'texte',          label: 'Texte libre' },
+    { valeur: 'case',           label: 'Case à cocher (Oui/Non)' },
+    { valeur: 'liste',          label: 'Liste déroulante' },
+    { valeur: 'cases_multiples', label: 'Liste de cases à cocher' },
+    { valeur: 'photo',          label: 'Photo' },
+    { valeur: 'signature',      label: 'Signature électronique' },
+    { valeur: 'datetime',       label: 'Date / heure / durée' }
   ];
   var AUTOS = [
     { valeur: '',           label: 'Saisie libre' },
@@ -161,7 +162,7 @@
       row.className = 'champ-row';
       row.dataset.id = c.id;
 
-      var optionsHtml = c.type === 'liste'
+      var optionsHtml = (c.type === 'liste' || c.type === 'cases_multiples')
         ? '<div class="cr-options"><label>Options (une par ligne)</label>' +
           '<textarea rows="3" onchange="majChamp(\'' + c.id + '\',\'options\',this.value.split(\'\\n\').map(function(s){return s.trim();}).filter(Boolean))">' +
           (c.options || []).join('\n') + '</textarea></div>'
@@ -197,7 +198,12 @@
 
   function changerTypeChamp(id, type) {
     var c = _champs.find(function (c) { return c.id === id; });
-    if (c) { c.type = type; if (type !== 'liste') c.options = []; if (type !== 'datetime') c.auto = ''; }
+    if (c) {
+      c.type = type;
+      var gardeOptions = (type === 'liste' || type === 'cases_multiples');
+      if (!gardeOptions) c.options = [];
+      if (type !== 'datetime') c.auto = '';
+    }
     rendreChamps();
   }
 
@@ -208,7 +214,7 @@
     for (var i = 0; i < _champs.length; i++) {
       var c = _champs[i];
       if (!c.libelle || !c.libelle.trim()) { SYNC.afficherNotif('Un champ n\'a pas de libellé', '#dc2626'); return null; }
-      if (c.type === 'liste' && !(c.options || []).length) { SYNC.afficherNotif('Le champ « ' + c.libelle + ' » doit avoir au moins une option', '#dc2626'); return null; }
+      if ((c.type === 'liste' || c.type === 'cases_multiples') && !(c.options || []).length) { SYNC.afficherNotif('Le champ « ' + c.libelle + ' » doit avoir au moins une option', '#dc2626'); return null; }
     }
     return { nom: nom, champs: _champs };
   }

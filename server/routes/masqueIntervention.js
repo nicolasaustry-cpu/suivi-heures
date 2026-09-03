@@ -18,7 +18,7 @@ import MasqueIntervention from "../models/masqueIntervention.js";
 
 const router = express.Router();
 
-const TYPES_CHAMPS = ["texte", "case", "liste", "photo", "signature", "datetime"];
+const TYPES_CHAMPS = ["texte", "case", "liste", "cases_multiples", "photo", "signature", "datetime"];
 const AUTOS_VALIDES = ["", "date", "heureDebut", "heureFin", "duree"];
 const MAX_CHAMPS = 60;
 
@@ -43,11 +43,11 @@ function assainirChamps(brut) {
       return { err: `Valeur "auto" invalide pour le champ ${id}` };
 
     let options = [];
-    if (type === "liste") {
+    if (type === "liste" || type === "cases_multiples") {
       options = Array.isArray(c?.options)
         ? c.options.map(o => String(o).trim().slice(0, 100)).filter(Boolean).slice(0, 50)
         : [];
-      if (!options.length) return { err: `Le champ liste "${libelle}" doit avoir au moins une option` };
+      if (!options.length) return { err: `Le champ "${libelle}" doit avoir au moins une option` };
     }
 
     vus.add(id);
