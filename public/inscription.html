@@ -98,11 +98,12 @@
     .code-box .code{ font-size:26px; font-weight:800; color:var(--navy); letter-spacing:1px; }
     .note-code{ font-size:14px; color:var(--gris-clair); margin-bottom:14px; }
     .note-pc{ font-size:14px; color:var(--texte2); background:#eff6ff; border:1px solid #bfdbfe;
-      border-radius:10px; padding:12px 14px; margin:0 auto 20px; text-align:left; line-height:1.5; max-width:440px; }
+      border-radius:10px; padding:12px 14px; margin:0 auto 18px; text-align:left; line-height:1.5; max-width:440px; }
     .note-pc b{ color:var(--navy); }
     .btn-copier{ background:#fff; color:var(--navy); border:1px solid var(--navy); border-radius:8px;
       padding:9px 18px; font-size:14.5px; font-weight:700; cursor:pointer; margin-bottom:18px; }
     .btn-copier:hover{ background:#eff6ff; }
+    .mail-envoye{ font-size:15px; color:var(--vert); font-weight:700; }
     .btn-entrer{ background:var(--navy); color:#fff; border:none; border-radius:8px; padding:14px 28px;
       font-size:17px; font-weight:700; cursor:pointer; }
     .btn-entrer:hover{ background:#0c2f70; }
@@ -187,10 +188,7 @@
     <div class="note-code">Notez bien ce code : il vous servira à vous reconnecter.</div>
     <div><button class="btn-copier" id="btn-copier" onclick="copierCode()">Copier le code</button></div>
     <div class="note-pc">💻 <b>Ce code se connecte sur ordinateur</b>, à l'adresse <b>suivi-heures.volitis.net</b>, pour configurer votre espace (salariés, chantiers, planning…).<br>Ce n'est <b>pas</b> le code de l'application mobile : celle-ci est réservée à vos <b>salariés</b>, pour pointer une fois votre espace prêt.</div>
-    <div id="zone-entrer"><button class="btn-entrer" onclick="entrer()">Entrer dans l'application →</button></div>
-    <div id="zone-mobile-pc" style="display:none;font-size:14.5px;color:var(--texte2);line-height:1.5;max-width:440px;margin:0 auto;">
-      Pour configurer votre espace, ouvrez <b>suivi-heures.volitis.net</b> sur un <b>ordinateur</b> et saisissez ce code.
-    </div>
+    <div class="mail-envoye">📧 Un e-mail avec ce code vient de vous être envoyé.</div>
   </div>
 
 </div>
@@ -198,12 +196,6 @@
 <script>
   var _prescripteur = "";   // code prescripteur validé (co-branding)
   var _codeGenere   = "";   // code d'accès renvoyé par le serveur
-
-  // Téléphone/tablette : le code sert à configurer sur PC, pas dans l'app → on adapte l'écran final
-  function _estMobile() {
-    return /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      || (navigator.maxTouchPoints > 1 && window.matchMedia('(max-width: 1024px)').matches);
-  }
 
   // ── Co-branding : si ?p=CODE présent et valide, afficher le partenaire ──
   (function initPrescripteur() {
@@ -257,17 +249,13 @@
       document.getElementById('code-genere').textContent = _codeGenere;
       document.getElementById('ecran-form').style.display = 'none';
       document.getElementById('ecran-confirm').style.display = 'flex';
-      // Sur mobile : masquer « Entrer » (mènerait à la saisie) et inviter à passer sur ordinateur
-      if (_estMobile()) {
-        document.getElementById('zone-entrer').style.display = 'none';
-        document.getElementById('zone-mobile-pc').style.display = 'block';
-      }
     } catch (e) {
       _erreur("Erreur de connexion. Vérifiez votre réseau et réessayez.");
       btn.disabled = false; btn.textContent = 'Créer mon espace d\u2019essai';
     }
   }
 
+  // Copier le code d'accès dans le presse-papier
   function copierCode() {
     try {
       navigator.clipboard.writeText(_codeGenere);
@@ -275,16 +263,6 @@
       var t = b.textContent; b.textContent = '\u2713 Copi\u00e9';
       setTimeout(function () { b.textContent = t; }, 1500);
     } catch (e) {}
-  }
-
-  // Le bouton « Entrer » enregistre le code : l'appli connecte automatiquement au chargement.
-  function entrer() {
-    try {
-      localStorage.removeItem('syncToken');
-      localStorage.removeItem('syncClientId');
-      localStorage.setItem('licenceCode', _codeGenere);
-    } catch (e) {}
-    window.location.href = 'index.html';
   }
 </script>
 </body>
