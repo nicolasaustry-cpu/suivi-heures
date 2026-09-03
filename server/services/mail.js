@@ -30,8 +30,8 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
     `Votre espace d'essai est créé.\n` +
     `Votre code d'accès : ${code}\n` +
     (fin ? `Essai gratuit valable jusqu'au ${fin}.\n` : "") +
-    `\nCe code sert à vous connecter sur ORDINATEUR, pour configurer votre espace (salariés, chantiers, planning).\n` +
-    `Ce n'est pas le code de l'application mobile : celle-ci est réservée à vos salariés, pour pointer.\n` +
+    `\nSur ORDINATEUR, rendez-vous sur ${appUrl} et connectez-vous avec ce code pour configurer votre espace : salaries, chantiers, planning.\n` +
+    `Le code mobile de vos salaries (pour pointer depuis leur telephone) se cree ensuite, directement dans l'outil, une fois votre espace configure.\n` +
     `\nConnectez-vous sur ordinateur ici : ${appUrl}\n` +
     `Conservez bien ce code : il vous permettra de vous reconnecter.\n\n` +
     `L'équipe Volitis`;
@@ -54,8 +54,8 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
       </table>
       ${fin ? `<div style="font-size:14px;color:#64748b;margin-bottom:22px;">Essai gratuit valable jusqu'au <strong>${fin}</strong>.</div>` : `<div style="margin-bottom:22px;"></div>`}
       <div style="font-size:14px;color:#475569;line-height:1.55;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin:0 0 20px;">
-        &#128187; <strong>Ce code se connecte sur ordinateur</strong>, &agrave; l'adresse suivi-heures.volitis.net, pour configurer votre espace (salari&eacute;s, chantiers, planning&hellip;).<br>
-        Ce n'est pas le code de l'application mobile&nbsp;: celle-ci est r&eacute;serv&eacute;e &agrave; vos salari&eacute;s, pour pointer.
+        &#128187; <strong>Sur ordinateur</strong>, rendez-vous sur suivi-heures.volitis.net et connectez-vous avec ce code pour configurer votre espace&nbsp;: salari&eacute;s, chantiers, planning.<br><br>
+        &#128241; Le <strong>code mobile de vos salari&eacute;s</strong> (pour pointer depuis leur t&eacute;l&eacute;phone) se cr&eacute;e ensuite, directement dans l'outil, une fois votre espace configur&eacute;.
       </div>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
         <tr><td align="center" bgcolor="#f59e0b" style="border-radius:8px;">
