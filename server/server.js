@@ -15,6 +15,7 @@ import pushRoutes   from "./routes/push.js";
 import restaurationRoutes from "./routes/restauration.js";
 import documentsRoutes from "./routes/documents.js";
 import auditRoutes from "./routes/audit.js";
+import masqueInterventionRoutes from "./routes/masqueIntervention.js";
 import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
 import { planifierRappelsRdv } from "./jobs/rappelsRdv.js";
 
@@ -39,6 +40,7 @@ app.use("/api/push",    pushRoutes);
 app.use("/api/restauration", restaurationRoutes);
 app.use("/api/documents", documentsRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/masques-intervention", masqueInterventionRoutes);
 
 // Endpoint de santé : vérifie l'état du serveur et de la base.
 // Utile pour le monitoring (UptimeRobot…) et le diagnostic de panne.
