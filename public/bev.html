@@ -862,32 +862,32 @@ async function chargerAnnee() {
     corps += '<tr' + (blanc ? ' class="futur"' : '') + '><td>' + moisNoms[idx] + '</td>' +
       '<td>' + fmt(cContrat) + '</td>' +
       '<td>' + fmt(cTevt) + '</td>' +
+      '<td>' + fmt(cRttRecup) + '</td>' +
       '<td><b class="base">' + fmt(cBase) + '</b></td>' +
       '<td>' + fmt(cPlan) + '</td>' +
       '<td>' + (blanc ? '' : fmt(cReal)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(cCompte)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(payees)) + '</td>' +
       '<td>' + (blanc ? '' : fmt(reporte)) + '</td>' +
-      '<td>' + fmt(cRttRecup) + '</td>' +
-      '<td>' + (blanc ? '' : fmt(r2(reporte - cRttRecup))) + '</td></tr>';
+      '<td>' + (blanc ? '' : fmt(reporte)) + '</td></tr>';
     corpsEvt += '<tr><td>' + moisNoms[idx] + '</td>' +
       evtsAnnee.map(function(e){ return '<td>' + (cntEvt[e] || '') + '</td>'; }).join('') +
       '<td>' + (totEvtMois || '') + '</td></tr>';
   });
   zone.innerHTML =
-    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Heures RTT et Récup.</th><th>Solde compteur heure</th></tr></thead>' +
+    '<table class="bev"><thead><tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Solde compteur heure</th></tr></thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot><tr><td>Total année</td>' +
       '<td></td>' +   /* total Contrat masqué (comme la vue Mois) */
       '<td>' + fmt(TTE) + '</td>' +
+      '<td>' + fmt(TRTTRECUP) + '</td>' +
       '<td><b class="base">' + fmt(TBASE) + '</b></td>' +
       '<td>' + fmt(TPLAN) + '</td>' +
       '<td>' + fmt(TREAL) + '</td>' +
       '<td>' + fmt(TCOMPTE) + '</td>' +
       '<td>' + fmt(r2(TCOMPTE - TREPORTE)) + '</td>' +
       '<td>' + fmt(TREPORTE) + '</td>' +
-      '<td>' + fmt(TRTTRECUP) + '</td>' +
-      '<td>' + fmt(r2(TREPORTE - TRTTRECUP)) + '</td></tr></tfoot></table>' +
+      '<td>' + fmt(TREPORTE) + '</td></tr></tfoot></table>' +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois</div>' +
     '<table class="bev"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
