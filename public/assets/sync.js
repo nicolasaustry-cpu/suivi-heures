@@ -719,7 +719,7 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['tableau-de-bord.html', 'index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html'];
+    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'masques-intervention.html'];
 
   // Structure canonique du menu (indépendante de la licence).
   // Le premier groupe n'a pas d'intitulé : le tableau de bord est la page
@@ -731,7 +731,8 @@ const SYNC = (() => {
     { label: 'Gestion', items: [
       { href: 'index.html',     label: 'Entreprise' },
       { href: 'salaries.html',  label: 'Salariés' },
-      { href: 'chantiers.html', label: 'Prévisionnel' }
+      { href: 'chantiers.html', label: 'Prévisionnel' },
+      { href: 'masques-intervention.html', label: "Bons d'intervention" }
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
