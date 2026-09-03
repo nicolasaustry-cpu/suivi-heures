@@ -135,7 +135,7 @@
 
     <div class="step"><div class="step-h"><div class="step-n">1</div><div><div class="loc">Barre du haut</div><h3>Filtres &amp; boutons</h3></div></div>
       <ul class="clean">
-        <li><b>Vue</b> (Mois / Année), <b>Salarié</b> et <b>Mois</b> choisissent ce qui est affiché.</li>
+        <li><b>Vue</b> (Mois / Année), <b>Salarié</b> et <b>Mois</b> choisissent ce qui est affiché — les flèches <b>◀ ▶</b> à côté du mois permettent de changer de mois sans repasser par le sélecteur.</li>
         <li><b>Imprimer</b> édite les Éléments Pointage Paie ; la case <b>Mois validé</b> verrouille le mois. Vos saisies sont <b>enregistrées automatiquement</b> — inutile de cliquer, le bouton <b>Enregistrer</b> confirme simplement la sauvegarde.</li>
       </ul>
       <div class="controls">
@@ -153,7 +153,7 @@
       <ul class="clean"><li>L'<b>Écart retenu</b> (modifiable) et le <b>Temps pris en compte</b>, puis la <b>Tranche indemnité</b> par km (IA / IB / II / III…) pour les petits déplacements. Cette colonne est en <b>lecture seule</b> : les tranches s'attribuent désormais via le <b>Calendrier des tranches</b> (voir ci-dessous) et s'affichent ici sous forme de pastille colorée.</li></ul>
     </div>
 
-    <div class="call info"><div class="ci"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><b>Calendrier des tranches — saisie rapide</b><p>Le bouton <b>Calendrier des tranches</b> (à côté de Trajet / Transport / Repas, en Vue Mois) ouvre une fenêtre présentant le mois. Choisissez une tranche, sélectionnez les <b>jours travaillés</b> concernés — un par un ou une semaine entière — puis <b>Appliquer</b> : chaque tranche a sa couleur. Week-ends, fériés et absences sont grisés et non sélectionnables. <b>Valider et reporter</b> inscrit le tout dans le tableau jour par jour et enregistre automatiquement.</p></div></div>
+    <div class="call info"><div class="ci"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><b>Calendrier des tranches — saisie rapide</b><p>Le bouton <b>Calendrier des tranches</b> (à côté de Trajet / Transport / Repas, en Vue Mois) ouvre une fenêtre présentant le mois. Choisissez une tranche, sélectionnez les <b>jours travaillés</b> concernés — un par un ou une semaine entière — puis <b>Appliquer</b> : chaque tranche a sa couleur. Seuls les week-ends et les jours à 0h (absence pleine journée) sont grisés et non sélectionnables — un jour avec un événement partiel (Even. Familial, Autre…) reste sélectionnable dès qu'il y a du temps réalisé ou planifié. <b>Valider et reporter</b> inscrit le tout dans le tableau jour par jour et enregistre automatiquement.</p></div></div>
 
     <div class="step"><div class="step-h"><div class="step-n">4</div><div><div class="loc">Sous le tableau</div><h3>Récapitulatifs</h3></div></div>
       <ul class="clean">
@@ -176,8 +176,9 @@
     <div class="step"><div class="step-h"><div class="step-n">▸</div><div><h3>Basculer en vue annuelle</h3></div></div>
       <ul class="clean">
         <li><b>①</b> En haut à gauche, basculez <b>Vue</b> sur <b>Année</b>.</li>
-        <li><b>②</b> Le tableau récapitule chaque mois (Contrat, Nouvelle Base, Planifié, Réalisé, Heures payées, Heures dues au salarié, Heures RTT et Récup., Solde compteur heure…) avec le <b>Total année</b>.</li>
-        <li><b>③</b> Le second tableau donne le <b>nombre de jours par mois</b> pour chaque type d'événement.</li>
+        <li><b>②</b> Un bouton <b>Tableau : Simplifié / Complet</b> apparaît à côté du sélecteur d'année. <b>Simplifié</b> (par défaut) affiche 6 colonnes : Mois, Contrat, Réalisé, Écart, Payé ce mois, Solde compteur — la vue à privilégier pour un salarié. <b>Complet</b> retrouve les 11 colonnes détaillées (Contrat, Temps Évt, Heures RTT et Récup., Nouvelle Base, Planifié, Réalisé, Temps pris en compte, Heures payées, Heures dues au salarié, Solde compteur heure) avec le <b>Total année</b>.</li>
+        <li><b>③</b> Le <b>Solde compteur heure</b> cumule les heures dues au salarié mois après mois (pas juste le mois en cours).</li>
+        <li><b>④</b> Le second tableau donne le <b>nombre de jours par mois</b> pour chaque type d'événement.</li>
       </ul>
     </div>
     <a class="backtop" href="mode-emploi.html">↑ Sommaire du guide</a>
