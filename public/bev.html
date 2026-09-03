@@ -332,6 +332,7 @@ function ajusterEchelleBEV() {
   const doc = document.getElementById('bev-doc');
   if (!doc) return;
   doc.style.removeProperty('--bev-scale');
+  if (_vue === 'annee') { doc.style.setProperty('--bev-scale', '1'); return; }  // tableau annuel : pas de mise à l'échelle, CSS pleine page uniquement
   const ppmm = _bevPxParMm();
   const Wmm = 200, Hmm = 282;            // zone utile A4 portrait (marges 5mm, sécurité incluse)
   const clone = doc.cloneNode(true);
