@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <title>Masques d'intervention – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+    .champ-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--vol-gris-card, #f8fafc);
+      border: 1px solid var(--vol-gris-bord, #cbd5e1);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .champ-row .cr-libelle { flex: 1 1 220px; min-width: 180px; }
+    .champ-row .cr-type    { flex: 0 0 170px; }
+    .champ-row .cr-options { flex: 1 1 100%; }
+    .champ-row .cr-auto    { flex: 0 0 220px; }
+    .champ-row label { display: block; margin-bottom: 3px; }
+    .champ-row input, .champ-row select, .champ-row textarea { width: 100%; box-sizing: border-box; }
+    .champ-row .cr-supprimer {
+      flex: 0 0 auto;
+      align-self: center;
+      background: transparent;
+      border: none;
+      color: var(--vol-danger, #dc2626);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .champ-row .cr-obligatoire { flex: 0 0 auto; align-self: center; display: flex; align-items: center; gap: 5px; font-size: 12px; text-transform: none; letter-spacing: normal; color: var(--vol-gris-texte, #475569); font-weight: 400; }
+    .champ-row .cr-obligatoire input { width: auto; }
+
+    #liste-masques td { vertical-align: middle; }
+    .badge-inactif { background: #f3f4f6; color: #6b7280; }
+    .badge-actif   { background: #dcfce7; color: #15803d; }
+  </style>
+</head>
+<body style="margin:0;">
+
+<header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, simplement</span>
+    </div>
+  </div>
+  <h1 class="page-title">Masques d'intervention</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="rapports.html">Rapports</a>
+  <a href="masques-intervention.html" class="active">Bons d'intervention</a>
+</div>
+
+<section>
+  <h2 id="titre-formulaire">Créer un masque</h2>
+  <p style="color:#6b7280;font-size:0.85rem;margin-top:-8px;">
+    Un masque définit les champs d'un type de bon d'intervention (ex : « Contrôle réglementaire », « SAV »).
+    Vous pouvez créer autant de masques que nécessaire ; vos équipes choisiront le bon masque sur mobile selon l'intervention.
+  </p>
+
+  <div style="margin-bottom:14px;">
+    <label>Nom du masque</label>
+    <input id="masque-nom" placeholder="Ex : Contrôle réglementaire CVC" style="max-width:400px;">
+  </div>
+
+  <h3>Champs du bon</h3>
+  <div id="champs-liste"></div>
+  <button type="button" class="btn" onclick="ajouterChamp()">+ Ajouter un champ</button>
+
+  <div style="margin-top:18px;display:flex;gap:10px;">
+    <button type="button" class="btn-primary" onclick="enregistrerMasque()">💾 Enregistrer le masque</button>
+    <button type="button" class="btn" id="btn-annuler-edition" style="display:none;" onclick="annulerEdition()">Annuler</button>
+  </div>
+</section>
+
+<section>
+  <h2>Mes masques</h2>
+  <table id="table-masques">
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>Nb. champs</th>
+        <th>Statut</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="liste-masques">
+      <tr><td colspan="4" style="text-align:center;color:#6b7280;">Chargement…</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<script src="assets/sync.js"></script>
+<script>
+  var TYPES_CHAMPS = [
+    { valeur: 'texte',     label: 'Texte libre' },
+    { valeur: 'case',      label: 'Case à cocher' },
+    { valeur: 'liste',     label: 'Liste déroulante' },
+    { valeur: 'photo',     label: 'Photo' },
+    { valeur: 'signature', label: 'Signature électronique' },
+    { valeur: 'datetime',  label: 'Date / heure / durée' }
+  ];
+  var AUTOS = [
+    { valeur: '',           label: 'Saisie libre' },
+    { valeur: 'date',       label: 'Date du jour (auto)' },
+    { valeur: 'heureDebut', label: 'Heure de début (auto)' },
+    { valeur: 'heureFin',   label: 'Heure de fin (auto)' },
+    { valeur: 'duree',      label: 'Durée (auto)' }
+  ];
+
+  var _champs = [];       // champs du masque en cours d'édition/création
+  var _compteurChamp = 0;
+  var _masques = [];      // tous les masques du client, chargés depuis l'API
+  var _idEnEdition = null; // id du masque en cours de modification, ou null = création
+
+  function _token() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : localStorage.getItem('syncToken');
+  }
+
+  function _apiFetch(url, options) {
+    options = options || {};
+    options.headers = Object.assign(
+      { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token() },
+      options.headers || {}
+    );
+    return fetch(url, options).then(function (r) { return r.json().then(function (d) { return { status: r.status, body: d }; }); });
+  }
+
+  function nouvelIdChamp() {
+    _compteurChamp++;
+    return 'champ_' + Date.now() + '_' + _compteurChamp;
+  }
+
+  function ajouterChamp(champExistant) {
+    var c = champExistant || { id: nouvelIdChamp(), libelle: '', type: 'texte', obligatoire: false, options: [], auto: '' };
+    _champs.push(c);
+    rendreChamps();
+  }
+
+  function supprimerChamp(id) {
+    _champs = _champs.filter(function (c) { return c.id !== id; });
+    rendreChamps();
+  }
+
+  function rendreChamps() {
+    var zone = document.getElementById('champs-liste');
+    zone.innerHTML = '';
+    _champs.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'champ-row';
+      row.dataset.id = c.id;
+
+      var optionsHtml = c.type === 'liste'
+        ? '<div class="cr-options"><label>Options (une par ligne)</label>' +
+          '<textarea rows="3" onchange="majChamp(\'' + c.id + '\',\'options\',this.value.split(\'\\n\').map(function(s){return s.trim();}).filter(Boolean))">' +
+          (c.options || []).join('\n') + '</textarea></div>'
+        : '';
+
+      var autoHtml = c.type === 'datetime'
+        ? '<div class="cr-auto"><label>Pré-remplissage</label><select onchange="majChamp(\'' + c.id + '\',\'auto\',this.value)">' +
+          AUTOS.map(function (a) { return '<option value="' + a.valeur + '"' + (a.valeur === c.auto ? ' selected' : '') + '>' + a.label + '</option>'; }).join('') +
+          '</select></div>'
+        : '';
+
+      row.innerHTML =
+        '<div class="cr-libelle"><label>Libellé</label><input value="' + (c.libelle || '').replace(/"/g, '&quot;') + '" placeholder="Ex : Nature de l\'intervention" onchange="majChamp(\'' + c.id + '\',\'libelle\',this.value)"></div>' +
+        '<div class="cr-type"><label>Type</label><select onchange="changerTypeChamp(\'' + c.id + '\',this.value)">' +
+          TYPES_CHAMPS.map(function (t) { return '<option value="' + t.valeur + '"' + (t.valeur === c.type ? ' selected' : '') + '>' + t.label + '</option>'; }).join('') +
+        '</select></div>' +
+        optionsHtml +
+        autoHtml +
+        '<label class="cr-obligatoire"><input type="checkbox"' + (c.obligatoire ? ' checked' : '') + ' onchange="majChamp(\'' + c.id + '\',\'obligatoire\',this.checked)"> Obligatoire</label>' +
+        '<button type="button" class="cr-supprimer" title="Supprimer ce champ" onclick="supprimerChamp(\'' + c.id + '\')">✕</button>';
+
+      zone.appendChild(row);
+    });
+    if (!_champs.length) {
+      zone.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;">Aucun champ pour l\'instant — cliquez sur « Ajouter un champ ».</p>';
+    }
+  }
+
+  function majChamp(id, cle, valeur) {
+    var c = _champs.find(function (c) { return c.id === id; });
+    if (c) c[cle] = valeur;
+  }
+
+  function changerTypeChamp(id, type) {
+    var c = _champs.find(function (c) { return c.id === id; });
+    if (c) { c.type = type; if (type !== 'liste') c.options = []; if (type !== 'datetime') c.auto = ''; }
+    rendreChamps();
+  }
+
+  function validerFormulaire() {
+    var nom = document.getElementById('masque-nom').value.trim();
+    if (!nom) { SYNC.afficherNotif('Le nom du masque est requis', '#dc2626'); return null; }
+    if (!_champs.length) { SYNC.afficherNotif('Ajoutez au moins un champ', '#dc2626'); return null; }
+    for (var i = 0; i < _champs.length; i++) {
+      var c = _champs[i];
+      if (!c.libelle || !c.libelle.trim()) { SYNC.afficherNotif('Un champ n\'a pas de libellé', '#dc2626'); return null; }
+      if (c.type === 'liste' && !(c.options || []).length) { SYNC.afficherNotif('Le champ « ' + c.libelle + ' » doit avoir au moins une option', '#dc2626'); return null; }
+    }
+    return { nom: nom, champs: _champs };
+  }
+
+  function enregistrerMasque() {
+    var donnees = validerFormulaire();
+    if (!donnees) return;
+
+    var promesse = _idEnEdition
+      ? _apiFetch('/api/masques-intervention/' + _idEnEdition, { method: 'PUT', body: JSON.stringify(donnees) })
+      : _apiFetch('/api/masques-intervention', { method: 'POST', body: JSON.stringify(donnees) });
+
+    promesse.then(function (res) {
+      if (res.status >= 200 && res.status < 300 && res.body.ok) {
+        SYNC.afficherNotif(_idEnEdition ? 'Masque modifié' : 'Masque créé');
+        annulerEdition();
+        chargerMasques();
+      } else {
+        SYNC.afficherNotif(res.body.message || 'Erreur lors de l\'enregistrement', '#dc2626');
+      }
+    }).catch(function () {
+      SYNC.afficherNotif('Erreur réseau', '#dc2626');
+    });
+  }
+
+  function annulerEdition() {
+    _idEnEdition = null;
+    _champs = [];
+    document.getElementById('masque-nom').value = '';
+    document.getElementById('titre-formulaire').textContent = 'Créer un masque';
+    document.getElementById('btn-annuler-edition').style.display = 'none';
+    rendreChamps();
+  }
+
+  function modifierMasque(id) {
+    var m = _masques.find(function (m) { return m._id === id; });
+    if (!m) return;
+    _idEnEdition = id;
+    document.getElementById('masque-nom').value = m.nom || '';
+    _champs = (m.champs || []).map(function (c) { return Object.assign({}, c); });
+    document.getElementById('titre-formulaire').textContent = 'Modifier le masque « ' + m.nom + ' »';
+    document.getElementById('btn-annuler-edition').style.display = '';
+    rendreChamps();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function basculerActif(id, actif) {
+    _apiFetch('/api/masques-intervention/' + id, { method: 'PUT', body: JSON.stringify({ actif: actif }) })
+      .then(function (res) {
+        if (res.status >= 200 && res.status < 300 && res.body.ok) { chargerMasques(); }
+        else { SYNC.afficherNotif(res.body.message || 'Erreur', '#dc2626'); }
+      });
+  }
+
+  function supprimerMasque(id, nom) {
+    if (!confirm('Supprimer le masque « ' + nom + ' » ? Cette action est définitive.')) return;
+    _apiFetch('/api/masques-intervention/' + id, { method: 'DELETE' })
+      .then(function (res) {
+        if (res.status >= 200 && res.status < 300 && res.body.ok) { SYNC.afficherNotif('Masque supprimé'); chargerMasques(); }
+        else { SYNC.afficherNotif(res.body.message || 'Erreur', '#dc2626'); }
+      });
+  }
+
+  function chargerMasques() {
+    _apiFetch('/api/masques-intervention', { method: 'GET' }).then(function (res) {
+      var corps = document.getElementById('liste-masques');
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) {
+        corps.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#dc2626;">Erreur de chargement</td></tr>';
+        return;
+      }
+      _masques = res.body.masques || [];
+      if (!_masques.length) {
+        corps.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7280;">Aucun masque créé pour l\'instant</td></tr>';
+        return;
+      }
+      corps.innerHTML = _masques.map(function (m) {
+        var badge = m.actif
+          ? '<span class="badge badge-actif">Actif</span>'
+          : '<span class="badge badge-inactif">Inactif</span>';
+        return '<tr>' +
+          '<td>' + (m.nom || '') + '</td>' +
+          '<td style="text-align:center;">' + ((m.champs || []).length) + '</td>' +
+          '<td>' + badge + '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" class="btn" onclick="modifierMasque(\'' + m._id + '\')">Modifier</button> ' +
+            '<button type="button" class="btn" onclick="basculerActif(\'' + m._id + '\',' + (!m.actif) + ')">' + (m.actif ? 'Désactiver' : 'Activer') + '</button> ' +
+            '<button type="button" class="btn-danger" onclick="supprimerMasque(\'' + m._id + '\',\'' + (m.nom || '').replace(/'/g, "\\'") + '\')">Supprimer</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function () {
+      document.getElementById('liste-masques').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#dc2626;">Erreur réseau</td></tr>';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    rendreChamps();
+    // Laisse SYNC.init() (appelé depuis sync.js) poser le token avant de charger.
+    setTimeout(chargerMasques, 300);
+  });
+</script>
+
+</body>
+</html>
