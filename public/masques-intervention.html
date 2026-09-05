@@ -146,7 +146,7 @@
   }
 
   function ajouterChamp(champExistant) {
-    var c = champExistant || { id: nouvelIdChamp(), libelle: '', type: 'texte', obligatoire: false, options: [], auto: '' };
+    var c = champExistant || { id: nouvelIdChamp(), libelle: '', type: 'texte', obligatoire: false, dictee: false, options: [], auto: '' };
     _champs.push(c);
     rendreChamps();
   }
@@ -176,6 +176,10 @@
           '</select></div>'
         : '';
 
+      var dicteeHtml = c.type === 'texte'
+        ? '<label class="cr-obligatoire"><input type="checkbox"' + (c.dictee ? ' checked' : '') + ' onchange="majChamp(\'' + c.id + '\',\'dictee\',this.checked)"> 🎙️ Dictée vocale</label>'
+        : '';
+
       row.innerHTML =
         '<div class="cr-libelle"><label>Libellé</label><input value="' + (c.libelle || '').replace(/"/g, '&quot;') + '" placeholder="Ex : Nature de l\'intervention" onchange="majChamp(\'' + c.id + '\',\'libelle\',this.value)"></div>' +
         '<div class="cr-type"><label>Type</label><select onchange="changerTypeChamp(\'' + c.id + '\',this.value)">' +
@@ -183,6 +187,7 @@
         '</select></div>' +
         optionsHtml +
         autoHtml +
+        dicteeHtml +
         '<label class="cr-obligatoire"><input type="checkbox"' + (c.obligatoire ? ' checked' : '') + ' onchange="majChamp(\'' + c.id + '\',\'obligatoire\',this.checked)"> Obligatoire</label>' +
         '<button type="button" class="cr-supprimer" title="Supprimer ce champ" onclick="supprimerChamp(\'' + c.id + '\')">✕</button>';
 
@@ -205,6 +210,7 @@
       var gardeOptions = (type === 'liste' || type === 'cases_multiples');
       if (!gardeOptions) c.options = [];
       if (type !== 'datetime') c.auto = '';
+      if (type !== 'texte') c.dictee = false;
     }
     rendreChamps();
   }

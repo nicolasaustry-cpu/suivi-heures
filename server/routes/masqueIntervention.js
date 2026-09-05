@@ -56,6 +56,7 @@ function assainirChamps(brut) {
       libelle,
       type,
       obligatoire: !!c?.obligatoire,
+      dictee: type === "texte" ? !!c?.dictee : false,
       options,
       auto: type === "datetime" ? auto : ""
     });

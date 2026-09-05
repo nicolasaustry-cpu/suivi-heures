@@ -9,6 +9,7 @@ const champMasqueSchema = new mongoose.Schema({
   libelle:     { type: String, required: true, trim: true },
   type:        { type: String, enum: ["texte", "case", "liste", "cases_multiples", "photo", "signature", "datetime"], required: true },
   obligatoire: { type: Boolean, default: false },
+  dictee:      { type: Boolean, default: false },   // type "texte" uniquement : dictée vocale autorisée sur mobile
   options:     { type: [String], default: [] },     // pour type "liste" ou "cases_multiples"
   // Pré-remplissage automatique depuis Suiv'Heures (type "datetime" uniquement) :
   auto:        { type: String, enum: ["", "date", "heureDebut", "heureFin", "duree"], default: "" }
