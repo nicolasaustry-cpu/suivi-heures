@@ -1165,6 +1165,26 @@
   #rdv-pop-m .rdvm-ok { background:#0f3a8a; color:#fff; }
   #rdv-pop-m .rdvm-clear { background:#f1f5f9; color:#475569; }
   #rdv-pop-m .rdvm-cancel { background:#fee2e2; color:#b91c1c; }
+
+  /* ── Bon d'intervention (mobile) ── */
+  .bon-champ { margin:14px 0; }
+  .bon-champ label.bon-lbl { display:block; font-size:0.85rem; font-weight:700; color:#0f172a; margin-bottom:6px; }
+  .bon-champ .bon-oblig { color:#dc2626; }
+  .bon-champ textarea, .bon-champ select, .bon-champ input[type="text"], .bon-champ input[type="date"], .bon-champ input[type="time"] {
+    width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.95rem;
+  }
+  .bon-case-ligne { display:flex; align-items:center; gap:8px; font-size:0.92rem; padding:4px 0; }
+  .bon-cases-multi label { display:flex; align-items:center; gap:8px; font-size:0.9rem; padding:5px 0; border-bottom:1px solid #f1f5f9; }
+  .bon-auto-badge { display:inline-block; font-size:0.72rem; font-weight:700; color:#7c3aed; background:#f3e8ff; border-radius:5px; padding:1px 7px; margin-left:6px; }
+  .bon-dicter-row { display:flex; gap:8px; margin-top:6px; }
+  .bon-dicter-row button { flex:0 0 auto; }
+  .bon-photo-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .bon-photo-vign { position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1; }
+  .bon-photo-vign img { width:100%; height:100%; object-fit:cover; }
+  .bon-photo-suppr { position:absolute; top:-4px; right:-4px; width:20px; height:20px; border-radius:50%; background:#dc2626; color:#fff; border:none; font-size:0.7rem; line-height:1; cursor:pointer; }
+  .bon-signature-zone { border:1px dashed #cbd5e1; border-radius:8px; background:#fff; touch-action:none; width:100%; height:150px; }
+  .bon-signature-actions { display:flex; justify-content:flex-end; margin-top:6px; }
+  #btn-bon-signature { display:block; margin:0 auto 10px; }
   </style>
 </head>
 <body>
@@ -1480,6 +1500,29 @@
     <div class="note-photos-strip" id="photos-strip"></div>
     <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="photoChoisie(this)">
     <button class="btn-modal-cancel" onclick="fermerNote()" style="margin-top:6px;">Annuler</button>
+  </div>
+</div>
+
+<!-- ── FENÊTRE BON D'INTERVENTION ── -->
+<div class="modal-overlay" id="modal-bon">
+  <div class="modal-box" style="max-width:480px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-title">📋 Bon d'intervention</div>
+    <div id="bon-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
+
+    <div id="bon-etape-masque">
+      <label class="bon-lbl">Type de bon</label>
+      <select id="bon-select-masque" onchange="choisirMasque(this.value)">
+        <option value="">— Choisir —</option>
+      </select>
+      <div id="bon-msg-vide" style="display:none;color:#92400e;font-size:0.85rem;margin-top:10px;">Aucun masque de bon d'intervention n'a été créé pour votre entreprise.</div>
+    </div>
+
+    <div id="bon-champs"></div>
+
+    <div class="note-actions" id="bon-actions" style="display:none;">
+      <button class="btn-valider-note" onclick="validerBon()">✔ Enregistrer le bon</button>
+    </div>
+    <button class="btn-modal-cancel" onclick="fermerBon()" style="margin-top:6px;">Annuler</button>
   </div>
 </div>
 
@@ -2591,12 +2634,18 @@ function rendrePrev() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('prev', ch.nom); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Enregistré';
       env.style.flex = '1';
       barre.appendChild(pauseBtn);
       barre.appendChild(noteBtn);
+      barre.appendChild(bonBtn);
       barre.appendChild(env);
       div.appendChild(barre);
     } else {
@@ -2615,8 +2664,14 @@ function rendrePrev() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('prev', ch.nom); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
+      lignePN.appendChild(bonBtn);
 
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
@@ -2795,12 +2850,18 @@ function rendreAjout() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('ajout', i, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('ajout', i); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Enregistré';
       env.style.flex = '1';
       barre.appendChild(pauseBtn);
       barre.appendChild(noteBtn);
+      barre.appendChild(bonBtn);
       barre.appendChild(env);
       div.appendChild(barre);
     } else {
@@ -2819,8 +2880,14 @@ function rendreAjout() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('ajout', i, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('ajout', i); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
+      lignePN.appendChild(bonBtn);
 
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier ajout';
@@ -4588,5 +4655,377 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/documents-chantier.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BONS D'INTERVENTION (mobile)
+   ═══════════════════════════════════════════════════════════ */
+let _bonCible        = null;  // { type: 'prev'|'ajout', ref }
+let _bonMasques      = [];
+let _bonMasqueActuel = null;
+let _bonReponses     = {};    // { idChamp: valeur }
+let _bonPhotos       = {};    // { idChamp: [dataUrl,...] }
+let _bonSignatures   = {};    // { idChamp: dataUrl }
+let _bonRecognition  = null;
+let _bonChampEnEcoute = null; // id du champ texte actuellement dicté
+
+function _bonsInterventionActifs() {
+  try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').bonsInterventionActifs; }
+  catch (e) { return false; }
+}
+
+function _bonSaisieCourante() {
+  if (!_bonCible) return {};
+  if (_bonCible.type === 'prev') return _saisiesPrev[_bonCible.ref] || {};
+  return _chantiersA[_bonCible.ref] || {};
+}
+
+function ouvrirBon(type, ref) {
+  _bonCible = { type: type, ref: ref };
+  let nom = '';
+  if (type === 'prev') {
+    nom = ref;
+  } else {
+    const ch = _chantiersA[ref];
+    if (!ch) return;
+    nom = ch.nom;
+  }
+  document.getElementById('bon-chantier-nom').textContent = nom;
+
+  _bonMasqueActuel = null; _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {};
+  document.getElementById('bon-champs').innerHTML = '';
+  document.getElementById('bon-actions').style.display = 'none';
+  const sel = document.getElementById('bon-select-masque');
+  sel.innerHTML = '<option value="">— Choisir —</option>';
+  document.getElementById('bon-etape-masque').style.display = '';
+  document.getElementById('bon-msg-vide').style.display = 'none';
+
+  document.getElementById('modal-bon').classList.add('open');
+
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const salarieId = _salarie ? _salarie.id : null;
+  fetch('/api/bons-intervention/masques', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { alert(d.message || 'Erreur de chargement des masques'); return; }
+    _bonMasques = d.masques || [];
+    if (!_bonMasques.length) {
+      document.getElementById('bon-etape-masque').style.display = 'none';
+      document.getElementById('bon-msg-vide').style.display = '';
+      return;
+    }
+    _bonMasques.forEach(function (m) {
+      const opt = document.createElement('option');
+      opt.value = m._id; opt.textContent = m.nom;
+      sel.appendChild(opt);
+    });
+  }).catch(function () { alert('Erreur réseau lors du chargement des masques'); });
+}
+
+function fermerBon() {
+  _bonArreterDictee();
+  document.getElementById('modal-bon').classList.remove('open');
+  _bonCible = null;
+}
+
+function choisirMasque(masqueId) {
+  _bonArreterDictee();
+  _bonMasqueActuel = _bonMasques.find(function (m) { return m._id === masqueId; }) || null;
+  _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {};
+  _bonRendreChamps();
+}
+
+function _bonRendreChamps() {
+  const zone = document.getElementById('bon-champs');
+  zone.innerHTML = '';
+  if (!_bonMasqueActuel) { document.getElementById('bon-actions').style.display = 'none'; return; }
+
+  const s = _bonSaisieCourante();
+  const dateEl = document.getElementById('date-saisie');
+  const dateGlobale = dateEl ? dateEl.value : '';
+
+  (_bonMasqueActuel.champs || []).forEach(function (c) {
+    const wrap = document.createElement('div');
+    wrap.className = 'bon-champ';
+    const lbl = document.createElement('label');
+    lbl.className = 'bon-lbl';
+    lbl.innerHTML = c.libelle + (c.obligatoire ? ' <span class="bon-oblig">*</span>' : '');
+    wrap.appendChild(lbl);
+
+    if (c.type === 'texte') {
+      const ta = document.createElement('textarea');
+      ta.id = 'bon-in-' + c.id;
+      ta.rows = 3;
+      ta.oninput = function () { _bonReponses[c.id] = this.value; };
+      wrap.appendChild(ta);
+      if (c.dictee) {
+        const row = document.createElement('div');
+        row.className = 'bon-dicter-row';
+        const btnD = document.createElement('button');
+        btnD.type = 'button'; btnD.className = 'btn-dicter'; btnD.id = 'bon-dicter-' + c.id;
+        btnD.textContent = '🎤 Dicter';
+        btnD.onclick = function () { _bonDicterChamp(c.id, this); };
+        row.appendChild(btnD);
+        wrap.appendChild(row);
+      }
+    } else if (c.type === 'case') {
+      const ligne = document.createElement('div');
+      ligne.className = 'bon-case-ligne';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'bon-in-' + c.id;
+      cb.onchange = function () { _bonReponses[c.id] = this.checked; };
+      const sp = document.createElement('span'); sp.textContent = 'Oui';
+      ligne.appendChild(cb); ligne.appendChild(sp);
+      wrap.appendChild(ligne);
+    } else if (c.type === 'liste') {
+      const sel = document.createElement('select');
+      sel.id = 'bon-in-' + c.id;
+      const optVide = document.createElement('option'); optVide.value = ''; optVide.textContent = '— Choisir —';
+      sel.appendChild(optVide);
+      (c.options || []).forEach(function (o) {
+        const opt = document.createElement('option'); opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+      });
+      sel.onchange = function () { _bonReponses[c.id] = this.value; };
+      wrap.appendChild(sel);
+    } else if (c.type === 'cases_multiples') {
+      const cont = document.createElement('div');
+      cont.className = 'bon-cases-multi';
+      _bonReponses[c.id] = _bonReponses[c.id] || [];
+      (c.options || []).forEach(function (o) {
+        const lab = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = o;
+        cb.onchange = function () {
+          const arr = _bonReponses[c.id] || [];
+          if (this.checked) { if (arr.indexOf(o) === -1) arr.push(o); }
+          else { const idx = arr.indexOf(o); if (idx > -1) arr.splice(idx, 1); }
+          _bonReponses[c.id] = arr;
+        };
+        const sp = document.createElement('span'); sp.textContent = o;
+        lab.appendChild(cb); lab.appendChild(sp);
+        cont.appendChild(lab);
+      });
+      wrap.appendChild(cont);
+    } else if (c.type === 'photo') {
+      const btnP = document.createElement('button');
+      btnP.type = 'button'; btnP.className = 'btn-dicter';
+      btnP.textContent = '📷 Ajouter une photo';
+      btnP.onclick = function () { _bonAjouterPhoto(c.id); };
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+      input.style.display = 'none'; input.id = 'bon-photo-input-' + c.id;
+      input.onchange = function () { _bonPhotoChoisie(c.id, this); };
+      const strip = document.createElement('div');
+      strip.className = 'bon-photo-strip'; strip.id = 'bon-photostrip-' + c.id;
+      wrap.appendChild(btnP); wrap.appendChild(input); wrap.appendChild(strip);
+      _bonPhotos[c.id] = _bonPhotos[c.id] || [];
+    } else if (c.type === 'signature') {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'bon-signature-zone'; canvas.id = 'bon-sig-' + c.id;
+      const actions = document.createElement('div');
+      actions.className = 'bon-signature-actions';
+      const btnEff = document.createElement('button');
+      btnEff.type = 'button'; btnEff.className = 'btn-modal-cancel';
+      btnEff.textContent = 'Effacer';
+      btnEff.onclick = function () { _bonEffacerSignature(c.id); };
+      actions.appendChild(btnEff);
+      wrap.appendChild(canvas); wrap.appendChild(actions);
+      setTimeout(function () { _bonInitSignature(c.id); }, 30);
+    } else if (c.type === 'datetime') {
+      if (c.auto) {
+        const badge = document.createElement('span');
+        badge.className = 'bon-auto-badge'; badge.textContent = 'AUTO';
+        lbl.appendChild(badge);
+      }
+      let valInit = '', inputType = 'text';
+      if (c.auto === 'date') { valInit = dateGlobale; inputType = 'date'; }
+      else if (c.auto === 'heureDebut') { valInit = s.arrivee || ''; inputType = 'time'; }
+      else if (c.auto === 'heureFin') { valInit = s.depart || ''; inputType = 'time'; }
+      else if (c.auto === 'duree') { valInit = calcDuree(s.arrivee, s.depart, s.pause) || ''; inputType = 'text'; }
+      const inp = document.createElement('input');
+      inp.type = inputType; inp.id = 'bon-in-' + c.id; inp.value = valInit;
+      inp.oninput = function () { _bonReponses[c.id] = this.value; };
+      _bonReponses[c.id] = valInit;
+      wrap.appendChild(inp);
+    }
+
+    zone.appendChild(wrap);
+  });
+
+  document.getElementById('bon-actions').style.display = '';
+}
+
+/* Dictée par champ : CHAQUE clic sur « Dicter » ajoute une NOUVELLE LIGNE
+   au texte existant (jamais à la suite sur la même ligne, contrairement à
+   la note de chantier qui concatène avec un espace). */
+function _bonDicterChamp(idChamp, btn) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('La dictée vocale n\'est pas disponible sur ce navigateur. Utilisez le micro du clavier de votre téléphone.'); return; }
+  if (!navigator.onLine || window._reseauReel === false) {
+    alert('La dictée vocale a besoin d\'une connexion Internet. Hors ligne, tapez votre texte directement.');
+    return;
+  }
+  if (_bonChampEnEcoute === idChamp) { _bonArreterDictee(); return; }
+  if (_bonChampEnEcoute) _bonArreterDictee(); // une seule dictée à la fois
+
+  _bonRecognition = new SR();
+  _bonRecognition.lang = 'fr-FR';
+  _bonRecognition.interimResults = false;
+  _bonRecognition.onresult = function (e) {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    const ta = document.getElementById('bon-in-' + idChamp);
+    if (!ta) return;
+    ta.value = (ta.value ? ta.value.replace(/\n+$/, '') + '\n' : '') + t;
+    _bonReponses[idChamp] = ta.value;
+  };
+  _bonRecognition.onend = _bonArreterDictee;
+  _bonRecognition.onerror = function (e) {
+    _bonArreterDictee();
+    if (e && e.error === 'network') alert('La dictée vocale a été interrompue : connexion Internet indisponible.');
+  };
+  try {
+    _bonRecognition.start();
+    _bonChampEnEcoute = idChamp;
+    btn.textContent = '🎤 Écoute…';
+    btn.classList.add('ecoute');
+  } catch (e) { _bonArreterDictee(); }
+}
+
+function _bonArreterDictee() {
+  if (_bonRecognition && _bonChampEnEcoute) { try { _bonRecognition.stop(); } catch (e) {} }
+  const idPrec = _bonChampEnEcoute;
+  _bonChampEnEcoute = null;
+  if (idPrec) {
+    const btn = document.getElementById('bon-dicter-' + idPrec);
+    if (btn) { btn.textContent = '🎤 Dicter'; btn.classList.remove('ecoute'); }
+  }
+}
+
+/* ── Photos par champ (même compression que la note : 1280px / JPEG 0.7) ── */
+function _bonAjouterPhoto(idChamp) {
+  if ((_bonPhotos[idChamp] || []).length >= 3) return;
+  const input = document.getElementById('bon-photo-input-' + idChamp);
+  if (input) input.click();
+}
+function _bonPhotoChoisie(idChamp, input) {
+  const fichier = input.files && input.files[0];
+  input.value = '';
+  if (!fichier) return;
+  compresserPhoto(fichier, function (dataUrl) {
+    if (!dataUrl) { alert('Impossible de lire cette photo.'); return; }
+    if (!_bonPhotos[idChamp]) _bonPhotos[idChamp] = [];
+    if (_bonPhotos[idChamp].length >= 3) return;
+    _bonPhotos[idChamp].push(dataUrl);
+    _bonReponses[idChamp] = _bonPhotos[idChamp];
+    _bonRendrePhotos(idChamp);
+  });
+}
+function _bonRendrePhotos(idChamp) {
+  const strip = document.getElementById('bon-photostrip-' + idChamp);
+  if (!strip) return;
+  strip.innerHTML = '';
+  (_bonPhotos[idChamp] || []).forEach(function (src, i) {
+    const v = document.createElement('div');
+    v.className = 'bon-photo-vign';
+    const img = document.createElement('img'); img.src = src; img.alt = 'photo ' + (i + 1);
+    const x = document.createElement('button');
+    x.className = 'bon-photo-suppr'; x.type = 'button'; x.textContent = '✕';
+    x.onclick = function () {
+      _bonPhotos[idChamp].splice(i, 1);
+      _bonReponses[idChamp] = _bonPhotos[idChamp];
+      _bonRendrePhotos(idChamp);
+    };
+    v.appendChild(img); v.appendChild(x);
+    strip.appendChild(v);
+  });
+}
+
+/* ── Signature (pavé tactile simple, souris + doigt) ── */
+function _bonInitSignature(idChamp) {
+  const canvas = document.getElementById('bon-sig-' + idChamp);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0f172a';
+  let dessine = false, dernier = null;
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  }
+  function debut(e) { dessine = true; dernier = pos(e); e.preventDefault(); }
+  function trace(e) {
+    if (!dessine) return;
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(dernier.x, dernier.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    dernier = p;
+    e.preventDefault();
+  }
+  function fin() {
+    if (!dessine) return;
+    dessine = false;
+    _bonSignatures[idChamp] = canvas.toDataURL('image/png');
+    _bonReponses[idChamp] = _bonSignatures[idChamp];
+  }
+  canvas.addEventListener('mousedown', debut);
+  canvas.addEventListener('mousemove', trace);
+  window.addEventListener('mouseup', fin);
+  canvas.addEventListener('touchstart', debut, { passive: false });
+  canvas.addEventListener('touchmove', trace, { passive: false });
+  canvas.addEventListener('touchend', fin);
+}
+function _bonEffacerSignature(idChamp) {
+  const canvas = document.getElementById('bon-sig-' + idChamp);
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  delete _bonSignatures[idChamp];
+  delete _bonReponses[idChamp];
+}
+
+async function validerBon() {
+  if (!_bonMasqueActuel) { alert('Choisissez un type de bon'); return; }
+  for (const c of (_bonMasqueActuel.champs || [])) {
+    if (!c.obligatoire) continue;
+    const v = _bonReponses[c.id];
+    const vide = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+    if (vide) { alert('Le champ "' + c.libelle + '" est obligatoire'); return; }
+  }
+  let nom = '';
+  if (_bonCible.type === 'prev') {
+    nom = _bonCible.ref;
+  } else {
+    const ch = _chantiersA[_bonCible.ref];
+    if (!ch) return;
+    nom = ch.nom;
+  }
+
+  const dateEl = document.getElementById('date-saisie');
+  const dateGlobale = dateEl ? dateEl.value : '';
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const salarieId = _salarie ? _salarie.id : null;
+
+  try {
+    const r = await fetch('/api/bons-intervention', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeEmploye: codeEmploye, salarieId: salarieId,
+        chantier: nom,
+        masqueId: _bonMasqueActuel._id,
+        dateIntervention: dateGlobale,
+        reponses: _bonReponses
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Erreur lors de l\'enregistrement du bon'); return; }
+    alert('Bon d\'intervention enregistré.');
+    fermerBon();
+  } catch (e) {
+    alert('Erreur réseau lors de l\'enregistrement du bon');
+  }
+}
+</script>
 </body>
 </html>
