@@ -36,6 +36,13 @@
       cursor: pointer;
       padding: 4px 8px;
     }
+    .champ-row .cr-ordre { flex: 0 0 auto; align-self: center; display: flex; flex-direction: column; gap: 2px; }
+    .champ-row .cr-fleche {
+      width: 26px; height: 20px; line-height: 1; padding: 0;
+      border: 1px solid var(--vol-gris-bord, #cbd5e1); border-radius: 4px;
+      background: #fff; cursor: pointer; font-size: 11px;
+    }
+    .champ-row .cr-fleche:disabled { opacity: 0.3; cursor: default; }
     .champ-row .cr-obligatoire { flex: 0 0 auto; align-self: center; display: flex; align-items: center; gap: 5px; font-size: 12px; text-transform: none; letter-spacing: normal; color: var(--vol-gris-texte, #475569); font-weight: 400; }
     .champ-row .cr-obligatoire input { width: auto; }
 
@@ -156,10 +163,18 @@
     rendreChamps();
   }
 
+  function deplacerChamp(id, sens) {
+    var i = _champs.findIndex(function (c) { return c.id === id; });
+    var j = i + sens;
+    if (i === -1 || j < 0 || j >= _champs.length) return;
+    var tmp = _champs[i]; _champs[i] = _champs[j]; _champs[j] = tmp;
+    rendreChamps();
+  }
+
   function rendreChamps() {
     var zone = document.getElementById('champs-liste');
     zone.innerHTML = '';
-    _champs.forEach(function (c) {
+    _champs.forEach(function (c, index) {
       var row = document.createElement('div');
       row.className = 'champ-row';
       row.dataset.id = c.id;
@@ -189,6 +204,10 @@
         autoHtml +
         dicteeHtml +
         '<label class="cr-obligatoire"><input type="checkbox"' + (c.obligatoire ? ' checked' : '') + ' onchange="majChamp(\'' + c.id + '\',\'obligatoire\',this.checked)"> Obligatoire</label>' +
+        '<div class="cr-ordre">' +
+          '<button type="button" class="cr-fleche"' + (index === 0 ? ' disabled' : '') + ' title="Monter" onclick="deplacerChamp(\'' + c.id + '\',-1)">▲</button>' +
+          '<button type="button" class="cr-fleche"' + (index === _champs.length - 1 ? ' disabled' : '') + ' title="Descendre" onclick="deplacerChamp(\'' + c.id + '\',1)">▼</button>' +
+        '</div>' +
         '<button type="button" class="cr-supprimer" title="Supprimer ce champ" onclick="supprimerChamp(\'' + c.id + '\')">✕</button>';
 
       zone.appendChild(row);
