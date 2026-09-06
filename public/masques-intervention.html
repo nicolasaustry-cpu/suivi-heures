@@ -118,9 +118,16 @@
     { valeur: 'liste',          label: 'Liste déroulante' },
     { valeur: 'cases_multiples', label: 'Liste de cases à cocher' },
     { valeur: 'photo',          label: 'Photo' },
-    { valeur: 'signature',      label: 'Signature électronique' },
+    { valeur: 'signature_salarie', label: 'Signature technicien' },
+    { valeur: 'signature_client',  label: 'Signature client' },
     { valeur: 'datetime',       label: 'Date / heure / durée' }
   ];
+  // Le type de champ stocké est toujours "signature" (+ signataire: salarie|client) ;
+  // ces deux valeurs synthétiques n'existent que dans le menu déroulant de l'éditeur.
+  function _valeurTypeSelect(c) {
+    if (c.type === 'signature') return 'signature_' + (c.signataire === 'client' ? 'client' : 'salarie');
+    return c.type;
+  }
   var AUTOS = [
     { valeur: '',           label: 'Saisie libre' },
     { valeur: 'date',       label: 'Date du jour (auto)' },
@@ -153,7 +160,7 @@
   }
 
   function ajouterChamp(champExistant) {
-    var c = champExistant || { id: nouvelIdChamp(), libelle: '', type: 'texte', obligatoire: false, dictee: false, options: [], auto: '' };
+    var c = champExistant || { id: nouvelIdChamp(), libelle: '', type: 'texte', obligatoire: false, dictee: false, signataire: 'salarie', options: [], auto: '' };
     _champs.push(c);
     rendreChamps();
   }
@@ -198,7 +205,7 @@
       row.innerHTML =
         '<div class="cr-libelle"><label>Libellé</label><input value="' + (c.libelle || '').replace(/"/g, '&quot;') + '" placeholder="Ex : Nature de l\'intervention" onchange="majChamp(\'' + c.id + '\',\'libelle\',this.value)"></div>' +
         '<div class="cr-type"><label>Type</label><select onchange="changerTypeChamp(\'' + c.id + '\',this.value)">' +
-          TYPES_CHAMPS.map(function (t) { return '<option value="' + t.valeur + '"' + (t.valeur === c.type ? ' selected' : '') + '>' + t.label + '</option>'; }).join('') +
+          TYPES_CHAMPS.map(function (t) { return '<option value="' + t.valeur + '"' + (t.valeur === _valeurTypeSelect(c) ? ' selected' : '') + '>' + t.label + '</option>'; }).join('') +
         '</select></div>' +
         optionsHtml +
         autoHtml +
@@ -222,10 +229,16 @@
     if (c) c[cle] = valeur;
   }
 
-  function changerTypeChamp(id, type) {
+  function changerTypeChamp(id, valeurSelect) {
     var c = _champs.find(function (c) { return c.id === id; });
     if (c) {
+      var type = valeurSelect;
+      var signataire = null;
+      if (valeurSelect === 'signature_salarie') { type = 'signature'; signataire = 'salarie'; }
+      else if (valeurSelect === 'signature_client') { type = 'signature'; signataire = 'client'; }
+
       c.type = type;
+      if (signataire) c.signataire = signataire;
       var gardeOptions = (type === 'liste' || type === 'cases_multiples');
       if (!gardeOptions) c.options = [];
       if (type !== 'datetime') c.auto = '';

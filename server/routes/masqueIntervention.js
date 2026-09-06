@@ -74,6 +74,7 @@ function assainirChamps(brut) {
       type,
       obligatoire: !!c?.obligatoire,
       dictee: type === "texte" ? !!c?.dictee : false,
+      signataire: type === "signature" ? (c?.signataire === "client" ? "client" : "salarie") : "salarie",
       options,
       auto: type === "datetime" ? auto : ""
     });
