@@ -217,6 +217,28 @@
   </div>
 </section>
 
+<!-- Bons d'intervention : activation de la création et de l'utilisation des masques d'intervention -->
+<section class="ent-tuile" style="background:#f0fdf4;border-left-color:#16a34a;">
+  <h2 style="color:#15803d;">Bons d'intervention</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Active la création de <strong>masques de bons d'intervention</strong> personnalisables et leur utilisation
+    par vos équipes sur mobile. Tant que ce réglage est sur « Non », la page « Bons d'intervention »
+    n'apparaît pas dans le menu.
+  </p>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:1.2rem;">
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="bonsIntervention" id="bonsInterventionOui" value="oui"> Oui
+      </label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="bonsIntervention" id="bonsInterventionNon" value="non"> Non
+      </label>
+    </div>
+    <button type="button" id="btn-valider-bons-intervention" class="btn btn-success" onclick="validerBonsIntervention()">💾 Valider</button>
+    <span id="bons-intervention-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+</section>
+
 </div>
 
 
@@ -278,6 +300,34 @@ async function validerCIBTP() {
 }
 window.addEventListener('DOMContentLoaded', chargerCIBTP);
 window.addEventListener('donnees-chargees', chargerCIBTP);
+</script>
+
+<script>
+function chargerBonsIntervention() {
+  const ent = _entLire();
+  const oui = document.getElementById('bonsInterventionOui');
+  const non = document.getElementById('bonsInterventionNon');
+  if (oui && non) { oui.checked = !!ent.bonsInterventionActifs; non.checked = !ent.bonsInterventionActifs; }
+}
+async function validerBonsIntervention() {
+  const actif = !!document.getElementById('bonsInterventionOui').checked;
+  if (!actif && !document.getElementById('bonsInterventionNon').checked) { alert('Choisissez Oui ou Non.'); return; }
+  const ent = _entLire();
+  ent.bonsInterventionActifs = actif;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-bons-intervention');
+  const msg = document.getElementById('bons-intervention-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  // Le menu n'est reconstruit qu'au chargement de la page (comme pour le
+  // Suivi des entretiens) : on recharge pour faire apparaître/disparaître
+  // l'entrée « Bons d'intervention » sans action manuelle.
+  location.reload();
+}
+window.addEventListener('DOMContentLoaded', chargerBonsIntervention);
+window.addEventListener('donnees-chargees', chargerBonsIntervention);
 </script>
 
 <script>

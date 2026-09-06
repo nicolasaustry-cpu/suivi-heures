@@ -15,12 +15,29 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
+import Donnees from "../models/donnees.js";
 
 const router = express.Router();
 
 const TYPES_CHAMPS = ["texte", "case", "liste", "cases_multiples", "photo", "signature", "datetime"];
 const AUTOS_VALIDES = ["", "date", "heureDebut", "heureFin", "duree"];
 const MAX_CHAMPS = 60;
+
+/* Bloque l'accès si le client n'a pas activé la fonctionnalité depuis la
+   page Entreprise (entreprisedata.bonsInterventionActifs). Sécurité côté
+   serveur en complément du masquage du menu côté client. */
+async function verifierFonctionActive(req, res, next) {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const doc = await Donnees.findOne({ clientId }, "entreprise");
+    if (!doc?.entreprise?.bonsInterventionActifs) {
+      return res.status(403).json({ ok: false, message: "Fonctionnalité non activée pour ce compte (page Entreprise)" });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+}
 
 /* Valide et nettoie un tableau de champs envoyé par le client.
    Renvoie { champs } ou { err: message }. */
@@ -65,7 +82,7 @@ function assainirChamps(brut) {
 }
 
 // ── Liste des masques du client ──
-router.get("/", verifyToken, async (req, res) => {
+router.get("/", verifyToken, verifierFonctionActive, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const masques = await MasqueIntervention.find({ clientId }).sort({ creeLe: -1 });
@@ -76,7 +93,7 @@ router.get("/", verifyToken, async (req, res) => {
 });
 
 // ── Créer un masque ──
-router.post("/", verifyToken, async (req, res) => {
+router.post("/", verifyToken, verifierFonctionActive, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const nom = String(req.body.nom || "").trim().slice(0, 150);
@@ -95,7 +112,7 @@ router.post("/", verifyToken, async (req, res) => {
 });
 
 // ── Modifier un masque (nom, champs, actif) ──
-router.put("/:id", verifyToken, async (req, res) => {
+router.put("/:id", verifyToken, verifierFonctionActive, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const masque = await MasqueIntervention.findById(req.params.id);
@@ -125,7 +142,7 @@ router.put("/:id", verifyToken, async (req, res) => {
 });
 
 // ── Supprimer un masque ──
-router.delete("/:id", verifyToken, async (req, res) => {
+router.delete("/:id", verifyToken, verifierFonctionActive, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const masque = await MasqueIntervention.findById(req.params.id);

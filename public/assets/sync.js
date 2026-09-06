@@ -732,7 +732,7 @@ const SYNC = (() => {
       { href: 'index.html',     label: 'Entreprise' },
       { href: 'salaries.html',  label: 'Salariés' },
       { href: 'chantiers.html', label: 'Prévisionnel' },
-      { href: 'masques-intervention.html', label: "Bons d'intervention" }
+      { href: 'masques-intervention.html', label: "Bons d'intervention", requiert: 'bonsInterventionActifs' }
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
