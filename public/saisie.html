@@ -4667,6 +4667,8 @@ let _bonPhotos       = {};    // { idChamp: [dataUrl,...] }
 let _bonSignatures   = {};    // { idChamp: dataUrl }
 let _bonRecognition  = null;
 let _bonChampEnEcoute = null; // id du champ texte actuellement dicté
+let _bonSignatureSalarieCache = undefined; // undefined = pas encore chargée, null = aucune, string = trouvée
+let _bonSignatureAEnregistrer = {}; // { idChamp: bool } — case "enregistrer ma signature" cochée ou non
 
 function _bonsInterventionActifs() {
   try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').bonsInterventionActifs; }
@@ -4732,7 +4734,7 @@ function fermerBon() {
 function choisirMasque(masqueId) {
   _bonArreterDictee();
   _bonMasqueActuel = _bonMasques.find(function (m) { return m._id === masqueId; }) || null;
-  _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {};
+  _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {}; _bonSignatureAEnregistrer = {};
   _bonRendreChamps();
 }
 
@@ -4757,6 +4759,7 @@ function _bonRendreChamps() {
       const ta = document.createElement('textarea');
       ta.id = 'bon-in-' + c.id;
       ta.rows = 3;
+      ta.placeholder = c.dictee ? 'Saisir un texte, ou dicter…' : 'Saisir un texte';
       ta.oninput = function () { _bonReponses[c.id] = this.value; };
       wrap.appendChild(ta);
       if (c.dictee) {
@@ -4822,17 +4825,16 @@ function _bonRendreChamps() {
       wrap.appendChild(btnP); wrap.appendChild(input); wrap.appendChild(strip);
       _bonPhotos[c.id] = _bonPhotos[c.id] || [];
     } else if (c.type === 'signature') {
-      const canvas = document.createElement('canvas');
-      canvas.className = 'bon-signature-zone'; canvas.id = 'bon-sig-' + c.id;
-      const actions = document.createElement('div');
-      actions.className = 'bon-signature-actions';
-      const btnEff = document.createElement('button');
-      btnEff.type = 'button'; btnEff.className = 'btn-modal-cancel';
-      btnEff.textContent = 'Effacer';
-      btnEff.onclick = function () { _bonEffacerSignature(c.id); };
-      actions.appendChild(btnEff);
-      wrap.appendChild(canvas); wrap.appendChild(actions);
-      setTimeout(function () { _bonInitSignature(c.id); }, 30);
+      const zoneSign = document.createElement('div');
+      zoneSign.id = 'bon-sigzone-' + c.id;
+      zoneSign.style.color = '#9ca3af';
+      zoneSign.style.fontSize = '0.85rem';
+      zoneSign.textContent = 'Chargement…';
+      wrap.appendChild(zoneSign);
+      _bonChargerSignatureSalarie(function (sig) {
+        if (sig) _bonAfficherApercuSignature(c.id, zoneSign, sig);
+        else _bonAfficherPadSignature(c.id, zoneSign);
+      });
     } else if (c.type === 'datetime') {
       if (c.auto) {
         const badge = document.createElement('span');
@@ -4984,6 +4986,73 @@ function _bonEffacerSignature(idChamp) {
   delete _bonReponses[idChamp];
 }
 
+/* Charge une fois par session la signature enregistrée du salarié connecté
+   (cache mémoire — undefined = pas encore demandée au serveur). */
+function _bonChargerSignatureSalarie(callback) {
+  if (_bonSignatureSalarieCache !== undefined) { callback(_bonSignatureSalarieCache); return; }
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const salarieId = _salarie ? _salarie.id : null;
+  fetch('/api/signature-salarie/recuperer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    _bonSignatureSalarieCache = (d.ok && d.data) ? d.data : null;
+    callback(_bonSignatureSalarieCache);
+  }).catch(function () { _bonSignatureSalarieCache = null; callback(null); });
+}
+
+/* Affiche la signature déjà enregistrée du salarié, avec la possibilité
+   de la redessiner pour ce bon (« Signer autrement »). */
+function _bonAfficherApercuSignature(idChamp, zone, dataUrl) {
+  _bonReponses[idChamp] = dataUrl;
+  zone.innerHTML = '';
+  zone.style.color = '';
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:100%;max-height:120px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;display:block;';
+  const btnAutre = document.createElement('button');
+  btnAutre.type = 'button'; btnAutre.className = 'btn-modal-cancel'; btnAutre.style.marginTop = '8px';
+  btnAutre.textContent = '✍️ Signer autrement';
+  btnAutre.onclick = function () { _bonAfficherPadSignature(idChamp, zone); };
+  zone.appendChild(img);
+  zone.appendChild(btnAutre);
+}
+
+/* Affiche le pavé de dessin, avec une case pour enregistrer cette
+   signature comme signature personnelle réutilisable. */
+function _bonAfficherPadSignature(idChamp, zone) {
+  delete _bonReponses[idChamp];
+  zone.innerHTML = '';
+  zone.style.color = '';
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'bon-signature-zone'; canvas.id = 'bon-sig-' + idChamp;
+  const actions = document.createElement('div');
+  actions.className = 'bon-signature-actions';
+  const btnEff = document.createElement('button');
+  btnEff.type = 'button'; btnEff.className = 'btn-modal-cancel';
+  btnEff.textContent = 'Effacer';
+  btnEff.onclick = function () { _bonEffacerSignature(idChamp); };
+  actions.appendChild(btnEff);
+
+  const ligneEnr = document.createElement('label');
+  ligneEnr.className = 'bon-case-ligne';
+  ligneEnr.style.marginTop = '6px';
+  const cbEnr = document.createElement('input');
+  cbEnr.type = 'checkbox';
+  cbEnr.checked = (_bonSignatureAEnregistrer[idChamp] !== false); // cochée par défaut
+  _bonSignatureAEnregistrer[idChamp] = cbEnr.checked;
+  cbEnr.onchange = function () { _bonSignatureAEnregistrer[idChamp] = this.checked; };
+  const spEnr = document.createElement('span'); spEnr.textContent = 'Enregistrer ma signature pour la réutiliser';
+  ligneEnr.appendChild(cbEnr); ligneEnr.appendChild(spEnr);
+
+  zone.appendChild(canvas);
+  zone.appendChild(actions);
+  zone.appendChild(ligneEnr);
+  setTimeout(function () { _bonInitSignature(idChamp); }, 30);
+}
+
 async function validerBon() {
   if (!_bonMasqueActuel) { alert('Choisissez un type de bon'); return; }
   for (const c of (_bonMasqueActuel.champs || [])) {
@@ -5020,6 +5089,21 @@ async function validerBon() {
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message || 'Erreur lors de l\'enregistrement du bon'); return; }
+
+    // Enregistre la signature comme signature personnelle si la case était cochée
+    // (uniquement pour les champs signature nouvellement dessinés, pas ceux déjà
+    // pré-remplis depuis la signature enregistrée).
+    (_bonMasqueActuel.champs || []).forEach(function (c) {
+      if (c.type === 'signature' && _bonSignatureAEnregistrer[c.id] && _bonReponses[c.id]) {
+        const sigData = _bonReponses[c.id];
+        fetch('/api/signature-salarie/enregistrer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId, data: sigData })
+        }).then(function () { _bonSignatureSalarieCache = sigData; }).catch(function () {});
+      }
+    });
+
     alert('Bon d\'intervention enregistré.');
     fermerBon();
   } catch (e) {
