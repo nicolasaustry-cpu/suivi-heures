@@ -722,7 +722,7 @@ function chantierSuggFiltrer(k) {
   if (!inp) return;
   const q = _chSuggNorm(inp.value.trim());
   const tous = getChantiersPrevisionnel();
-  const filtres = (q ? tous.filter(n => _chSuggNorm(n).includes(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
+  const filtres = (q ? tous.filter(n => _chSuggNorm(n).startsWith(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
   if (!filtres.length) { chantierSuggFermer(); return; }
   const box = _chSuggBox();
   box.innerHTML = filtres.map(n =>
