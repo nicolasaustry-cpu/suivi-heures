@@ -287,6 +287,9 @@
   .grille .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:7px 8px; margin-bottom:7px; background:#fff; display:flex; flex-direction:column; gap:6px; }
   .grille .chip.vide { display:none; }
   .grille .chip .ligne1 { display:flex; align-items:center; gap:5px; }
+  .chantier-sugg-box { position:absolute; z-index:9999; display:none; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 8px 22px rgba(15,23,42,.18); max-height:220px; overflow-y:auto; font-family:'Segoe UI',system-ui,Arial,sans-serif; }
+  .chantier-sugg-item { padding:7px 10px; font-size:0.82rem; font-weight:600; color:#0f3a8a; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chantier-sugg-item:hover { background:#eef4fd; }
   .grille .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:5px 7px; font-size:0.8rem; font-weight:700; text-transform:uppercase; }
   .grille .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
   .grille .chip .vider { flex:0 0 auto; width:26px; height:28px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; line-height:1; padding:0; }
@@ -695,6 +698,57 @@ function genDatalistChantiers() {
   return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
 }
 
+/* ─── Suggestions de chantier filtrées à la frappe (remplace la <datalist> native
+   pour le champ "Chantier" du planning prévu — filtrage garanti sur tous les
+   navigateurs/WebView, contrairement au comportement natif d'une datalist). ─── */
+const CHANTIER_SUGG_MAX = 8;
+let _chSuggK = null;   // clé du slot dont la liste est actuellement ouverte
+
+function _chSuggNorm(s) {
+  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+function _chSuggBox() {
+  let box = document.getElementById('chantier-suggest-box');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'chantier-suggest-box';
+    box.className = 'chantier-sugg-box';
+    document.body.appendChild(box);
+  }
+  return box;
+}
+function chantierSuggFiltrer(k) {
+  const inp = document.getElementById(k + 'chantier');
+  if (!inp) return;
+  const q = _chSuggNorm(inp.value.trim());
+  const tous = getChantiersPrevisionnel();
+  const filtres = (q ? tous.filter(n => _chSuggNorm(n).includes(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
+  if (!filtres.length) { chantierSuggFermer(); return; }
+  const box = _chSuggBox();
+  box.innerHTML = filtres.map(n =>
+    `<div class="chantier-sugg-item" onmousedown="event.preventDefault();chantierSuggChoisir('${k}',${JSON.stringify(n)})">${escapeHtml(n)}</div>`
+  ).join('');
+  const r = inp.getBoundingClientRect();
+  box.style.left = (r.left + window.scrollX) + 'px';
+  box.style.top = (r.bottom + window.scrollY) + 'px';
+  box.style.width = r.width + 'px';
+  box.style.display = 'block';
+  _chSuggK = k;
+}
+function chantierSuggFermer() {
+  const box = document.getElementById('chantier-suggest-box');
+  if (box) box.style.display = 'none';
+  _chSuggK = null;
+}
+function chantierSuggChoisir(k, nom) {
+  const inp = document.getElementById(k + 'chantier');
+  if (!inp) return;
+  inp.value = nom;
+  chantierSuggFermer();
+  inp.blur();   // déclenche onChantierCommit (resynchro + recalcul TNA existants)
+}
+document.addEventListener('scroll', () => { if (_chSuggK) chantierSuggFermer(); }, true);
+
 /* ─── ALTERNANCE SEMAINE A / B ───────────────────────────────
    Un salarié "alternant" possède :
      s.alternance = true
@@ -932,10 +986,10 @@ function pl2ChipHTML(sl){
   const _mv=(sl.rempli && !estTNA)?'1':'';
   return `<div class="${cls}" data-k="${sl.k}" data-move="${_mv}">
     <div class="ligne1">
-      ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
-        onfocus="onChantierFocus('${sl.k}')"
-        oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
-        onblur="onChantierCommit('${sl.k}')">
+      ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
+        onfocus="onChantierFocus('${sl.k}');chantierSuggFiltrer('${sl.k}')"
+        oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value);chantierSuggFiltrer('${sl.k}')"
+        onblur="onChantierCommit('${sl.k}');chantierSuggFermer()">
     </div>
     <div class="ligne2">
       ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
@@ -1178,7 +1232,7 @@ function genererPlanning(calerSemaine){
   }
 
   const datesFill=new Map();
-  let html=genDatalistChantiers();
+  let html='';   // (l'ancienne <datalist> native a été remplacée par la suggestion filtrée JS, cf. chantierSuggFiltrer)
   let optsSem='';
 
   semaines.forEach((jours,wi)=>{
