@@ -20,7 +20,7 @@
 
   .filtres { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 18px; }
   .filtres label.lbl { font-size: 0.82rem; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
-  .filtres input[type=month] { border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 0.9rem; }
+  .filtres input[type=date] { border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 0.9rem; }
 
   .filtre-btn { min-width: 200px; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.9rem; user-select: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .filtre-btn:hover { border-color: #16a34a; }
@@ -90,8 +90,12 @@
 
   <div class="filtres no-print">
     <div>
-      <label class="lbl">Mois</label>
-      <input type="month" id="filtreMois">
+      <label class="lbl">Du</label>
+      <input type="date" id="filtreDebut">
+    </div>
+    <div>
+      <label class="lbl">Au</label>
+      <input type="date" id="filtreFin">
     </div>
     <div>
       <label class="lbl">Salarié(s)</label>
@@ -256,9 +260,12 @@
   var chart = null;
   var cacheReal = {};  // mois -> { salarieId -> { 'AAAA-MM-JJ' -> minutes } }
 
-  var elMois = document.getElementById('filtreMois');
+  var elDebut = document.getElementById('filtreDebut');
+  var elFin = document.getElementById('filtreFin');
   var now = new Date();
-  elMois.value = now.getFullYear() + '-' + pad2(now.getMonth() + 1);
+  function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  elDebut.value = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));       // 1er du mois en cours
+  elFin.value = isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));     // dernier jour du mois en cours
 
   /* ── Dropdown salariés ── */
   var dd = document.getElementById('dropdown');
@@ -333,7 +340,14 @@
     render();
   }
 
-  elMois.addEventListener('change', recalculer);
+  elDebut.addEventListener('change', function () {
+    if (elFin.value && elDebut.value > elFin.value) elFin.value = elDebut.value;   // la fin ne peut pas précéder le début
+    recalculer();
+  });
+  elFin.addEventListener('change', function () {
+    if (elDebut.value && elFin.value < elDebut.value) elDebut.value = elFin.value; // le début ne peut pas dépasser la fin
+    recalculer();
+  });
   document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
 
   /* ── Chargement du réalisé ── */
@@ -360,29 +374,54 @@
       .catch(function () { cacheReal[mois] = {}; return cacheReal[mois]; });
   }
 
-  /* ── Calcul de la série pour le mois + sélection ── */
+  /* ── Chargement du réalisé sur tous les mois couverts par la période ── */
+  function chargerPeriode(moisListe) {
+    return Promise.all(moisListe.map(chargerReal)).then(function (resultats) {
+      var fusion = {};
+      resultats.forEach(function (parSal) {
+        Object.keys(parSal).forEach(function (sid) {
+          if (!fusion[sid]) fusion[sid] = {};
+          Object.assign(fusion[sid], parSal[sid]);
+        });
+      });
+      return fusion;
+    });
+  }
+
+  /* ── Calcul de la série pour la période Du→Au + sélection ── */
   var donnees = null;
 
   function recalculer() {
-    var mois = elMois.value;
-    if (!mois) return;
-    chargerReal(mois).then(function (real) {
-      var parts = mois.split('-');
-      var an = parseInt(parts[0], 10), mo = parseInt(parts[1], 10) - 1;
-      var nbJours = new Date(an, mo + 1, 0).getDate();
+    var debStr = elDebut.value, finStr = elFin.value;
+    if (!debStr || !finStr) return;
+    var deb = new Date(debStr + 'T00:00:00');
+    var fin = new Date(finStr + 'T00:00:00');
+    if (fin < deb) return;
+
+    // Mois distincts couverts par la période (le réalisé se charge mois par mois côté API)
+    var moisSet = {};
+    var curMois = new Date(deb.getFullYear(), deb.getMonth(), 1);
+    while (curMois <= fin) {
+      moisSet[curMois.getFullYear() + '-' + pad2(curMois.getMonth() + 1)] = true;
+      curMois.setMonth(curMois.getMonth() + 1);
+    }
+    var moisListe = Object.keys(moisSet);
+    var multiMois = moisListe.length > 1;   // au-delà d'1 mois, le libellé doit préciser le mois pour lever l'ambiguïté
+
+    chargerPeriode(moisListe).then(function (real) {
       var selIds = salaries.filter(function (s) { return selection.has(String(s.id)); });
       var heuresLoc = {};
       try { heuresLoc = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) { heuresLoc = {}; }
 
-      // 1) Calcul de tous les jours du mois
+      // 1) Calcul de tous les jours de la période
       var tous = [];
-      for (var jour = 1; jour <= nbJours; jour++) {
-        var d = new Date(an, mo, jour);
+      var d = new Date(deb);
+      while (d <= fin) {
+        var isoJour = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
         var contratTot = 0, realTot = 0;
         var parSalJour = {};
         selIds.forEach(function (s) {
           var sid = String(s.id);
-          var isoJour = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
           var cj = Math.max(0, contratJour(s, d) - absenceJour(heuresLoc, s, isoJour));
           var rj = (real[sid] && real[sid][isoJour]) || 0;
           rj = rj / 60;
@@ -391,12 +430,13 @@
           parSalJour[sid] = { contrat: cj, real: rj };
         });
         tous.push({
-          label: pad2(jour) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()],
+          label: (multiMois ? pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) : pad2(d.getDate())) + ' ' + ['D', 'L', 'M', 'M', 'J', 'V', 'S'][d.getDay()],
           contrat: contratTot, real: realTot, parSal: parSalJour
         });
+        d.setDate(d.getDate() + 1);
       }
 
-      // 2) Affichage : tout le mois (contrat à venir compris),
+      // 2) Affichage : toute la période (contrat à venir compris),
       //    on retire seulement les jours totalement vides (dimanches, hors présence).
       var jours = tous.filter(function (j) { return j.contrat > 0 || j.real > 0; });
 
