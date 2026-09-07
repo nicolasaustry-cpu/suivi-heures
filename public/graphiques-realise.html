@@ -254,6 +254,25 @@
     return (e && parseFloat(e.heures)) || 0;
   }
 
+  /* Créneaux du planning marqués « exclu du calcul » (SAV, etc.) — repris de realise.html
+     pour que le réalisé du graphique ne compte pas non plus ces temps, comme la jauge. */
+  function calculerExclusMotifs() {
+    var heures = {};
+    try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) { heures = {}; }
+    var motifsExclus = {};
+    Object.keys(heures).forEach(function (k) {
+      var e = heures[k];
+      if (!e || !e.exclu || !e.chantier) return;
+      var m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (!m) return;
+      motifsExclus[m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + e.chantier.trim().toUpperCase()] = e.motifExclu || 'SAV';
+    });
+    return motifsExclus;
+  }
+  function estExclu(motifsExclus, salarieId, date, nom) {
+    return !!motifsExclus[salarieId + '|' + date + '|' + String(nom || '').trim().toUpperCase()];
+  }
+
   /* ── État ── */
   var selection = new Set(salaries.map(function (s) { return String(s.id); }));  // tous par défaut
   var mode = 'cumul';
@@ -354,37 +373,48 @@
   function chargerReal(mois) {
     if (cacheReal[mois]) return Promise.resolve(cacheReal[mois]);
     var tk = token();
-    if (!tk) { cacheReal[mois] = {}; return Promise.resolve(cacheReal[mois]); }
+    if (!tk) { cacheReal[mois] = { real: {}, presence: {} }; return Promise.resolve(cacheReal[mois]); }
     return fetch('/api/saisies/' + mois, { headers: { 'Authorization': 'Bearer ' + tk } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var parSal = {};
+        var motifsExclus = calculerExclusMotifs();
+        var parSal = {}, presence = {};
         if (d && d.ok && Array.isArray(d.saisies)) {
           d.saisies.forEach(function (s) {
             var sid = String(s.salarieId);
+            if (!presence[sid]) presence[sid] = {};
+            presence[sid][s.date] = true;   // salarié présent ce jour-là (a une saisie), qu'elle soit exclue ou non
             var min = 0;
-            (s.chantiers || []).forEach(function (c) { min += (parseFloat(c.dureeMin) || 0) + (parseFloat(c.deplacement) || 0); });
+            (s.chantiers || []).forEach(function (c) {
+              if (estExclu(motifsExclus, s.salarieId, s.date, c.nom)) return;   // temps « hors calcul » : ni réalisé ni jauge
+              min += (parseFloat(c.dureeMin) || 0) + (parseFloat(c.deplacement) || 0);
+            });
             if (!parSal[sid]) parSal[sid] = {};
             parSal[sid][s.date] = (parSal[sid][s.date] || 0) + min;
           });
         }
-        cacheReal[mois] = parSal;
-        return parSal;
+        var res = { real: parSal, presence: presence };
+        cacheReal[mois] = res;
+        return res;
       })
-      .catch(function () { cacheReal[mois] = {}; return cacheReal[mois]; });
+      .catch(function () { cacheReal[mois] = { real: {}, presence: {} }; return cacheReal[mois]; });
   }
 
   /* ── Chargement du réalisé sur tous les mois couverts par la période ── */
   function chargerPeriode(moisListe) {
     return Promise.all(moisListe.map(chargerReal)).then(function (resultats) {
-      var fusion = {};
-      resultats.forEach(function (parSal) {
-        Object.keys(parSal).forEach(function (sid) {
-          if (!fusion[sid]) fusion[sid] = {};
-          Object.assign(fusion[sid], parSal[sid]);
+      var real = {}, presence = {};
+      resultats.forEach(function (res) {
+        Object.keys(res.real).forEach(function (sid) {
+          if (!real[sid]) real[sid] = {};
+          Object.assign(real[sid], res.real[sid]);
+        });
+        Object.keys(res.presence).forEach(function (sid) {
+          if (!presence[sid]) presence[sid] = {};
+          Object.assign(presence[sid], res.presence[sid]);
         });
       });
-      return fusion;
+      return { real: real, presence: presence };
     });
   }
 
@@ -408,7 +438,8 @@
     var moisListe = Object.keys(moisSet);
     var multiMois = moisListe.length > 1;   // au-delà d'1 mois, le libellé doit préciser le mois pour lever l'ambiguïté
 
-    chargerPeriode(moisListe).then(function (real) {
+    chargerPeriode(moisListe).then(function (donneesReal) {
+      var real = donneesReal.real, presence = donneesReal.presence;
       var selIds = salaries.filter(function (s) { return selection.has(String(s.id)); });
       var heuresLoc = {};
       try { heuresLoc = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) { heuresLoc = {}; }
@@ -422,7 +453,10 @@
         var parSalJour = {};
         selIds.forEach(function (s) {
           var sid = String(s.id);
-          var cj = Math.max(0, contratJour(s, d) - absenceJour(heuresLoc, s, isoJour));
+          // Contrat compté seulement si le salarié a une saisie ce jour-là (aligné sur la jauge de realise.html) :
+          // un jour sans aucun pointage (oubli, absence non posée…) ne charge pas le contrat.
+          var aSaisie = !!(presence[sid] && presence[sid][isoJour]);
+          var cj = aSaisie ? Math.max(0, contratJour(s, d) - absenceJour(heuresLoc, s, isoJour)) : 0;
           var rj = (real[sid] && real[sid][isoJour]) || 0;
           rj = rj / 60;
           contratTot += cj;
