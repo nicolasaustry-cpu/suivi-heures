@@ -667,17 +667,18 @@ function genOptionsHeures(v) {
   return opt;
 }
 
-/* Récupère les noms de chantiers du prévisionnel pour le mois en cours
-   et les 3 mois suivants (gère le passage d'année). Retourne une liste
-   de noms uniques, triés. */
+/* Récupère les noms de chantiers du prévisionnel pour le mois précédent,
+   le mois en cours et les 3 mois suivants (gère le passage d'année dans
+   les deux sens). Retourne une liste de noms uniques, triés. */
 function getChantiersPrevisionnel() {
   const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
   const noms = new Set();
   const now  = new Date();
   let an  = now.getFullYear();
-  let moi = now.getMonth(); // 0-11
+  let moi = now.getMonth() - 1;          // démarre au mois précédent (M-1)
+  if (moi < 0) { moi = 11; an--; }       // passage à l'année précédente
 
-  for (let i = 0; i < 4; i++) {           // mois en cours + 3 suivants
+  for (let i = 0; i < 5; i++) {           // M-1, mois en cours, +3 suivants
     const moisData = prev?.[an]?.[moi];
     if (moisData && Array.isArray(moisData.chantiers)) {
       moisData.chantiers.forEach(c => {
