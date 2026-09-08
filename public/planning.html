@@ -727,7 +727,7 @@ function chantierSuggFiltrer(k) {
   if (!filtres.length) { chantierSuggFermer(); return; }
   const box = _chSuggBox();
   box.innerHTML = filtres.map(n =>
-    `<div class="chantier-sugg-item" onmousedown="event.preventDefault();chantierSuggChoisir('${k}',${JSON.stringify(n)})">${escapeHtml(n)}</div>`
+    `<div class="chantier-sugg-item" data-nom="${escapeHtml(n)}" onmousedown="event.preventDefault();chantierSuggChoisir('${k}',this.dataset.nom)">${escapeHtml(n)}</div>`
   ).join('');
   const r = inp.getBoundingClientRect();
   box.style.left = (r.left + window.scrollX) + 'px';
