@@ -746,7 +746,8 @@ function chantierSuggChoisir(k, nom) {
   if (!inp) return;
   inp.value = nom;
   chantierSuggFermer();
-  inp.blur();   // déclenche onChantierCommit (resynchro + recalcul TNA existants)
+  onChantierCommit(k);   // validation directe (ne dépend plus du bon déclenchement de l'événement blur, fiabilise le clic/tactile)
+  if (document.activeElement === inp) inp.blur();   // retire le focus visuel si le champ existe toujours
 }
 document.addEventListener('scroll', () => { if (_chSuggK) chantierSuggFermer(); }, true);
 
