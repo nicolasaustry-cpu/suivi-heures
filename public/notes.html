@@ -405,14 +405,32 @@ function supprimerPhotoModal(i) {
   rendrePhotosModal();
 }
 
+/* Redimensionne/compresse une photo avant envoi (même réglages que la vue équipe mobile :
+   1280 px de côté max, JPEG qualité 0.7) pour limiter le poids stocké. */
+function comprimerPhoto(fichier) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(fichier);
+    const img = new Image();
+    img.onload = function () {
+      try {
+        const MAXC = 1280;
+        let w = img.width, h = img.height;
+        if (w > MAXC || h > MAXC) { const r = Math.min(MAXC / w, MAXC / h); w = Math.round(w * r); h = Math.round(h * r); }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      } catch (e) { URL.revokeObjectURL(url); resolve(null); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
 function ajouterPhotosModal(files) {
   if (!files || !files.length) return;
-  Promise.all([...files].map(f => new Promise(resolve => {
-    const r = new FileReader();
-    r.onload  = () => resolve(r.result);
-    r.onerror = () => resolve(null);
-    r.readAsDataURL(f);
-  }))).then(resultats => {
+  Promise.all([...files].map(f => comprimerPhoto(f))).then(resultats => {
     resultats.filter(Boolean).forEach(d => _modalPhotos.push(d));
     rendrePhotosModal();
   });

@@ -780,12 +780,7 @@ async function ajouterPhotoTerrain(inputEl) {
   const nomU = ov._nom, salId = ov._salId, dateStr = ov._dateStr;
   if (!nomU || !salId || !dateStr) return;
 
-  const dataUrl = await new Promise(resolve => {
-    const r = new FileReader();
-    r.onload  = () => resolve(r.result);
-    r.onerror = () => resolve(null);
-    r.readAsDataURL(f);
-  });
+  const dataUrl = await new Promise(resolve => compresserPhotoNAE(f, resolve));   // redimensionne/compresse (même helper que l'ajout d'intervention)
   if (!dataUrl) { alert('Impossible de lire la photo.'); return; }
 
   const c = _trouverIntervention(nomU, salId, dateStr);
