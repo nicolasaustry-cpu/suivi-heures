@@ -918,12 +918,14 @@ router.post("/note-supprimer", verifyToken, async (req, res) => {
   }
 });
 
-// Éditer le texte et/ou les photos d'une note (existante ou à créer sur une
-// intervention qui n'en avait pas encore) : remplace intégralement note+photos.
+// Éditer le texte et/ou les photos d'une note : si l'intervention (voire la saisie
+// du jour) n'existe pas encore — cas d'un chantier seulement planifié, jamais pointé
+// par le salarié — on la crée à la volée avec 0h, comme /nouvelle-pc le fait déjà
+// pour un ajout de chantier complet depuis le PC.
 router.post("/note-modifier", verifyToken, async (req, res) => {
   try {
     const clientId  = req.user.clientId;
-    const { date, chantier } = req.body;
+    const { date, chantier, salarieNom } = req.body;
     const salarieId = Number(req.body.salarieId);
     const note = typeof req.body.note === 'string' ? req.body.note : '';
     const photos = Array.isArray(req.body.photos)
@@ -931,12 +933,21 @@ router.post("/note-modifier", verifyToken, async (req, res) => {
       : [];
     if (!date || !chantier || !salarieId)
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
-    const saisie = await Saisie.findOne({ clientId, salarieId, date });
-    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
-    const c = (saisie.chantiers || []).find(x => x.nom === chantier);
-    if (!c) return res.status(404).json({ ok: false, message: "Chantier introuvable" });
-    c.note = note;
-    c.photos = photos;
+
+    const nouveauChantier = () => ({
+      nom: chantier, heureArrivee: '', heureDepart: '', deplacement: 0, pause: 0, dureeMin: 0, note, photos
+    });
+
+    let saisie = await Saisie.findOne({ clientId, salarieId, date });
+    if (saisie) {
+      const c = (saisie.chantiers || []).find(x => x.nom === chantier);
+      if (c) { c.note = note; c.photos = photos; }
+      else saisie.chantiers.push(nouveauChantier());
+    } else {
+      saisie = new Saisie({ clientId, salarieId, salarieNom: salarieNom || '', date, chantiers: [nouveauChantier()] });
+    }
+    saisie.totalMin = saisie.chantiers.reduce((sum, x) => sum + (x.dureeMin || 0) + (x.deplacement || 0), 0);
+    saisie.updatedAt = new Date();
     saisie.markModified("chantiers");
     await saisie.save();
     res.json({ ok: true });

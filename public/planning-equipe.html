@@ -646,12 +646,14 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
   /* ── Remontée du terrain : note et photos du salarié pour cette journée,
      + bouton du gérant pour ajouter une photo directement depuis son téléphone
      (sans avoir à se connecter dans la session du salarié). ── */
-  const interventionExiste = !!_trouverIntervention(nom, salId, dateStr);
+  // La route serveur crée désormais l'intervention à la volée si besoin (chantier
+  // seulement planifié, jamais pointé) : plus besoin de vérifier qu'elle existe déjà
+  // pour proposer l'ajout d'une photo, seul le droit d'édition du gérant compte.
   const tz = ov.querySelector('#note-popup-terrain');
   const lg = ov.querySelector('#note-popup-lbl-gen');
   if (tz) {
     tz.innerHTML = '';
-    const zoneUtile = !!terrain || (editable && interventionExiste);
+    const zoneUtile = !!terrain || editable;
     if (zoneUtile) {
       const ent = document.createElement('div');
       ent.style.cssText = 'color:#c2410c;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;';
@@ -689,7 +691,7 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
         tz.appendChild(vide);
       }
 
-      if (editable && interventionExiste) {
+      if (editable) {
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
         addBtn.id = 'note-popup-photo-btn';
@@ -783,10 +785,10 @@ async function ajouterPhotoTerrain(inputEl) {
   const dataUrl = await new Promise(resolve => compresserPhotoNAE(f, resolve));   // redimensionne/compresse (même helper que l'ajout d'intervention)
   if (!dataUrl) { alert('Impossible de lire la photo.'); return; }
 
-  const c = _trouverIntervention(nomU, salId, dateStr);
-  const photos = (c && Array.isArray(c.photos)) ? c.photos.slice() : [];
+  const c0 = _trouverIntervention(nomU, salId, dateStr);
+  const photos = (c0 && Array.isArray(c0.photos)) ? c0.photos.slice() : [];
   photos.push(dataUrl);
-  const noteActuelle = (c && c.note) || '';
+  const noteActuelle = (c0 && c0.note) || '';
 
   const btn = document.getElementById('note-popup-photo-btn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
@@ -799,8 +801,18 @@ async function ajouterPhotoTerrain(inputEl) {
     });
     const d = await r.json();
     if (!d.ok) { alert('Échec de l\'envoi de la photo.'); return; }
-    if (c) c.photos = photos;                     // mise à jour locale de _saisies
+    if (c0) {
+      c0.photos = photos;   // mise à jour locale de _saisies
+    } else {
+      // L'intervention n'existait pas encore côté saisies (chantier seulement planifié) :
+      // le serveur vient de la créer, on la reflète localement sans recharger la page.
+      let s = (_saisies || []).find(x => String(x.salarieId) === String(salId) && x.date === dateStr);
+      if (!s) { s = { salarieId: salId, date: dateStr, chantiers: [] }; (_saisies = _saisies || []).push(s); }
+      if (!Array.isArray(s.chantiers)) s.chantiers = [];
+      s.chantiers.push({ nom: nomU, note: noteActuelle, photos });
+    }
     afficherNotePopup(nomU, salId, dateStr);       // réaffiche la popup avec la nouvelle photo
+    if (typeof genererGrille === 'function') genererGrille({ conserverScroll: true });   // met à jour l'icône 📷 du pavé
   } catch (e) {
     alert('Erreur réseau lors de l’envoi de la photo.');
   } finally {
