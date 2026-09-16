@@ -1491,6 +1491,7 @@
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
 let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) }
+let _docsPlanning = {};  // { nomChantier: nombre de documents (PDF) joints au chantier }
 let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin" } }
 let _rdvMobileNom = null;
 let _chantiersA = [];   // chantiers ajoutés
@@ -2030,6 +2031,7 @@ async function chargerChantiersPrev() {
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   chargerPauseJour();   // relit la pause déjeuner mémorisée pour ce jour
+  await chargerDocsPlanning();
   rendrePrev();
   rendreAjout();
   majTotal();
@@ -2073,6 +2075,26 @@ function ouvrirNotePlanning(nom) {
   let g = '';
   try { g = (JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'))[nom.toUpperCase()] || ''; } catch (_) {}
   afficherNotePopup(nom, g || _notesPlanning[nom] || '');
+}
+
+/* Interroge, pour chaque chantier prévu du jour, le nombre de PDF joints (sans les
+   télécharger) — permet d'afficher un badge « 📎 Document » même en l'absence de
+   note texte, ce que le seul _notesPlanning ne permettait pas de détecter. */
+async function chargerDocsPlanning() {
+  _docsPlanning = {};
+  const ce  = localStorage.getItem('saisie_codeEmploye');
+  const sid = _salarie && _salarie.id;
+  if (!ce || !sid) return;
+  const noms = [...new Set(_chantiersP.map(c => c.nom))];
+  await Promise.all(noms.map(nom =>
+    fetch('/api/documents/liste', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: ce, salarieId: sid, chantier: nom })
+    }).then(r => r.json()).then(r => {
+      if (r && r.ok && Array.isArray(r.documents)) _docsPlanning[nom] = r.documents.length;
+    }).catch(() => {})
+  ));
 }
 
 /* ═══════════════════════════
@@ -2419,11 +2441,13 @@ function rendrePrev() {
     const nomEl = document.createElement('div');
     nomEl.className = 'chantier-nom';
     nomEl.textContent = ch.nom;
-    if ((_notesPlanning[ch.nom] || '').trim()) {
+    const _texteNote = (_notesPlanning[ch.nom] || '').trim();
+    const _nbDocs    = _docsPlanning[ch.nom] || 0;
+    if (_texteNote || _nbDocs > 0) {
       const btnNP = document.createElement('button');
       btnNP.type = 'button';
-      btnNP.textContent = '📋 Note';
-      btnNP.title = 'Voir la note du planning';
+      btnNP.textContent = _texteNote ? '📋 Note' : '📎 Document' + (_nbDocs > 1 ? 's' : '');
+      btnNP.title = _texteNote ? 'Voir la note du planning' : 'Voir les documents joints';
       btnNP.className = 'chip-etat chip-note-planning';
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
       nomEl.appendChild(btnNP);
