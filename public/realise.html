@@ -191,6 +191,7 @@
       <div>
         <label style="font-size:0.82rem;font-weight:600;">Motif d'exclusion :</label><br>
         <div class="filtre-btn" id="btn-motif" onclick="ouvrirFiltreMotif(this)" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.9rem;min-width:120px;user-select:none;display:inline-block;">Tous ▼</div>
+        <span id="total-exclu-motif" style="margin-left:8px;font-size:0.82rem;color:#dc2626;font-weight:600;"></span>
       </div>
 
       <!-- Boutons d'action -->
@@ -505,6 +506,8 @@ function afficherRealise() {
     msgV.style.display = '';
     cont.innerHTML = '';
     majJauge(0, 0);
+    const elExcluVide = document.getElementById('total-exclu-motif');
+    if (elExcluVide) elExcluVide.textContent = '';
     return;
   }
   msgV.style.display = 'none';
@@ -516,7 +519,7 @@ function afficherRealise() {
     parDate[s.date].push(s);
   });
 
-  let grandTotalMin = 0, grandDeplMin = 0;
+  let grandTotalMin = 0, grandDeplMin = 0, totalExcluMin = 0;
 
   // Pré-calculer les heures prévues par salarié par jour depuis le planning
   const salaries = JSON.parse(localStorage.getItem('salariesdata') || '[]').filter(s => !s.administratif);
@@ -594,6 +597,8 @@ function afficherRealise() {
         if (!excl) {                     // les temps exclus ne comptent pas dans le réalisé / la jauge
           salTotalMin += c.dureeMin;
           salDeplMin  += c.deplacement || 0;
+        } else {
+          totalExcluMin += totMin;       // cumul du temps exclu actuellement visible (filtres appliqués)
         }
 
         const idxC = (s.chantiers || []).indexOf(c);
@@ -729,6 +734,19 @@ function afficherRealise() {
     const salsDuJour = [...new Set(parDate[date].map(s => s.salarieId))];
     salsDuJour.forEach(sid => { grandPrevuMin += getPrevuMin(date, sid); });
   });
+
+  // Mettre à jour le badge du total d'heures exclues actuellement visibles (respecte les filtres Salarié/Chantier/Motif)
+  {
+    const elExclu = document.getElementById('total-exclu-motif');
+    if (elExclu) {
+      if (totalExcluMin > 0) {
+        const eh = Math.floor(totalExcluMin / 60), em = totalExcluMin % 60;
+        elExclu.textContent = `(${eh}h${String(em).padStart(2, '0')} exclues)`;
+      } else {
+        elExclu.textContent = '';
+      }
+    }
+  }
 
   // Mettre à jour la jauge et les totaux
   majJauge(grandTotalMin, grandDeplMin, grandPrevuMin);
