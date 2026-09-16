@@ -198,6 +198,8 @@
   /* Ligne d'un chantier planifié mais ABSENT du devis (remonté automatiquement) */
   .tr-chantier.depuis-planning td { background: #fef9c3; }
   .tr-chantier.depuis-planning:hover td { background: #fde68a; }
+  .tr-chantier.chantier-surligne td,
+  .tr-chantier.chantier-surligne:hover td { background: #fecaca !important; }
   .coche-planning {
     color: #b45309;
     font-weight: 900;
@@ -439,6 +441,12 @@
         <select id="selectAnnee" onchange="chargerAnnee()"></select>
         <button onclick="ajouterAnnee()">+ Nouvelle année</button>
         <button onclick="location.href='gantt-previsionnel.html'" title="Diagramme de Gantt (prévu / planifié / réalisé)" style="margin-left:8px;">📊 Gantt</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
+        <input type="text" id="recherche-chantier" placeholder="🔍 Rechercher un chantier…" oninput="rechercherChantierPrev()"
+          style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem;width:180px;">
+        <button type="button" onclick="document.getElementById('recherche-chantier').value='';rechercherChantierPrev();"
+          title="Effacer la recherche" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">✕</button>
       </div>
     </div>
 
@@ -1005,12 +1013,28 @@ function rendreChantiers() {
   });
 
   cont.innerHTML = html;
+  rechercherChantierPrev();   // ré-applique la surbrillance de recherche après reconstruction du DOM
   // Centrage uniquement à la première ouverture de la page : ensuite, on laisse
   // l'utilisateur sur le mois où il saisit (pas de recentrage après chaque saisie).
   if (!_dejaCentre) {
     _dejaCentre = true;
     centrerMoisCourant();
   }
+}
+
+/* Recherche de chantier : surligne en rouge, sur tous les mois affichés, les lignes
+   dont le nom du client contient le terme saisi (insensible à la casse). Champ vide
+   = aucune surbrillance. Ré-appelée après chaque reconstruction de #section-chantiers
+   (rendreChantiers), puisque les lignes sont alors recréées et perdent la classe. */
+function rechercherChantierPrev() {
+  const inp = document.getElementById('recherche-chantier');
+  const terme = (inp ? inp.value : '').trim().toUpperCase();
+  document.querySelectorAll('#section-chantiers tr.tr-chantier').forEach(tr => {
+    const champ = tr.querySelector('input[data-champ="client"]');
+    const val = champ ? champ.value.trim().toUpperCase() : '';
+    const match = terme.length > 0 && val.includes(terme);
+    tr.classList.toggle('chantier-surligne', match);
+  });
 }
 
 /* Centre horizontalement la colonne du mois en cours dans la zone scrollable.
