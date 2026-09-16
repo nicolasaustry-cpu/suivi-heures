@@ -445,9 +445,12 @@
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
         <input type="text" id="recherche-chantier" placeholder="🔍 Rechercher un chantier…" oninput="rechercherChantierPrev()"
+          onkeydown="if(event.key==='Enter')ouvrirResumeChantierRecherche()"
           style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem;width:180px;">
         <button type="button" onclick="document.getElementById('recherche-chantier').value='';rechercherChantierPrev();"
           title="Effacer la recherche" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">✕</button>
+        <button type="button" onclick="ouvrirResumeChantierRecherche()"
+          title="Résumé des heures prévues par mois pour ce chantier" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">📋 Résumé</button>
       </div>
     </div>
 
@@ -1036,6 +1039,87 @@ function rechercherChantierPrev() {
     const match = terme.length > 0 && val.includes(terme);
     tr.classList.toggle('chantier-surligne', match);
   });
+}
+
+/* Fenêtre récapitulative : reprend le terme du champ de recherche et parcourt TOUTES
+   les années/mois connus de `data` (pas seulement ceux affichés à l'écran) pour lister,
+   par chantier correspondant, les heures prévues mois par mois, avec le total. */
+function _escHtmlResume(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+}
+function _fmtHeuresResume(h) {
+  if (!h) return '—';
+  return (Number.isInteger(h) ? h : h.toFixed(1).replace('.0', '')) + ' h';
+}
+function ouvrirResumeChantierRecherche() {
+  const inp = document.getElementById('recherche-chantier');
+  const terme = (inp ? inp.value : '').trim();
+  if (!terme) { alert('Saisissez d’abord un nom de chantier à rechercher.'); return; }
+  const termeU = terme.toUpperCase();
+
+  const lignes = [];
+  Object.keys(data).map(Number).sort((a, b) => a - b).forEach(annee => {
+    for (let mi = 0; mi < 12; mi++) {
+      const dm = data[annee] && data[annee][mi];
+      if (!dm || !Array.isArray(dm.chantiers)) continue;
+      dm.chantiers.forEach(ch => {
+        const nom = (ch.client || '').trim();
+        if (!nom || !nom.toUpperCase().includes(termeU)) return;
+        lignes.push({ annee, mi, nom, heures: parseFloat(ch.hPrevues) || 0 });
+      });
+    }
+  });
+
+  let ov = document.getElementById('resume-chantier-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'resume-chantier-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML =
+        '<div style="background:#fff;border-radius:12px;padding:18px 20px;width:min(420px,94vw);max-height:80vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,0.28);">'
+      + '<h3 id="resume-ch-titre" style="margin:0 0 12px;font-size:1.05rem;color:#1e3a8a;"></h3>'
+      + '<div id="resume-ch-corps"></div>'
+      + '<div style="text-align:right;margin-top:14px;"><button type="button" onclick="document.getElementById(\'resume-chantier-overlay\').style.display=\'none\';" style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Fermer</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
+  }
+
+  document.getElementById('resume-ch-titre').textContent = 'Résumé — « ' + terme + ' »';
+  const corps = document.getElementById('resume-ch-corps');
+
+  if (!lignes.length) {
+    corps.innerHTML = '<p style="color:#9ca3af;font-style:italic;">Aucun chantier ne correspond à cette recherche.</p>';
+  } else {
+    // Regroupement par nom EXACT de chantier (la recherche est une correspondance partielle,
+    // elle peut donc retrouver plusieurs chantiers distincts).
+    const groupes = {};
+    lignes.forEach(l => { (groupes[l.nom] = groupes[l.nom] || []).push(l); });
+    const noms = Object.keys(groupes).sort((a, b) => a.localeCompare(b, 'fr'));
+    let totalGeneral = 0;
+    let html = '';
+    noms.forEach(nom => {
+      const rows = groupes[nom].sort((a, b) => a.annee - b.annee || a.mi - b.mi);
+      const sousTotal = rows.reduce((s, r) => s + r.heures, 0);
+      totalGeneral += sousTotal;
+      html += '<div style="margin-bottom:14px;">';
+      if (noms.length > 1) html += '<div style="font-weight:700;color:#111827;margin-bottom:4px;">' + _escHtmlResume(nom) + '</div>';
+      html += '<table style="width:100%;border-collapse:collapse;font-size:0.88rem;">';
+      html += '<thead><tr><th style="text-align:left;padding:3px 5px;border-bottom:1px solid #e5e7eb;">Mois</th><th style="text-align:right;padding:3px 5px;border-bottom:1px solid #e5e7eb;">Heures prévues</th></tr></thead><tbody>';
+      rows.forEach(r => {
+        html += '<tr><td style="padding:3px 5px;border-bottom:1px solid #f1f5f9;">' + MOIS_FULL[r.mi] + ' ' + r.annee + '</td>'
+              + '<td style="padding:3px 5px;border-bottom:1px solid #f1f5f9;text-align:right;">' + _fmtHeuresResume(r.heures) + '</td></tr>';
+      });
+      html += '<tr style="font-weight:700;"><td style="padding:4px 5px;">Total</td><td style="padding:4px 5px;text-align:right;">' + _fmtHeuresResume(sousTotal) + '</td></tr>';
+      html += '</tbody></table></div>';
+    });
+    if (noms.length > 1) {
+      html += '<div style="text-align:right;font-weight:700;font-size:0.95rem;border-top:2px solid #cbd5e1;padding-top:8px;">Total général : ' + _fmtHeuresResume(totalGeneral) + '</div>';
+    }
+    corps.innerHTML = html;
+  }
+
+  ov.style.display = 'flex';
 }
 
 /* Centre horizontalement la colonne du mois en cours dans la zone scrollable.
