@@ -22,9 +22,10 @@
     var css =
       '.dch-wrap{border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:12px;background:#fbfdff;}' +
       '.dch-head{font-size:0.8rem;font-weight:700;color:#1e3a8a;margin-bottom:8px;}' +
-      '.dch-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:7px;background:#fff;margin-bottom:6px;font-size:0.84rem;}' +
-      '.dch-item .dch-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#374151;}' +
-      '.dch-item .dch-taille{color:#9ca3af;font-size:0.75rem;white-space:nowrap;}' +
+      '.dch-item{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:7px;background:#fff;margin-bottom:6px;font-size:0.84rem;}' +
+      '.dch-item .dch-nom{color:#374151;font-weight:600;overflow-wrap:anywhere;white-space:normal;line-height:1.3;}' +
+      '.dch-item .dch-bas{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}' +
+      '.dch-item .dch-taille{color:#9ca3af;font-size:0.75rem;white-space:nowrap;margin-right:auto;}' +
       '.dch-btn{border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:4px 9px;font-size:0.78rem;cursor:pointer;color:#374151;white-space:nowrap;}' +
       '.dch-btn:hover{background:#f1f5f9;}' +
       '.dch-btn.dch-suppr{border-color:#fecaca;color:#dc2626;}' +
@@ -120,10 +121,12 @@
         row.className = 'dch-item';
         row.innerHTML =
           '<span class="dch-nom" title="' + esc(d.nom) + '">📄 ' + esc(d.nom) + '</span>' +
-          '<span class="dch-taille">' + fmtTaille(d.taille) + '</span>' +
-          '<button type="button" class="dch-btn dch-apercu">Aperçu</button>' +
-          '<button type="button" class="dch-btn dch-dl">Télécharger</button>' +
-          (peutModifier ? '<button type="button" class="dch-btn dch-suppr">Supprimer</button>' : '');
+          '<div class="dch-bas">' +
+            '<span class="dch-taille">' + fmtTaille(d.taille) + '</span>' +
+            '<button type="button" class="dch-btn dch-apercu">Aperçu</button>' +
+            '<button type="button" class="dch-btn dch-dl">Télécharger</button>' +
+            (peutModifier ? '<button type="button" class="dch-btn dch-suppr">Supprimer</button>' : '') +
+          '</div>';
         elListe.appendChild(row);
 
         row.querySelector('.dch-apercu').addEventListener('click', function () { apercu(d); });
