@@ -1846,96 +1846,8 @@ function onChantierCommit(k) {
   // les modifications ciblées ultérieures).
   const nomFinal = (heures[k] && heures[k].chantier || '').trim();
   if (etaitVide && nomFinal && nomFinal.toUpperCase() !== TNA) {
-    ouvrirCreationChantier(k);
+    ouvrirNoteChantier(k, true);   // true = mode création : la fiche 🗒 s'enrichit des champs heures/RDV/exclusion
   }
-}
-
-/* ── Fenêtre unique de création d'un chantier ──
-   Regroupe, à la création d'un pavé (pavé auparavant vide), la saisie des heures,
-   d'une note, d'un horaire de RDV et de l'exclusion du calcul — au lieu de forcer
-   à ouvrir séparément les 3 icônes (🗒 / 🕐 / pastille d'exclusion). Ces icônes
-   restent affichées ensuite sur le pavé pour des modifications ciblées, inchangées. */
-let _creationK = null;
-function ouvrirCreationChantier(k) {
-  _creationK = k;
-  const nom = (heures[k] && heures[k].chantier || '').trim();
-  const sub = document.getElementById('creation-ch-sub');
-  if (sub) sub.textContent = nom ? ('Chantier : ' + nom) : '';
-
-  const hSel = document.getElementById('creation-ch-heures');
-  if (hSel) hSel.innerHTML = genOptionsHeures(heures[k] ? heures[k].heures : 0);
-
-  const txt = document.getElementById('creation-ch-note');
-  if (txt) txt.value = '';
-
-  const rdvInp = document.getElementById('creation-ch-rdv');
-  if (rdvInp) rdvInp.value = '';
-
-  const chkExclu = document.getElementById('creation-ch-exclu');
-  if (chkExclu) chkExclu.checked = false;
-  const selMotif = document.getElementById('creation-ch-motif');
-  if (selMotif) selMotif.innerHTML = MOTIFS_EXCLU.map(m => `<option value="${m}">${m}</option>`).join('') + '<option value="Autres">Autres…</option>';
-  const autre = document.getElementById('creation-ch-motif-autre');
-  if (autre) { autre.style.display = 'none'; autre.value = ''; }
-  const blocMotif = document.getElementById('creation-ch-motif-bloc');
-  if (blocMotif) blocMotif.style.display = 'none';
-
-  document.getElementById('creation-chantier-overlay').style.display = 'flex';
-  setTimeout(() => { if (txt) txt.focus(); }, 30);
-}
-function fermerCreationChantier() {
-  const o = document.getElementById('creation-chantier-overlay');
-  if (o) o.style.display = 'none';
-  _creationK = null;
-}
-function toggleCreationExclu() {
-  const chk = document.getElementById('creation-ch-exclu');
-  const bloc = document.getElementById('creation-ch-motif-bloc');
-  if (bloc) bloc.style.display = (chk && chk.checked) ? 'block' : 'none';
-}
-function majCreationMotifAutre() {
-  const sel = document.getElementById('creation-ch-motif');
-  const autre = document.getElementById('creation-ch-motif-autre');
-  if (!sel || !autre) return;
-  autre.style.display = sel.value === 'Autres' ? 'block' : 'none';
-}
-function validerCreationChantier() {
-  const k = _creationK;
-  if (!k || !heures[k]) { fermerCreationChantier(); return; }
-  const nom = (heures[k].chantier || '').trim();
-  if (!nom) { fermerCreationChantier(); return; }
-
-  // Heures
-  const hSel = document.getElementById('creation-ch-heures');
-  if (hSel) {
-    saveHeure(k, nom, hSel.value);
-    const hInline = document.getElementById(k + 'h');
-    if (hInline) hInline.value = hSel.value;
-  }
-
-  // Note « pour cette journée » (même mécanisme que la case correspondante de la fiche 🗒)
-  const txt = document.getElementById('creation-ch-note');
-  const texteNote = txt ? txt.value.trim() : '';
-  if (texteNote) heures[k].note = texteNote; else delete heures[k].note;
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
-  majBoutonNote(k);
-
-  // Horaire de RDV (vide = aucun RDV, retiré si déjà présent)
-  const rdvInp = document.getElementById('creation-ch-rdv');
-  saveRdv(k, rdvInp ? rdvInp.value : '');
-
-  // Exclusion du calcul
-  const chkExclu = document.getElementById('creation-ch-exclu');
-  if (chkExclu && chkExclu.checked) {
-    const selMotif = document.getElementById('creation-ch-motif');
-    const autre = document.getElementById('creation-ch-motif-autre');
-    let motif = selMotif ? selMotif.value : 'SAV';
-    if (motif === 'Autres') motif = (autre && autre.value || '').trim() || 'SAV';
-    appliquerExclu(k, true, motif);
-  }
-
-  fermerCreationChantier();
-  genererPlanning();
 }
 
 /* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
@@ -2058,10 +1970,34 @@ function clToggleEntretienPeriode(qui) {
   if (comBloc) comBloc.style.display = (c1an.checked || c2ans.checked) ? 'block' : 'none';
 }
 
-function ouvrirNoteChantier(k) {
+let _noteModalCreation = false;
+function ouvrirNoteChantier(k, modeCreation) {
   _noteCleCourante = k;
+  _noteModalCreation = !!modeCreation;
+  const titre = document.getElementById('note-modal-titre');
+  if (titre) titre.textContent = _noteModalCreation ? '🆕 Nouveau chantier' : '🗒 Note de chantier';
+  const champsCreation = document.getElementById('note-modal-creation-champs');
+  if (champsCreation) champsCreation.style.display = _noteModalCreation ? 'block' : 'none';
+  if (_noteModalCreation) {
+    const hSel = document.getElementById('note-modal-heures');
+    if (hSel) hSel.innerHTML = genOptionsHeures(heures[k] ? heures[k].heures : 0);
+    const rdvInp = document.getElementById('note-modal-rdv');
+    if (rdvInp) rdvInp.value = '';
+    const chkExclu = document.getElementById('note-modal-exclu');
+    if (chkExclu) chkExclu.checked = false;
+    const selMotif = document.getElementById('note-modal-exclu-motif');
+    if (selMotif) selMotif.innerHTML = MOTIFS_EXCLU.map(m => `<option value="${m}">${m}</option>`).join('') + '<option value="Autres">Autres…</option>';
+    const autre = document.getElementById('note-modal-exclu-autre');
+    if (autre) { autre.style.display = 'none'; autre.value = ''; }
+    const blocMotif = document.getElementById('note-modal-exclu-bloc');
+    if (blocMotif) blocMotif.style.display = 'none';
+  }
   const chk = document.getElementById('note-modal-jour');
-  if (chk) chk.checked = false;
+  // Pré-coche « pour cette journée » si une note du jour existe déjà sur ce pavé (notamment
+  // celle saisie via la fenêtre de création) : sans ça, la vue par défaut (note générale,
+  // vide) donnait l'impression que la note saisie à la création avait disparu.
+  const aNoteJour = !!(heures[k] && (heures[k].note || '').trim());
+  if (chk) chk.checked = aNoteJour;
   const nom = _nomChantierCell(k);
   const suiviActif = _suiviEntretienActif();
   const infoEntretien = (suiviActif && nom) ? _derniereEntretienInfo(nom) : { periode: null, commentaire: '' };
@@ -2074,18 +2010,19 @@ function ouvrirNoteChantier(k) {
   if (comTxt) comTxt.value = infoEntretien.commentaire || '';
   if (comBloc) comBloc.style.display = infoEntretien.periode ? 'block' : 'none';
   const entrLbl = document.getElementById('note-modal-entr-lbl');
-  if (entrLbl) entrLbl.style.display = suiviActif ? 'flex' : 'none';
+  if (entrLbl) entrLbl.style.display = (suiviActif && !aNoteJour) ? 'flex' : 'none';
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
   rendreHistNoteChantier(nom);
   const txt = document.getElementById('note-modal-txt');
   txt.value = '';
   const btnAjout = document.getElementById('note-modal-ajouter');
-  if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
+  if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = _noteModalCreation ? 'Créer' : 'Ajouter'; }
   const btnSup = document.getElementById('note-modal-suppr');
-  if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = noteDuChantier(nom) ? '' : 'none'; }
+  if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = (!_noteModalCreation && noteDuChantier(nom)) ? '' : 'none'; }
   if (window.DocsChantier) { const _dc = document.getElementById('note-modal-docs'); if (_dc) { if (nom) DocsChantier.monter(nom, _dc); else DocsChantier.vider(_dc); } }
   document.getElementById('note-modal-overlay').style.display = 'flex';
+  if (aNoteJour) clToggleNoteJour();   // affiche tout de suite la note du jour (texte + bouton "Enregistrer") au lieu de l'historique général
   setTimeout(() => txt.focus(), 30);
 }
 
@@ -2172,12 +2109,47 @@ function fermerNoteChantier() {
   const o = document.getElementById('note-modal-overlay');
   if (o) o.style.display = 'none';
   _noteCleCourante = null;
+  _noteModalCreation = false;
+}
+
+function toggleNoteModalExclu() {
+  const chk = document.getElementById('note-modal-exclu');
+  const bloc = document.getElementById('note-modal-exclu-bloc');
+  if (bloc) bloc.style.display = (chk && chk.checked) ? 'block' : 'none';
+}
+function majNoteModalMotifAutre() {
+  const sel = document.getElementById('note-modal-exclu-motif');
+  const autre = document.getElementById('note-modal-exclu-autre');
+  if (!sel || !autre) return;
+  autre.style.display = sel.value === 'Autres' ? 'block' : 'none';
+}
+/* Applique les champs propres au mode création (heures / RDV / exclusion) sur le pavé k.
+   Appelée en tout premier dans enregistrerNoteChantier, avant toute logique de note,
+   pour qu'ils soient bien enregistrés même si l'utilisateur ne saisit aucune note. */
+function _appliquerChampsCreation(k, nom) {
+  const hSel = document.getElementById('note-modal-heures');
+  if (hSel) {
+    saveHeure(k, nom, hSel.value);
+    const hInline = document.getElementById(k + 'h');
+    if (hInline) hInline.value = hSel.value;
+  }
+  const rdvInp = document.getElementById('note-modal-rdv');
+  saveRdv(k, rdvInp ? rdvInp.value : '');
+  const chkExclu = document.getElementById('note-modal-exclu');
+  if (chkExclu && chkExclu.checked) {
+    const selMotif = document.getElementById('note-modal-exclu-motif');
+    const autre = document.getElementById('note-modal-exclu-autre');
+    let motif = selMotif ? selMotif.value : 'SAV';
+    if (motif === 'Autres') motif = (autre && autre.value || '').trim() || 'SAV';
+    appliquerExclu(k, true, motif);
+  }
 }
 
 async function enregistrerNoteChantier() {
   if (!_noteCleCourante) return;
   const nom   = _nomChantierCell(_noteCleCourante);
   if (!nom)   { alert('Renseignez d’abord un chantier dans cette cellule.'); return; }
+  if (_noteModalCreation) _appliquerChampsCreation(_noteCleCourante, nom);
   const texte = document.getElementById('note-modal-txt').value.trim();
   const chk = document.getElementById('note-modal-jour');
   const pourJour = chk && chk.checked;
@@ -2234,7 +2206,7 @@ async function enregistrerNoteChantier() {
     fermerNoteChantier();
   } catch (e) {
     alert(e.message || 'Erreur réseau lors de l’enregistrement de la note.');
-    if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+    if (btn) { btn.disabled = false; btn.textContent = _noteModalCreation ? 'Créer' : 'Ajouter'; }
   }
 }
 
@@ -2850,8 +2822,21 @@ document.addEventListener('DOMContentLoaded', () => {
 <div id="note-modal-overlay" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;align-items:center;justify-content:center;padding:16px;"
   onclick="if(event.target===this)fermerNoteChantier()">
   <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
-    <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
+    <h3 id="note-modal-titre" style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <div id="note-modal-creation-champs" style="display:none;margin-bottom:12px;">
+      <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Heures prévues</label>
+      <select id="note-modal-heures" class="h" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:10px;"></select>
+      <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Horaire de RDV (optionnel)</label>
+      <input type="time" id="note-modal-rdv" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:6px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="note-modal-exclu" onchange="toggleNoteModalExclu()" style="width:16px;height:16px;"> Exclure ce temps du calcul
+      </label>
+      <div id="note-modal-exclu-bloc" style="display:none;">
+        <select id="note-modal-exclu-motif" onchange="majNoteModalMotifAutre()" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:8px;"></select>
+        <input type="text" id="note-modal-exclu-autre" placeholder="Préciser le motif" style="display:none;width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+      </div>
+    </div>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n, function(){ if(typeof genererPlanning==='function') genererPlanning(); }); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) RenommerChantier.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">✏️ Renommer le chantier (partout)</button>
     <div id="note-modal-docs" style="margin-bottom:12px;"></div>
@@ -2891,38 +2876,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 <script src="assets/filtre-excel.js"></script>
 <script src="assets/sync.js"></script>
-<div id="creation-chantier-overlay" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;align-items:center;justify-content:center;padding:16px;"
-  onclick="if(event.target===this)fermerCreationChantier()">
-  <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(420px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
-    <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🆕 Nouveau chantier</h3>
-    <div id="creation-ch-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:14px;"></div>
-
-    <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Heures prévues</label>
-    <select id="creation-ch-heures" class="h" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:12px;"></select>
-
-    <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Note (pour cette journée)</label>
-    <textarea id="creation-ch-note" rows="3" placeholder="Note optionnelle…"
-      style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.9rem;resize:vertical;margin-bottom:12px;"></textarea>
-
-    <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Horaire de RDV (optionnel)</label>
-    <input type="time" id="creation-ch-rdv" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:12px;">
-
-    <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:8px;cursor:pointer;user-select:none;">
-      <input type="checkbox" id="creation-ch-exclu" onchange="toggleCreationExclu()" style="width:16px;height:16px;"> Exclure ce temps du calcul
-    </label>
-    <div id="creation-ch-motif-bloc" style="display:none;margin-bottom:6px;">
-      <select id="creation-ch-motif" onchange="majCreationMotifAutre()" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:8px;"></select>
-      <input type="text" id="creation-ch-motif-autre" placeholder="Préciser le motif" style="display:none;width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
-    </div>
-
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
-      <button type="button" onclick="fermerCreationChantier()"
-        style="border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:7px 14px;cursor:pointer;font-weight:600;">Fermer</button>
-      <button type="button" onclick="validerCreationChantier()"
-        style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Créer</button>
-    </div>
-  </div>
-</div>
 <div id="cl-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10000;overflow:auto;padding:26px 12px;">
   <div style="background:#fff;border-radius:12px;max-width:660px;margin:0 auto;box-shadow:0 20px 55px rgba(0,0,0,.35);font-family:'Segoe UI',system-ui,Arial,sans-serif;color:#0f2747;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb;">
