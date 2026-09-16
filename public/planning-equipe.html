@@ -1073,7 +1073,7 @@ function genererGrille(opts) {
 function majLibelleSemaine(debut, fin) {
   const opt = { day: 'numeric', month: 'long' };
   const lbl = document.getElementById('wk-label');
-  if (lbl) lbl.textContent = `Semaine du ${debut.toLocaleDateString('fr-FR', opt)} au ${fin.toLocaleDateString('fr-FR', opt)}`;
+  if (lbl) lbl.textContent = `${debut.toLocaleDateString('fr-FR', opt)} – ${fin.toLocaleDateString('fr-FR', opt)}`;
 }
 
 /* ── Navigation semaine ── */

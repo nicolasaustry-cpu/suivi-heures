@@ -2388,7 +2388,7 @@ function rendreMonPlanning() {
   const lundi = _monPlanningLundi;
   const samedi = new Date(lundi); samedi.setDate(lundi.getDate() + 5);
   const ddmm = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
-  ov.querySelector('#mon-planning-semaine').textContent = 'Semaine du ' + ddmm(lundi) + ' au ' + ddmm(samedi);
+  ov.querySelector('#mon-planning-semaine').textContent = ddmm(lundi) + ' – ' + ddmm(samedi);
 
   const corps = ov.querySelector('#mon-planning-corps');
   corps.innerHTML = '';
