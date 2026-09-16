@@ -441,6 +441,7 @@
         <select id="selectAnnee" onchange="chargerAnnee()"></select>
         <button onclick="ajouterAnnee()">+ Nouvelle année</button>
         <button onclick="location.href='gantt-previsionnel.html'" title="Diagramme de Gantt (prévu / planifié / réalisé)" style="margin-left:8px;">📊 Gantt</button>
+        <button onclick="location.reload()" title="Recharger les données du serveur" style="margin-left:8px;">↻ Rafraîchir</button>
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
         <input type="text" id="recherche-chantier" placeholder="🔍 Rechercher un chantier…" oninput="rechercherChantierPrev()"
