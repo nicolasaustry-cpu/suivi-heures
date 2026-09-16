@@ -205,6 +205,7 @@
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
+<script src="assets/documents-chantier.js"></script>
 <script>
 /* ════════════════════════════════════════════════
    Vue équipe — grille gérant
@@ -623,6 +624,7 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
       + '<div id="note-popup-lbl-gen" style="display:none;padding:14px 16px 0;color:#6b7280;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Note de suivi du chantier</div>'
       + '<div id="note-popup-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;"></div>'
       + '<div id="note-popup-photos" style="padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:8px;"></div>'
+      + '<div id="note-popup-docs" style="padding:0 16px 12px;"></div>'
       + '<input type="file" id="note-popup-photo-input" accept="image/*" style="display:none;" onchange="ajouterPhotoTerrain(this)">'
       + '<div id="note-popup-edit" style="padding:0 16px 12px;display:none;">'
       +   '<label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>'
@@ -723,6 +725,20 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
       pz.appendChild(im);
     });
     pz.style.display = fotos.length ? 'flex' : 'none';
+  }
+  // Documents joints (PDF) du chantier — même module que saisie.html / notes.html.
+  if (window.DocsChantier) {
+    const dz = ov.querySelector('#note-popup-docs');
+    if (dz) {
+      const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+      let salarieIdAuth = null;
+      try { salarieIdAuth = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+      if (nom && codeEmploye && salarieIdAuth) {
+        DocsChantier.monter(nom, dz, { auth: { codeEmploye, salarieId: salarieIdAuth }, peutModifier: editable });
+      } else {
+        DocsChantier.vider(dz);
+      }
+    }
   }
   ov.querySelector('#note-popup-edit').style.display    = editable ? 'block' : 'none';
   ov.querySelector('#note-popup-ajouter').style.display = editable ? 'inline-block' : 'none';
