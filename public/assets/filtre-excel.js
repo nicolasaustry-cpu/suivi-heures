@@ -4,7 +4,11 @@
    Modèle « vide = tout affiché » :
      - Par défaut AUCUNE case cochée  → aucun filtre → tout est affiché.
      - Saisir du texte COCHE automatiquement les valeurs correspondantes.
-     - Cocher / décocher applique IMMÉDIATEMENT (pas de bouton OK).
+     - Cocher / décocher NE FAIT QUE modifier la sélection en cours :
+       rien n'est appliqué tant que l'utilisateur n'a pas cliqué "✓ Valider".
+     - Bouton "✓ Valider"  → applique la sélection courante et ferme.
+     - Bouton "Annuler", clic extérieur ou touche Échap → referme SANS
+       appliquer, la sélection revient à ce qu'elle était à l'ouverture.
      - Un Set vide transmis à onApply() signifie « aucun filtre ».
    ─────────────────────────────────────────────────────────────── */
 
@@ -18,7 +22,9 @@ window.FiltreExcel = (function () {
    * @param {HTMLElement} cfg.button   - bouton-déclencheur (positionnement)
    * @param {Array}       cfg.items    - [{ value:'id', label:'Texte' }, …]
    * @param {Set|Array}   cfg.selected - valeurs déjà cochées (vide = tout)
-   * @param {Function}    cfg.onApply  - callback(selectedSet) à chaque changement
+   * @param {Function}    cfg.onApply  - callback(selectedSet) appelé UNE FOIS,
+   *                                     quand l'utilisateur valide (ou ferme
+   *                                     en dehors — voir plus haut)
    * @param {string}      [cfg.labelTous='(Sélectionner tout)']
    * @param {string}      [cfg.placeholderRecherche='Rechercher…']
    * @param {Array|Set}   [cfg.epingles] - valeurs toujours visibles (ignorent la recherche)
@@ -34,6 +40,10 @@ window.FiltreExcel = (function () {
         <input type="text" class="fexc-search" placeholder="🔍 ${cfg.placeholderRecherche || 'Rechercher…'}">
       </div>
       <div class="fexc-list"></div>
+      <div class="fexc-footer" style="display:flex;gap:8px;padding:8px;border-top:1px solid #eee;">
+        <button type="button" class="fexc-btn-annuler" style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:0.85rem;">Annuler</button>
+        <button type="button" class="fexc-btn-valider" style="flex:1;padding:6px 8px;border:1px solid #2563eb;border-radius:4px;background:#2563eb;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600;">✓ Valider</button>
+      </div>
     `;
 
     document.body.appendChild(dd);
@@ -41,8 +51,11 @@ window.FiltreExcel = (function () {
 
     const list        = dd.querySelector('.fexc-list');
     const search      = dd.querySelector('.fexc-search');
+    const btnValider  = dd.querySelector('.fexc-btn-valider');
+    const btnAnnuler  = dd.querySelector('.fexc-btn-annuler');
     const labelTous    = cfg.labelTous || '(Sélectionner tout)';
     const selectedSet  = new Set(cfg.selected || []);
+    const initialSet   = new Set(selectedSet);   // pour Annuler / fermeture hors zone
     const epinglesSet  = new Set(cfg.epingles || []);
 
     /* Rendu de la liste (filtre = texte de recherche éventuel). */
@@ -65,8 +78,7 @@ window.FiltreExcel = (function () {
       cbAll.addEventListener('change', () => {
         if (cbAll.checked) itemsVisibles.forEach(it => selectedSet.add(it.value));
         else               itemsVisibles.forEach(it => selectedSet.delete(it.value));
-        rendreListe(filtre);
-        cfg.onApply(selectedSet);   // application immédiate
+        rendreListe(filtre);   // ne fait que redessiner ; onApply attend "Valider"
       });
       list.appendChild(labelAll);
 
@@ -84,7 +96,7 @@ window.FiltreExcel = (function () {
           if (cb.checked) selectedSet.add(it.value);
           else            selectedSet.delete(it.value);
           cbAll.checked = itemsVisibles.every(i => selectedSet.has(i.value));
-          cfg.onApply(selectedSet);   // application immédiate
+          // ne fait que mettre à jour la coche ; onApply attend "Valider"
         });
         list.appendChild(lab);
       });
@@ -99,7 +111,9 @@ window.FiltreExcel = (function () {
 
     /* Recherche = coche :
        - champ vide  → on vide la sélection (donc tout est affiché)
-       - sinon       → on COCHE les valeurs dont le libellé correspond. */
+       - sinon       → on COCHE les valeurs dont le libellé correspond.
+       Comme pour les cases, ceci ne fait que modifier la sélection en cours ;
+       "Valider" reste nécessaire pour l'appliquer. */
     function appliquerRecherche(txt) {
       const f = normaliser(txt);
       // Les valeurs épinglées gardent leur état de coche : la recherche ne les coche/décoche jamais.
@@ -113,11 +127,18 @@ window.FiltreExcel = (function () {
         });
       }
       rendreListe(txt);
-      cfg.onApply(selectedSet);   // application immédiate
     }
 
     rendreListe();
     search.addEventListener('input', e => appliquerRecherche(e.target.value));
+
+    btnValider.addEventListener('click', () => {
+      cfg.onApply(new Set(selectedSet));
+      fermer();
+    });
+    btnAnnuler.addEventListener('click', () => {
+      fermer();   // pas d'onApply : la sélection revient à son état d'avant ouverture
+    });
 
     _activeDropdown = dd;
     _activeButton   = cfg.button;
@@ -151,7 +172,7 @@ window.FiltreExcel = (function () {
       .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // sans accents
   }
 
-  /* Fermeture sur clic extérieur ou Échap */
+  /* Fermeture sur clic extérieur (= Annuler, aucun onApply) ou touche Échap */
   document.addEventListener('mousedown', e => {
     if (_activeDropdown && !_activeDropdown.contains(e.target) &&
         _activeButton    && !_activeButton.contains(e.target)) {
