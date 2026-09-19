@@ -214,6 +214,13 @@
   #rdv-pop .rdv-pop-clear:hover { background:#e2e8f0; }
   #rdv-pop .rdv-pop-cancel { background:#fee2e2;color:#b91c1c; }
   #rdv-pop .rdv-pop-cancel:hover { background:#fecaca; }
+  /* Marqueur RDV importé depuis Reservio (🔗 auto-synchronisé, 🔒 verrouillé après modif manuelle) */
+  .badge-reservio { font-size:0.78rem;margin-right:3px;vertical-align:middle;cursor:default; }
+  /* Alerte : RDV verrouillé annulé côté Reservio, en attente d'une décision du gérant */
+  .btn-alerte-reservio { display:block;width:100%;box-sizing:border-box;margin-top:4px;border:none;
+    background:#fee2e2;color:#b91c1c;border-radius:6px;padding:4px 8px;font-size:0.74rem;font-weight:700;
+    cursor:pointer;text-align:center; }
+  .btn-alerte-reservio:hover { background:#fecaca; }
   /* Panneau de choix du motif d'exclusion (ouvert à côté du bouton rond) */
   #excl-pop { position:fixed;z-index:2000;display:none;background:#fff;border:1px solid #cbd5e1;
     border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);padding:10px;min-width:190px; }
@@ -987,9 +994,17 @@ function pl2ChipHTML(sl){
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
   const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner / déplacer">⠿</span>':'';
   const _mv=(sl.rempli && !estTNA)?'1':'';
+  // Marqueur RDV importé depuis Reservio : 🔗 tant que Reservio garde la main sur ce
+  // créneau, 🔒 dès qu'il a été modifié à la main (et n'est plus retouché par le sync).
+  const badgeReservio = data.reservioUid
+    ? `<span class="badge-reservio no-print" title="${data.reservioLocked?'RDV Reservio modifié manuellement — verrouillé, ne sera plus mis à jour automatiquement':'RDV importé automatiquement depuis Reservio'}">${data.reservioLocked?'🔒':'🔗'}</span>`
+    : '';
+  const alerteReservio = data.reservioAnnule
+    ? `<button type="button" class="btn-alerte-reservio no-print" title="Ce RDV a été annulé dans Reservio — cliquer pour décider" onclick="pl2TraiterAlerteReservio('${sl.k}')">⚠️ Annulé Reservio</button>`
+    : '';
   return `<div class="${cls}" data-k="${sl.k}" data-move="${_mv}">
     <div class="ligne1">
-      ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
+      ${grip}${badgeReservio}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
         onfocus="onChantierFocus('${sl.k}');chantierSuggFiltrer('${sl.k}')"
         oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value);chantierSuggFiltrer('${sl.k}')"
         onblur="onChantierCommit('${sl.k}');chantierSuggFermer()">
@@ -1002,9 +1017,28 @@ function pl2ChipHTML(sl){
       ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(data.motifExclu||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
+    ${alerteReservio}
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
     ${(typeof Coord!=='undefined' && nom) ? Coord.html(nom) : ''}
   </div>`;
+}
+
+/* Un RDV Reservio verrouillé (modifié à la main) dont le rendez-vous a été annulé
+   côté Reservio reste dans le planning avec une alerte plutôt que d'être effacé
+   automatiquement (le gérant a pris ce créneau en main). Ce clic tranche : le
+   conserver tel quel (créneau désormais autonome de Reservio) ou le supprimer. */
+function pl2TraiterAlerteReservio(k){
+  const d = heures[k];
+  if(!d) return;
+  const msg = "Ce RDV a été annulé dans Reservio, mais vous l'aviez modifié manuellement dans le planning.\n\n"
+    + "OK = conserver ce créneau tel quel.\nAnnuler = le supprimer.";
+  if(confirm(msg)){
+    delete d.reservioAnnule;
+  } else {
+    delete heures[k];
+  }
+  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+  genererPlanning();
 }
 
 /* ── Réordonnancement des pavés dans le planning prévu (glisser-déposer, poignée ⠿) ── */
