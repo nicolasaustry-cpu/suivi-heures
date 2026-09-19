@@ -230,10 +230,18 @@ async function syncClient(doc) {
 
   for (const s of cfg.salaries) {
     const salarieId = s?.salarieId;
-    const url = (s?.urlIcs || "").trim();
-    if (salarieId == null || !url) continue;
-    const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate);
-    uids.forEach(u => tousLesUids.add(u));
+    // Plusieurs fiches Reservio peuvent exister pour un même salarié (cas constaté
+    // chez un client : deux flux non redondants, RDV différents dans chacun).
+    // On accepte donc urlsIcs (tableau) et, par compatibilité, l'ancien urlIcs (chaîne unique).
+    const urls = Array.isArray(s?.urlsIcs) ? s.urlsIcs
+               : (s?.urlIcs ? [s.urlIcs] : []);
+    if (salarieId == null || !urls.length) continue;
+    for (const urlBrute of urls) {
+      const url = (urlBrute || "").trim();
+      if (!url) continue;
+      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate);
+      uids.forEach(u => tousLesUids.add(u));
+    }
   }
 
   traiterAnnulations(doc, tousLesUids);
