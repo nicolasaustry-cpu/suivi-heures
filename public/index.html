@@ -181,6 +181,21 @@
   </div>
 </section>
 
+<!-- Connexion Reservio : import automatique des RDV pris en ligne dans le planning -->
+<section class="ent-tuile" style="background:#eff6ff;border-left-color:#2563eb;">
+  <h2 style="color:#1d4ed8;">Connexion Reservio</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Importe automatiquement dans le planning les rendez-vous pris en ligne sur Reservio (vérification toutes les 15 minutes). Un RDV importé que vous modifiez à la main dans le planning (technicien, heures, type d'entretien…) n'est ensuite plus jamais écrasé par Reservio.
+  </p>
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+    <input type="checkbox" id="reservioActif" onchange="toggleReservioBloc()">
+    <label for="reservioActif" style="font-size:0.9rem;">Connecté à Reservio</label>
+  </div>
+  <div id="reservio-bloc-salaries" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;"></div>
+  <button type="button" id="btn-valider-reservio" class="btn btn-success" onclick="validerReservio()">💾 Enregistrer</button>
+  <span id="reservio-msg" style="font-size:0.85rem;color:#16a34a;margin-left:8px;"></span>
+</section>
+
 <!-- Suivi des entretiens : activation de la page de suivi des contrats d'entretien annuel -->
 <section class="ent-tuile" style="background:#f8fafc;border-left-color:#64748b;">
   <h2 style="color:#475569;">Suivi des entretiens</h2>
@@ -252,6 +267,84 @@ async function validerSuiviEntretien() {
 }
 window.addEventListener('DOMContentLoaded', chargerSuiviEntretien);
 window.addEventListener('donnees-chargees', chargerSuiviEntretien);
+</script>
+
+<script>
+/* ── Connexion Reservio : import auto des RDV dans le planning ──
+   Un salarié = une URL de flux ICS Reservio (page Reservio :
+   Paramètres → Synchroniser les rendez-vous → URL nommée par salarié).
+   Enregistré dans entreprisedata.reservio = { actif, salaries: [{salarieId, urlIcs}] } */
+function _salariesListeReservio() {
+  try { return JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) { return []; }
+}
+
+function toggleReservioBloc() {
+  const actif = document.getElementById('reservioActif').checked;
+  const bloc = document.getElementById('reservio-bloc-salaries');
+  bloc.style.display = actif ? 'flex' : 'none';
+  if (actif) rendreBlocReservioSalaries();
+}
+
+function rendreBlocReservioSalaries() {
+  const cont = document.getElementById('reservio-bloc-salaries');
+  if (!cont) return;
+  const salaries = _salariesListeReservio();
+  const ent = _entLire();
+  const cfg = (ent.reservio && Array.isArray(ent.reservio.salaries)) ? ent.reservio.salaries : [];
+  const urlParId = {};
+  cfg.forEach(s => { urlParId[String(s.salarieId)] = s.urlIcs || ''; });
+
+  if (!salaries.length) {
+    cont.innerHTML = '<p style="font-size:0.85rem;color:#94a3b8;margin:0;">Ajoutez d\'abord des salariés dans la page « Salariés ».</p>';
+    return;
+  }
+
+  cont.innerHTML = salaries.map(s => {
+    const nom = ((s.prenom || '') + ' ' + (s.nom || '')).trim() || '(sans nom)';
+    const val = (urlParId[String(s.id)] || '').replace(/"/g, '&quot;');
+    return '<div>'
+      + '<label style="font-size:0.85rem;font-weight:600;">URL ICS Reservio — ' + nom + ' :</label><br>'
+      + '<input type="text" class="reservio-url-salarie" data-salarie-id="' + s.id + '" value="' + val + '" '
+      + 'placeholder="https://app.reservio.com/sync/calendar/..." style="width:100%;max-width:480px;box-sizing:border-box;">'
+      + '</div>';
+  }).join('');
+}
+
+function chargerReservio() {
+  const ent = _entLire();
+  const actif = !!(ent.reservio && ent.reservio.actif);
+  const cb = document.getElementById('reservioActif');
+  if (cb) cb.checked = actif;
+  const bloc = document.getElementById('reservio-bloc-salaries');
+  if (bloc) bloc.style.display = actif ? 'flex' : 'none';
+  rendreBlocReservioSalaries();
+}
+
+async function validerReservio() {
+  const actif = document.getElementById('reservioActif').checked;
+  const salaries = [];
+  document.querySelectorAll('.reservio-url-salarie').forEach(inp => {
+    const url = (inp.value || '').trim();
+    if (url) salaries.push({ salarieId: inp.getAttribute('data-salarie-id'), urlIcs: url });
+  });
+  if (actif && !salaries.length) {
+    alert("Renseignez au moins une URL ICS avant d'activer la connexion Reservio.");
+    return;
+  }
+  const ent = _entLire();
+  ent.reservio = { actif, salaries };
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-reservio');
+  const msg = document.getElementById('reservio-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+  if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+window.addEventListener('DOMContentLoaded', chargerReservio);
+window.addEventListener('donnees-chargees', chargerReservio);
 </script>
 
 <script>
