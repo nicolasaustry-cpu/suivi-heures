@@ -17,6 +17,7 @@ import documentsRoutes from "./routes/documents.js";
 import auditRoutes from "./routes/audit.js";
 import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
 import { planifierRappelsRdv } from "./jobs/rappelsRdv.js";
+import { planifierSynchroReservio } from "./jobs/syncReservio.js";
 
 dotenv.config();
 
@@ -105,6 +106,9 @@ planifierSauvegardeQuotidienne();
 
 // Rappels de RDV par notification push (chaque minute, Europe/Paris)
 planifierRappelsRdv();
+
+// Synchronisation Reservio → planning (clients ayant activé la connexion, toutes les 15 min)
+planifierSynchroReservio();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));
