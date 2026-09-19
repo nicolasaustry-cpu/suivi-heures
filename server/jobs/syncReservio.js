@@ -76,7 +76,7 @@ function libelleRdv(summary) {
 //   https://app.reservio.com/...  (lien à ignorer)
 function parserDescription(desc) {
   const txt = String(desc || "").trim();
-  if (!txt) return { email: "", tel: "", adresse: "" };
+  if (!txt) return { email: "", tel: "", adresse: "", ville: "" };
   const blocs = txt.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
   const contact = blocs[0] || "";
   const lignes = contact.split("\n").map(l => l.trim()).filter(Boolean);
@@ -84,9 +84,32 @@ function parserDescription(desc) {
   const tel   = (lignes.find(l => !/@/.test(l) && /[\d\s+().-]{8,}/.test(l)) || "").trim();
   // Tout ce qui n'est ni le bloc contact, ni le dernier bloc (lien reservio)
   const adresseBlocs = blocs.slice(1, blocs.length > 1 ? blocs.length - 1 : 1)
-    .filter(b => !/^https?:\/\//i.test(b));
-  const adresse = adresseBlocs.join(" — ").trim();
-  return { email, tel: tel.replace(/\s+/g, " "), adresse: adresse.slice(0, 500) };
+    .filter(b => !/^https?:\/\//i.test(b))
+    .map(nettoyerLibelleAdresse);
+  const brute = adresseBlocs.join(" — ").trim();
+  const { rue, ville } = separerRueEtVille(brute);
+  return { email, tel: tel.replace(/\s+/g, " "), adresse: rue.slice(0, 500), ville: ville.slice(0, 200) };
+}
+
+// Reservio préfixe souvent le champ adresse par le libellé du formulaire, ex. :
+//   "Adresse complète ( RUE - CP - VILLE): 45 rue ..."
+//   "Adresse complète (RUE - CP - VILLE)  et  Marque de la PAC: 331 Chemin ..."
+// On retire ce libellé pour ne garder que le texte utile saisi par le client.
+function nettoyerLibelleAdresse(bloc) {
+  return String(bloc || "")
+    .replace(/adresse\s+compl[eè]te\s*\([^)]*\)\s*(?:et\s*marque\s*de\s*la\s*pac\s*)?:?\s*/i, "")
+    .trim();
+}
+
+// Sépare la rue du "code postal + ville", pour remplir les deux champs distincts
+// de l'annuaire (adresse / ville) comme le fait la fiche « Coordonnées du chantier ».
+// Repère le premier code postal français (5 chiffres) : tout ce qui précède = la
+// rue, tout ce qui suit (code postal inclus) = la ville — le champ Ville de
+// l'appli attend justement "code postal et ville" au même endroit.
+function separerRueEtVille(txt) {
+  const m = String(txt || "").match(/^(.*?)(\d{5}\s+.+)$/s);
+  if (!m) return { rue: String(txt || "").trim(), ville: "" };
+  return { rue: m[1].trim().replace(/[,—-]\s*$/, "").trim(), ville: m[2].trim() };
 }
 
 // ── Salarié : trouve le 1er slot libre du jour, en excluant ceux déjà pris ce cycle ──
@@ -139,7 +162,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
     const { client, service, chantier } = libelleRdv(ev.summary);
     const dureeH = ev.end ? Math.max(0.25, (ev.end - ev.start) / 3600000) : 2;
     const rdv = heureHHMMParis(ev.start);
-    const { email, tel, adresse } = parserDescription(ev.description);
+    const { email, tel, adresse, ville } = parserDescription(ev.description);
 
     const cleAttendue = `${salarieId}${dateKey}`;
     const keyExistante = existantParUid.get(ev.uid);
@@ -183,13 +206,13 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
 
     // Coordonnées (adresse/téléphone) : alimente l'annuaire existant,
     // ce qui active automatiquement le bouton 🗺 Itinéraire en saisie mobile.
-    if (adresse || tel || email) {
+    if (adresse || ville || tel || email) {
       const coords = doc.coordonneesChantiers || (doc.coordonneesChantiers = {});
       const cle = chantier.trim().toUpperCase();
       coords[cle] = {
         adresse: adresse || (coords[cle]?.adresse || ""),
-        ville:   coords[cle]?.ville || "",
-        mobile:  tel   || (coords[cle]?.mobile || ""),
+        ville:   ville   || (coords[cle]?.ville   || ""),
+        mobile:  tel     || (coords[cle]?.mobile  || ""),
         fixe:    coords[cle]?.fixe || ""
       };
       doc.markModified("coordonneesChantiers");
