@@ -186,6 +186,7 @@
   <h2 style="color:#1d4ed8;">Connexion Reservio</h2>
   <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
     Importe automatiquement dans le planning les rendez-vous pris en ligne sur Reservio (vérification toutes les 15 minutes). Un RDV importé que vous modifiez à la main dans le planning (technicien, heures, type d'entretien…) n'est ensuite plus jamais écrasé par Reservio.
+    Si Reservio propose <strong>plusieurs URL</strong> pour un même salarié (plusieurs fiches), collez-les <strong>toutes</strong>, une par ligne.
   </p>
   <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
     <input type="checkbox" id="reservioActif" onchange="toggleReservioBloc()">
@@ -291,8 +292,8 @@ function rendreBlocReservioSalaries() {
   const salaries = _salariesListeReservio();
   const ent = _entLire();
   const cfg = (ent.reservio && Array.isArray(ent.reservio.salaries)) ? ent.reservio.salaries : [];
-  const urlParId = {};
-  cfg.forEach(s => { urlParId[String(s.salarieId)] = s.urlIcs || ''; });
+  const urlsParId = {};
+  cfg.forEach(s => { urlsParId[String(s.salarieId)] = Array.isArray(s.urlsIcs) ? s.urlsIcs : []; });
 
   if (!salaries.length) {
     cont.innerHTML = '<p style="font-size:0.85rem;color:#94a3b8;margin:0;">Ajoutez d\'abord des salariés dans la page « Salariés ».</p>';
@@ -301,11 +302,12 @@ function rendreBlocReservioSalaries() {
 
   cont.innerHTML = salaries.map(s => {
     const nom = ((s.prenom || '') + ' ' + (s.nom || '')).trim() || '(sans nom)';
-    const val = (urlParId[String(s.id)] || '').replace(/"/g, '&quot;');
+    const val = (urlsParId[String(s.id)] || []).join('\n').replace(/</g, '&lt;');
     return '<div>'
-      + '<label style="font-size:0.85rem;font-weight:600;">URL ICS Reservio — ' + nom + ' :</label><br>'
-      + '<input type="text" class="reservio-url-salarie" data-salarie-id="' + s.id + '" value="' + val + '" '
-      + 'placeholder="https://app.reservio.com/sync/calendar/..." style="width:100%;max-width:480px;box-sizing:border-box;">'
+      + '<label style="font-size:0.85rem;font-weight:600;">URL(s) ICS Reservio — ' + nom
+      + ' <span style="font-weight:400;color:#94a3b8;">(une par ligne s\'il y en a plusieurs)</span> :</label><br>'
+      + '<textarea class="reservio-url-salarie" data-salarie-id="' + s.id + '" rows="2" '
+      + 'placeholder="https://app.reservio.com/sync/calendar/..." style="width:100%;max-width:480px;box-sizing:border-box;font-family:inherit;font-size:0.85rem;">' + val + '</textarea>'
       + '</div>';
   }).join('');
 }
@@ -324,8 +326,8 @@ async function validerReservio() {
   const actif = document.getElementById('reservioActif').checked;
   const salaries = [];
   document.querySelectorAll('.reservio-url-salarie').forEach(inp => {
-    const url = (inp.value || '').trim();
-    if (url) salaries.push({ salarieId: inp.getAttribute('data-salarie-id'), urlIcs: url });
+    const urls = (inp.value || '').split('\n').map(u => u.trim()).filter(Boolean);
+    if (urls.length) salaries.push({ salarieId: inp.getAttribute('data-salarie-id'), urlsIcs: urls });
   });
   if (actif && !salaries.length) {
     alert("Renseignez au moins une URL ICS avant d'activer la connexion Reservio.");
