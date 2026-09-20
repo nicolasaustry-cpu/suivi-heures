@@ -292,9 +292,19 @@ async function syncClient(doc) {
 
   const dejaPrisParDate = new Set(); // évite deux RDV sur le même slot pendant ce cycle
   const tousLesUids = new Set();
+  const salariesConnus = Array.isArray(doc.salaries) ? doc.salaries : [];
 
   for (const s of cfg.salaries) {
     const salarieId = s?.salarieId;
+    // Diagnostic : un salarié configuré côté Reservio dont l'ID ne correspond plus à
+    // aucun salarié actuel (fiche supprimée/recréée depuis) écrirait des RDV "orphelins",
+    // invisibles dans le planning puisqu'aucune ligne n'a cet ID. On le signale.
+    const fiche = salariesConnus.find(sc => String(sc?.id) === String(salarieId));
+    if (salarieId != null && !fiche) {
+      console.warn(`   ⚠️  Salarié Reservio id ${salarieId} introuvable dans la liste des salariés actuels — RDV ignorés pour cette fiche.`);
+    } else if (fiche) {
+      console.log(`   👤 Salarié Reservio id ${salarieId} = ${fiche.prenom || ""} ${fiche.nom || ""}`.trim());
+    }
     // Plusieurs fiches Reservio peuvent exister pour un même salarié (cas constaté
     // chez un client : deux flux non redondants, RDV différents dans chacun).
     // On accepte donc urlsIcs (tableau) et, par compatibilité, l'ancien urlIcs (chaîne unique).
