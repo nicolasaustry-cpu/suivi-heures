@@ -197,6 +197,31 @@
   <span id="reservio-msg" style="font-size:0.85rem;color:#16a34a;margin-left:8px;"></span>
 </section>
 
+<!-- Connexion Henrri : récupération des devis validés et de la base clients -->
+<section class="ent-tuile" style="background:#f0f9ff;border-left-color:#0284c7;">
+  <h2 style="color:#0369a1;">Connexion Henrri</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Connecte votre compte Henrri (logiciel de facturation) pour récupérer vos <strong>devis validés</strong> (à affecter au Prévisionnel) et votre <strong>base clients</strong> (préremplissage des coordonnées de chantier). Les identifiants se trouvent dans votre compte Henrri, rubrique <strong>API &amp; Intégrations</strong>.
+  </p>
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+    <input type="checkbox" id="henrriActif" onchange="toggleHenrriBloc()">
+    <label for="henrriActif" style="font-size:0.9rem;">Connecté à Henrri</label>
+  </div>
+  <div id="henrri-bloc" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;max-width:360px;">
+    <div>
+      <label for="henrriClientId" style="font-size:0.85rem;font-weight:600;">Client ID :</label><br>
+      <input id="henrriClientId" placeholder="Ex : e0148ac0-623a-4c0f-b168-a01d7c5240be" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div>
+      <label for="henrriClientSecret" style="font-size:0.85rem;font-weight:600;">Client Secret :</label><br>
+      <input id="henrriClientSecret" type="password" placeholder="" style="width:100%;box-sizing:border-box;">
+      <div id="henrri-secret-info" style="font-size:0.78rem;color:#94a3b8;margin-top:2px;"></div>
+    </div>
+  </div>
+  <button type="button" id="btn-valider-henrri" class="btn btn-success" onclick="validerHenrri()">💾 Enregistrer</button>
+  <span id="henrri-msg" style="font-size:0.85rem;margin-left:8px;"></span>
+</section>
+
 <!-- Suivi des entretiens : activation de la page de suivi des contrats d'entretien annuel -->
 <section class="ent-tuile" style="background:#f8fafc;border-left-color:#64748b;">
   <h2 style="color:#475569;">Suivi des entretiens</h2>
@@ -532,6 +557,70 @@ window.sauverDelaiDefaut = async function (btn) {
 };
 window.addEventListener('DOMContentLoaded', chargerDelaiDefaut);
 window.addEventListener('donnees-chargees', chargerDelaiDefaut);
+</script>
+
+<script>
+/* ── Connexion Henrri (devis validés + base clients), auth par token ──
+   Les identifiants (client_id/secret) sont stockés dans une collection
+   serveur dédiée (jamais dans entreprisedata/localStorage) : lecture et
+   écriture passent par des appels directs à /api/henrri/config, avec le
+   même schéma d'authentification que /api/push/delai ci-dessus. */
+function toggleHenrriBloc() {
+  const actif = document.getElementById('henrriActif').checked;
+  document.getElementById('henrri-bloc').style.display = actif ? 'flex' : 'none';
+}
+
+async function chargerHenrri() {
+  const section = document.getElementById('henrriActif')?.closest('section');
+  const token = localStorage.getItem('syncToken');
+  if (!token) { if (section) section.style.display = 'none'; return; }
+  try {
+    const r = await fetch('/api/henrri/config', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) { if (section) section.style.display = 'none'; return; }
+    if (section) section.style.display = '';
+    document.getElementById('henrriActif').checked = !!d.actif;
+    document.getElementById('henrriClientId').value = d.henrriClientId || '';
+    document.getElementById('henrri-secret-info').textContent = d.henrriClientSecretDefini
+      ? 'Secret déjà enregistré — laissez vide pour le conserver.'
+      : 'Aucun secret enregistré pour le moment.';
+    toggleHenrriBloc();
+  } catch (_) { if (section) section.style.display = 'none'; }
+}
+
+async function validerHenrri() {
+  const token = localStorage.getItem('syncToken');
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const actif = document.getElementById('henrriActif').checked;
+  const henrriClientId = document.getElementById('henrriClientId').value.trim();
+  const henrriClientSecret = document.getElementById('henrriClientSecret').value.trim();
+  if (actif && !henrriClientId) { alert('Renseignez le Client ID Henrri.'); return; }
+
+  const btn = document.getElementById('btn-valider-henrri');
+  const msg = document.getElementById('henrri-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (msg) { msg.style.color = '#16a34a'; msg.textContent = ''; }
+  try {
+    const r = await fetch('/api/henrri/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ actif, henrriClientId, henrriClientSecret })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    document.getElementById('henrriClientSecret').value = '';
+    if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+    chargerHenrri();
+  } catch (e) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = '✖ ' + (e && e.message ? e.message : e); }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+  }
+}
+window.addEventListener('DOMContentLoaded', chargerHenrri);
+window.addEventListener('donnees-chargees', chargerHenrri);
 </script>
 
 <!-- Guide de prise en main : ouverture dans une fenêtre séparée qui reste affichée pendant la navigation -->
