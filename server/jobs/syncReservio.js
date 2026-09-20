@@ -182,10 +182,6 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
   }
 
   const maintenant = Date.now();
-  const nbAVenir = events.filter(e => e && e.uid && e.start && e.start.getTime() >= maintenant).length;
-  const nbIncomplets = events.filter(e => !e || !e.uid || !e.start).length;
-  console.log(`   📋 Reservio salarié ${salarieId} : ${events.length} évènement(s) dans le flux, ${nbAVenir} à venir` +
-    (nbIncomplets ? `, ${nbIncomplets} incomplet(s) ignoré(s)` : "") + ".");
   const heures = doc.heures || (doc.heures = {});
   // UID Reservio déjà présents quelque part dans le planning (quel que soit le salarié actuel)
   const existantParUid = new Map();
@@ -245,7 +241,6 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
       doc.markModified(`heures.${k}`);   // "heures" est un Object libre (Mixed) : sans ça, Mongoose ne
                                           // détecte pas l'ajout et .save() ne persiste rien.
       existantParUid.set(ev.uid, k);
-      console.log(`   ➕ Nouveau RDV Reservio ajouté : "${chantier}" le ${dateKey} à ${rdv} (salarié ${salarieId}, uid ${ev.uid}).`);
     }
 
     // Coordonnées (adresse/téléphone) : alimente l'annuaire existant,
@@ -294,19 +289,9 @@ async function syncClient(doc) {
 
   const dejaPrisParDate = new Set(); // évite deux RDV sur le même slot pendant ce cycle
   const tousLesUids = new Set();
-  const salariesConnus = Array.isArray(doc.salaries) ? doc.salaries : [];
 
   for (const s of cfg.salaries) {
     const salarieId = s?.salarieId;
-    // Diagnostic : un salarié configuré côté Reservio dont l'ID ne correspond plus à
-    // aucun salarié actuel (fiche supprimée/recréée depuis) écrirait des RDV "orphelins",
-    // invisibles dans le planning puisqu'aucune ligne n'a cet ID. On le signale.
-    const fiche = salariesConnus.find(sc => String(sc?.id) === String(salarieId));
-    if (salarieId != null && !fiche) {
-      console.warn(`   ⚠️  Salarié Reservio id ${salarieId} introuvable dans la liste des salariés actuels — RDV ignorés pour cette fiche.`);
-    } else if (fiche) {
-      console.log(`   👤 Salarié Reservio id ${salarieId} = ${fiche.prenom || ""} ${fiche.nom || ""}`.trim());
-    }
     // Plusieurs fiches Reservio peuvent exister pour un même salarié (cas constaté
     // chez un client : deux flux non redondants, RDV différents dans chacun).
     // On accepte donc urlsIcs (tableau) et, par compatibilité, l'ancien urlIcs (chaîne unique).
