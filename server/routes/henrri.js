@@ -193,15 +193,17 @@ router.get("/devis", verifyToken, async (req, res) => {
     if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
 
     // Filtre côté Henrri sur le type de document (devis = "Quotation") ;
-    // le statut "validé" est un booléen (validated) renvoyé par document,
-    // donc filtré côté serveur Suiv'Heures après réception de la page.
+    // le statut "devis validé/émis" (par opposition à un brouillon) correspond
+    // au champ booléen "finalized" — confirmé par test réel : le champ "validated"
+    // reste à false même sur un devis que l'utilisateur vient de valider dans
+    // Henrri (il correspond probablement à une validation comptable distincte).
     // La limite Henrri est plafonnée à 100/page : appelHenrriPagine() parcourt
     // les pages suivantes au besoin pour ne pas manquer un devis récent.
     const liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_DOCS_PATH, {
       documentTypes: "Quotation"
     });
     const dejaImportes = new Set(cfg.devisImportes || []);
-    const validesUniquement = liste.filter(d => d && d.validated === true);
+    const validesUniquement = liste.filter(d => d && d.finalized === true);
     const resultat = validesUniquement
       .filter(d => !dejaImportes.has(String(d.id)))
       .map(d => ({
