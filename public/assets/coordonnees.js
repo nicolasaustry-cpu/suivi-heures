@@ -67,6 +67,44 @@
     return '<div class="chip-coord">' + l + '</div>';
   }
 
+  /* ─ Préremplissage depuis la base clients Henrri ─
+     Chargée une fois en tâche de fond (best-effort, jamais bloquant) : si le
+     nom du chantier correspond exactement à un client Henrri ET qu'aucune
+     coordonnée locale n'existe déjà, le modal d'édition est préouvert avec
+     les valeurs Henrri — l'utilisateur les valide (ou les corrige) en
+     cliquant Enregistrer, ce qui les fait entrer dans le stockage habituel. */
+  var _henrriClients = [];
+  function _henrriToken() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+  }
+  function _chargerClientsHenrri() {
+    var token = _henrriToken();
+    if (!token) return;
+    fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.ok && d.actif && Array.isArray(d.clients)) _henrriClients = d.clients; })
+      .catch(function () {});
+  }
+  _chargerClientsHenrri();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _chargerClientsHenrri);
+  window.addEventListener('donnees-chargees', _chargerClientsHenrri);
+
+  function _henrriMatch(nom) {
+    var cle = (nom || '').trim().toUpperCase();
+    if (!cle || !_henrriClients.length) return null;
+    return _henrriClients.find(function (c) { return (c.nom || '').trim().toUpperCase() === cle; }) || null;
+  }
+  function _henrriVersCoord(c) {
+    var tel = String(c.telephone || '');
+    var estMobile = /^0[67]/.test(tel.replace(/[.\s-]/g, ''));
+    return {
+      adresse: c.adresse || '',
+      ville: [c.codePostal, c.ville].filter(Boolean).join(' ').trim(),
+      mobile: estMobile ? tel : '',
+      fixe: estMobile ? '' : tel
+    };
+  }
+
   /* ─ Modal d'édition ─ */
   var _nom = null, _onDone = null;
 
@@ -113,7 +151,12 @@
     _construireModal();
     _nom = nom; _onDone = (typeof onDone === 'function') ? onDone : null;
     var c = get(nom) || {};
-    document.getElementById('coord-sub').textContent = nom;
+    var sousTitre = nom;
+    if (!c.adresse && !c.ville && !c.mobile && !c.fixe) {
+      var hc = _henrriMatch(nom);
+      if (hc) { c = _henrriVersCoord(hc); sousTitre = nom + ' — pré-rempli depuis Henrri'; }
+    }
+    document.getElementById('coord-sub').textContent = sousTitre;
     document.getElementById('coord-adresse').value = c.adresse || '';
     document.getElementById('coord-ville').value   = c.ville   || '';
     document.getElementById('coord-mobile').value  = c.mobile  || '';
