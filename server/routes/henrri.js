@@ -208,10 +208,12 @@ router.get("/devis", verifyToken, async (req, res) => {
       .filter(d => !dejaImportes.has(String(d.id)))
       .map(d => ({
         id: String(d.id),
+        // Champs Henrri en camelCase (confirmé sur un vrai devis sandbox) :
+        // customer.name, priceAfterTax, date, identity (= n° de pièce, ex. "I-26-09-1").
         client: (d.customer && d.customer.name) || "",
-        montant: d.price_after_tax ?? d.total_ttc ?? null,
+        montant: d.priceAfterTax ?? d.priceBeforeTax ?? null,
         date: d.date || null,
-        reference: d.reference || d.number || ""
+        reference: d.identity || d.reference || d.number || ""
       }));
     // Compteurs de diagnostic : permettent de localiser où un devis manquant
     // se perd (jamais reçu de Henrri / reçu mais non "finalized" / déjà importé).
@@ -317,16 +319,19 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     } catch (e) {
       liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { search: " " });
     }
+    // Champs Henrri en camelCase (confirmé sur le modèle Document.customer d'un
+    // vrai devis sandbox : name, tradeName, address, contacts) — corrigé du
+    // snake_case initialement supposé (post_code, is_primary…).
     const resultat = liste.map(c => {
       const adr = c.address || {};
       const contacts = Array.isArray(c.contacts) ? c.contacts : [];
-      const principal = contacts.find(ct => ct && (ct.primary || ct.is_primary)) || contacts[0] || {};
+      const principal = contacts.find(ct => ct && (ct.primary || ct.isPrimary)) || contacts[0] || {};
       return {
         id: String(c.id),
-        nom: c.name || c.company_name || "",
+        nom: c.name || c.tradeName || c.companyName || "",
         adresse: adr.address || "",
-        ville: [adr.post_code, adr.city].filter(Boolean).join(" ").trim() || adr.city || "",
-        codePostal: adr.post_code || "",
+        ville: [adr.postCode, adr.city].filter(Boolean).join(" ").trim() || adr.city || "",
+        codePostal: adr.postCode || "",
         telephone: principal.phone || principal.mobile || c.phone || "",
         email: principal.email || c.email || ""
       };
