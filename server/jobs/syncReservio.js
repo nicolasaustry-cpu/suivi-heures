@@ -76,19 +76,39 @@ function libelleRdv(summary) {
 //   https://app.reservio.com/...  (lien à ignorer)
 function parserDescription(desc) {
   const txt = String(desc || "").trim();
-  if (!txt) return { email: "", tel: "", adresse: "", ville: "" };
+  if (!txt) return { email: "", tel: "", adresse: "", ville: "", note: "" };
   const blocs = txt.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
   const contact = blocs[0] || "";
   const lignes = contact.split("\n").map(l => l.trim()).filter(Boolean);
   const email = (lignes.find(l => /@/.test(l)) || "").trim();
   const tel   = (lignes.find(l => !/@/.test(l) && /[\d\s+().-]{8,}/.test(l)) || "").trim();
-  // Tout ce qui n'est ni le bloc contact, ni le dernier bloc (lien reservio)
-  const adresseBlocs = blocs.slice(1, blocs.length > 1 ? blocs.length - 1 : 1)
+
+  // Tous les blocs après le contact, hors lien Reservio (quel que soit son rang :
+  // Reservio ne le place pas toujours en dernier). Chaque bloc restant correspond
+  // à un champ du formulaire (adresse, mais aussi une éventuelle zone "Notes"
+  // distincte du site Reservio, saisie par le client dans un encart séparé).
+  const reste = blocs.slice(1)
     .filter(b => !/^https?:\/\//i.test(b))
-    .map(nettoyerLibelleAdresse);
-  const brute = adresseBlocs.join(" — ").trim();
-  const { rue, ville } = separerRueEtVille(brute);
-  return { email, tel: tel.replace(/\s+/g, " "), adresse: rue.slice(0, 500), ville: ville.slice(0, 200) };
+    .map(nettoyerLibelleAdresse)
+    .filter(Boolean);
+
+  // Le bloc "adresse" est celui qui contient un code postal (5 chiffres) ;
+  // tout autre bloc à côté (zone "Notes" Reservio, saisie séparément de
+  // l'adresse) est une annotation libre → note du créneau, jamais l'adresse.
+  const idxAdresse = reste.findIndex(b => /\d{5}/.test(b));
+  const blocAdresse = idxAdresse >= 0 ? reste[idxAdresse] : reste.join("  ");
+  const autresBlocs = idxAdresse >= 0 ? reste.filter((_, i) => i !== idxAdresse) : [];
+
+  // Le bloc adresse lui-même peut encore contenir une annotation accolée après
+  // le code postal (cf. extraireAdresseVilleNote) quand Reservio la concatène
+  // dans le même champ plutôt que dans une zone "Notes" séparée.
+  const { rue, ville, note: noteAccolee } = extraireAdresseVilleNote(blocAdresse);
+  const note = [...autresBlocs, noteAccolee].filter(Boolean).join(" / ").trim();
+
+  return {
+    email, tel: tel.replace(/\s+/g, " "),
+    adresse: rue.slice(0, 500), ville: ville.slice(0, 200), note: note.slice(0, 2000)
+  };
 }
 
 // Reservio préfixe souvent le champ adresse par le libellé du formulaire, ex. :
@@ -101,15 +121,30 @@ function nettoyerLibelleAdresse(bloc) {
     .trim();
 }
 
-// Sépare la rue du "code postal + ville", pour remplir les deux champs distincts
-// de l'annuaire (adresse / ville) comme le fait la fiche « Coordonnées du chantier ».
-// Repère le premier code postal français (5 chiffres) : tout ce qui précède = la
-// rue, tout ce qui suit (code postal inclus) = la ville — le champ Ville de
-// l'appli attend justement "code postal et ville" au même endroit.
-function separerRueEtVille(txt) {
-  const m = String(txt || "").match(/^(.*?)(\d{5}\s+.+)$/s);
-  if (!m) return { rue: String(txt || "").trim(), ville: "" };
-  return { rue: m[1].trim().replace(/[,—-]\s*$/, "").trim(), ville: m[2].trim() };
+// Sépare la rue, le "code postal + ville" et une éventuelle annotation libre
+// laissée par le client à la suite (ex. "72210 Louplande   Entretien annuel,
+// Pascal est d'accord pour..."), pour remplir les bons champs : adresse / ville
+// de l'annuaire (comme la fiche « Coordonnées du chantier »), et note à part
+// (elle part dans la note du créneau, pas dans l'adresse).
+//
+// Reservio sépare ses champs concaténés par plusieurs espaces consécutifs :
+// on découpe d'abord là-dessus. Le segment qui contient le code postal (5
+// chiffres) marque la fin de l'adresse ; tout ce qui suit CE segment est une
+// annotation, pas la ville. Quand tout tient sur un seul segment (pas de
+// double-espace, ex. simple "12 rue X 72000 Le Mans"), on coupe juste avant
+// le code postal, sans note.
+function extraireAdresseVilleNote(txt) {
+  const brut = String(txt || "").trim();
+  if (!brut) return { rue: "", ville: "", note: "" };
+  const segments = brut.split(/\s{2,}/).map(s => s.trim()).filter(Boolean);
+  const idx = segments.findIndex(s => /\d{5}/.test(s));
+  if (idx === -1) return { rue: segments.join(" ").trim(), ville: "", note: "" };
+  const m = segments[idx].match(/^(.*?)(\d{5}\s+.*)$/s);
+  const rueDuSegment = m ? m[1].trim().replace(/[,—-]\s*$/, "").trim() : "";
+  const ville = (m ? m[2] : segments[idx]).trim();
+  const rue = [...segments.slice(0, idx), rueDuSegment].filter(Boolean).join(" ").trim();
+  const note = segments.slice(idx + 1).join(" / ").trim();
+  return { rue, ville, note };
 }
 
 // ── Salarié : trouve le 1er slot libre du jour, en excluant ceux déjà pris ce cycle ──
@@ -128,7 +163,8 @@ function empreinte(d) {
   return JSON.stringify({
     chantier: String(d.chantier || "").trim(),
     heures:   parseFloat(d.heures) || 0,
-    rdv:      String(d.rdv || "").trim()
+    rdv:      String(d.rdv || "").trim(),
+    note:     String(d.note || "").trim()
   });
 }
 
@@ -162,7 +198,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
     const { client, service, chantier } = libelleRdv(ev.summary);
     const dureeH = ev.end ? Math.max(0.25, (ev.end - ev.start) / 3600000) : 2;
     const rdv = heureHHMMParis(ev.start);
-    const { email, tel, adresse, ville } = parserDescription(ev.description);
+    const { email, tel, adresse, ville, note } = parserDescription(ev.description);
 
     const cleAttendue = `${salarieId}${dateKey}`;
     const keyExistante = existantParUid.get(ev.uid);
@@ -184,6 +220,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
       d.heures   = dureeH;
       d.rdv      = rdv;
       d.rdvAuteur = "reservio";
+      d.note     = note || "";  // annotation libre laissée par le client sur ce RDV
       d.reservioSnapshot = empreinte(d);
       d.reservioAnnule = false;
       doc.markModified(`heures.${keyExistante}`);
@@ -196,7 +233,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
       }
       dejaPrisParDate.add(k);
       const d = {
-        chantier, heures: dureeH, rdv, rdvAuteur: "reservio",
+        chantier, heures: dureeH, rdv, rdvAuteur: "reservio", note: note || "",
         reservioUid: ev.uid, reservioLocked: false, reservioAnnule: false
       };
       d.reservioSnapshot = empreinte(d);
