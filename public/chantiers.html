@@ -1956,6 +1956,9 @@ async function ouvrirModaleHenrri() {
         + '</p>'
         + (dbg.brut ? '<pre style="font-size:0.68rem;background:#f1f5f9;padding:6px 8px;border-radius:6px;overflow:auto;max-height:260px;margin:0 0 8px;">'
           + _henrriEscAttr(JSON.stringify(dbg.brut, null, 2)) + '</pre>' : '')
+        + (dbg.detailPremierDevis ? '<p style="font-size:0.72rem;color:#94a3b8;margin:0 0 4px;">Détail complet du 1er devis (recherche d\'un champ « heures ») :</p>'
+          + '<pre style="font-size:0.68rem;background:#eef2ff;padding:6px 8px;border-radius:6px;overflow:auto;max-height:260px;margin:0 0 8px;">'
+          + _henrriEscAttr(JSON.stringify(dbg.detailPremierDevis, null, 2)) + '</pre>' : '')
       : '';
     if (!d.devis || !d.devis.length) {
       corps.innerHTML = dbgTxt + '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
