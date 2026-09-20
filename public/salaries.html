@@ -51,6 +51,7 @@
     <a href="salaries.html" class="active">Salariés</a>
     <a href="chantiers.html">Prévisionnel</a>
     <a href="planning.html">Planning</a>
+    <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
     <a href="rapports.html">Rapports</a>
   </div>
 
@@ -486,6 +487,30 @@ window.resetApprentiAjout = function () {
   var bloc = document.getElementById('bloc-apprenti'); if (bloc) bloc.style.display = 'none';
   majCompteurEcoleAjout();
 };
+</script>
+
+<script>
+/* Le lien « Clients » du menu (base clients Henrri) ne s'affiche que si la
+   connexion Henrri est active — cohérent avec chantiers.html / index.html. */
+(function () {
+  function henrriToken() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken') || '';
+  }
+  async function majNavClients() {
+    const nav = document.getElementById('nav-link-clients');
+    if (!nav) return;
+    const token = henrriToken();
+    if (!token) { nav.style.display = 'none'; return; }
+    try {
+      const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      nav.style.display = (d.ok && d.actif) ? '' : 'none';
+    } catch (_) { nav.style.display = 'none'; }
+  }
+  window.addEventListener('DOMContentLoaded', majNavClients);
+  window.addEventListener('donnees-chargees', majNavClients);
+})();
 </script>
 
 </body>

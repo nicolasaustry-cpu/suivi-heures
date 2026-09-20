@@ -421,7 +421,7 @@
   <a href="salaries.html">Salariés</a>
   <a href="chantiers.html" class="active">Prévisionnel</a>
   <a href="planning.html">Planning</a>
-  <a href="clients.html">Clients</a>
+  <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
   <a href="rapports.html">Rapports</a>
 </div>
   <section style="margin-bottom:0;padding-bottom:0.5rem;">
@@ -443,7 +443,7 @@
         <button onclick="ajouterAnnee()">+ Nouvelle année</button>
         <button onclick="location.href='gantt-previsionnel.html'" title="Diagramme de Gantt (prévu / planifié / réalisé)" style="margin-left:8px;">📊 Gantt</button>
         <button onclick="location.reload()" title="Recharger les données du serveur" style="margin-left:8px;">↻ Rafraîchir</button>
-        <button onclick="ouvrirModaleHenrri()" title="Récupérer les devis validés depuis Henrri" style="margin-left:8px;background:#0284c7;">📄 Devis Henrri</button>
+        <button id="btn-devis-henrri" onclick="ouvrirModaleHenrri()" title="Récupérer les devis validés depuis Henrri" style="margin-left:8px;background:#0284c7;display:none;">📄 Devis Henrri</button>
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
         <input type="text" id="recherche-chantier" placeholder="🔍 Rechercher un chantier…" oninput="rechercherChantierPrev()"
@@ -1898,6 +1898,28 @@ function _henrriToken() {
   return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
       || localStorage.getItem('syncToken') || '';
 }
+
+/* Affiche le lien « Clients » du menu et le bouton « Devis Henrri » uniquement
+   si la connexion Henrri est active (tous les éléments liés à Henrri restent
+   masqués tant que l'API n'est pas liée dans la page Entreprise). */
+async function _henrriMajVisibilite() {
+  const navClients = document.getElementById('nav-link-clients');
+  const btnDevis    = document.getElementById('btn-devis-henrri');
+  const token = _henrriToken();
+  if (!token) { if (navClients) navClients.style.display = 'none'; if (btnDevis) btnDevis.style.display = 'none'; return; }
+  try {
+    const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    const actif = !!(d.ok && d.actif);
+    if (navClients) navClients.style.display = actif ? '' : 'none';
+    if (btnDevis)    btnDevis.style.display    = actif ? 'inline-block' : 'none';
+  } catch (_) {
+    if (navClients) navClients.style.display = 'none';
+    if (btnDevis) btnDevis.style.display = 'none';
+  }
+}
+window.addEventListener('DOMContentLoaded', _henrriMajVisibilite);
+window.addEventListener('donnees-chargees', _henrriMajVisibilite);
 
 function _henrriEscAttr(s) {
   return String(s == null ? '' : s)

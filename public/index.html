@@ -50,7 +50,7 @@
   <a href="salaries.html">Salariés</a>
   <a href="chantiers.html">Prévisionnel</a>
   <a href="planning.html">Planning</a>
-  <a href="clients.html">Clients</a>
+  <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
   <a href="rapports.html">Rapports</a>
 </div>
 
@@ -575,12 +575,13 @@ async function chargerHenrri() {
   const section = document.getElementById('henrriActif')?.closest('section');
   const token = localStorage.getItem('syncToken');
   if (!token) { if (section) section.style.display = 'none'; return; }
+  const navClients = document.getElementById('nav-link-clients');
   try {
     const r = await fetch('/api/henrri/config', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     const d = await r.json();
-    if (!d.ok) { if (section) section.style.display = 'none'; return; }
+    if (!d.ok) { if (section) section.style.display = 'none'; if (navClients) navClients.style.display = 'none'; return; }
     if (section) section.style.display = '';
     document.getElementById('henrriActif').checked = !!d.actif;
     document.getElementById('henrriClientId').value = d.henrriClientId || '';
@@ -588,7 +589,13 @@ async function chargerHenrri() {
       ? 'Secret déjà enregistré — laissez vide pour le conserver.'
       : 'Aucun secret enregistré pour le moment.';
     toggleHenrriBloc();
-  } catch (_) { if (section) section.style.display = 'none'; }
+    // Le lien « Clients » du menu n'apparaît que si la connexion Henrri est active
+    // (tous les éléments liés à Henrri restent masqués tant que l'API n'est pas liée).
+    if (navClients) navClients.style.display = d.actif ? '' : 'none';
+  } catch (_) {
+    if (section) section.style.display = 'none';
+    if (navClients) navClients.style.display = 'none';
+  }
 }
 
 async function validerHenrri() {
