@@ -1150,6 +1150,9 @@ function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
   onLigneRecalc(salIdS+safeS+'ch1');   // recalcule le TNA de la case source
   onLigneRecalc(cibleK);               // recalcule le TNA de la case cible
   genererPlanning();
+  if (copie.reservioUid) {
+    pl2RappelLibererReservio(nom.split(' — ')[0].trim());
+  }
 }
 function pl2DragStartTouch(e){
   const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
@@ -1602,8 +1605,22 @@ function appliquerExclu(k, actif, motif) {
 }
 
 /* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
+// Rappel : le lien Reservio → Suiv'Heures est en lecture seule (pas d'écriture possible
+// en retour, cf. plan Reservio du client). Donc si on change ici la date ou l'heure d'un
+// RDV importé de Reservio, le créneau reste réservé là-bas tant qu'on ne va pas le
+// libérer/déplacer manuellement sur reservio.com — on le rappelle à chaque fois.
+function pl2RappelLibererReservio(nomClient) {
+  alert('⚠️ Ce RDV vient de Reservio.\n\n' +
+    'Suiv\'Heures ne peut pas modifier automatiquement Reservio (lien en lecture seule). ' +
+    'Pensez à aller libérer ou déplacer ce créneau manuellement sur reservio.com' +
+    (nomClient ? (' pour « ' + nomClient + ' »') : '') +
+    ', sinon le client garde son ancien horaire réservé là-bas.');
+}
 function saveRdv(k, val, delai) {
   if (!heures[k]) heures[k] = { chantier: '', heures: 0 };
+  const _rdvAvant = (heures[k].rdv || '').trim();
+  const _venaitDeReservio = !!heures[k].reservioUid;
+  const _nomAvant = (heures[k].chantier || '').split(' — ')[0].trim();
   if (val) {
     heures[k].rdv = val;
     heures[k].rdvAuteur = 'gerant';   // planning desktop = autorité gérant
@@ -1624,6 +1641,9 @@ function saveRdv(k, val, delai) {
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majRdvVisuel(k);
   genererPlanning();   // redessine la case : les pavés à RDV se reclassent aussitôt par heure
+  if (_venaitDeReservio && _rdvAvant !== (val || '').trim()) {
+    pl2RappelLibererReservio(_nomAvant);
+  }
 }
 function majRdvVisuel(k) {
   const btn = document.getElementById(k + 'rdv-btn');
