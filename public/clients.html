@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <title>Clients – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+    .clients-toolbar {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+    .clients-toolbar input[type="text"] {
+      padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+      font-size: 0.9rem; width: 260px;
+    }
+    #btn-sync-clients {
+      background: #0284c7; color: #fff; border: none; border-radius: 6px;
+      padding: 7px 16px; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    }
+    #btn-sync-clients:hover { background: #0369a1; }
+    #btn-sync-clients:disabled { opacity: 0.6; cursor: default; }
+    #clients-info { font-size: 0.82rem; color: #64748b; }
+    table.clients-table {
+      border-collapse: collapse; width: 100%; font-size: 0.88rem; background: #fff;
+    }
+    table.clients-table th {
+      background: #1e40af; color: #fff; text-align: left; padding: 7px 10px;
+      position: sticky; top: 0; z-index: 5;
+    }
+    table.clients-table td {
+      padding: 6px 10px; border-bottom: 1px solid #e2e8f0;
+    }
+    table.clients-table tr:nth-child(even) td { background: #f8fafc; }
+    table.clients-table tr:hover td { background: #eff6ff; }
+    .clients-scroll { max-height: 68vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .clients-vide { color: #94a3b8; font-style: italic; padding: 1.5rem; text-align: center; }
+    .clients-alerte {
+      background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+      padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+
+<header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, simplement</span>
+    </div>
+  </div>
+  <h1 class="page-title">Clients</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="clients.html" class="active">Clients</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<section>
+  <p style="font-size:0.88rem;color:#475569;margin:0.6rem 0;">
+    Base clients Henrri, rafraîchie manuellement depuis votre compte Henrri (rubrique connectée dans la page <strong>Entreprise</strong>).
+  </p>
+
+  <div id="clients-non-connecte" class="clients-alerte" style="display:none;">
+    ⚠ Connexion Henrri non activée. Rendez-vous dans la page <a href="index.html">Entreprise</a> pour renseigner vos identifiants API Henrri.
+  </div>
+
+  <div class="clients-toolbar">
+    <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()">🔄 Actualiser depuis Henrri</button>
+    <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
+    <span id="clients-info"></span>
+  </div>
+
+  <div class="clients-scroll">
+    <table class="clients-table" id="table-clients">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Adresse</th>
+          <th>Ville</th>
+          <th>Code postal</th>
+          <th>Téléphone</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-clients"></tbody>
+    </table>
+  </div>
+</section>
+
+<script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+let _clientsHenrri = [];
+
+function _clToken() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+      || localStorage.getItem('syncToken') || '';
+}
+function _clEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function rendreClients(liste) {
+  const tbody = document.getElementById('tbody-clients');
+  if (!liste.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="clients-vide">Aucun client à afficher. Cliquez sur « Actualiser depuis Henrri » pour récupérer votre base clients.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = liste.map(c => `<tr>
+    <td>${_clEsc(c.nom)}</td>
+    <td>${_clEsc(c.adresse)}</td>
+    <td>${_clEsc(c.ville)}</td>
+    <td>${_clEsc(c.codePostal)}</td>
+    <td>${_clEsc(c.telephone)}</td>
+    <td>${_clEsc(c.email)}</td>
+  </tr>`).join('');
+}
+
+function filtrerClients() {
+  const terme = (document.getElementById('recherche-client').value || '').trim().toLowerCase();
+  if (!terme) { rendreClients(_clientsHenrri); return; }
+  rendreClients(_clientsHenrri.filter(c =>
+    (c.nom || '').toLowerCase().includes(terme) ||
+    (c.ville || '').toLowerCase().includes(terme) ||
+    (c.email || '').toLowerCase().includes(terme)
+  ));
+}
+
+function _majInfo(actualiseLe) {
+  const el = document.getElementById('clients-info');
+  if (!el) return;
+  if (!actualiseLe) { el.textContent = 'Jamais actualisé.'; return; }
+  const d = new Date(actualiseLe);
+  el.textContent = 'Dernière actualisation : ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function chargerClients() {
+  const token = _clToken();
+  if (!token) return;
+  try {
+    const r = await fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    if (!d.ok) return;
+    document.getElementById('clients-non-connecte').style.display = d.actif ? 'none' : 'block';
+    document.getElementById('btn-sync-clients').disabled = !d.actif;
+    _clientsHenrri = d.clients || [];
+    _majInfo(d.actualiseLe);
+    filtrerClients();
+  } catch (e) {
+    console.warn('Chargement clients Henrri impossible', e);
+  }
+}
+
+async function synchroniserClientsHenrri() {
+  const token = _clToken();
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const btn = document.getElementById('btn-sync-clients');
+  btn.disabled = true; btn.textContent = '⏳ Actualisation…';
+  try {
+    const r = await fetch('/api/henrri/clients/sync', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    _clientsHenrri = d.clients || [];
+    _majInfo(d.actualiseLe);
+    filtrerClients();
+  } catch (e) {
+    alert('Erreur lors de la récupération des clients Henrri : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 Actualiser depuis Henrri';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent  = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  const nomE = document.getElementById('entreprise-nom');
+  if (nomE && ent.nom) nomE.textContent = ent.nom;
+
+  const licEl = document.getElementById('licence-status');
+  if (licEl) {
+    const code = localStorage.getItem('licenceCode');
+    licEl.innerHTML = code
+      ? '<span style="font-size:0.78rem;background:rgba(134,239,172,0.25);border-radius:999px;padding:2px 10px;color:#fff;">✔ Licence active</span>'
+      : '<span style="font-size:0.78rem;background:rgba(252,165,165,0.25);border-radius:999px;padding:2px 10px;color:#fff;">⚠ Aucune licence</span>';
+  }
+
+  chargerClients();
+});
+window.addEventListener('donnees-chargees', chargerClients);
+</script>
+
+</body>
+</html>

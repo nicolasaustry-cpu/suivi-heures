@@ -12,6 +12,8 @@ const henrriSchema = new mongoose.Schema({
   henrriClientId:     { type: String, default: "" },
   henrriClientSecret: { type: String, default: "" },
   devisImportes:      { type: [String], default: [] }, // IDs de documents Henrri déjà affectés au prévisionnel
+  clientsCache:       { type: Array, default: [] },   // dernière liste de clients Henrri récupérée (rafraîchie manuellement)
+  clientsCacheLe:     { type: Date,  default: null },
   updatedAt:          { type: Date, default: Date.now }
 });
 

@@ -227,8 +227,29 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
   }
 });
 
-// ── Base clients Henrri ──
+/* ── Base clients Henrri ──
+   Lecture RAPIDE : renvoie le cache déjà stocké côté serveur (clientsCache),
+   sans appeler Henrri à chaque fois — utilisé par clients.html au chargement
+   ET par le préremplissage des coordonnées de chantier.
+   Le rafraîchissement (appel réel à Henrri) est déclenché manuellement via
+   POST /clients/sync (bouton dédié dans clients.html). */
 router.get("/clients", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const cfg = await _config(clientId);
+    res.json({
+      ok: true,
+      actif: cfg.actif,
+      clients: cfg.clientsCache || [],
+      actualiseLe: cfg.clientsCacheLe || null
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Rafraîchir la base clients depuis Henrri (appel API réel, manuel) ──
+router.post("/clients/sync", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const cfg = await _config(clientId);
@@ -246,7 +267,13 @@ router.get("/clients", verifyToken, async (req, res) => {
       telephone: c.phone || c.telephone || "",
       email: c.email || ""
     }));
-    res.json({ ok: true, clients: resultat });
+
+    cfg.clientsCache = resultat;
+    cfg.clientsCacheLe = new Date();
+    cfg.updatedAt = new Date();
+    await cfg.save();
+
+    res.json({ ok: true, clients: resultat, actualiseLe: cfg.clientsCacheLe });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
