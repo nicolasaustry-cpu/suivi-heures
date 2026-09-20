@@ -442,6 +442,7 @@
         <button onclick="ajouterAnnee()">+ Nouvelle année</button>
         <button onclick="location.href='gantt-previsionnel.html'" title="Diagramme de Gantt (prévu / planifié / réalisé)" style="margin-left:8px;">📊 Gantt</button>
         <button onclick="location.reload()" title="Recharger les données du serveur" style="margin-left:8px;">↻ Rafraîchir</button>
+        <button onclick="ouvrirModaleHenrri()" title="Récupérer les devis validés depuis Henrri" style="margin-left:8px;background:#0284c7;">📄 Devis Henrri</button>
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
         <input type="text" id="recherche-chantier" placeholder="🔍 Rechercher un chantier…" oninput="rechercherChantierPrev()"
@@ -501,6 +502,26 @@
     <div class="modale-footer">
       <button class="btn-modale-annuler" onclick="fermerModale()">Annuler</button>
       <button class="btn-modale-copier"  onclick="executerCopie()">✔ Reporter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE DEVIS HENRRI ══ -->
+<div class="modale-overlay" id="modale-henrri">
+  <div class="modale-box" style="width:640px;">
+    <div class="modale-header">
+      <span>Devis validés Henrri à affecter</span>
+      <button onclick="fermerModaleHenrri()">✕</button>
+    </div>
+    <div class="modale-body">
+      <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+        Choisissez le mois de démarrage de chantier pour chaque devis, puis cliquez sur « Affecter ».
+        Une ligne est créée dans le Prévisionnel de ce mois (client + heures à saisir).
+      </p>
+      <div id="henrri-devis-corps"><p style="color:#94a3b8;">Chargement…</p></div>
+    </div>
+    <div class="modale-footer">
+      <button class="btn-modale-annuler" onclick="fermerModaleHenrri()">Fermer</button>
     </div>
   </div>
 </div>
@@ -1865,5 +1886,106 @@ function navEnTree(event, input) {
   });
 })();
 </script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   MODALE « DEVIS HENRRI » — récupère les devis validés Henrri et les
+   affecte au Prévisionnel (création d'une ligne chantier dans le mois
+   choisi : client + hPrevues vide, à saisir ensuite manuellement).
+   Réutilise MOIS_FULL et getMoisAffichage() du script principal ci-dessus.
+═══════════════════════════════════════════════════════════════════════ */
+function _henrriToken() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+      || localStorage.getItem('syncToken') || '';
+}
+
+function _henrriEscAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _henrriOptionsMois() {
+  const liste = getMoisAffichage();
+  const now = new Date();
+  return liste.map(m => {
+    const selected = (m.annee === now.getFullYear() && m.mois === now.getMonth()) ? ' selected' : '';
+    return `<option value="${m.annee}|${m.mois}"${selected}>${MOIS_FULL[m.mois]} ${m.annee}</option>`;
+  }).join('');
+}
+
+async function ouvrirModaleHenrri() {
+  const token = _henrriToken();
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const ov = document.getElementById('modale-henrri');
+  const corps = document.getElementById('henrri-devis-corps');
+  corps.innerHTML = '<p style="color:#94a3b8;">Chargement…</p>';
+  ov.classList.add('open');
+  try {
+    const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    if (!d.ok) { corps.innerHTML = '<p style="color:#dc2626;">' + _henrriEscAttr(d.message || 'Erreur') + '</p>'; return; }
+    if (!d.devis || !d.devis.length) {
+      corps.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
+      return;
+    }
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
+    html += '<thead><tr style="background:#e8edf3;">'
+          + '<th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">Client</th>'
+          + '<th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;">Montant</th>'
+          + '<th style="padding:6px 8px;border:1px solid #e2e8f0;">Mois de démarrage</th>'
+          + '<th style="padding:6px 8px;border:1px solid #e2e8f0;"></th></tr></thead><tbody>';
+    d.devis.forEach(dv => {
+      const montantTxt = (dv.montant !== null && dv.montant !== undefined && !isNaN(dv.montant))
+        ? Number(dv.montant).toFixed(2).replace('.', ',') + ' €' : '—';
+      html += '<tr>'
+        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;">' + _henrriEscAttr(dv.client || '(sans nom)') + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;">' + montantTxt + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
+        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;">'
+        + '<button class="btn-modale-copier" style="padding:4px 12px;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
+        + 'onclick="affecterDevisHenrri(this)">Affecter</button></td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    corps.innerHTML = html;
+  } catch (e) {
+    corps.innerHTML = '<p style="color:#dc2626;">Erreur réseau : ' + _henrriEscAttr(e && e.message ? e.message : e) + '</p>';
+  }
+}
+
+async function affecterDevisHenrri(btn) {
+  const tr = btn.closest('tr');
+  const sel = tr.querySelector('.henrri-mois-select');
+  const [anneeStr, moisStr] = sel.value.split('|');
+  const annee = parseInt(anneeStr, 10);
+  const mois  = parseInt(moisStr, 10);
+  const devisId = btn.getAttribute('data-devis-id');
+  const clientNom = btn.getAttribute('data-devis-client');
+  const token = _henrriToken();
+
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ annee, mois, client: clientNom })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    tr.remove();
+    alert('Devis affecté à ' + MOIS_FULL[mois] + ' ' + annee + '.\nLa page va se recharger pour afficher la nouvelle ligne.');
+    location.reload();
+  } catch (e) {
+    alert('Erreur : ' + (e && e.message ? e.message : e));
+    btn.disabled = false; btn.textContent = 'Affecter';
+  }
+}
+
+function fermerModaleHenrri() {
+  const ov = document.getElementById('modale-henrri');
+  if (ov) ov.classList.remove('open');
+}
+</script>
+
 </body>
 </html>

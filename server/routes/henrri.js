@@ -184,22 +184,32 @@ router.get("/devis", verifyToken, async (req, res) => {
 });
 
 // ── Affecter un devis validé à un mois du Prévisionnel ──
+// Structure réelle du Prévisionnel (voir chantiers.html) : previsionnel[annee][mois]
+// où annee est une clé texte à 4 chiffres et mois un index 0-11 (pas "AAAA-MM").
 router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
   try {
     const clientId  = (req.user.clientId || "").toUpperCase();
     const devisId   = String(req.params.id);
-    const mois      = String(req.body.mois || "").trim();      // "YYYY-MM"
+    const anneeNum  = parseInt(req.body.annee, 10);
+    const moisNum   = parseInt(req.body.mois, 10);
     const nomClient = String(req.body.client || "").trim();
-    if (!/^\d{4}-\d{2}$/.test(mois)) return res.status(400).json({ ok: false, message: "Mois invalide (format attendu AAAA-MM)." });
+    if (!Number.isInteger(anneeNum) || anneeNum < 2000 || anneeNum > 2100)
+      return res.status(400).json({ ok: false, message: "Année invalide." });
+    if (!Number.isInteger(moisNum) || moisNum < 0 || moisNum > 11)
+      return res.status(400).json({ ok: false, message: "Mois invalide (attendu 0-11)." });
     if (!nomClient) return res.status(400).json({ ok: false, message: "Nom du client manquant." });
+
+    const annee = String(anneeNum);
+    const mois  = String(moisNum);
 
     let doc = await Donnees.findOne({ clientId });
     if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables." });
 
     const prev = doc.previsionnel || {};
-    if (!prev[mois]) prev[mois] = { chantiers: [] };
-    if (!Array.isArray(prev[mois].chantiers)) prev[mois].chantiers = [];
-    prev[mois].chantiers.push({ client: nomClient, hPrevues: "" });
+    if (!prev[annee]) prev[annee] = {};
+    if (!prev[annee][mois]) prev[annee][mois] = { hVendables: "", caObjectif: "", chantiers: [] };
+    if (!Array.isArray(prev[annee][mois].chantiers)) prev[annee][mois].chantiers = [];
+    prev[annee][mois].chantiers.push({ client: nomClient, hPrevues: "" });
     doc.previsionnel = prev;
     doc.markModified("previsionnel");
     doc.updatedAt = new Date();
