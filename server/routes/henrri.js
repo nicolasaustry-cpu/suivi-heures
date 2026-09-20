@@ -172,15 +172,17 @@ router.get("/devis", verifyToken, async (req, res) => {
     // Filtre côté Henrri sur le type de document (devis = "Quotation") ;
     // le statut "validé" est un booléen (validated) renvoyé par document,
     // donc filtré côté serveur Suiv'Heures après réception de la page.
+    // Limite relevée à 500 (au lieu de 100) : un devis récent peut se trouver
+    // au-delà des 100 premiers résultats selon l'ordre de tri renvoyé par Henrri.
     const data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_DOCS_PATH, {
       documentTypes: "Quotation",
-      limit: 100
+      limit: 500
     });
     const liste = Array.isArray(data.elements) ? data.elements
                 : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     const dejaImportes = new Set(cfg.devisImportes || []);
-    const resultat = liste
-      .filter(d => d && d.validated === true)
+    const validesUniquement = liste.filter(d => d && d.validated === true);
+    const resultat = validesUniquement
       .filter(d => !dejaImportes.has(String(d.id)))
       .map(d => ({
         id: String(d.id),
@@ -189,7 +191,18 @@ router.get("/devis", verifyToken, async (req, res) => {
         date: d.date || null,
         reference: d.reference || d.number || ""
       }));
-    res.json({ ok: true, devis: resultat });
+    // Compteurs de diagnostic : permettent de localiser où un devis manquant
+    // se perd (jamais reçu de Henrri / reçu mais non "validated" / déjà importé).
+    res.json({
+      ok: true,
+      devis: resultat,
+      debug: {
+        totalRecuHenrri: liste.length,
+        totalDeclaresValides: validesUniquement.length,
+        totalRestantApresImportes: resultat.length,
+        totalAnnonceParHenrri: data.total ?? data.total_count ?? data.count ?? null
+      }
+    });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

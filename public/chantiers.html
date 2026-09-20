@@ -1946,11 +1946,20 @@ async function ouvrirModaleHenrri() {
     const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
     if (!d.ok) { corps.innerHTML = '<p style="color:#dc2626;">' + _henrriEscAttr(d.message || 'Erreur') + '</p>'; return; }
+    const dbg = d.debug || null;
+    const dbgTxt = dbg
+      ? '<p style="font-size:0.72rem;color:#94a3b8;margin:0 0 8px;">'
+        + dbg.totalRecuHenrri + ' devis reçus de Henrri · '
+        + dbg.totalDeclaresValides + ' marqués validés · '
+        + dbg.totalRestantApresImportes + ' restant(s) à afficher (hors déjà affectés)'
+        + (dbg.totalAnnonceParHenrri != null ? ' · total annoncé par Henrri : ' + dbg.totalAnnonceParHenrri : '')
+        + '</p>'
+      : '';
     if (!d.devis || !d.devis.length) {
-      corps.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
+      corps.innerHTML = dbgTxt + '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
       return;
     }
-    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
+    let html = dbgTxt + '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
     html += '<thead><tr style="background:#e8edf3;">'
           + '<th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">Client</th>'
           + '<th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;">Montant</th>'
