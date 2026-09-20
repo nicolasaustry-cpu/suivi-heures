@@ -12,23 +12,34 @@ const router = express.Router();
    - Objectif 2 : récupérer la base clients Henrri → préremplir les
      coordonnées de chantier + nouvelle page clients.html.
 
-   Authentification Henrri : OAuth2 client_credentials (client_id +
-   client_secret propres à chaque entreprise, saisis dans la page
-   Entreprise). Le secret ne repart JAMAIS vers le navigateur une
-   fois enregistré (la lecture de la config le masque).
+   Authentification Henrri : schéma propre à Henrri (PAS un OAuth2
+   client_credentials standard) : POST /v1/users/authenticate avec un
+   corps JSON {clientId, clientSecret} (identifiants propres à chaque
+   entreprise, saisis dans la page Entreprise). Le secret ne repart
+   JAMAIS vers le navigateur une fois enregistré (la lecture de la
+   config le masque).
 
-   ⚠ Endpoints Henrri ci-dessous basés sur la documentation publique
-   du SDK non officiel "henrri-connect" (sandbox https://api-sandbox.henrri.io).
-   Non testés en conditions réelles (réseau de développement sans accès
-   sortant vers l'API Henrri) : à corriger si l'API renvoie une erreur
-   404/400 lors du premier test réel — voir les logs Railway, le message
-   d'erreur y est renvoyé tel quel par appelHenrri().
+   Contrat d'API confirmé via la documentation du SDK non officiel
+   "henrri-connect" (sandbox https://api-sandbox.henrri.io) après
+   échec du premier test réel (HTTP 404 sur l'ancien chemin
+   /api/oauth/token, qui n'existe pas).
    ─────────────────────────────────────────────────────────────── */
 
 const HENRRI_BASE_URL   = "https://api-sandbox.henrri.io";
-const HENRRI_TOKEN_PATH = "/api/oauth/token";
-const HENRRI_DOCS_PATH  = "/api/documents";
-const HENRRI_CUST_PATH  = "/api/customers";
+const HENRRI_TOKEN_PATH = "/v1/users/authenticate";
+const HENRRI_DOCS_PATH  = "/v1/documents";
+const HENRRI_CUST_PATH  = "/v1/customers";
+
+// En-têtes obligatoires sur tous les appels Henrri (y compris l'authentification).
+function _entetesHenrri(token) {
+  const h = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "X-Version": "1.0"
+  };
+  if (token) h["Authorization"] = "Bearer " + token;
+  return h;
+}
 
 // Cache mémoire des tokens en cours (évite une authentification à chaque appel).
 // Clé = clientId Suiv'Heures. Valeur = { token, expire (timestamp ms) }.
@@ -40,11 +51,10 @@ async function obtenirToken(clientId, henrriClientId, henrriClientSecret) {
 
   const r = await fetch(HENRRI_BASE_URL + HENRRI_TOKEN_PATH, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: _entetesHenrri(),
     body: JSON.stringify({
-      client_id: henrriClientId,
-      client_secret: henrriClientSecret,
-      grant_type: "client_credentials"
+      clientId: henrriClientId,
+      clientSecret: henrriClientSecret
     })
   });
   if (!r.ok) {
@@ -62,8 +72,8 @@ async function obtenirToken(clientId, henrriClientId, henrriClientSecret) {
 async function appelHenrri(clientId, henrriClientId, henrriClientSecret, chemin, params) {
   const token = await obtenirToken(clientId, henrriClientId, henrriClientSecret);
   const url = new URL(HENRRI_BASE_URL + chemin);
-  Object.entries(params || {}).forEach(([k, v]) => { if (v != null) url.searchParams.set(k, v); });
-  const r = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+  Object.entries(params || {}).forEach(([k, v]) => { if (v != null && v !== "") url.searchParams.set(k, v); });
+  const r = await fetch(url, { headers: _entetesHenrri(token) });
   if (!r.ok) {
     const detail = await r.text().catch(() => "");
     throw new Error(`Appel Henrri échoué (HTTP ${r.status}) ${detail.slice(0, 300)}`);
@@ -159,22 +169,24 @@ router.get("/devis", verifyToken, async (req, res) => {
     const cfg = await _config(clientId);
     if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
 
-    // ⚠ Paramètres de filtre (type de document = devis, statut = validé) à ajuster
-    // selon les noms de champs réels renvoyés par l'API (à confirmer au 1er test).
+    // Filtre côté Henrri sur le type de document (devis = "Quotation") ;
+    // le statut "validé" est un booléen (validated) renvoyé par document,
+    // donc filtré côté serveur Suiv'Heures après réception de la page.
     const data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_DOCS_PATH, {
-      document_type: "devis",
-      status: "valide",
+      documentTypes: "Quotation",
       limit: 100
     });
-    const liste = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+    const liste = Array.isArray(data.elements) ? data.elements
+                : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     const dejaImportes = new Set(cfg.devisImportes || []);
     const resultat = liste
+      .filter(d => d && d.validated === true)
       .filter(d => !dejaImportes.has(String(d.id)))
       .map(d => ({
         id: String(d.id),
-        client: (d.customer && (d.customer.name || d.customer.nom)) || d.customer_name || "",
-        montant: d.total_ttc ?? d.montant ?? d.total ?? null,
-        date: d.date || d.created_at || null,
+        client: (d.customer && d.customer.name) || "",
+        montant: d.price_after_tax ?? d.total_ttc ?? null,
+        date: d.date || null,
         reference: d.reference || d.number || ""
       }));
     res.json({ ok: true, devis: resultat });
@@ -255,18 +267,32 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     const cfg = await _config(clientId);
     if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
 
-    // ⚠ Champs à ajuster selon la structure réelle du modèle Customer Henrri.
-    const data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { limit: 200 });
-    const liste = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
-    const resultat = liste.map(c => ({
-      id: String(c.id),
-      nom: c.name || c.nom || c.raison_sociale || "",
-      adresse: c.address || c.adresse || "",
-      ville: c.city || c.ville || "",
-      codePostal: c.zip_code || c.code_postal || "",
-      telephone: c.phone || c.telephone || "",
-      email: c.email || ""
-    }));
+    // Le champ "search" est documenté comme obligatoire côté Henrri mais sans
+    // valeur par défaut connue : on tente d'abord sans (beaucoup d'API traitent
+    // un paramètre de recherche absent comme "pas de filtre"), puis on retente
+    // avec un espace (recherche non vide qui matche tout) si Henrri le refuse.
+    let data;
+    try {
+      data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { limit: 200 });
+    } catch (e) {
+      data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { search: " ", limit: 200 });
+    }
+    const liste = Array.isArray(data.elements) ? data.elements
+                : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
+    const resultat = liste.map(c => {
+      const adr = c.address || {};
+      const contacts = Array.isArray(c.contacts) ? c.contacts : [];
+      const principal = contacts.find(ct => ct && (ct.primary || ct.is_primary)) || contacts[0] || {};
+      return {
+        id: String(c.id),
+        nom: c.name || c.company_name || "",
+        adresse: adr.address || "",
+        ville: [adr.post_code, adr.city].filter(Boolean).join(" ").trim() || adr.city || "",
+        codePostal: adr.post_code || "",
+        telephone: principal.phone || principal.mobile || c.phone || "",
+        email: principal.email || c.email || ""
+      };
+    });
 
     cfg.clientsCache = resultat;
     cfg.clientsCacheLe = new Date();
