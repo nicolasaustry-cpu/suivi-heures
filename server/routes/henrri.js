@@ -214,10 +214,10 @@ router.get("/devis", verifyToken, async (req, res) => {
         reference: d.reference || d.number || ""
       }));
     // Compteurs de diagnostic : permettent de localiser où un devis manquant
-    // se perd (jamais reçu de Henrri / reçu mais non "validated" / déjà importé).
-    // brutStatut : dump des champs de statut de CHAQUE document reçu (indépendamment
-    // du filtre), pour identifier le vrai nom/la vraie valeur du champ "validé" —
-    // le nom "validated" utilisé actuellement donne 0 correspondance.
+    // se perd (jamais reçu de Henrri / reçu mais non "finalized" / déjà importé).
+    // brut : dump complet des documents "finalized" reçus, pour identifier les
+    // vrais noms de champs du client et du montant (client affiché = "MON CLIENT
+    // PRO" et montant vide au 1er essai avec customer.name / price_after_tax).
     res.json({
       ok: true,
       devis: resultat,
@@ -225,17 +225,7 @@ router.get("/devis", verifyToken, async (req, res) => {
         totalRecuHenrri: liste.length,
         totalDeclaresValides: validesUniquement.length,
         totalRestantApresImportes: resultat.length,
-        brutStatut: liste.map(d => ({
-          id: d && d.id,
-          validated: d && d.validated,
-          finalized: d && d.finalized,
-          state: d && d.state,
-          status: d && d.status,
-          kind: d && d.kind,
-          type: d && d.type,
-          document_type: d && d.document_type,
-          documentType: d && d.documentType
-        }))
+        brut: validesUniquement
       }
     });
   } catch (err) {
