@@ -216,6 +216,8 @@
   #rdv-pop .rdv-pop-cancel:hover { background:#fecaca; }
   /* Marqueur RDV importé depuis Reservio (🔗 auto-synchronisé, 🔒 verrouillé après modif manuelle) */
   .badge-reservio { font-size:0.78rem;margin-right:3px;vertical-align:middle;cursor:default; }
+  /* Le 🔗 (auto-synchronisé) est teinté en doré pour rester dans le même ton que le 🔒 (verrouillé) */
+  .badge-reservio.badge-reservio-lien { filter: sepia(1) saturate(6) hue-rotate(-15deg) brightness(0.95); }
   /* Alerte : RDV verrouillé annulé côté Reservio, en attente d'une décision du gérant */
   .btn-alerte-reservio { display:block;width:100%;box-sizing:border-box;margin-top:4px;border:none;
     background:#fee2e2;color:#b91c1c;border-radius:6px;padding:4px 8px;font-size:0.74rem;font-weight:700;
@@ -997,7 +999,7 @@ function pl2ChipHTML(sl){
   // Marqueur RDV importé depuis Reservio : 🔗 tant que Reservio garde la main sur ce
   // créneau, 🔒 dès qu'il a été modifié à la main (et n'est plus retouché par le sync).
   const badgeReservio = data.reservioUid
-    ? `<span class="badge-reservio no-print" title="${data.reservioLocked?'RDV Reservio modifié manuellement — verrouillé, ne sera plus mis à jour automatiquement':'RDV importé automatiquement depuis Reservio'}">${data.reservioLocked?'🔒':'🔗'}</span>`
+    ? `<span class="badge-reservio${data.reservioLocked?'':' badge-reservio-lien'} no-print" title="${data.reservioLocked?'RDV Reservio modifié manuellement — verrouillé, ne sera plus mis à jour automatiquement':'RDV importé automatiquement depuis Reservio'}">${data.reservioLocked?'🔒':'🔗'}</span>`
     : '';
   const alerteReservio = data.reservioAnnule
     ? `<button type="button" class="btn-alerte-reservio no-print" title="Ce RDV a été annulé dans Reservio — cliquer pour décider" onclick="pl2TraiterAlerteReservio('${sl.k}')">⚠️ Annulé Reservio</button>`
