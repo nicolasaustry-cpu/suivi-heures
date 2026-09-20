@@ -81,6 +81,29 @@ async function appelHenrri(clientId, henrriClientId, henrriClientSecret, chemin,
   return r.json();
 }
 
+// La limite maximale acceptée par Henrri est 100 par page (confirmé par erreur
+// 400 "limit must be between 1 and 100"). On parcourt donc les pages successives
+// (page=1,2,…) jusqu'à obtenir moins de 100 éléments ou atteindre un plafond de
+// sécurité, afin de ne pas manquer un document récent situé au-delà de la 1ère page.
+const HENRRI_LIMITE_PAGE = 100;
+const HENRRI_PAGES_MAX   = 10; // plafond de sécurité = 1000 éléments max
+
+async function appelHenrriPagine(clientId, henrriClientId, henrriClientSecret, chemin, params, champListe) {
+  let tous = [];
+  for (let page = 1; page <= HENRRI_PAGES_MAX; page++) {
+    const data = await appelHenrri(clientId, henrriClientId, henrriClientSecret, chemin, {
+      ...params,
+      limit: HENRRI_LIMITE_PAGE,
+      page
+    });
+    const liste = Array.isArray(data.elements) ? data.elements
+                : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
+    tous = tous.concat(liste);
+    if (liste.length < HENRRI_LIMITE_PAGE) break; // dernière page atteinte
+  }
+  return tous;
+}
+
 async function _config(clientId) {
   let cfg = await Henrri.findOne({ clientId });
   if (!cfg) cfg = await Henrri.create({ clientId });
@@ -172,14 +195,11 @@ router.get("/devis", verifyToken, async (req, res) => {
     // Filtre côté Henrri sur le type de document (devis = "Quotation") ;
     // le statut "validé" est un booléen (validated) renvoyé par document,
     // donc filtré côté serveur Suiv'Heures après réception de la page.
-    // Limite relevée à 500 (au lieu de 100) : un devis récent peut se trouver
-    // au-delà des 100 premiers résultats selon l'ordre de tri renvoyé par Henrri.
-    const data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_DOCS_PATH, {
-      documentTypes: "Quotation",
-      limit: 500
+    // La limite Henrri est plafonnée à 100/page : appelHenrriPagine() parcourt
+    // les pages suivantes au besoin pour ne pas manquer un devis récent.
+    const liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_DOCS_PATH, {
+      documentTypes: "Quotation"
     });
-    const liste = Array.isArray(data.elements) ? data.elements
-                : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     const dejaImportes = new Set(cfg.devisImportes || []);
     const validesUniquement = liste.filter(d => d && d.validated === true);
     const resultat = validesUniquement
@@ -199,8 +219,7 @@ router.get("/devis", verifyToken, async (req, res) => {
       debug: {
         totalRecuHenrri: liste.length,
         totalDeclaresValides: validesUniquement.length,
-        totalRestantApresImportes: resultat.length,
-        totalAnnonceParHenrri: data.total ?? data.total_count ?? data.count ?? null
+        totalRestantApresImportes: resultat.length
       }
     });
   } catch (err) {
@@ -284,14 +303,14 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     // valeur par défaut connue : on tente d'abord sans (beaucoup d'API traitent
     // un paramètre de recherche absent comme "pas de filtre"), puis on retente
     // avec un espace (recherche non vide qui matche tout) si Henrri le refuse.
-    let data;
+    // Limite Henrri plafonnée à 100/page : appelHenrriPagine() parcourt les
+    // pages suivantes au besoin pour récupérer la base clients complète.
+    let liste;
     try {
-      data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { limit: 200 });
+      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, {});
     } catch (e) {
-      data = await appelHenrri(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { search: " ", limit: 200 });
+      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { search: " " });
     }
-    const liste = Array.isArray(data.elements) ? data.elements
-                : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     const resultat = liste.map(c => {
       const adr = c.address || {};
       const contacts = Array.isArray(c.contacts) ? c.contacts : [];
