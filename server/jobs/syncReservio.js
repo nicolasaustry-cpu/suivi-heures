@@ -242,6 +242,8 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
       };
       d.reservioSnapshot = empreinte(d);
       heures[k] = d;
+      doc.markModified(`heures.${k}`);   // "heures" est un Object libre (Mixed) : sans ça, Mongoose ne
+                                          // détecte pas l'ajout et .save() ne persiste rien.
       existantParUid.set(ev.uid, k);
       console.log(`   ➕ Nouveau RDV Reservio ajouté : "${chantier}" le ${dateKey} à ${rdv} (salarié ${salarieId}, uid ${ev.uid}).`);
     }
