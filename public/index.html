@@ -210,6 +210,17 @@
   </div>
   <div id="henrri-bloc" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;max-width:360px;">
     <div>
+      <label for="henrriEnvironnement" style="font-size:0.85rem;font-weight:600;">Type de clé :</label><br>
+      <select id="henrriEnvironnement" style="width:100%;box-sizing:border-box;">
+        <option value="sandbox">Bac à sable / test (api-sandbox.henrri.io)</option>
+        <option value="production">Production (api.henrri.io)</option>
+      </select>
+      <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">
+        La clé de test renvoie toujours des données fictives, même avec un vrai compte Henrri.
+        Pour vos vraies données, utilisez une clé de production (à demander auprès de Henrri).
+      </div>
+    </div>
+    <div>
       <label for="henrriClientId" style="font-size:0.85rem;font-weight:600;">Client ID :</label><br>
       <input id="henrriClientId" placeholder="Ex : e0148ac0-623a-4c0f-b168-a01d7c5240be" style="width:100%;box-sizing:border-box;">
     </div>
@@ -585,6 +596,7 @@ async function chargerHenrri() {
     if (section) section.style.display = '';
     document.getElementById('henrriActif').checked = !!d.actif;
     document.getElementById('henrriClientId').value = d.henrriClientId || '';
+    document.getElementById('henrriEnvironnement').value = d.henrriEnvironnement || 'sandbox';
     document.getElementById('henrri-secret-info').textContent = d.henrriClientSecretDefini
       ? 'Secret déjà enregistré — laissez vide pour le conserver.'
       : 'Aucun secret enregistré pour le moment.';
@@ -604,6 +616,7 @@ async function validerHenrri() {
   const actif = document.getElementById('henrriActif').checked;
   const henrriClientId = document.getElementById('henrriClientId').value.trim();
   const henrriClientSecret = document.getElementById('henrriClientSecret').value.trim();
+  const henrriEnvironnement = document.getElementById('henrriEnvironnement').value;
   if (actif && !henrriClientId) { alert('Renseignez le Client ID Henrri.'); return; }
 
   const btn = document.getElementById('btn-valider-henrri');
@@ -614,7 +627,7 @@ async function validerHenrri() {
     const r = await fetch('/api/henrri/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ actif, henrriClientId, henrriClientSecret })
+      body: JSON.stringify({ actif, henrriClientId, henrriClientSecret, henrriEnvironnement })
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');

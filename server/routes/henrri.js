@@ -23,12 +23,26 @@ const router = express.Router();
    "henrri-connect" (sandbox https://api-sandbox.henrri.io) après
    échec du premier test réel (HTTP 404 sur l'ancien chemin
    /api/oauth/token, qui n'existe pas).
+
+   ⚠ Environnement (sandbox / production) : Henrri utilise DEUX hôtes
+   distincts, confirmés par le README du SDK "henrri-connect" —
+   https://api-sandbox.henrri.io (bac à sable, données fictives, clé
+   de test) et https://api.henrri.io (production, vraies données,
+   nécessite une clé de production demandée via le formulaire Henrri
+   dédié). Une même paire client_id/secret n'est valable que sur l'un
+   des deux hôtes : le choix se fait par entreprise cliente, via le
+   champ henrriEnvironnement enregistré dans la config Henrri.
    ─────────────────────────────────────────────────────────────── */
 
-const HENRRI_BASE_URL   = "https://api-sandbox.henrri.io";
+const HENRRI_URL_SANDBOX    = "https://api-sandbox.henrri.io";
+const HENRRI_URL_PRODUCTION = "https://api.henrri.io";
 const HENRRI_TOKEN_PATH = "/v1/users/authenticate";
 const HENRRI_DOCS_PATH  = "/v1/documents";
 const HENRRI_CUST_PATH  = "/v1/customers";
+
+function _baseUrl(environnement) {
+  return environnement === "production" ? HENRRI_URL_PRODUCTION : HENRRI_URL_SANDBOX;
+}
 
 // En-têtes obligatoires sur tous les appels Henrri (y compris l'authentification).
 function _entetesHenrri(token) {
@@ -42,14 +56,16 @@ function _entetesHenrri(token) {
 }
 
 // Cache mémoire des tokens en cours (évite une authentification à chaque appel).
-// Clé = clientId Suiv'Heures. Valeur = { token, expire (timestamp ms) }.
+// Clé = clientId Suiv'Heures + environnement (un token sandbox et un token
+// production ne sont jamais interchangeables, même pour la même entreprise).
 const _tokenCache = new Map();
 
-async function obtenirToken(clientId, henrriClientId, henrriClientSecret) {
-  const cache = _tokenCache.get(clientId);
+async function obtenirToken(clientId, henrriClientId, henrriClientSecret, environnement) {
+  const cle = clientId + ":" + (environnement || "sandbox");
+  const cache = _tokenCache.get(cle);
   if (cache && cache.expire > Date.now() + 5000) return cache.token;
 
-  const r = await fetch(HENRRI_BASE_URL + HENRRI_TOKEN_PATH, {
+  const r = await fetch(_baseUrl(environnement) + HENRRI_TOKEN_PATH, {
     method: "POST",
     headers: _entetesHenrri(),
     body: JSON.stringify({
@@ -65,13 +81,13 @@ async function obtenirToken(clientId, henrriClientId, henrriClientSecret) {
   const token = d.access_token || d.token;
   if (!token) throw new Error("Réponse Henrri sans jeton d'accès");
   const dureeSec = Number(d.expires_in) || 3600;
-  _tokenCache.set(clientId, { token, expire: Date.now() + dureeSec * 1000 });
+  _tokenCache.set(cle, { token, expire: Date.now() + dureeSec * 1000 });
   return token;
 }
 
-async function appelHenrri(clientId, henrriClientId, henrriClientSecret, chemin, params) {
-  const token = await obtenirToken(clientId, henrriClientId, henrriClientSecret);
-  const url = new URL(HENRRI_BASE_URL + chemin);
+async function appelHenrri(clientId, henrriClientId, henrriClientSecret, environnement, chemin, params) {
+  const token = await obtenirToken(clientId, henrriClientId, henrriClientSecret, environnement);
+  const url = new URL(_baseUrl(environnement) + chemin);
   Object.entries(params || {}).forEach(([k, v]) => { if (v != null && v !== "") url.searchParams.set(k, v); });
   const r = await fetch(url, { headers: _entetesHenrri(token) });
   if (!r.ok) {
@@ -88,10 +104,10 @@ async function appelHenrri(clientId, henrriClientId, henrriClientSecret, chemin,
 const HENRRI_LIMITE_PAGE = 100;
 const HENRRI_PAGES_MAX   = 10; // plafond de sécurité = 1000 éléments max
 
-async function appelHenrriPagine(clientId, henrriClientId, henrriClientSecret, chemin, params, champListe) {
+async function appelHenrriPagine(clientId, henrriClientId, henrriClientSecret, environnement, chemin, params) {
   let tous = [];
   for (let page = 1; page <= HENRRI_PAGES_MAX; page++) {
-    const data = await appelHenrri(clientId, henrriClientId, henrriClientSecret, chemin, {
+    const data = await appelHenrri(clientId, henrriClientId, henrriClientSecret, environnement, chemin, {
       ...params,
       limit: HENRRI_LIMITE_PAGE,
       page
@@ -119,7 +135,8 @@ router.get("/config", verifyToken, async (req, res) => {
       ok: true,
       actif: cfg.actif,
       henrriClientId: cfg.henrriClientId || "",
-      henrriClientSecretDefini: !!cfg.henrriClientSecret
+      henrriClientSecretDefini: !!cfg.henrriClientSecret,
+      henrriEnvironnement: cfg.henrriEnvironnement || "sandbox"
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
@@ -133,6 +150,7 @@ router.post("/config", verifyToken, async (req, res) => {
     const henrriClientId     = String(req.body.henrriClientId || "").trim();
     const henrriClientSecret = String(req.body.henrriClientSecret || "").trim();
     const actif = !!req.body.actif;
+    const environnement = req.body.henrriEnvironnement === "production" ? "production" : "sandbox";
 
     if (actif && !henrriClientId) {
       return res.status(400).json({ ok: false, message: "Client ID Henrri requis pour activer la connexion." });
@@ -147,21 +165,24 @@ router.post("/config", verifyToken, async (req, res) => {
       if (!secretAEnregistrer) {
         return res.status(400).json({ ok: false, message: "Client Secret Henrri requis pour activer la connexion." });
       }
-      // Valide les identifiants tout de suite (retour d'erreur clair si invalides).
+      // Valide les identifiants tout de suite (retour d'erreur clair si invalides),
+      // sur l'hôte correspondant à l'environnement choisi (sandbox ou production).
       try {
-        _tokenCache.delete(clientId);
-        await obtenirToken(clientId, henrriClientId || cfg.henrriClientId, secretAEnregistrer);
+        _tokenCache.delete(clientId + ":" + environnement);
+        await obtenirToken(clientId, henrriClientId || cfg.henrriClientId, secretAEnregistrer, environnement);
       } catch (e) {
         return res.status(400).json({ ok: false, message: "Connexion à Henrri impossible : " + e.message });
       }
     }
 
-    cfg.henrriClientId     = henrriClientId || cfg.henrriClientId;
-    cfg.henrriClientSecret = secretAEnregistrer;
-    cfg.actif              = actif;
-    cfg.updatedAt          = new Date();
+    cfg.henrriClientId      = henrriClientId || cfg.henrriClientId;
+    cfg.henrriClientSecret  = secretAEnregistrer;
+    cfg.henrriEnvironnement = environnement;
+    cfg.actif               = actif;
+    cfg.updatedAt           = new Date();
     await cfg.save();
-    _tokenCache.delete(clientId);
+    _tokenCache.delete(clientId + ":sandbox");
+    _tokenCache.delete(clientId + ":production");
 
     res.json({ ok: true, actif: cfg.actif });
   } catch (err) {
@@ -178,7 +199,8 @@ router.delete("/config", verifyToken, async (req, res) => {
       { $set: { actif: false, henrriClientId: "", henrriClientSecret: "", updatedAt: new Date() } },
       { upsert: true }
     );
-    _tokenCache.delete(clientId);
+    _tokenCache.delete(clientId + ":sandbox");
+    _tokenCache.delete(clientId + ":production");
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
@@ -199,7 +221,7 @@ router.get("/devis", verifyToken, async (req, res) => {
     // Henrri (il correspond probablement à une validation comptable distincte).
     // La limite Henrri est plafonnée à 100/page : appelHenrriPagine() parcourt
     // les pages suivantes au besoin pour ne pas manquer un devis récent.
-    const liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_DOCS_PATH, {
+    const liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_DOCS_PATH, {
       documentTypes: "Quotation"
     });
     const dejaImportes = new Set(cfg.devisImportes || []);
@@ -318,9 +340,9 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     // pages suivantes au besoin pour récupérer la base clients complète.
     let liste;
     try {
-      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, {});
+      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_CUST_PATH, {});
     } catch (e) {
-      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, HENRRI_CUST_PATH, { search: " " });
+      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_CUST_PATH, { search: " " });
     }
     // Champs Henrri en camelCase (confirmé sur le modèle Document.customer d'un
     // vrai devis sandbox : name, tradeName, address, contacts) — corrigé du

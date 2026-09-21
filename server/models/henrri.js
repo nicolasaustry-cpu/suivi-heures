@@ -11,6 +11,10 @@ const henrriSchema = new mongoose.Schema({
   actif:              { type: Boolean, default: false },
   henrriClientId:     { type: String, default: "" },
   henrriClientSecret: { type: String, default: "" },
+  // "sandbox" (api-sandbox.henrri.io, données fictives, clé de test) ou
+  // "production" (api.henrri.io, vraies données — nécessite une clé de
+  // production demandée auprès de Henrri via leur formulaire dédié).
+  henrriEnvironnement:{ type: String, enum: ["sandbox", "production"], default: "sandbox" },
   devisImportes:      { type: [String], default: [] }, // IDs de documents Henrri déjà affectés au prévisionnel
   devisIgnores:       { type: [String], default: [] }, // IDs de devis écartés manuellement (ne plus proposer)
   clientsCache:       { type: Array, default: [] },   // dernière liste de clients Henrri récupérée (rafraîchie manuellement)
