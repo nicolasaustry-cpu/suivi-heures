@@ -203,9 +203,10 @@ router.get("/devis", verifyToken, async (req, res) => {
       documentTypes: "Quotation"
     });
     const dejaImportes = new Set(cfg.devisImportes || []);
+    const dejaIgnores  = new Set(cfg.devisIgnores  || []);
     const validesUniquement = liste.filter(d => d && d.finalized === true);
     const resultat = validesUniquement
-      .filter(d => !dejaImportes.has(String(d.id)))
+      .filter(d => !dejaImportes.has(String(d.id)) && !dejaIgnores.has(String(d.id)))
       .map(d => ({
         id: String(d.id),
         // Champs Henrri en camelCase (confirmé sur un vrai devis sandbox) :
@@ -215,38 +216,7 @@ router.get("/devis", verifyToken, async (req, res) => {
         date: d.date || null,
         reference: d.identity || d.reference || d.number || ""
       }));
-    // Diagnostic ponctuel : la liste des devis renvoie "lines": null (pas de détail
-    // des lignes de prestations). On va chercher le détail complet du 1er devis
-    // pour voir si Henrri y expose une notion d'heures (quantité + unité), en vue
-    // d'un préremplissage automatique des heures prévues dans le Prévisionnel.
-    let detailPremierDevis = null;
-    if (validesUniquement[0]) {
-      try {
-        detailPremierDevis = await appelHenrri(
-          clientId, cfg.henrriClientId, cfg.henrriClientSecret,
-          HENRRI_DOCS_PATH + "/" + validesUniquement[0].id, {}
-        );
-      } catch (e) {
-        detailPremierDevis = { erreur: e.message };
-      }
-    }
-
-    // Compteurs de diagnostic : permettent de localiser où un devis manquant
-    // se perd (jamais reçu de Henrri / reçu mais non "finalized" / déjà importé).
-    // brut : dump complet des documents "finalized" reçus, pour identifier les
-    // vrais noms de champs du client et du montant (client affiché = "MON CLIENT
-    // PRO" et montant vide au 1er essai avec customer.name / price_after_tax).
-    res.json({
-      ok: true,
-      devis: resultat,
-      debug: {
-        totalRecuHenrri: liste.length,
-        totalDeclaresValides: validesUniquement.length,
-        totalRestantApresImportes: resultat.length,
-        brut: validesUniquement,
-        detailPremierDevis
-      }
-    });
+    res.json({ ok: true, devis: resultat });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -290,6 +260,22 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
       { upsert: true }
     );
 
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Écarter un devis proposé sans l'affecter (ne plus le reproposer) ──
+router.post("/devis/:id/ignorer", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const devisId  = String(req.params.id);
+    await Henrri.updateOne(
+      { clientId },
+      { $addToSet: { devisIgnores: devisId }, $set: { updatedAt: new Date() } },
+      { upsert: true }
+    );
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

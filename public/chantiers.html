@@ -1946,41 +1946,28 @@ async function ouvrirModaleHenrri() {
     const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
     if (!d.ok) { corps.innerHTML = '<p style="color:#dc2626;">' + _henrriEscAttr(d.message || 'Erreur') + '</p>'; return; }
-    const dbg = d.debug || null;
-    const dbgTxt = dbg
-      ? '<p style="font-size:0.72rem;color:#94a3b8;margin:0 0 4px;">'
-        + dbg.totalRecuHenrri + ' devis reçus de Henrri · '
-        + dbg.totalDeclaresValides + ' marqués validés · '
-        + dbg.totalRestantApresImportes + ' restant(s) à afficher (hors déjà affectés)'
-        + (dbg.totalAnnonceParHenrri != null ? ' · total annoncé par Henrri : ' + dbg.totalAnnonceParHenrri : '')
-        + '</p>'
-        + (dbg.brut ? '<pre style="font-size:0.68rem;background:#f1f5f9;padding:6px 8px;border-radius:6px;overflow:auto;max-height:260px;margin:0 0 8px;">'
-          + _henrriEscAttr(JSON.stringify(dbg.brut, null, 2)) + '</pre>' : '')
-        + (dbg.detailPremierDevis ? '<p style="font-size:0.72rem;color:#94a3b8;margin:0 0 4px;">Détail complet du 1er devis (recherche d\'un champ « heures ») :</p>'
-          + '<pre style="font-size:0.68rem;background:#eef2ff;padding:6px 8px;border-radius:6px;overflow:auto;max-height:260px;margin:0 0 8px;">'
-          + _henrriEscAttr(JSON.stringify(dbg.detailPremierDevis, null, 2)) + '</pre>' : '')
-      : '';
     if (!d.devis || !d.devis.length) {
-      corps.innerHTML = dbgTxt + '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
+      corps.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
       return;
     }
-    let html = dbgTxt + '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
     html += '<thead><tr style="background:#e8edf3;">'
           + '<th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">Client</th>'
-          + '<th style="padding:6px 8px;text-align:right;border:1px solid #e2e8f0;">Montant</th>'
+          + '<th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">N° devis</th>'
           + '<th style="padding:6px 8px;border:1px solid #e2e8f0;">Mois de démarrage</th>'
           + '<th style="padding:6px 8px;border:1px solid #e2e8f0;"></th></tr></thead><tbody>';
     d.devis.forEach(dv => {
-      const montantTxt = (dv.montant !== null && dv.montant !== undefined && !isNaN(dv.montant))
-        ? Number(dv.montant).toFixed(2).replace('.', ',') + ' €' : '—';
       html += '<tr>'
         + '<td style="padding:5px 8px;border:1px solid #e2e8f0;">' + _henrriEscAttr(dv.client || '(sans nom)') + '</td>'
-        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;">' + montantTxt + '</td>'
+        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;">' + _henrriEscAttr(dv.reference || '—') + '</td>'
         + '<td style="padding:5px 8px;border:1px solid #e2e8f0;"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
-        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;">'
+        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;white-space:nowrap;">'
         + '<button class="btn-modale-copier" style="padding:4px 12px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
-        + 'onclick="affecterDevisHenrri(this)">Affecter</button></td>'
+        + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
+        + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
+        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕</button></td>'
         + '</tr>';
     });
     html += '</tbody></table>';
@@ -2015,6 +2002,27 @@ async function affecterDevisHenrri(btn) {
   } catch (e) {
     alert('Erreur : ' + (e && e.message ? e.message : e));
     btn.disabled = false; btn.textContent = 'Affecter';
+  }
+}
+
+async function supprimerDevisHenrri(btn) {
+  if (!confirm('Écarter ce devis ? Il ne sera plus proposé dans cette liste (il reste inchangé dans Henrri).')) return;
+  const tr = btn.closest('tr');
+  const devisId = btn.getAttribute('data-devis-id');
+  const token = _henrriToken();
+
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/ignorer', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    tr.remove();
+  } catch (e) {
+    alert('Erreur : ' + (e && e.message ? e.message : e));
+    btn.disabled = false;
   }
 }
 
