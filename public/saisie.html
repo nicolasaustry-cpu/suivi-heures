@@ -2039,11 +2039,19 @@ async function chargerChantiersPrev() {
     // Hors ligne : on garde l'état local existant
   }
 
-  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne prévus ET ajoutés
+  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne prévus ET ajoutés.
+  // L'ordre mémorisé est désormais une liste de clés (nom + numéro de passage, cf.
+  // chargement plus haut), pour distinguer deux passages du même chantier dans la
+  // journée au lieu de les confondre sur un seul rang.
   const _ord = _ordreMobilePour(salarieId, date);
   if (_ord) {
     const rang = {}; _ord.forEach((n, i) => { rang[n] = i; });
-    const parRang = (a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999));
+    const _cleDe = (nom, occ) => (((occ || 1) === 1) ? nom : (nom + '__occ' + (occ || 1)));
+    const parRang = (a, b) => {
+      const clA = a.cle != null ? a.cle : _cleDe(a.nom, a.occ);
+      const clB = b.cle != null ? b.cle : _cleDe(b.nom, b.occ);
+      return (rang[clA] != null ? rang[clA] : 999) - (rang[clB] != null ? rang[clB] : 999);
+    };
     _chantiersP.sort(parRang);
     _chantiersA.sort(parRang);
   }

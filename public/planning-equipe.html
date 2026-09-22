@@ -205,7 +205,6 @@
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
-<script src="assets/documents-chantier.js"></script>
 <script>
 /* ════════════════════════════════════════════════
    Vue équipe — grille gérant
@@ -422,10 +421,10 @@ function dragFinish() {
     return;
   }
   // Sinon : simple réordonnancement dans la case
-  const cle  = cell.getAttribute('data-cell');
-  const noms = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-nom'));
+  const cleCellule = cell.getAttribute('data-cell');
+  const cles = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-cle') || c.getAttribute('data-nom'));
   _drag = null;
-  enregistrerOrdreCellule(cle, noms);
+  enregistrerOrdreCellule(cleCellule, cles);
 }
 
 /* Déplace un chantier prévu vers une autre case (salarié × jour) par glisser-déposer.
@@ -577,19 +576,14 @@ function _ouvrirPhoto(src) {
   ov.style.display = 'flex';
 }
 
-/* Retrouve l'intervention (chantier) d'un salarié à une date donnée dans _saisies déjà chargées. */
-function _trouverIntervention(nomChantier, salId, dateStr) {
-  if (!salId || !dateStr) return null;
-  const s = (_saisies || []).find(x => String(x.salarieId) === String(salId) && x.date === dateStr);
-  if (!s) return null;
-  return (s.chantiers || []).find(x => norm(x.nom) === norm(nomChantier)) || null;
-}
-
 /* Remontée du terrain pour un chantier, un salarié et une journée :
    la note écrite par le salarié sur son téléphone et les photos qu'il a prises.
    Ces données voyagent dans la saisie envoyée, elles sont déjà chargées dans _saisies. */
 function _remonteeTerrain(nomChantier, salId, dateStr) {
-  const c = _trouverIntervention(nomChantier, salId, dateStr);
+  if (!salId || !dateStr) return null;
+  const s = (_saisies || []).find(x => String(x.salarieId) === String(salId) && x.date === dateStr);
+  if (!s) return null;
+  const c = (s.chantiers || []).find(x => norm(x.nom) === norm(nomChantier));
   if (!c) return null;
   const note   = (c.note || '').trim();
   const photos = Array.isArray(c.photos) ? c.photos : [];
@@ -624,8 +618,6 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
       + '<div id="note-popup-lbl-gen" style="display:none;padding:14px 16px 0;color:#6b7280;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Note de suivi du chantier</div>'
       + '<div id="note-popup-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;"></div>'
       + '<div id="note-popup-photos" style="padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:8px;"></div>'
-      + '<div id="note-popup-docs" style="padding:0 16px 12px;"></div>'
-      + '<input type="file" id="note-popup-photo-input" accept="image/*" style="display:none;" onchange="ajouterPhotoTerrain(this)">'
       + '<div id="note-popup-edit" style="padding:0 16px 12px;display:none;">'
       +   '<label style="font-size:0.78rem;color:#6b7280;font-weight:600;">Ajouter une ligne</label>'
       +   '<textarea id="note-popup-input" rows="3" placeholder="Nouvelle information…" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-family:inherit;font-size:0.92rem;resize:vertical;margin-top:4px;"></textarea>'
@@ -641,66 +633,41 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
     ov.querySelector('#note-popup-ajouter').addEventListener('click', ajouterLigneNote);
   }
   ov._nom = nomU;
-  ov._salId = salId;
-  ov._dateStr = dateStr;
   ov.querySelector('#note-popup-nom').textContent = nom ? ('Chantier : ' + nom) : '';
 
-  /* ── Remontée du terrain : note et photos du salarié pour cette journée,
-     + bouton du gérant pour ajouter une photo directement depuis son téléphone
-     (sans avoir à se connecter dans la session du salarié). ── */
-  // La route serveur crée désormais l'intervention à la volée si besoin (chantier
-  // seulement planifié, jamais pointé) : plus besoin de vérifier qu'elle existe déjà
-  // pour proposer l'ajout d'une photo, seul le droit d'édition du gérant compte.
+  /* ── Remontée du terrain : note et photos du salarié pour cette journée ── */
   const tz = ov.querySelector('#note-popup-terrain');
   const lg = ov.querySelector('#note-popup-lbl-gen');
   if (tz) {
     tz.innerHTML = '';
-    const zoneUtile = !!terrain || editable;
-    if (zoneUtile) {
+    if (terrain) {
       const ent = document.createElement('div');
       ent.style.cssText = 'color:#c2410c;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;';
       ent.textContent = '📷 Remontée du terrain';
       tz.appendChild(ent);
 
-      if (terrain) {
-        const qui = document.createElement('div');
-        qui.style.cssText = 'color:#6b7280;font-size:0.78rem;margin-bottom:6px;';
-        qui.textContent = [terrain.auteur, _frDate(terrain.date)].filter(Boolean).join(' · ');
-        tz.appendChild(qui);
+      const qui = document.createElement('div');
+      qui.style.cssText = 'color:#6b7280;font-size:0.78rem;margin-bottom:6px;';
+      qui.textContent = [terrain.auteur, _frDate(terrain.date)].filter(Boolean).join(' · ');
+      tz.appendChild(qui);
 
-        if (terrain.note) {
-          const txt = document.createElement('div');
-          txt.style.cssText = 'white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:9px 11px;';
-          txt.textContent = terrain.note;
-          tz.appendChild(txt);
-        }
-        if (terrain.photos.length) {
-          const strip = document.createElement('div');
-          strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
-          terrain.photos.forEach(src => {
-            const im = document.createElement('img');
-            im.src = src;
-            im.style.cssText = 'width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #fed7aa;cursor:zoom-in;';
-            im.onclick = () => _ouvrirPhoto(src);
-            strip.appendChild(im);
-          });
-          tz.appendChild(strip);
-        }
-      } else {
-        const vide = document.createElement('div');
-        vide.style.cssText = 'color:#9ca3af;font-size:0.82rem;font-style:italic;margin-bottom:6px;';
-        vide.textContent = 'Aucune note ni photo du salarié pour cette intervention.';
-        tz.appendChild(vide);
+      if (terrain.note) {
+        const txt = document.createElement('div');
+        txt.style.cssText = 'white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.92rem;line-height:1.45;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:9px 11px;';
+        txt.textContent = terrain.note;
+        tz.appendChild(txt);
       }
-
-      if (editable) {
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.id = 'note-popup-photo-btn';
-        addBtn.textContent = '📷 Ajouter une photo';
-        addBtn.style.cssText = 'margin-top:8px;width:100%;box-sizing:border-box;border:1px dashed #fdba74;background:#fff7ed;color:#c2410c;border-radius:8px;padding:8px;font-weight:700;font-size:0.85rem;cursor:pointer;';
-        addBtn.onclick = () => document.getElementById('note-popup-photo-input').click();
-        tz.appendChild(addBtn);
+      if (terrain.photos.length) {
+        const strip = document.createElement('div');
+        strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
+        terrain.photos.forEach(src => {
+          const im = document.createElement('img');
+          im.src = src;
+          im.style.cssText = 'width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #fed7aa;cursor:zoom-in;';
+          im.onclick = () => _ouvrirPhoto(src);
+          strip.appendChild(im);
+        });
+        tz.appendChild(strip);
       }
       tz.style.display = 'block';
       if (lg) lg.style.display = 'block';
@@ -725,20 +692,6 @@ function afficherNotePopup(nomChantier, salId, dateStr) {
       pz.appendChild(im);
     });
     pz.style.display = fotos.length ? 'flex' : 'none';
-  }
-  // Documents joints (PDF) du chantier — même module que saisie.html / notes.html.
-  if (window.DocsChantier) {
-    const dz = ov.querySelector('#note-popup-docs');
-    if (dz) {
-      const codeEmploye = localStorage.getItem('saisie_codeEmploye');
-      let salarieIdAuth = null;
-      try { salarieIdAuth = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
-      if (nom && codeEmploye && salarieIdAuth) {
-        DocsChantier.monter(nom, dz, { auth: { codeEmploye, salarieId: salarieIdAuth }, peutModifier: editable });
-      } else {
-        DocsChantier.vider(dz);
-      }
-    }
   }
   ov.querySelector('#note-popup-edit').style.display    = editable ? 'block' : 'none';
   ov.querySelector('#note-popup-ajouter').style.display = editable ? 'inline-block' : 'none';
@@ -786,57 +739,6 @@ async function ajouterLigneNote() {
     btn.disabled = false; btn.textContent = 'Ajouter';
   }
 }
-/* Le gérant ajoute une photo (prise ou choisie sur son propre téléphone) directement
-   sur l'intervention du salarié — sans se connecter dans la session de celui-ci.
-   Réutilise la route /note-modifier déjà utilisée par notes.html sur PC. */
-async function ajouterPhotoTerrain(inputEl) {
-  const f = inputEl.files && inputEl.files[0];
-  inputEl.value = '';
-  if (!f) return;
-  const ov = document.getElementById('note-popup-overlay');
-  if (!ov) return;
-  const nomU = ov._nom, salId = ov._salId, dateStr = ov._dateStr;
-  if (!nomU || !salId || !dateStr) return;
-
-  const dataUrl = await new Promise(resolve => compresserPhotoNAE(f, resolve));   // redimensionne/compresse (même helper que l'ajout d'intervention)
-  if (!dataUrl) { alert('Impossible de lire la photo.'); return; }
-
-  const c0 = _trouverIntervention(nomU, salId, dateStr);
-  const photos = (c0 && Array.isArray(c0.photos)) ? c0.photos.slice() : [];
-  photos.push(dataUrl);
-  const noteActuelle = (c0 && c0.note) || '';
-
-  const btn = document.getElementById('note-popup-photo-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try {
-    const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
-    const r = await fetch('/api/saisies/note-modifier', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ date: dateStr, salarieId: salId, chantier: nomU, note: noteActuelle, photos })
-    });
-    const d = await r.json();
-    if (!d.ok) { alert('Échec de l\'envoi de la photo.'); return; }
-    if (c0) {
-      c0.photos = photos;   // mise à jour locale de _saisies
-    } else {
-      // L'intervention n'existait pas encore côté saisies (chantier seulement planifié) :
-      // le serveur vient de la créer, on la reflète localement sans recharger la page.
-      let s = (_saisies || []).find(x => String(x.salarieId) === String(salId) && x.date === dateStr);
-      if (!s) { s = { salarieId: salId, date: dateStr, chantiers: [] }; (_saisies = _saisies || []).push(s); }
-      if (!Array.isArray(s.chantiers)) s.chantiers = [];
-      s.chantiers.push({ nom: nomU, note: noteActuelle, photos });
-    }
-    afficherNotePopup(nomU, salId, dateStr);       // réaffiche la popup avec la nouvelle photo
-    if (typeof genererGrille === 'function') genererGrille({ conserverScroll: true });   // met à jour l'icône 📷 du pavé
-  } catch (e) {
-    alert('Erreur réseau lors de l’envoi de la photo.');
-  } finally {
-    const b2 = document.getElementById('note-popup-photo-btn');
-    if (b2) { b2.disabled = false; b2.textContent = '📷 Ajouter une photo'; }
-  }
-}
-
 /* Active les boutons 📋 (note) des pavés. */
 function initChipNotes() {
   document.querySelectorAll('.grille .chip-note').forEach(b => {
@@ -888,6 +790,15 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   const pris = new Array(rs.length).fill(false);
 
   const chips = [];
+  // Compteur de passages par nom, pour donner à chaque pavé une clé unique
+  // (nom seul au 1er passage, nom + numéro ensuite) — indispensable pour que le
+  // glisser-déposer et l'ordre mémorisé distinguent deux pavés du même chantier
+  // dans la même journée au lieu de les confondre.
+  const _occCompteurCellule = {};
+  const _cleChip = (nom) => {
+    const occ = (_occCompteurCellule[nom] = (_occCompteurCellule[nom] || 0) + 1);
+    return occ === 1 ? nom : (nom + '__occ' + occ);
+  };
 
   // 2a) Pavés planifiés, colorés selon le réalisé correspondant (par nom)
   planifies.forEach(p => {
@@ -898,21 +809,22 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
       noteR = (rs[idx].note || '').trim();
       photosR = Array.isArray(rs[idx].photos) ? rs[idx].photos : [];
     }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '',
+    chips.push({ nom: p.nom, cle: _cleChip(p.nom), hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '',
                  salId: sal.id, date: dateStr, terrNote: noteR, terrPhotos: photosR.length });
   });
 
   // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
   rs.forEach((c, j) => {
     if (pris[j]) return;
-    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim(),
+    chips.push({ nom: c.nom, cle: _cleChip(c.nom), hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim(),
                  salId: sal.id, date: dateStr, terrNote: (c.note || '').trim(), terrPhotos: (Array.isArray(c.photos) ? c.photos.length : 0) });
   });
 
-  // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés)
-  const ordreNoms = appliquerOrdreMobile(sal.id, dateStr, chips.map(c => c.nom));
-  const rang = {}; ordreNoms.forEach((n, i) => { rang[n] = i; });
-  chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999)));
+  // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés),
+  // par clé (nom + numéro de passage) et non plus par le seul nom.
+  const ordreCles = appliquerOrdreMobile(sal.id, dateStr, chips.map(c => c.cle));
+  const rang = {}; ordreCles.forEach((n, i) => { rang[n] = i; });
+  chips.sort((a, b) => ((rang[a.cle] != null ? rang[a.cle] : 999) - (rang[b.cle] != null ? rang[b.cle] : 999)));
 
   return trierChipsParRdv(chips);
 }
@@ -967,7 +879,7 @@ function htmlChip(c) {
     : '';
   const coordTxt = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
   const _movable = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim()) ? '1' : '';
-  return `<div class="chip s-${c.etat}${_estTNA ? ' tna' : ''}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">
+  return `<div class="chip s-${c.etat}${_estTNA ? ' tna' : ''}" data-nom="${escapeHtmlLocal(c.nom)}" data-cle="${escapeHtmlLocal(c.cle || c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
     ${noteTxt}
     ${coordTxt}
@@ -1073,7 +985,7 @@ function genererGrille(opts) {
 function majLibelleSemaine(debut, fin) {
   const opt = { day: 'numeric', month: 'long' };
   const lbl = document.getElementById('wk-label');
-  if (lbl) lbl.textContent = `${debut.toLocaleDateString('fr-FR', opt)} – ${fin.toLocaleDateString('fr-FR', opt)}`;
+  if (lbl) lbl.textContent = `Semaine du ${debut.toLocaleDateString('fr-FR', opt)} au ${fin.toLocaleDateString('fr-FR', opt)}`;
 }
 
 /* ── Navigation semaine ── */
