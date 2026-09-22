@@ -10,7 +10,13 @@ const saisieChantierSchema = new mongoose.Schema({
   note:         { type: String, default: "" },   // note libre du chantier (saisie/dictée mobile)
   photos:       { type: [String], default: [] }, // photos compressées (data URL JPEG, 3 max)
   noteFaite:    { type: Boolean, default: false }, // note marquée « réalisée »
-  isPrevisionnel: { type: Boolean, default: false }
+  isPrevisionnel: { type: Boolean, default: false },
+  // Rang du passage sur ce chantier CE JOUR-LÀ (1 = premier passage, 2 = deuxième…).
+  // Permet de distinguer deux visites du même chantier séparées par un autre chantier
+  // dans la même journée, qui sans ce champ étaient fusionnées en une seule entrée
+  // (la seconde écrasait la première). Par défaut 1 : ne change rien pour l'immense
+  // majorité des saisies, où un chantier n'apparaît qu'une fois par jour.
+  occurrence:   { type: Number, default: 1 }
 }, { _id: false });
 
 const saisieJournaliereSchema = new mongoose.Schema({

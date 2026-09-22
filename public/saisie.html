@@ -1920,20 +1920,31 @@ async function chargerChantiersPrev() {
   // au changement de date / déconnexion. Au premier appel après login, ils sont vides.
 
   // On ne retient QUE les chantiers planifiés pour CE salarié à CETTE date.
-  const chantiersTrouves = new Map();
+  // Parcours ORDONNÉ des créneaux ch1..ch60 (même ordre que planning.html, NB_SLOTS = 60) :
+  // c'est ce parcours dans l'ordre du planning — et non l'itération sur les clés de
+  // l'objet « heures », dont l'ordre n'est pas garanti — qui permet de repérer
+  // correctement plusieurs passages sur un même chantier dans la journée (ex : chantier A
+  // le matin, chantier B, puis chantier A à nouveau l'après-midi) et de les numéroter
+  // (occurrence 1, 2…) au lieu de les fusionner en une seule entrée.
+  const NB_SLOTS_SAISIE = 60; // miroir de NB_SLOTS (planning.html)
   const prefixe = String(salarieId) + dateKey;
-  for (const k in heures) {
-    if (!k.startsWith(prefixe)) continue;
-    if (k.endsWith('abs')) continue;
+  const chantiersTrouves = [];   // liste ordonnée { nom, hPrevues, occ, cle }
+  const _occCompteur = {};       // nom -> nombre de passages déjà vus ce jour
+  for (let _i = 1; _i <= NB_SLOTS_SAISIE; _i++) {
+    const k = prefixe + 'ch' + _i;
+    if (!(k in heures)) continue;
     const entry = heures[k];
     const nomChantier = (entry?.chantier || '').trim();
     if (!nomChantier || nomChantier.toLowerCase() === 'absence') continue;
     if (nomChantier.toUpperCase() === 'TEMPS NON AFFECTE' && !_estGerantOuAdmin()) continue;
-    if (!chantiersTrouves.has(nomChantier)) {
-      const h = parseFloat(entry?.heures) || 0;
-      chantiersTrouves.set(nomChantier, h);
-    }
-    // Note saisie dans le planning (première non vide rencontrée pour ce chantier)
+    const occ = (_occCompteur[nomChantier] = (_occCompteur[nomChantier] || 0) + 1);
+    // Clé interne unique par passage : le nom seul pour le 1er passage (comportement
+    // inchangé dans l'immense majorité des cas), suffixée sinon pour ne jamais écraser
+    // le passage précédent du même chantier.
+    const cle = occ === 1 ? nomChantier : (nomChantier + '__occ' + occ);
+    const h = parseFloat(entry?.heures) || 0;
+    chantiersTrouves.push({ nom: nomChantier, hPrevues: h, occ, cle });
+    // Note saisie dans le planning (première non vide rencontrée pour ce chantier, tous passages confondus)
     const noteP = (entry?.note || '').trim();
     if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
     // Heure de RDV saisie dans le planning (première non vide rencontrée)
@@ -1943,21 +1954,26 @@ async function chargerChantiersPrev() {
   // Note générale du chantier (unifiée) — prioritaire, lue depuis le journal
   try {
     const _ng = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}');
-    for (const nom of chantiersTrouves.keys()) {
+    const _nomsVus = new Set(chantiersTrouves.map(c => c.nom));
+    for (const nom of _nomsVus) {
       const g = _ng[nom.toUpperCase()];
       if (g) _notesPlanning[nom] = g;
     }
   } catch (_) {}
 
-  _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
+  _chantiersP = chantiersTrouves.map(c => ({ nom: c.nom, hPrevues: c.hPrevues, occ: c.occ, cle: c.cle }));
 
   // Proposer l'heure actuelle comme heure d'arrivée, SANS la valider :
   // le salarié doit activer lui-même la bascule (process voulu).
   const now = new Date();
   const heureNow = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   _chantiersP.forEach(ch => {
-    if (!_saisiesPrev[ch.nom]) {
-      _saisiesPrev[ch.nom] = { arrivee: '', arriveePropose: heureNow, depart: '', depl: 0 };
+    if (!_saisiesPrev[ch.cle]) {
+      _saisiesPrev[ch.cle] = { nom: ch.nom, occurrence: ch.occ, arrivee: '', arriveePropose: heureNow, depart: '', depl: 0 };
+    } else {
+      // Entrée déjà existante (retour sur l'écran) : on complète nom/occurrence si absents.
+      if (_saisiesPrev[ch.cle].nom == null) _saisiesPrev[ch.cle].nom = ch.nom;
+      if (_saisiesPrev[ch.cle].occurrence == null) _saisiesPrev[ch.cle].occurrence = ch.occ;
     }
   });
 
@@ -1978,11 +1994,16 @@ async function chargerChantiersPrev() {
         d.saisie.chantiers.forEach(c => {
           const nom = (c.nom || '').trim();
           if (!nom) return;
-          // Trouver si ce chantier est dans le planning ou pas
-          const estPlanifie = _chantiersP.some(p => p.nom === nom);
+          // Numéro de passage renvoyé par le serveur (1 par défaut, pour les saisies
+          // antérieures à l'ajout du suivi d'occurrence).
+          const occ = parseInt(c.occurrence, 10) || 1;
+          const cle = occ === 1 ? nom : (nom + '__occ' + occ);
+          // Trouver si CE passage précis (nom + occurrence) est dans le planning ou pas
+          const estPlanifie = _chantiersP.some(p => p.cle === cle);
           if (estPlanifie) {
             // Préremplir la saisie prévue
-            _saisiesPrev[nom] = {
+            _saisiesPrev[cle] = {
+              nom, occurrence: occ,
               arrivee: c.heureArrivee || '',
               depart:  c.heureDepart  || '',
               depl:    c.deplacement  || 0,
@@ -1994,10 +2015,11 @@ async function chargerChantiersPrev() {
               dejaEnvoye: !!(c.heureDepart)
             };
           } else {
-            // Chantier ajouté librement précédemment : on l'ajoute aux chantiers libres
-            if (!_chantiersA.some(a => a.nom === nom)) {
+            // Chantier ajouté librement précédemment (ou passage non retrouvé dans le
+            // planning actuel) : on l'ajoute aux chantiers libres, avec son occurrence.
+            if (!_chantiersA.some(a => a.nom === nom && (a.occ || 1) === occ)) {
               _chantiersA.push({
-                nom,
+                nom, occ,
                 arrivee: c.heureArrivee || '',
                 depart:  c.heureDepart  || '',
                 depl:    c.deplacement  || 0,
@@ -2426,7 +2448,7 @@ function rendrePrev() {
     return;
   }
   const items = _chantiersP.map((ch, i) => {
-    const s     = _saisiesPrev[ch.nom] || { arrivee: '', depart: '', depl: 0 };
+    const s     = _saisiesPrev[ch.cle] || { nom: ch.nom, occurrence: ch.occ, arrivee: '', depart: '', depl: 0 };
     const nomId = 'prev_' + i;
     const duree = calcDuree(s.arrivee, s.depart, s.pause);
     const div   = document.createElement('div');
@@ -2514,9 +2536,9 @@ function rendrePrev() {
     deplRow.className = 'depl-row';
     deplRow.innerHTML = '<label>🚚 Déplacement depuis chantier précédent</label>'
       + '<div class="stepper">'
-      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="-5" onclick="majDeplData(this)">−</div>'
+      + '<div class="step-btn" data-type="prev" data-cle="' + ch.cle + '" data-delta="-5" onclick="majDeplData(this)">−</div>'
       + '<span class="step-val" id="depl-' + nomId + '">' + (s.depl || 0) + '</span>'
-      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="5" onclick="majDeplData(this)">+</div>'
+      + '<div class="step-btn" data-type="prev" data-cle="' + ch.cle + '" data-delta="5" onclick="majDeplData(this)">+</div>'
       + '<span class="step-unite">min</span>'
       + '</div>';
     div.appendChild(deplRow);
@@ -2536,7 +2558,7 @@ function rendrePrev() {
     const arrBtn = document.createElement('button');
     arrBtn.className = 'btn-valider-heure' + (s.arrivee ? ' valide' : '');
     arrBtn.textContent = '✔ OK';
-    arrBtn.dataset.nom = ch.nom;
+    arrBtn.dataset.cle = ch.cle;
     arrBtn.dataset.champ = 'arrivee';
     arrBtn.dataset.inputId = 'arr-' + nomId;
     arrBtn.onclick = function() { validerHeurePrevData(this); };
@@ -2557,8 +2579,8 @@ function rendrePrev() {
     }
     pauseRow.innerHTML =
         '<span class="heure-label pause-label">🍽️ Pause</span>'
-      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-nom="' + ch.nom + '"' + (s.pauseValidee ? ' disabled' : '') + '>' + optsP + '</select>'
-      + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-nom="' + ch.nom + '" onclick="validerPause(this)">✔ OK</button>';
+      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-cle="' + ch.cle + '"' + (s.pauseValidee ? ' disabled' : '') + '>' + optsP + '</select>'
+      + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-cle="' + ch.cle + '" onclick="validerPause(this)">✔ OK</button>';
     div.appendChild(pauseRow);
 
     // Ligne 4 : départ + OK
@@ -2585,7 +2607,7 @@ function rendrePrev() {
     const depBtn = document.createElement('button');
     depBtn.className = 'btn-valider-heure' + (s.depart ? ' valide' : '');
     depBtn.textContent = '✔ OK';
-    depBtn.dataset.nom = ch.nom;
+    depBtn.dataset.cle = ch.cle;
     depBtn.dataset.champ = 'depart';
     depBtn.dataset.inputId = 'dep-' + nomId;
     depBtn.onclick = function() { validerHeurePrevData(this); };
@@ -2614,7 +2636,7 @@ function rendrePrev() {
       const aNote = !!((s.note && s.note.trim()) || (s.photos && s.photos.length));
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
-      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.cle, this); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Enregistré';
@@ -2638,15 +2660,15 @@ function rendrePrev() {
       const aNote = !!((s.note && s.note.trim()) || (s.photos && s.photos.length));
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
-      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.cle, this); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
 
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
       envBtn.textContent = '✉ Envoyer ce chantier';
-      envBtn.dataset.nom = ch.nom;
-      envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.nom); };
+      envBtn.dataset.cle = ch.cle;
+      envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.cle); };
 
       barre.appendChild(lignePN);
       barre.appendChild(envBtn);
@@ -2936,7 +2958,7 @@ function majTotal() {
   // Réalisé = temps TRAVAILLÉ uniquement. La pause déjeuner (_pauseJour) n'y entre JAMAIS.
   let total = 0;
   _chantiersP.forEach(c => {
-    const s = _saisiesPrev[c.nom] || {};
+    const s = _saisiesPrev[c.cle] || {};
     total += calcMinutes(s.arrivee, s.depart, s.pause) + (s.depl || 0);
   });
   _chantiersA.forEach(c => {
@@ -3245,7 +3267,11 @@ function validerAjout() {
   const mmA  = String(nowA.getMinutes()).padStart(2,'0');
   // Heure proposée (heure courante) pré-remplie dans le champ, mais NON validée :
   // le curseur reste gris, l'employé confirme (ou ajuste) lui-même puis valide.
-  _chantiersA.push({ nom, arrivee: '', arriveePropose: hhA + ':' + mmA, depart: '', depl: 0 });
+  // Rang du passage sur ce chantier CE JOUR-LÀ (prévu + déjà ajoutés confondus), pour
+  // que le serveur distingue bien ce nouveau passage d'un précédent homonyme.
+  const occExistantes = _chantiersP.filter(c => c.nom === nom).length
+                      + _chantiersA.filter(c => c.nom === nom).length;
+  _chantiersA.push({ nom, occ: occExistantes + 1, arrivee: '', arriveePropose: hhA + ':' + mmA, depart: '', depl: 0 });
   rendreAjout();
   majTotal();
   fermerModal();
@@ -3503,12 +3529,12 @@ function devaliderHeure(btn) {
 async function validerHeurePrevData(btn) {
   // Bascule OFF : si déjà validé, on rouvre la saisie
   if (btn.classList.contains('valide')) { devaliderHeure(btn); return; }
-  const nom   = btn.dataset.nom;
+  const cle   = btn.dataset.cle;
   const champ = btn.dataset.champ;
   const val   = document.getElementById(btn.dataset.inputId)?.value;
   if (!val) return;
-  if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
-  _saisiesPrev[nom][champ] = val;
+  if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0 };
+  _saisiesPrev[cle][champ] = val;
   // Passer la bascule en vert et verrouiller le champ
   btn.classList.add('valide');
   const inpLock = document.getElementById(btn.dataset.inputId);
@@ -3522,7 +3548,7 @@ async function validerHeurePrevData(btn) {
     }
   }
   // Mettre à jour durée sans rerender complet
-  const s = _saisiesPrev[nom];
+  const s = _saisiesPrev[cle];
   const duree = calcDuree(s.arrivee, s.depart, s.pause);
   const card = btn.closest('.chantier-card');
   if (card) {
@@ -3541,7 +3567,8 @@ async function validerHeurePrevData(btn) {
   btn.textContent = '⏳';
   btn.disabled = true;
   const chantier = {
-    nom,
+    nom: s.nom,
+    occurrence: s.occurrence || 1,
     heureArrivee: s.arrivee || '',
     heureDepart:  '',
     dureeMin:     0,
@@ -3555,7 +3582,7 @@ async function validerHeurePrevData(btn) {
   btn.disabled = false;
   if (ok) {
     btn.textContent = '✔ OK';
-    _saisiesPrev[nom].synchronise = true;
+    _saisiesPrev[cle].synchronise = true;
   } else {
     btn.textContent = '⚠ Réessayer';
     btn.classList.remove('valide');
@@ -3609,6 +3636,7 @@ async function validerHeureAjoutData(btn) {
   btn.disabled = true;
   const chantier = {
     nom:           ch.nom,
+    occurrence:    ch.occ || 1,
     heureArrivee:  ch.arrivee || '',
     heureDepart:   '',
     dureeMin:      0,
@@ -3639,9 +3667,9 @@ function majDeplData(btn) {
   const delta = parseInt(btn.dataset.delta);
   const type  = btn.dataset.type;
   if (type === 'prev') {
-    const nom = btn.dataset.nom;
-    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
-    _saisiesPrev[nom].depl = Math.max(0, (_saisiesPrev[nom].depl || 0) + delta);
+    const cle = btn.dataset.cle;
+    if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0 };
+    _saisiesPrev[cle].depl = Math.max(0, (_saisiesPrev[cle].depl || 0) + delta);
     rendrePrev();
   } else {
     const i = parseInt(btn.dataset.idx);
@@ -3670,11 +3698,11 @@ function majPauseSelect(sel) {
 
   let s;
   if (type === 'pause-prev') {
-    const nom = sel.dataset.nom;
-    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
-    _saisiesPrev[nom].pause = mins;
-    _saisiesPrev[nom].pauseValidee = false;
-    s = _saisiesPrev[nom];
+    const cle = sel.dataset.cle;
+    if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0, pause: 0 };
+    _saisiesPrev[cle].pause = mins;
+    _saisiesPrev[cle].pauseValidee = false;
+    s = _saisiesPrev[cle];
   } else {
     const i = parseInt(sel.dataset.idx);
     _chantiersA[i].pause = mins;
@@ -3705,7 +3733,7 @@ async function validerPause(btn) {
     const selP  = card0 && card0.querySelector('.pause-select');
     if (selP) selP.disabled = false;
     if (btn.dataset.type === 'pause-prev') {
-      if (_saisiesPrev[btn.dataset.nom]) _saisiesPrev[btn.dataset.nom].pauseValidee = false;
+      if (_saisiesPrev[btn.dataset.cle]) _saisiesPrev[btn.dataset.cle].pauseValidee = false;
     } else {
       const ii = parseInt(btn.dataset.idx);
       if (_chantiersA[ii]) _chantiersA[ii].pauseValidee = false;
@@ -3714,15 +3742,18 @@ async function validerPause(btn) {
   }
   const type = btn.dataset.type;
   const card = btn.closest('.chantier-card');
-  let s, nom;
+  let s, nom, occurrence = 1;
   if (type === 'pause-prev') {
-    nom = btn.dataset.nom;
-    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
-    s = _saisiesPrev[nom];
+    const cle = btn.dataset.cle;
+    if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0, pause: 0 };
+    s = _saisiesPrev[cle];
+    nom = s.nom;
+    occurrence = s.occurrence || 1;
   } else {
     const i = parseInt(btn.dataset.idx);
     s = _chantiersA[i];
     nom = s.nom;
+    occurrence = s.occ || 1;
   }
 
   // Il faut au moins l'arrivée pour pouvoir enregistrer
@@ -3751,6 +3782,7 @@ async function validerPause(btn) {
   btn.disabled = true;
   const chantier = {
     nom,
+    occurrence,
     heureArrivee: s.arrivee || '',
     heureDepart:  '',
     dureeMin:     0,
@@ -3787,7 +3819,9 @@ function ouvrirNote(type, ref, btn) {
   let nom = '', noteActuelle = '';
   if (type === 'prev') {
     if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
-    nom = ref;
+    // ref est la clé interne (cle) ; le nom réel du chantier (affiché) est celui
+    // mémorisé dans l'entrée, pour ne pas montrer une clé suffixée « __occ2 ».
+    nom = _saisiesPrev[ref].nom || ref;
     noteActuelle = _saisiesPrev[ref].note || '';
     _notePhotos  = (_saisiesPrev[ref].photos || []).slice();
   } else {
@@ -3829,7 +3863,7 @@ function validerNote() {
   if (cible.type === 'prev') {
     if (!_saisiesPrev[cible.ref]) _saisiesPrev[cible.ref] = { arrivee: '', depart: '', depl: 0 };
     s = _saisiesPrev[cible.ref];
-    nom = cible.ref;
+    nom = s.nom || cible.ref;
   } else if (_chantiersA[cible.ref]) {
     s = _chantiersA[cible.ref];
     nom = s.nom || '';
@@ -3855,7 +3889,8 @@ function validerNote() {
   if (s && nom && s.synchronise) {
     const dateEl = document.getElementById('date-saisie');
     const date = dateEl ? dateEl.value : '';
-    if (date) _envoyerChantier({ nom, note: s.note, photos: s.photos, isPrevisionnel: (cible.type === 'prev') }, date);
+    const occurrence = (cible.type === 'prev') ? (s.occurrence || 1) : (s.occ || 1);
+    if (date) _envoyerChantier({ nom, occurrence, note: s.note, photos: s.photos, isPrevisionnel: (cible.type === 'prev') }, date);
   }
 }
 
@@ -3969,13 +4004,14 @@ function compresserPhoto(fichier, cb) {
   img.src = url;
 }
 
-async function envoyerUnChantierPrev(nom) {
+async function envoyerUnChantierPrev(cle) {
   const date = document.getElementById('date-saisie').value;
   if (!date) { alert('Choisissez une date'); return; }
-  const s = _saisiesPrev[nom] || {};
+  const s = _saisiesPrev[cle] || {};
   if (!s.arrivee || !s.depart) { alert('Saisissez l\'heure d\'arrivée et de départ'); return; }
   const chantier = {
-    nom,
+    nom: s.nom,
+    occurrence: s.occurrence || 1,
     heureArrivee:  s.arrivee,
     heureDepart:   s.depart,
     dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
@@ -3987,7 +4023,7 @@ async function envoyerUnChantierPrev(nom) {
   };
   await _envoyerChantier(chantier, date);
   // Marquer comme envoyé
-  _saisiesPrev[nom] = { ...s, envoye: true };
+  _saisiesPrev[cle] = { ...s, envoye: true };
   rendrePrev();
   majTotal();
 }
@@ -4001,6 +4037,7 @@ async function envoyerUnChantierAjout(i) {
   if (!ch.arrivee || !ch.depart) { alert('Saisissez l\'heure d\'arrivée et de départ'); return; }
   const chantier = {
     nom:           ch.nom,
+    occurrence:    ch.occ || 1,
     heureArrivee:  ch.arrivee,
     heureDepart:   ch.depart,
     dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),

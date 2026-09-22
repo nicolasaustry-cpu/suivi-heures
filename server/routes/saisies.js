@@ -358,6 +358,11 @@ router.post("/envoyer", async (req, res) => {
       const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
       const maxPhotos = (sal && sal.gerant) ? 8 : 3;
       chantier.photos = assainirPhotos(chantier.photos, maxPhotos);
+      // Rang du passage (1 = premier passage sur ce chantier ce jour-là, 2 = deuxième…).
+      // Distingue deux visites du même chantier séparées par un autre chantier dans la
+      // même journée : sans ce champ, elles fusionnaient en une seule entrée et la
+      // seconde écrasait les heures de la première.
+      chantier.occurrence = parseInt(chantier.occurrence, 10) || 1;
     }
 
     // Chercher la saisie du jour ou la créer
@@ -372,8 +377,12 @@ router.post("/envoyer", async (req, res) => {
         statut: "envoyee"
       });
     } else {
-      // Chercher si un chantier de même nom existe déjà ce jour-là
-      const idx = saisie.chantiers.findIndex(c => (c.nom || "").trim() === (chantier.nom || "").trim());
+      // Chercher si CE passage précis (même nom, même rang) existe déjà ce jour-là.
+      // Deux passages du même chantier (rangs 1 et 2) sont deux entrées distinctes.
+      const idx = saisie.chantiers.findIndex(c =>
+        (c.nom || "").trim() === (chantier.nom || "").trim() &&
+        (parseInt(c.occurrence, 10) || 1) === chantier.occurrence
+      );
       if (idx >= 0) {
         // Fusionner : on ne remplace que les champs fournis (non vides)
         const existant = saisie.chantiers[idx];
@@ -386,7 +395,8 @@ router.post("/envoyer", async (req, res) => {
           pause:          chantier.pause          != null ? chantier.pause          : (existant.pause          || 0),
           note:           chantier.note           != null ? chantier.note           : (existant.note           || ""),
           photos:         chantier.photos         != null ? chantier.photos         : (existant.photos         || []),
-          isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false)
+          isPrevisionnel: chantier.isPrevisionnel != null ? chantier.isPrevisionnel : (existant.isPrevisionnel || false),
+          occurrence:     chantier.occurrence
         };
         recalcDuree(saisie.chantiers[idx]);
       } else {
@@ -918,14 +928,12 @@ router.post("/note-supprimer", verifyToken, async (req, res) => {
   }
 });
 
-// Éditer le texte et/ou les photos d'une note : si l'intervention (voire la saisie
-// du jour) n'existe pas encore — cas d'un chantier seulement planifié, jamais pointé
-// par le salarié — on la crée à la volée avec 0h, comme /nouvelle-pc le fait déjà
-// pour un ajout de chantier complet depuis le PC.
+// Éditer le texte et/ou les photos d'une note (existante ou à créer sur une
+// intervention qui n'en avait pas encore) : remplace intégralement note+photos.
 router.post("/note-modifier", verifyToken, async (req, res) => {
   try {
     const clientId  = req.user.clientId;
-    const { date, chantier, salarieNom } = req.body;
+    const { date, chantier } = req.body;
     const salarieId = Number(req.body.salarieId);
     const note = typeof req.body.note === 'string' ? req.body.note : '';
     const photos = Array.isArray(req.body.photos)
@@ -933,21 +941,12 @@ router.post("/note-modifier", verifyToken, async (req, res) => {
       : [];
     if (!date || !chantier || !salarieId)
       return res.status(400).json({ ok: false, message: "Paramètres manquants" });
-
-    const nouveauChantier = () => ({
-      nom: chantier, heureArrivee: '', heureDepart: '', deplacement: 0, pause: 0, dureeMin: 0, note, photos
-    });
-
-    let saisie = await Saisie.findOne({ clientId, salarieId, date });
-    if (saisie) {
-      const c = (saisie.chantiers || []).find(x => x.nom === chantier);
-      if (c) { c.note = note; c.photos = photos; }
-      else saisie.chantiers.push(nouveauChantier());
-    } else {
-      saisie = new Saisie({ clientId, salarieId, salarieNom: salarieNom || '', date, chantiers: [nouveauChantier()] });
-    }
-    saisie.totalMin = saisie.chantiers.reduce((sum, x) => sum + (x.dureeMin || 0) + (x.deplacement || 0), 0);
-    saisie.updatedAt = new Date();
+    const saisie = await Saisie.findOne({ clientId, salarieId, date });
+    if (!saisie) return res.status(404).json({ ok: false, message: "Saisie introuvable" });
+    const c = (saisie.chantiers || []).find(x => x.nom === chantier);
+    if (!c) return res.status(404).json({ ok: false, message: "Chantier introuvable" });
+    c.note = note;
+    c.photos = photos;
     saisie.markModified("chantiers");
     await saisie.save();
     res.json({ ok: true });
