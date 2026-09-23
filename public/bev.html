@@ -191,6 +191,13 @@
     table.bev-recap td:first-child, table.bev-recap th:first-child { text-align:left; font-weight:600; white-space:nowrap; }
     .btn-mois-nav { border:1px solid #d1d5db; background:#fff; color:#374151; border-radius:6px; width:28px; height:28px; font-size:0.85rem; cursor:pointer; line-height:1; padding:0; }
     .btn-mois-nav:hover { background:#f1f5f9; }
+    /* Tranche proposée automatiquement (zones de trajet) : grisée + mention « auto » */
+    .tr-auto { display:inline-block; line-height:1.1; }
+    .tr-auto .tr-badge { opacity:.55; outline:1.5px dashed #94a3b8; outline-offset:1px; }
+    .tr-auto-lbl { display:block; font-size:0.62rem; color:#94a3b8; margin-top:2px; white-space:nowrap; }
+    .tr-manque { font-size:0.72rem; color:#b45309; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .tr-manque:hover { text-decoration:underline; }
+    @media print { .tr-auto .tr-badge { opacity:1; outline:none; } }
   </style>
 </head>
 <body>
@@ -303,6 +310,7 @@
 
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script>
 let _vue = 'mois';
 let _chargerMoisToken = 0;   // jeton anti-course : ignore une réponse réseau devenue obsolète (mois changé entre-temps)
@@ -381,6 +389,7 @@ function onIndemniteChange() {
     repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
   };
   appliquerIndemnites();
+  proposerTranches();
   autoSave();
 }
 function appliquerIndemnites() {
@@ -650,19 +659,20 @@ async function chargerMois() {
     '<div class="td-sal">' + sal.prenom + ' ' + sal.nom + '</div>';
 
   let saisies = [], retenues = {}, valide = false, reporte = 0, evenements = {};
-  _indemnites = {}; _tranches = {};
+  _indemnites = {}; _tranches = {}; _tranchesMeta = {}; _trAutoInfo = {};
   try {
     const [rs, rb] = await Promise.all([
       fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
       fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
     ]);
     saisies  = rs.ok ? (rs.saisies || []) : [];
-    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; _indemnites = rb.indemnites || {}; _tranches = rb.tranches || {}; }
+    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; _indemnites = rb.indemnites || {}; _tranches = rb.tranches || {}; _tranchesMeta = rb.tranchesMeta || {}; }
   } catch (e) {}
 
   document.getElementById('chk-valide').checked = valide;
   const lignes = lignesDuMois(sal, ym, saisies, retenues);
-  _calCtx = { ym: ym, lignes: lignes, label: sal.prenom + ' ' + sal.nom + ' · ' + moisLabel(ym) };
+  _calCtx = { ym: ym, lignes: lignes, label: sal.prenom + ' ' + sal.nom + ' · ' + moisLabel(ym),
+             sal: sal, saisies: saisies, valide: valide };
   const mp = lignes.modePlanifie;
   let tcontrat=0, ttevt=0, tbase=0, tplan=0, treal=0, terb=0, tret=0, tcompte=0, tbasePasse=0;
   let corps = '';
@@ -691,7 +701,7 @@ async function chargerMois() {
       '<td><b class="base">' + fmt(l.base) + '</b></td>' +
       '<td>' + fmt(l.planifie) + '</td>' +
       cellsReel +
-      '<td class="col-tranche tranche-cell" data-date="' + l.date + '">' + badgeTranche(_tranches[l.date] || '') + '</td>' +
+      '<td class="col-tranche tranche-cell" data-date="' + l.date + '">' + celluleTranche(l.date) + '</td>' +
     '</tr>';
   });
   _prevuMois  = tbasePasse;   // base des jours passés (pour l'encart Heures payées)
@@ -739,6 +749,7 @@ async function chargerMois() {
   appliquerIndemnites();
   rendreRecapEvenements();
   majEncart();
+  proposerTranches();
 }
 
 function recalcMois() {
@@ -801,13 +812,19 @@ async function enregistrer() {
   };
   const tranches = {};
   Object.keys(_tranches).forEach(function(k){ if (_tranches[k]) tranches[k] = _tranches[k]; });
+  // Repères : 'auto' = tranche proposée par le calcul (recalculable), 'efface' = retirée à la main (plus jamais reproposée)
+  const tranchesMeta = {};
+  Object.keys(_tranchesMeta).forEach(function(k){
+    const m = _tranchesMeta[k];
+    if (m === 'efface' || (m === 'auto' && tranches[k])) tranchesMeta[k] = m;
+  });
   const btn = document.getElementById('btn-save');
   const ancien = btn.innerHTML; btn.disabled = true; btn.textContent = 'Enregistrement…';
   try {
     const r = await fetch('/api/bev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide, reporte, evenements, indemnites, tranches })
+      body: JSON.stringify({ salarieId: sal.id, mois: ym, retenues, valide, reporte, evenements, indemnites, tranches, tranchesMeta })
     });
     const d = await r.json();
     btn.innerHTML = d.ok ? '<i class="ti ti-check"></i> Enregistré' : '⚠ Échec';
@@ -984,6 +1001,7 @@ function rendreTableauAnnee() {
 let _mtActive = null;   // tranche choisie ('' = gomme, null = aucune)
 let _mtSel    = {};     // { 'YYYY-MM-DD': true } — sélection en cours
 let _mtAffect = {};     // { 'YYYY-MM-DD': code } — travail en cours (copie de _tranches)
+let _mtTouches = {};    // { 'YYYY-MM-DD': true } — jours modifiés à la main dans le calendrier
 
 /* Un jour est sélectionnable pour une tranche dès qu'il y a du temps réalisé (ou planifié en licence
    Standard) — même si un motif (Autre, Even. Familial, etc.) est aussi présent ce jour-là : un
@@ -994,7 +1012,7 @@ function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDat
 
 function ouvrirCalendrierTranches(){
   if (!_calCtx || !_calCtx.lignes || !_calCtx.lignes.length) { alert('Sélectionnez d\'abord un salarié et un mois.'); return; }
-  _mtActive = null; _mtSel = {}; _mtAffect = {};
+  _mtActive = null; _mtSel = {}; _mtAffect = {}; _mtTouches = {};
   Object.keys(_tranches).forEach(function(k){ if (_tranches[k]) _mtAffect[k] = _tranches[k]; });
   document.getElementById('mt-sub').textContent = _calCtx.label;
 
@@ -1095,6 +1113,7 @@ function mtMajBtn(){ const n = Object.keys(_mtSel).length; document.getElementBy
 function mtAppliquer(){
   Object.keys(_mtSel).forEach(function(key){
     if (_mtActive === '') delete _mtAffect[key]; else _mtAffect[key] = _mtActive;
+    _mtTouches[key] = true;
     mtPeindre(key);
   });
   _mtSel = {}; mtRendreSelection();
@@ -1117,13 +1136,147 @@ function badgeTranche(code){
   return '<span class="tr-badge" style="background:' + c.bg + ';color:' + c.tx + '">' + code + '</span>';
 }
 
+/* ── Proposition automatique de la tranche (zones d'indemnités de trajet) ──
+   Règles :
+   - on ne remplit QUE les cases vides ; une tranche déjà présente sans repère « auto »
+     (saisie à la main, ou antérieure à cette fonction) n'est JAMAIS modifiée ;
+   - une tranche effacée à la main (repère « efface ») n'est plus reproposée ;
+   - mois validé : rien n'est proposé ni recalculé ;
+   - chantiers du jour = réalisé (saisies) s'il y en a, sinon le planning ;
+   - plusieurs chantiers le même jour : on retient le plus éloigné ;
+   - distance à vol d'oiseau depuis le point de départ (page Entreprise) ;
+   - si le calcul ne donne rien (adresse manquante, réseau…), une tranche « auto »
+     déjà présente est conservée telle quelle.
+   Aucun enregistrement automatique : les propositions partent avec le prochain enregistrement. */
+let _tranchesMeta = {};   // { 'YYYY-MM-DD': 'auto' | 'efface' } — sauvegardé avec le BEV
+let _trAutoInfo   = {};   // { 'YYYY-MM-DD': { km, manquants:[noms] } } — affichage seulement
+let _propJeton    = 0;    // anti-course : ignore un calcul devenu obsolète (salarié/mois changé)
+const CODES_TRANCHES = ['IA','IB','II','III','IV','V','VI','VII'];
+
+function _zonesTrajetCfg() {
+  let ent = {}; try { ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}'); } catch (e) {}
+  const zt = ent.zonesTrajet;
+  if (!zt || !zt.depart || zt.depart.lat == null || zt.depart.lon == null) return null;
+  if (!Array.isArray(zt.bornes) || zt.bornes.length !== 7) return null;
+  return zt;
+}
+function codeTranchePourKm(km, bornes) {
+  for (let i = 0; i < 7; i++) if (km <= bornes[i]) return CODES_TRANCHES[i];
+  return 'VII';
+}
+/* Noms des chantiers d'une journée : réalisé d'abord, planning à défaut. */
+function chantiersDuJour(salId, l, saisies) {
+  const motifsExclus = calculerExclusMotifsBev();
+  const noms = [];
+  const ajouter = function (n) { n = (n || '').trim(); if (n && noms.indexOf(n.toUpperCase()) === -1 && !estExcluBev(motifsExclus, salId, l.date, n)) noms.push(n.toUpperCase()); };
+  if ((parseFloat(l.realise) || 0) > 0) {
+    (saisies || []).forEach(function (s) {
+      if (String(s.salarieId) !== String(salId) || s.date !== l.date) return;
+      (s.chantiers || []).forEach(function (c) { ajouter(c.nom); });
+    });
+  }
+  if (!noms.length && (parseFloat(l.planifie) || 0) > 0) {
+    let heures = {}; try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+    const safe = l.date.replace(/-/g, '_');
+    for (let i = 1; i <= 5; i++) {
+      const e = heures[salId + safe + 'ch' + i];
+      if (e && e.chantier && (parseFloat(e.heures) || 0) > 0) ajouter(e.chantier);
+    }
+  }
+  return noms;
+}
+
+async function proposerTranches() {
+  const jeton = ++_propJeton;
+  _trAutoInfo = {};
+  const ctx = _calCtx;
+  const zt = _zonesTrajetCfg();
+  if (!ctx || !ctx.sal || ctx.valide || !zt) return;
+  if (!(_indemnites.trajet || _indemnites.transport || _indemnites.repas)) return;
+  if (!window.Coord || typeof Coord.localiser !== 'function') return;
+
+  // Jours à traiter : travaillés, et case vide ou déjà « auto »
+  const jours = [];
+  ctx.lignes.forEach(function (l) {
+    if (!_mtEstTravaille(l)) return;
+    const meta = _tranchesMeta[l.date];
+    if (meta === 'efface') return;
+    if (_tranches[l.date] && meta !== 'auto') return;       // tranche manuelle ou ancienne : intouchable
+    const noms = chantiersDuJour(ctx.sal.id, l, ctx.saisies);
+    if (noms.length) jours.push({ date: l.date, noms: noms });
+  });
+  if (!jours.length) { majCellulesTranches(); return; }
+
+  // Localisation (une seule fois par chantier)
+  const uniques = [];
+  jours.forEach(function (j) { j.noms.forEach(function (n) { if (uniques.indexOf(n) === -1) uniques.push(n); }); });
+  const res = {};
+  await Promise.all(uniques.map(function (n) {
+    return Coord.localiser(n).then(function (r) { res[n] = r; }).catch(function () { res[n] = { statut: 'erreur' }; });
+  }));
+  if (jeton !== _propJeton || ctx !== _calCtx) return;       // salarié / mois changé entre-temps
+
+  jours.forEach(function (j) {
+    let km = null; const manquants = [];
+    j.noms.forEach(function (n) {
+      const r = res[n] || {};
+      if (r.statut === 'ok') { const d = Coord.distanceKm(zt.depart, r); if (d != null && (km == null || d > km)) km = d; }
+      else if (r.statut === 'sans-adresse' || r.statut === 'introuvable') manquants.push(n);
+    });
+    if (km != null) {
+      _tranches[j.date] = codeTranchePourKm(km, zt.bornes);
+      _tranchesMeta[j.date] = 'auto';
+      _trAutoInfo[j.date] = { km: km, manquants: manquants };
+    } else if (manquants.length) {
+      _trAutoInfo[j.date] = { km: null, manquants: manquants };
+    }
+  });
+  majCellulesTranches();
+}
+
+function majCellulesTranches() {
+  document.querySelectorAll('#corps .tranche-cell').forEach(function (td) { td.innerHTML = celluleTranche(td.dataset.date); });
+  rendreRecapIndemnites();
+}
+
+function _escAttr(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* Contenu d'une cellule « Tranche indemnité » */
+function celluleTranche(date) {
+  const code = _tranches[date] || '';
+  const inf  = _trAutoInfo[date];
+  const manq = (inf && inf.manquants && inf.manquants.length) ? inf.manquants : [];
+  if (code && _tranchesMeta[date] === 'auto') {
+    let titre = 'Tranche proposée automatiquement';
+    if (inf && inf.km != null) titre += ' — chantier le plus éloigné à ' + inf.km.toFixed(1).replace('.', ',') + ' km à vol d\'oiseau';
+    if (manq.length) titre += '\n⚠ Sans adresse exploitable : ' + manq.join(', ') + ' (non pris en compte)';
+    titre += '\nModifiez-la via « Calendrier des tranches » pour la rendre définitive.';
+    const lbl = 'auto' + ((inf && inf.km != null) ? ' · ' + Math.round(inf.km) + ' km' : '') + (manq.length ? ' ⚠' : '');
+    return '<span class="tr-auto" title="' + _escAttr(titre) + '">' + badgeTranche(code) + '<span class="tr-auto-lbl no-print">' + lbl + '</span></span>';
+  }
+  if (code) return badgeTranche(code);
+  if (manq.length) {
+    return '<span class="tr-manque no-print" data-nom="' + _escAttr(manq[0]) + '" onclick="completerFicheChantier(this.dataset.nom)" '
+      + 'title="' + _escAttr('Adresse manquante ou introuvable : ' + manq.join(', ') + '\nCliquez pour compléter la fiche du chantier.') + '">⚠ adresse</span>';
+  }
+  return '';
+}
+
+/* Ouvre la fiche coordonnées du chantier, puis relance le calcul une fois enregistrée */
+function completerFicheChantier(nom) {
+  if (!window.Coord || typeof Coord.ouvrir !== 'function') return;
+  Coord.ouvrir(nom, function () { proposerTranches(); });
+}
+
 function validerCalendrierTranches(){
   // Mise à jour de _tranches (source de vérité) + report sur les cellules d'affichage
   document.querySelectorAll('#corps .tranche-cell').forEach(function(td){
     const key = td.dataset.date;
     const code = _mtAffect[key] || '';
     if (code) _tranches[key] = code; else delete _tranches[key];
-    td.innerHTML = badgeTranche(code);
+    // Un jour retouché à la main devient manuel : plus jamais recalculé (ni reproposé s'il a été effacé)
+    if (_mtTouches[key]) { if (code) delete _tranchesMeta[key]; else _tranchesMeta[key] = 'efface'; }
+    td.innerHTML = celluleTranche(key);
   });
   rendreRecapIndemnites();
   autoSave();
