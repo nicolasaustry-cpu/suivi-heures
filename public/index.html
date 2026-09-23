@@ -270,6 +270,32 @@
   </div>
 </section>
 
+<!-- Zones d'indemnités de trajet : point de départ + bornes kilométriques (vol d'oiseau) -->
+<section class="ent-tuile" style="background:#fff7ed;border-left-color:#ea580c;">
+  <h2 style="color:#c2410c;">Zones d'indemnités de trajet</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Sert à <strong>proposer automatiquement la tranche</strong> dans Éléments Pointage Paie, à partir de l'adresse du chantier.
+    La distance est mesurée <strong>à vol d'oiseau</strong> entre le point de départ ci-dessous et le chantier.
+  </p>
+  <div style="margin-bottom:0.9rem;">
+    <label for="zt-adresse" style="font-size:0.85rem;font-weight:600;">Point de départ (siège, agence ou dépôt) :</label><br>
+    <input id="zt-adresse" placeholder="Ex : 12 rue de la Gare, 72190 Sargé-lès-le-Mans" style="width:100%;max-width:420px;box-sizing:border-box;">
+    <div id="zt-localise" style="font-size:0.78rem;color:#94a3b8;margin-top:3px;"></div>
+  </div>
+  <table id="zt-table" style="border-collapse:collapse;font-size:0.85rem;margin-bottom:0.9rem;">
+    <thead>
+      <tr style="color:#64748b;text-align:left;">
+        <th style="padding:3px 10px 3px 0;">Tranche</th>
+        <th style="padding:3px 10px 3px 0;">De</th>
+        <th style="padding:3px 0;">Jusqu'à</th>
+      </tr>
+    </thead>
+    <tbody id="zt-corps"></tbody>
+  </table>
+  <button type="button" id="btn-valider-zt" class="btn btn-success" onclick="validerZonesTrajet()">💾 Enregistrer</button>
+  <span id="zt-msg" style="font-size:0.85rem;margin-left:8px;"></span>
+</section>
+
 </div>
 
 
@@ -410,6 +436,135 @@ async function validerCIBTP() {
 }
 window.addEventListener('DOMContentLoaded', chargerCIBTP);
 window.addEventListener('donnees-chargees', chargerCIBTP);
+</script>
+
+<script>
+/* ── Zones d'indemnités de trajet ──
+   Enregistré dans entreprisedata.zonesTrajet = {
+     depart: { adresse, lat, lon, label },   // point de départ géolocalisé
+     bornes: [5,10,20,30,40,50,65]           // limite HAUTE (km) de IA…VI ; VII = au-delà de la dernière
+   }
+   Géolocalisation via le service public de géocodage de l'IGN (Géoplateforme),
+   gratuit et sans clé. Lu ensuite par bev.html pour proposer la tranche. */
+const ZT_CODES = ['IA','IB','II','III','IV','V','VI','VII'];
+const ZT_BORNES_DEFAUT = [5, 10, 20, 30, 40, 50, 65];
+
+function _ztConfig() {
+  const ent = _entLire();
+  const zt = ent.zonesTrajet || {};
+  const bornes = (Array.isArray(zt.bornes) && zt.bornes.length === 7) ? zt.bornes : ZT_BORNES_DEFAUT;
+  return { depart: zt.depart || null, bornes: bornes.slice() };
+}
+
+function rendreTableZonesTrajet(bornes) {
+  const corps = document.getElementById('zt-corps');
+  if (!corps) return;
+  corps.innerHTML = ZT_CODES.map(function (code, i) {
+    const de = i === 0 ? 0 : bornes[i - 1];
+    const jusqua = i < 7
+      ? '<input type="number" class="zt-borne" data-i="' + i + '" min="0" step="1" value="' + bornes[i] + '" style="width:64px;" oninput="majDebutsZonesTrajet()"> km'
+      : '<span style="color:#64748b;">et plus</span>';
+    return '<tr>'
+      + '<td style="padding:3px 10px 3px 0;font-weight:700;color:#c2410c;">' + code + '</td>'
+      + '<td style="padding:3px 10px 3px 0;color:#64748b;"><span class="zt-de" data-i="' + i + '">' + de + '</span> km</td>'
+      + '<td style="padding:3px 0;">' + jusqua + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+/* Met à jour la colonne « De » en direct quand on modifie une borne */
+function majDebutsZonesTrajet() {
+  const vals = Array.from(document.querySelectorAll('.zt-borne')).map(function (inp) { return inp.value; });
+  document.querySelectorAll('.zt-de').forEach(function (sp) {
+    const i = parseInt(sp.getAttribute('data-i'), 10);
+    sp.textContent = i === 0 ? 0 : (vals[i - 1] || '?');
+  });
+}
+
+function _ztAfficherLocalise(depart) {
+  const el = document.getElementById('zt-localise');
+  if (!el) return;
+  if (depart && depart.lat != null && depart.lon != null) {
+    el.style.color = '#16a34a';
+    el.textContent = '✔ Localisé : ' + (depart.label || depart.adresse);
+  } else {
+    el.style.color = '#94a3b8';
+    el.textContent = 'Pas encore localisé : saisissez l\'adresse puis Enregistrer.';
+  }
+}
+
+function chargerZonesTrajet() {
+  const cfg = _ztConfig();
+  const inp = document.getElementById('zt-adresse');
+  if (inp) inp.value = cfg.depart ? (cfg.depart.adresse || '') : '';
+  rendreTableZonesTrajet(cfg.bornes);
+  _ztAfficherLocalise(cfg.depart);
+}
+
+/* Géocode une adresse via l'API Géoplateforme de l'IGN. Renvoie {lat, lon, label, score} ou null. */
+async function _ztGeocoder(adresse) {
+  const url = 'https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(adresse);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('service de localisation indisponible (' + r.status + ')');
+  const d = await r.json();
+  const f = d && d.features && d.features[0];
+  if (!f || !f.geometry || !Array.isArray(f.geometry.coordinates)) return null;
+  return {
+    lon: f.geometry.coordinates[0],
+    lat: f.geometry.coordinates[1],
+    label: (f.properties && f.properties.label) || adresse,
+    score: (f.properties && f.properties.score) || 0
+  };
+}
+
+async function validerZonesTrajet() {
+  const msg = document.getElementById('zt-msg');
+  const btn = document.getElementById('btn-valider-zt');
+  const setMsg = function (txt, ok) { if (msg) { msg.style.color = ok ? '#16a34a' : '#dc2626'; msg.textContent = txt; } };
+
+  // 1. Bornes : nombres entiers, strictement croissantes
+  const bornes = Array.from(document.querySelectorAll('.zt-borne')).map(function (inp) { return parseFloat(inp.value); });
+  for (let i = 0; i < bornes.length; i++) {
+    if (isNaN(bornes[i]) || bornes[i] <= 0) { setMsg('✖ Borne ' + ZT_CODES[i] + ' invalide.', false); return; }
+    if (i > 0 && bornes[i] <= bornes[i - 1]) {
+      setMsg('✖ La borne ' + ZT_CODES[i] + ' doit être supérieure à celle de ' + ZT_CODES[i - 1] + '.', false); return;
+    }
+  }
+
+  // 2. Point de départ : on ne relance la localisation que si l'adresse a changé
+  const adresse = (document.getElementById('zt-adresse').value || '').trim().replace(/\s+/g, ' ');
+  const ancien = _ztConfig().depart;
+  let depart = null;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  setMsg('', true);
+  try {
+    if (adresse) {
+      if (ancien && ancien.adresse === adresse && ancien.lat != null) {
+        depart = ancien;
+      } else {
+        const g = await _ztGeocoder(adresse);
+        if (!g) throw new Error('adresse introuvable, vérifiez-la (numéro, rue, code postal, ville).');
+        depart = { adresse: adresse, lat: g.lat, lon: g.lon, label: g.label };
+      }
+    }
+    // 3. Enregistrement
+    const ent = _entLire();
+    ent.zonesTrajet = { depart: depart, bornes: bornes };
+    localStorage.setItem('entreprisedata', JSON.stringify(ent));
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+      await SYNC.sauvegarderTout();
+    }
+    _ztAfficherLocalise(depart);
+    setMsg(adresse ? '✔ Enregistré' : '✔ Enregistré (sans point de départ, aucune tranche ne sera proposée)', true);
+    setTimeout(function () { if (msg) msg.textContent = ''; }, 4000);
+  } catch (e) {
+    setMsg('✖ ' + (e && e.message ? e.message : e), false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+  }
+}
+window.addEventListener('DOMContentLoaded', chargerZonesTrajet);
+window.addEventListener('donnees-chargees', chargerZonesTrajet);
 </script>
 
 <script>
