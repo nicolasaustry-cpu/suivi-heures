@@ -67,6 +67,75 @@
     return '<div class="chip-coord">' + l + '</div>';
   }
 
+  /* ─ Géolocalisation silencieuse (zones d'indemnités de trajet) ─
+     Les coordonnées GPS ne sont JAMAIS affichées ni écrites dans la fiche
+     du chantier : elles vivent dans un cache séparé, 'coordGeoCache',
+     indexé par le TEXTE de l'adresse (adresse + ville normalisées).
+       → aucune fiche existante n'est modifiée ;
+       → corriger une adresse change la clé, donc relocalise automatiquement.
+     Service : géocodage public de l'IGN (Géoplateforme), gratuit, sans clé.
+     Entrée du cache : {lat, lon, label, score, type, t} ou {introuvable:true, t}. */
+  var GEO_CLE_STOCKAGE = 'coordGeoCache';
+  var GEO_RETENTE_INTROUVABLE_MS = 7 * 24 * 3600 * 1000;  // une adresse introuvable est retentée au bout de 7 jours
+  var _geoEnCours = {};                                    // évite 2 appels simultanés pour la même adresse
+
+  function _geoLire()   { try { return JSON.parse(localStorage.getItem(GEO_CLE_STOCKAGE) || '{}') || {}; } catch (_) { return {}; } }
+  function _geoEcrire(o){ try { localStorage.setItem(GEO_CLE_STOCKAGE, JSON.stringify(o)); } catch (_) {} }
+  function _geoTexte(c) {
+    return [c.adresse, c.ville].filter(Boolean).join(', ')
+      .replace(/[\r\n]+/g, ', ').replace(/\s{2,}/g, ' ').replace(/(,\s*)+/g, ', ').trim();
+  }
+
+  /* Renvoie une promesse de :
+       {statut:'ok', lat, lon, label, score, type}  (type : housenumber, street, municipality…)
+       {statut:'sans-adresse'}   la fiche n'a ni adresse ni ville
+       {statut:'introuvable'}    le service ne reconnaît pas l'adresse
+       {statut:'erreur'}         réseau indisponible (rien n'est mis en cache, on retentera) */
+  function localiser(nom) {
+    var c = get(nom);
+    var texte = c ? _geoTexte(c) : '';
+    if (!texte) return Promise.resolve({ statut: 'sans-adresse' });
+    var cle = texte.toLowerCase();
+    var cache = _geoLire()[cle];
+    if (cache) {
+      if (!cache.introuvable) return Promise.resolve({ statut: 'ok', lat: cache.lat, lon: cache.lon, label: cache.label, score: cache.score, type: cache.type });
+      if (Date.now() - (cache.t || 0) < GEO_RETENTE_INTROUVABLE_MS) return Promise.resolve({ statut: 'introuvable' });
+    }
+    if (_geoEnCours[cle]) return _geoEnCours[cle];
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var minuteur = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
+    var p = fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(texte), ctrl ? { signal: ctrl.signal } : undefined)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) {
+        var f = d && d.features && d.features[0];
+        var o = _geoLire();
+        if (!f || !f.geometry || !Array.isArray(f.geometry.coordinates)) {
+          o[cle] = { introuvable: true, t: Date.now() };
+          _geoEcrire(o);
+          return { statut: 'introuvable' };
+        }
+        var pr = f.properties || {};
+        var e = { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], label: pr.label || texte, score: pr.score || 0, type: pr.type || '', t: Date.now() };
+        o[cle] = e;
+        _geoEcrire(o);
+        return { statut: 'ok', lat: e.lat, lon: e.lon, label: e.label, score: e.score, type: e.type };
+      })
+      .catch(function () { return { statut: 'erreur' }; })
+      .then(function (res) { if (minuteur) clearTimeout(minuteur); delete _geoEnCours[cle]; return res; });
+    _geoEnCours[cle] = p;
+    return p;
+  }
+
+  /* Distance à vol d'oiseau en km entre deux points {lat, lon} (formule de haversine). */
+  function distanceKm(a, b) {
+    if (!a || !b || a.lat == null || b.lat == null) return null;
+    var R = 6371, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+          + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
   /* ─ Préremplissage depuis la base clients Henrri ─
      Chargée une fois en tâche de fond (best-effort, jamais bloquant) : si le
      nom du chantier correspond exactement à un client Henrri ET qu'aucune
@@ -210,8 +279,12 @@
     }
 
     fermer();
+    // Localisation en tâche de fond (sans attente, sans effet visible) : prépare
+    // le calcul des zones de trajet. Un échec ici n'a aucune conséquence.
+    try { localiser(_nom); } catch (_) {}
     if (_onDone) _onDone();
   }
 
-  window.Coord = { ouvrir: ouvrir, fermer: fermer, enregistrer: enregistrer, get: get, html: html, aDesCoordonnees: aDesCoordonnees };
+  window.Coord = { ouvrir: ouvrir, fermer: fermer, enregistrer: enregistrer, get: get, html: html, aDesCoordonnees: aDesCoordonnees,
+                   localiser: localiser, distanceKm: distanceKm };
 })();
