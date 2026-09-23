@@ -4,6 +4,8 @@ import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
 import Licence from "../models/licence.js";
 import Donnees from "../models/donnees.js";
 import Prescripteur from "../models/prescripteur.js";
+import Communication from "../models/communication.js";
+import { construireMailCommunication, envoyerMailsCommunication } from "../services/mail.js";
 
 const router = express.Router();
 
@@ -175,6 +177,139 @@ router.get("/export/:code", verifyToken, verifyAdmin, async (req, res) => {
       previsionnel: donnees?.previsionnel || {},
       saisies:      saisies || []                   // planning réalisé
     });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ════════════════ COMMUNICATION CLIENTS (mails groupés) ════════════════
+
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IMAGE_OK = /^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/=]+$/;
+
+// Lit et contrôle le contenu du mail envoyé par la console
+function lireContenu(body) {
+  const sujet       = String(body?.sujet || "").trim();
+  const message     = String(body?.message || "").trim();
+  const boutonTexte = String(body?.boutonTexte || "").trim().slice(0, 60);
+  const boutonUrl   = String(body?.boutonUrl || "").trim().slice(0, 500);
+  const image       = String(body?.image || "");
+  if (!sujet)   return { erreur: "Objet du mail manquant" };
+  if (!message) return { erreur: "Message vide" };
+  if (image && !IMAGE_OK.test(image)) return { erreur: "Image invalide" };
+  if (boutonUrl && !/^https?:\/\//i.test(boutonUrl)) return { erreur: "Le lien du bouton doit commencer par https://" };
+  return { sujet: sujet.slice(0, 200), message: message.slice(0, 20000), boutonTexte, boutonUrl, image };
+}
+
+function urlImage(id) {
+  const appUrl = (process.env.APP_URL || "https://suivi-heures.volitis.net").replace(/\/+$/, "");
+  return `${appUrl}/api/admin/communication/${id}/image`;
+}
+
+// ── Image d'une communication (PUBLIQUE : chargée par la messagerie du destinataire) ──
+router.get("/communication/:id/image", async (req, res) => {
+  try {
+    if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(404).end();
+    const c = await Communication.findById(req.params.id, { image: 1 });
+    const m = c && c.image && c.image.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+    if (!m) return res.status(404).end();
+    res.set("Content-Type", m[1]);
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    res.send(Buffer.from(m[2], "base64"));
+  } catch {
+    res.status(404).end();
+  }
+});
+
+// ── Aperçu du mail (rien n'est envoyé ni enregistré) ──
+router.post("/communication/apercu", verifyToken, verifyAdmin, (req, res) => {
+  const c = lireContenu(req.body);
+  if (c.erreur) return res.status(400).json({ ok: false, message: c.erreur });
+  const mail = construireMailCommunication({
+    ...c, nomClient: String(req.body?.nomExemple || "Entreprise Exemple"), imageUrl: c.image || ""
+  });
+  res.json({ ok: true, sujet: mail.sujet, html: mail.html });
+});
+
+// ── Envoi d'un mail de test à une seule adresse ──
+router.post("/communication/test", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const c = lireContenu(req.body);
+    if (c.erreur) return res.status(400).json({ ok: false, message: c.erreur });
+    const email = String(req.body?.emailTest || "").trim();
+    if (!EMAIL_OK.test(email)) return res.status(400).json({ ok: false, message: "Adresse de test invalide" });
+
+    const doc = await Communication.create({ ...c, test: true, cible: { test: email } });
+    const mail = construireMailCommunication({ ...c, nomClient: "Entreprise Exemple", imageUrl: c.image ? urlImage(doc._id) : "" });
+    const [r] = await envoyerMailsCommunication([{ email, ...mail }]);
+    doc.destinataires = [{ code: "TEST", nom: "Test", email, ok: r.ok, erreur: r.erreur || "" }];
+    doc.nbEnvoyes = r.ok ? 1 : 0; doc.nbEchecs = r.ok ? 0 : 1;
+    await doc.save();
+    if (!r.ok) return res.status(502).json({ ok: false, message: r.erreur });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Envoi réel aux licences cochées ──
+// La console envoie la liste des CODES clients retenus ; les adresses sont
+// relues ici en base (on ne fait jamais confiance à des e-mails venus du navigateur).
+router.post("/communication/envoyer", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const c = lireContenu(req.body);
+    if (c.erreur) return res.status(400).json({ ok: false, message: c.erreur });
+    const codes = Array.isArray(req.body?.codes)
+      ? [...new Set(req.body.codes.map(x => String(x || "").trim().toUpperCase()).filter(Boolean))]
+      : [];
+    if (!codes.length)     return res.status(400).json({ ok: false, message: "Aucun destinataire" });
+    if (codes.length > 1000) return res.status(400).json({ ok: false, message: "Trop de destinataires en un seul envoi (1000 max)" });
+
+    const licences = await Licence.find({ codeClient: { $in: codes } }, { codeClient: 1, nomClient: 1, email: 1 });
+
+    // Une seule fois par adresse (un même e-mail peut porter plusieurs licences)
+    const vus = new Set();
+    const cibles = [];
+    const ignores = [];
+    licences.forEach(l => {
+      const email = String(l.email || "").trim();
+      if (!EMAIL_OK.test(email)) { ignores.push({ code: l.codeClient, nom: l.nomClient, email, ok: false, erreur: "Adresse absente ou invalide" }); return; }
+      const cle = email.toLowerCase();
+      if (vus.has(cle)) return;
+      vus.add(cle);
+      cibles.push({ code: l.codeClient, nom: l.nomClient || "", email });
+    });
+    if (!cibles.length) return res.status(400).json({ ok: false, message: "Aucune adresse e-mail valide parmi les destinataires" });
+
+    const doc = await Communication.create({ ...c, test: false, cible: req.body?.cible || {} });
+    const imageUrl = c.image ? urlImage(doc._id) : "";
+    const mails = cibles.map(t => ({ email: t.email, ...construireMailCommunication({ ...c, nomClient: t.nom, imageUrl }) }));
+    const resultats = await envoyerMailsCommunication(mails);
+
+    doc.destinataires = [
+      ...cibles.map((t, i) => ({ ...t, ok: !!resultats[i]?.ok, erreur: resultats[i]?.erreur || "" })),
+      ...ignores
+    ];
+    doc.nbEnvoyes = resultats.filter(r => r.ok).length;
+    doc.nbEchecs  = doc.destinataires.length - doc.nbEnvoyes;
+    await doc.save();
+
+    res.json({
+      ok: true,
+      envoyes: doc.nbEnvoyes,
+      echecs: doc.destinataires.filter(d => !d.ok)
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Historique des envois réels (sans l'image, trop lourde pour la liste) ──
+router.get("/communication/historique", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const liste = await Communication.find({ test: false }, { image: 0, message: 0 })
+      .sort({ date: -1 }).limit(50);
+    res.json({ ok: true, envois: liste });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

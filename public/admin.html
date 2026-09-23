@@ -305,6 +305,106 @@
       <p id="no-licence" style="color:#9ca3af;font-style:italic;padding:1rem 0;display:none;">Aucune licence.</p>
     </div>
 
+    <!-- ═══ Communication clients (mails groupés) ═══ -->
+    <div class="card bloc-admin" id="comm-card" style="margin-top:1.5rem;">
+      <h2>📣 Communication clients — envoi de mail groupé</h2>
+      <style>
+        #comm-card .comm-grp{border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#f8fafc;}
+        #comm-card .comm-grp b{display:block;font-size:0.8rem;color:#6b7280;margin-bottom:6px;}
+        #comm-card .comm-grp label{display:inline-flex;align-items:center;gap:5px;font-size:0.86rem;margin-right:12px;cursor:pointer;}
+        #comm-card .comm-lbl{font-size:0.82rem;font-weight:600;color:#6b7280;display:block;margin:0 0 3px;}
+        #comm-card .comm-inp{width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;font-family:inherit;}
+        #comm-dest-liste{max-height:260px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;margin-top:6px;}
+        #comm-dest-liste td{padding:4px 7px;}
+        #comm-resultat{display:none;margin-top:12px;padding:10px 14px;border-radius:8px;font-size:0.88rem;line-height:1.5;}
+      </style>
+
+      <!-- 1. Destinataires -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin-bottom:10px;">
+        <div class="comm-grp">
+          <b>Type de licence</b>
+          <label><input type="checkbox" class="comm-f-type" value="standard" checked onchange="majDestinatairesComm()"> Standard</label>
+          <label><input type="checkbox" class="comm-f-type" value="plus" checked onchange="majDestinatairesComm()"> Plus ★</label>
+        </div>
+        <div class="comm-grp">
+          <b>Statut</b>
+          <label><input type="checkbox" class="comm-f-statut" value="client" checked onchange="majDestinatairesComm()"> Client</label>
+          <label><input type="checkbox" class="comm-f-statut" value="gratuit" checked onchange="majDestinatairesComm()"> Client gratuit</label>
+          <label><input type="checkbox" class="comm-f-statut" value="essai" onchange="majDestinatairesComm()"> Essai</label>
+          <label><input type="checkbox" class="comm-f-statut" value="prospect" onchange="majDestinatairesComm()"> Prospect</label>
+          <label><input type="checkbox" class="comm-f-statut" value="test" onchange="majDestinatairesComm()"> Test</label>
+        </div>
+        <div class="comm-grp">
+          <b>Validité</b>
+          <label><input type="checkbox" id="comm-f-actifs" checked onchange="majDestinatairesComm()"> Licences actives et non expirées uniquement</label>
+        </div>
+      </div>
+      <div style="font-size:0.9rem;">
+        <strong id="comm-nb-dest">0 destinataire</strong>
+        <span id="comm-nb-sans" style="color:#b45309;margin-left:6px;"></span>
+        <a href="#" onclick="event.preventDefault();basculerListeComm()" id="comm-voir" style="margin-left:10px;color:#0f3a8a;font-size:0.85rem;">▸ Voir / ajuster la liste</a>
+      </div>
+      <div id="comm-dest-liste" style="display:none;">
+        <table>
+          <thead><tr><th style="width:30px;"><input type="checkbox" id="comm-tout" checked onchange="toutCocherComm(this.checked)"></th><th>Code</th><th>Entreprise</th><th>Email</th><th>Type</th><th>Statut</th></tr></thead>
+          <tbody id="comm-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- 2. Contenu -->
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px;">
+        <div>
+          <label class="comm-lbl">Objet *</label>
+          <input id="comm-sujet" class="comm-inp" placeholder="Nouveau : la zone de trajet se calcule toute seule">
+        </div>
+        <div>
+          <label class="comm-lbl">Message *</label>
+          <textarea id="comm-message" class="comm-inp" rows="11" style="resize:vertical;" placeholder="Bonjour,&#10;&#10;Votre message…"></textarea>
+          <div style="font-size:0.78rem;color:#9ca3af;margin-top:3px;">
+            Ligne vide = nouveau paragraphe · ligne commençant par « - » = puce · **texte** = gras · {entreprise} = nom du client.
+            L'image se place sous le premier paragraphe (après « Bonjour, »).
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label class="comm-lbl">Image (facultative)</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="file" id="comm-image-file" accept="image/*" onchange="chargerImageComm(this)" style="font-size:0.8rem;">
+              <img id="comm-image-preview" alt="" style="display:none;height:44px;border-radius:4px;border:1px solid #e5e7eb;">
+              <button type="button" id="comm-image-clear" onclick="effacerImageComm()" title="Retirer l'image" style="display:none;border:none;background:#fee2e2;color:#b91c1c;border-radius:5px;padding:4px 8px;font-size:0.8rem;cursor:pointer;">✕</button>
+            </div>
+          </div>
+          <div>
+            <label class="comm-lbl">Bouton (facultatif) — texte</label>
+            <input id="comm-btn-texte" class="comm-inp" placeholder="Ouvrir Suiv'Heures" style="width:200px;">
+          </div>
+          <div style="flex:1;min-width:220px;">
+            <label class="comm-lbl">Lien du bouton (vide = page d'accueil de l'appli)</label>
+            <input id="comm-btn-url" class="comm-inp" placeholder="https://suivi-heures.volitis.net">
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Actions -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px;">
+        <button class="btn btn-primary" onclick="apercuComm()">👁 Aperçu</button>
+        <input id="comm-email-test" class="comm-inp" type="email" placeholder="adresse de test" style="width:230px;">
+        <button class="btn btn-warning" id="comm-btn-test" onclick="envoyerTestComm()">✉ M'envoyer un test</button>
+        <button class="btn btn-success" id="comm-btn-envoyer" onclick="envoyerComm()" style="margin-left:auto;">📣 Envoyer</button>
+      </div>
+      <div id="comm-resultat"></div>
+
+      <!-- 4. Historique -->
+      <details style="margin-top:16px;">
+        <summary style="cursor:pointer;font-weight:700;color:#374151;font-size:0.9rem;">🕘 Historique des envois</summary>
+        <table style="margin-top:8px;">
+          <thead><tr><th>Date</th><th>Objet</th><th>Cible</th><th style="text-align:center;">Envoyés</th><th style="text-align:center;">Échecs</th></tr></thead>
+          <tbody id="comm-histo"></tbody>
+        </table>
+        <p id="comm-histo-vide" style="color:#9ca3af;font-style:italic;padding:0.5rem 0;display:none;">Aucun envoi pour le moment.</p>
+      </details>
+    </div>
+
     <!-- Prescripteurs -->
     <div class="card bloc-admin" style="margin-top:1.5rem;">
       <h2>👥 Prescripteurs (consultation)</h2>
@@ -459,6 +559,17 @@
   </div>
 </div>
 
+<!-- Modale aperçu communication -->
+<div id="modale-comm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:1rem;width:700px;max-width:95vw;height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:0.9rem;color:#374151;"><b>Objet :</b> <span id="comm-apercu-sujet"></span></div>
+      <button class="btn btn-warning" onclick="document.getElementById('modale-comm').style.display='none'">Fermer</button>
+    </div>
+    <iframe id="comm-apercu-frame" style="flex:1;border:1px solid #e5e7eb;border-radius:8px;width:100%;"></iframe>
+  </div>
+</div>
+
 <div id="msg-global"></div>
 
 <script>
@@ -541,6 +652,7 @@ async function afficherAdmin() {
   await chargerLicences();
   await chargerFaqs();
   await chargerPrescripteurs();
+  await chargerHistoriqueComm();
 
   // Date expiration par défaut : dans 1 an
   const d = new Date();
@@ -594,6 +706,7 @@ async function chargerLicences() {
     _licences = d.licences;
     majCompteurs(_licences);
     filtrerLicences();
+    if (_role === 'admin') majDestinatairesComm();
   } catch {}
 }
 
@@ -1068,6 +1181,239 @@ function chargerLogo(input, ctx) {
   };
   reader.readAsDataURL(file);
 }
+
+/* ── COMMUNICATION CLIENTS (mails groupés) ── */
+let _commImage = '';
+const _commExclus = new Set();      // codes décochés à la main dans la liste
+const _commEmailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());
+const _commStatutLib = { client:'Client', gratuit:'Client gratuit', essai:'Essai', prospect:'Prospect', test:'Test' };
+
+(function () {
+  try { const e = localStorage.getItem('commEmailTest'); const inp = document.getElementById('comm-email-test'); if (inp) inp.value = e || 'contact@volitis.net'; } catch {}
+})();
+
+function _commValeurs(cls) {
+  return [...document.querySelectorAll('.' + cls + ':checked')].map(c => c.value);
+}
+function _commCible() {
+  return {
+    types:   _commValeurs('comm-f-type'),
+    statuts: _commValeurs('comm-f-statut'),
+    actifsSeulement: document.getElementById('comm-f-actifs').checked
+  };
+}
+// Licences correspondant aux filtres (avant exclusions manuelles)
+function _commFiltrees() {
+  const c = _commCible();
+  const now = new Date();
+  return (_licences || []).filter(l =>
+    c.types.includes(l.type === 'plus' ? 'plus' : 'standard') &&
+    c.statuts.includes(l.statut || 'client') &&
+    (!c.actifsSeulement || (l.actif && new Date(l.dateExpiration) >= now))
+  );
+}
+function _commRetenues() {
+  return _commFiltrees().filter(l => _commEmailOk(l.email) && !_commExclus.has(l.codeClient));
+}
+function majDestinatairesComm() {
+  const tbody = document.getElementById('comm-tbody');
+  if (!tbody) return;
+  const liste = _commFiltrees();
+  const sans  = liste.filter(l => !_commEmailOk(l.email));
+  const ret   = _commRetenues();
+  const nbMails = new Set(ret.map(l => String(l.email).trim().toLowerCase())).size;
+  document.getElementById('comm-nb-dest').textContent =
+    nbMails + (nbMails > 1 ? ' destinataires' : ' destinataire') +
+    (ret.length !== nbMails ? ` (${ret.length} licences, adresses en double envoyées une seule fois)` : '');
+  document.getElementById('comm-nb-sans').textContent = sans.length ? `· ${sans.length} sans e-mail valide (exclus)` : '';
+  document.getElementById('comm-btn-envoyer').textContent = '📣 Envoyer à ' + nbMails + (nbMails > 1 ? ' clients' : ' client');
+  tbody.innerHTML = liste.map(l => {
+    const ok = _commEmailOk(l.email);
+    return `<tr style="${ok ? '' : 'color:#9ca3af;'}">
+      <td><input type="checkbox" ${ok && !_commExclus.has(l.codeClient) ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="cocherComm('${escAdmin(l.codeClient)}', this.checked)"></td>
+      <td><strong>${escAdmin(l.codeClient)}</strong></td>
+      <td>${escAdmin(l.nomClient || '—')}</td>
+      <td>${ok ? escAdmin(l.email) : '<i>aucun e-mail</i>'}</td>
+      <td>${l.type === 'plus' ? 'Plus ★' : 'Standard'}</td>
+      <td>${_commStatutLib[l.statut || 'client'] || escAdmin(l.statut)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:#9ca3af;font-style:italic;">Aucune licence ne correspond aux filtres.</td></tr>';
+}
+function cocherComm(code, on) {
+  if (on) _commExclus.delete(code); else _commExclus.add(code);
+  majDestinatairesComm();
+}
+function toutCocherComm(on) {
+  _commFiltrees().forEach(l => { if (on) _commExclus.delete(l.codeClient); else _commExclus.add(l.codeClient); });
+  majDestinatairesComm();
+}
+function basculerListeComm() {
+  const el = document.getElementById('comm-dest-liste');
+  const ouvert = el.style.display !== 'none';
+  el.style.display = ouvert ? 'none' : '';
+  document.getElementById('comm-voir').textContent = (ouvert ? '▸' : '▾') + ' Voir / ajuster la liste';
+}
+
+// Image : redimensionnée à 1200 px de large maximum, en JPEG (fond blanc)
+function chargerImageComm(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\//.test(file.type)) { alert('Veuillez choisir un fichier image.'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const img = new Image();
+    img.onload = function () {
+      const ratio = Math.min(1200 / img.width, 1);
+      const w = Math.max(1, Math.round(img.width * ratio));
+      const h = Math.max(1, Math.round(img.height * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      _commImage = canvas.toDataURL('image/jpeg', 0.88);
+      _majImageComm();
+    };
+    img.onerror = function () { alert('Image illisible.'); input.value = ''; };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function effacerImageComm() {
+  _commImage = '';
+  const f = document.getElementById('comm-image-file'); if (f) f.value = '';
+  _majImageComm();
+}
+function _majImageComm() {
+  const pre = document.getElementById('comm-image-preview');
+  const clr = document.getElementById('comm-image-clear');
+  if (_commImage) { pre.src = _commImage; pre.style.display = ''; clr.style.display = ''; }
+  else { pre.removeAttribute('src'); pre.style.display = 'none'; clr.style.display = 'none'; }
+}
+
+function _commContenu() {
+  return {
+    sujet:       document.getElementById('comm-sujet').value.trim(),
+    message:     document.getElementById('comm-message').value,
+    boutonTexte: document.getElementById('comm-btn-texte').value.trim(),
+    boutonUrl:   document.getElementById('comm-btn-url').value.trim(),
+    image:       _commImage
+  };
+}
+function _commControle(c) {
+  if (!c.sujet)          { alert("Renseignez l'objet du mail."); return false; }
+  if (!c.message.trim()) { alert('Le message est vide.'); return false; }
+  return true;
+}
+async function _commPost(url, body) {
+  const r = await fetch(API + url, {
+    method: 'POST',
+    headers: { ...auth(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (r.status === 413) throw new Error("Image trop lourde pour le serveur : essayez une image plus petite.");
+  const d = await r.json().catch(() => ({ ok: false, message: 'Réponse illisible du serveur (' + r.status + ')' }));
+  return d;
+}
+function _commResultat(html, fond, bord) {
+  const el = document.getElementById('comm-resultat');
+  el.innerHTML = html; el.style.background = fond; el.style.border = '1px solid ' + bord; el.style.display = 'block';
+}
+
+async function apercuComm() {
+  const c = _commContenu();
+  if (!_commControle(c)) return;
+  const premier = _commRetenues()[0];
+  try {
+    const d = await _commPost('/api/admin/communication/apercu', { ...c, nomExemple: premier ? premier.nomClient : '' });
+    if (!d.ok) { alert(d.message); return; }
+    document.getElementById('comm-apercu-sujet').textContent = d.sujet;
+    document.getElementById('comm-apercu-frame').srcdoc = d.html;
+    document.getElementById('modale-comm').style.display = 'flex';
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+async function envoyerTestComm() {
+  const c = _commContenu();
+  if (!_commControle(c)) return;
+  const emailTest = document.getElementById('comm-email-test').value.trim();
+  if (!_commEmailOk(emailTest)) { alert('Adresse de test invalide.'); return; }
+  try { localStorage.setItem('commEmailTest', emailTest); } catch {}
+  const btn = document.getElementById('comm-btn-test');
+  btn.disabled = true; btn.textContent = '… envoi';
+  try {
+    const d = await _commPost('/api/admin/communication/test', { ...c, emailTest });
+    if (!d.ok) _commResultat('❌ Test non envoyé : ' + escAdmin(d.message), '#fef2f2', '#fecaca');
+    else _commResultat('✔ Mail de test envoyé à <b>' + escAdmin(emailTest) + '</b>. Vérifiez sa réception (et les indésirables) avant l\'envoi réel.', '#f0fdf4', '#bbf7d0');
+  } catch (e) {
+    _commResultat('❌ ' + escAdmin(e.message), '#fef2f2', '#fecaca');
+  } finally {
+    btn.disabled = false; btn.textContent = "✉ M'envoyer un test";
+  }
+}
+
+async function envoyerComm() {
+  const c = _commContenu();
+  if (!_commControle(c)) return;
+  const ret = _commRetenues();
+  const nbMails = new Set(ret.map(l => String(l.email).trim().toLowerCase())).size;
+  if (!nbMails) { alert('Aucun destinataire avec une adresse e-mail valide.'); return; }
+  const cible = _commCible();
+  const libCible = cible.types.map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ');
+  if (!confirm(`Envoyer « ${c.sujet} » à ${nbMails} client${nbMails > 1 ? 's' : ''} (${libCible}) ?\n\nL'envoi est définitif.`)) return;
+
+  const btn = document.getElementById('comm-btn-envoyer');
+  btn.disabled = true; btn.textContent = '… envoi en cours';
+  try {
+    const d = await _commPost('/api/admin/communication/envoyer', { ...c, codes: ret.map(l => l.codeClient), cible });
+    if (!d.ok) {
+      _commResultat('❌ Envoi refusé : ' + escAdmin(d.message), '#fef2f2', '#fecaca');
+    } else {
+      let h = `✔ <b>${d.envoyes}</b> mail${d.envoyes > 1 ? 's' : ''} envoyé${d.envoyes > 1 ? 's' : ''}.`;
+      if (d.echecs && d.echecs.length) {
+        h += `<br>⚠ ${d.echecs.length} échec${d.echecs.length > 1 ? 's' : ''} :<ul style="margin:4px 0 0 18px;">` +
+          d.echecs.map(x => `<li>${escAdmin(x.nom || x.code)} (${escAdmin(x.email || 'sans e-mail')}) — ${escAdmin(x.erreur || '')}</li>`).join('') + '</ul>';
+      }
+      _commResultat(h, d.echecs && d.echecs.length ? '#fffbeb' : '#f0fdf4', d.echecs && d.echecs.length ? '#fde68a' : '#bbf7d0');
+      msg('✔ Communication envoyée');
+      await chargerHistoriqueComm();
+    }
+  } catch (e) {
+    _commResultat('❌ ' + escAdmin(e.message), '#fef2f2', '#fecaca');
+  } finally {
+    btn.disabled = false;
+    majDestinatairesComm();
+  }
+}
+
+async function chargerHistoriqueComm() {
+  const tbody = document.getElementById('comm-histo');
+  if (!tbody) return;
+  try {
+    const r = await fetch(API + '/api/admin/communication/historique', { headers: auth() });
+    const d = await r.json();
+    if (!d.ok) return;
+    document.getElementById('comm-histo-vide').style.display = d.envois.length ? 'none' : '';
+    tbody.innerHTML = d.envois.map(e => {
+      const cb = e.cible || {};
+      const types = (cb.types || []).map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ') || '—';
+      const statuts = (cb.statuts || []).map(s => _commStatutLib[s] || s).join(', ');
+      const echecs = (e.destinataires || []).filter(x => !x.ok);
+      const titreEchecs = echecs.map(x => (x.nom || x.code) + ' : ' + (x.erreur || '')).join('\n');
+      return `<tr>
+        <td style="white-space:nowrap;">${new Date(e.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</td>
+        <td>${escAdmin(e.sujet)}</td>
+        <td title="${escAdmin(statuts)}">${escAdmin(types)}</td>
+        <td style="text-align:center;font-weight:700;color:#15803d;">${e.nbEnvoyes || 0}</td>
+        <td style="text-align:center;${echecs.length ? 'color:#b91c1c;font-weight:700;cursor:help;' : 'color:#9ca3af;'}" title="${escAdmin(titreEchecs)}">${echecs.length}</td>
+      </tr>`;
+    }).join('');
+  } catch {}
+}
+
+document.getElementById('modale-comm').addEventListener('click', function (e) {
+  if (e.target === this) this.style.display = 'none';
+});
 
 /* ── GESTION DES PRESCRIPTEURS (admin) ── */
 async function chargerPrescripteurs() {
