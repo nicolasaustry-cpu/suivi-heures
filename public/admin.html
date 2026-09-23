@@ -335,6 +335,10 @@
           <label><input type="checkbox" class="comm-f-statut" value="test" onchange="majDestinatairesComm()"> Test</label>
         </div>
         <div class="comm-grp">
+          <b>Prescripteurs</b>
+          <label><input type="checkbox" id="comm-f-presc" checked onchange="majDestinatairesComm()"> Prescripteurs actifs</label>
+        </div>
+        <div class="comm-grp">
           <b>Validité</b>
           <label><input type="checkbox" id="comm-f-actifs" checked onchange="majDestinatairesComm()"> Licences actives et non expirées uniquement</label>
         </div>
@@ -432,11 +436,15 @@
           <input id="p-nom" placeholder="Cabinet X" style="width:200px;">
         </div>
         <div>
+          <label>Email (communications)</label>
+          <input id="p-email" type="email" placeholder="contact@cabinet-x.fr" style="width:210px;">
+        </div>
+        <div>
           <button class="btn btn-success" onclick="creerPrescripteur()">✔ Créer</button>
         </div>
       </div>
       <table style="margin-top:0.8rem;">
-        <thead><tr><th>Identifiant</th><th>Nom</th><th>Statut</th><th>Mot de passe</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Identifiant</th><th>Nom</th><th>Email</th><th>Statut</th><th>Mot de passe</th><th>Actions</th></tr></thead>
         <tbody id="tbody-presc"></tbody>
       </table>
       <p id="no-presc" style="color:#9ca3af;font-style:italic;padding:0.5rem 0;display:none;">Aucun prescripteur.</p>
@@ -1205,49 +1213,65 @@ function _commCible() {
     actifsSeulement: document.getElementById('comm-f-actifs').checked
   };
 }
-// Licences correspondant aux filtres (avant exclusions manuelles)
+// Destinataires correspondant aux filtres (avant exclusions manuelles).
+// Format unifié : { cle, code, nom, email, presc, typeLib, statutLib }
+//   licence     → cle = code client
+//   prescripteur→ cle = « P:IDENTIFIANT »
 function _commFiltrees() {
   const c = _commCible();
   const now = new Date();
-  return (_licences || []).filter(l =>
+  const lic = (_licences || []).filter(l =>
     c.types.includes(l.type === 'plus' ? 'plus' : 'standard') &&
     c.statuts.includes(l.statut || 'client') &&
     (!c.actifsSeulement || (l.actif && new Date(l.dateExpiration) >= now))
-  );
+  ).map(l => ({
+    cle: l.codeClient, code: l.codeClient, nom: l.nomClient || '', email: l.email || '', presc: false,
+    typeLib: l.type === 'plus' ? 'Plus ★' : 'Standard',
+    statutLib: _commStatutLib[l.statut || 'client'] || (l.statut || '')
+  }));
+  const pr = document.getElementById('comm-f-presc')?.checked
+    ? (_prescripteurs || []).filter(p => p.actif).map(p => ({
+        cle: 'P:' + p.identifiant, code: p.identifiant, nom: p.nom || p.identifiant, email: p.email || '', presc: true,
+        typeLib: 'Prescripteur', statutLib: 'Actif'
+      }))
+    : [];
+  return lic.concat(pr);
 }
 function _commRetenues() {
-  return _commFiltrees().filter(l => _commEmailOk(l.email) && !_commExclus.has(l.codeClient));
+  return _commFiltrees().filter(x => _commEmailOk(x.email) && !_commExclus.has(x.cle));
 }
 function majDestinatairesComm() {
   const tbody = document.getElementById('comm-tbody');
   if (!tbody) return;
   const liste = _commFiltrees();
-  const sans  = liste.filter(l => !_commEmailOk(l.email));
+  const sans  = liste.filter(x => !_commEmailOk(x.email));
   const ret   = _commRetenues();
-  const nbMails = new Set(ret.map(l => String(l.email).trim().toLowerCase())).size;
+  const nbMails = new Set(ret.map(x => String(x.email).trim().toLowerCase())).size;
+  const nbPresc = ret.filter(x => x.presc).length;
   document.getElementById('comm-nb-dest').textContent =
     nbMails + (nbMails > 1 ? ' destinataires' : ' destinataire') +
-    (ret.length !== nbMails ? ` (${ret.length} licences, adresses en double envoyées une seule fois)` : '');
+    (nbPresc ? ` dont ${nbPresc} prescripteur${nbPresc > 1 ? 's' : ''}` : '') +
+    (ret.length !== nbMails ? ` (adresses en double envoyées une seule fois)` : '');
   document.getElementById('comm-nb-sans').textContent = sans.length ? `· ${sans.length} sans e-mail valide (exclus)` : '';
-  document.getElementById('comm-btn-envoyer').textContent = '📣 Envoyer à ' + nbMails + (nbMails > 1 ? ' clients' : ' client');
-  tbody.innerHTML = liste.map(l => {
-    const ok = _commEmailOk(l.email);
-    return `<tr style="${ok ? '' : 'color:#9ca3af;'}">
-      <td><input type="checkbox" ${ok && !_commExclus.has(l.codeClient) ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="cocherComm('${escAdmin(l.codeClient)}', this.checked)"></td>
-      <td><strong>${escAdmin(l.codeClient)}</strong></td>
-      <td>${escAdmin(l.nomClient || '—')}</td>
-      <td>${ok ? escAdmin(l.email) : '<i>aucun e-mail</i>'}</td>
-      <td>${l.type === 'plus' ? 'Plus ★' : 'Standard'}</td>
-      <td>${_commStatutLib[l.statut || 'client'] || escAdmin(l.statut)}</td>
+  document.getElementById('comm-btn-envoyer').textContent = '📣 Envoyer à ' + nbMails + (nbMails > 1 ? ' destinataires' : ' destinataire');
+  tbody.innerHTML = liste.map(x => {
+    const ok = _commEmailOk(x.email);
+    return `<tr style="${ok ? '' : 'color:#9ca3af;'}${x.presc ? 'background:#faf5ff;' : ''}">
+      <td><input type="checkbox" ${ok && !_commExclus.has(x.cle) ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="cocherComm('${escAdmin(x.cle)}', this.checked)"></td>
+      <td><strong>${escAdmin(x.code)}</strong></td>
+      <td>${escAdmin(x.nom || '—')}</td>
+      <td>${ok ? escAdmin(x.email) : '<i>aucun e-mail</i>'}</td>
+      <td>${x.presc ? '<span class="cat-badge" style="background:#ede9fe;color:#6d28d9;">Prescripteur</span>' : x.typeLib}</td>
+      <td>${escAdmin(x.statutLib)}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="6" style="color:#9ca3af;font-style:italic;">Aucune licence ne correspond aux filtres.</td></tr>';
+  }).join('') || '<tr><td colspan="6" style="color:#9ca3af;font-style:italic;">Aucun destinataire ne correspond aux filtres.</td></tr>';
 }
 function cocherComm(code, on) {
   if (on) _commExclus.delete(code); else _commExclus.add(code);
   majDestinatairesComm();
 }
 function toutCocherComm(on) {
-  _commFiltrees().forEach(l => { if (on) _commExclus.delete(l.codeClient); else _commExclus.add(l.codeClient); });
+  _commFiltrees().forEach(x => { if (on) _commExclus.delete(x.cle); else _commExclus.add(x.cle); });
   majDestinatairesComm();
 }
 function basculerListeComm() {
@@ -1328,7 +1352,7 @@ async function apercuComm() {
   if (!_commControle(c)) return;
   const premier = _commRetenues()[0];
   try {
-    const d = await _commPost('/api/admin/communication/apercu', { ...c, nomExemple: premier ? premier.nomClient : '' });
+    const d = await _commPost('/api/admin/communication/apercu', { ...c, nomExemple: premier ? premier.nom : '' });
     if (!d.ok) { alert(d.message); return; }
     document.getElementById('comm-apercu-sujet').textContent = d.sujet;
     document.getElementById('comm-apercu-frame').srcdoc = d.html;
@@ -1359,19 +1383,21 @@ async function envoyerComm() {
   const c = _commContenu();
   if (!_commControle(c)) return;
   const ret = _commRetenues();
-  const nbMails = new Set(ret.map(l => String(l.email).trim().toLowerCase())).size;
+  const nbMails = new Set(ret.map(x => String(x.email).trim().toLowerCase())).size;
   if (!nbMails) { alert('Aucun destinataire avec une adresse e-mail valide.'); return; }
   const cible = _commCible();
-  const libCible = cible.types.map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ');
+  const nbPresc = ret.filter(x => x.presc).length;
+  const libCible = cible.types.map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ') + (nbPresc ? ` + ${nbPresc} prescripteur${nbPresc > 1 ? 's' : ''}` : '');
+  cible.prescripteurs = !!document.getElementById('comm-f-presc').checked;
   const copieA = document.getElementById('comm-copie').checked ? document.getElementById('comm-email-test').value.trim() : '';
   if (document.getElementById('comm-copie').checked && !_commEmailOk(copieA)) { alert('Adresse de copie invalide (champ à côté du bouton de test).'); return; }
   if (copieA) { try { localStorage.setItem('commEmailTest', copieA); } catch {} }
-  if (!confirm(`Envoyer « ${c.sujet} » à ${nbMails} client${nbMails > 1 ? 's' : ''} (${libCible}) ?` + (copieA ? `\nCopie de contrôle à ${copieA}.` : '') + `\n\nL'envoi est définitif.`)) return;
+  if (!confirm(`Envoyer « ${c.sujet} » à ${nbMails} destinataire${nbMails > 1 ? 's' : ''} (${libCible}) ?` + (copieA ? `\nCopie de contrôle à ${copieA}.` : '') + `\n\nL'envoi est définitif.`)) return;
 
   const btn = document.getElementById('comm-btn-envoyer');
   btn.disabled = true; btn.textContent = '… envoi en cours';
   try {
-    const d = await _commPost('/api/admin/communication/envoyer', { ...c, codes: ret.map(l => l.codeClient), cible, copieA });
+    const d = await _commPost('/api/admin/communication/envoyer', { ...c, codes: ret.filter(x => !x.presc).map(x => x.code), prescripteurs: ret.filter(x => x.presc).map(x => x.code), cible, copieA });
     if (!d.ok) {
       _commResultat('❌ Envoi refusé : ' + escAdmin(d.message), '#fef2f2', '#fecaca');
     } else {
@@ -1407,7 +1433,7 @@ async function chargerHistoriqueComm() {
     document.getElementById('comm-histo-vide').style.display = d.envois.length ? 'none' : '';
     tbody.innerHTML = d.envois.map(e => {
       const cb = e.cible || {};
-      const types = (cb.types || []).map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ') || '—';
+      const types = ((cb.types || []).map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ') + (cb.prescripteurs ? ' + Prescripteurs' : '')).replace(/^ \+ /, '') || '—';
       const statuts = (cb.statuts || []).map(s => _commStatutLib[s] || s).join(', ');
       const echecs = (e.destinataires || []).filter(x => !x.ok);
       const titreEchecs = echecs.map(x => (x.nom || x.code) + ' : ' + (x.erreur || '')).join('\n');
@@ -1437,6 +1463,7 @@ async function chargerPrescripteurs() {
     _prescripteurs.forEach(pr => { const m = pr.motDePasse || pr.mdp; if (m) _prescMdp[pr.identifiant] = m; });
     afficherPrescripteurs();
     remplirSelectsPrescripteurs();
+    majDestinatairesComm();
   } catch {}
 }
 
@@ -1453,6 +1480,8 @@ function afficherPrescripteurs() {
     tb.innerHTML += `<tr>
       <td><strong>${pr.identifiant}</strong></td>
       <td>${pr.nom || '—'}</td>
+      <td style="white-space:nowrap;">${pr.email ? escAdmin(pr.email) : '<span style="color:#9ca3af;font-style:italic;">aucun</span>'}
+        <button type="button" style="background:none;border:none;cursor:pointer;font-size:0.9rem;padding:2px;color:#64748b;" title="Saisir / modifier l'e-mail" onclick="modifierEmailPresc('${pr.identifiant}')">✏</button></td>
       <td>${statut}</td>
       <td style="white-space:nowrap;">${
         _prescMdp[pr.identifiant]
@@ -1496,15 +1525,35 @@ function toggleMdpPresc() {
   if (eye) eye.textContent = cache ? '🙈' : '👁';   // 🙈 = visible (cliquer pour masquer) / 👁 = masqué (cliquer pour afficher)
 }
 
+async function modifierEmailPresc(id) {
+  const pr = _prescripteurs.find(p => p.identifiant === id) || {};
+  const saisie = prompt('E-mail de ' + (pr.nom || id) + ' (vide pour retirer) :', pr.email || '');
+  if (saisie === null) return;
+  const email = saisie.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Adresse e-mail invalide.'); return; }
+  try {
+    const r = await fetch(API + '/api/admin/prescripteurs/' + encodeURIComponent(id), {
+      method: 'PUT', headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message); return; }
+    msg('✔ E-mail enregistré');
+    await chargerPrescripteurs();
+  } catch (e) { alert('Erreur : ' + e.message); }
+}
+
 async function creerPrescripteur() {
   const identifiant = document.getElementById('p-id').value.trim().toUpperCase();
   const motDePasse  = document.getElementById('p-mdp').value;
   const nom         = document.getElementById('p-nom').value.trim();
+  const email       = document.getElementById('p-email').value.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Adresse e-mail invalide.'); return; }
   if (!identifiant || !motDePasse) { alert('Identifiant et mot de passe obligatoires.'); return; }
   try {
     const r = await fetch(API + '/api/admin/prescripteurs', {
       method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifiant, motDePasse, nom })
+      body: JSON.stringify({ identifiant, motDePasse, nom, email })
     });
     const d = await r.json();
     if (!d.ok) { alert(d.message); return; }
@@ -1514,6 +1563,7 @@ async function creerPrescripteur() {
     const _mdp = document.getElementById('p-mdp'); _mdp.value = ''; _mdp.type = 'password';
     const _eye = document.getElementById('p-mdp-eye'); if (_eye) _eye.textContent = '👁';
     document.getElementById('p-nom').value = '';
+    document.getElementById('p-email').value = '';
     await chargerPrescripteurs();
   } catch (e) { alert('Erreur : ' + e.message); }
 }

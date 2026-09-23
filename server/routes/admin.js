@@ -262,10 +262,21 @@ router.post("/communication/envoyer", verifyToken, verifyAdmin, async (req, res)
     const codes = Array.isArray(req.body?.codes)
       ? [...new Set(req.body.codes.map(x => String(x || "").trim().toUpperCase()).filter(Boolean))]
       : [];
-    if (!codes.length)     return res.status(400).json({ ok: false, message: "Aucun destinataire" });
-    if (codes.length > 1000) return res.status(400).json({ ok: false, message: "Trop de destinataires en un seul envoi (1000 max)" });
+    const idsPresc = Array.isArray(req.body?.prescripteurs)
+      ? [...new Set(req.body.prescripteurs.map(x => String(x || "").trim().toUpperCase()).filter(Boolean))]
+      : [];
+    if (!codes.length && !idsPresc.length) return res.status(400).json({ ok: false, message: "Aucun destinataire" });
+    if (codes.length + idsPresc.length > 1000) return res.status(400).json({ ok: false, message: "Trop de destinataires en un seul envoi (1000 max)" });
 
-    const licences = await Licence.find({ codeClient: { $in: codes } }, { codeClient: 1, nomClient: 1, email: 1 });
+    const licences = codes.length
+      ? await Licence.find({ codeClient: { $in: codes } }, { codeClient: 1, nomClient: 1, email: 1 })
+      : [];
+    // Les prescripteurs sont traités comme des licences : code « P:IDENTIFIANT »,
+    // nom = nom d'affichage du prescripteur (remplace {entreprise}).
+    const prescs = idsPresc.length
+      ? await Prescripteur.find({ identifiant: { $in: idsPresc } }, { identifiant: 1, nom: 1, email: 1 })
+      : [];
+    prescs.forEach(p => licences.push({ codeClient: "P:" + p.identifiant, nomClient: p.nom || p.identifiant, email: p.email }));
 
     // Une seule fois par adresse (un même e-mail peut porter plusieurs licences)
     const vus = new Set();
@@ -354,10 +365,10 @@ router.get("/prescripteurs", verifyToken, verifyAdmin, async (req, res) => {
 // ── Créer un prescripteur ──
 router.post("/prescripteurs", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { identifiant, motDePasse, nom } = req.body;
+    const { identifiant, motDePasse, nom, email } = req.body;
     if (!identifiant || !motDePasse)
       return res.status(400).json({ ok: false, message: "Identifiant et mot de passe requis" });
-    const presc = new Prescripteur({ identifiant: identifiant.toUpperCase().trim(), motDePasse, nom: nom || "" });
+    const presc = new Prescripteur({ identifiant: identifiant.toUpperCase().trim(), motDePasse, nom: nom || "", email: String(email || "").trim() });
     await presc.save();
     res.status(201).json({ ok: true, prescripteur: { identifiant: presc.identifiant, nom: presc.nom, actif: presc.actif } });
   } catch (err) {
@@ -372,8 +383,9 @@ router.put("/prescripteurs/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const presc = await Prescripteur.findOne({ identifiant: req.params.id.toUpperCase() });
     if (!presc) return res.status(404).json({ ok: false, message: "Prescripteur introuvable" });
-    const { nom, motDePasse } = req.body;
+    const { nom, motDePasse, email } = req.body;
     if (nom !== undefined) presc.nom = nom;
+    if (email !== undefined) presc.email = String(email || "").trim();
     if (motDePasse)        presc.motDePasse = motDePasse;   // re-haché par le hook pre-save
     await presc.save();
     res.json({ ok: true });
