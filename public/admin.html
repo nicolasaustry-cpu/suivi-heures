@@ -388,9 +388,12 @@
       <!-- 3. Actions -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px;">
         <button class="btn btn-primary" onclick="apercuComm()">👁 Aperçu</button>
-        <input id="comm-email-test" class="comm-inp" type="email" placeholder="adresse de test" style="width:230px;">
+        <input id="comm-email-test" class="comm-inp" type="email" placeholder="votre adresse (test et copie)" title="Adresse utilisée pour le test et pour la copie de contrôle" style="width:230px;">
         <button class="btn btn-warning" id="comm-btn-test" onclick="envoyerTestComm()">✉ M'envoyer un test</button>
-        <button class="btn btn-success" id="comm-btn-envoyer" onclick="envoyerComm()" style="margin-left:auto;">📣 Envoyer</button>
+        <label style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:0.86rem;cursor:pointer;" title="Une seule copie par envoi, à l'adresse ci-contre, avec la liste des clients touchés">
+          <input type="checkbox" id="comm-copie" checked> M'envoyer une copie
+        </label>
+        <button class="btn btn-success" id="comm-btn-envoyer" onclick="envoyerComm()">📣 Envoyer</button>
       </div>
       <div id="comm-resultat"></div>
 
@@ -1360,12 +1363,15 @@ async function envoyerComm() {
   if (!nbMails) { alert('Aucun destinataire avec une adresse e-mail valide.'); return; }
   const cible = _commCible();
   const libCible = cible.types.map(t => t === 'plus' ? 'Plus' : 'Standard').join(' + ');
-  if (!confirm(`Envoyer « ${c.sujet} » à ${nbMails} client${nbMails > 1 ? 's' : ''} (${libCible}) ?\n\nL'envoi est définitif.`)) return;
+  const copieA = document.getElementById('comm-copie').checked ? document.getElementById('comm-email-test').value.trim() : '';
+  if (document.getElementById('comm-copie').checked && !_commEmailOk(copieA)) { alert('Adresse de copie invalide (champ à côté du bouton de test).'); return; }
+  if (copieA) { try { localStorage.setItem('commEmailTest', copieA); } catch {} }
+  if (!confirm(`Envoyer « ${c.sujet} » à ${nbMails} client${nbMails > 1 ? 's' : ''} (${libCible}) ?` + (copieA ? `\nCopie de contrôle à ${copieA}.` : '') + `\n\nL'envoi est définitif.`)) return;
 
   const btn = document.getElementById('comm-btn-envoyer');
   btn.disabled = true; btn.textContent = '… envoi en cours';
   try {
-    const d = await _commPost('/api/admin/communication/envoyer', { ...c, codes: ret.map(l => l.codeClient), cible });
+    const d = await _commPost('/api/admin/communication/envoyer', { ...c, codes: ret.map(l => l.codeClient), cible, copieA });
     if (!d.ok) {
       _commResultat('❌ Envoi refusé : ' + escAdmin(d.message), '#fef2f2', '#fecaca');
     } else {
@@ -1373,6 +1379,11 @@ async function envoyerComm() {
       if (d.echecs && d.echecs.length) {
         h += `<br>⚠ ${d.echecs.length} échec${d.echecs.length > 1 ? 's' : ''} :<ul style="margin:4px 0 0 18px;">` +
           d.echecs.map(x => `<li>${escAdmin(x.nom || x.code)} (${escAdmin(x.email || 'sans e-mail')}) — ${escAdmin(x.erreur || '')}</li>`).join('') + '</ul>';
+      }
+      if (d.copie) {
+        h += d.copie.ok
+          ? `<br>📋 Copie de contrôle envoyée à ${escAdmin(d.copie.email)}.`
+          : `<br>⚠ Copie de contrôle non envoyée (${escAdmin(d.copie.erreur)}) — les clients ont bien reçu le mail.`;
       }
       _commResultat(h, d.echecs && d.echecs.length ? '#fffbeb' : '#f0fdf4', d.echecs && d.echecs.length ? '#fde68a' : '#bbf7d0');
       msg('✔ Communication envoyée');

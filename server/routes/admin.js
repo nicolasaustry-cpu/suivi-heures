@@ -294,10 +294,34 @@ router.post("/communication/envoyer", verifyToken, verifyAdmin, async (req, res)
     doc.nbEchecs  = doc.destinataires.length - doc.nbEnvoyes;
     await doc.save();
 
+    // Copie de contrôle : UN seul mail à l'administrateur (pas une copie par
+    // client), identique à ce qu'a reçu le premier destinataire, précédé d'un
+    // bandeau rappelant la liste des clients touchés.
+    let copie = null;
+    const copieA = String(req.body?.copieA || "").trim();
+    if (EMAIL_OK.test(copieA)) {
+      const recus = doc.destinataires.filter(d => d.ok);
+      const quand = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris", dateStyle: "short", timeStyle: "short" });
+      const liste = recus.map(d => `${d.nom || d.code} (${d.email})`);
+      const m = construireMailCommunication({ ...c, nomClient: cibles[0].nom, imageUrl });
+      const esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const bandeau = `<div style="max-width:600px;margin:0 auto 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#78350f;">
+        <b>Copie de contrôle</b> — envoyé le ${quand} à <b>${recus.length}</b> client${recus.length > 1 ? "s" : ""}${doc.nbEchecs ? ` (${doc.nbEchecs} échec${doc.nbEchecs > 1 ? "s" : ""})` : ""}.<br>
+        <span style="color:#92400e;">${liste.map(esc).join(" · ")}</span></div>`;
+      const html = m.html.replace(/(<td align="center">)/, `$1${bandeau}`);
+      const text = `[Copie de contrôle — envoyé le ${quand} à ${recus.length} client(s)]\n${liste.join("\n")}\n\n----------\n\n${m.text}`;
+      const [r] = await envoyerMailsCommunication([{ email: copieA, sujet: "[Copie] " + m.sujet, html, text }]);
+      copie = { email: copieA, ok: r.ok, erreur: r.erreur || "" };
+      doc.cible = { ...(doc.cible || {}), copieA };
+      doc.markModified("cible");
+      await doc.save();
+    }
+
     res.json({
       ok: true,
       envoyes: doc.nbEnvoyes,
-      echecs: doc.destinataires.filter(d => !d.ok)
+      echecs: doc.destinataires.filter(d => !d.ok),
+      copie
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
