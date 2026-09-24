@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Commander Suiv'Heures</title>
-<meta name="description" content="Complétez votre contrat Suiv'Heures et finalisez votre souscription par virement.">
+<meta name="description" content="Complétez et signez en ligne votre contrat Suiv'Heures, puis finalisez votre souscription par virement.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -106,7 +106,7 @@
 <body>
 
 <div class="topbar"><div class="wrap">
-  <div class="logo"><img src="assets/icon-512.png" alt="Suiv'Heures"></div>
+  <div class="logo"><img src="/assets/suivheures-logo.svg" alt="Suiv'Heures"></div>
   <b>Suiv'Heures<small>VOLITIS · La gestion des heures, simplement</small></b>
   <a href="index.html" onclick="if(history.length>1){history.back();return false;}" style="margin-left:auto;color:#cfe0fb;text-decoration:none;font-size:13.5px;font-weight:600">← Retour</a>
 </div></div>
@@ -117,7 +117,7 @@
     <div class="kicker">Souscription</div>
     <h1>Commander Suiv'Heures</h1>
     <p>Complétez votre contrat en quelques instants : entrez votre SIRET, vos coordonnées se remplissent
-       automatiquement. Vérifiez, envoyez votre commande, et finalisez par virement. Votre accès est activé à réception.</p>
+       automatiquement. Vérifiez, signez votre contrat en ligne, puis finalisez par virement. Votre accès est activé à réception.</p>
   </div>
 
   <!-- Formule -->
@@ -153,7 +153,7 @@
         <div class="field"><span class="lab">Civilité</span>
           <select id="f_civ" onchange="render()" style="border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:14px"><option>Monsieur</option><option>Madame</option></select>
         </div>
-        <div class="field"><span class="lab">Votre e-mail</span><input id="f_email" type="email" oninput="render()" placeholder="vous@entreprise.fr"></div>
+        <div class="field"><span class="lab">Votre e-mail (confirmation de signature)</span><input id="f_email" type="email" oninput="render()" placeholder="vous@entreprise.fr"></div>
       </div>
     </div>
   </section>
@@ -177,26 +177,18 @@
 
   <!-- Paiement + envoi -->
   <section class="sec">
-    <div class="sec-head"><div class="sec-badge"><b>4</b></div><h2>Envoyer &amp; régler</h2></div>
+    <div class="sec-head"><div class="sec-badge"><b>4</b></div><h2>Signer &amp; régler</h2></div>
     <div class="card">
-      <p class="sec-intro">Envoyez votre commande, puis effectuez le virement du montant ci-dessous. Votre accès est activé dès réception du règlement.</p>
-
-      <div class="rib">
-        <h3>💳 Règlement par virement</h3>
-        <p class="note">Montant à régler à la souscription : <b id="rib_montant">—</b></p>
-        <div class="line"><span>Titulaire</span><span>VOLITIS</span></div>
-        <div class="line"><span>IBAN</span><span>FR76 3004 7146 5000 0213 1980 134</span></div>
-        <div class="line"><span>BIC</span><span>CMCIFRPP</span></div>
-        <div class="line"><span>Banque</span><span>CIC LE MANS CENTRE</span></div>
-        <div class="line"><span>Référence à indiquer</span><span id="rib_ref">—</span></div>
-      </div>
+      <p class="sec-intro">Montant à régler à la souscription : <b id="rib_montant">—</b></p>
 
       <div class="actions">
-        <button class="btn green" onclick="envoyer()">📧 Envoyer ma commande</button>
-        <button class="btn ghost" onclick="window.print()">🖨️ Imprimer / PDF</button>
+        <button class="btn green" id="btnSigner" onclick="signerCommande()">✍️ Signer ma commande</button>
       </div>
+      <div class="status" id="envoiMsg"></div>
       <div class="call no-print"><div class="ci">✓</div>
-        <p><b>Comment ça marche</b> Le bouton ouvre votre messagerie avec la commande pré-remplie, adressée à Volitis. Vérifiez et envoyez. Effectuez ensuite le virement en indiquant la référence ci-dessus.</p>
+        <p><b>Comment ça marche</b> Le contrat complet s'affiche : vous le lisez et le signez en ligne.
+        Les coordonnées bancaires pour le virement s'affichent aussitôt et vous sont envoyées par e-mail.
+        Votre accès est activé dès réception du règlement.</p>
       </div>
     </div>
   </section>
@@ -206,9 +198,6 @@
 <div class="foot"><div class="wrap"><b>Suiv'Heures</b> — édité par VOLITIS · 370 route de Bonnétable, 72190 Sargé-lès-le-Mans</div></div>
 
 <script>
-  // ⚠️ Adresse Volitis qui reçoit les commandes — à confirmer / adapter :
-  const EMAIL_VOLITIS = "contact@volitis.net";
-
   const TVA = 0.20;
   const q = id => document.getElementById(id);
   const euro = n => Number(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -275,7 +264,6 @@
     q('montant').innerHTML = m;
 
     q('rib_montant').textContent = euro(totalTTC)+' € TTC';
-    q('rib_ref').textContent = 'Suiv\'Heures — ' + (q('f_raison').value.trim() || 'votre société');
 
     q('doc').innerHTML = contratHTML(c);
     window._total = totalTTC;
@@ -332,33 +320,66 @@
         <tr><td>Plus / salarié</td><td>9 à 15</td><td>+ 6 € /mois</td></tr>
         <tr><td>Plus / salarié</td><td>16 et +</td><td>+ 5 € /mois</td></tr>
       </table>
-      <p style="margin-top:12px;color:var(--slate);font-style:italic">Le contrat définitif, complet, vous sera adressé pour signature électronique.</p>
+      <p style="margin-top:12px;color:var(--slate);font-style:italic">Le contrat complet s'affiche à l'étape suivante, pour signature électronique.</p>
     `;
   }
 
-  function envoyer(){
+  // Crée la demande de signature côté serveur puis ouvre la page de signature.
+  // Le serveur recalcule lui-même le prix : seuls la formule et l'effectif partent d'ici.
+  async function signerCommande(){
     const c = calc();
     const g = id => q(id).value.trim();
-    if(!g('f_raison')){ alert("Merci d'indiquer au moins votre raison sociale."); return; }
-    const L = [
-      "Bonjour,", "",
-      "Je souhaite souscrire à Suiv'Heures. Voici ma commande :", "",
-      "— Société : " + g('f_raison'),
-      "— Forme juridique : " + g('f_forme'),
-      "— SIREN : " + g('f_siren'),
-      "— Adresse : " + g('f_adresse'),
-      "— Représentant : " + q('f_civ').value + " " + g('f_dir_nom') + " (" + g('f_qualite') + ")",
-      "— E-mail : " + g('f_email'), "",
-      "— Formule : " + (c.plus ? "Plus" : "Standard"),
-      (c.plus ? "— Effectif : " + c.eff + " salarié(s)" : ""),
-      "— Forfait semestriel : " + euro(c.htSem) + " € HT (" + euro(c.ttcSem) + " € TTC)",
-      (c.plus ? "— Frais d'ouverture : 150 € HT (180 € TTC)" : ""),
-      "— Total à régler à la souscription : " + euro(c.ttcSem + c.fraisTTC) + " € TTC", "",
-      "Je procède au virement en indiquant la référence : Suiv'Heures — " + g('f_raison') + ".", "",
-      "Cordialement,", g('f_dir_nom')
-    ].filter(x => x !== "").join("\n");
-    const sujet = "Commande Suiv'Heures — " + g('f_raison');
-    location.href = `mailto:${EMAIL_VOLITIS}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(L)}`;
+    const st = q('envoiMsg');
+    const siren = g('f_siren').replace(/\D/g,'');
+
+    const manque = [];
+    if(!g('f_raison')) manque.push('raison sociale');
+    if(siren.length!==9) manque.push('SIREN (9 chiffres)');
+    if(!g('f_dir_nom')) manque.push('représentant');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(g('f_email'))) manque.push('e-mail valide');
+    if(manque.length){
+      st.className='status show err';
+      st.textContent='À compléter : ' + manque.join(', ') + '.';
+      return;
+    }
+
+    const btn = q('btnSigner');
+    btn.disabled = true; btn.textContent = 'Préparation du contrat…';
+    st.className='status show load'; st.textContent='Préparation de votre contrat…';
+    try{
+      const r = await fetch('/api/signatures/commande', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          formule: c.plus ? 'Plus' : 'Standard',
+          effectif: c.eff,
+          email: g('f_email'),
+          villeSignature: g('f_ville'),
+          entreprise: {
+            raisonSociale: g('f_raison'),
+            formeJuridique: g('f_forme'),
+            capital: g('f_capital'),
+            siren: g('f_siren'),
+            greffe: g('f_greffe'),
+            adresseSiege: g('f_adresse'),
+            representantCivilite: q('f_civ').value,
+            representantNom: g('f_dir_nom'),
+            representantQualite: g('f_qualite')
+          }
+        })
+      });
+      const data = await r.json().catch(() => ({}));
+      if(!r.ok || !data.ok || !data.lien){
+        st.className='status show err';
+        st.textContent = data.message || "Impossible de préparer le contrat. Réessayez ou écrivez à contact@volitis.net.";
+        btn.disabled = false; btn.textContent = '✍️ Signer ma commande';
+        return;
+      }
+      location.href = data.lien;   // → /signer/<jeton>
+    }catch(err){
+      st.className='status show err';
+      st.textContent = "Erreur réseau, vérifiez votre connexion et réessayez.";
+      btn.disabled = false; btn.textContent = '✍️ Signer ma commande';
+    }
   }
 
   render();

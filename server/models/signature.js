@@ -31,6 +31,11 @@ const signatureSchema = new mongoose.Schema({
 
   codeClient: { type: String, default: "", uppercase: true, trim: true }, // rattachement Suiv'Heures (facultatif)
 
+  // Origine de la demande :
+  //   "admin"    → créée par Volitis depuis contrat-prerempli.html
+  //   "commande" → créée par le prospect lui-même depuis commander.html
+  source: { type: String, enum: ["admin", "commande"], default: "admin" },
+
   // ── Conditions figées du contrat (snapshot au moment de la création) ──
   contrat: {
     raisonSociale:        { type: String, default: "" },
