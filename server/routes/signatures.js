@@ -160,6 +160,10 @@ router.post("/commande", async (req, res) => {
     if (manque.length)
       return res.status(400).json({ ok: false, message: "Merci d'indiquer " + manque.join(", ") + "." });
 
+    // Code d'accès de l'espace d'essai, transmis par commander.html quand la commande
+    // part de l'appli. Simple rattachement (lettres, chiffres, tirets) : il n'active rien.
+    const codeClient = String(b.codeClient || "").toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 40);
+
     const civ = texte(e.representantCivilite, 20);
     const greffe = texte(e.greffe, 120);
     const contrat = {
@@ -179,6 +183,7 @@ router.post("/commande", async (req, res) => {
 
     const demande = new Signature({
       source: "commande",
+      codeClient,
       contrat,
       signataire: { nom: representantNom, email },
       documentHash: empreinteContrat(contrat),

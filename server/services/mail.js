@@ -345,8 +345,10 @@ export async function envoyerMailSignatureVolitis(d) {
   const origine = d.source === "commande" ? "Commande en ligne (commander.html)" : "Demande créée par Volitis";
   const dest = process.env.MAIL_NOTIF || process.env.MAIL_FROM || process.env.SMTP_FROM || "contact@volitis.net";
 
+  const code = (d.codeClient || "").trim();
   const rows = [
     ["Origine", origine],
+    ["Licence d'essai à activer", code || "non rattachée — à rapprocher par le nom ou l'e-mail", !!code],
     ["Société", c.raisonSociale],
     ["SIREN", c.siren],
     ["Signataire", p.nomTape],
@@ -366,18 +368,18 @@ export async function envoyerMailSignatureVolitis(d) {
     `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#334155;">Un contrat de licence vient d'être signé électroniquement.</p>` +
     _lignes(rows) +
     `<div style="font-size:14px;color:#475569;line-height:1.55;background:#fef6e7;border:1px solid #f7dda6;border-radius:10px;padding:12px 14px;margin:0 0 18px;">` +
-    `<strong>À faire :</strong> vérifier la réception du virement, puis activer la licence ${_esc(c.formule || "")} du client dans l'admin.` +
+    `<strong>À faire :</strong> vérifier la réception du virement, puis passer ${code ? "la licence <strong>" + _esc(code) + "</strong>" : "la licence du client"} en ${_esc(c.formule || "")} dans l'admin.` +
     `</div>` +
     _bouton("Voir le contrat signé", lien);
 
   const text =
     `Contrat signé — ${c.raisonSociale || ""}\n\n` +
     rows.filter(Boolean).filter(r => r[1]).map(([k, v]) => `${k} : ${v}`).join("\n") +
-    `\n\nÀ faire : vérifier le virement puis activer la licence.\nContrat signé : ${lien}`;
+    `\n\nÀ faire : vérifier le virement puis passer ${code ? "la licence " + code : "la licence du client"} en ${c.formule || ""}.\nContrat signé : ${lien}`;
 
   return _envoyerResend({
     to: dest,
-    subject: `✍️ Contrat signé — ${c.raisonSociale || "client"} (${c.formule || ""})`,
+    subject: `✍️ Contrat signé — ${c.raisonSociale || "client"} (${c.formule || ""})${code ? " — " + code : ""}`,
     html: _gabarit("Contrat signé — " + (c.raisonSociale || ""), corps),
     text,
     replyTo: d.signataire?.email || undefined   // « Répondre » écrit directement au client

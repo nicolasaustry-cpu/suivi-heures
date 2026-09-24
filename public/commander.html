@@ -185,6 +185,7 @@
         <button class="btn green" id="btnSigner" onclick="signerCommande()">✍️ Signer ma commande</button>
       </div>
       <div class="status" id="envoiMsg"></div>
+      <p class="sec-intro" id="espaceLie" style="display:none;margin-top:10px"></p>
       <div class="call no-print"><div class="ci">✓</div>
         <p><b>Comment ça marche</b> Le contrat complet s'affiche : vous le lisez et le signez en ligne.
         Les coordonnées bancaires pour le virement s'affichent aussitôt et vous sont envoyées par e-mail.
@@ -199,6 +200,19 @@
 
 <script>
   const TVA = 0.20;
+
+  // Code d'accès de l'espace Suiv'Heures ouvert dans ce navigateur (mémorisé par sync.js
+  // sous « licenceCode »). Il rattache la commande au compte d'essai à activer.
+  // Ignoré en consultation admin et sur le poste de Volitis (jeton admin présent) :
+  // le code mémorisé y est celui du dernier client consulté, pas celui du commanditaire.
+  function codeEspaceConnecte(){
+    try{
+      if(sessionStorage.getItem('adminConsult') === '1') return '';
+      if(localStorage.getItem('admin_token')) return '';
+      return (localStorage.getItem('licenceCode') || '').trim().toUpperCase();
+    }catch(e){ return ''; }
+  }
+  const CODE_ESPACE = codeEspaceConnecte();
   const q = id => document.getElementById(id);
   const euro = n => Number(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const dateLongue = d => new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
@@ -354,6 +368,7 @@
           effectif: c.eff,
           email: g('f_email'),
           villeSignature: g('f_ville'),
+          codeClient: CODE_ESPACE,
           entreprise: {
             raisonSociale: g('f_raison'),
             formeJuridique: g('f_forme'),
@@ -380,6 +395,11 @@
       st.textContent = "Erreur réseau, vérifiez votre connexion et réessayez.";
       btn.disabled = false; btn.textContent = '✍️ Signer ma commande';
     }
+  }
+
+  if(CODE_ESPACE){
+    q('espaceLie').textContent = "Cette commande sera rattachée à votre espace Suiv'Heures (code " + CODE_ESPACE + ").";
+    q('espaceLie').style.display = 'block';
   }
 
   render();

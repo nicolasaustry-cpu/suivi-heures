@@ -114,6 +114,11 @@
   .badge.green{background:#dcfce7;color:#15803d}
   .badge.red{background:#fee2e2;color:#b91c1c}
   .badge.gray{background:#e2e8f0;color:#475569}
+  .badge.web{background:#ede9fe;color:#5b21b6;margin-left:6px}
+  .srow .code{font-family:ui-monospace,monospace;font-weight:700;color:var(--navy)}
+  .srow .voir{font-size:12px;font-weight:600;color:var(--navy);text-decoration:none;margin-left:8px}
+  .srow .voir:hover{text-decoration:underline}
+  .srow .droite{display:flex;align-items:center;gap:4px;flex:none}
 
   @media print{
     body{background:#fff}
@@ -456,12 +461,28 @@
       if(!r.ok){ box.textContent='Suivi indisponible pour le moment.'; return; }
       const d = await r.json();
       if(!d.demandes || !d.demandes.length){ box.textContent='Aucune demande pour l\'instant.'; return; }
+      // Les commandes en ligne viennent de formulaires publics : tout texte est échappé.
+      const esc = t => String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       box.innerHTML = d.demandes.map(x=>{
         const s = STATUTS[x.statut] || {t:x.statut,c:'gray'};
         const dt = x.creeLe ? new Date(x.creeLe).toLocaleDateString('fr-FR') : '';
-        return `<div class="srow"><div><b>${x.contrat?.raisonSociale||'—'}</b>`
-             + `<small>${x.signataire?.nom||''} · créée le ${dt}</small></div>`
-             + `<span class="badge ${s.c}">${s.t}</span></div>`;
+        const web = x.source === 'commande';
+        const c = x.contrat || {};
+        const montant = Number(c.forfaitTTC||0) + Number(c.fraisOuvertureTTC||0);
+        const infos = [
+          esc(x.signataire?.nom||''),
+          esc(c.formule||'') + (c.formule==='Plus' && c.effectif ? ' · ' + esc(c.effectif) + ' sal.' : ''),
+          montant ? euro(montant) + ' € TTC' : '',
+          (web ? 'commandée' : 'créée') + ' le ' + dt
+        ].filter(Boolean).join(' · ');
+        const licence = web
+          ? (x.codeClient ? `<br>Licence d'essai : <span class="code">${esc(x.codeClient)}</span>` : `<br>Licence d'essai : non rattachée`)
+          : '';
+        return `<div class="srow"><div><b>${esc(c.raisonSociale||'—')}</b>`
+             + (web ? `<span class="badge web">🛒 Commande en ligne</span>` : '')
+             + `<small>${infos}${licence}</small></div>`
+             + `<div class="droite"><span class="badge ${s.c}">${esc(s.t)}</span>`
+             + `<a class="voir" href="/signer/${encodeURIComponent(x.token||'')}" target="_blank" rel="noopener">Voir</a></div></div>`;
       }).join('');
     }catch(e){ box.textContent='Erreur de chargement du suivi.'; }
   }
