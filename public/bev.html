@@ -59,6 +59,24 @@
     .bev-encart td { padding:6px 14px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
     .bev-encart input { width:80px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; font-weight:600; }
     #zone { max-width: 1080px; margin: 0 auto; }
+    /* Liste des salariés à gauche du tableau (écran uniquement), figée pendant le défilement */
+    .bev-cadre { display:flex; gap:14px; align-items:flex-start; }
+    .bev-cadre > #bev-fit { flex:1 1 auto; min-width:0; }
+    #bev-sal-liste { flex:0 0 200px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 8px;
+      box-shadow:0 1px 3px rgba(15,23,42,.06); }
+    #bev-sal-liste .bsl-titre { font-size:0.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#64748b; margin:0 4px 6px; }
+    #bev-sal-liste label { display:flex; align-items:center; gap:8px; padding:6px 6px; border-radius:7px; cursor:pointer;
+      font-size:0.86rem; color:#334155; line-height:1.25; }
+    #bev-sal-liste label:hover { background:#f1f5f9; }
+    #bev-sal-liste label.actif { background:#eff6ff; color:#0f3a8a; font-weight:600; }
+    #bev-sal-liste input { width:16px; height:16px; margin:0; flex:none; accent-color:#1d4ed8; cursor:pointer; }
+    #bev-sal-liste .bsl-vide { font-size:0.8rem; color:#94a3b8; padding:4px 6px; }
+    @media screen {
+      #bev-sal-liste { position:sticky; top:calc(var(--bandeau-h, 66px) + var(--controls-h, 56px) + 8px);
+        max-height:calc(100vh - var(--bandeau-h, 66px) - var(--controls-h, 56px) - 24px); overflow-y:auto; }
+    }
+    @media (max-width: 900px) { .bev-cadre { display:block; } #bev-sal-liste { position:static; max-height:none; margin-bottom:10px; } }
+    @media print { .bev-cadre { display:block; } #bev-sal-liste { display:none !important; } }
     /* Bandeau figé en haut + en-tête du tableau figé juste dessous (écran) */
     body header.main-header { position: sticky; top: 0; z-index: 50; }
     @media screen {
@@ -247,7 +265,7 @@
         <button id="btn-vue-annee" onclick="changerVue('annee')">Année</button>
       </div>
     </div>
-    <div>
+    <div id="bloc-sel-salarie" style="display:none;">
       <label>Salarié</label>
       <select id="sel-salarie" onchange="rafraichir()"></select>
     </div>
@@ -284,10 +302,13 @@
     <button type="button" class="btn-cal-tranches" id="btn-cal-tranches" onclick="ouvrirCalendrierTranches()"><i class="ti ti-calendar"></i> Calendrier des tranches</button>
   </div>
 
+  <div class="bev-cadre">
+  <aside id="bev-sal-liste" class="no-print" aria-label="Salariés"></aside>
   <div id="bev-fit"><div id="bev-doc">
     <div class="bev-titre-doc" id="titre-doc"></div>
     <div id="zone"></div>
   </div></div>
+  </div>
 
   <div id="modale-tranches" class="no-print" role="dialog" aria-modal="true" aria-labelledby="mt-title" onclick="if(event.target===this) fermerCalendrierTranches()">
     <div class="mt-modale">
@@ -1445,6 +1466,33 @@ function remplirSalaries() {
   const courant = sel.value;
   sel.innerHTML = _salaries.map(s => `<option value="${s.id}">${(s.prenom||'')+' '+(s.nom||'')}</option>`).join('');
   if (_salaries.some(s => String(s.id) === courant)) sel.value = courant;
+  rendreListeSalaries();
+}
+
+/* Liste des salariés à gauche : une case par salarié, un seul coché à la fois
+   (le bordereau est individuel). La liste déroulante masquée reste la valeur de référence. */
+function rendreListeSalaries() {
+  const box = document.getElementById('bev-sal-liste');
+  if (!box) return;
+  const sel = document.getElementById('sel-salarie');
+  const courant = sel ? sel.value : '';
+  const esc = function (t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); };
+  if (!_salaries.length) { box.innerHTML = '<div class="bsl-titre">Salariés</div><div class="bsl-vide">Aucun salarié.</div>'; return; }
+  box.innerHTML = '<div class="bsl-titre">Salariés</div>' + _salaries.map(function (s) {
+    const id = String(s.id), on = id === courant;
+    return '<label class="' + (on ? 'actif' : '') + '"><input type="checkbox" data-id="' + esc(id) + '"' + (on ? ' checked' : '')
+      + ' onchange="choisirSalarieListe(this)"> <span>' + esc(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</span></label>';
+  }).join('');
+}
+function choisirSalarieListe(cb) {
+  const sel = document.getElementById('sel-salarie');
+  if (!cb.checked) { cb.checked = true; return; }          // toujours un salarié sélectionné
+  if (sel.value === cb.dataset.id) return;
+  sel.value = cb.dataset.id;
+  document.querySelectorAll('#bev-sal-liste input').forEach(function (i) {
+    const on = i === cb; i.checked = on; i.closest('label').classList.toggle('actif', on);
+  });
+  rafraichir();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
