@@ -414,7 +414,7 @@ function rendreRecapIndemnites() {
   if (!items.length) { wrap.innerHTML = ''; return; }
   const codes = ['IA','IB','II','III','IV','V','VI','VII'];
   const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
-  Object.keys(_tranches).forEach(function(k){ const c = _tranches[k]; if (cnt[c] !== undefined) cnt[c]++; });
+  Object.keys(_tranches).forEach(function(k){ if (_trJourFutur(k)) return; const c = _tranches[k]; if (cnt[c] !== undefined) cnt[c]++; });
   const tot = codes.reduce(function(a,c){ return a + cnt[c]; }, 0);
   let html = '<table class="bev-recap"><thead><tr><th>Indemnité</th>' + codes.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>';
   items.forEach(function(it){
@@ -1015,6 +1015,8 @@ let _mtTouches = {};    // { 'YYYY-MM-DD': true } — jours modifiés à la main
    Standard) — même si un motif (Autre, Even. Familial, etc.) est aussi présent ce jour-là : un
    événement partiel n'empêche pas le déplacement d'avoir eu lieu. Seul un jour à 0h réel/planifié
    (week-end ou absence pleine journée) reste non sélectionnable. */
+/* Jour à venir (après aujourd'hui) : pas de tranche affichée, proposée ni saisissable tant qu'il n'est pas passé */
+function _trJourFutur(date){ return !!date && date > AUJOURDHUI; }
 function _mtEstTravaille(l){ return !!(l && !l.we && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
 function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()); t.setDate(t.getDate()+3-((t.getDay()+6)%7)); const s=new Date(t.getFullYear(),0,4); return 1+Math.round(((t-s)/86400000-3+((s.getDay()+6)%7))/7); }
 
@@ -1066,14 +1068,14 @@ function ouvrirCalendrierTranches(){
       else {
         const key = an + '-' + String(mo).padStart(2,'0') + '-' + String(num).padStart(2,'0');
         const l = parLigne[key];
-        if (_mtEstTravaille(l)){
+        if (_mtEstTravaille(l) && !_trJourFutur(key)){
           td.className = 'mt-j'; td.dataset.date = key;
           const tagPartiel = (l && l.motif) ? '<span class="mt-tag">' + l.motif + '</span>' : '';
           td.innerHTML = '<span class="mt-n">' + num + '</span>' + tagPartiel;
           td.onclick = (function(kk){ return function(){ mtToggleJour(kk); }; })(key);
         } else {
           td.className = 'mt-j off';
-          const tag = (l && l.motif) ? l.motif : '';
+          const tag = (l && l.motif) ? l.motif : (_mtEstTravaille(l) && _trJourFutur(key) ? 'à venir' : '');
           td.innerHTML = '<span class="mt-n">' + num + '</span>' + (tag ? '<span class="mt-tag">' + tag + '</span>' : '');
         }
       }
@@ -1218,6 +1220,7 @@ async function proposerTranches() {
   const jours = [];
   ctx.lignes.forEach(function (l) {
     if (!_mtEstTravaille(l)) return;
+    if (_trJourFutur(l.date)) return;                         // jour pas encore passé : rien à proposer
     const meta = _tranchesMeta[l.date];
     if (meta === 'efface') return;
     if (_tranches[l.date] && meta !== 'auto') return;       // tranche manuelle ou ancienne : intouchable
@@ -1262,6 +1265,7 @@ function _escAttr(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').r
 
 /* Contenu d'une cellule « Tranche indemnité » */
 function celluleTranche(date) {
+  if (_trJourFutur(date)) return '';                       // jour à venir : cellule vide
   const code = _tranches[date] || '';
   const inf  = _trAutoInfo[date];
   const manq = (inf && inf.manquants && inf.manquants.length) ? inf.manquants : [];
