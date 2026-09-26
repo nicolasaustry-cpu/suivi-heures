@@ -1490,29 +1490,42 @@ function rendreListeSalaries() {
   if (window._alignerListeSalaries) window._alignerListeSalaries();
 }
 /* Aligne la 1re ligne de la liste des salariés sur la 1re ligne de jour du tableau principal.
-   Recalculé à chaque rendu du bordereau (observateur sur #zone) et au redimensionnement. */
+   - calcul immédiat (observateur sur #zone, déclenché avant l'affichage : pas d'attente) ;
+   - ajustement relatif : la liste ne remonte jamais à 0 pendant le chargement d'un autre salarié ;
+   - dernier décalage mémorisé et réappliqué dès l'ouverture de la page (pas de saut initial). */
+const _BSL_CLE = 'bevListeDecalage';
 function alignerListeSalaries() {
   const box = document.getElementById('bev-sal-liste');
   if (!box) return;
-  box.style.marginTop = '0px';
-  if (getComputedStyle(box).position === 'static') return;           // écran étroit : liste au-dessus du tableau
+  if (getComputedStyle(box).position === 'static') { box.style.marginTop = '0px'; return; }   // écran étroit
   const ligne = document.querySelector('#zone table.bev tbody tr');
   const premier = box.querySelector('label');
-  if (!ligne || !premier) return;
+  if (!ligne || !premier) return;                                   // tableau pas encore là : on garde la position actuelle
+  const actuel = parseFloat(box.style.marginTop) || 0;
   const delta = ligne.getBoundingClientRect().top - premier.getBoundingClientRect().top;
-  if (delta > 0) box.style.marginTop = Math.round(delta) + 'px';
+  if (Math.abs(delta) < 1) return;
+  const cible = Math.max(0, Math.round(actuel + delta));
+  box.style.marginTop = cible + 'px';
+  try { localStorage.setItem(_BSL_CLE, String(cible)); } catch (e) {}
+}
+function _bslDecalageMemorise() {
+  const box = document.getElementById('bev-sal-liste');
+  if (!box || box.style.marginTop) return;
+  let v = 0; try { v = parseInt(localStorage.getItem(_BSL_CLE), 10) || 0; } catch (e) {}
+  if (v > 0) box.style.marginTop = v + 'px';
 }
 (function () {
-  let t = null;
-  const planifier = function () { clearTimeout(t); t = setTimeout(function () { requestAnimationFrame(alignerListeSalaries); }, 30); };
+  const lancer = function () { alignerListeSalaries(); };
   window.addEventListener('DOMContentLoaded', function () {
+    _bslDecalageMemorise();
     const zone = document.getElementById('zone');
-    if (zone && window.MutationObserver) new MutationObserver(planifier).observe(zone, { childList: true, subtree: false });
-    planifier();
+    if (zone && window.MutationObserver) new MutationObserver(lancer).observe(zone, { childList: true });
+    lancer();
   });
-  window.addEventListener('resize', planifier);
-  window.addEventListener('load', planifier);
-  window._alignerListeSalaries = planifier;
+  window.addEventListener('resize', lancer);
+  window.addEventListener('load', lancer);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(lancer);
+  window._alignerListeSalaries = function () { _bslDecalageMemorise(); lancer(); };
 })();
 
 function choisirSalarieListe(cb) {
