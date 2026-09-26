@@ -199,8 +199,12 @@
         <div class="champ"><label for="tr-debut">1er RDV</label><input type="time" id="tr-debut" value="08:30" oninput="majApercuTournee()"></div>
         <div class="champ"><label for="tr-duree">Durée par chantier (h)</label><input type="number" id="tr-duree" min="0.25" max="12" step="0.25" value="1.5" oninput="majApercuTournee()"></div>
       </div>
-      <table class="tr-apercu"><thead><tr><th>RDV</th><th>Chantier</th><th>Trajet estimé</th></tr></thead><tbody id="tr-corps"></tbody></table>
-      <div class="tr-note">Trajet estimé à partir de la distance à vol d'oiseau (× 1,3 pour la route, 50 km/h, arrondi aux 5 min, 10 min minimum). Les heures de RDV restent modifiables ensuite dans le Planning.</div>
+      <div class="ligne2">
+        <div class="champ"><label for="tr-marge">Marge par trajet (min)</label><input type="number" id="tr-marge" min="0" max="120" step="5" value="10" oninput="majApercuTournee()"></div>
+        <div class="champ"></div>
+      </div>
+      <table class="tr-apercu"><thead><tr><th>Heure</th><th>Étape</th><th>Trajet</th></tr></thead><tbody id="tr-corps"></tbody></table>
+      <div class="tr-note">Temps de trajet calculé par la route (service d'itinéraire de l'IGN), arrondi aux 5 min supérieures, plus la marge (chargement, stationnement…). « estimé » : service indisponible, calcul approché à partir de la distance à vol d'oiseau. Les heures restent modifiables ensuite dans le Planning.</div>
       <div class="se-m-msg" id="tr-msg"></div>
     </div>
     <div class="se-m-f">
@@ -550,7 +554,7 @@ async function proposerRegroupement() {
         + '<div class="rg-sous">≈ ' + km(total) + ' de parcours d\'un chantier à l\'autre' + (depart ? ' · ' + km(g[0].saut) + ' depuis le dépôt' : '') + '</div><ol>'
         + g.map((x, i) => '<li>' + echap(x.r.nom) + (i ? ' <span class="rg-km">+' + km(x.saut) + '</span>' : '') + btn(x.r.nom) + '</li>').join('')
         + '</ol><button type="button" class="rg-btn-tournee" onclick="ouvrirTournee(' + _rgTournees.length + ')">📅 Planifier la tournée</button></div>';
-      _rgTournees.push({ num: num, etapes: g.map(x => ({ nom: x.r.nom, saut: x.saut })) });
+      _rgTournees.push({ num: num, depart: depart ? { lat: depart.lat, lon: depart.lon } : null, etapes: g.map(x => ({ nom: x.r.nom, saut: x.saut, lat: pos[x.r.nom].lat, lon: pos[x.r.nom].lon })) });
     }
   });
   const isoles = ord.filter(g => g.length === 1).map(g => g[0]);
@@ -571,37 +575,100 @@ async function proposerRegroupement() {
    Tous les chantiers d'une tournée, même jour, même technicien, dans l'ordre de visite proposé.
    RDV échelonnés : 1er RDV, puis + durée du chantier + trajet estimé vers le suivant. */
 let _trIdx = null;
-function _trTrajetMin(km) {
-  if (km == null || !isFinite(km)) return 10;
-  const min = (km * 1.3) / 50 * 60;
-  return Math.max(10, Math.round(min / 5) * 5);
+let _trLegs = null;      // trajets de la tournée ouverte : [dépôt→1, 1→2, …, dernier→dépôt] = { min, km, source }
+let _trJeton = 0;
+
+/* Temps de trajet par la route entre deux points (service d'itinéraire IGN, gratuit, sans clé).
+   Résultat mémorisé sur le poste (une paire d'adresses n'est calculée qu'une fois).
+   Repli sur une estimation (vol d'oiseau × 1,3 à 50 km/h) si le service ne répond pas. */
+function _trEstime(a, b) {
+  const km = (window.Coord && Coord.distanceKm) ? Coord.distanceKm(a, b) : null;
+  return { min: km == null ? 10 : Math.max(5, (km * 1.3) / 50 * 60), km: km == null ? null : km * 1.3, source: 'estime' };
 }
-function _trHeure(min) { min = Math.round(min); return String(Math.floor(min / 60) % 24).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function _trCacheLire() { try { return JSON.parse(localStorage.getItem('routeCache') || '{}') || {}; } catch (e) { return {}; } }
+async function _trRoute(a, b) {
+  if (!a || !b || a.lat == null || b.lat == null) return { min: 0, km: 0, source: 'aucun' };
+  const f = x => Number(x).toFixed(4);
+  const cle = f(a.lat) + ',' + f(a.lon) + '>' + f(b.lat) + ',' + f(b.lon);
+  const cache = _trCacheLire();
+  if (cache[cle]) return Object.assign({ source: 'route' }, cache[cle]);
+  try {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+    const url = 'https://data.geopf.fr/navigation/itineraire?resource=bdtopo-osrm&profile=car&optimization=fastest'
+      + '&start=' + b2(a) + '&end=' + b2(b) + '&getSteps=false&getBbox=false&timeUnit=minute&distanceUnit=kilometer';
+    function b2(p) { return p.lon + ',' + p.lat; }
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) throw new Error('http ' + r.status);
+    const d = await r.json();
+    const min = Number(d && d.duration), km = Number(d && d.distance);
+    if (!isFinite(min)) throw new Error('reponse');
+    const res = { min: min, km: isFinite(km) ? km : null };
+    const c2 = _trCacheLire(); c2[cle] = res;
+    try { localStorage.setItem('routeCache', JSON.stringify(c2)); } catch (e) {}
+    return Object.assign({ source: 'route' }, res);
+  } catch (e) {
+    return _trEstime(a, b);
+  }
+}
+function _trHeure(min) { min = Math.round(min); min = ((min % 1440) + 1440) % 1440; return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function _trMinutes(leg) {                                   // trajet retenu : arrondi aux 5 min supérieures + marge
+  const marge = Math.max(0, parseFloat(document.getElementById('tr-marge').value) || 0);
+  return Math.ceil((leg ? leg.min : 0) / 5) * 5 + (leg && leg.source !== 'aucun' ? marge : 0);
+}
+/* Plan horaire de la tournée à partir des trajets calculés */
 function _trPlan() {
-  const t = _rgTournees[_trIdx]; if (!t) return [];
+  const t = _rgTournees[_trIdx]; if (!t || !_trLegs) return [];
   const deb = (document.getElementById('tr-debut').value || '08:30').split(':').map(Number);
   const duree = parseFloat(document.getElementById('tr-duree').value) || 0;
   let cur = deb[0] * 60 + deb[1];
   return t.etapes.map((e, i) => {
     let traj = null;
-    if (i) { traj = _trTrajetMin(e.saut); cur += traj; }
-    const p = { nom: e.nom, rdv: _trHeure(cur), trajet: traj };
+    if (i) { traj = _trMinutes(_trLegs[i]); cur += traj; }
+    const p = { nom: e.nom, rdv: _trHeure(cur), rdvMin: cur, trajet: traj, leg: i ? _trLegs[i] : null };
     cur += duree * 60;
     return p;
   });
 }
+async function _trCalculerTrajets() {
+  const t = _rgTournees[_trIdx]; if (!t) return;
+  const jeton = ++_trJeton;
+  _trLegs = null;
+  document.getElementById('tr-ok').disabled = true;
+  document.getElementById('tr-corps').innerHTML = '<tr><td colspan="3" style="color:#64748b;">Calcul des temps de trajet par la route…</td></tr>';
+  const pts = t.etapes.map(e => ({ lat: e.lat, lon: e.lon }));
+  const paires = [[t.depart, pts[0]]];
+  for (let i = 1; i < pts.length; i++) paires.push([pts[i - 1], pts[i]]);
+  paires.push([pts[pts.length - 1], t.depart]);
+  const legs = await Promise.all(paires.map(p => (p[0] && p[1]) ? _trRoute(p[0], p[1]) : Promise.resolve({ min: 0, km: 0, source: 'aucun' })));
+  if (jeton !== _trJeton) return;
+  _trLegs = legs;
+  document.getElementById('tr-ok').disabled = false;
+  majApercuTournee();
+}
 function majApercuTournee() {
+  if (!_trLegs) return;
   const plan = _trPlan();
-  document.getElementById('tr-corps').innerHTML = plan.map(p =>
-    '<tr><td class="h">' + p.rdv + '</td><td>' + echap(p.nom) + '</td><td class="t">' + (p.trajet ? '+' + p.trajet + ' min' : '—') + '</td></tr>').join('');
-  const fin = plan.length ? plan[plan.length - 1] : null;
+  const t = _rgTournees[_trIdx];
+  const duree = parseFloat(document.getElementById('tr-duree').value) || 0;
+  const lbl = leg => leg && leg.source !== 'aucun'
+    ? Math.round(leg.min) + ' min' + (leg.km != null ? ' · ' + (Math.round(leg.km * 10) / 10).toString().replace('.', ',') + ' km' : '') + (leg.source === 'estime' ? ' <b style="color:#b45309">estimé</b>' : '')
+    : '—';
+  let html = '';
+  const aller = _trLegs[0], retour = _trLegs[_trLegs.length - 1];
+  const avecDepot = t.depart && aller && aller.source !== 'aucun';
+  if (avecDepot) html += '<tr><td class="h">' + _trHeure(plan[0].rdvMin - _trMinutes(aller)) + '</td><td>🏠 Départ du dépôt</td><td class="t">' + lbl(aller) + '</td></tr>';
+  html += plan.map(p => '<tr><td class="h">' + p.rdv + '</td><td>' + echap(p.nom) + '</td><td class="t">' + (p.leg ? lbl(p.leg) + (p.trajet ? ' → ' + p.trajet + ' min retenues' : '') : '—') + '</td></tr>').join('');
+  const finMin = plan.length ? plan[plan.length - 1].rdvMin + duree * 60 : 0;
+  const retourMin = avecDepot ? finMin + _trMinutes(retour) : null;
+  if (avecDepot) html += '<tr><td class="h">' + _trHeure(retourMin) + '</td><td>🏠 Retour au dépôt</td><td class="t">' + lbl(retour) + '</td></tr>';
+  document.getElementById('tr-corps').innerHTML = html;
   const msg = document.getElementById('tr-msg');
-  if (fin) {
-    const d = parseFloat(document.getElementById('tr-duree').value) || 0;
-    const f = fin.rdv.split(':').map(Number); const finMin = f[0] * 60 + f[1] + d * 60;
-    msg.style.color = finMin > 18 * 60 ? '#b45309' : '#64748b';
-    msg.textContent = 'Fin estimée du dernier chantier : ' + _trHeure(finMin) + (finMin > 18 * 60 ? ' — journée chargée, pensez à répartir sur deux jours.' : '');
-  }
+  const ref = retourMin != null ? retourMin : finMin;
+  msg.style.color = ref > 18 * 60 ? '#b45309' : '#64748b';
+  msg.textContent = 'Fin du dernier chantier : ' + _trHeure(finMin) + (retourMin != null ? ' · retour au dépôt : ' + _trHeure(retourMin) : '')
+    + (ref > 18 * 60 ? ' — journée chargée, pensez à répartir sur deux jours.' : '')
+    + (!t.depart ? ' (point de départ non renseigné dans la page Entreprise : trajets dépôt non calculés)' : '');
 }
 function ouvrirTournee(idx) {
   _trIdx = idx;
@@ -614,10 +681,10 @@ function ouvrirTournee(idx) {
   document.getElementById('tr-date').value = _seIso(d);
   const sel = document.getElementById('tr-sal');
   sel.innerHTML = _seSalaries().map(s => '<option value="' + s.id + '">' + echap(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</option>').join('');
-  majApercuTournee();
   document.getElementById('tr-modal').classList.add('ouvert');
+  _trCalculerTrajets();
 }
-function fermerTournee() { document.getElementById('tr-modal').classList.remove('ouvert'); _trIdx = null; }
+function fermerTournee() { document.getElementById('tr-modal').classList.remove('ouvert'); _trIdx = null; _trLegs = null; _trJeton++; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('tr-modal').classList.contains('ouvert')) { e.stopImmediatePropagation(); fermerTournee(); } }, true);
 
 async function validerTournee() {
@@ -629,6 +696,7 @@ async function validerTournee() {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Choisissez une date.');
   if (!salId) return err('Choisissez un technicien.');
   if (!(duree > 0)) return err('Indiquez la durée par chantier.');
+  if (!_trLegs) return err('Calcul des trajets en cours, patientez un instant.');
   const plan = _trPlan();
   const h = _seHeures();
   const prefixe = String(salId) + date.replace(/-/g, '_') + 'ch';
