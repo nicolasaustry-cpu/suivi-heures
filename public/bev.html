@@ -717,10 +717,23 @@ function lignesDuMois(sal, ym, saisies, retenues) {
 }
 
 /* ── Vue mensuelle ── */
-/* ── Diagnostic de lenteur : ajouter ?diag=1 à l'adresse de la page ──
-   Affiche en bas à droite le temps de chaque étape du chargement du bordereau. Sans effet sinon. */
-const _DIAG = /[?&]diag=1(&|$)/.test(location.search);
-function _diagDebut() { return _DIAG ? { t0: performance.now(), dern: performance.now(), l: [] } : null; }
+/* ── Diagnostic de lenteur ──
+   Activation : raccourci Ctrl + Alt + D (bascule marche/arrêt, mémorisé sur ce poste),
+   ou ?diag=1 dans l'adresse. Affiche en bas à droite le temps de chaque étape du chargement. */
+function _diagActif() {
+  if (/[?&]diag=1(&|$)/.test(location.search)) return true;
+  try { return localStorage.getItem('bevDiag') === '1'; } catch (e) { return false; }
+}
+document.addEventListener('keydown', function (e) {
+  if (!(e.ctrlKey && e.altKey && (e.key === 'd' || e.key === 'D'))) return;
+  e.preventDefault();
+  const on = !_diagActif();
+  try { localStorage.setItem('bevDiag', on ? '1' : '0'); } catch (er) {}
+  const box = document.getElementById('bev-diag'); if (box && !on) box.remove();
+  if (on) { if (typeof rafraichir === 'function') rafraichir(); }
+  else alert('Diagnostic désactivé.');
+});
+function _diagDebut() { return _diagActif() ? { t0: performance.now(), dern: performance.now(), l: [] } : null; }
 function _diagMesure(d, nom, p) {
   if (!d) return p;
   const t = performance.now();
