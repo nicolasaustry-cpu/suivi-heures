@@ -717,6 +717,28 @@ function lignesDuMois(sal, ym, saisies, retenues) {
 }
 
 /* ── Vue mensuelle ── */
+/* ── Diagnostic de lenteur : ajouter ?diag=1 à l'adresse de la page ──
+   Affiche en bas à droite le temps de chaque étape du chargement du bordereau. Sans effet sinon. */
+const _DIAG = /[?&]diag=1(&|$)/.test(location.search);
+function _diagDebut() { return _DIAG ? { t0: performance.now(), dern: performance.now(), l: [] } : null; }
+function _diagMesure(d, nom, p) {
+  if (!d) return p;
+  const t = performance.now();
+  return p.then(function (v) { d.l.push([nom + ' (réseau)', performance.now() - t]); return v; });
+}
+function _diagEtape(d, nom) { if (!d) return; const n = performance.now(); d.l.push([nom, n - d.dern]); d.dern = n; }
+function _diagAfficher(d, saisies) {
+  if (!d) return;
+  let taille = 0; try { taille = JSON.stringify(saisies || []).length; } catch (e) {}
+  let box = document.getElementById('bev-diag');
+  if (!box) { box = document.createElement('div'); box.id = 'bev-diag'; box.className = 'no-print';
+    box.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9999;background:#0f172a;color:#e2e8f0;font:12px/1.5 monospace;padding:10px 14px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:340px;';
+    document.body.appendChild(box); }
+  box.innerHTML = '<b style="color:#fbbf24">Diagnostic bordereau</b><br>' + d.l.map(function (x) { return x[0] + ' : ' + Math.round(x[1]) + ' ms'; }).join('<br>')
+    + '<br>Total : ' + Math.round(performance.now() - d.t0) + ' ms<br>Saisies du mois : ' + (saisies || []).length + ' (' + (taille / 1e6).toFixed(2) + ' Mo)';
+  console.table(d.l);
+}
+
 /* ── Saisies (réalisé) du mois : téléchargées une seule fois par mois ──
    La réponse contient les saisies de TOUTE l'équipe (photos des notes comprises) : la
    retélécharger à chaque changement de salarié rendait le bordereau lent à s'afficher.
@@ -757,12 +779,13 @@ async function chargerMois() {
     '<div class="td-sal">' + sal.prenom + ' ' + sal.nom + '</div>';
 
   const jeton = ++_chargerMoisToken;
+  const _d = _diagDebut();
   let saisies = [], retenues = {}, valide = false, reporte = 0, evenements = {};
   let _ind = {}, _tr = {}, _trm = {};
   try {
     const [rs, rb] = await Promise.all([
-      saisiesDuMois(ym, token).then(x => ({ ok: true, saisies: x }), () => ({ ok: false })),
-      fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
+      _diagMesure(_d, 'saisies', saisiesDuMois(ym, token).then(x => ({ ok: true, saisies: x }), () => ({ ok: false }))),
+      _diagMesure(_d, 'bordereau', fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()))
     ]);
     saisies  = rs.ok ? (rs.saisies || []) : [];
     if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; _ind = rb.indemnites || {}; _tr = rb.tranches || {}; _trm = rb.tranchesMeta || {}; }
@@ -772,6 +795,7 @@ async function chargerMois() {
   if (jeton !== _chargerMoisToken) return;
   _indemnites = _ind; _tranches = _tr; _tranchesMeta = _trm; _trAutoInfo = {};
 
+  _diagEtape(_d, 'réseau');
   prechargerMoisVoisins(ym, token);   // mois précédent / suivant prêts pour les flèches ◀ ▶
   document.getElementById('chk-valide').checked = valide;
   const lignes = lignesDuMois(sal, ym, saisies, retenues);
@@ -853,6 +877,7 @@ async function chargerMois() {
   appliquerIndemnites();
   rendreRecapEvenements();
   majEncart();
+  _diagEtape(_d, 'calcul et affichage'); _diagAfficher(_d, saisies);
   proposerTranches();
 }
 
