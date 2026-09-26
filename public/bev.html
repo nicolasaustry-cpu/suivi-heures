@@ -1487,7 +1487,34 @@ function rendreListeSalaries() {
     return '<label class="' + (on ? 'actif' : '') + '"><input type="checkbox" data-id="' + esc(id) + '"' + (on ? ' checked' : '')
       + ' onchange="choisirSalarieListe(this)"> <span>' + esc(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</span></label>';
   }).join('');
+  if (window._alignerListeSalaries) window._alignerListeSalaries();
 }
+/* Aligne la 1re ligne de la liste des salariés sur la 1re ligne de jour du tableau principal.
+   Recalculé à chaque rendu du bordereau (observateur sur #zone) et au redimensionnement. */
+function alignerListeSalaries() {
+  const box = document.getElementById('bev-sal-liste');
+  if (!box) return;
+  box.style.marginTop = '0px';
+  if (getComputedStyle(box).position === 'static') return;           // écran étroit : liste au-dessus du tableau
+  const ligne = document.querySelector('#zone table.bev tbody tr');
+  const premier = box.querySelector('label');
+  if (!ligne || !premier) return;
+  const delta = ligne.getBoundingClientRect().top - premier.getBoundingClientRect().top;
+  if (delta > 0) box.style.marginTop = Math.round(delta) + 'px';
+}
+(function () {
+  let t = null;
+  const planifier = function () { clearTimeout(t); t = setTimeout(function () { requestAnimationFrame(alignerListeSalaries); }, 30); };
+  window.addEventListener('DOMContentLoaded', function () {
+    const zone = document.getElementById('zone');
+    if (zone && window.MutationObserver) new MutationObserver(planifier).observe(zone, { childList: true, subtree: false });
+    planifier();
+  });
+  window.addEventListener('resize', planifier);
+  window.addEventListener('load', planifier);
+  window._alignerListeSalaries = planifier;
+})();
+
 function choisirSalarieListe(cb) {
   const sel = document.getElementById('sel-salarie');
   if (!cb.checked) { cb.checked = true; return; }          // toujours un salarié sélectionné
