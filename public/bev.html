@@ -552,9 +552,26 @@ function dansContrat(sal, d) {
 
 /* Créneaux marqués « exclu du calcul » dans le Planning (heuresdata), recoupés par salarié+date+nom —
    même mécanisme que realise.html/planning.html, lu ici pour que le Réalisé du BEV les ignore aussi. */
+/* ── Cache de lecture du Planning (heuresdata) ──
+   heuresdata peut peser plusieurs Mo : le relire et le décoder à chaque jour du mois
+   (colonnes Repas / Tranche, récapitulatifs, vue Année) rendait l'affichage très lent.
+   On le décode une seule fois, réutilisé quelques secondes (le temps d'un affichage),
+   et on l'invalide dès qu'un autre onglet ou une synchro le modifie. */
+let _hdCache = null, _hdStamp = 0, _exclusCache = null;
+function _heuresData() {
+  if (_hdCache && Date.now() - _hdStamp < 3000) return _hdCache;
+  let h = {};
+  try { h = JSON.parse(localStorage.getItem('heuresdata') || '{}') || {}; } catch (e) { h = {}; }
+  _hdCache = h; _hdStamp = Date.now(); _exclusCache = null;
+  return h;
+}
+function _invaliderHeuresData() { _hdCache = null; _exclusCache = null; }
+window.addEventListener('storage', function (e) { if (!e.key || e.key === 'heuresdata') _invaliderHeuresData(); });
+window.addEventListener('donnees-chargees', _invaliderHeuresData);
+
 function calculerExclusMotifsBev() {
-  let heures = {};
-  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const heures = _heuresData();
+  if (_exclusCache) return _exclusCache;
   const motifsExclus = {};
   Object.keys(heures).forEach(k => {
     const e = heures[k];
@@ -563,6 +580,7 @@ function calculerExclusMotifsBev() {
     if (!m) return;
     motifsExclus[m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + e.chantier.trim().toUpperCase()] = e.motifExclu || 'SAV';
   });
+  _exclusCache = motifsExclus;
   return motifsExclus;
 }
 function estExcluBev(motifsExclus, salarieId, date, nom) {
@@ -596,8 +614,7 @@ function labelColReel() { return estPlus() ? 'Réalisé' : 'Planifié'; }
 /* Planifié = cumul journalier des heures chantier saisies dans le Planning
    (clés heuresdata : <salarieId><AAAA_MM_JJ>ch1..ch5). */
 function planifieParJour(salarieId, ym) {
-  let heures = {};
-  try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const heures = _heuresData();
   const [an, mo] = ym.split('-').map(Number);
   const nb = new Date(an, mo, 0).getDate();
   const map = {};
@@ -641,8 +658,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
   const [an, mo] = ym.split('-').map(Number);
   const planifMap = planifieParJour(sal.id, ym);
   const realMap   = realiseParJour(saisies, sal.id);
-  let _hAbs = {};
-  try { _hAbs = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+  const _hAbs = _heuresData();
   const nbJours = new Date(an, mo, 0).getDate();
   const lignes = [];
   for (let j = 1; j <= nbJours; j++) {
@@ -1266,7 +1282,7 @@ function chantiersDuJour(salId, l, saisies) {
     });
   }
   if (!noms.length && (parseFloat(l.planifie) || 0) > 0) {
-    let heures = {}; try { heures = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (e) {}
+    const heures = _heuresData();
     const safe = l.date.replace(/-/g, '_');
     for (let i = 1; i <= 5; i++) {
       const e = heures[salId + safe + 'ch' + i];
