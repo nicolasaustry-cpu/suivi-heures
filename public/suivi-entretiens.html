@@ -25,7 +25,7 @@
     .se-inactif a:hover { text-decoration:underline; }
     .se-filtres { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem; }
     .se-filtres label { font-size:0.85rem; font-weight:600; display:block; margin-bottom:3px; }
-    .se-filtres input[type=month] { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
+    .se-filtres input[type=month], .se-filtres select { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; background:#fff; }
     .btn-se-reset { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:7px 12px; font-size:0.85rem; cursor:pointer; }
     .btn-se-plan { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:0.8rem; font-weight:700; cursor:pointer; white-space:nowrap; }
     .btn-se-plan:hover { background:#0b2c6b; }
@@ -117,11 +117,21 @@
 <section id="se-actif" style="display:none;">
   <div class="se-filtres">
     <div>
-      <label for="se-filtre-mois">Échéance (mois)</label>
-      <input type="month" id="se-filtre-mois" onchange="appliquerFiltreMois()">
+      <label for="se-filtre-annee">Échéance — année</label>
+      <select id="se-filtre-annee" onchange="appliquerFiltreMois()"><option value="">Toutes</option></select>
     </div>
-    <button type="button" class="btn-se-reset" onclick="effacerFiltreMois()">Tous les mois</button>
-    <button type="button" class="btn-se-rg" id="btn-se-rg" onclick="ouvrirRegroupement()" disabled title="Choisissez d'abord un mois d'échéance">🗺 Regrouper par proximité</button>
+    <div>
+      <label for="se-filtre-m">Mois</label>
+      <select id="se-filtre-m" onchange="appliquerFiltreMois()">
+        <option value="">Tous</option><option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
+        <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option><option value="07">Juillet</option>
+        <option value="08">Août</option><option value="09">Septembre</option><option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+      </select>
+    </div>
+    <!-- valeur combinée 'aaaa-mm' (vide si l'année ou le mois manque), lue par le regroupement et la planification -->
+    <input type="hidden" id="se-filtre-mois" value="">
+    <button type="button" class="btn-se-reset" onclick="effacerFiltreMois()">Toutes les échéances</button>
+    <button type="button" class="btn-se-rg" id="btn-se-rg" onclick="ouvrirRegroupement()" disabled title="Choisissez une année et un mois d'échéance">🗺 Regrouper par proximité</button>
     <button type="button" class="btn-se-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
   </div>
   <div class="se-count" id="se-count"></div>
@@ -311,12 +321,29 @@ function rendre(liste) {
 
 /* Filtre par mois d'ÉCHÉANCE (pas la date de dernière intervention) : sert à
    planifier ce qu'il faut faire tel mois, pas à consulter l'historique. */
+/* Année et mois se choisissent séparément : année seule = toute l'année ; mois seul = ce mois
+   quelle que soit l'année ; les deux = un mois précis (condition du regroupement par proximité). */
+function _seSyncFiltre() {
+  const a = document.getElementById('se-filtre-annee').value, m = document.getElementById('se-filtre-m').value;
+  document.getElementById('se-filtre-mois').value = (a && m) ? a + '-' + m : '';
+}
+function remplirAnnees() {
+  const sel = document.getElementById('se-filtre-annee');
+  const courant = sel.value;
+  const ans = new Set([new Date().getFullYear(), new Date().getFullYear() + 1]);
+  _listeComplete.forEach(r => { if (r.echeance) ans.add(r.echeance.getFullYear()); });
+  sel.innerHTML = '<option value="">Toutes</option>' + [...ans].sort((x, y) => x - y).map(a => '<option value="' + a + '">' + a + '</option>').join('');
+  if ([...ans].some(a => String(a) === courant)) sel.value = courant;
+  _seSyncFiltre();
+}
 function listeFiltree() {
-  const mois = document.getElementById('se-filtre-mois').value;   // 'aaaa-mm' ou ''
-  if (!mois) return _listeComplete;
+  const a = document.getElementById('se-filtre-annee').value, m = document.getElementById('se-filtre-m').value;
+  if (!a && !m) return _listeComplete;
   return _listeComplete.filter(r => {
-    const ym = r.echeance.getFullYear() + '-' + String(r.echeance.getMonth() + 1).padStart(2, '0');
-    return ym === mois;
+    if (!r.echeance) return false;
+    if (a && String(r.echeance.getFullYear()) !== a) return false;
+    if (m && String(r.echeance.getMonth() + 1).padStart(2, '0') !== m) return false;
+    return true;
   });
 }
 function majBoutonRegroupement() {
@@ -325,11 +352,13 @@ function majBoutonRegroupement() {
   const mois = document.getElementById('se-filtre-mois').value;
   const n = mois ? listeFiltree().length : 0;
   b.disabled = !(mois && n >= 2);
-  b.title = !mois ? 'Choisissez d\'abord un mois d\'échéance' : (n < 2 ? 'Il faut au moins 2 chantiers ce mois-ci' : 'Proposer des tournées de chantiers proches');
+  b.title = !mois ? 'Choisissez une année et un mois d\'échéance' : (n < 2 ? 'Il faut au moins 2 chantiers ce mois-ci' : 'Proposer des tournées de chantiers proches');
 }
-function appliquerFiltreMois() { rendre(listeFiltree()); majBoutonRegroupement(); }
+function appliquerFiltreMois() { _seSyncFiltre(); rendre(listeFiltree()); majBoutonRegroupement(); }
 function effacerFiltreMois() {
-  document.getElementById('se-filtre-mois').value = '';
+  document.getElementById('se-filtre-annee').value = '';
+  document.getElementById('se-filtre-m').value = '';
+  _seSyncFiltre();
   rendre(listeFiltree());
   majBoutonRegroupement();
 }
@@ -354,7 +383,7 @@ function exporterXlsx() {
   ws['!cols'] = [{ wch:28 }, { wch:20 }, { wch:12 }, { wch:20 }, { wch:12 }, { wch:40 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Suivi entretiens');
-  const mois = document.getElementById('se-filtre-mois').value || 'tous';
+  const mois = [document.getElementById('se-filtre-annee').value, document.getElementById('se-filtre-m').value].filter(Boolean).join('-') || 'tous';
   XLSX.writeFile(wb, `Suivi_entretiens_${mois}.xlsx`);
 }
 
@@ -366,6 +395,7 @@ async function charger() {
     const d = await r.json();
     const notesChantiers = (d.ok && d.data && d.data.notesChantiers) ? d.data.notesChantiers : {};
     _listeComplete = calculerSuivi(notesChantiers);
+    remplirAnnees();
     rendre(listeFiltree());
     majBoutonRegroupement();
   } catch (e) {
