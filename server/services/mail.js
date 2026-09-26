@@ -6,6 +6,27 @@
 //                    (ex. "contact@volitis.net")
 //   APP_URL        = URL de l'application (ex. "https://suivi-heures.volitis.net")
 
+import { readFile } from "fs/promises";
+import { fileURLToPath } from "url";
+import path from "path";
+
+// Mode opératoire « Bien démarrer » : joint au mail d'accès et servi publiquement.
+// Fichier : public/docs/bien-demarrer-suivheures.pdf (ce fichier est dans server/services/).
+const GUIDE_NOM  = "bien-demarrer-suivheures.pdf";
+const GUIDE_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../public/docs", GUIDE_NOM);
+
+// Pièce jointe Resend du guide, ou null si le fichier est absent :
+// un guide manquant ne doit jamais empêcher l'envoi du code d'accès.
+async function _pieceJointeGuide() {
+  try {
+    const buf = await readFile(GUIDE_PATH);
+    return { filename: "Suiv'Heures - Bien demarrer.pdf", content: buf.toString("base64") };
+  } catch (err) {
+    console.warn("Mode opératoire PDF introuvable (" + GUIDE_PATH + ") : mail envoyé sans pièce jointe.");
+    return null;
+  }
+}
+
 function _fmtDate(d) {
   try {
     return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
@@ -24,6 +45,8 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
   const appUrl = process.env.APP_URL || "https://suivi-heures.volitis.net";
   const fin    = _fmtDate(dateExpiration);
   const nom    = (nomClient || "").trim();
+  const guide  = await _pieceJointeGuide();
+  const lienGuide = `${appUrl.replace(/\/+$/, "")}/docs/${GUIDE_NOM}`;
 
   const text =
     `Bienvenue sur Suiv'Heures !\n\n` +
@@ -33,7 +56,8 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
     `\nSur ORDINATEUR, rendez-vous sur ${appUrl} et connectez-vous avec ce code pour configurer votre espace : salaries, chantiers, planning.\n` +
     `Le code mobile de vos salaries (pour pointer depuis leur telephone) se cree ensuite, directement dans l'outil, une fois votre espace configure.\n` +
     `\nConnectez-vous sur ordinateur ici : ${appUrl}\n` +
-    `Conservez bien ce code : il vous permettra de vous reconnecter.\n\n` +
+    `Conservez bien ce code : il vous permettra de vous reconnecter.\n` +
+    `\nMode opératoire pour bien démarrer (PDF${guide ? ", également joint à ce mail" : ""}) : ${lienGuide}\n\n` +
     `L'équipe Volitis`;
 
   const html = `<!DOCTYPE html><html lang="fr"><body style="margin:0;padding:0;background:#e9edf3;">
@@ -63,6 +87,10 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
         </td></tr>
       </table>
       <div style="font-size:13px;color:#94a3b8;">Conservez bien ce code : il vous permettra de vous reconnecter.</div>
+      <div style="font-size:14px;color:#475569;line-height:1.55;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin:18px 0 0;">
+        &#128216; <strong>Mode op&eacute;ratoire pour bien d&eacute;marrer</strong>${guide ? " (joint &agrave; ce mail)" : ""}&nbsp;: les 9 &eacute;tapes pour mettre Suiv'Heures en place, dans l'ordre.<br>
+        <a href="${lienGuide}" target="_blank" style="color:#0f3a8a;font-weight:bold;">Ouvrir le mode op&eacute;ratoire (PDF)</a>
+      </div>
     </td></tr>
     <tr><td style="background:#f8fafc;padding:16px 28px;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;">
       Suiv'Heures — par Volitis · <a href="${appUrl}" style="color:#0f3a8a;text-decoration:none;">suivi-heures.volitis.net</a>
@@ -83,7 +111,8 @@ export async function envoyerMailEssai({ email, nomClient, code, dateExpiration 
       to: [email],
       subject: "Bienvenue sur Suiv'Heures — votre essai de 30 jours",
       text,
-      html
+      html,
+      ...(guide ? { attachments: [guide] } : {})
     })
   });
 
