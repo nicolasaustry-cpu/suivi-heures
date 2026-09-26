@@ -268,7 +268,6 @@
   <div class="bev-indemnites no-print" id="bev-indemnites">
     <span class="bi-label">Indemnités de petits déplacements :</span>
     <label><input type="checkbox" class="ind-chk" value="trajet" onchange="onIndemniteChange()"> Trajet</label>
-    <label><input type="checkbox" class="ind-chk" value="transport" onchange="onIndemniteChange()"> Transport</label>
     <label><input type="checkbox" class="ind-chk" value="repas" onchange="onIndemniteChange()"> Repas</label>
     <button type="button" class="btn-cal-tranches" id="btn-cal-tranches" onclick="ouvrirCalendrierTranches()"><i class="ti ti-calendar"></i> Calendrier des tranches</button>
   </div>
@@ -372,7 +371,7 @@ const TRANCHES_IND = [
   ['III','III 20 à 30 km'],['IV','IV 30 à 40 km'],['V','V 40 à 50 km'],
   ['VI','VI 50 à 65 km'],['VII','VII 65 à 80 km']
 ];
-let _indemnites = {};   // { trajet, transport, repas }
+let _indemnites = {};   // { trajet, repas } (+ transport : ancienne donnée conservée, plus affichée ni comptée)
 let _tranches   = {};   // { 'YYYY-MM-DD': 'IA'|... }
 let _calCtx     = null; // contexte du mois courant pour le calendrier des tranches
 // Couleurs par tranche (dégradé distance : proche = vert → lointain = rouge)
@@ -385,7 +384,7 @@ const TRANCHES_COULEURS = {
 function onIndemniteChange() {
   _indemnites = {
     trajet:    !!document.querySelector('.ind-chk[value="trajet"]').checked,
-    transport: !!document.querySelector('.ind-chk[value="transport"]').checked,
+    transport: !!_indemnites.transport,   // indemnité de transport retirée de la page : valeur d'origine conservée telle quelle
     repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
   };
   appliquerIndemnites();
@@ -394,14 +393,14 @@ function onIndemniteChange() {
 }
 function appliquerIndemnites() {
   const zone = document.getElementById('zone');
-  const actif = !!(_indemnites.trajet || _indemnites.transport || _indemnites.repas);
+  const actif = !!(_indemnites.trajet || _indemnites.repas);
   if (zone) zone.classList.toggle('ind-on', actif);
   rendreRecapIndemnites();
 }
 function rendreRecapIndemnites() {
   const wrap = document.getElementById('recap-indemnites');
   if (!wrap) return;
-  const items = [['trajet','Trajet'],['transport','Transport'],['repas','Repas']].filter(function(it){ return _indemnites[it[0]]; });
+  const items = [['trajet','Trajet'],['repas','Repas']].filter(function(it){ return _indemnites[it[0]]; });
   if (!items.length) { wrap.innerHTML = ''; return; }
   const codes = ['IA','IB','II','III','IV','V','VI','VII'];
   const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
@@ -744,7 +743,6 @@ async function chargerMois() {
   document.getElementById('enc-reporte').addEventListener('input', majEncart);
   document.getElementById('enc-reporte').addEventListener('input', autoSave);
   document.querySelector('.ind-chk[value="trajet"]').checked    = !!_indemnites.trajet;
-  document.querySelector('.ind-chk[value="transport"]').checked = !!_indemnites.transport;
   document.querySelector('.ind-chk[value="repas"]').checked     = !!_indemnites.repas;
   appliquerIndemnites();
   rendreRecapEvenements();
@@ -807,7 +805,7 @@ async function enregistrer() {
   const reporte = repEl ? (parseFloat(repEl.value) || 0) : 0;
   const indemnites = {
     trajet:    !!document.querySelector('.ind-chk[value="trajet"]').checked,
-    transport: !!document.querySelector('.ind-chk[value="transport"]').checked,
+    transport: !!_indemnites.transport,   // ancienne donnée conservée, jamais modifiée depuis la page
     repas:     !!document.querySelector('.ind-chk[value="repas"]').checked
   };
   const tranches = {};
@@ -1192,7 +1190,7 @@ async function proposerTranches() {
   const ctx = _calCtx;
   const zt = _zonesTrajetCfg();
   if (!ctx || !ctx.sal || ctx.valide || !zt) return;
-  if (!(_indemnites.trajet || _indemnites.transport || _indemnites.repas)) return;
+  if (!(_indemnites.trajet || _indemnites.repas)) return;
   if (!window.Coord || typeof Coord.localiser !== 'function') return;
 
   // Jours à traiter : travaillés, et case vide ou déjà « auto »
