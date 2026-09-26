@@ -197,6 +197,7 @@
     .tr-auto-lbl { display:block; font-size:0.62rem; color:#94a3b8; margin-top:2px; white-space:nowrap; }
     .tr-manque { font-size:0.72rem; color:#b45309; font-weight:600; cursor:pointer; white-space:nowrap; }
     .tr-manque:hover { text-decoration:underline; }
+    .tr-sans-repas { display:block; font-size:0.62rem; color:#b45309; margin-top:2px; white-space:nowrap; }
     /* Modale combinée : bandeau « adresse manquante » au-dessus du calendrier des tranches */
     .mt-adr { display:none; background:#fffbeb; border:1px solid #fcd34d; border-radius:10px; padding:10px 13px; margin:0 0 12px; font-size:0.82rem; color:#78350f; }
     .mt-adr.vis { display:block; }
@@ -413,11 +414,20 @@ function rendreRecapIndemnites() {
   const items = [['trajet','Trajet'],['repas','Repas']].filter(function(it){ return _indemnites[it[0]]; });
   if (!items.length) { wrap.innerHTML = ''; return; }
   const codes = ['IA','IB','II','III','IV','V','VI','VII'];
-  const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
-  Object.keys(_tranches).forEach(function(k){ if (_trJourFutur(k)) return; const c = _tranches[k]; if (cnt[c] !== undefined) cnt[c]++; });
-  const tot = codes.reduce(function(a,c){ return a + cnt[c]; }, 0);
+  // Trajet : un jour par tranche saisie. Repas : idem, sauf les demi-journées (aucun chantier réalisé après 13h00).
+  const compter = function (sansDemiJournees) {
+    const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
+    Object.keys(_tranches).forEach(function(k){
+      if (_trJourFutur(k)) return;
+      if (sansDemiJournees && estDemiJourneeSansRepas(k)) return;
+      const c = _tranches[k]; if (cnt[c] !== undefined) cnt[c]++;
+    });
+    return cnt;
+  };
   let html = '<table class="bev-recap"><thead><tr><th>Indemnité</th>' + codes.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '<th>Total</th></tr></thead><tbody>';
   items.forEach(function(it){
+    const cnt = compter(it[0] === 'repas');
+    const tot = codes.reduce(function(a,c){ return a + cnt[c]; }, 0);
     html += '<tr><td>' + it[1] + '</td>' + codes.map(function(c){ return '<td>' + (cnt[c] || '') + '</td>'; }).join('') + '<td>' + (tot || '') + '</td></tr>';
   });
   html += '</tbody></table>';
@@ -1015,6 +1025,28 @@ let _mtTouches = {};    // { 'YYYY-MM-DD': true } — jours modifiés à la main
    Standard) — même si un motif (Autre, Even. Familial, etc.) est aussi présent ce jour-là : un
    événement partiel n'empêche pas le déplacement d'avoir eu lieu. Seul un jour à 0h réel/planifié
    (week-end ou absence pleine journée) reste non sélectionnable. */
+/* Panier repas : dû par défaut pour chaque jour travaillé. Exception : demi-journée, c'est-à-dire
+   un réalisé (saisies du salarié) dont AUCUN chantier ne se termine après 13h00.
+   Sans réalisé exploitable ce jour-là (heures de départ absentes, licence Standard…), le repas reste dû. */
+const REPAS_HEURE_LIMITE = '13:00';
+function estDemiJourneeSansRepas(date) {
+  const ctx = _calCtx;
+  if (!ctx || !ctx.sal || !date) return false;
+  const motifsExclus = calculerExclusMotifsBev();
+  let nb = 0, apres = false;
+  (ctx.saisies || []).forEach(function (s) {
+    if (String(s.salarieId) !== String(ctx.sal.id) || s.date !== date) return;
+    (s.chantiers || []).forEach(function (c) {
+      if (estExcluBev(motifsExclus, ctx.sal.id, date, c.nom)) return;
+      const fin = String(c.heureDepart || '').trim();
+      if (!/^\d{1,2}:\d{2}$/.test(fin)) { apres = true; return; }   // heure inconnue : on ne retire pas le repas
+      nb++;
+      if (fin.padStart(5, '0') > REPAS_HEURE_LIMITE) apres = true;
+    });
+  });
+  return nb > 0 && !apres;
+}
+
 /* Jour à venir (après aujourd'hui) : pas de tranche affichée, proposée ni saisissable tant qu'il n'est pas passé */
 function _trJourFutur(date){ return !!date && date > AUJOURDHUI; }
 function _mtEstTravaille(l){ return !!(l && !l.we && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
@@ -1266,6 +1298,13 @@ function _escAttr(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').r
 /* Contenu d'une cellule « Tranche indemnité » */
 function celluleTranche(date) {
   if (_trJourFutur(date)) return '';                       // jour à venir : cellule vide
+  const html = _celluleTrancheBase(date);
+  if (html && _indemnites.repas && _tranches[date] && estDemiJourneeSansRepas(date)) {
+    return html + '<span class="tr-sans-repas" title="Aucun chantier réalisé après 13h00 : demi-journée, pas de panier repas.">½ j · sans repas</span>';
+  }
+  return html;
+}
+function _celluleTrancheBase(date) {
   const code = _tranches[date] || '';
   const inf  = _trAutoInfo[date];
   const manq = (inf && inf.manquants && inf.manquants.length) ? inf.manquants : [];
