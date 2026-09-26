@@ -30,7 +30,7 @@
     .btn-se-plan { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:0.8rem; font-weight:700; cursor:pointer; white-space:nowrap; }
     .btn-se-plan:hover { background:#0b2c6b; }
     .se-planifie { display:block; font-size:0.74rem; color:#15803d; font-weight:600; margin-top:3px; white-space:nowrap; }
-    #se-modal { position:fixed; inset:0; z-index:9000; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; overflow:auto; }
+    #se-modal { position:fixed; inset:0; z-index:9500; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; overflow:auto; }
     #se-modal.ouvert { display:flex; }
     .se-m { width:100%; max-width:480px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 12px 40px rgba(15,23,42,.28); }
     .se-m-h { background:#0f3a8a; color:#fff; padding:13px 18px; border-bottom:3px solid #f59e0b; display:flex; justify-content:space-between; align-items:center; }
@@ -48,8 +48,12 @@
     .se-m-f { display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; }
     .se-m-f button { border:none; border-radius:7px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; }
     .se-m-annuler { background:#e2e8f0; color:#334155; } .se-m-valider { background:#16a34a; color:#fff; }
-    #se-regroup { margin-top:1.4rem; display:none; }
-    #se-regroup.vis { display:block; }
+    #rg-modal { position:fixed; inset:0; z-index:8500; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:32px 12px; overflow:auto; }
+    #rg-modal.ouvert { display:flex; }
+    #se-regroup { width:100%; max-width:1100px; background:#f8fafc; border-radius:12px; padding:16px 18px 18px; box-shadow:0 12px 40px rgba(15,23,42,.28); }
+    .rg-fermer { margin-left:auto; background:#e2e8f0; border:none; border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:0.95rem; }
+    .btn-se-rg { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; }
+    .btn-se-rg:disabled { background:#cbd5e1; cursor:not-allowed; }
     .rg-tete { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:0.6rem; }
     .rg-tete h3 { margin:0; font-size:1rem; color:#0f3a8a; }
     .rg-tete label { font-size:0.82rem; color:#475569; }
@@ -106,6 +110,7 @@
       <input type="month" id="se-filtre-mois" onchange="appliquerFiltreMois()">
     </div>
     <button type="button" class="btn-se-reset" onclick="effacerFiltreMois()">Tous les mois</button>
+    <button type="button" class="btn-se-rg" id="btn-se-rg" onclick="ouvrirRegroupement()" disabled title="Choisissez d'abord un mois d'échéance">🗺 Regrouper par proximité</button>
     <button type="button" class="btn-se-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
   </div>
   <div class="se-count" id="se-count"></div>
@@ -128,6 +133,7 @@
   </div>
 
   <!-- Proposition de regroupement : apparaît quand un mois d'échéance est sélectionné -->
+  <div id="rg-modal" onclick="if(event.target===this) fermerRegroupement()">
   <div id="se-regroup">
     <div class="rg-tete">
       <h3>🗺 Proposition de regroupement par proximité</h3>
@@ -137,8 +143,10 @@
         <option value="15">15 km</option><option value="20">20 km</option><option value="30">30 km</option>
       </select>
       <span class="rg-info" id="rg-info"></span>
+      <button type="button" class="rg-fermer" onclick="fermerRegroupement()" title="Fermer">✕</button>
     </div>
     <div class="rg-grille" id="rg-grille"></div>
+  </div>
   </div>
 </section>
 
@@ -272,12 +280,28 @@ function listeFiltree() {
     return ym === mois;
   });
 }
-function appliquerFiltreMois() { rendre(listeFiltree()); proposerRegroupement(); }
+function majBoutonRegroupement() {
+  const b = document.getElementById('btn-se-rg');
+  if (!b) return;
+  const mois = document.getElementById('se-filtre-mois').value;
+  const n = mois ? listeFiltree().length : 0;
+  b.disabled = !(mois && n >= 2);
+  b.title = !mois ? 'Choisissez d\'abord un mois d\'échéance' : (n < 2 ? 'Il faut au moins 2 chantiers ce mois-ci' : 'Proposer des tournées de chantiers proches');
+}
+function appliquerFiltreMois() { rendre(listeFiltree()); majBoutonRegroupement(); }
 function effacerFiltreMois() {
   document.getElementById('se-filtre-mois').value = '';
   rendre(listeFiltree());
+  majBoutonRegroupement();
+}
+function ouvrirRegroupement() {
+  document.getElementById('rg-modal').classList.add('ouvert');
   proposerRegroupement();
 }
+function fermerRegroupement() { document.getElementById('rg-modal').classList.remove('ouvert'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('rg-modal').classList.contains('ouvert') && !document.getElementById('se-modal').classList.contains('ouvert')) fermerRegroupement();
+});
 
 function exporterXlsx() {
   if (typeof XLSX === 'undefined') { alert('Module Excel non chargé, réessayez dans un instant.'); return; }
@@ -304,7 +328,7 @@ async function charger() {
     const notesChantiers = (d.ok && d.data && d.data.notesChantiers) ? d.data.notesChantiers : {};
     _listeComplete = calculerSuivi(notesChantiers);
     rendre(listeFiltree());
-    proposerRegroupement();
+    majBoutonRegroupement();
   } catch (e) {
     _listeComplete = [];
     rendre([]);
@@ -436,10 +460,9 @@ async function proposerRegroupement() {
   const mois = document.getElementById('se-filtre-mois').value;
   const liste = listeFiltree();
   if (!mois || liste.length < 2 || !window.Coord || typeof Coord.localiser !== 'function') {
-    bloc.classList.remove('vis'); grille.innerHTML = ''; return;
+    grille.innerHTML = ''; info.textContent = 'Choisissez un mois comptant au moins 2 chantiers.'; return;
   }
   const jeton = ++_rgJeton;
-  bloc.classList.add('vis');
   info.textContent = 'Localisation des adresses…';
   grille.innerHTML = '';
 
