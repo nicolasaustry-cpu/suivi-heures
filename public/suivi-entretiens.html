@@ -52,6 +52,17 @@
     #rg-modal.ouvert { display:flex; }
     #se-regroup { width:100%; max-width:1100px; background:#f8fafc; border-radius:12px; padding:16px 18px 18px; box-shadow:0 12px 40px rgba(15,23,42,.28); }
     .rg-fermer { margin-left:auto; background:#e2e8f0; border:none; border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:0.95rem; }
+    .rg-btn-tournee { margin-top:8px; background:#16a34a; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:0.8rem; font-weight:700; cursor:pointer; }
+    .rg-btn-tournee:hover { background:#15803d; }
+    #tr-modal { position:fixed; inset:0; z-index:9600; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; overflow:auto; }
+    #tr-modal.ouvert { display:flex; }
+    #tr-modal .se-m { max-width:560px; }
+    .tr-apercu { width:100%; border-collapse:collapse; font-size:0.84rem; margin:4px 0 8px; }
+    .tr-apercu th { text-align:left; font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; padding:4px 6px; border-bottom:1px solid #e2e8f0; }
+    .tr-apercu td { padding:5px 6px; border-bottom:1px solid #f1f5f9; }
+    .tr-apercu td.h { font-weight:700; color:#0f3a8a; white-space:nowrap; }
+    .tr-apercu td.t { color:#94a3b8; font-size:0.76rem; white-space:nowrap; }
+    .tr-note { font-size:0.75rem; color:#64748b; margin-bottom:6px; }
     .btn-se-rg { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; }
     .btn-se-rg:disabled { background:#cbd5e1; cursor:not-allowed; }
     .rg-tete { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:0.6rem; }
@@ -171,6 +182,30 @@
     <div class="se-m-f">
       <button type="button" class="se-m-annuler" onclick="fermerPlanif()">Annuler</button>
       <button type="button" class="se-m-valider" id="se-m-ok" onclick="validerPlanif()">📅 Planifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- Planifier une tournée entière : même jour, même technicien, RDV échelonnés -->
+<div id="tr-modal" role="dialog" aria-modal="true" onclick="if(event.target===this) fermerTournee()">
+  <div class="se-m">
+    <div class="se-m-h"><h3 id="tr-titre">Planifier la tournée</h3><button type="button" onclick="fermerTournee()" title="Fermer">✕</button></div>
+    <div class="se-m-b">
+      <div class="ligne2">
+        <div class="champ"><label for="tr-date">Date</label><input type="date" id="tr-date" oninput="majApercuTournee()"></div>
+        <div class="champ"><label for="tr-sal">Technicien</label><select id="tr-sal"></select></div>
+      </div>
+      <div class="ligne2">
+        <div class="champ"><label for="tr-debut">1er RDV</label><input type="time" id="tr-debut" value="08:30" oninput="majApercuTournee()"></div>
+        <div class="champ"><label for="tr-duree">Durée par chantier (h)</label><input type="number" id="tr-duree" min="0.25" max="12" step="0.25" value="1.5" oninput="majApercuTournee()"></div>
+      </div>
+      <table class="tr-apercu"><thead><tr><th>RDV</th><th>Chantier</th><th>Trajet estimé</th></tr></thead><tbody id="tr-corps"></tbody></table>
+      <div class="tr-note">Trajet estimé à partir de la distance à vol d'oiseau (× 1,3 pour la route, 50 km/h, arrondi aux 5 min, 10 min minimum). Les heures de RDV restent modifiables ensuite dans le Planning.</div>
+      <div class="se-m-msg" id="tr-msg"></div>
+    </div>
+    <div class="se-m-f">
+      <button type="button" class="se-m-annuler" onclick="fermerTournee()">Annuler</button>
+      <button type="button" class="se-m-valider" id="tr-ok" onclick="validerTournee()">📅 Planifier la tournée</button>
     </div>
   </div>
 </div>
@@ -450,6 +485,7 @@ async function validerPlanif() {
    Dans un groupe, l'ordre de visite part du chantier le plus proche du point de départ de
    l'entreprise (page Entreprise), puis va toujours au plus proche suivant. Distances à vol d'oiseau. */
 let _rgJeton = 0;
+let _rgTournees = [];   // tournées affichées : [{ num, etapes:[{ nom, saut (km depuis l'étape précédente) }] }]
 function _rgDepart() {
   try { const z = (JSON.parse(localStorage.getItem('entreprisedata') || '{}').zonesTrajet) || {}; return (z.depart && z.depart.lat != null) ? z.depart : null; } catch (e) { return null; }
 }
@@ -499,6 +535,7 @@ async function proposerRegroupement() {
     return out;
   };
   const ord = groupes.map(ordonner).sort((a, b) => b.length - a.length);
+  _rgTournees = [];
   const nbGroupes = ord.filter(g => g.length > 1).length;
   const km = v => (v == null ? '' : (Math.round(v * 10) / 10).toString().replace('.', ',') + ' km');
   const btn = n => '<button type="button" data-nom="' + echap(n).replace(/"/g, '&quot;') + '" onclick="ouvrirPlanif(this.dataset.nom)">📅</button>';
@@ -512,7 +549,8 @@ async function proposerRegroupement() {
       html += '<div class="rg-carte"><h4>Tournée ' + num + ' — ' + g.length + ' chantiers</h4>'
         + '<div class="rg-sous">≈ ' + km(total) + ' de parcours d\'un chantier à l\'autre' + (depart ? ' · ' + km(g[0].saut) + ' depuis le dépôt' : '') + '</div><ol>'
         + g.map((x, i) => '<li>' + echap(x.r.nom) + (i ? ' <span class="rg-km">+' + km(x.saut) + '</span>' : '') + btn(x.r.nom) + '</li>').join('')
-        + '</ol></div>';
+        + '</ol><button type="button" class="rg-btn-tournee" onclick="ouvrirTournee(' + _rgTournees.length + ')">📅 Planifier la tournée</button></div>';
+      _rgTournees.push({ num: num, etapes: g.map(x => ({ nom: x.r.nom, saut: x.saut })) });
     }
   });
   const isoles = ord.filter(g => g.length === 1).map(g => g[0]);
@@ -526,6 +564,107 @@ async function proposerRegroupement() {
   }
   grille.innerHTML = html;
   info.textContent = nbGroupes ? nbGroupes + ' regroupement' + (nbGroupes > 1 ? 's' : '') + ' possible' + (nbGroupes > 1 ? 's' : '') + ' (distances à vol d\'oiseau).' : 'Aucun regroupement possible à ce rayon.';
+}
+
+
+/* ════════ Planifier une tournée entière ════════
+   Tous les chantiers d'une tournée, même jour, même technicien, dans l'ordre de visite proposé.
+   RDV échelonnés : 1er RDV, puis + durée du chantier + trajet estimé vers le suivant. */
+let _trIdx = null;
+function _trTrajetMin(km) {
+  if (km == null || !isFinite(km)) return 10;
+  const min = (km * 1.3) / 50 * 60;
+  return Math.max(10, Math.round(min / 5) * 5);
+}
+function _trHeure(min) { min = Math.round(min); return String(Math.floor(min / 60) % 24).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function _trPlan() {
+  const t = _rgTournees[_trIdx]; if (!t) return [];
+  const deb = (document.getElementById('tr-debut').value || '08:30').split(':').map(Number);
+  const duree = parseFloat(document.getElementById('tr-duree').value) || 0;
+  let cur = deb[0] * 60 + deb[1];
+  return t.etapes.map((e, i) => {
+    let traj = null;
+    if (i) { traj = _trTrajetMin(e.saut); cur += traj; }
+    const p = { nom: e.nom, rdv: _trHeure(cur), trajet: traj };
+    cur += duree * 60;
+    return p;
+  });
+}
+function majApercuTournee() {
+  const plan = _trPlan();
+  document.getElementById('tr-corps').innerHTML = plan.map(p =>
+    '<tr><td class="h">' + p.rdv + '</td><td>' + echap(p.nom) + '</td><td class="t">' + (p.trajet ? '+' + p.trajet + ' min' : '—') + '</td></tr>').join('');
+  const fin = plan.length ? plan[plan.length - 1] : null;
+  const msg = document.getElementById('tr-msg');
+  if (fin) {
+    const d = parseFloat(document.getElementById('tr-duree').value) || 0;
+    const f = fin.rdv.split(':').map(Number); const finMin = f[0] * 60 + f[1] + d * 60;
+    msg.style.color = finMin > 18 * 60 ? '#b45309' : '#64748b';
+    msg.textContent = 'Fin estimée du dernier chantier : ' + _trHeure(finMin) + (finMin > 18 * 60 ? ' — journée chargée, pensez à répartir sur deux jours.' : '');
+  }
+}
+function ouvrirTournee(idx) {
+  _trIdx = idx;
+  const t = _rgTournees[idx]; if (!t) return;
+  document.getElementById('tr-titre').textContent = 'Planifier la tournée ' + t.num + ' — ' + t.etapes.length + ' chantiers';
+  const dem = new Date(); dem.setDate(dem.getDate() + 1);
+  const mois = document.getElementById('se-filtre-mois').value;
+  let d = dem;
+  if (mois) { const p = mois.split('-').map(Number); const d1 = new Date(p[0], p[1] - 1, 1); if (d1 > dem) d = d1; }
+  document.getElementById('tr-date').value = _seIso(d);
+  const sel = document.getElementById('tr-sal');
+  sel.innerHTML = _seSalaries().map(s => '<option value="' + s.id + '">' + echap(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</option>').join('');
+  majApercuTournee();
+  document.getElementById('tr-modal').classList.add('ouvert');
+}
+function fermerTournee() { document.getElementById('tr-modal').classList.remove('ouvert'); _trIdx = null; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('tr-modal').classList.contains('ouvert')) { e.stopImmediatePropagation(); fermerTournee(); } }, true);
+
+async function validerTournee() {
+  const msg = document.getElementById('tr-msg');
+  const err = t => { msg.style.color = '#dc2626'; msg.textContent = t; };
+  const date = document.getElementById('tr-date').value;
+  const salId = document.getElementById('tr-sal').value;
+  const duree = parseFloat(document.getElementById('tr-duree').value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Choisissez une date.');
+  if (!salId) return err('Choisissez un technicien.');
+  if (!(duree > 0)) return err('Indiquez la durée par chantier.');
+  const plan = _trPlan();
+  const h = _seHeures();
+  const prefixe = String(salId) + date.replace(/-/g, '_') + 'ch';
+
+  // Attribution des créneaux (5 par jour) : chantier déjà présent ce jour = mis à jour, sinon 1er créneau libre
+  const pris = {}, cles = [];
+  for (const p of plan) {
+    let cle = null;
+    for (let i = 1; i <= 5; i++) { const e = h[prefixe + i]; if (e && _seCle(e.chantier) === _seCle(p.nom)) { cle = prefixe + i; break; } }
+    if (!cle) for (let i = 1; i <= 5; i++) { const k = prefixe + i; const e = h[k]; if (!pris[k] && (!e || !String(e.chantier || '').trim())) { cle = k; break; } }
+    if (!cle) return err('Pas assez de créneaux libres ce jour-là pour ce technicien (5 chantiers maximum par jour). Choisissez une autre date ou un autre technicien.');
+    pris[cle] = true; cles.push(cle);
+  }
+  plan.forEach((p, i) => {
+    const k = cles[i];
+    const entry = h[k] && String(h[k].chantier || '').trim() ? h[k] : {};
+    entry.chantier = p.nom;          // nom EXACT : coordonnées du client conservées
+    entry.heures = duree;
+    entry.rdv = p.rdv; entry.rdvAuteur = 'gerant'; delete entry.rdvNotifie;
+    h[k] = entry;
+  });
+  localStorage.setItem('heuresdata', JSON.stringify(h));
+
+  const btn = document.getElementById('tr-ok');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    fermerTournee();
+    rendre(listeFiltree());
+    if (window.SYNC && typeof SYNC.afficherNotif === 'function')
+      SYNC.afficherNotif('✔ Tournée planifiée le ' + date.split('-').reverse().join('/') + ' (' + plan.length + ' chantiers)');
+  } catch (e) {
+    err('Enregistrement impossible : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = '📅 Planifier la tournée';
+  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
