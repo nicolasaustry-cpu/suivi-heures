@@ -1296,24 +1296,30 @@ function ouvrirTrancheSansAdresse(date) {
   mtRendreBandeauAdresse(date);
 }
 
-/* Bandeau : chantiers du mois sans adresse exploitable (ceux du jour cliqué en premier) */
+/* Bandeau : chantiers sans adresse exploitable, toujours limités à ceux du salarié sélectionné
+   (réalisé du jour, sinon planning prévu — cf. chantiersDuJour) ; limités au jour cliqué s'il y en a un */
 function mtRendreBandeauAdresse(date) {
   const el = document.getElementById('mt-adr');
   if (!el) return;
   const noms = [];
   const ajouter = function (n) { if (n && noms.indexOf(n) < 0) noms.push(n); };
-  const infJour = date ? _trAutoInfo[date] : null;
-  if (infJour && infJour.manquants) infJour.manquants.forEach(ajouter);
-  Object.keys(_trAutoInfo).sort().forEach(function (k) {
-    const inf = _trAutoInfo[k];
-    if (inf && inf.manquants && !_tranches[k]) inf.manquants.forEach(ajouter);
-  });
+  if (date) {
+    // Ouvert depuis un jour : uniquement les chantiers prévus ou réalisés par le salarié CE jour-là
+    const infJour = _trAutoInfo[date];
+    if (infJour && infJour.manquants) infJour.manquants.forEach(ajouter);
+  } else {
+    // Ouvert par le bouton : chantiers du salarié sans adresse, sur ses jours du mois encore sans tranche
+    Object.keys(_trAutoInfo).sort().forEach(function (k) {
+      const inf = _trAutoInfo[k];
+      if (inf && inf.manquants && !_tranches[k]) inf.manquants.forEach(ajouter);
+    });
+  }
   if (!noms.length) { el.classList.remove('vis'); el.innerHTML = ''; return; }
   const jour = date ? date.split('-').reverse().slice(0, 2).join('/') : '';
   const boutons = noms.map(function (n) {
     return '<button type="button" class="mt-adr-btn" data-nom="' + _escAttr(n) + '" onclick="mtSaisirAdresse(this.dataset.nom)">📍 ' + _escAttr(n) + '</button>';
   }).join('');
-  el.innerHTML = '<b>⚠ Adresse de chantier manquante ou introuvable</b>' + (jour ? ' — ' + jour : '') + ' : la tranche ne peut pas être proposée automatiquement. Deux possibilités :'
+  el.innerHTML = '<b>⚠ Adresse de chantier manquante ou introuvable</b>' + (jour ? ' — ' + jour : '') + ' : la tranche ne peut pas être proposée automatiquement' + (date ? '' : ' pour les jours marqués ⚠') + '. Deux possibilités :'
     + '<ol><li><b>Saisir l\'adresse</b> du chantier : la tranche sera ensuite proposée automatiquement, pour ce jour et les suivants.<br>' + boutons + '</li>'
     + '<li><b>Saisir la tranche</b> directement ci-dessous' + (jour ? ' : le ' + jour + ' est déjà sélectionné' : ' : les jours concernés portent un ⚠') + ', choisissez la tranche puis « Appliquer » et « Valider et reporter ».</li></ol>';
   el.classList.add('vis');
