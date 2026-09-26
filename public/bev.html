@@ -717,6 +717,33 @@ function lignesDuMois(sal, ym, saisies, retenues) {
 }
 
 /* ── Vue mensuelle ── */
+/* ── Saisies (réalisé) du mois : téléchargées une seule fois par mois ──
+   La réponse contient les saisies de TOUTE l'équipe (photos des notes comprises) : la
+   retélécharger à chaque changement de salarié rendait le bordereau lent à s'afficher.
+   Gardée en mémoire 2 minutes (nouvelles saisies mobiles prises en compte ensuite),
+   partagée entre vue Mois et vue Année ; les mois voisins sont préchargés en arrière-plan. */
+const _SAISIES_TTL = 120000;
+const _saisiesCache = {};   // { 'AAAA-MM': { t, p: Promise<saisies[]> } }
+function saisiesDuMois(ym, token) {
+  const c = _saisiesCache[ym];
+  if (c && Date.now() - c.t < _SAISIES_TTL) return c.p;
+  const p = fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (!d || !d.ok) throw new Error('saisies'); return d.saisies || []; })
+    .catch(function (e) { delete _saisiesCache[ym]; throw e; });   // échec : pas de mise en cache
+  _saisiesCache[ym] = { t: Date.now(), p: p };
+  return p;
+}
+function _ymDecale(ym, delta) {
+  const p = ym.split('-').map(Number); const d = new Date(p[0], p[1] - 1 + delta, 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function prechargerMoisVoisins(ym, token) {
+  const go = function () { [-1, 1].forEach(function (k) { saisiesDuMois(_ymDecale(ym, k), token).catch(function () {}); }); };
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 3000 }); else setTimeout(go, 800);
+}
+window.addEventListener('donnees-chargees', function () { Object.keys(_saisiesCache).forEach(function (k) { delete _saisiesCache[k]; }); });
+
 async function chargerMois() {
   const sal = _salaries.find(s => String(s.id) === document.getElementById('sel-salarie').value);
   const ym  = document.getElementById('sel-mois').value;
@@ -729,17 +756,23 @@ async function chargerMois() {
     '<div class="td-bord">Bordereau d\'Eléments Variables — ' + moisLabel(ym) + '</div>' +
     '<div class="td-sal">' + sal.prenom + ' ' + sal.nom + '</div>';
 
+  const jeton = ++_chargerMoisToken;
   let saisies = [], retenues = {}, valide = false, reporte = 0, evenements = {};
-  _indemnites = {}; _tranches = {}; _tranchesMeta = {}; _trAutoInfo = {};
+  let _ind = {}, _tr = {}, _trm = {};
   try {
     const [rs, rb] = await Promise.all([
-      fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
+      saisiesDuMois(ym, token).then(x => ({ ok: true, saisies: x }), () => ({ ok: false })),
       fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json())
     ]);
     saisies  = rs.ok ? (rs.saisies || []) : [];
-    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; _indemnites = rb.indemnites || {}; _tranches = rb.tranches || {}; _tranchesMeta = rb.tranchesMeta || {}; }
+    if (rb.ok) { retenues = rb.retenues || {}; valide = !!rb.valide; reporte = Number(rb.reporte) || 0; evenements = rb.evenements || {}; _ind = rb.indemnites || {}; _tr = rb.tranches || {}; _trm = rb.tranchesMeta || {}; }
   } catch (e) {}
+  // Salarié ou mois changé pendant le chargement : cette réponse est périmée, on l'ignore
+  // (sinon un clic rapide sur un autre salarié pouvait afficher le bordereau du précédent).
+  if (jeton !== _chargerMoisToken) return;
+  _indemnites = _ind; _tranches = _tr; _tranchesMeta = _trm; _trAutoInfo = {};
 
+  prechargerMoisVoisins(ym, token);   // mois précédent / suivant prêts pour les flèches ◀ ▶
   document.getElementById('chk-valide').checked = valide;
   const lignes = lignesDuMois(sal, ym, saisies, retenues);
   _calCtx = { ym: ym, lignes: lignes, label: sal.prenom + ' ' + sal.nom + ' · ' + moisLabel(ym),
@@ -859,8 +892,13 @@ function majEncart() {
 
 async function enregistrer() {
   if (_vue !== 'mois') return;
-  const sal = _salaries.find(s => String(s.id) === document.getElementById('sel-salarie').value);
-  const ym  = document.getElementById('sel-mois').value;
+  // On enregistre le bordereau AFFICHÉ (_calCtx), pas la sélection en cours : si l'on vient de
+  // choisir un autre salarié ou mois et que le nouveau bordereau charge encore, une sauvegarde
+  // automatique en attente reste ainsi rattachée au bon salarié et au bon mois.
+  const ctxAff = _calCtx;
+  if (!ctxAff || !ctxAff.sal) return;
+  const sal = ctxAff.sal;
+  const ym  = ctxAff.ym;
   const token = getToken();
   if (!sal || !ym || !token) return;
   const retenues = {};
@@ -935,7 +973,7 @@ async function chargerAnnee() {
   for (let m = 1; m <= 12; m++) {
     const ym = an + '-' + String(m).padStart(2, '0');
     reqs.push(Promise.all([
-      fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => ({})),
+      saisiesDuMois(ym, token).then(x => ({ ok: true, saisies: x }), () => ({})),
       fetch('/api/bev/' + ym + '/' + sal.id, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => ({}))
     ]));
   }
