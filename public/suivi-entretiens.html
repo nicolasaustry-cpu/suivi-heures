@@ -48,6 +48,23 @@
     .se-m-f { display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; }
     .se-m-f button { border:none; border-radius:7px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; }
     .se-m-annuler { background:#e2e8f0; color:#334155; } .se-m-valider { background:#16a34a; color:#fff; }
+    #se-regroup { margin-top:1.4rem; display:none; }
+    #se-regroup.vis { display:block; }
+    .rg-tete { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:0.6rem; }
+    .rg-tete h3 { margin:0; font-size:1rem; color:#0f3a8a; }
+    .rg-tete label { font-size:0.82rem; color:#475569; }
+    .rg-tete select { padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem; }
+    .rg-info { font-size:0.8rem; color:#64748b; }
+    .rg-grille { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
+    .rg-carte { background:#fff; border:1px solid #e2e8f0; border-left:4px solid #0f3a8a; border-radius:10px; padding:10px 12px; }
+    .rg-carte.solo { border-left-color:#94a3b8; }
+    .rg-carte.sans { border-left-color:#f59e0b; background:#fffbeb; }
+    .rg-carte h4 { margin:0 0 4px; font-size:0.9rem; color:#0f172a; }
+    .rg-carte .rg-sous { font-size:0.75rem; color:#64748b; margin-bottom:6px; }
+    .rg-carte ol, .rg-carte ul { margin:0; padding-left:20px; font-size:0.85rem; }
+    .rg-carte li { margin:3px 0; }
+    .rg-carte li .rg-km { color:#94a3b8; font-size:0.75rem; }
+    .rg-carte li button { margin-left:6px; background:none; border:1px solid #cbd5e1; border-radius:5px; font-size:0.72rem; padding:1px 6px; cursor:pointer; color:#0f3a8a; }
     .btn-se-xlsx { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; margin-left:auto; }
   </style>
 </head>
@@ -108,6 +125,20 @@
   </table>
   <div class="se-vide" id="se-vide" style="display:none;">
     Aucun chantier n'a encore de note taguée « Entretien annuel ». Cochez la case lors de la création d'une note dans <a href="planning.html">Planning</a>.
+  </div>
+
+  <!-- Proposition de regroupement : apparaît quand un mois d'échéance est sélectionné -->
+  <div id="se-regroup">
+    <div class="rg-tete">
+      <h3>🗺 Proposition de regroupement par proximité</h3>
+      <label for="rg-rayon">Chantiers distants de moins de</label>
+      <select id="rg-rayon" onchange="proposerRegroupement()">
+        <option value="3">3 km</option><option value="5">5 km</option><option value="10" selected>10 km</option>
+        <option value="15">15 km</option><option value="20">20 km</option><option value="30">30 km</option>
+      </select>
+      <span class="rg-info" id="rg-info"></span>
+    </div>
+    <div class="rg-grille" id="rg-grille"></div>
   </div>
 </section>
 
@@ -241,10 +272,11 @@ function listeFiltree() {
     return ym === mois;
   });
 }
-function appliquerFiltreMois() { rendre(listeFiltree()); }
+function appliquerFiltreMois() { rendre(listeFiltree()); proposerRegroupement(); }
 function effacerFiltreMois() {
   document.getElementById('se-filtre-mois').value = '';
   rendre(listeFiltree());
+  proposerRegroupement();
 }
 
 function exporterXlsx() {
@@ -272,6 +304,7 @@ async function charger() {
     const notesChantiers = (d.ok && d.data && d.data.notesChantiers) ? d.data.notesChantiers : {};
     _listeComplete = calculerSuivi(notesChantiers);
     rendre(listeFiltree());
+    proposerRegroupement();
   } catch (e) {
     _listeComplete = [];
     rendre([]);
@@ -383,6 +416,93 @@ async function validerPlanif() {
   } finally {
     btn.disabled = false; btn.textContent = '📅 Planifier';
   }
+}
+
+
+/* ════════ Proposition de regroupement par proximité (mois d'échéance sélectionné) ════════
+   Chaque chantier est localisé à partir de son adresse (Coord.localiser, même service que
+   les indemnités de trajet ; résultats mémorisés sur le poste). Deux chantiers sont dans le
+   même groupe s'ils sont à moins du rayon choisi l'un de l'autre, de proche en proche.
+   Dans un groupe, l'ordre de visite part du chantier le plus proche du point de départ de
+   l'entreprise (page Entreprise), puis va toujours au plus proche suivant. Distances à vol d'oiseau. */
+let _rgJeton = 0;
+function _rgDepart() {
+  try { const z = (JSON.parse(localStorage.getItem('entreprisedata') || '{}').zonesTrajet) || {}; return (z.depart && z.depart.lat != null) ? z.depart : null; } catch (e) { return null; }
+}
+async function proposerRegroupement() {
+  const bloc = document.getElementById('se-regroup');
+  const grille = document.getElementById('rg-grille');
+  const info = document.getElementById('rg-info');
+  const mois = document.getElementById('se-filtre-mois').value;
+  const liste = listeFiltree();
+  if (!mois || liste.length < 2 || !window.Coord || typeof Coord.localiser !== 'function') {
+    bloc.classList.remove('vis'); grille.innerHTML = ''; return;
+  }
+  const jeton = ++_rgJeton;
+  bloc.classList.add('vis');
+  info.textContent = 'Localisation des adresses…';
+  grille.innerHTML = '';
+
+  const pos = {};
+  await Promise.all(liste.map(r => Coord.localiser(r.nom).then(x => { pos[r.nom] = x; }).catch(() => { pos[r.nom] = { statut: 'erreur' }; })));
+  if (jeton !== _rgJeton) return;                                  // mois changé entre-temps
+
+  const rayon = parseFloat(document.getElementById('rg-rayon').value) || 10;
+  const loc = liste.filter(r => pos[r.nom] && pos[r.nom].statut === 'ok');
+  const sans = liste.filter(r => !(pos[r.nom] && pos[r.nom].statut === 'ok'));
+  const dist = (a, b) => Coord.distanceKm(pos[a.nom], pos[b.nom]);
+
+  // Groupes : liaison de proche en proche sous le rayon
+  const vus = new Set(), groupes = [];
+  loc.forEach(r => {
+    if (vus.has(r.nom)) return;
+    const g = [r]; vus.add(r.nom);
+    for (let i = 0; i < g.length; i++) loc.forEach(o => { if (!vus.has(o.nom) && dist(g[i], o) <= rayon) { vus.add(o.nom); g.push(o); } });
+    groupes.push(g);
+  });
+
+  // Ordre de visite : départ entreprise (si connu) → plus proche → plus proche suivant…
+  const depart = _rgDepart();
+  const ordonner = g => {
+    const reste = g.slice(), out = [];
+    let cur = depart ? { lat: depart.lat, lon: depart.lon } : pos[reste[0].nom];
+    while (reste.length) {
+      let bi = 0, bd = Infinity;
+      reste.forEach((x, i) => { const d = Coord.distanceKm(cur, pos[x.nom]); if (d < bd) { bd = d; bi = i; } });
+      const x = reste.splice(bi, 1)[0];
+      out.push({ r: x, saut: out.length ? bd : (depart ? bd : null) });
+      cur = pos[x.nom];
+    }
+    return out;
+  };
+  const ord = groupes.map(ordonner).sort((a, b) => b.length - a.length);
+  const nbGroupes = ord.filter(g => g.length > 1).length;
+  const km = v => (v == null ? '' : (Math.round(v * 10) / 10).toString().replace('.', ',') + ' km');
+  const btn = n => '<button type="button" data-nom="' + echap(n).replace(/"/g, '&quot;') + '" onclick="ouvrirPlanif(this.dataset.nom)">📅</button>';
+
+  let html = '';
+  let num = 0;
+  ord.forEach(g => {
+    if (g.length > 1) {
+      num++;
+      const total = g.reduce((t, x, i) => t + (i ? x.saut : 0), 0);
+      html += '<div class="rg-carte"><h4>Tournée ' + num + ' — ' + g.length + ' chantiers</h4>'
+        + '<div class="rg-sous">≈ ' + km(total) + ' de parcours d\'un chantier à l\'autre' + (depart ? ' · ' + km(g[0].saut) + ' depuis le dépôt' : '') + '</div><ol>'
+        + g.map((x, i) => '<li>' + echap(x.r.nom) + (i ? ' <span class="rg-km">+' + km(x.saut) + '</span>' : '') + btn(x.r.nom) + '</li>').join('')
+        + '</ol></div>';
+    }
+  });
+  const isoles = ord.filter(g => g.length === 1).map(g => g[0]);
+  if (isoles.length) {
+    html += '<div class="rg-carte solo"><h4>Chantiers isolés — ' + isoles.length + '</h4><div class="rg-sous">Aucun autre entretien du mois à moins de ' + rayon + ' km.</div><ul>'
+      + isoles.map(x => '<li>' + echap(x.r.nom) + (depart ? ' <span class="rg-km">' + km(x.saut) + ' du dépôt</span>' : '') + btn(x.r.nom) + '</li>').join('') + '</ul></div>';
+  }
+  if (sans.length) {
+    html += '<div class="rg-carte sans"><h4>⚠ Sans adresse exploitable — ' + sans.length + '</h4><div class="rg-sous">À compléter dans la fiche du chantier (Planning) pour les inclure au regroupement.</div><ul>'
+      + sans.map(r => '<li>' + echap(r.nom) + btn(r.nom) + '</li>').join('') + '</ul></div>';
+  }
+  grille.innerHTML = html;
+  info.textContent = nbGroupes ? nbGroupes + ' regroupement' + (nbGroupes > 1 ? 's' : '') + ' possible' + (nbGroupes > 1 ? 's' : '') + ' (distances à vol d\'oiseau).' : 'Aucun regroupement possible à ce rayon.';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
