@@ -61,7 +61,10 @@
     #zone { max-width: 1080px; margin: 0 auto; }
     /* Liste des salariés à gauche du tableau (écran uniquement), figée pendant le défilement */
     .bev-cadre { display:flex; gap:14px; align-items:flex-start; }
-    .bev-cadre > #bev-fit { flex:1 1 auto; min-width:0; }
+    .bev-cadre > .bev-droite { flex:1 1 auto; min-width:0; }
+    /* Ligne « Indemnités » centrée sur la même largeur que le tableau principal, avec un espace avant les tableaux */
+    .bev-droite > .bev-indemnites { justify-content:center; max-width:1080px; margin:0 auto 22px; padding:8px 0 10px;
+      border-bottom:1px solid #e2e8f0; }
     #bev-sal-liste { flex:0 0 200px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 8px;
       box-shadow:0 1px 3px rgba(15,23,42,.06); }
     #bev-sal-liste .bsl-titre { font-size:0.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#64748b; margin:0 4px 6px; }
@@ -295,19 +298,20 @@
     </label>
   </div>
 
-  <div class="bev-indemnites no-print" id="bev-indemnites">
-    <span class="bi-label">Indemnités de petits déplacements :</span>
-    <label><input type="checkbox" class="ind-chk" value="trajet" onchange="onIndemniteChange()"> Trajet</label>
-    <label><input type="checkbox" class="ind-chk" value="repas" onchange="onIndemniteChange()"> Repas</label>
-    <button type="button" class="btn-cal-tranches" id="btn-cal-tranches" onclick="ouvrirCalendrierTranches()"><i class="ti ti-calendar"></i> Calendrier des tranches</button>
-  </div>
-
   <div class="bev-cadre">
   <aside id="bev-sal-liste" class="no-print" aria-label="Salariés"></aside>
+  <div class="bev-droite">
+    <div class="bev-indemnites no-print" id="bev-indemnites">
+      <span class="bi-label">Indemnités de petits déplacements :</span>
+      <label><input type="checkbox" class="ind-chk" value="trajet" onchange="onIndemniteChange()"> Trajet</label>
+      <label><input type="checkbox" class="ind-chk" value="repas" onchange="onIndemniteChange()"> Repas</label>
+      <button type="button" class="btn-cal-tranches" id="btn-cal-tranches" onclick="ouvrirCalendrierTranches()"><i class="ti ti-calendar"></i> Calendrier des tranches</button>
+    </div>
   <div id="bev-fit"><div id="bev-doc">
     <div class="bev-titre-doc" id="titre-doc"></div>
     <div id="zone"></div>
   </div></div>
+  </div>
   </div>
 
   <div id="modale-tranches" class="no-print" role="dialog" aria-modal="true" aria-labelledby="mt-title" onclick="if(event.target===this) fermerCalendrierTranches()">
