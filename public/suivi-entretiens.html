@@ -27,6 +27,27 @@
     .se-filtres label { font-size:0.85rem; font-weight:600; display:block; margin-bottom:3px; }
     .se-filtres input[type=month] { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
     .btn-se-reset { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:7px 12px; font-size:0.85rem; cursor:pointer; }
+    .btn-se-plan { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:0.8rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .btn-se-plan:hover { background:#0b2c6b; }
+    .se-planifie { display:block; font-size:0.74rem; color:#15803d; font-weight:600; margin-top:3px; white-space:nowrap; }
+    #se-modal { position:fixed; inset:0; z-index:9000; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; overflow:auto; }
+    #se-modal.ouvert { display:flex; }
+    .se-m { width:100%; max-width:480px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 12px 40px rgba(15,23,42,.28); }
+    .se-m-h { background:#0f3a8a; color:#fff; padding:13px 18px; border-bottom:3px solid #f59e0b; display:flex; justify-content:space-between; align-items:center; }
+    .se-m-h h3 { margin:0; font-size:1rem; }
+    .se-m-h button { background:rgba(255,255,255,.15); border:none; color:#fff; width:30px; height:30px; border-radius:6px; cursor:pointer; }
+    .se-m-b { padding:16px 18px 6px; }
+    .se-m-b .champ { margin-bottom:12px; }
+    .se-m-b label { display:block; font-size:0.82rem; font-weight:600; color:#334155; margin-bottom:4px; }
+    .se-m-b input, .se-m-b select { width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
+    .se-m-b .ligne2 { display:flex; gap:12px; } .se-m-b .ligne2 .champ { flex:1; }
+    .se-m-chantier { font-weight:700; color:#0f3a8a; font-size:1rem; }
+    .se-m-coord { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; font-size:0.82rem; color:#475569; margin:6px 0 12px; }
+    .se-m-coord.vide { color:#b45309; background:#fffbeb; border-color:#fcd34d; }
+    .se-m-msg { font-size:0.82rem; min-height:1.2em; margin:2px 0 6px; }
+    .se-m-f { display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    .se-m-f button { border:none; border-radius:7px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+    .se-m-annuler { background:#e2e8f0; color:#334155; } .se-m-valider { background:#16a34a; color:#fff; }
     .btn-se-xlsx { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; margin-left:auto; }
   </style>
 </head>
@@ -80,6 +101,7 @@
         <th>Prochaine échéance</th>
         <th>Statut</th>
         <th>Commentaire</th>
+        <th></th>
       </tr>
     </thead>
     <tbody id="tbody-se"></tbody>
@@ -89,7 +111,33 @@
   </div>
 </section>
 
+<!-- Planifier un entretien : crée le créneau dans le Planning sous le MÊME nom de chantier,
+     ce qui conserve automatiquement les coordonnées du client (rattachées au nom). -->
+<div id="se-modal" role="dialog" aria-modal="true" onclick="if(event.target===this) fermerPlanif()">
+  <div class="se-m">
+    <div class="se-m-h"><h3>Planifier l'entretien</h3><button type="button" onclick="fermerPlanif()" title="Fermer">✕</button></div>
+    <div class="se-m-b">
+      <div class="se-m-chantier" id="se-m-chantier"></div>
+      <div class="se-m-coord" id="se-m-coord"></div>
+      <div class="ligne2">
+        <div class="champ"><label for="se-m-date">Date</label><input type="date" id="se-m-date"></div>
+        <div class="champ"><label for="se-m-rdv">Heure de RDV (facultatif)</label><input type="time" id="se-m-rdv"></div>
+      </div>
+      <div class="ligne2">
+        <div class="champ"><label for="se-m-sal">Technicien</label><select id="se-m-sal"></select></div>
+        <div class="champ"><label for="se-m-h">Heures prévues</label><input type="number" id="se-m-h" min="0.25" max="24" step="0.25" value="2"></div>
+      </div>
+      <div class="se-m-msg" id="se-m-msg"></div>
+    </div>
+    <div class="se-m-f">
+      <button type="button" class="se-m-annuler" onclick="fermerPlanif()">Annuler</button>
+      <button type="button" class="se-m-valider" id="se-m-ok" onclick="validerPlanif()">📅 Planifier</button>
+    </div>
+  </div>
+</div>
+
 <script src="assets/sync.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script src="assets/aide.js"></script>
 <script>
 function frVersIso(fr) {
@@ -179,6 +227,7 @@ function rendre(liste) {
       <td>${fmtDateFr(r.echeance)}</td>
       <td><span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span></td>
       <td>${echap(r.commentaire || '')}</td>
+      <td>${_seCelluleAction(r.nom)}</td>
     </tr>`).join('');
 }
 
@@ -236,6 +285,104 @@ function verifierActivation() {
   document.getElementById('se-inactif').style.display = actif ? 'none' : 'block';
   document.getElementById('se-actif').style.display    = actif ? 'block' : 'none';
   return actif;
+}
+
+
+/* ════════ Planifier un entretien depuis cette page ════════
+   Écrit un créneau dans le Planning (heuresdata, clé <salarieId><AAAA_MM_JJ>ch1..ch5, même format
+   que planning.html) sous le nom EXACT du chantier : les coordonnées du client, indexées par
+   nom, suivent donc automatiquement (planning, mobile, bouton Itinéraire, indemnités de trajet). */
+function _seHeures() { try { return JSON.parse(localStorage.getItem('heuresdata') || '{}') || {}; } catch (e) { return {}; } }
+function _seSalaries() {
+  try { return (JSON.parse(localStorage.getItem('salariesdata') || '[]') || []).filter(s => !s.administratif); } catch (e) { return []; }
+}
+function _seIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _seCle(n) { return String(n || '').trim().toUpperCase(); }
+
+/* Prochain passage déjà planifié (aujourd'hui ou après) pour ce chantier, tous techniciens confondus */
+function _seProchainPlanifie(nom) {
+  const h = _seHeures(), cible = _seCle(nom), auj = _seIso(new Date());
+  let best = null;
+  Object.keys(h).forEach(k => {
+    const e = h[k];
+    if (!e || _seCle(e.chantier) !== cible) return;
+    const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m) return;
+    const iso = m[2] + '-' + m[3] + '-' + m[4];
+    if (iso >= auj && (!best || iso < best)) best = iso;
+  });
+  return best;
+}
+function _seCelluleAction(nom) {
+  const p = _seProchainPlanifie(nom);
+  const info = p ? '<span class="se-planifie">✔ planifié le ' + p.split('-').reverse().join('/') + '</span>' : '';
+  return '<button type="button" class="btn-se-plan" data-nom="' + echap(nom).replace(/"/g, '&quot;') + '" onclick="ouvrirPlanif(this.dataset.nom)">📅 Planifier</button>' + info;
+}
+
+let _seNom = null;
+function ouvrirPlanif(nom) {
+  _seNom = nom;
+  document.getElementById('se-m-chantier').textContent = nom;
+  const coord = document.getElementById('se-m-coord');
+  const html = (window.Coord && typeof Coord.html === 'function') ? Coord.html(nom) : '';
+  if (html) { coord.className = 'se-m-coord'; coord.innerHTML = html; }
+  else { coord.className = 'se-m-coord vide'; coord.textContent = '⚠ Aucune coordonnée enregistrée pour ce chantier : pensez à la compléter depuis le Planning.'; }
+  // Date par défaut : l'échéance si elle est à venir, sinon demain
+  const r = _listeComplete.find(x => x.nom === nom);
+  const dem = new Date(); dem.setDate(dem.getDate() + 1);
+  document.getElementById('se-m-date').value = _seIso(r && r.echeance && r.echeance > new Date() ? r.echeance : dem);
+  document.getElementById('se-m-rdv').value = '';
+  document.getElementById('se-m-h').value = '2';
+  const sel = document.getElementById('se-m-sal');
+  const sals = _seSalaries();
+  sel.innerHTML = sals.map(s => '<option value="' + s.id + '">' + echap(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</option>').join('');
+  const msg = document.getElementById('se-m-msg'); msg.textContent = ''; msg.style.color = '';
+  if (!sals.length) { msg.style.color = '#dc2626'; msg.textContent = 'Aucun salarié : créez-en un dans la page Salariés.'; }
+  document.getElementById('se-modal').classList.add('ouvert');
+}
+function fermerPlanif() { document.getElementById('se-modal').classList.remove('ouvert'); _seNom = null; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('se-modal').classList.contains('ouvert')) fermerPlanif(); });
+
+async function validerPlanif() {
+  const msg = document.getElementById('se-m-msg');
+  const err = t => { msg.style.color = '#dc2626'; msg.textContent = t; };
+  const nom = _seNom;
+  const date = document.getElementById('se-m-date').value;
+  const salId = document.getElementById('se-m-sal').value;
+  const heures = parseFloat(document.getElementById('se-m-h').value);
+  const rdv = document.getElementById('se-m-rdv').value;
+  if (!nom) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Choisissez une date.');
+  if (!salId) return err('Choisissez un technicien.');
+  if (!(heures > 0)) return err('Indiquez les heures prévues.');
+
+  const h = _seHeures();
+  const prefixe = String(salId) + date.replace(/-/g, '_') + 'ch';
+  let cle = null;
+  for (let i = 1; i <= 5; i++) { const e = h[prefixe + i]; if (e && _seCle(e.chantier) === _seCle(nom)) { cle = prefixe + i; break; } }
+  if (!cle) for (let i = 1; i <= 5; i++) { const e = h[prefixe + i]; if (!e || !String(e.chantier || '').trim()) { cle = prefixe + i; break; } }
+  if (!cle) return err('Ce technicien a déjà 5 chantiers ce jour-là : choisissez une autre date.');
+
+  const entry = h[cle] && String(h[cle].chantier || '').trim() ? h[cle] : {};
+  entry.chantier = nom;          // nom EXACT : conserve les coordonnées du client
+  entry.heures = heures;
+  if (rdv) { entry.rdv = rdv; entry.rdvAuteur = 'gerant'; delete entry.rdvNotifie; }
+  h[cle] = entry;
+  localStorage.setItem('heuresdata', JSON.stringify(h));
+
+  const btn = document.getElementById('se-m-ok');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    fermerPlanif();
+    rendre(listeFiltree());
+    if (window.SYNC && typeof SYNC.afficherNotif === 'function')
+      SYNC.afficherNotif('✔ Entretien planifié le ' + date.split('-').reverse().join('/'));
+  } catch (e) {
+    err('Enregistrement impossible : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = '📅 Planifier';
+  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
