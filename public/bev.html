@@ -197,6 +197,15 @@
     .tr-auto-lbl { display:block; font-size:0.62rem; color:#94a3b8; margin-top:2px; white-space:nowrap; }
     .tr-manque { font-size:0.72rem; color:#b45309; font-weight:600; cursor:pointer; white-space:nowrap; }
     .tr-manque:hover { text-decoration:underline; }
+    /* Modale combinée : bandeau « adresse manquante » au-dessus du calendrier des tranches */
+    .mt-adr { display:none; background:#fffbeb; border:1px solid #fcd34d; border-radius:10px; padding:10px 13px; margin:0 0 12px; font-size:0.82rem; color:#78350f; }
+    .mt-adr.vis { display:block; }
+    .mt-adr b { color:#92400e; }
+    .mt-adr ol { margin:6px 0 0 18px; padding:0; }
+    .mt-adr li { margin:3px 0; }
+    .mt-adr-btn { display:inline-block; margin:3px 6px 0 0; border:1px solid #d97706; background:#fff; color:#b45309; border-radius:6px; padding:3px 9px; font-size:0.78rem; font-weight:600; cursor:pointer; }
+    .mt-adr-btn:hover { background:#fef3c7; }
+    td.mt-j .mt-warn { position:absolute; right:6px; bottom:4px; font-size:0.68rem; color:#b45309; font-weight:700; }
     @media print { .tr-auto .tr-badge { opacity:1; outline:none; } }
   </style>
 </head>
@@ -287,6 +296,7 @@
         <button type="button" class="mt-x" title="Fermer" onclick="fermerCalendrierTranches()">✕</button>
       </div>
       <div class="mt-b">
+        <div class="mt-adr" id="mt-adr"></div>
         <p class="mt-titre">Tranche à appliquer :</p>
         <div class="mt-tranches" id="mt-tranches"></div>
         <div class="mt-hint" id="mt-hint">Choisis une tranche, puis les jours travaillés, puis « Appliquer ».</div>
@@ -1072,6 +1082,15 @@ function ouvrirCalendrierTranches(){
     corps.appendChild(tr);
   }
 
+  // Jours sans tranche dont un chantier n'a pas d'adresse exploitable : petit ⚠ dans la case
+  Object.keys(_trAutoInfo).forEach(function(key){
+    const inf = _trAutoInfo[key];
+    if (!inf || !inf.manquants || !inf.manquants.length || _mtAffect[key]) return;
+    const td = mtCellByDate(key);
+    if (td && !td.querySelector('.mt-warn')) { const w = document.createElement('span'); w.className = 'mt-warn'; w.textContent = '⚠'; w.title = 'Sans adresse : ' + inf.manquants.join(', '); td.appendChild(w); }
+  });
+  mtRendreBandeauAdresse(null);
+
   // Pré-coloration des jours déjà affectés
   Object.keys(_mtAffect).forEach(function(key){ mtPeindre(key); });
   mtChoisirTranche(null);
@@ -1125,7 +1144,9 @@ function mtPeindre(key){
     td.style.background = col.bg; if (n) n.style.color = col.tx;
     if (!c){ c = document.createElement('span'); c.className = 'mt-code'; td.appendChild(c); }
     c.textContent = code; c.style.color = col.tx;
-  } else { td.style.background = ''; if (n) n.style.color = ''; if (c) c.remove(); }
+    const w = td.querySelector('.mt-warn'); if (w) w.style.display = 'none';
+  } else {
+    const w = td.querySelector('.mt-warn'); if (w) w.style.display = ''; td.style.background = ''; if (n) n.style.color = ''; if (c) c.remove(); }
 }
 
 function badgeTranche(code){
@@ -1254,10 +1275,50 @@ function celluleTranche(date) {
   }
   if (code) return badgeTranche(code);
   if (manq.length) {
-    return '<span class="tr-manque no-print" data-nom="' + _escAttr(manq[0]) + '" onclick="completerFicheChantier(this.dataset.nom)" '
-      + 'title="' + _escAttr('Adresse manquante ou introuvable : ' + manq.join(', ') + '\nCliquez pour compléter la fiche du chantier.') + '">⚠ adresse</span>';
+    return '<span class="tr-manque no-print" data-date="' + _escAttr(date) + '" onclick="ouvrirTrancheSansAdresse(this.dataset.date)" '
+      + 'title="' + _escAttr('Adresse manquante ou introuvable : ' + manq.join(', ') + '\nCliquez pour saisir l\'adresse du chantier ou la tranche de ce jour.') + '">⚠ adresse</span>';
   }
   return '';
+}
+
+/* Modale combinée « adresse manquante » : le calendrier des tranches s'ouvre avec le jour
+   cliqué déjà sélectionné, et un bandeau propose les deux issues possibles :
+   1) saisir l'adresse du chantier (la tranche sera alors proposée automatiquement) ;
+   2) saisir directement la tranche de ce jour dans le calendrier. */
+function ouvrirTrancheSansAdresse(date) {
+  ouvrirCalendrierTranches();
+  if (!document.getElementById('modale-tranches').classList.contains('ouvert')) return;
+  if (date && mtCellByDate(date)) { _mtSel = {}; _mtSel[date] = true; mtRendreSelection(); }
+  mtRendreBandeauAdresse(date);
+}
+
+/* Bandeau : chantiers du mois sans adresse exploitable (ceux du jour cliqué en premier) */
+function mtRendreBandeauAdresse(date) {
+  const el = document.getElementById('mt-adr');
+  if (!el) return;
+  const noms = [];
+  const ajouter = function (n) { if (n && noms.indexOf(n) < 0) noms.push(n); };
+  const infJour = date ? _trAutoInfo[date] : null;
+  if (infJour && infJour.manquants) infJour.manquants.forEach(ajouter);
+  Object.keys(_trAutoInfo).sort().forEach(function (k) {
+    const inf = _trAutoInfo[k];
+    if (inf && inf.manquants && !_tranches[k]) inf.manquants.forEach(ajouter);
+  });
+  if (!noms.length) { el.classList.remove('vis'); el.innerHTML = ''; return; }
+  const jour = date ? date.split('-').reverse().slice(0, 2).join('/') : '';
+  const boutons = noms.map(function (n) {
+    return '<button type="button" class="mt-adr-btn" data-nom="' + _escAttr(n) + '" onclick="mtSaisirAdresse(this.dataset.nom)">📍 ' + _escAttr(n) + '</button>';
+  }).join('');
+  el.innerHTML = '<b>⚠ Adresse de chantier manquante ou introuvable</b>' + (jour ? ' — ' + jour : '') + ' : la tranche ne peut pas être proposée automatiquement. Deux possibilités :'
+    + '<ol><li><b>Saisir l\'adresse</b> du chantier : la tranche sera ensuite proposée automatiquement, pour ce jour et les suivants.<br>' + boutons + '</li>'
+    + '<li><b>Saisir la tranche</b> directement ci-dessous' + (jour ? ' : le ' + jour + ' est déjà sélectionné' : ' : les jours concernés portent un ⚠') + ', choisissez la tranche puis « Appliquer » et « Valider et reporter ».</li></ol>';
+  el.classList.add('vis');
+}
+
+/* Choix 1 : on ferme le calendrier et on ouvre la fiche coordonnées du chantier */
+function mtSaisirAdresse(nom) {
+  fermerCalendrierTranches();
+  completerFicheChantier(nom);
 }
 
 /* Ouvre la fiche coordonnées du chantier, puis relance le calcul une fois enregistrée */
