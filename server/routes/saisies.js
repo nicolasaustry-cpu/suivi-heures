@@ -768,15 +768,20 @@ router.get("/agrege/:annee", verifyToken, async (req, res) => {
   }
 });
 
-/* ── Récupérer les saisies d'un mois ── */
+/* ── Récupérer les saisies d'un mois ──
+   Option « ?sansPhotos=1 » : les photos des notes ne quittent pas la base (projection).
+   Utilisée par le Bordereau (bev.html), qui n'en a pas besoin : 12 Mo → quelques dizaines
+   de Ko pour un mois chargé. Sans l'option, réponse inchangée pour les autres pages. */
 router.get("/:mois", verifyToken, async (req, res) => {
   try {
     const clientId = req.user.clientId;
     const mois     = req.params.mois; // "YYYY-MM"
-    const saisies  = await Saisie.find({
+    const sansPhotos = req.query.sansPhotos === "1";
+    const requete  = Saisie.find({
       clientId,
       date: { $regex: `^${mois}` }
     }).sort({ date: 1, salarieNom: 1 });
+    const saisies  = sansPhotos ? await requete.select("-chantiers.photos").lean() : await requete;
     res.json({ ok: true, saisies, ordreMobile: await getOrdresMobile(clientId) });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

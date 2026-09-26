@@ -762,7 +762,7 @@ const _saisiesCache = {};   // { 'AAAA-MM': { t, p: Promise<saisies[]> } }
 function saisiesDuMois(ym, token) {
   const c = _saisiesCache[ym];
   if (c && Date.now() - c.t < _SAISIES_TTL) return c.p;
-  const p = fetch('/api/saisies/' + ym, { headers: { Authorization: 'Bearer ' + token } })
+  const p = fetch('/api/saisies/' + ym + '?sansPhotos=1', { headers: { Authorization: 'Bearer ' + token } })   // photos inutiles ici
     .then(function (r) { return r.json(); })
     .then(function (d) { if (!d || !d.ok) throw new Error('saisies'); return d.saisies || []; })
     .catch(function (e) { delete _saisiesCache[ym]; throw e; });   // échec : pas de mise en cache
