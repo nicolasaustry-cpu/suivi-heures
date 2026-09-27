@@ -1975,7 +1975,8 @@ function _derniereEntretienInfo(nom) {
     const entete = m[1] || '';
     const metaRaw = m[2] || '';
     const texte = m[3] || '';
-    const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
+    // Rythme : E1 = 12 mois, E2 = 24 mois, EM<n> = n mois (rythme libre), E seul = 12 mois (ancien format)
+    const em = metaRaw.match(/(^|;)E(?:M(\d{1,3})|([12]))?(;|$)/);
     if (!em) return;
     // Horodatage d'écriture (heure/minute) pour départager deux entretiens tagués
     // la même date d'intervention — même logique que suivi-entretiens.html.
@@ -1983,9 +1984,9 @@ function _derniereEntretienInfo(nom) {
     if (!em2) return;
     const ecrit = new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]);
     if (isNaN(ecrit)) return;
-    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : 1; commentaire = texte; }
+    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : (em[3] ? parseInt(em[3], 10) * 12 : 12); commentaire = texte; }
   });
-  return { periode, commentaire };
+  return { periode, commentaire };   // periode en MOIS (12, 24, ou rythme libre)
 }
 /* Note nettoyée pour l'impression : retire le préfixe "[JJ/MM/AAAA HH:MM – Auteur]"
    en tête de chaque ligne pour ne garder que le texte (sans date ni éditeur). */
@@ -2022,10 +2023,29 @@ function rafraichirNotesAffichage() {
 function clToggleEntretienPeriode(qui) {
   const c1an = document.getElementById('note-modal-entretien-1an');
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (qui === '1an' && c1an.checked) c2ans.checked = false;
-  if (qui === '2ans' && c2ans.checked) c1an.checked = false;
+  const cAutre = document.getElementById('note-modal-entretien-autre');
+  const nb = document.getElementById('note-modal-entretien-mois');
+  if (qui === '1an' && c1an.checked) { c2ans.checked = false; cAutre.checked = false; }
+  if (qui === '2ans' && c2ans.checked) { c1an.checked = false; cAutre.checked = false; }
+  if (qui === 'autre' && cAutre.checked) { c1an.checked = false; c2ans.checked = false; if (!nb.value) nb.value = '6'; setTimeout(() => { nb.focus(); nb.select(); }, 0); }
+  if (qui === 'mois') { if (nb.value) { cAutre.checked = true; c1an.checked = false; c2ans.checked = false; } }
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
-  if (comBloc) comBloc.style.display = (c1an.checked || c2ans.checked) ? 'block' : 'none';
+  if (comBloc) comBloc.style.display = _entretienCoche() ? 'block' : 'none';
+}
+/* Une option de rythme est-elle choisie ? */
+function _entretienCoche() {
+  const ids = ['note-modal-entretien-1an', 'note-modal-entretien-2ans', 'note-modal-entretien-autre'];
+  return ids.some(id => { const c = document.getElementById(id); return c && c.checked; });
+}
+/* Rythme choisi en mois (12, 24 ou libre), null si aucun ou saisie invalide */
+function _entretienMoisChoisi() {
+  if (document.getElementById('note-modal-entretien-1an').checked) return 12;
+  if (document.getElementById('note-modal-entretien-2ans').checked) return 24;
+  if (document.getElementById('note-modal-entretien-autre').checked) {
+    const n = parseInt(document.getElementById('note-modal-entretien-mois').value, 10);
+    return (n >= 1 && n <= 120) ? n : null;
+  }
+  return null;
 }
 
 let _noteModalCreation = false;
@@ -2060,9 +2080,14 @@ function ouvrirNoteChantier(k, modeCreation) {
   const suiviActif = _suiviEntretienActif();
   const infoEntretien = (suiviActif && nom) ? _derniereEntretienInfo(nom) : { periode: null, commentaire: '' };
   const c1an = document.getElementById('note-modal-entretien-1an');
-  if (c1an) c1an.checked = (infoEntretien.periode === 1);
+  if (c1an) c1an.checked = (infoEntretien.periode === 12);
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (c2ans) c2ans.checked = (infoEntretien.periode === 2);
+  if (c2ans) c2ans.checked = (infoEntretien.periode === 24);
+  const cAutre = document.getElementById('note-modal-entretien-autre');
+  const nbMois = document.getElementById('note-modal-entretien-mois');
+  const libre = !!infoEntretien.periode && infoEntretien.periode !== 12 && infoEntretien.periode !== 24;
+  if (cAutre) cAutre.checked = libre;
+  if (nbMois) nbMois.value = libre ? String(infoEntretien.periode) : '';
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
   const comTxt = document.getElementById('note-modal-entr-com');
   if (comTxt) comTxt.value = infoEntretien.commentaire || '';
@@ -2097,9 +2122,7 @@ function clToggleNoteJour() {
   const suiviActif = _suiviEntretienActif();
   if (entrLbl) entrLbl.style.display = (jour || !suiviActif) ? 'none' : 'flex';
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
-  const c1an = document.getElementById('note-modal-entretien-1an');
-  const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (comBloc) comBloc.style.display = (!jour && suiviActif && c1an && c2ans && (c1an.checked || c2ans.checked)) ? 'block' : 'none';
+  if (comBloc) comBloc.style.display = (!jour && suiviActif && _entretienCoche()) ? 'block' : 'none';
   if (jour) {
     const dn = (heures[k] && heures[k].note) ? String(heures[k].note) : '';
     if (hist) hist.textContent = dn || '(aucune note pour cette journée)';
@@ -2223,13 +2246,16 @@ async function enregistrerNoteChantier() {
     fermerNoteChantier();
     return;
   }
-  const c1an = document.getElementById('note-modal-entretien-1an');
-  const c2ans = document.getElementById('note-modal-entretien-2ans');
-  const entretienCoche = _suiviEntretienActif() && !!((c1an && c1an.checked) || (c2ans && c2ans.checked));
+  const entretienCoche = _suiviEntretienActif() && _entretienCoche();
+  const moisEntretien = entretienCoche ? _entretienMoisChoisi() : null;
   const comEl = document.getElementById('note-modal-entr-com');
   const commentaireEntretien = comEl ? comEl.value.trim() : '';
+  if (entretienCoche && !moisEntretien) {
+    alert('Indiquez un rythme d’entretien valide : un nombre de mois entre 1 et 120.');
+    return;
+  }
   if (entretienCoche && !commentaireEntretien) {
-    alert('Ajoutez un commentaire d’entretien, ou décochez 1 an / 2 ans.');
+    alert('Ajoutez un commentaire d’entretien, ou décochez le rythme d’entretien.');
     return;
   }
   if (!texte && !(entretienCoche && commentaireEntretien)) { fermerNoteChantier(); return; }
@@ -2251,12 +2277,13 @@ async function enregistrerNoteChantier() {
       if (!dernier.ok) throw new Error(dernier.message || 'Échec de l’enregistrement de la note.');
     }
     if (entretienCoche && commentaireEntretien) {
-      const periode = (c2ans && c2ans.checked) ? '2' : '1';
+      // 12 et 24 mois gardent l'ancien format (E1 / E2) ; tout autre rythme s'écrit EM<nb de mois>.
+      const tag = moisEntretien === 12 ? 'E1' : moisEntretien === 24 ? 'E2' : 'EM' + moisEntretien;
       const d = new Date(), p = n => String(n).padStart(2, '0');
       const dateInterv = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-      // Repris tel quel par notes.html / suivi-entretiens.html (format [I:date;E1] ou [I:date;E2]),
+      // Repris par notes.html / suivi-entretiens.html (format [I:date;E1], [I:date;E2] ou [I:date;EM6]),
       // la date d'intervention pourra être ajustée depuis Notes si besoin.
-      const texteEntretien = `[I:${dateInterv};E${periode}] ${commentaireEntretien}`;
+      const texteEntretien = `[I:${dateInterv};${tag}] ${commentaireEntretien}`;
       dernier = await envoyerLigne(texteEntretien);
       if (!dernier.ok) throw new Error(dernier.message || 'Échec de l’enregistrement de l’entretien.');
     }
@@ -2905,6 +2932,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </label>
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
         <input type="checkbox" id="note-modal-entretien-2ans" onchange="clToggleEntretienPeriode('2ans')" style="width:16px;height:16px;"> 2 ans
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="note-modal-entretien-autre" onchange="clToggleEntretienPeriode('autre')" style="width:16px;height:16px;"> Autre :
+        <input type="number" id="note-modal-entretien-mois" min="1" max="120" step="1" placeholder="6" oninput="clToggleEntretienPeriode('mois')"
+          style="width:54px;box-sizing:border-box;padding:2px 5px;border:1px solid #fcd34d;border-radius:5px;font:inherit;color:#78350f;"> mois
       </label>
     </div>
     <div id="note-modal-entr-com-bloc" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;margin-bottom:12px;">

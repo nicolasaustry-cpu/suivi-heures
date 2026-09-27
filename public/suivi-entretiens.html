@@ -234,19 +234,32 @@ function frVersIso(fr) {
 }
 function parseLigneMeta(ligne) {
   const m = ligne.match(/^\[([^\]]+)\]\s*(?:\[I:([^\]]*)\])?\s(.*)$/);
-  if (!m) return { entretien: false, interv: '', periode: 1, ecrit: null };
+  if (!m) return { entretien: false, interv: '', periode: 12, ecrit: null };
   const entete = m[1] || '';
   const metaRaw = m[2] || '';
-  const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
+  // Rythme en MOIS : E1 = 12, E2 = 24, EM<n> = n mois (rythme libre saisi dans la note de chantier).
+  const em = metaRaw.match(/(^|;)E(?:M(\d{1,3})|([12]))?(;|$)/);
   const entretien = !!em;
-  // Notes existantes sans chiffre (ancien format [I:date;E]) = 1 an, comportement historique.
-  const periode = (em && em[2]) ? parseInt(em[2], 10) : 1;
+  // Notes existantes sans chiffre (ancien format [I:date;E]) = 12 mois, comportement historique.
+  const periode = !em ? 12 : (em[2] ? parseInt(em[2], 10) : (em[3] ? parseInt(em[3], 10) * 12 : 12));
   const dm = metaRaw.match(/^(\d{2}\/\d{2}\/\d{4})/);
   // Horodatage d'écriture de la ligne (heure/minute), tiré de l'en-tête [JJ/MM/AAAA HH:MM – Auteur] :
   // sert à départager deux entretiens tagués la MÊME date d'intervention (voir calculerSuivi).
   const em2 = entete.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
   const ecrit = em2 ? new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]) : null;
   return { entretien, interv: dm ? dm[1] : '', periode, ecrit, commentaire: m[3] || '' };
+}
+/* Ajoute n mois à une date ; fin de mois ramenée au dernier jour (31/01 + 1 mois = 28 ou 29/02) */
+function _ajouterMois(d, n) {
+  const r = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const dernier = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
+  r.setDate(Math.min(d.getDate(), dernier));
+  return r;
+}
+/* Libellé du rythme : 12 → « 1 an », 24 → « 2 ans », 18 → « 18 mois » */
+function libellePeriode(mois) {
+  if (mois % 12 === 0) { const a = mois / 12; return a + ' an' + (a > 1 ? 's' : ''); }
+  return mois + ' mois';
 }
 function echap(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -263,7 +276,7 @@ function calculerSuivi(notesChantiers) {
   Object.keys(notesChantiers || {}).forEach(nom => {
     const brut = notesChantiers[nom] || '';
     const lignes = brut.split('\n').filter(l => l.trim());
-    let derniere = null, periodeRetenue = 1, ecritRetenu = null, commentaireRetenu = '';
+    let derniere = null, periodeRetenue = 12, ecritRetenu = null, commentaireRetenu = '';
     lignes.forEach(l => {
       const meta = parseLigneMeta(l);
       if (!meta.entretien || !meta.interv) return;
@@ -279,8 +292,7 @@ function calculerSuivi(notesChantiers) {
     });
     let echeance = null, enRetard = false;
     if (derniere) {
-      echeance = new Date(derniere);
-      echeance.setFullYear(echeance.getFullYear() + periodeRetenue);
+      echeance = _ajouterMois(derniere, periodeRetenue);
       const auj = new Date(); auj.setHours(0,0,0,0);
       enRetard = echeance < auj;
     }
@@ -311,7 +323,7 @@ function rendre(liste) {
     <tr${r.enRetard ? ' class="se-retard-row"' : ''}>
       <td>${echap(r.nom)}</td>
       <td>${fmtDateFr(r.derniere)}</td>
-      <td>${r.periode} an${r.periode > 1 ? 's' : ''}</td>
+      <td>${libellePeriode(r.periode)}</td>
       <td>${fmtDateFr(r.echeance)}</td>
       <td><span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span></td>
       <td>${echap(r.commentaire || '')}</td>
@@ -377,7 +389,7 @@ function exporterXlsx() {
   if (!liste.length) { alert('Aucun chantier à exporter pour cette sélection.'); return; }
   const rows = [['Chantier', 'Dernière intervention', 'Périodicité', 'Prochaine échéance', 'Statut', 'Commentaire']];
   liste.forEach(r => rows.push([
-    r.nom, fmtDateFr(r.derniere), r.periode + ' an' + (r.periode > 1 ? 's' : ''), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour', r.commentaire || ''
+    r.nom, fmtDateFr(r.derniere), libellePeriode(r.periode), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour', r.commentaire || ''
   ]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch:28 }, { wch:20 }, { wch:12 }, { wch:20 }, { wch:12 }, { wch:40 }];
