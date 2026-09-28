@@ -139,6 +139,20 @@
   .tdb-liste.puces .tdb-pastille { margin-top:6px; }
   .tdb-liste.puces b { color:inherit; }
 
+  /* Tableau « Chantiers à 100 % » : chantier, devis, réalisé, % du devis.
+     Pas de bordure verticale : un filet horizontal léger entre les lignes. */
+  .tdb-tab { width:100%; border-collapse:collapse; font-size:15px; color:#374151; margin-top:14px; table-layout:fixed; }
+  .tdb-tab th { font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#6b7684;
+                text-align:right; padding:0 0 8px 8px; border-bottom:1px solid #edeff3; white-space:nowrap; }
+  .tdb-tab th:first-child, .tdb-tab td:first-child { text-align:left; padding-left:0; }
+  .tdb-tab td { text-align:right; padding:7px 0 7px 8px; border-bottom:1px solid #f1f3f6; white-space:nowrap; }
+  .tdb-tab td:first-child { overflow:hidden; text-overflow:ellipsis; }
+  .tdb-tab col.c-nom { width:auto; } .tdb-tab col.c-h { width:62px; } .tdb-tab col.c-pct { width:84px; }
+  .tdb-tab td.pct { font-weight:500; }
+  .tdb-tab .tag-m1 { display:inline-block; margin-left:6px; font-size:12px; color:#5f6b7a; background:#f1f3f6;
+                     border-radius:4px; padding:1px 5px; vertical-align:1px; }
+  .tdb-vide { font-size:15px; color:#5f6b7a; margin-top:14px; }
+
   .tdb-barre { height:3px; background:#f1f3f6; margin:14px 0 10px; }
   .tdb-barre i { display:block; height:100%; }
 
@@ -348,7 +362,7 @@
     </div>
     <div class="tdb-val" id="ch100-nb">4</div>
     <div class="tdb-lbl" id="ch100-lbl">atteints ou dépassés ce mois</div>
-    <div class="tdb-liste" id="ch100-liste" style="margin-top:14px"></div>
+    <div id="ch100-liste"></div>
   </section>
 
   <!-- ────── Notes en cours (licence Plus uniquement : nécessite la saisie mobile) ────── -->
@@ -718,10 +732,23 @@ function tdbVignetteChantiers100(d) {
   tdbTexte('ch100-nb', d.liste.length);
   const zone = document.getElementById('ch100-liste');
   if (!zone) return;
-  zone.innerHTML = d.liste.map(function (c) {
-    const coul = c.pct > 110 ? '#d1495b' : (c.pct > 100 ? '#b45309' : '#4b5563');
-    return '<div><span>' + tdbEsc(c.nom) + '</span><b style="color:' + coul + '">' + c.pct + ' %</b></div>';
-  }).join('');
+  if (!d.liste.length) { zone.innerHTML = '<div class="tdb-vide">Aucun chantier au-delà de son devis.</div>'; return; }
+  /* Une ligne par chantier : heures du devis (prévisionnel), heures
+     réalisées, et % du devis consommé = réalisé ÷ devis. Le repère « M-1 »
+     signale un chantier du mois précédent encore replanifié sur M ou M+1. */
+  zone.innerHTML = '<table class="tdb-tab">'
+    + '<colgroup><col class="c-nom"><col class="c-h"><col class="c-h"><col class="c-pct"></colgroup>'
+    + '<thead><tr><th>Chantier</th><th>Devis</th><th>Réalisé</th><th>% du devis</th></tr></thead><tbody>'
+    + d.liste.map(function (c) {
+        const coul = c.pct > 110 ? '#d1495b' : (c.pct > 100 ? '#b45309' : '#111827');
+        return '<tr>'
+          + '<td title="' + tdbEsc(c.nom) + '">' + tdbEsc(c.nom) + (c.m1 ? '<span class="tag-m1">M-1</span>' : '') + '</td>'
+          + '<td>' + tdbNb(c.devis, 0) + ' h</td>'
+          + '<td>' + tdbNb(c.real, 0) + ' h</td>'
+          + '<td class="pct" style="color:' + coul + '">' + c.pct + ' %</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>';
 }
 
 /* ── 8 · Heures non vendables ── */
@@ -1547,16 +1574,18 @@ async function tdbChargerChantiers100(refDate) {
   const devisM = tdbPrevisionnelMois(refDate.getFullYear(), refDate.getMonth());
   Object.keys(devisM).forEach(function (nom) {
     if (devisM[nom] <= 0) return;
-    const pct = Math.round(((rM[nom] || 0) / devisM[nom]) * 100);
-    if (pct >= 100) liste.push({ nom: nom, pct: pct });
+    const real = rM[nom] || 0;
+    const pct = Math.round((real / devisM[nom]) * 100);
+    if (pct >= 100) liste.push({ nom: nom, devis: devisM[nom], real: real, pct: pct, m1: false });
   });
   const devisP = tdbPrevisionnelMois(prec.getFullYear(), prec.getMonth());
   Object.keys(devisP).forEach(function (nom) {
     if (devisP[nom] <= 0) return;
     if (!(replanifie[nom] > 0)) return;                    // plus rien de planifié : on l'oublie
     if (liste.some(function (x) { return x.nom === nom; })) return;
-    const pct = Math.round(((rP[nom] || 0) / devisP[nom]) * 100);
-    if (pct >= 100) liste.push({ nom: nom, pct: pct });
+    const real = rP[nom] || 0;
+    const pct = Math.round((real / devisP[nom]) * 100);
+    if (pct >= 100) liste.push({ nom: nom, devis: devisP[nom], real: real, pct: pct, m1: true });
   });
   liste.sort(function (a, b) { return b.pct - a.pct; });
 
@@ -1679,8 +1708,8 @@ function tdbDonneesExemple() {
     types:[{nom:'Congé',jours:40},{nom:'Récup.',jours:7},{nom:'RTT',jours:7},{nom:'Autres',jours:5}] });
   tdbVignetteCompteur({ annee:64.5, mois:11, cumul:[12,19,27,31,42,53,64.5] });
   tdbVignetteChantiers100({ liste:[
-    { nom:'Client 12', pct:134 }, { nom:'Terrassement nord', pct:118 },
-    { nom:'Client 27', pct:104 }, { nom:'Dépannage Leclerc', pct:100 } ]});
+    { nom:'Client 12', devis:40, real:53.6, pct:134, m1:false }, { nom:'Terrassement nord', devis:120, real:141.6, pct:118, m1:true },
+    { nom:'Client 27', devis:25, real:26, pct:104, m1:false }, { nom:'Dépannage Leclerc', devis:8, real:8, pct:100, m1:false } ]});
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
   tdbGraphVenteQualite({ mois: [
     { cle:'janv.', vend:800, vendu:740, exclu:60, motifsMois:{ 'SAV':40, 'Temps non affecté':20 } },
