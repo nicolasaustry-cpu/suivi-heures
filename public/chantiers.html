@@ -1964,6 +1964,7 @@ async function ouvrirModaleHenrri() {
         + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;white-space:nowrap;">'
         + '<button class="btn-modale-copier" style="padding:4px 12px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
+        + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
         + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
         + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
@@ -1985,6 +1986,7 @@ async function affecterDevisHenrri(btn) {
   const mois  = parseInt(moisStr, 10);
   const devisId = btn.getAttribute('data-devis-id');
   const clientNom = btn.getAttribute('data-devis-client');
+  const reference = btn.getAttribute('data-devis-reference');
   const token = _henrriToken();
 
   btn.disabled = true; btn.textContent = '…';
@@ -1992,7 +1994,7 @@ async function affecterDevisHenrri(btn) {
     const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ annee, mois, client: clientNom })
+      body: JSON.stringify({ annee, mois, client: clientNom, reference })
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');
