@@ -727,6 +727,12 @@ function tdbVignetteCompteur(d) {
   tdbSpark('cpt-spark', d.cumul, '#0f3a8a', '#c7d2e6', d.labels);
 }
 
+/* Heures : entier si rond (26 h), sinon une décimale (20,5 h). */
+function tdbHeures(h) {
+  const r = Math.round((h || 0) * 10) / 10;
+  return tdbNb(r, r % 1 === 0 ? 0 : 1) + ' h';
+}
+
 /* ── 5 · Chantiers à 100 % ── */
 function tdbVignetteChantiers100(d) {
   tdbTexte('ch100-nb', d.liste.length);
@@ -738,13 +744,14 @@ function tdbVignetteChantiers100(d) {
      signale un chantier du mois précédent encore replanifié sur M ou M+1. */
   zone.innerHTML = '<table class="tdb-tab">'
     + '<colgroup><col class="c-nom"><col class="c-h"><col class="c-h"><col class="c-pct"></colgroup>'
-    + '<thead><tr><th>Chantier</th><th>Devis</th><th>Réalisé</th><th>% du devis</th></tr></thead><tbody>'
+    + '<thead><tr><th>Chantier</th><th title="Heures prévues au prévisionnel, tous mois confondus">Devis</th>'
+    + '<th title="Heures pointées sur le chantier, cumulées jusqu\'au mois choisi">Réalisé</th><th>% du devis</th></tr></thead><tbody>'
     + d.liste.map(function (c) {
         const coul = c.pct > 110 ? '#d1495b' : (c.pct > 100 ? '#b45309' : '#111827');
         return '<tr>'
           + '<td title="' + tdbEsc(c.nom) + '">' + tdbEsc(c.nom) + (c.m1 ? '<span class="tag-m1">M-1</span>' : '') + '</td>'
-          + '<td>' + tdbNb(c.devis, 0) + ' h</td>'
-          + '<td>' + tdbNb(c.real, 0) + ' h</td>'
+          + '<td>' + tdbHeures(c.devis) + '</td>'
+          + '<td>' + tdbHeures(c.real) + '</td>'
           + '<td class="pct" style="color:' + coul + '">' + c.pct + ' %</td>'
           + '</tr>';
       }).join('')
@@ -1536,6 +1543,56 @@ function tdbPrevisionnelMois(annee, mois) {
   return out;
 }
 
+/* ── Cumuls par chantier, toutes périodes confondues ──────────────────
+   Un chantier est souvent réparti sur plusieurs mois au prévisionnel
+   (ex. 98 h étalées sur juillet à octobre). Comparer la tranche d'un seul
+   mois au réalisé de ce mois donnait des pourcentages absurdes (8 h de
+   tranche contre 20,5 h réalisées = 256 %). On compare donc :
+     · devis   = somme des hPrevues du chantier sur TOUS les mois du prévisionnel ;
+     · réalisé = somme des heures pointées sur le chantier, tous mois
+                 jusqu'à la fin du mois de référence inclus.
+   C'est la même lecture que la page Rapports (« Heures prévues dans le devis »). */
+async function tdbCumulsChantiers(refDate) {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}'); } catch (e) {}
+  const devis = {};
+  const annees = {};
+  Object.keys(data || {}).forEach(function (an) {
+    if (!/^\d{4}$/.test(an)) return;
+    annees[an] = true;
+    const moisObj = data[an] || {};
+    Object.keys(moisObj).forEach(function (m) {
+      const dm = moisObj[m];
+      if (!dm || !Array.isArray(dm.chantiers)) return;
+      dm.chantiers.forEach(function (ch) {
+        const nom = String(ch.client || '').trim().toUpperCase();
+        if (!nom) return;
+        devis[nom] = (devis[nom] || 0) + (parseFloat(ch.hPrevues) || 0);
+      });
+    });
+  });
+
+  const anRef = refDate.getFullYear();
+  annees[String(anRef)] = true;
+  annees[String(anRef - 1)] = true;
+  const ymRef = anRef + '-' + String(refDate.getMonth() + 1).padStart(2, '0');
+  const liste = Object.keys(annees).filter(function (an) { return +an <= anRef; });
+  const lots = await Promise.all(liste.map(function (an) { return tdbAgregeAnnee(an); }));
+
+  const real = {};
+  lots.forEach(function (mois) {
+    Object.keys(mois || {}).forEach(function (ym) {
+      if (ym > ymRef) return;                       // rien après le mois de référence
+      const pc = (mois[ym] && mois[ym].parChantier) || {};
+      Object.keys(pc).forEach(function (nom) {
+        const n = String(nom).trim().toUpperCase();
+        real[n] = (real[n] || 0) + (parseFloat(pc[nom]) || 0);
+      });
+    });
+  });
+  return { devis: devis, real: real };
+}
+
 /* ── 3 · Chantiers à 100 % — mois de référence sélectionnable ──
    null = mois en cours (comportement par défaut, recalculé à chaque
    rafraîchissement) ; un Date figé = mois choisi par Nicolas via le
@@ -1556,8 +1613,7 @@ async function tdbChargerChantiers100(refDate) {
   const ymM  = refDate.getFullYear() + '-' + String(refDate.getMonth() + 1).padStart(2, '0');
   const prec = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
   const ymP  = prec.getFullYear() + '-' + String(prec.getMonth() + 1).padStart(2, '0');
-  const [agM, agP] = await Promise.all([tdbAgregeMois(ymM), tdbAgregeMois(ymP)]);
-  const rM = agM.parChantier || {}, rP = agP.parChantier || {};
+  const cumuls = await tdbCumulsChantiers(refDate);
 
   /* Heures replanifiées sur M ou M+1, par chantier. */
   const replanifie = {};
@@ -1571,21 +1627,23 @@ async function tdbChargerChantiers100(refDate) {
   });
 
   const liste = [];
+  /* Chantiers retenus (règle inchangée) : présents au prévisionnel de M,
+     ou présents en M-1 et replanifiés sur M ou M+1. Le pourcentage, lui,
+     porte désormais sur le devis TOTAL et le réalisé CUMULÉ du chantier. */
+  function ajouter(nom, m1) {
+    if (liste.some(function (x) { return x.nom === nom; })) return;
+    const dv = cumuls.devis[nom] || 0;
+    if (dv <= 0) return;
+    const real = cumuls.real[nom] || 0;
+    const pct = Math.round((real / dv) * 100);
+    if (pct >= 100) liste.push({ nom: nom, devis: dv, real: real, pct: pct, m1: m1 });
+  }
   const devisM = tdbPrevisionnelMois(refDate.getFullYear(), refDate.getMonth());
-  Object.keys(devisM).forEach(function (nom) {
-    if (devisM[nom] <= 0) return;
-    const real = rM[nom] || 0;
-    const pct = Math.round((real / devisM[nom]) * 100);
-    if (pct >= 100) liste.push({ nom: nom, devis: devisM[nom], real: real, pct: pct, m1: false });
-  });
+  Object.keys(devisM).forEach(function (nom) { ajouter(nom, false); });
   const devisP = tdbPrevisionnelMois(prec.getFullYear(), prec.getMonth());
   Object.keys(devisP).forEach(function (nom) {
-    if (devisP[nom] <= 0) return;
     if (!(replanifie[nom] > 0)) return;                    // plus rien de planifié : on l'oublie
-    if (liste.some(function (x) { return x.nom === nom; })) return;
-    const real = rP[nom] || 0;
-    const pct = Math.round((real / devisP[nom]) * 100);
-    if (pct >= 100) liste.push({ nom: nom, devis: devisP[nom], real: real, pct: pct, m1: true });
+    ajouter(nom, true);
   });
   liste.sort(function (a, b) { return b.pct - a.pct; });
 
