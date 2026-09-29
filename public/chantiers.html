@@ -1968,7 +1968,10 @@ async function ouvrirModaleHenrri() {
         + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
         + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
-        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕</button></td>'
+        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕</button> '
+        + '<button style="padding:4px 8px;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
+        + 'onclick="voirDevisBrut(this)" title="Voir les données brutes de ce devis (diagnostic)">🔍</button></td>'
         + '</tr>';
     });
     html += '</tbody></table>';
@@ -2031,6 +2034,57 @@ async function supprimerDevisHenrri(btn) {
 function fermerModaleHenrri() {
   const ov = document.getElementById('modale-henrri');
   if (ov) ov.classList.remove('open');
+}
+
+/* ── DIAGNOSTIC TEMPORAIRE : voir les données brutes d'un devis Henrri ──
+   (à retirer une fois le tri sur le statut client réglé) */
+async function voirDevisBrut(btn) {
+  const devisId = btn.getAttribute('data-devis-id');
+  const token = _henrriToken();
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/brut', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    _afficherJsonBrut(JSON.stringify(d.brut, null, 2));
+  } catch (e) {
+    alert('Erreur : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _afficherJsonBrut(texte) {
+  const ancien = document.getElementById('henrri-json-overlay');
+  if (ancien) ancien.remove();
+  const ov = document.createElement('div');
+  ov.id = 'henrri-json-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,sans-serif;">' +
+    '<h3 style="margin:0 0 10px;font-size:1.05rem;color:#0f172a;">Données brutes du devis</h3>' +
+    '<p style="margin:0 0 10px;font-size:0.85rem;color:#64748b;">Clique « Copier », puis colle le contenu dans le chat.</p>' +
+    '<textarea readonly style="width:100%;height:320px;font-family:monospace;font-size:0.78rem;box-sizing:border-box;padding:8px;border:1px solid #cbd5e1;border-radius:6px;">' + texte.replace(/</g, '&lt;') + '</textarea>' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">' +
+    '<button type="button" onclick="document.getElementById(\'henrri-json-overlay\').remove()" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;border-radius:6px;cursor:pointer;">Fermer</button>' +
+    '<button type="button" id="btn-copier-json" style="padding:8px 14px;background:#0f3a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;">📋 Copier</button>' +
+    '</div></div>';
+  document.body.appendChild(ov);
+  const btnCopier = document.getElementById('btn-copier-json');
+  btnCopier.addEventListener('click', () => {
+    const ta = ov.querySelector('textarea');
+    ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(() => {
+        btnCopier.textContent = '✔ Copié !';
+        setTimeout(() => { btnCopier.textContent = '📋 Copier'; }, 1500);
+      }).catch(() => { try { document.execCommand('copy'); } catch (_) {} });
+    } else {
+      try { document.execCommand('copy'); } catch (_) {}
+    }
+  });
 }
 </script>
 

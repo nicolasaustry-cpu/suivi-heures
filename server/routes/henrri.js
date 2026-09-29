@@ -255,6 +255,25 @@ router.get("/devis", verifyToken, async (req, res) => {
   }
 });
 
+// ── DIAGNOSTIC TEMPORAIRE : lire un devis en clair, tel que renvoyé par Henrri ──
+// (à retirer une fois le tri sur le statut client réglé) — permet de voir le
+// champ exact qui porte le statut « Validé par le client / Refusé / … »,
+// distinct du champ technique "finalized".
+router.get("/devis/:id/brut", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const cfg = await _config(clientId);
+    if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
+    const data = await appelHenrri(
+      clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement,
+      HENRRI_DOCS_PATH + "/" + encodeURIComponent(req.params.id), {}
+    );
+    res.json({ ok: true, brut: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Affecter un devis validé à un mois du Prévisionnel ──
 // Structure réelle du Prévisionnel (voir chantiers.html) : previsionnel[annee][mois]
 // où annee est une clé texte à 4 chiffres et mois un index 0-11 (pas "AAAA-MM").
