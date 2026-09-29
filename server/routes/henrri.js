@@ -104,6 +104,13 @@ async function appelHenrri(clientId, henrriClientId, henrriClientSecret, environ
 const HENRRI_LIMITE_PAGE = 100;
 const HENRRI_PAGES_MAX   = 10; // plafond de sécurité = 1000 éléments max
 
+// Simplifie un numéro de devis Henrri : ne garde que les 3 derniers groupes
+// séparés par "-", en partant de la droite (ex. "I-26-09-1" → "26-09-1").
+function _simplifierReference(ref) {
+  const parties = String(ref || "").split("-").filter(Boolean);
+  return parties.slice(-3).join("-");
+}
+
 async function appelHenrriPagine(clientId, henrriClientId, henrriClientSecret, environnement, chemin, params) {
   let tous = [];
   for (let page = 1; page <= HENRRI_PAGES_MAX; page++) {
@@ -240,7 +247,7 @@ router.get("/devis", verifyToken, async (req, res) => {
         client: (d.customer && d.customer.name) || "",
         montant: d.priceAfterTax ?? d.priceBeforeTax ?? null,
         date: d.date || null,
-        reference: d.identity || d.reference || d.number || ""
+        reference: _simplifierReference(d.identity || d.reference || d.number || "")
       }));
     res.json({ ok: true, devis: resultat });
   } catch (err) {
