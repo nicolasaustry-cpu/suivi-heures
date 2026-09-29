@@ -981,7 +981,7 @@ function rendreChantiers() {
       html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
         <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
-            <input value="${ch.client||''}" placeholder=""
+            <input value="${ch.client||''}" placeholder="" title="${_henrriEscAttr(ch.client||'')}"
               style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" oninput="majChantierInput(this)" onkeydown="navEnTree(event,this)">
