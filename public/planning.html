@@ -1373,6 +1373,7 @@ function genererPlanning(calerSemaine){
   majCouleursChantiers();
   pl3MajSamedi();
   pl2InitDragReorder();
+  if (typeof plnDecorer === 'function') plnDecorer();   // mode « Planifier depuis Clients » : boutons 📌 Affecter
   if (calerSemaine) defilerVersAujourdhui(moisInput.value);
 }
 
@@ -1381,7 +1382,10 @@ function genererPlanning(calerSemaine){
 function defilerVersAujourdhui(moisSel) {
   const cont = document.getElementById('planning-wrapper');
   if (!cont) return;
-  const aujCol = cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
+  // Mode « Planifier depuis Clients » : on se cale sur la semaine de la date souhaitée.
+  const _dCible = (typeof plnDateCible === 'function') ? plnDateCible() : '';
+  const _cCible = _dCible ? cont.querySelector('.tgrid td[data-date="' + _dCible + '"]') : null;
+  const aujCol = _cCible || cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
   const bloc = aujCol ? aujCol.closest('.wblock') : null;
 
   requestAnimationFrame(() => {
@@ -2213,6 +2217,7 @@ function _appliquerChampsCreation(k, nom) {
     saveHeure(k, nom, hSel.value);
     const hInline = document.getElementById(k + 'h');
     if (hInline) hInline.value = hSel.value;
+    onLigneRecalc(k);   // le TNA suit les heures choisies dans la fenêtre
   }
   const rdvInp = document.getElementById('note-modal-rdv');
   saveRdv(k, rdvInp ? rdvInp.value : '');
@@ -2653,7 +2658,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initRailRetractable();
   const mois = document.getElementById('moisPlanning');
   const now  = new Date();
-  mois.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const _dCibleInit = (typeof plnDateCible === 'function') ? plnDateCible() : '';
+  mois.value = _dCibleInit ? _dCibleInit.slice(0, 7)   // arrivée depuis Clients → mois de la date souhaitée
+                           : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   chargerSemaines();
   chargerJauge();
@@ -3482,6 +3489,211 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="assets/coordonnees.js"></script>
 <script src="assets/renommer-chantier.js"></script>
 <script src="assets/documents-chantier.js"></script>
+<style>
+  /* ── Mode « Planifier depuis Clients » ── */
+  #pln-bandeau{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9000;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    max-width:min(760px,94vw);background:#0f3a8a;color:#fff;border-bottom:3px solid #f59e0b;border-radius:12px;padding:10px 14px;
+    box-shadow:0 10px 32px rgba(0,0,0,.3);font-size:.86rem;line-height:1.35;}
+  #pln-bandeau b{color:#fcd34d;}
+  #pln-bandeau .pln-txt{flex:1 1 300px;min-width:0;}
+  #pln-bandeau button{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:.8rem;white-space:nowrap;}
+  #pln-bandeau button:hover{background:rgba(255,255,255,.25);}
+  table.tgrid tbody td.pln-cible{background:#fffbeb !important;box-shadow:inset 0 0 0 2px #f59e0b !important;}
+  table.tgrid thead th.pln-cible{background:#f59e0b !important;color:#fff !important;}
+  table.tgrid tbody td.pln-indispo .cellinner{opacity:.45;}
+  .tgrid .pln-affecter{display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #16a34a;background:#dcfce7;color:#166534;
+    border-radius:8px;font-size:.7rem;font-weight:800;padding:6px 4px;cursor:pointer;line-height:1.2;}
+  .tgrid .pln-affecter:hover{background:#16a34a;color:#fff;}
+  .tgrid .pln-affecter.complet{border-color:#f59e0b;background:#fef3c7;color:#92400e;}
+  .tgrid .pln-affecter.complet:hover{background:#f59e0b;color:#fff;}
+  @media print{ #pln-bandeau, .pln-affecter{display:none !important;} }
+</style>
+<script>
+/* ══════ PLANIFIER UNE INTERVENTION DEPUIS LA PAGE CLIENTS ══════
+   Arrivée par planning.html?planifier=<NOM CLIENT>&date=AAAA-MM-JJ
+   (bouton « 📅 Planifier » de clients.html, qui dépose aussi la fiche du client
+   Henrri dans sessionStorage 'planifierClient' pour les coordonnées).
+   1) le planning s'ouvre sur le mois et se cale sur la semaine de la date souhaitée
+      (colonne surlignée en ambre) ;
+   2) chaque case salarié × jour travaillable reçoit un bouton « 📌 Affecter »
+      (vert = temps libre ce jour-là, ambre = journée déjà pleine) ;
+   3) le clic crée le pavé du client dans cette case, reporte les coordonnées du
+      client dans la fiche du chantier si elle est vide, puis ouvre la fenêtre
+      « Nouveau chantier » (heures, RDV, note…) pour compléter.
+   Rien n'est enregistré tant qu'on n'a pas cliqué sur un bouton Affecter. */
+let _plnMode = null;   // { nom, date, client }
+
+(function plnLireDemande() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const nom = (p.get('planifier') || '').trim().toUpperCase();
+    const date = (p.get('date') || '').trim();
+    if (!nom || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    let client = null;
+    try {
+      const c = JSON.parse(sessionStorage.getItem('planifierClient') || 'null');
+      if (c && (c.nom || '').trim().toUpperCase() === nom) client = c;
+    } catch (_) {}
+    _plnMode = { nom, date, client };
+  } catch (_) { _plnMode = null; }
+})();
+
+function plnDateCible() { return _plnMode ? _plnMode.date : ''; }
+
+function _plnFmtDate(iso) {
+  const [a, m, j] = iso.split('-').map(Number);
+  const t = new Date(a, m - 1, j).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/* Temps encore libre pour un salarié un jour donné (contrat − absence − chantiers réels). */
+function _plnDispo(s, dateStr) {
+  const safe = dateStr.replace(/-/g, '_');
+  const contrat = contratDuJour(s, dateStr);
+  const abs = parseFloat((heures[s.id + safe + 'abs'] || {}).heures) || 0;
+  let occupe = 0, dejaLa = false;
+  for (let i = 1; i <= NB_SLOTS; i++) {
+    const e = heures[`${s.id}${safe}ch${i}`];
+    const n = (e && e.chantier || '').trim().toUpperCase();
+    if (!n || n === TNA) continue;
+    occupe += parseFloat(e.heures) || 0;
+    if (_plnMode && n === _plnMode.nom) dejaLa = true;
+  }
+  const travaille = contrat > 0 && abs < contrat;
+  const libre = Math.max(0, Math.round((contrat - abs - occupe) * 100) / 100);
+  return { travaille, libre, dejaLa };
+}
+
+function _plnBandeau() {
+  let b = document.getElementById('pln-bandeau');
+  if (!_plnMode) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'pln-bandeau';
+    b.className = 'no-print';
+    document.body.appendChild(b);
+  }
+  b.innerHTML = `<div class="pln-txt">📅 Planifier <b>${escapeHtml(_plnMode.nom)}</b> — date souhaitée : <b>${_plnFmtDate(_plnMode.date)}</b><br>`
+    + `Choisissez le jour et le technicien : bouton <b>📌 Affecter</b> dans la case voulue.</div>`
+    + `<button type="button" onclick="plnAllerCible()">↧ Revoir la semaine</button>`
+    + `<button type="button" onclick="plnAnnuler()">✕ Annuler</button>`;
+}
+
+/* Appelée à la fin de chaque genererPlanning(). */
+function plnDecorer() {
+  _plnBandeau();
+  if (!_plnMode) return;
+  const cont = document.getElementById('planning-wrapper');
+  if (!cont) return;
+  // Colonne de la date souhaitée surlignée
+  cont.querySelectorAll('td[data-date="' + _plnMode.date + '"]').forEach(td => {
+    td.classList.add('pln-cible');
+    const tr = td.parentElement, tbl = td.closest('table');
+    if (tr && tbl) {
+      const th = tbl.querySelectorAll('thead th')[Array.prototype.indexOf.call(tr.children, td)];
+      if (th) th.classList.add('pln-cible');
+    }
+  });
+  cont.querySelectorAll('td[data-salarie][data-date]').forEach(td => {
+    const dateStr = td.dataset.date;
+    if (estDatePassee(dateStr)) return;                 // jamais dans le passé
+    const s = salaries.find(x => String(x.id) === String(td.dataset.salarie));
+    if (!s) return;
+    const d = _plnDispo(s, dateStr);
+    if (!d.travaille) { td.classList.add('pln-indispo'); return; }   // repos, férié, école, absent
+    const inner = td.querySelector('.cellinner');
+    if (!inner) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pln-affecter no-print' + (d.libre > 0 ? '' : ' complet');
+    btn.textContent = d.libre > 0 ? '📌 Affecter · ' + pl2Fmt(d.libre) + ' libres' : '📌 Affecter · complet';
+    btn.title = (s.prenom || '') + ' ' + (s.nom || '') + ' — ' + _plnFmtDate(dateStr);
+    btn.onclick = () => plnAffecter(s.id, dateStr);
+    const foot = inner.querySelector('.cell-foot');
+    inner.insertBefore(btn, foot || null);
+  });
+}
+
+function plnAllerCible() {
+  const moisEl = document.getElementById('moisPlanning');
+  if (_plnMode && moisEl && moisEl.value !== _plnMode.date.slice(0, 7)) {
+    moisEl.value = _plnMode.date.slice(0, 7);
+    chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
+  } else if (moisEl) {
+    defilerVersAujourdhui(moisEl.value);
+  }
+}
+
+function _plnQuitter() {
+  _plnMode = null;
+  try { sessionStorage.removeItem('planifierClient'); } catch (_) {}
+  try { history.replaceState(null, '', location.pathname); } catch (_) {}   // un rechargement ne relance pas la planification
+  _plnBandeau();
+}
+
+function plnAnnuler() {
+  _plnQuitter();
+  genererPlanning(false);
+}
+
+async function plnAffecter(salarieId, dateStr) {
+  if (!_plnMode) return;
+  const nom = _plnMode.nom, client = _plnMode.client;
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!s) { alert('Salarié introuvable.'); return; }
+  const safe = dateStr.replace(/-/g, '_');
+  const d = _plnDispo(s, dateStr);
+  const qui = ((s.prenom || '') + ' ' + (s.nom || '')).trim();
+
+  const avert = [];
+  if (d.dejaLa) avert.push('ℹ️ ' + nom + ' est déjà planifié pour ' + qui + ' ce jour-là.');
+  if (d.libre <= 0) avert.push('⚠️ La journée de ' + qui + ' est déjà pleine.');
+  const msg = (avert.length ? avert.join('\n') + '\n\n' : '')
+    + 'Affecter ' + nom + ' à ' + qui + '\nle ' + _plnFmtDate(dateStr) + ' ?';
+  if (!confirm(msg)) return;
+
+  // 1er créneau libre (vide ou « temps non affecté », recalculé juste après)
+  let k = null;
+  for (let i = 1; i <= NB_SLOTS; i++) {
+    const kk = `${salarieId}${safe}ch${i}`;
+    const n = String(heures[kk] && heures[kk].chantier || '').trim().toUpperCase();
+    if (!n || n === TNA) { k = kk; break; }
+  }
+  if (!k) { alert('⛔ La journée de ' + qui + ' est pleine (' + NB_SLOTS + ' chantiers). Libérez un créneau.'); return; }
+
+  heures[k] = { chantier: nom, heures: d.libre > 0 ? d.libre : 0 };   // par défaut : tout le temps encore libre
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  _hpConfirmes.add(nom);   // intervention client : pas de question « hors prévisionnel »
+  if (_eligibleTNA(s, dateStr)) appliquerTempsNonAffecte(salarieId, dateStr);
+  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+
+  // Coordonnées du client reportées dans la fiche du chantier (si elle est encore vide)
+  let coordPromise = null;
+  if (typeof Coord !== 'undefined' && typeof Coord.definirDepuisHenrri === 'function') {
+    coordPromise = Coord.definirDepuisHenrri(nom, client);
+  }
+
+  _plnQuitter();
+  genererPlanning(false);
+
+  // Cale la vue sur la case affectée puis ouvre la fenêtre « Nouveau chantier »
+  const td = document.querySelector('#planning-wrapper td[data-salarie="' + salarieId + '"][data-date="' + dateStr + '"]');
+  if (td) {
+    const topBar = document.querySelector('.top-bar');
+    const y = td.getBoundingClientRect().top + window.pageYOffset - ((topBar ? topBar.offsetHeight : 0) + 10);
+    window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+  }
+  ouvrirNoteChantier(k, true);
+
+  if (coordPromise) {
+    const r = await coordPromise;
+    if (r && r.statut === 'erreur-serveur') {
+      alert('⚠️ Les coordonnées du client ont été reportées sur ce poste, mais pas encore enregistrées sur le serveur (connexion ?).\n'
+          + 'Ouvrez « 📍 Coordonnées du chantier » et cliquez sur Enregistrer pour les sauvegarder.');
+    }
+  }
+}
+</script>
 <script>
 /* Le lien « Clients » du menu (base clients Henrri) ne s'affiche que si la
    connexion Henrri est active — cohérent avec chantiers.html / index.html. */

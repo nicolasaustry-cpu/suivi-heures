@@ -38,6 +38,28 @@
     table.clients-table tr:hover td { background: #eff6ff; }
     .clients-scroll { max-height: 68vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
     .clients-vide { color: #94a3b8; font-style: italic; padding: 1.5rem; text-align: center; }
+    .btn-planifier {
+      background: #f59e0b; color: #fff; border: none; border-radius: 6px;
+      padding: 5px 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-planifier:hover { background: #d97706; }
+    #plan-overlay {
+      position: fixed; inset: 0; z-index: 10000; background: rgba(15,23,42,.5);
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #plan-overlay.on { display: flex; }
+    #plan-overlay .pm { background: #fff; border-radius: 14px; width: 100%; max-width: 380px; overflow: hidden; box-shadow: 0 14px 48px rgba(0,0,0,.35); }
+    #plan-overlay .pm-h { background: #0f3a8a; color: #fff; padding: 12px 16px; border-bottom: 3px solid #f59e0b; }
+    #plan-overlay .pm-h b { font-size: .95rem; }
+    #plan-overlay .pm-sub { font-size: .78rem; color: #bfdbfe; margin-top: 2px; }
+    #plan-overlay .pm-b { padding: 14px 16px; font-size: .85rem; color: #334155; }
+    #plan-overlay label { display: block; font-size: .78rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+    #plan-overlay input[type="date"] { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .95rem; font-family: inherit; }
+    #plan-overlay .pm-aide { font-size: .78rem; color: #64748b; margin-top: 10px; line-height: 1.4; }
+    #plan-overlay .pm-f { display: flex; gap: 8px; padding: 12px 16px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+    #plan-overlay .pm-f button { flex: 1; border: none; border-radius: 8px; padding: 10px; font-weight: 700; font-size: .86rem; cursor: pointer; }
+    #plan-overlay .pm-ok { background: #f59e0b; color: #fff; }
+    #plan-overlay .pm-an { background: #e2e8f0; color: #334155; }
     .clients-alerte {
       background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
       padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.88rem;
@@ -96,12 +118,29 @@
           <th>Code postal</th>
           <th>Téléphone</th>
           <th>Email</th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="tbody-clients"></tbody>
     </table>
   </div>
 </section>
+
+<!-- Fenêtre « Planifier une intervention » -->
+<div id="plan-overlay" onclick="if(event.target===this)fermerPlanifier()">
+  <div class="pm">
+    <div class="pm-h"><b>📅 Planifier une intervention</b><div class="pm-sub" id="plan-client"></div></div>
+    <div class="pm-b">
+      <label for="plan-date">Date souhaitée</label>
+      <input type="date" id="plan-date">
+      <div class="pm-aide">Le planning s'ouvrira sur la semaine de cette date. Vous choisirez ensuite le jour définitif et le technicien disponible avec le bouton <b>📌 Affecter</b>.</div>
+    </div>
+    <div class="pm-f">
+      <button type="button" class="pm-an" onclick="fermerPlanifier()">Annuler</button>
+      <button type="button" class="pm-ok" onclick="validerPlanifier()">Voir le planning ➜</button>
+    </div>
+  </div>
+</div>
 
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
@@ -121,7 +160,7 @@ function _clEsc(s) {
 function rendreClients(liste) {
   const tbody = document.getElementById('tbody-clients');
   if (!liste.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="clients-vide">Aucun client à afficher. Cliquez sur « Actualiser depuis Henrri » pour récupérer votre base clients.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="clients-vide">Aucun client à afficher. Cliquez sur « Actualiser depuis Henrri » pour récupérer votre base clients.</td></tr>';
     return;
   }
   tbody.innerHTML = liste.map(c => `<tr>
@@ -131,6 +170,7 @@ function rendreClients(liste) {
     <td>${_clEsc(c.codePostal)}</td>
     <td>${_clEsc(c.telephone)}</td>
     <td>${_clEsc(c.email)}</td>
+    <td><button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${_clientsHenrri.indexOf(c)})" title="Programmer une intervention chez ce client">📅 Planifier</button></td>
   </tr>`).join('');
 }
 
@@ -190,6 +230,43 @@ async function synchroniserClientsHenrri() {
     btn.disabled = false; btn.textContent = '🔄 Actualiser depuis Henrri';
   }
 }
+
+/* ── Planifier une intervention : date souhaitée → planning de la semaine ── */
+let _clientAPlanifier = null;
+function _isoJour(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function ouvrirPlanifier(i) {
+  const c = _clientsHenrri[i];
+  if (!c || !(c.nom || '').trim()) { alert('Client sans nom : impossible de le planifier.'); return; }
+  _clientAPlanifier = c;
+  document.getElementById('plan-client').textContent = c.nom.trim();
+  const inp = document.getElementById('plan-date');
+  inp.min = _isoJour(new Date());
+  if (!inp.value || inp.value < inp.min) inp.value = inp.min;
+  document.getElementById('plan-overlay').classList.add('on');
+  setTimeout(() => inp.focus(), 30);
+}
+function fermerPlanifier() {
+  document.getElementById('plan-overlay').classList.remove('on');
+  _clientAPlanifier = null;
+}
+function validerPlanifier() {
+  const c = _clientAPlanifier;
+  const date = document.getElementById('plan-date').value;
+  if (!c) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert('Choisissez une date.'); return; }
+  if (date < _isoJour(new Date())) { alert('Choisissez une date à venir.'); return; }
+  const nom = c.nom.trim().toUpperCase();
+  // La fiche du client accompagne la demande : le planning en reprend les coordonnées.
+  try { sessionStorage.setItem('planifierClient', JSON.stringify(c)); } catch (_) {}
+  location.href = 'planning.html?planifier=' + encodeURIComponent(nom) + '&date=' + date;
+}
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('plan-overlay').classList.contains('on')) return;
+  if (e.key === 'Escape') fermerPlanifier();
+  if (e.key === 'Enter') validerPlanifier();
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   const ent  = JSON.parse(localStorage.getItem('entreprisedata') || '{}');

@@ -2,7 +2,8 @@
    Stockage : localStorage 'coordonneesChantiersdata' = { "NOM MAJ": {adresse,ville,mobile,fixe} }
    Persistance serveur : /api/data/coordonnees-chantier (token PC) ou
    /api/saisies/coordonnees-chantier (codeEmploye mobile, gérant/admin).
-   API publique : window.Coord.{ ouvrir, fermer, enregistrer, get, html, aDesCoordonnees } */
+   API publique : window.Coord.{ ouvrir, fermer, enregistrer, get, html, aDesCoordonnees,
+   localiser, distanceKm, definirDepuisHenrri } */
 (function () {
   'use strict';
 
@@ -174,6 +175,39 @@
     };
   }
 
+  /* Report direct (sans passer par le modal) des coordonnées d'un client Henrri
+     dans la fiche d'un chantier — utilisé par « Planifier » (clients.html → planning).
+     Ne touche JAMAIS une fiche qui contient déjà des coordonnées.
+     client : fiche Henrri transmise par la page Clients ; à défaut, recherche par
+     nom exact dans la base clients Henrri chargée en tâche de fond.
+     Écriture locale immédiate (l'affichage suit aussitôt), puis envoi serveur.
+     Promesse : {statut:'existant'|'aucun'|'ok'|'erreur-serveur'}. */
+  function definirDepuisHenrri(nom, client) {
+    nom = (nom || '').trim();
+    if (!nom) return Promise.resolve({ statut: 'aucun' });
+    if (aDesCoordonnees(nom)) return Promise.resolve({ statut: 'existant' });
+    var hc = client || _henrriMatch(nom);
+    if (!hc) return Promise.resolve({ statut: 'aucun' });
+    var coord = _henrriVersCoord(hc);
+    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe) return Promise.resolve({ statut: 'aucun' });
+    var nomU = nom.toUpperCase();
+    var o = _lire(); o[nomU] = coord; _ecrire(o);
+    var token = _henrriToken();
+    if (!token) return Promise.resolve({ statut: 'erreur-serveur' });
+    return fetch('/api/data/coordonnees-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ chantier: nomU, coordonnees: coord })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!(d && d.ok)) return { statut: 'erreur-serveur' };
+        try { localiser(nom); } catch (_) {}
+        return { statut: 'ok' };
+      })
+      .catch(function () { return { statut: 'erreur-serveur' }; });
+  }
+
   /* ─ Modal d'édition ─ */
   var _nom = null, _onDone = null;
 
@@ -286,5 +320,5 @@
   }
 
   window.Coord = { ouvrir: ouvrir, fermer: fermer, enregistrer: enregistrer, get: get, html: html, aDesCoordonnees: aDesCoordonnees,
-                   localiser: localiser, distanceKm: distanceKm };
+                   localiser: localiser, distanceKm: distanceKm, definirDepuisHenrri: definirDepuisHenrri };
 })();
