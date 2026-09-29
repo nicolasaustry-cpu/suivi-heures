@@ -4,6 +4,7 @@ import Donnees from "../models/donnees.js";
 import Licence from "../models/licence.js";
 import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
+import Henrri from "../models/henrri.js";
 
 const router = express.Router();
 
@@ -40,11 +41,15 @@ router.get("/", verifyToken, async (req, res) => {
     if (!doc) doc = { entreprise: {}, salaries: [], heures: {}, chantiers: [], previsionnel: {} };
     // Marque blanche : flag + logo du prescripteur, livrés à chaque chargement
     const licence = await Licence.findOne({ codeClient: clientId });
+    // Henrri : indique si la connexion est active, pour que le menu (sync.js)
+    // puisse afficher ou masquer le lien « Clients » sans appel séparé.
+    const henrri = await Henrri.findOne({ clientId });
     res.json({
       ok: true,
       data: doc,
       marquePartenaire: licence ? !!licence.marquePartenaire : false,
-      logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
+      logoPartenaire:   licence ? (licence.logoPartenaire || "") : "",
+      henrriActif: henrri ? !!henrri.actif : false
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

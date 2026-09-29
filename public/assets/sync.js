@@ -282,8 +282,13 @@ const SYNC = (() => {
           localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
         else
           localStorage.removeItem('syncLogoPartenaire');
+        // Henrri : mémorise si la connexion est active, pour gater le lien
+        // « Clients » du menu (tous les éléments Henrri restent masqués tant
+        // que l'API n'est pas liée). Le menu est reconstruit juste après.
+        localStorage.setItem('syncHenrriActif', d.henrriActif ? '1' : '0');
       } catch (e) {}
       if (typeof majMarqueBlanche === 'function') majMarqueBlanche();
+      construireMenuLateral();
 
       const serveur = d.data || {};
 
@@ -719,7 +724,7 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['tableau-de-bord.html', 'index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html'];
+    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'clients.html'];
 
   // Structure canonique du menu (indépendante de la licence).
   // Le premier groupe n'a pas d'intitulé : le tableau de bord est la page
@@ -731,7 +736,8 @@ const SYNC = (() => {
     { label: 'Gestion', items: [
       { href: 'index.html',     label: 'Entreprise' },
       { href: 'salaries.html',  label: 'Salariés' },
-      { href: 'chantiers.html', label: 'Prévisionnel' }
+      { href: 'chantiers.html', label: 'Prévisionnel' },
+      { href: 'clients.html',   label: 'Clients', requiertHenrri: true }
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
@@ -844,6 +850,14 @@ const SYNC = (() => {
     catch (e) { return false; }
   }
 
+  // Un item de menu masqué tant que l'API Henrri n'est pas connectée (statut
+  // serveur, mis en cache par chargerDonnees() → localStorage 'syncHenrriActif').
+  function _entreeMasquee(it) {
+    if (it.requiert && !_featureActive(it.requiert)) return true;
+    if (it.requiertHenrri && localStorage.getItem('syncHenrriActif') !== '1') return true;
+    return false;
+  }
+
   function construireMenuLateral() {
     const page = pageActuelle();
     if (!MENU_PAGES.includes(page)) return;
@@ -865,7 +879,7 @@ const SYNC = (() => {
         rail.appendChild(gl);
       }
       g.items.forEach(it => {
-        if (it.requiert && !_featureActive(it.requiert)) return;
+        if (_entreeMasquee(it)) return;
         const verrou = !!it.plus && !estPlus;   // Standard + page Plus → teasing
         const a = document.createElement('a');
         a.href = verrou ? '#' : it.href;
@@ -962,7 +976,7 @@ const SYNC = (() => {
     dd.id = 'sh-dropdown';
     dd.className = 'sh-dropdown';
     g.items.forEach(it => {
-      if (it.requiert && !_featureActive(it.requiert)) return;
+      if (_entreeMasquee(it)) return;
       const verrou = !!it.plus && !estPlus;
       const a = document.createElement('a');
       a.href = verrou ? '#' : it.href;
