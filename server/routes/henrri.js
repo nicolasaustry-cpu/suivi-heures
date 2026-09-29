@@ -115,7 +115,8 @@ async function appelHenrriPagine(clientId, henrriClientId, henrriClientSecret, e
     const liste = Array.isArray(data.elements) ? data.elements
                 : (Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []));
     tous = tous.concat(liste);
-    if (liste.length < HENRRI_LIMITE_PAGE) break; // dernière page atteinte
+    const aUneSuite = data.meta && typeof data.meta.hasNext === "boolean" ? data.meta.hasNext : liste.length >= HENRRI_LIMITE_PAGE;
+    if (!aUneSuite) break; // dernière page atteinte
   }
   return tous;
 }
@@ -222,7 +223,10 @@ router.get("/devis", verifyToken, async (req, res) => {
     // La limite Henrri est plafonnée à 100/page : appelHenrriPagine() parcourt
     // les pages suivantes au besoin pour ne pas manquer un devis récent.
     const liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_DOCS_PATH, {
-      documentTypes: "Quotation"
+      documentTypes: "quotation",
+      finalized: true,
+      sortBy: "date",
+      sortOrder: "descending"
     });
     const dejaImportes = new Set(cfg.devisImportes || []);
     const dejaIgnores  = new Set(cfg.devisIgnores  || []);
@@ -254,6 +258,7 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
     const anneeNum  = parseInt(req.body.annee, 10);
     const moisNum   = parseInt(req.body.mois, 10);
     const nomClient = String(req.body.client || "").trim();
+    const reference = String(req.body.reference || "").trim();
     if (!Number.isInteger(anneeNum) || anneeNum < 2000 || anneeNum > 2100)
       return res.status(400).json({ ok: false, message: "Année invalide." });
     if (!Number.isInteger(moisNum) || moisNum < 0 || moisNum > 11)
@@ -262,6 +267,9 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
 
     const annee = String(anneeNum);
     const mois  = String(moisNum);
+    // Ligne nommée "<nom du client Henrri> <n° devis>" (ex. "Jean-paul CHAUVET
+    // I-26-09-1"), pour distinguer plusieurs devis affectés au même client.
+    const nomChantier = reference ? (nomClient + " " + reference) : nomClient;
 
     let doc = await Donnees.findOne({ clientId });
     if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables." });
@@ -270,7 +278,7 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
     if (!prev[annee]) prev[annee] = {};
     if (!prev[annee][mois]) prev[annee][mois] = { hVendables: "", caObjectif: "", chantiers: [] };
     if (!Array.isArray(prev[annee][mois].chantiers)) prev[annee][mois].chantiers = [];
-    prev[annee][mois].chantiers.push({ client: nomClient, hPrevues: "" });
+    prev[annee][mois].chantiers.push({ client: nomChantier, hPrevues: "" });
     doc.previsionnel = prev;
     doc.markModified("previsionnel");
     doc.updatedAt = new Date();
@@ -332,18 +340,11 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     const cfg = await _config(clientId);
     if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
 
-    // Le champ "search" est documenté comme obligatoire côté Henrri mais sans
-    // valeur par défaut connue : on tente d'abord sans (beaucoup d'API traitent
-    // un paramètre de recherche absent comme "pas de filtre"), puis on retente
-    // avec un espace (recherche non vide qui matche tout) si Henrri le refuse.
+    // Le paramètre "search" est confirmé optionnel par la spécification officielle
+    // Henrri (aucun flag "required") : un simple appel sans filtre suffit.
     // Limite Henrri plafonnée à 100/page : appelHenrriPagine() parcourt les
     // pages suivantes au besoin pour récupérer la base clients complète.
-    let liste;
-    try {
-      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_CUST_PATH, {});
-    } catch (e) {
-      liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_CUST_PATH, { search: " " });
-    }
+    const liste = await appelHenrriPagine(clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement, HENRRI_CUST_PATH, {});
     // Champs Henrri en camelCase (confirmé sur le modèle Document.customer d'un
     // vrai devis sandbox : name, tradeName, address, contacts) — corrigé du
     // snake_case initialement supposé (post_code, is_primary…).
