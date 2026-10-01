@@ -3018,6 +3018,16 @@ document.addEventListener('DOMContentLoaded', () => {
 (function () {
   var _clAnalyse = null;
 
+  /* Clients autorisés à démarrer un chantier long à une date passée (fonctionnalité en test).
+     Pour l'ouvrir à tous : faire renvoyer true à clDatePasseeAutorisee(). */
+  var CLIENTS_DATE_PASSEE = ['TEST1-26', 'TEST2-26'];
+  function clDatePasseeAutorisee() {
+    var code = '';
+    try { code = localStorage.getItem('licenceCode') || ''; } catch (e) {}
+    code = String(code).replace(/\s+/g, '').toUpperCase();
+    return !!code && CLIENTS_DATE_PASSEE.indexOf(code) !== -1;
+  }
+
   function clAujISO() { var d = new Date(); return clISO(d); }
   function clISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function clFrDate(iso) {
@@ -3069,8 +3079,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cl-datalist-holder').innerHTML = genDatalistChantiers().replace('id="liste-chantiers-prev"', 'id="cl-liste-chantiers"');
     var auj = clAujISO();
     var du = document.getElementById('cl-du'), au = document.getElementById('cl-au');
-    du.min = auj; au.min = auj;
-    if (!du.value || du.value < auj) du.value = auj;
+    var passeOk = clDatePasseeAutorisee();
+    du.min = passeOk ? '' : auj; au.min = passeOk ? '' : auj;
+    if (!du.value || (!passeOk && du.value < auj)) du.value = auj;
     var cont = document.getElementById('cl-salaries');
     cont.innerHTML = salaries.map(function (s) {
       return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
@@ -3100,7 +3111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
 
     var auj = clAujISO();
-    var debut = du < auj ? auj : du;
+    var debut = (du < auj && !clDatePasseeAutorisee()) ? auj : du;
     var aRemplir = [], conflits = [], ignores = 0;
 
     salIds.forEach(function (sid) {
