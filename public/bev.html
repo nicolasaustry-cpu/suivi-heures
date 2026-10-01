@@ -57,6 +57,8 @@
     .bev-encart { margin:1.2rem auto 0; border-collapse:collapse; font-size:0.85rem; }
     .bev-encart th { background:#475569; color:#fff; font-weight:500; padding:7px 14px; }
     .bev-encart td { padding:6px 14px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
+    .ecart-plan { font-size:0.62rem; font-weight:700; color:#64748b; margin-left:2px; }
+    .note-ecart-plan { font-size:0.76rem; color:#64748b; margin:6px 0 0; }
     .bev-compteur { margin:0.8rem auto 0; border-collapse:collapse; font-size:0.85rem; }
     .bev-compteur caption { caption-side:top; font-weight:700; color:#0f3a8a; padding-bottom:4px; font-size:0.85rem; }
     .bev-compteur th { background:#eef2f7; color:#0f3a8a; font-weight:600; padding:6px 12px; border:1px solid #e2e8f0; }
@@ -969,7 +971,7 @@ async function chargerMois() {
       '<td class="col-tranche"></td><td class="col-repas" id="t-repas">' + (nombreRepas() || '') + '</td><td class="col-tranche col-reinit no-print"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
     '<div id="recap-evenements"></div>' +
-    '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/' + (mp ? 'Planifié' : 'Réalisé') + '</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
+    '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/' + (mp ? 'Planifié' : 'Réalisé') + '</th><th>Écart d\'heures reportés</th><th>Heures sup./compl. payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '<table class="bev-compteur" id="bev-compteur" data-ym="' + ym + '" data-recup="' + r2(trecup) + '"><caption>Compteur d\'heures — mouvement du mois</caption>' +
     '<thead><tr><th>Heures reportées au compteur</th><th id="cpt-th-maj">Majoration</th><th>Heures créditées</th><th>Heures récupérées sur le mois</th><th>Mouvement du compteur</th></tr></thead>' +
@@ -1034,7 +1036,7 @@ function majEncart() {
   const p = document.getElementById('enc-paye');
   if (p) { p.textContent = signe(paye); p.className = classeEcart(paye); }
   const tpay = document.getElementById('enc-payees');
-  if (tpay) tpay.textContent = fmt(r2(paye - rep));           // Total heures payées = Écart Nouvelle base/Planifié − Écart reportés
+  if (tpay) tpay.textContent = fmt(r2(paye - rep));           // Heures sup./compl. payées = Écart Nouvelle base/Planifié − Écart reportés
   majCompteur(rep);
 }
 function majCompteur(rep) {
@@ -1152,7 +1154,7 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, TMAJO=0, TRECUP=0, soldeCumule=0;
+  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, TMAJO=0, TRECUP=0, TECART=0, soldeCumule=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
   // Régime CIBTP (réglage entreprise, page Entreprise) : décompte en jours ouvrables → coefficient (25/12)/(30/12)
@@ -1166,11 +1168,11 @@ async function chargerAnnee() {
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
-    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, cRttRecup=0, cRecup=0, moisPasse=false;
+    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, cRttRecup=0, cRecup=0, cPlanPasse=0, moisPasse=false;
     const cntEvt = {}; evtsAnnee.forEach(function(e){ cntEvt[e] = 0; });
     lignes.forEach(l => {
       cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie + l.recup; cRecup += l.recup;
-      if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; moisPasse = true; }
+      if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; cPlanPasse += l.planifie; moisPasse = true; }
       if (l.motif === 'RTT' || l.motif === 'Récupération') cRttRecup += l.tempsEvt;
       if (cntEvt[l.motif] !== undefined) cntEvt[l.motif] = r2(cntEvt[l.motif] + ((entCIBTP && l.motif === 'Congé') ? COEF_CIBTP : 1));
     });
@@ -1183,19 +1185,23 @@ async function chargerAnnee() {
     }
     const blanc = !moisPasse;                       // mois pas encore commencé : pas de réalisé
     const payees = moisPasse ? r2(cCompte - reporte) : 0;
-    const ecart  = r2(cReal - cBase);
+    // Mois sans aucun pointage (client « planning seul ») : comme la vue Mois, l'écart se calcule
+    // sur le Planifié (hors récupération, la Nouvelle Base en étant déjà réduite) au lieu du Réalisé.
+    const modePlan = !!lignes.modePlanifie;
+    const ecart  = r2((modePlan ? cPlanPasse : cReal) - cBase);
     // Compteur (heures de repos) : + report majoré − récupérations du mois (mois commencés uniquement)
     const actif  = regleRecupActive(ym);              // règle en vigueur pour ce mois (septembre 2026 par défaut)
     const credit = moisPasse ? (actif ? creditCompteur(reporte) : r2(reporte)) : 0;
     const majo   = moisPasse ? r2(credit - reporte) : 0;
     const recupM = (moisPasse && actif) ? r2(cRecup) : 0;
+    if (moisPasse) TECART += ecart;
     TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan; TRTTRECUP += cRttRecup; TMAJO += majo; TRECUP += recupM;
     if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; TPAYEES += payees; }
     soldeCumule = r2(soldeCumule + credit - recupM);
     moisData.push({
       nom: moisNoms[idx], vide: false, blanc: blanc,
       contrat: cContrat, tevt: cTevt, rttRecup: cRttRecup, base: cBase, plan: cPlan,
-      real: cReal, compte: cCompte, ecart: ecart, payees: payees, reporte: reporte,
+      real: cReal, compte: cCompte, ecart: ecart, modePlan: modePlan, payees: payees, reporte: reporte,
       credit: credit, majo: majo, recup: recupM,
       soldeCumule: soldeCumule, cntEvt: cntEvt, totEvtMois: totEvtMois
     });
@@ -1205,7 +1211,7 @@ async function chargerAnnee() {
     moisData: moisData, evtsAnnee: evtsAnnee, TEVT: TEVT, entCIBTP: entCIBTP,
     totaux: { TC:TC, TTE:TTE, TBASE:TBASE, TPLAN:TPLAN, TREAL:TREAL, TCOMPTE:TCOMPTE,
       TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, TMAJO:r2(TMAJO), TRECUP:r2(TRECUP), soldeCumule:soldeCumule,
-      TECART: r2(TREAL - TBASE) }
+      TECART: r2(TECART) }
   };
   rendreTableauAnnee();
 }
@@ -1217,13 +1223,13 @@ function rendreTableauAnnee() {
 
   let corps = '', thead, tfoot;
   if (_detailAnnee === 'simple') {
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Payé ce mois</th><th>Solde compteur</th></tr>';
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Heures payées (total)</th><th>Solde compteur</th></tr>';
     moisData.forEach(function(md){
       if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.real)) + '</td>' +
-        '<td class="' + (md.blanc ? '' : classeEcart(md.ecart)) + '">' + (md.blanc ? '' : signe(md.ecart)) + '</td>' +
+        '<td class="' + (md.blanc ? '' : classeEcart(md.ecart)) + '"' + (!md.blanc && md.modePlan ? ' title="Aucun pointage ce mois-ci : écart calculé sur le Planifié"' : '') + '>' + (md.blanc ? '' : signe(md.ecart) + (md.modePlan ? '<sup class="ecart-plan">P</sup>' : '')) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
     });
@@ -1233,7 +1239,7 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.TPAYEES) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   } else {
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th><th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées (total)</th><th>Heures dues au salarié</th><th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th><th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
     moisData.forEach(function(md){
       if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
@@ -1277,6 +1283,8 @@ function rendreTableauAnnee() {
     '<table class="bev bev-annee"><thead>' + thead + '</thead>' +
     '<tbody>' + corps + '</tbody>' +
     '<tfoot>' + tfoot + '</tfoot></table>' +
+    ((_detailAnnee === 'simple' && moisData.some(function(md){ return !md.vide && !md.blanc && md.modePlan; }))
+      ? '<div class="note-ecart-plan"><sup class="ecart-plan">P</sup> Mois sans pointage : l\'écart est calculé sur le Planifié (Planifié − Nouvelle Base), comme dans la vue Mois.</div>' : '') +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois' + (entCIBTP ? ' <span style="font-weight:400;font-size:0.8rem;color:#6366f1;">(Congé compté en jours ouvrables, coefficient (30/12)/(25/12) ≈ ' + (Math.round((30/12)/(25/12)*1000)/1000) + ', régime CIBTP)</span>' : '') + '</div>' +
     '<table class="bev bev-annee"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
