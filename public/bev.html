@@ -743,7 +743,7 @@ function planifieParJour(salarieId, ym) {
    - realise      = heures réellement pointées (saisies)
    - ecartRB      = Réalisé - Nouvelle Base
    - ecartRetenu  = modifiable, défaut = ecartRB
-   - tempsCompte  = Nouvelle Base + Écart retenu  (= Réalisé par défaut) */
+   - tempsCompte  = Nouvelle Base + Écart retenu (+ heures de Récupération, rémunérées) */
 /* Jours fériés français + jours d'école (neutralisés dans le contrat) */
 var _bevCacheF = {};
 function _bevPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
@@ -796,14 +796,17 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     const realise  = r2(realMap[k] || 0);
     const ecartRB  = r2(realise - base);
     const ecartRetenu = (retenues && retenues[k] != null) ? r2(Number(retenues[k])) : ecartRB;   // valeur sauvegardée sinon reporté de l'Écart Réalisé/Base
-    const tempsCompte = r2(base + ecartRetenu);   // Temps pris en compte = Nouvelle Base + Écart retenu
+    // Heures de récupération : rémunérées (prises sur le compteur) → comptées dans le Temps pris en compte,
+    // à partir de la date d'effet de la règle. L'écart du jour, lui, n'en tient pas compte (base déjà réduite).
+    const recupPayee = (motif === 'Récupération' && regleRecupActive(ym)) ? r2(tempsEvt) : 0;
+    const tempsCompte = r2(base + ecartRetenu + recupPayee);   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
       contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base, motif: motif,
       recup: (motif === 'Récupération') ? r2(tempsEvt) : 0,   // heures de récupération du jour (prises sur le compteur)
       planifie: planifie, realise: realise, ecartRB: ecartRB,
-      ecartRetenu: ecartRetenu, tempsCompte: tempsCompte
+      ecartRetenu: ecartRetenu, tempsCompte: tempsCompte, recupPayee: recupPayee
     });
   }
   // Client « planning seul » : si aucun réalisé sur le mois, l'écart se calcule
@@ -814,7 +817,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     lignes.forEach(function (l) {
       l.ecartRB = r2(l.planifie - l.base);
       l.ecartRetenu = (retenues && retenues[l.date] != null) ? r2(Number(retenues[l.date])) : l.ecartRB;
-      l.tempsCompte = r2(l.base + l.ecartRetenu);
+      l.tempsCompte = r2(l.base + l.ecartRetenu + l.recupPayee);
     });
   }
   lignes.modePlanifie = modePlanifie;
@@ -934,7 +937,7 @@ async function chargerMois() {
       cellsReel =
         '<td>' + fmt(l.realise) + '</td>' +
         '<td class="' + classeEcart(l.ecartRB) + '">' + signe(l.ecartRB) + '</td>' +
-        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-realise="' + (mp ? l.planifie : l.realise) + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '" onfocus="this.select()" onmouseup="return false"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
+        '<td><input type="number" step="0.25" class="ret no-print-border" data-date="' + l.date + '" data-base="' + l.base + '" data-recup="' + l.recupPayee + '" data-realise="' + (mp ? l.planifie : l.realise) + '" data-passe="1" value="' + fmt(l.ecartRetenu) + '" onfocus="this.select()" onmouseup="return false"><span class="ret-print" style="display:none;">' + fmt(l.ecartRetenu) + '</span></td>' +
         '<td class="tcompte">' + fmt(l.tempsCompte) + '</td>';
     } else {
       cellsReel = '<td></td><td></td><td></td><td class="tcompte"></td>';
@@ -1014,7 +1017,7 @@ function recalcMois() {
     const base    = parseFloat(inp.dataset.base) || 0;
     const realise = parseFloat(inp.dataset.realise) || 0;
     const er      = parseFloat(inp.value) || 0;       // Écart retenu (modifiable)
-    const tc      = r2(base + er);                    // Temps pris en compte = Nouvelle Base + Écart retenu
+    const tc      = r2(base + er + (parseFloat(inp.dataset.recup) || 0));   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération
     const cellTC = row.querySelector('.tcompte');
     if (cellTC) cellTC.textContent = fmt(tc);
     const sp = row.querySelector('.ret-print'); if (sp) sp.textContent = fmt(er);
