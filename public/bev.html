@@ -221,6 +221,13 @@
     .tr-auto-lbl { display:block; font-size:0.62rem; color:#94a3b8; margin-top:2px; white-space:nowrap; }
     .tr-manque { font-size:0.72rem; color:#b45309; font-weight:600; cursor:pointer; white-space:nowrap; }
     .tr-manque:hover { text-decoration:underline; }
+    /* Bouton « Réinitialiser » en bout de ligne : annule une tranche saisie/effacée à la main
+       et redonne la tranche calculée automatiquement. Écran uniquement. */
+    .reinit-cell { text-align:center; width:30px; }
+    .btn-reinit { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; border-radius:6px; width:26px; height:24px;
+      font-size:0.9rem; line-height:1; padding:0; cursor:pointer; }
+    .btn-reinit:hover { background:#eef4fd; border-color:#0f3a8a; }
+    .bev-mesure .col-reinit { display:none !important; }
     /* Modale combinée : bandeau « adresse manquante » au-dessus du calendrier des tranches */
     .mt-adr { display:none; background:#fffbeb; border:1px solid #fcd34d; border-radius:10px; padding:10px 13px; margin:0 0 12px; font-size:0.82rem; color:#78350f; }
     .mt-adr.vis { display:block; }
@@ -844,6 +851,7 @@ async function chargerMois() {
       cellsReel +
       '<td class="col-tranche tranche-cell" data-date="' + l.date + '">' + celluleTranche(l.date) + '</td>' +
       '<td class="col-repas repas-cell" data-date="' + l.date + '">' + celluleRepas(l) + '</td>' +
+      '<td class="col-tranche col-reinit reinit-cell no-print" data-date="' + l.date + '">' + celluleReinit(l.date) + '</td>' +
     '</tr>';
   });
   _prevuMois  = tbasePasse;   // base des jours passés (pour l'encart Heures payées)
@@ -852,7 +860,7 @@ async function chargerMois() {
   document.getElementById('zone').innerHTML =
     '<div class="bev-flow"><div class="bev-left">' +
     '<table class="bev' + (mp ? ' mode-planifie' : '') + '"><thead><tr>' +
-      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart ' + (mp ? 'Planifié' : 'Réalisé') + '/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th><th class="col-repas">Repas</th>' +
+      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart ' + (mp ? 'Planifié' : 'Réalisé') + '/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th><th class="col-repas">Repas</th><th class="col-tranche col-reinit no-print" title="Réinitialiser la tranche">↺</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td>' +
       '<td></td><td></td><td>' + fmt(ttevt) + '</td>' +
@@ -862,7 +870,7 @@ async function chargerMois() {
       '<td class="' + classeEcart(terb) + '">' + signe(terb) + '</td>' +
       '<td id="t-retenu">' + signe(tret) + '</td>' +
       '<td id="t-compte">' + fmt(tcompte) + '</td>' +
-      '<td class="col-tranche"></td><td class="col-repas" id="t-repas">' + (nombreRepas() || '') + '</td></tr></tfoot></table>' +
+      '<td class="col-tranche"></td><td class="col-repas" id="t-repas">' + (nombreRepas() || '') + '</td><td class="col-tranche col-reinit no-print"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
     '<div id="recap-evenements"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/' + (mp ? 'Planifié' : 'Réalisé') + '</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
@@ -1419,7 +1427,42 @@ async function proposerTranches() {
 
 function majCellulesTranches() {
   document.querySelectorAll('#corps .tranche-cell').forEach(function (td) { td.innerHTML = celluleTranche(td.dataset.date); });
+  document.querySelectorAll('#corps .reinit-cell').forEach(function (td) { td.innerHTML = celluleReinit(td.dataset.date); });
   rendreRecapIndemnites();
+}
+
+/* ── Bouton « Réinitialiser » en bout de ligne ──
+   Visible uniquement quand la tranche du jour a été saisie ou effacée À LA MAIN (pas pour une
+   proposition « auto », déjà à jour). Un clic retire la saisie manuelle puis relance le calcul
+   automatique : la tranche calculée réapparaît (grisée « auto »), puis le BEV est enregistré.
+   Jamais sur un mois validé ni sur un jour à venir. */
+function _moisValideBev() {
+  const c = document.getElementById('chk-valide');
+  return c ? !!c.checked : !!(_calCtx && _calCtx.valide);
+}
+function celluleReinit(date) {
+  const ctx = _calCtx;
+  if (!date || !ctx || _moisValideBev() || _trJourFutur(date)) return '';
+  const meta = _tranchesMeta[date];
+  const manuelle = (_tranches[date] && meta !== 'auto') || meta === 'efface';
+  if (!manuelle) return '';
+  return '<button type="button" class="btn-reinit" data-date="' + _escAttr(date) + '" onclick="reinitialiserTranche(this.dataset.date)" ' +
+         'title="Annuler la saisie manuelle et revenir à la tranche calculée">↺</button>';
+}
+async function reinitialiserTranche(date) {
+  const ctx = _calCtx;
+  if (!date || !ctx || _moisValideBev()) return;
+  const j = date.split('-');
+  if (!confirm('Réinitialiser la tranche du ' + j[2] + '/' + j[1] + ' ?\nLa saisie manuelle sera annulée et la tranche calculée automatiquement sera reprise.')) return;
+  delete _tranches[date];
+  delete _tranchesMeta[date];
+  majCellulesTranches();
+  await proposerTranches();
+  if (ctx !== _calCtx) return;                               // salarié / mois changé entre-temps
+  if (!_tranches[date] && !(_trAutoInfo[date] && _trAutoInfo[date].manquants && _trAutoInfo[date].manquants.length) && !_zonesTrajetCfg()) {
+    if (typeof SYNC !== 'undefined' && SYNC.afficherNotif) SYNC.afficherNotif('Tranche effacée — aucun calcul automatique : point de départ non paramétré (page Entreprise).');
+  }
+  autoSave();
 }
 
 function _escAttr(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1526,7 +1569,7 @@ function validerCalendrierTranches(){
     if (_mtTouches[key]) { if (code) delete _tranchesMeta[key]; else _tranchesMeta[key] = 'efface'; }
     td.innerHTML = celluleTranche(key);
   });
-  rendreRecapIndemnites();
+  majCellulesTranches();   // tranches + boutons « Réinitialiser » + récapitulatif
   autoSave();
   fermerCalendrierTranches();
 }
@@ -1640,6 +1683,7 @@ window.addEventListener('DOMContentLoaded', () => {
   remplirSalaries();
   rafraichir();
   document.getElementById('chk-valide').addEventListener('change', autoSave);
+  document.getElementById('chk-valide').addEventListener('change', function(){ if (_calCtx) _calCtx.valide = this.checked; document.querySelectorAll('#corps .reinit-cell').forEach(function(td){ td.innerHTML = celluleReinit(td.dataset.date); }); });
 });
 window.addEventListener('donnees-chargees', () => {
   const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
