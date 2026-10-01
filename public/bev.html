@@ -57,6 +57,23 @@
     .bev-encart { margin:1.2rem auto 0; border-collapse:collapse; font-size:0.85rem; }
     .bev-encart th { background:#475569; color:#fff; font-weight:500; padding:7px 14px; }
     .bev-encart td { padding:6px 14px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
+    .bev-compteur { margin:0.8rem auto 0; border-collapse:collapse; font-size:0.85rem; }
+    .bev-compteur caption { caption-side:top; font-weight:700; color:#0f3a8a; padding-bottom:4px; font-size:0.85rem; }
+    .bev-compteur th { background:#eef2f7; color:#0f3a8a; font-weight:600; padding:6px 12px; border:1px solid #e2e8f0; }
+    .bev-compteur td { padding:6px 12px; text-align:center; border:1px solid #e2e8f0; font-weight:600; }
+    .bev-compteur td.cpt-mvt { background:#fef6e7; }
+    .bev-compteur .cpt-formule { font-size:0.74rem; color:#64748b; font-weight:400; text-align:left; border:none; padding-top:5px; }
+    #modale-regle-recup { position:fixed; inset:0; z-index:9500; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
+    #modale-regle-recup .rr-boite { background:#fff; border-radius:12px; max-width:560px; width:100%; padding:22px 24px; box-shadow:0 20px 55px rgba(0,0,0,.35); color:#0f2747; font-size:0.9rem; line-height:1.45; border-top:4px solid #f59e0b; }
+    #modale-regle-recup h3 { margin:0 0 10px; color:#0f3a8a; font-size:1.1rem; }
+    #modale-regle-recup p { margin:0 0 10px; }
+    #modale-regle-recup ul { margin:0 0 12px 20px; padding:0; }
+    #modale-regle-recup li { margin:3px 0; }
+    #modale-regle-recup .rr-btns { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:16px; }
+    #modale-regle-recup .rr-btn { border-radius:7px; padding:9px 14px; font:inherit; font-weight:600; cursor:pointer; }
+    #modale-regle-recup .rr-pri { background:#0f3a8a; color:#fff; border:1px solid #0f3a8a; }
+    #modale-regle-recup .rr-sec { background:#fff; color:#0f3a8a; border:1px solid #cbd5e1; }
+    #modale-regle-recup .rr-note { font-size:0.76rem; color:#64748b; margin:10px 0 0; text-align:right; }
     .bev-encart input { width:80px; text-align:right; padding:3px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; font-weight:600; }
     #zone { max-width: 1080px; margin: 0 auto; }
     /* Liste des salariés à gauche du tableau (écran uniquement), figée pendant le défilement */
@@ -550,6 +567,84 @@ function labelJour(d) {
 }
 function classeEcart(x) { return x > 0 ? 'pos' : (x < 0 ? 'neg' : 'nul'); }
 function signe(x) { x = r2(x); return x > 0 ? '+' + fmt(x) : fmt(x); }
+
+/* ── Compteur d'heures (repos) ──
+   Le compteur est tenu en heures de REPOS : une heure sup reportée au compteur y entre majorée
+   (taux de la page Entreprise, 25 % par défaut), une heure de « Récupération » posée au Planning
+   en sort à l'unité. Un report négatif (heures en moins) est débité sans majoration.
+   Mouvement du mois = heures reportées × (1 + taux) − heures récupérées.
+   Les heures payées ne sont jamais touchées par la récupération. */
+function tauxMajorationHS() {
+  let ent = {}; try { ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {}; } catch (e) {}
+  const t = parseFloat(ent.tauxMajorationHS);
+  return (isFinite(t) && t >= 0 && t <= 100) ? t : 25;
+}
+function creditCompteur(reporte) {
+  reporte = Number(reporte) || 0;
+  return reporte > 0 ? r2(reporte * (1 + tauxMajorationHS() / 100)) : r2(reporte);
+}
+function fmtTaux(t) { return String(t).replace('.', ','); }
+
+/* Date d'effet de la règle « récupération déduite du compteur + majoration » :
+   septembre 2026 par défaut. Si l'entreprise a des données antérieures, une modale (vue Mois,
+   mois en cours) lui demande une seule fois d'étendre la règle aux mois précédents.
+   Choix stocké dans entreprisedata (synchronisé) : recupCompteurDebut + recupCompteurChoix. */
+const REGLE_RECUP_DEBUT_DEFAUT = '2026-09';
+const REGLE_RECUP_TOUT = '0000-01';
+function _entrepriseBev() { try { return JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {}; } catch (e) { return {}; } }
+function debutRegleRecup() {
+  const d = _entrepriseBev().recupCompteurDebut;
+  return (typeof d === 'string' && /^\d{4}-\d{2}$/.test(d)) ? d : REGLE_RECUP_DEBUT_DEFAUT;
+}
+function regleRecupActive(ym) { return !!ym && ym >= debutRegleRecup(); }
+/* Données de planning (chantiers ou absences) antérieures à la date d'effet par défaut */
+function existeDonneesAvantRegle() {
+  const h = _heuresData(), lim = REGLE_RECUP_DEBUT_DEFAUT.replace('-', '_') + '_01';
+  return Object.keys(h).some(function (k) {
+    const m = k.match(/^\d+(\d{4}_\d{2}_\d{2})(?:ch\d+|abs)$/);
+    if (!m || m[1] >= lim) return false;
+    const e = h[k]; return !!(e && (parseFloat(e.heures) || 0) > 0);
+  });
+}
+function verifierModaleRegleRecup(ym) {
+  if (_vue !== 'mois' || !ym || ym !== AUJOURDHUI.slice(0, 7)) return;     // page mensuelle du mois en cours uniquement
+  if (_entrepriseBev().recupCompteurChoix) return;                         // choix déjà fait : plus jamais affichée
+  if (document.getElementById('modale-regle-recup')) return;
+  if (!existeDonneesAvantRegle()) return;                                  // rien d'antérieur : la règle par défaut suffit
+  const m = document.createElement('div');
+  m.id = 'modale-regle-recup'; m.className = 'no-print';
+  m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+  m.innerHTML =
+    '<div class="rr-boite">' +
+      '<h3>Nouveau calcul du compteur d\'heures</h3>' +
+      '<p>À partir de <b>septembre 2026</b>, le compteur d\'heures de chaque salarié évolue ainsi :</p>' +
+      '<ul><li>les heures sup reportées au compteur y entrent <b>majorées</b> (' + fmtTaux(tauxMajorationHS()) + ' %) ;</li>' +
+      '<li>les heures de <b>Récupération</b> posées au Planning en sont <b>déduites automatiquement</b> ;</li>' +
+      '<li>les heures payées ne changent pas.</li></ul>' +
+      '<p>Votre entreprise a des données avant septembre 2026. Faut-il appliquer ce calcul aussi aux mois précédents ? ' +
+      'Les soldes de compteur déjà constatés seront alors <b>recalculés</b>.</p>' +
+      '<div class="rr-btns">' +
+        '<button type="button" class="rr-btn rr-sec" onclick="choisirRegleRecup(\'tout\')">Appliquer aussi aux mois précédents</button>' +
+        '<button type="button" class="rr-btn rr-pri" onclick="choisirRegleRecup(\'septembre\')">Appliquer à partir de septembre 2026</button>' +
+      '</div>' +
+      '<p class="rr-note">Ce choix vaut pour toute l\'entreprise et ne sera plus demandé.</p>' +
+    '</div>';
+  document.body.appendChild(m);
+}
+async function choisirRegleRecup(choix) {
+  const ent = _entrepriseBev();
+  ent.recupCompteurChoix = (choix === 'tout') ? 'tout' : 'septembre';
+  ent.recupCompteurDebut = (choix === 'tout') ? REGLE_RECUP_TOUT : REGLE_RECUP_DEBUT_DEFAUT;
+  try { localStorage.setItem('entreprisedata', JSON.stringify(ent)); } catch (e) {}
+  const m = document.getElementById('modale-regle-recup'); if (m) m.remove();
+  try {
+    if (typeof SYNC !== 'undefined') {
+      if (SYNC.sauvegarderTout) await SYNC.sauvegarderTout();
+      else if (SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
+    }
+  } catch (e) {}
+  rafraichir();
+}
 function getToken() { return (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : null; }
 function dansContrat(sal, d) {
   if (sal.dateEntree && cle(d) < sal.dateEntree) return false;
@@ -704,6 +799,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
       contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base, motif: motif,
+      recup: (motif === 'Récupération') ? r2(tempsEvt) : 0,   // heures de récupération du jour (prises sur le compteur)
       planifie: planifie, realise: realise, ecartRB: ecartRB,
       ecartRetenu: ecartRetenu, tempsCompte: tempsCompte
     });
@@ -822,11 +918,11 @@ async function chargerMois() {
   _calCtx = { ym: ym, lignes: lignes, label: sal.prenom + ' ' + sal.nom + ' · ' + moisLabel(ym),
              sal: sal, saisies: saisies, valide: valide };
   const mp = lignes.modePlanifie;
-  let tcontrat=0, ttevt=0, tbase=0, tplan=0, treal=0, terb=0, tret=0, tcompte=0, tbasePasse=0;
+  let tcontrat=0, ttevt=0, tbase=0, tplan=0, treal=0, terb=0, tret=0, tcompte=0, tbasePasse=0, trecup=0;
   let corps = '';
   lignes.forEach(l => {
     // Colonnes connues pour tout le mois (Contrat / Temps Évt / Nouvelle Base / Planifié)
-    tcontrat += l.contrat; ttevt += l.tempsEvt; tbase += l.base; tplan += l.planifie;
+    tcontrat += l.contrat; ttevt += l.tempsEvt; tbase += l.base; tplan += l.planifie + l.recup; trecup += l.recup;
     const aEvt   = Math.abs(l.tempsEvt || 0) > 0.0001;
     const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aEvt && !l.motif ? ' abs-todo' : '');
     let cellsReel;
@@ -847,7 +943,7 @@ async function chargerMois() {
       '<td class="evt-cell">' + (l.motif || '') + '</td>' +
       '<td>' + fmt(l.tempsEvt) + '</td>' +
       '<td><b class="base">' + fmt(l.base) + '</b></td>' +
-      '<td>' + fmt(l.planifie) + '</td>' +
+      (l.recup ? '<td title="' + fmt(l.planifie) + ' h planifiées + ' + fmt(l.recup) + ' h de récupération">' + fmt(r2(l.planifie + l.recup)) + '</td>' : '<td>' + fmt(l.planifie) + '</td>') +
       cellsReel +
       '<td class="col-tranche tranche-cell" data-date="' + l.date + '">' + celluleTranche(l.date) + '</td>' +
       '<td class="col-repas repas-cell" data-date="' + l.date + '">' + celluleRepas(l) + '</td>' +
@@ -860,7 +956,7 @@ async function chargerMois() {
   document.getElementById('zone').innerHTML =
     '<div class="bev-flow"><div class="bev-left">' +
     '<table class="bev' + (mp ? ' mode-planifie' : '') + '"><thead><tr>' +
-      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Écart ' + (mp ? 'Planifié' : 'Réalisé') + '/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th><th class="col-repas">Repas</th><th class="col-tranche col-reinit no-print" title="Réinitialiser la tranche">↺</th>' +
+      '<th>Jour</th><th>Contrat</th><th>Événements</th><th>Temps Évt</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Écart ' + (mp ? 'Planifié' : 'Réalisé') + '/Base</th><th>Écart retenu</th><th>Temps pris en compte</th><th class="col-tranche">Tranche indemnité</th><th class="col-repas">Repas</th><th class="col-tranche col-reinit no-print" title="Réinitialiser la tranche">↺</th>' +
     '</tr></thead><tbody id="corps">' + corps + '</tbody>' +
     '<tfoot><tr><td>Totaux</td>' +
       '<td></td><td></td><td>' + fmt(ttevt) + '</td>' +
@@ -875,6 +971,10 @@ async function chargerMois() {
     '<div id="recap-evenements"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/' + (mp ? 'Planifié' : 'Réalisé') + '</th><th>Écart d\'heures reportés</th><th>Total Heures payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
+    '<table class="bev-compteur" id="bev-compteur" data-ym="' + ym + '" data-recup="' + r2(trecup) + '"><caption>Compteur d\'heures — mouvement du mois</caption>' +
+    '<thead><tr><th>Heures reportées au compteur</th><th id="cpt-th-maj">Majoration</th><th>Heures créditées</th><th>Heures récupérées sur le mois</th><th>Mouvement du compteur</th></tr></thead>' +
+    '<tbody><tr><td id="cpt-rep"></td><td id="cpt-maj"></td><td id="cpt-cred"></td><td id="cpt-recup"></td><td class="cpt-mvt" id="cpt-mvt"></td></tr>' +
+    '<tr><td colspan="5" class="cpt-formule" id="cpt-formule"></td></tr></tbody></table>' +
     '</div>' +
     '<div class="signatures"><div class="sig-box"><div class="lbl">Pour l\'entreprise</div><div class="sub">Date et signature</div></div>' +
     '<div class="sig-box"><div class="lbl">Le salarié</div><div class="sub">Date et signature</div></div></div>' +
@@ -900,6 +1000,7 @@ async function chargerMois() {
   majEncart();
   _diagEtape(_d, 'calcul et affichage'); _diagAfficher(_d, saisies);
   proposerTranches();
+  verifierModaleRegleRecup(ym);
 }
 
 function recalcMois() {
@@ -934,6 +1035,32 @@ function majEncart() {
   if (p) { p.textContent = signe(paye); p.className = classeEcart(paye); }
   const tpay = document.getElementById('enc-payees');
   if (tpay) tpay.textContent = fmt(r2(paye - rep));           // Total heures payées = Écart Nouvelle base/Planifié − Écart reportés
+  majCompteur(rep);
+}
+function majCompteur(rep) {
+  const tab = document.getElementById('bev-compteur');
+  if (!tab) return;
+  const actif = regleRecupActive(tab.dataset.ym);
+  const taux  = actif ? tauxMajorationHS() : 0;
+  const recup = actif ? r2(parseFloat(tab.dataset.recup) || 0) : 0;
+  const cred  = actif ? creditCompteur(rep) : r2(rep);
+  const maj   = r2(cred - rep);
+  const mvt   = r2(cred - recup);
+  const set = function (id, txt, cls) { const e = document.getElementById(id); if (e) { e.textContent = txt; if (cls !== undefined) e.className = cls; } };
+  set('cpt-th-maj', 'Majoration ' + fmtTaux(taux) + ' %');
+  set('cpt-rep', signe(rep));
+  set('cpt-maj', maj ? signe(maj) : fmt(0));
+  set('cpt-cred', signe(cred));
+  set('cpt-recup', recup ? '−' + fmt(recup) : fmt(0));
+  set('cpt-mvt', signe(mvt), 'cpt-mvt ' + classeEcart(mvt));
+  if (!actif) {
+    set('cpt-recup', 'non déduites');
+    set('cpt-formule', 'Mois antérieur à septembre 2026 : calcul précédent (report sans majoration, récupérations non déduites). Mouvement = ' + signe(mvt) + ' h.');
+    return;
+  }
+  set('cpt-formule', rep > 0
+    ? 'Mouvement = ' + fmt(rep) + ' h reportées × ' + fmtTaux(r2(1 + taux / 100)) + ' (majoration ' + fmtTaux(taux) + ' %) − ' + fmt(recup) + ' h récupérées = ' + signe(mvt) + ' h de repos'
+    : 'Mouvement = ' + signe(rep) + ' h reportées (pas de majoration sur un report nul ou négatif) − ' + fmt(recup) + ' h récupérées = ' + signe(mvt) + ' h de repos');
 }
 
 async function enregistrer() {
@@ -1025,7 +1152,7 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, soldeCumule=0;
+  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, TMAJO=0, TRECUP=0, soldeCumule=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
   // Régime CIBTP (réglage entreprise, page Entreprise) : décompte en jours ouvrables → coefficient (25/12)/(30/12)
@@ -1039,10 +1166,10 @@ async function chargerAnnee() {
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
-    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, cRttRecup=0, moisPasse=false;
+    let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, cRttRecup=0, cRecup=0, moisPasse=false;
     const cntEvt = {}; evtsAnnee.forEach(function(e){ cntEvt[e] = 0; });
     lignes.forEach(l => {
-      cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie;
+      cContrat += l.contrat; cTevt += l.tempsEvt; cPlan += l.planifie + l.recup; cRecup += l.recup;
       if (l.passe) { cReal += l.realise; cCompte += l.tempsCompte; cBase += l.base; moisPasse = true; }
       if (l.motif === 'RTT' || l.motif === 'Récupération') cRttRecup += l.tempsEvt;
       if (cntEvt[l.motif] !== undefined) cntEvt[l.motif] = r2(cntEvt[l.motif] + ((entCIBTP && l.motif === 'Congé') ? COEF_CIBTP : 1));
@@ -1057,13 +1184,19 @@ async function chargerAnnee() {
     const blanc = !moisPasse;                       // mois pas encore commencé : pas de réalisé
     const payees = moisPasse ? r2(cCompte - reporte) : 0;
     const ecart  = r2(cReal - cBase);
-    TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan; TRTTRECUP += cRttRecup;
+    // Compteur (heures de repos) : + report majoré − récupérations du mois (mois commencés uniquement)
+    const actif  = regleRecupActive(ym);              // règle en vigueur pour ce mois (septembre 2026 par défaut)
+    const credit = moisPasse ? (actif ? creditCompteur(reporte) : r2(reporte)) : 0;
+    const majo   = moisPasse ? r2(credit - reporte) : 0;
+    const recupM = (moisPasse && actif) ? r2(cRecup) : 0;
+    TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan; TRTTRECUP += cRttRecup; TMAJO += majo; TRECUP += recupM;
     if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; TPAYEES += payees; }
-    soldeCumule = r2(soldeCumule + reporte);         // cumul du compteur mois après mois
+    soldeCumule = r2(soldeCumule + credit - recupM);
     moisData.push({
       nom: moisNoms[idx], vide: false, blanc: blanc,
       contrat: cContrat, tevt: cTevt, rttRecup: cRttRecup, base: cBase, plan: cPlan,
       real: cReal, compte: cCompte, ecart: ecart, payees: payees, reporte: reporte,
+      credit: credit, majo: majo, recup: recupM,
       soldeCumule: soldeCumule, cntEvt: cntEvt, totEvtMois: totEvtMois
     });
   });
@@ -1071,7 +1204,7 @@ async function chargerAnnee() {
   _anneeCtx = {
     moisData: moisData, evtsAnnee: evtsAnnee, TEVT: TEVT, entCIBTP: entCIBTP,
     totaux: { TC:TC, TTE:TTE, TBASE:TBASE, TPLAN:TPLAN, TREAL:TREAL, TCOMPTE:TCOMPTE,
-      TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, soldeCumule:soldeCumule,
+      TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, TMAJO:r2(TMAJO), TRECUP:r2(TRECUP), soldeCumule:soldeCumule,
       TECART: r2(TREAL - TBASE) }
   };
   rendreTableauAnnee();
@@ -1100,9 +1233,9 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.TPAYEES) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   } else {
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Solde compteur heure</th></tr>';
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées</th><th>Heures dues au salarié</th><th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th><th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
     moisData.forEach(function(md){
-      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + fmt(md.tevt) + '</td>' +
@@ -1113,6 +1246,8 @@ function rendreTableauAnnee() {
         '<td>' + (md.blanc ? '' : fmt(md.compte)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.reporte)) + '</td>' +
+        '<td>' + (md.blanc ? '' : fmt(md.majo)) + '</td>' +
+        '<td>' + (md.blanc ? '' : (md.recup ? '−' + fmt(md.recup) : fmt(0))) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
     });
     tfoot = '<tr><td>Total année</td>' +
@@ -1125,6 +1260,8 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.TCOMPTE) + '</td>' +
       '<td>' + fmt(r2(totaux.TCOMPTE - totaux.TREPORTE)) + '</td>' +
       '<td>' + fmt(totaux.TREPORTE) + '</td>' +
+      '<td>' + fmt(totaux.TMAJO) + '</td>' +
+      '<td>' + (totaux.TRECUP ? '−' + fmt(totaux.TRECUP) : fmt(0)) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   }
 
