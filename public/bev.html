@@ -654,8 +654,9 @@ function dansContrat(sal, d) {
   return true;
 }
 
-/* Créneaux marqués « exclu du calcul » dans le Planning (heuresdata), recoupés par salarié+date+nom —
-   même mécanisme que realise.html/planning.html, lu ici pour que le Réalisé du BEV les ignore aussi. */
+/* Créneaux marqués « exclu du calcul » dans le Planning (SAV, fournisseur, visite client…) : exclus
+   du prévisionnel et de la facturation, mais c'est du TEMPS DE TRAVAIL EFFECTIF. Le BEV (paie) ne les
+   exclut donc PAS : ils comptent dans le Réalisé, le repas et la tranche de trajet. */
 /* ── Cache de lecture du Planning (heuresdata) ──
    heuresdata peut peser plusieurs Mo : le relire et le décoder à chaque jour du mois
    (colonnes Repas / Tranche, récapitulatifs, vue Année) rendait l'affichage très lent.
@@ -695,12 +696,10 @@ function estExcluBev(motifsExclus, salarieId, date, nom) {
    Les créneaux marqués « exclu du calcul » dans le Planning n'y comptent pas. */
 function realiseParJour(saisies, salarieId) {
   const map = {};
-  const motifsExclus = calculerExclusMotifsBev();
   (saisies || []).forEach(s => {
     if (String(s.salarieId) !== String(salarieId)) return;
     let min = 0;
     (s.chantiers || []).forEach(c => {
-      if (estExcluBev(motifsExclus, salarieId, s.date, c.nom)) return;
       min += (c.dureeMin || 0) + (c.deplacement || 0);
     });
     map[s.date] = (map[s.date] || 0) + min / 60;
@@ -799,14 +798,16 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     // Heures de récupération : rémunérées (prises sur le compteur) → comptées dans le Temps pris en compte,
     // à partir de la date d'effet de la règle. L'écart du jour, lui, n'en tient pas compte (base déjà réduite).
     const recupPayee = (motif === 'Récupération' && regleRecupActive(ym)) ? r2(tempsEvt) : 0;
-    const tempsCompte = r2(base + ecartRetenu + recupPayee);   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération
+    // Visite médicale (médecine du travail) : temps de travail effectif, rémunéré comme tel
+    const evtPaye = (motif === 'Visite médicale') ? r2(tempsEvt) : 0;
+    const tempsCompte = r2(base + ecartRetenu + recupPayee + evtPaye);   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération + visite médicale
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
       contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base, motif: motif,
       recup: (motif === 'Récupération') ? r2(tempsEvt) : 0,   // heures de récupération du jour (prises sur le compteur)
       planifie: planifie, realise: realise, ecartRB: ecartRB,
-      ecartRetenu: ecartRetenu, tempsCompte: tempsCompte, recupPayee: recupPayee
+      ecartRetenu: ecartRetenu, tempsCompte: tempsCompte, recupPayee: r2(recupPayee + evtPaye)
     });
   }
   // Client « planning seul » : si aucun réalisé sur le mois, l'écart se calcule
@@ -1317,12 +1318,10 @@ const REPAS_HEURE_LIMITE = '13:00';
 function estDemiJourneeSansRepas(date) {
   const ctx = _calCtx;
   if (!ctx || !ctx.sal || !date) return false;
-  const motifsExclus = calculerExclusMotifsBev();
   let nb = 0, apres = false;
   (ctx.saisies || []).forEach(function (s) {
     if (String(s.salarieId) !== String(ctx.sal.id) || s.date !== date) return;
     (s.chantiers || []).forEach(function (c) {
-      if (estExcluBev(motifsExclus, ctx.sal.id, date, c.nom)) return;
       const fin = String(c.heureDepart || '').trim();
       if (!/^\d{1,2}:\d{2}$/.test(fin)) { apres = true; return; }   // heure inconnue : on ne retire pas le repas
       nb++;
@@ -1504,9 +1503,8 @@ function codeTranchePourKm(km, bornes) {
 }
 /* Noms des chantiers d'une journée : réalisé d'abord, planning à défaut. */
 function chantiersDuJour(salId, l, saisies) {
-  const motifsExclus = calculerExclusMotifsBev();
   const noms = [];
-  const ajouter = function (n) { n = (n || '').trim(); if (n && noms.indexOf(n.toUpperCase()) === -1 && !estExcluBev(motifsExclus, salId, l.date, n)) noms.push(n.toUpperCase()); };
+  const ajouter = function (n) { n = (n || '').trim(); if (n && noms.indexOf(n.toUpperCase()) === -1) noms.push(n.toUpperCase()); };
   if ((parseFloat(l.realise) || 0) > 0) {
     (saisies || []).forEach(function (s) {
       if (String(s.salarieId) !== String(salId) || s.date !== l.date) return;
