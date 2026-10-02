@@ -478,3 +478,39 @@ export async function envoyerMailSignatureClient(d) {
     text
   });
 }
+
+// ════════════════ NOTIFICATION À VOLITIS : NOUVELLE AUTO-INSCRIPTION À L'ESSAI ════════════════
+// Envoyée juste après la création d'un essai (routes/auth.js, POST /inscription).
+// Destinataire : MAIL_NOTIF, sinon MAIL_FROM (comme la notification de signature).
+export async function envoyerMailInscriptionVolitis({ email, nomClient, code, dateExpiration, prescripteur, prescripteurNom }) {
+  const appUrl = process.env.APP_URL || "https://suivi-heures.volitis.net";
+  const dest = process.env.MAIL_NOTIF || process.env.MAIL_FROM || process.env.SMTP_FROM || "contact@volitis.net";
+  const presc = prescripteur ? (prescripteurNom ? prescripteurNom + " (" + prescripteur + ")" : prescripteur) : "aucun (inscription directe)";
+
+  const rows = [
+    ["Entreprise", nomClient],
+    ["E-mail", email],
+    ["Code client", code, true],
+    ["Prescripteur", presc],
+    ["Inscrit le", _dateHeure(new Date())],
+    ["Fin de l'essai", _fmtDate(dateExpiration)]
+  ];
+
+  const corps =
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#334155;">Une nouvelle entreprise vient de créer son espace d'essai Suiv'Heures (30 jours, formule Plus).</p>` +
+    _lignes(rows) +
+    _bouton("Ouvrir l'admin", `${appUrl}/admin.html`);
+
+  const text =
+    `Nouvel essai Suiv'Heures — ${nomClient || ""}\n\n` +
+    rows.filter(r => r[1]).map(([k, v]) => `${k} : ${v}`).join("\n") +
+    `\n\nAdmin : ${appUrl}/admin.html`;
+
+  return _envoyerResend({
+    to: dest,
+    subject: `🆕 Nouvel essai Suiv'Heures — ${nomClient || "entreprise"} (${code})`,
+    html: _gabarit("Nouvel essai — " + (nomClient || ""), corps),
+    text,
+    replyTo: email || undefined   // « Répondre » écrit directement au prospect
+  });
+}
