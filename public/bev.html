@@ -41,6 +41,9 @@
     table.bev th:first-child, table.bev td:first-child { white-space:nowrap; }
     table.bev td.evt-cell { text-align:center; }
     table.bev tr.we td { background:#fafafa; color:#9ca3af; }
+    /* Week-end non travaillé : ligne vide, teintée, séparateur entre deux semaines */
+    table.bev tr.we-off td { background:#eef2f7; color:#94a3b8; font-size:0.78rem; padding-top:2px; padding-bottom:2px; }
+    table.bev tr.we-off + tr:not(.we-off) td { border-top:2px solid #cbd5e1; }
     /* Jour avec absence planning non nulle : à caractériser dans Événements */
     table.bev tr.abs-todo td { background:#fed7aa; }
     table.bev tr.abs-todo td:first-child { color:#9a3412; font-weight:600; }
@@ -930,7 +933,20 @@ async function chargerMois() {
     // Colonnes connues pour tout le mois (Contrat / Temps Évt / Nouvelle Base / Planifié)
     tcontrat += l.contrat; ttevt += l.tempsEvt; tbase += l.base; tplan += l.planifie + l.recup; trecup += l.recup;
     const aEvt   = Math.abs(l.tempsEvt || 0) > 0.0001;
-    const clsLigne = (l.we ? ' we' : '') + (l.passe ? '' : ' futur') + (aEvt && !l.motif ? ' abs-todo' : '');
+    // Samedi / dimanche NON travaillé (aucun contrat, planifié, réalisé, événement, ajustement ni tranche) :
+    // ligne vidée de toute valeur et de toute zone de saisie, pour séparer visuellement les semaines.
+    const weOff = l.we && !(l.contrat > 0) && !(l.planifie > 0) && !(l.realise > 0) && !aEvt && !l.recup &&
+                  !(retenues && retenues[l.date] != null && Math.abs(Number(retenues[l.date])) > 0.001) && !_tranches[l.date];
+    // Week-end travaillé : affiché comme un jour de semaine (pas de grisé)
+    const clsLigne = (weOff ? ' we we-off' : '') + (l.passe ? '' : ' futur') + (aEvt && !l.motif ? ' abs-todo' : '');
+    if (weOff) {
+      corps += '<tr class="' + clsLigne.trim() + '"><td>' + l.label + '</td>' +
+        '<td></td><td class="evt-cell"></td><td></td><td></td><td></td><td></td><td></td><td></td><td class="tcompte"></td>' +
+        '<td class="col-tranche tranche-cell" data-date="' + l.date + '"></td>' +
+        '<td class="col-repas repas-cell" data-date="' + l.date + '"></td>' +
+        '<td class="col-tranche col-reinit reinit-cell no-print" data-date="' + l.date + '"></td></tr>';
+      return;
+    }
     let cellsReel;
     if (l.passe) {
       // Réalisé et colonnes dérivées : uniquement quand le jour est passé
@@ -1310,7 +1326,7 @@ let _mtTouches = {};    // { 'YYYY-MM-DD': true } — jours modifiés à la main
 /* Un jour est sélectionnable pour une tranche dès qu'il y a du temps réalisé (ou planifié en licence
    Standard) — même si un motif (Autre, Even. Familial, etc.) est aussi présent ce jour-là : un
    événement partiel n'empêche pas le déplacement d'avoir eu lieu. Seul un jour à 0h réel/planifié
-   (week-end ou absence pleine journée) reste non sélectionnable. */
+   (week-end non travaillé ou absence pleine journée) reste non sélectionnable. */
 /* Panier repas : dû par défaut pour chaque jour travaillé. Exception : demi-journée, c'est-à-dire
    un réalisé (saisies du salarié) dont AUCUN chantier ne se termine après 13h00.
    Sans réalisé exploitable ce jour-là (heures de départ absentes, licence Standard…), le repas reste dû. */
@@ -1333,7 +1349,8 @@ function estDemiJourneeSansRepas(date) {
 
 /* Jour à venir (après aujourd'hui) : pas de tranche affichée, proposée ni saisissable tant qu'il n'est pas passé */
 function _trJourFutur(date){ return !!date && date > AUJOURDHUI; }
-function _mtEstTravaille(l){ return !!(l && !l.we && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
+/* Jour travaillé = du temps réalisé ou planifié, week-end compris (samedi/dimanche travaillé : tranche et repas dus) */
+function _mtEstTravaille(l){ return !!(l && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
 function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()); t.setDate(t.getDate()+3-((t.getDay()+6)%7)); const s=new Date(t.getFullYear(),0,4); return 1+Math.round(((t-s)/86400000-3+((s.getDay()+6)%7))/7); }
 
 function ouvrirCalendrierTranches(){
