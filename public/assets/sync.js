@@ -872,7 +872,7 @@ const SYNC = (() => {
       { href: 'index.html',     label: 'Entreprise' },
       { href: 'salaries.html',  label: 'Salariés' },
       { href: 'chantiers.html', label: 'Prévisionnel' },
-      { href: 'clients.html',   label: 'Clients', requiertHenrri: true }
+      { href: 'clients.html',   label: 'Clients' }   // toujours visible : base alimentée aussi par le planning (Henrri facultatif)
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },

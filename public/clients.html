@@ -60,6 +60,37 @@
     #plan-overlay .pm-f button { flex: 1; border: none; border-radius: 8px; padding: 10px; font-weight: 700; font-size: .86rem; cursor: pointer; }
     #plan-overlay .pm-ok { background: #f59e0b; color: #fff; }
     #plan-overlay .pm-an { background: #e2e8f0; color: #334155; }
+    .badge-src { display:inline-block; font-size:.68rem; font-weight:700; border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:1px; white-space:nowrap; }
+    .b-henrri  { background:#e0f2fe; color:#075985; }
+    .b-planning{ background:#fef3c7; color:#92400e; }
+    .b-mixte   { background:#dcfce7; color:#166534; }
+    .b-incomplet{ background:#fee2e2; color:#991b1b; }
+    .b-doublon { background:#fde68a; color:#78350f; cursor:pointer; }
+    .cl-sous { font-size:.74rem; color:#64748b; margin-top:2px; }
+    .btn-mini { background:#eef2f7; color:#334155; border:none; border-radius:6px; padding:5px 9px; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; margin-left:4px; }
+    .btn-mini:hover { background:#e2e8f0; }
+    .lien-defaire { color:#94a3b8; cursor:pointer; margin-left:8px; font-size:.72rem; }
+    .lien-defaire:hover { color:#b91c1c; }
+    .clients-toolbar select { padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:.88rem; }
+    #clients-doublons { display:none; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; padding:.65rem 1rem; border-radius:8px; margin:.6rem 0; font-size:.88rem; }
+    #clients-doublons button { margin-left:10px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; }
+    .clients-info-douce { background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; padding:.6rem 1rem; border-radius:8px; margin:.6rem 0; font-size:.85rem; }
+    #dbl-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
+    #dbl-overlay.on { display:flex; }
+    #dbl-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:760px; max-height:86vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #dbl-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; }
+    #dbl-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #dbl-liste { overflow-y:auto; padding:10px 16px; }
+    .dbl-paire { display:grid; grid-template-columns:1fr 1fr; gap:10px; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-bottom:10px; }
+    .dbl-fiche { font-size:.82rem; color:#334155; line-height:1.4; }
+    .dbl-fiche b { font-size:.9rem; }
+    .dbl-raisons { grid-column:1 / -1; font-size:.78rem; color:#78350f; }
+    .dbl-actions { grid-column:1 / -1; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .dbl-actions button { border:none; border-radius:7px; padding:7px 12px; font-weight:700; font-size:.8rem; cursor:pointer; }
+    .dbl-ok { background:#16a34a; color:#fff; } .dbl-non { background:#e2e8f0; color:#334155; }
+    #dbl-overlay .pm-f { padding:10px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:right; }
+    #dbl-overlay .pm-f button { border:none; border-radius:8px; padding:9px 16px; font-weight:700; background:#e2e8f0; cursor:pointer; }
+    @media (max-width:640px){ .dbl-paire{ grid-template-columns:1fr; } .clients-toolbar input[type="text"]{ width:100%; } }
     .clients-alerte {
       background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
       padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.88rem;
@@ -95,16 +126,25 @@
 
 <section>
   <p style="font-size:0.88rem;color:#475569;margin:0.6rem 0;">
-    Base clients Henrri, rafraîchie manuellement depuis votre compte Henrri (rubrique connectée dans la page <strong>Entreprise</strong>).
+    Base clients construite automatiquement à partir de votre <strong>planning</strong>, de votre <strong>prévisionnel</strong> et des fiches coordonnées de chantier — enrichie par votre base <strong>Henrri</strong> lorsque la connexion est active (page <strong>Entreprise</strong>).
   </p>
 
-  <div id="clients-non-connecte" class="clients-alerte" style="display:none;">
-    ⚠ Connexion Henrri non activée. Rendez-vous dans la page <a href="index.html">Entreprise</a> pour renseigner vos identifiants API Henrri.
+  <div id="clients-non-connecte" class="clients-info-douce" style="display:none;">
+    ℹ Henrri n'est pas connecté : la base ci-dessous provient uniquement de votre planning et de votre prévisionnel. Pour y ajouter votre base clients Henrri, renseignez vos identifiants API dans la page <a href="index.html">Entreprise</a>.
   </div>
 
+  <div id="clients-doublons"></div>
+
   <div class="clients-toolbar">
-    <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()">🔄 Actualiser depuis Henrri</button>
+    <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
     <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
+    <select id="filtre-source" onchange="filtrerClients()">
+      <option value="">Tous les clients</option>
+      <option value="henrri">Présents dans Henrri</option>
+      <option value="planning">Planning uniquement</option>
+      <option value="incomplet">Fiches à compléter</option>
+      <option value="doublon">Doublons probables</option>
+    </select>
     <span id="clients-info"></span>
   </div>
 
@@ -115,9 +155,9 @@
           <th>Nom</th>
           <th>Adresse</th>
           <th>Ville</th>
-          <th>Code postal</th>
           <th>Téléphone</th>
           <th>Email</th>
+          <th>Dernière intervention</th>
           <th></th>
         </tr>
       </thead>
@@ -142,11 +182,40 @@
   </div>
 </div>
 
+<!-- Fenêtre « Doublons probables » -->
+<div id="dbl-overlay" onclick="if(event.target===this)fermerDoublons()">
+  <div class="pm">
+    <div class="pm-h"><b>🔎 Doublons probables entre planning et Henrri</b>
+      <div class="pm-sub">Un même client saisi différemment dans le planning et dans Henrri. « Fusionner » réunit les deux en une seule fiche (les coordonnées Henrri priment). Rien n'est renommé dans le planning.</div></div>
+    <div id="dbl-liste"></div>
+    <div class="pm-f"><button type="button" onclick="fermerDoublons()">Fermer</button></div>
+  </div>
+</div>
+
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script>
-let _clientsHenrri = [];
+/* ═══════════════════════════════════════════════════════════════
+   BASE CLIENTS = planning + prévisionnel + fiches coordonnées (+ Henrri)
+   ═══════════════════════════════════════════════════════════════
+   La page n'a plus besoin d'Henrri pour exister : tout chantier saisi dans
+   le planning ou le prévisionnel devient un client. Si Henrri est connecté,
+   sa base vient s'y ajouter et les deux sources sont rapprochées :
+   • AUTOMATIQUE : nom identique (casse, accents, ponctuation, espaces
+     ignorés), ou ligne créée par l'import d'un devis Henrri (« NOM 26-09-1 ») ;
+   • DOUBLON PROBABLE (à trancher par l'utilisateur) : mêmes mots dans un
+     ordre différent, nom inclus dans l'autre (SARL, M., Mme… ignorés), même
+     téléphone, même adresse, orthographe proche.
+   Les décisions (fusionner / distincts) sont enregistrées dans
+   entreprisedata.clientsDoublons → synchronisées sur tous les postes.
+   Rien n'est jamais renommé dans le planning (outil « Renommer » pour ça).
+   ═══════════════════════════════════════════════════════════════ */
+let _clientsHenrri = [];   // cache serveur Henrri (vide si non connecté)
+let _henrriActif   = false;
+let _clients       = [];   // liste fusionnée affichée
+let _doublons      = [];   // paires { plan, henrri, raisons, score }
 
 function _clToken() {
   return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
@@ -154,59 +223,339 @@ function _clToken() {
 }
 function _clEsc(s) {
   return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function _jsArg(v) { return _clEsc(JSON.stringify(String(v == null ? '' : v))); }   // argument sûr dans un onclick
+function _lire(cle, defaut) {
+  try { const v = JSON.parse(localStorage.getItem(cle) || 'null'); return v == null ? defaut : v; }
+  catch (_) { return defaut; }
 }
 
+/* ── Normalisations servant à comparer les noms ── */
+const RE_REF_DEVIS = /\s+\d{2}-\d{2}-\d+\s*$/;     // n° de devis ajouté par l'import Henrri (« 26-09-1 »)
+const MOTS_NEUTRES = new Set(['SARL','SAS','SASU','EURL','SCI','SA','SNC','EI','EIRL','SCEA','GAEC','EARL',
+  'M','MR','MME','MLLE','MRS','MONSIEUR','MADAME','MADEMOISELLE','ET','LE','LA','LES','L','DE','DU','DES','D']);
+const EXCLUS = new Set(['TEMPS NON AFFECTE']);
+
+function _norm(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+}
+function _sansRef(nom) { return String(nom || '').trim().replace(RE_REF_DEVIS, '').trim(); }
+function _cle(nom)     { return _norm(_sansRef(nom)); }
+function _mots(nom)    { return _cle(nom).split(' ').filter(t => t && !MOTS_NEUTRES.has(t)); }
+function _tel(s)       { const d = String(s || '').replace(/\D/g, ''); return d.length >= 9 ? d.slice(-9) : ''; }
+function _distance(a, b) {               // Levenshtein
+  if (a === b) return 0;
+  const m = a.length, n = b.length; if (!m || !n) return m || n;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++)
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function _cpDe(ville) { const m = String(ville || '').match(/\b\d{5}\b/); return m ? m[0] : ''; }
+function _isoFr(iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : ''; }
+
+/* ── Décisions enregistrées (synchronisées via entreprisedata) ── */
+function _decisions() {
+  const ent = _lire('entreprisedata', {});
+  const d = ent.clientsDoublons || {};
+  return { liens: d.liens || {}, distincts: Array.isArray(d.distincts) ? d.distincts : [] };
+}
+function _enregistrerDecisions(d) {
+  const ent = _lire('entreprisedata', {});
+  ent.clientsDoublons = { liens: d.liens, distincts: d.distincts };
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));     // sync.js pousse au serveur
+}
+
+/* ── 1. Clients issus du planning, du prévisionnel et des fiches coordonnées ── */
+function _clientsPlanning() {
+  const heures = _lire('heuresdata', {});
+  const prev   = _lire('previsionnel_data', {});
+  const coords = _lire('coordonneesChantiersdata', {});
+  const groupes = new Map();
+  const ajouter = (nomBrut, date) => {
+    const nom = String(nomBrut || '').trim();
+    const cle = _cle(nom);
+    if (!cle || EXCLUS.has(cle)) return;
+    let g = groupes.get(cle);
+    if (!g) { g = { cle, nom: _sansRef(nom), chantiers: new Set(), derniere: '' }; groupes.set(cle, g); }
+    g.chantiers.add(nom.toUpperCase());
+    if (date && date > g.derniere) g.derniere = date;
+  };
+  Object.keys(heures).forEach(k => {
+    const e = heures[k];
+    if (!e || typeof e.chantier !== 'string' || !e.chantier.trim()) return;
+    const m = k.match(/(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    ajouter(e.chantier, m ? `${m[1]}-${m[2]}-${m[3]}` : '');
+  });
+  Object.values(prev || {}).forEach(an => Object.values(an || {}).forEach(mo => {
+    (mo && Array.isArray(mo.chantiers) ? mo.chantiers : []).forEach(c => c && ajouter(c.client, ''));
+  }));
+  Object.keys(coords || {}).forEach(nom => ajouter(nom, ''));
+
+  // Coordonnées : première fiche renseignée parmi les chantiers du groupe
+  const coordsNorm = new Map(Object.keys(coords || {}).map(k => [_norm(k), coords[k]]));
+  return [...groupes.values()].map(g => {
+    let co = null;
+    for (const ch of g.chantiers) {
+      const c = coords[ch] || coordsNorm.get(_norm(ch));
+      if (c && (c.adresse || c.ville || c.mobile || c.fixe)) { co = c; break; }
+    }
+    co = co || {};
+    return {
+      cle: g.cle, nom: g.nom, chantiers: [...g.chantiers], derniere: g.derniere,
+      adresse: co.adresse || '', ville: co.ville || '',
+      telephone: co.mobile || co.fixe || '', email: ''
+    };
+  });
+}
+
+/* ── 2. Rapprochement planning ↔ Henrri ── */
+function _raisonsDoublon(p, h) {
+  const r = [];
+  let score = 0;
+  const mp = _mots(p.nom), mh = _mots(h.nom);
+  const kp = mp.join(' '), kh = mh.join(' ');
+  if (kp && kh && kp !== kh && [...mp].sort().join(' ') === [...mh].sort().join(' ')) { r.push('mêmes mots, ordre différent'); score += 3; }
+  else if (kp && kh && kp === kh) { r.push('même nom (hors SARL, M., Mme…)'); score += 3; }
+  else if (mp.length && mh.length) {
+    const [petit, grand] = mp.length <= mh.length ? [mp, mh] : [mh, mp];
+    if (petit.some(t => t.length >= 3) && petit.every(t => grand.includes(t))) { r.push('nom inclus dans l’autre'); score += 2; }
+  }
+  const tp = _tel(p.telephone), th = _tel(h.telephone);
+  if (tp && th && tp === th) { r.push('même téléphone'); score += 3; }
+  const ap = _norm(p.adresse), ah = _norm(h.adresse);
+  if (ap.length >= 6 && ap === ah) { r.push('même adresse'); score += 2; }
+  const a = _cle(p.nom).replace(/ /g, ''), b = _cle(h.nom).replace(/ /g, '');
+  if (!r.length && Math.min(a.length, b.length) >= 5) {
+    const sim = 1 - _distance(a, b) / Math.max(a.length, b.length);
+    if (sim >= 0.85) { r.push('orthographe proche'); score += 1; }
+  }
+  return { raisons: r, score };
+}
+
+function construireBase() {
+  const dec = _decisions();
+  const distincts = new Set(dec.distincts);
+  const planning = _clientsPlanning();
+  const henrri = (_clientsHenrri || []).filter(h => h && String(h.nom || '').trim())
+    .map(h => ({ ...h, id: String(h.id), cle: _cle(h.nom) }));
+  const parId = new Map(henrri.map(h => [h.id, h]));
+  const parCle = new Map(); henrri.forEach(h => { if (h.cle && !parCle.has(h.cle)) parCle.set(h.cle, h); });
+
+  const rattache = new Map();   // henrriId → [clients planning]
+  const seuls = [];
+  planning.forEach(p => {
+    let h = null, mode = '';
+    const lien = dec.liens[p.cle];
+    if (lien && parId.has(String(lien))) { h = parId.get(String(lien)); mode = 'manuel'; }
+    else if (parCle.has(p.cle))          { h = parCle.get(p.cle);       mode = 'auto'; }
+    if (h) { if (!rattache.has(h.id)) rattache.set(h.id, []); rattache.get(h.id).push({ ...p, mode }); }
+    else seuls.push(p);
+  });
+
+  // Doublons probables : planning seul ↔ Henrri, hors paires déclarées distinctes
+  _doublons = [];
+  seuls.forEach(p => {
+    let meilleur = null;
+    henrri.forEach(h => {
+      if (distincts.has(p.cle + '|' + h.id)) return;
+      const d = _raisonsDoublon(p, h);
+      if (d.raisons.length && (!meilleur || d.score > meilleur.score)) meilleur = { plan: p, henrri: h, ...d };
+    });
+    if (meilleur) _doublons.push(meilleur);
+  });
+  _doublons.sort((x, y) => y.score - x.score);
+  const enDoublon = new Set(_doublons.map(d => d.plan.cle));
+
+  const liste = [];
+  henrri.forEach(h => {
+    const ps = rattache.get(h.id) || [];
+    const chantiers = ps.flatMap(p => p.chantiers);
+    const derniere = ps.reduce((m, p) => (p.derniere > m ? p.derniere : m), '');
+    const pc = ps.find(p => p.adresse || p.ville || p.telephone) || {};
+    liste.push({
+      source: ps.length ? 'mixte' : 'henrri', id: h.id, nom: h.nom,
+      adresse: h.adresse || pc.adresse || '', ville: h.ville || pc.ville || '',
+      codePostal: h.codePostal || _cpDe(h.ville || pc.ville), telephone: h.telephone || pc.telephone || '',
+      email: h.email || '', chantiers, derniere,
+      liensManuels: ps.filter(p => p.mode === 'manuel').map(p => p.cle)
+    });
+  });
+  seuls.forEach(p => liste.push({
+    source: 'planning', cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
+    codePostal: _cpDe(p.ville), telephone: p.telephone, email: '',
+    chantiers: p.chantiers, derniere: p.derniere, doublon: enDoublon.has(p.cle)
+  }));
+  liste.forEach(c => { c.incomplet = !c.adresse && !c.ville && !c.telephone; });
+  liste.sort((a, b) => _norm(a.nom).localeCompare(_norm(b.nom), 'fr'));
+  _clients = liste;
+  _majBandeauDoublons();
+}
+
+/* ── Affichage ── */
 function rendreClients(liste) {
   const tbody = document.getElementById('tbody-clients');
   if (!liste.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="clients-vide">Aucun client à afficher. Cliquez sur « Actualiser depuis Henrri » pour récupérer votre base clients.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="clients-vide">' + (_clients.length
+      ? 'Aucun client ne correspond à la recherche.'
+      : 'Aucun client pour l’instant. Ils apparaîtront ici dès qu’un chantier sera saisi dans le planning ou le prévisionnel' + (_henrriActif ? ', ou après « Actualiser depuis Henrri ».' : '.')) + '</td></tr>';
     return;
   }
-  tbody.innerHTML = liste.map(c => `<tr>
-    <td>${_clEsc(c.nom)}</td>
-    <td>${_clEsc(c.adresse)}</td>
-    <td>${_clEsc(c.ville)}</td>
-    <td>${_clEsc(c.codePostal)}</td>
-    <td>${_clEsc(c.telephone)}</td>
-    <td>${_clEsc(c.email)}</td>
-    <td><button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${_clientsHenrri.indexOf(c)})" title="Programmer une intervention chez ce client">📅 Planifier</button></td>
-  </tr>`).join('');
+  tbody.innerHTML = liste.map(c => {
+    const i = _clients.indexOf(c);
+    const badge = c.source === 'mixte' ? '<span class="badge-src b-mixte" title="Présent dans Henrri et dans le planning">Henrri + planning</span>'
+                : c.source === 'henrri' ? '<span class="badge-src b-henrri">Henrri</span>'
+                : '<span class="badge-src b-planning">Planning</span>';
+    const dbl = c.doublon ? `<span class="badge-src b-doublon" onclick="ouvrirDoublons(${_jsArg(c.cle)})" title="Ressemble à un client Henrri">⚠ doublon probable</span>` : '';
+    const inc = c.incomplet ? '<span class="badge-src b-incomplet">fiche à compléter</span>' : '';
+    const nb = c.chantiers.length;
+    const defaire = (c.liensManuels || []).map(k => `<span class="lien-defaire" onclick="defaireFusion(${_jsArg(k)})" title="Annuler la fusion avec « ${_clEsc(k)} »">✕ défusionner ${_clEsc(k)}</span>`).join('');
+    const sous = nb ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} au planning/prévisionnel${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
+    const completer = (c.incomplet || c.source === 'planning') && nb && window.Coord && Coord.ouvrir
+      ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="Renseigner l'adresse et les téléphones">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
+    return `<tr>
+      <td><b>${_clEsc(c.nom)}</b>${badge}${dbl}${inc}${sous}</td>
+      <td>${_clEsc(c.adresse).replace(/\n/g, '<br>')}</td>
+      <td>${_clEsc(c.ville)}</td>
+      <td>${_clEsc(c.telephone)}</td>
+      <td>${_clEsc(c.email)}</td>
+      <td>${_isoFr(c.derniere)}</td>
+      <td style="white-space:nowrap;"><button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}</td>
+    </tr>`;
+  }).join('');
 }
 
 function filtrerClients() {
-  const terme = (document.getElementById('recherche-client').value || '').trim().toLowerCase();
-  if (!terme) { rendreClients(_clientsHenrri); return; }
-  rendreClients(_clientsHenrri.filter(c =>
-    (c.nom || '').toLowerCase().includes(terme) ||
-    (c.ville || '').toLowerCase().includes(terme) ||
-    (c.email || '').toLowerCase().includes(terme)
-  ));
+  const terme = _norm(document.getElementById('recherche-client').value || '');
+  const f = (document.getElementById('filtre-source') || {}).value || '';
+  rendreClients(_clients.filter(c => {
+    if (f === 'henrri'    && c.source === 'planning') return false;
+    if (f === 'planning'  && c.source !== 'planning') return false;
+    if (f === 'incomplet' && !c.incomplet) return false;
+    if (f === 'doublon'   && !c.doublon) return false;
+    if (!terme) return true;
+    return _norm(c.nom).includes(terme) || _norm(c.ville).includes(terme) || _norm(c.email).includes(terme)
+        || c.chantiers.some(ch => _norm(ch).includes(terme));
+  }));
+  _majInfo();
 }
 
-function _majInfo(actualiseLe) {
+let _actualiseLe = null;
+function _majInfo() {
   const el = document.getElementById('clients-info');
   if (!el) return;
-  if (!actualiseLe) { el.textContent = 'Jamais actualisé.'; return; }
-  const d = new Date(actualiseLe);
-  el.textContent = 'Dernière actualisation : ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const nH = _clients.filter(c => c.source !== 'planning').length;
+  const nP = _clients.filter(c => c.source === 'planning').length;
+  let t = `${_clients.length} client${_clients.length > 1 ? 's' : ''}`;
+  if (_henrriActif) {
+    t += ` (${nH} Henrri, ${nP} planning seul)`;
+    if (_actualiseLe) {
+      const d = new Date(_actualiseLe);
+      t += ' · Henrri actualisé le ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } else t += ' · Henrri jamais actualisé';
+  }
+  el.textContent = t;
 }
 
+function _majBandeauDoublons() {
+  const b = document.getElementById('clients-doublons');
+  if (!b) return;
+  const n = _doublons.length;
+  if (!n) { b.style.display = 'none'; b.innerHTML = ''; return; }
+  b.innerHTML = `⚠ <b>${n} doublon${n > 1 ? 's' : ''} probable${n > 1 ? 's' : ''}</b> entre les clients du planning et ceux d'Henrri.<button type="button" onclick="ouvrirDoublons()">Examiner</button>`;
+  b.style.display = 'block';
+}
+
+/* ── Examen des doublons ── */
+function _ficheHTML(titre, c, extra) {
+  return `<div class="dbl-fiche"><div style="font-size:.7rem;color:#64748b;font-weight:700;">${titre}</div>
+    <b>${_clEsc(c.nom)}</b><br>${_clEsc(c.adresse || '—')}<br>${_clEsc(c.ville || '')}${c.telephone ? '<br>☎ ' + _clEsc(c.telephone) : ''}${c.email ? '<br>✉ ' + _clEsc(c.email) : ''}${extra || ''}</div>`;
+}
+function ouvrirDoublons(cleCible) {
+  const liste = document.getElementById('dbl-liste');
+  const paires = cleCible ? _doublons.filter(d => d.plan.cle === cleCible) : _doublons;
+  if (!paires.length) { liste.innerHTML = '<div class="clients-vide">Aucun doublon probable restant.</div>'; }
+  else liste.innerHTML = paires.map(d => {
+    const nb = d.plan.chantiers.length;
+    return `<div class="dbl-paire">
+      ${_ficheHTML('PLANNING', d.plan, `<div class="cl-sous">${nb} chantier${nb > 1 ? 's' : ''} : ${_clEsc(d.plan.chantiers.slice(0, 4).join(', '))}${nb > 4 ? '…' : ''}</div>`)}
+      ${_ficheHTML('HENRRI', d.henrri)}
+      <div class="dbl-raisons">Indices : ${d.raisons.join(' · ')}</div>
+      <div class="dbl-actions">
+        <button type="button" class="dbl-non" onclick="declarerDistincts(${_jsArg(d.plan.cle)},${_jsArg(d.henrri.id)})">Clients différents</button>
+        <button type="button" class="dbl-ok" onclick="fusionnerClients(${_jsArg(d.plan.cle)},${_jsArg(d.henrri.id)})">✔ Même client : fusionner</button>
+      </div></div>`;
+  }).join('');
+  document.getElementById('dbl-overlay').classList.add('on');
+}
+function fermerDoublons() { document.getElementById('dbl-overlay').classList.remove('on'); }
+function _apresDecision() {
+  construireBase(); filtrerClients();
+  if (document.getElementById('dbl-overlay').classList.contains('on')) ouvrirDoublons();
+}
+function fusionnerClients(clePlan, henrriId) {
+  const d = _decisions();
+  d.liens[clePlan] = String(henrriId);
+  _enregistrerDecisions(d); _apresDecision();
+}
+function declarerDistincts(clePlan, henrriId) {
+  const d = _decisions();
+  const k = clePlan + '|' + henrriId;
+  if (!d.distincts.includes(k)) d.distincts.push(k);
+  _enregistrerDecisions(d); _apresDecision();
+}
+function defaireFusion(clePlan) {
+  if (!confirm('Annuler la fusion de « ' + clePlan + ' » avec la fiche Henrri ?')) return;
+  const d = _decisions();
+  delete d.liens[clePlan];
+  _enregistrerDecisions(d); _apresDecision();
+}
+
+/* ── Compléter une fiche (coordonnées du chantier, outil partagé coordonnees.js) ── */
+function completerFiche(i) {
+  const c = _clients[i];
+  if (!c || !c.chantiers.length || !(window.Coord && Coord.ouvrir)) return;
+  Coord.ouvrir(c.chantiers[0]);
+}
+// Toute écriture des coordonnées (fiche enregistrée) rafraîchit la liste.
+(function () {
+  const _setPrec = localStorage.setItem;
+  try {
+    localStorage.setItem = function (cle, val) {
+      const r = _setPrec.apply(this, arguments);
+      if (cle === 'coordonneesChantiersdata') setTimeout(() => { construireBase(); filtrerClients(); }, 0);
+      return r;
+    };
+  } catch (_) {}
+})();
+window.addEventListener('focus', () => { construireBase(); filtrerClients(); });
+
+/* ── Chargement / actualisation Henrri (facultatif) ── */
 async function chargerClients() {
   const token = _clToken();
-  if (!token) return;
-  try {
-    const r = await fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } });
-    const d = await r.json();
-    if (!d.ok) return;
-    document.getElementById('clients-non-connecte').style.display = d.actif ? 'none' : 'block';
-    document.getElementById('btn-sync-clients').disabled = !d.actif;
-    _clientsHenrri = d.clients || [];
-    _majInfo(d.actualiseLe);
-    filtrerClients();
-  } catch (e) {
-    console.warn('Chargement clients Henrri impossible', e);
+  if (token) {
+    try {
+      const r = await fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.ok) {
+        _henrriActif = !!d.actif;
+        _clientsHenrri = d.actif ? (d.clients || []) : [];
+        _actualiseLe = d.actualiseLe || null;
+      }
+    } catch (e) {
+      console.warn('Chargement clients Henrri impossible', e);
+    }
   }
+  document.getElementById('clients-non-connecte').style.display = _henrriActif ? 'none' : 'block';
+  document.getElementById('btn-sync-clients').style.display = _henrriActif ? '' : 'none';
+  construireBase();
+  filtrerClients();
 }
 
 async function synchroniserClientsHenrri() {
@@ -222,7 +571,8 @@ async function synchroniserClientsHenrri() {
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');
     _clientsHenrri = d.clients || [];
-    _majInfo(d.actualiseLe);
+    _actualiseLe = d.actualiseLe || null;
+    construireBase();
     filtrerClients();
   } catch (e) {
     alert('Erreur lors de la récupération des clients Henrri : ' + (e && e.message ? e.message : e));
@@ -237,7 +587,7 @@ function _isoJour(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 function ouvrirPlanifier(i) {
-  const c = _clientsHenrri[i];
+  const c = _clients[i];
   if (!c || !(c.nom || '').trim()) { alert('Client sans nom : impossible de le planifier.'); return; }
   _clientAPlanifier = c;
   document.getElementById('plan-client').textContent = c.nom.trim();
@@ -259,10 +609,13 @@ function validerPlanifier() {
   if (date < _isoJour(new Date())) { alert('Choisissez une date à venir.'); return; }
   const nom = c.nom.trim().toUpperCase();
   // La fiche du client accompagne la demande : le planning en reprend les coordonnées.
-  try { sessionStorage.setItem('planifierClient', JSON.stringify(c)); } catch (_) {}
+  const fiche = { id: c.id || '', nom: c.nom, adresse: c.adresse, ville: c.ville,
+                  codePostal: c.codePostal, telephone: c.telephone, email: c.email };
+  try { sessionStorage.setItem('planifierClient', JSON.stringify(fiche)); } catch (_) {}
   location.href = 'planning.html?planifier=' + encodeURIComponent(nom) + '&date=' + date;
 }
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('dbl-overlay').classList.contains('on')) { fermerDoublons(); return; }
   if (!document.getElementById('plan-overlay').classList.contains('on')) return;
   if (e.key === 'Escape') fermerPlanifier();
   if (e.key === 'Enter') validerPlanifier();
