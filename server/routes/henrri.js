@@ -247,28 +247,14 @@ router.get("/devis", verifyToken, async (req, res) => {
         client: (d.customer && d.customer.name) || "",
         montant: d.priceAfterTax ?? d.priceBeforeTax ?? null,
         date: d.date || null,
-        reference: _simplifierReference(d.identity || d.reference || d.number || "")
+        reference: _simplifierReference(d.identity || d.reference || d.number || ""),
+        // "validated" = validation électronique (acceptation en ligne par le client,
+        // avec identité du signataire). Le statut manuel « Validé par le client »
+        // de l'interface Henrri n'est PAS exposé par l'API : on ne s'en sert qu'en
+        // information (badge « signé »), jamais comme filtre.
+        signe: d.validated === true
       }));
     res.json({ ok: true, devis: resultat });
-  } catch (err) {
-    res.status(500).json({ ok: false, message: err.message });
-  }
-});
-
-// ── DIAGNOSTIC TEMPORAIRE : lire un devis en clair, tel que renvoyé par Henrri ──
-// (à retirer une fois le tri sur le statut client réglé) — permet de voir le
-// champ exact qui porte le statut « Validé par le client / Refusé / … »,
-// distinct du champ technique "finalized".
-router.get("/devis/:id/brut", verifyToken, async (req, res) => {
-  try {
-    const clientId = (req.user.clientId || "").toUpperCase();
-    const cfg = await _config(clientId);
-    if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
-    const data = await appelHenrri(
-      clientId, cfg.henrriClientId, cfg.henrriClientSecret, cfg.henrriEnvironnement,
-      HENRRI_DOCS_PATH + "/" + encodeURIComponent(req.params.id), {}
-    );
-    res.json({ ok: true, brut: data });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
