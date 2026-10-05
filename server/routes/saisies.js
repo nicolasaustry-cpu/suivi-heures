@@ -312,6 +312,111 @@ router.post("/rdv", async (req, res) => {
   }
 });
 
+/* ── Déplacer / supprimer un chantier du PLANNING (Vue équipe : mobile ou PC) ──
+   CORRECTIF « changement de date non pérenne » : la Vue équipe ne modifiait que
+   le planning LOCAL du navigateur puis comptait sur sync.js pour l'envoyer. Or
+   sur téléphone (gérant connecté par code employé, sans jeton licence) sync.js
+   n'envoie rien : le déplacement n'atteignait jamais le serveur et disparaissait
+   au rafraîchissement suivant.
+   Cette route fait l'opération CÔTÉ SERVEUR, de façon CIBLÉE : seules les deux
+   cases concernées sont écrites ($set / $unset sur heures.<clé>), le reste du
+   planning n'est jamais réécrit (aucun écrasement des modifications faites
+   ailleurs entre-temps).
+   Auth : code employé + gerantId (gérant ou administratif) OU jeton licence (PC).
+   body : { action:'deplacer'|'supprimer', salIdS, dateS (YYYY-MM-DD), nom,
+            salIdT, dateT (pour deplacer) } */
+const _RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const _RE_SALID = /^[A-Za-z0-9-]+$/;
+
+router.post("/planning-modifier", async (req, res) => {
+  try {
+    const action = String(req.body.action || "");
+    const salIdS = String(req.body.salIdS ?? "").trim();
+    const dateS  = String(req.body.dateS  || "").trim();
+    const nom    = String(req.body.nom    || "").trim();
+    const salIdT = String(req.body.salIdT ?? "").trim();
+    const dateT  = String(req.body.dateT  || "").trim();
+
+    if (!["deplacer", "supprimer"].includes(action))
+      return res.status(400).json({ ok: false, message: "Action invalide" });
+    if (!_RE_SALID.test(salIdS) || !_RE_DATE.test(dateS) || !nom)
+      return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+    if (action === "deplacer" && (!_RE_SALID.test(salIdT) || !_RE_DATE.test(dateT)))
+      return res.status(400).json({ ok: false, message: "Destination invalide" });
+
+    const Donnees = (await import("../models/donnees.js")).default;
+    const codeEmp = (req.body.codeEmploye || "").trim().toUpperCase();
+    let doc = null;
+
+    if (codeEmp) {
+      const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
+      if (_r.err) return res.status(_r.err[0]).json({ ok: false, message: _r.err[1] });
+      doc = _r.doc;
+      const dem = (doc.salaries || []).find(s => String(s.id) === String(req.body.gerantId));
+      if (!dem) return res.status(401).json({ ok: false, message: "Demandeur inconnu" });
+      if (!dem.administratif && !dem.gerant)
+        return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+    } else {
+      const jwt = (await import("jsonwebtoken")).default;
+      let token = req.headers.authorization?.split(" ")[1];
+      if (!token && req.body._token) token = req.body._token;
+      if (!token) return res.status(401).json({ ok: false, message: "Accès refusé : aucun token" });
+      let clientId;
+      try { clientId = String(jwt.verify(token, process.env.JWT_SECRET).clientId || "").toUpperCase(); }
+      catch { return res.status(400).json({ ok: false, message: "Token invalide ou expiré" }); }
+      const docs = await Donnees.find({});
+      doc = docs.find(d => _U(d.clientId) === clientId) || null;
+      if (!doc) return res.status(403).json({ ok: false, message: "Entreprise introuvable" });
+    }
+
+    // On relit le planning À JOUR du serveur (pas celui du navigateur).
+    const heures = doc.heures || {};
+    const safeS = dateS.replace(/-/g, "_");
+    let cleS = null;
+    for (let i = 1; i <= 5; i++) {
+      const k = salIdS + safeS + "ch" + i, e = heures[k];
+      if (e && String(e.chantier || "").trim() === nom) { cleS = k; break; }
+    }
+    if (!cleS) for (let i = 1; i <= 5; i++) {      // repli insensible à la casse
+      const k = salIdS + safeS + "ch" + i, e = heures[k];
+      if (e && _U(e.chantier) === _U(nom)) { cleS = k; break; }
+    }
+    if (!cleS)
+      return res.status(409).json({ ok: false, perime: true,
+        message: "Ce chantier a été modifié ou déplacé entre-temps. Rafraîchissez la vue." });
+
+    if (action === "supprimer") {
+      await Donnees.updateOne({ _id: doc._id },
+        { $unset: { ["heures." + cleS]: "" }, $set: { updatedAt: new Date() } });
+      return res.json({ ok: true, cleSource: cleS });
+    }
+
+    if (salIdS === salIdT && dateS === dateT) return res.json({ ok: true, cleSource: cleS, cleCible: cleS, entree: heures[cleS] });
+
+    // Case libre (ou « TEMPS NON AFFECTE ») chez le salarié cible, ce jour-là
+    const safeT = dateT.replace(/-/g, "_");
+    let cleT = null;
+    for (let i = 1; i <= 5; i++) {
+      const k = salIdT + safeT + "ch" + i, e = heures[k];
+      const n = String((e && e.chantier) || "").trim();
+      if (!n || n.toUpperCase() === "TEMPS NON AFFECTE") { cleT = k; break; }
+    }
+    if (!cleT)
+      return res.status(409).json({ ok: false, message: "La journée de ce salarié est pleine (5 chantiers)." });
+
+    const entree = { ...(heures[cleS] || {}) };
+    if (dateS !== dateT) delete entree.rdvNotifie;   // nouvelle date → rappel RDV re-déclenchable
+
+    await Donnees.updateOne({ _id: doc._id }, {
+      $set:   { ["heures." + cleT]: entree, updatedAt: new Date() },
+      $unset: { ["heures." + cleS]: "" }
+    });
+    res.json({ ok: true, cleSource: cleS, cleCible: cleT, entree });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Envoyer un chantier (avec code employé) ──
    Upsert par nom : si le chantier existe déjà pour ce jour/salarié, on le met à jour
    (permet la saisie progressive : arrivée seule, puis départ, etc.) */

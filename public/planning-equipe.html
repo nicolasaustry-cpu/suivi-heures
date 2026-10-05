@@ -451,12 +451,54 @@ function deplacerParGlisser(info) {
   if (!cibleK) { alert('⛔ La journée de ce salarié est pleine (5 chantiers). Libère un créneau avant de déplacer.'); genererGrille({ conserverScroll: true }); return; }
   if (rdv) { for (i = 1; i <= 5; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; if (d && String(d.rdv || '').trim() === rdv) { conflits.push('🕐 ' + ((salT && salT.prenom) || 'Le salarié') + ' a déjà un RDV à ' + rdv + '.'); break; } } }
   if (conflits.length && !confirm(conflits.join('\n') + '\n\nDéplacer quand même ?')) { genererGrille({ conserverScroll: true }); return; }
-  var copie = {}; for (var p in slotSourceData) copie[p] = slotSourceData[p];
-  delete heures[slotSourceK];
-  heures[cibleK] = copie;
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
-  if (window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
-  genererGrille({ conserverScroll: true });
+  modifierPlanningServeur({ action: 'deplacer', salIdS: salIdS, dateS: dateS, nom: nom, salIdT: salIdT, dateT: dateT })
+    .finally(function () { genererGrille({ conserverScroll: true }); });
+}
+
+/* ── Écriture du planning CÔTÉ SERVEUR (déplacer / supprimer un chantier) ──
+   Correctif « changement de date non pérenne » : avant, la Vue équipe ne
+   modifiait que le planning local puis appelait SYNC.declencherSauvegarde(),
+   qui ne fait RIEN sur téléphone (gérant connecté par code employé, sans jeton
+   licence) → le déplacement était perdu au rafraîchissement suivant.
+   Désormais l'opération passe par /api/saisies/planning-modifier (écriture
+   ciblée des seules cases concernées), puis le local est aligné SANS
+   redéclencher l'envoi global du planning. Renvoie true si c'est enregistré. */
+function _ecrireHeuresLocal(h) {
+  try { Storage.prototype.setItem.call(localStorage, 'heuresdata', JSON.stringify(h)); }
+  catch (e) { localStorage.setItem('heuresdata', JSON.stringify(h)); }
+}
+async function modifierPlanningServeur(body) {
+  const headers = { 'Content-Type': 'application/json' };
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+    || localStorage.getItem('syncToken');
+  if (codeEmploye && !token) {
+    body.codeEmploye = codeEmploye;
+    try { body.gerantId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+  } else if (token) {
+    headers['Authorization'] = 'Bearer ' + token;
+  } else if (codeEmploye) {
+    body.codeEmploye = codeEmploye;
+  }
+  let d;
+  try {
+    const r = await fetch('/api/saisies/planning-modifier', { method: 'POST', headers, body: JSON.stringify(body) });
+    d = await r.json();
+  } catch (e) {
+    alert('Connexion impossible : la modification n\'a pas été enregistrée. Réessayez.');
+    return false;
+  }
+  if (!d || !d.ok) {
+    alert((d && d.message) || 'Modification impossible.');
+    if (d && d.perime) await rafraichirVueEquipe();
+    return false;
+  }
+  let h = {};
+  try { h = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (_) {}
+  if (d.cleSource && d.cleSource !== d.cleCible) delete h[d.cleSource];
+  if (d.cleCible && d.entree) h[d.cleCible] = d.entree;
+  _ecrireHeuresLocal(h);
+  return true;
 }
 
 /* — Tactile (mobile) : touchmove NON-PASSIF + preventDefault pour bloquer le défilement — */
@@ -1426,25 +1468,18 @@ window.addEventListener('donnees-chargees', async () => {
       b2.innerHTML=conflits.join('<br>')+'<div style="margin-top:8px;"><button onclick="validerEditionEquipe(true)" style="background:#dc2626;border:none;color:#fff;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;">Forcer le déplacement</button></div>';
       b2.style.display='block'; return;
     }
-    var copie={}; for(var p in slotSourceData) copie[p]=slotSourceData[p];
-    delete heures[slotSourceK];
-    heures[cibleK]=copie;
-    localStorage.setItem('heuresdata', JSON.stringify(heures));
-    if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
-    window.fermerEditionEquipe();
-    genererGrille({conserverScroll:true});
+    var btnV=document.getElementById('ee-valider'); if(btnV){ btnV.disabled=true; btnV.textContent='…'; }
+    modifierPlanningServeur({ action:'deplacer', salIdS:salIdS, dateS:dateS, nom:nom, salIdT:salIdT, dateT:dateT })
+      .then(function(ok){ if(ok) window.fermerEditionEquipe(); })
+      .finally(function(){ if(btnV){ btnV.disabled=false; btnV.textContent='Déplacer'; } genererGrille({conserverScroll:true}); });
   };
 
   window.supprimerEditionEquipe = function(){
     if(!_editEquipe) return;
     if(!confirm('Supprimer « '+_editEquipe.nom+' » du planning de ce jour ?')) return;
-    var heures={}; try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
-    var safeS=_editEquipe.dateSource.replace(/-/g,'_');
-    for(var i=1;i<=5;i++){ var k=_editEquipe.salIdSource+safeS+'ch'+i; var d=heures[k]; if(d && String(d.chantier||'').trim()===_editEquipe.nom){ delete heures[k]; break; } }
-    localStorage.setItem('heuresdata', JSON.stringify(heures));
-    if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
-    window.fermerEditionEquipe();
-    genererGrille({conserverScroll:true});
+    modifierPlanningServeur({ action:'supprimer', salIdS:_editEquipe.salIdSource, dateS:_editEquipe.dateSource, nom:_editEquipe.nom })
+      .then(function(ok){ if(ok) window.fermerEditionEquipe(); })
+      .finally(function(){ genererGrille({conserverScroll:true}); });
   };
 
   /* Swipe horizontal « au bord » pour changer de semaine (mobile) */
