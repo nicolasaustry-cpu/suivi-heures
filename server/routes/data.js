@@ -28,6 +28,114 @@ function appliquerVerrouPins(entrants, existants) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   FUSION MULTI-POSTES — anti-écrasement entre sessions ouvertes
+   ═══════════════════════════════════════════════════════════════
+   Problème corrigé : POST / remplaçait TOUT le planning par celui du poste
+   qui sauvegardait. Avec plusieurs PC ouverts pour le même client, un poste
+   resté sur un planning ancien effaçait, à sa première modification, ce qui
+   avait été fait ailleurs entre-temps (autre PC, téléphone).
+   sync.js envoie désormais, en plus des données complètes, un objet
+   « fusion » ne décrivant QUE ses propres modifications :
+     heures / entreprise : { set:{ "clé": valeur }, unset:["clé"] }      (1 niveau)
+     previsionnel        : { set:{ "a" | "a.b": valeur }, unset:[…] }     (2 niveaux)
+     salaries            : { set:{ id: salarié }, unset:[id], ordre:[id] }
+     chantiers           : { add:[…], remove:[…], ordre:[…] }
+   heures / entreprise / previsionnel sont écrits case par case ($set/$unset
+   en chemin pointé, atomique côté MongoDB) ; salariés et liste des chantiers
+   sont recombinés à partir de l'état ACTUEL de la base.
+   Un client ancien (sans « fusion ») garde le comportement historique. */
+const _seg = k => typeof k === "string" && k !== "" && !k.includes(".") && k[0] !== "$";
+const _estObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
+
+function fusionValide(f) {
+  if (!_estObj(f)) return false;
+  const ops = x => _estObj(x) && _estObj(x.set) && Array.isArray(x.unset);
+  return ops(f.heures) && ops(f.entreprise) && ops(f.previsionnel)
+      && _estObj(f.salaries) && _estObj(f.salaries.set) && Array.isArray(f.salaries.unset)
+      && _estObj(f.chantiers) && Array.isArray(f.chantiers.add) && Array.isArray(f.chantiers.remove);
+}
+
+/* Traduit un bloc { set, unset } en opérations MongoDB sur « champ.chemin ».
+   Renvoie false si un chemin est invalide (repli sur l'enregistrement complet). */
+function operationsChemins(champ, bloc, profondeurMax, actuel, $set, $unset) {
+  const valide = p => {
+    if (typeof p !== "string") return null;
+    const segs = p.split(".");
+    return (segs.length <= profondeurMax && segs.every(_seg)) ? segs : null;
+  };
+  for (const [p, v] of Object.entries(bloc.set)) {
+    const segs = valide(p);
+    if (!segs) return false;
+    // Parent absent ou non-objet en base : on écrit le parent complet (sinon MongoDB refuse).
+    if (segs.length === 2 && actuel && actuel[segs[0]] != null && !_estObj(actuel[segs[0]])) return false;
+    $set[champ + "." + p] = v;
+  }
+  for (const p of bloc.unset) {
+    if (!valide(p)) return false;
+    $unset[champ + "." + p] = "";
+  }
+  return true;
+}
+
+function _plain(v) { return v && typeof v.toObject === "function" ? v.toObject() : v; }
+
+async function appliquerFusion(existant, body, clientId) {
+  const f = body.fusion;
+  const brut = _plain(existant) || {};
+  const $set = {}, $unset = {};
+
+  if (!operationsChemins("heures",       f.heures,       1, brut.heures,       $set, $unset)) return { ok: false, raison: "chemin heures invalide" };
+  if (!operationsChemins("entreprise",   f.entreprise,   1, brut.entreprise,   $set, $unset)) return { ok: false, raison: "chemin entreprise invalide" };
+  if (!operationsChemins("previsionnel", f.previsionnel, 2, brut.previsionnel, $set, $unset)) return { ok: false, raison: "chemin prévisionnel invalide" };
+
+  // Chemins pointés impossibles si le champ racine n'est pas un objet en base.
+  for (const ch of ["heures", "entreprise", "previsionnel"]) {
+    if (brut[ch] != null && !_estObj(brut[ch])) return { ok: false, raison: `${ch} non objet en base` };
+  }
+
+  // Salariés : état actuel de la base + modifications de ce poste uniquement.
+  const fs = f.salaries;
+  if (Object.keys(fs.set).length || fs.unset.length) {
+    const actuels = (brut.salaries || []).map(_plain);
+    const retires = new Set(fs.unset.map(String));
+    const parId = new Map();
+    actuels.forEach(s => { if (s && s.id != null && !retires.has(String(s.id))) parId.set(String(s.id), s); });
+    Object.entries(fs.set).forEach(([id, s]) => { if (s && String(s.id) === String(id)) parId.set(String(id), s); });
+    const ordre = (Array.isArray(fs.ordre) ? fs.ordre : []).map(String);
+    const rang = id => { const i = ordre.indexOf(id); return i === -1 ? Infinity : i; };
+    const ids = [...parId.keys()];
+    const posBase = new Map(ids.map((id, i) => [id, i]));
+    const fusion = ids
+      .sort((a, b) => {
+        const ra = rang(a), rb = rang(b);
+        if (ra !== rb) return ra === Infinity ? 1 : rb === Infinity ? -1 : ra - rb;
+        return posBase.get(a) - posBase.get(b);
+      })
+      .map(id => parId.get(id));
+    $set.salaries = appliquerVerrouPins(fusion, existant.salaries || []);
+  }
+
+  // Liste des chantiers : ajouts / retraits de ce poste, le reste vient de la base.
+  const fc = f.chantiers;
+  if (fc.add.length || fc.remove.length) {
+    const cle = x => JSON.stringify(x);
+    const retires = new Set(fc.remove.map(cle));
+    const liste = (brut.chantiers || []).map(_plain).filter(x => !retires.has(cle(x)));
+    const deja = new Set(liste.map(cle));
+    fc.add.forEach(x => { if (!deja.has(cle(x))) { liste.push(x); deja.add(cle(x)); } });
+    $set.chantiers = liste;
+  }
+
+  $set.clientId  = clientId;
+  $set.updatedAt = new Date();
+  const maj = { $set };
+  if (Object.keys($unset).length) maj.$unset = $unset;
+  // Collection native : écriture exacte des chemins, sans remodelage par le schéma.
+  await Donnees.collection.updateOne({ _id: existant._id }, maj);
+  return { ok: true };
+}
+
 // ── Charger toutes les données du client ──
 router.get("/", verifyToken, async (req, res) => {
   try {
@@ -317,6 +425,15 @@ router.post("/", verifyToken, async (req, res) => {
     // Nettoyer d'éventuels doublons de casse (on n'en garde qu'un seul)
     for (let i = 1; i < memeCle.length; i++) {
       await Donnees.deleteOne({ _id: memeCle[i]._id });
+    }
+
+    // ── Mode FUSION (sync.js ≥ sync10) : on n'applique QUE les cases modifiées
+    //    par ce poste depuis sa dernière lecture ; tout le reste est conservé tel
+    //    qu'il est en base (modifs faites entre-temps sur un autre PC / mobile).
+    if (existant && fusionValide(req.body.fusion)) {
+      const r = await appliquerFusion(existant, req.body, clientId);
+      if (r.ok) return res.json({ ok: true, mode: "fusion" });
+      console.warn(`[FUSION] ${clientId} : ${r.raison} → enregistrement complet`);
     }
 
     if (existant) {

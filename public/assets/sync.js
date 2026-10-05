@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.08.18-sync9';
+  const VERSION = 'v2026.10.05-sync10';
 
   const API = '';
   let _token    = null;
@@ -230,6 +230,7 @@ const SYNC = (() => {
       const changementClient = ancienClient !== d.clientId;
       if (changementClient) {
         CLES.forEach(k => localStorage.removeItem(k));
+        localStorage.removeItem('syncBase');
         localStorage.removeItem('syncNomClient');
         localStorage.removeItem('syncMarquePartenaire');
         localStorage.removeItem('syncLogoPartenaire');
@@ -327,12 +328,22 @@ const SYNC = (() => {
       if (!_modeAdmin && localStorage.getItem('syncDirty') === '1'
           && aDesDonneesLocales && localClientId === _clientId) {
         _pendingSave = true;
-        await sauvegarderTout();
+        const envoye = await sauvegarderTout();
+        // Envoi confirmé (fusionné côté serveur) → on relit le serveur, qui contient
+        // désormais à la fois cette saisie ET ce qui a été fait ailleurs entre-temps.
+        if (envoye && !_pendingSave) return chargerDonnees();
         window.dispatchEvent(new Event('donnees-chargees'));
         return;
       }
 
       // Cas 3 (par défaut) : le SERVEUR fait référence → on remplace le local.
+      // La base de fusion = l'état serveur BRUT (avant l'ajout éventuel du nom ci-dessous,
+      // pour que ce nom reparte bien au serveur à la prochaine sauvegarde).
+      memoriserBase(JSON.parse(JSON.stringify({
+        entreprise: serveur.entreprise || {}, salaries: serveur.salaries || [],
+        heures: serveur.heures || {}, chantiers: serveur.chantiers || [],
+        previsionnel: serveur.previsionnel || {}
+      })));
       const entServeur = serveur.entreprise || {};
       if (!entServeur.nom) {
         const nomClient = localStorage.getItem('syncNomClient');
@@ -384,8 +395,119 @@ const SYNC = (() => {
         && !autreClientActif();               // barrière dure : un autre client est l'onglet actif
   }
 
-  function construirePayload() {
+  /* ─────────────────────────────────────────────────────────────
+     FUSION MULTI-POSTES (anti-écrasement entre sessions ouvertes)
+     Avant : chaque sauvegarde renvoyait TOUT le planning, que le serveur
+     prenait tel quel. Un PC resté ouvert avec un planning ancien effaçait
+     donc, à sa première modification, tout ce qui avait été fait ailleurs
+     (autre PC, téléphone).
+     Désormais on mémorise la « base » : l'état du serveur sur lequel repose
+     le local (au chargement, puis après chaque sauvegarde réussie). À chaque
+     envoi, on joint la liste des SEULES cases modifiées localement depuis
+     cette base (fusion). Le serveur n'applique que ces cases et conserve
+     tout le reste tel qu'il est en base.
+     Repli : sans base valide (première ouverture après mise à jour, stockage
+     plein…), l'envoi se fait à l'ancienne (remplacement complet).
+     ───────────────────────────────────────────────────────────── */
+  const CLE_BASE = 'syncBase';
+  const CHAMPS = [
+    ['entreprise',   'entreprisedata',    '{}'],
+    ['salaries',     'salariesdata',      '[]'],
+    ['heures',       'heuresdata',        '{}'],
+    ['chantiers',    'chantiersdata',     '[]'],
+    ['previsionnel', 'previsionnel_data', '{}'],
+  ];
+
+  function memoriserBase(donnees) {
+    try {
+      const d = {};
+      CHAMPS.forEach(([ch, , vide]) => { d[ch] = donnees[ch] != null ? donnees[ch] : JSON.parse(vide); });
+      _setItemOriginal(CLE_BASE, JSON.stringify({ clientId: _clientId, d }));
+    } catch (e) {
+      try { localStorage.removeItem(CLE_BASE); } catch (_) {}   // pas de base fausse : repli sur l'envoi complet
+    }
+  }
+  function lireBase() {
+    try {
+      const b = JSON.parse(localStorage.getItem(CLE_BASE) || 'null');
+      if (b && b.d && b.clientId && b.clientId === _clientId) return b.d;
+    } catch (e) {}
+    return null;
+  }
+
+  const _estObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  // Sérialisation à clés triées : deux objets égaux donnent la même chaîne quel que soit l'ordre des clés.
+  function _stable(v) {
+    if (Array.isArray(v)) return '[' + v.map(_stable).join(',') + ']';
+    if (_estObj(v)) return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + _stable(v[k])).join(',') + '}';
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function _cleOk(k) {
+    if (typeof k !== 'string' || !k || k.indexOf('.') !== -1 || k.charAt(0) === '$') throw new Error('clé non fusionnable');
+    return k;
+  }
+  // Différence objet base → local, en chemins pointés, jusqu'à « profondeur » niveaux.
+  function diffObjet(base, local, profondeur, prefixe, out) {
+    base  = _estObj(base)  ? base  : {};
+    local = _estObj(local) ? local : {};
+    Object.keys(local).forEach(k => {
+      _cleOk(k);
+      const b = base[k], l = local[k];
+      if (!Object.prototype.hasOwnProperty.call(base, k)) out.set[prefixe + k] = l;
+      else if (_stable(b) === _stable(l)) return;
+      else if (profondeur > 1 && _estObj(b) && _estObj(l)) diffObjet(b, l, profondeur - 1, prefixe + k + '.', out);
+      else out.set[prefixe + k] = l;
+    });
+    Object.keys(base).forEach(k => {
+      if (!Object.prototype.hasOwnProperty.call(local, k)) out.unset.push(prefixe + _cleOk(k));
+    });
+    return out;
+  }
+  // Salariés : par identifiant (ajout / modification / suppression) + ordre local.
+  function diffSalaries(base, local) {
+    const idx = arr => {
+      const m = new Map();
+      (Array.isArray(arr) ? arr : []).forEach(s => {
+        if (!s || s.id == null) throw new Error('salarié sans id');
+        m.set(String(s.id), s);
+      });
+      return m;
+    };
+    const mb = idx(base), ml = idx(local);
+    const out = { set: {}, unset: [], ordre: [...ml.keys()] };
+    ml.forEach((s, id) => { if (!mb.has(id) || _stable(mb.get(id)) !== _stable(s)) out.set[id] = s; });
+    mb.forEach((s, id) => { if (!ml.has(id)) out.unset.push(id); });
+    return out;
+  }
+  // Liste des chantiers : ajouts / retraits + ordre local.
+  function diffListe(base, local) {
+    const sb = new Set((Array.isArray(base) ? base : []).map(_stable));
+    const sl = new Set((Array.isArray(local) ? local : []).map(_stable));
     return {
+      add:    (local || []).filter(x => !sb.has(_stable(x))),
+      remove: (base  || []).filter(x => !sl.has(_stable(x))),
+      ordre:  local || []
+    };
+  }
+  function construireFusion(donnees) {
+    const base = lireBase();
+    if (!base) return null;
+    try {
+      return {
+        entreprise:   diffObjet(base.entreprise,   donnees.entreprise,   1, '', { set: {}, unset: [] }),
+        heures:       diffObjet(base.heures,       donnees.heures,       1, '', { set: {}, unset: [] }),
+        previsionnel: diffObjet(base.previsionnel, donnees.previsionnel, 2, '', { set: {}, unset: [] }),
+        salaries:     diffSalaries(base.salaries, donnees.salaries),
+        chantiers:    diffListe(base.chantiers, donnees.chantiers)
+      };
+    } catch (e) {
+      console.warn('Fusion impossible, envoi complet :', e.message);
+      return null;
+    }
+  }
+
+  function construirePayload() {
+    const p = {
       // Client auquel APPARTIENNENT ces données (revérifié côté serveur).
       clientIdAttendu: localStorage.getItem('syncClientId') || _clientId || '',
       entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
@@ -394,27 +516,40 @@ const SYNC = (() => {
       chantiers:    JSON.parse(localStorage.getItem('chantiersdata')     || '[]'),
       previsionnel: JSON.parse(localStorage.getItem('previsionnel_data') || '{}'),
     };
+    const fusion = construireFusion(p);
+    if (fusion) p.fusion = fusion;
+    return p;
   }
 
+  /* Renvoie true si le serveur a confirmé l'enregistrement. */
   async function sauvegarderTout() {
-    if (_modeAdmin) return;          // admin = lecture seule
-    if (!_token) return;
+    if (_modeAdmin) return false;          // admin = lecture seule
+    if (!_token) return false;
     if (!identiteCoherente()) {      // anti-mélange : client changé dans un autre onglet
       console.warn('Sauvegarde annulée : le client actif a changé dans un autre onglet.');
-      return;
+      return false;
     }
     clearTimeout(_syncTimer);
     _syncTimer = null;
     try {
+      const payload = construirePayload();
       const res = await fetch(API + '/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
-        body: JSON.stringify(construirePayload())
+        body: JSON.stringify(payload)
       });
-      if (res.ok) { _pendingSave = false; try { localStorage.removeItem('syncDirty'); } catch (e) {} }
+      if (res.ok) {
+        // Ce qui vient d'être envoyé devient la nouvelle base : le prochain envoi
+        // ne contiendra que les modifications faites APRÈS celui-ci.
+        memoriserBase(payload);
+        // Une modification faite pendant l'envoi garde son drapeau (elle repartira).
+        if (!_syncTimer) { _pendingSave = false; try { localStorage.removeItem('syncDirty'); } catch (e) {} }
+        return true;
+      }
     } catch {
       console.warn('Sauvegarde échouée (sera retentée)');
     }
+    return false;
   }
 
   /* Envoi de sécurité avant de quitter/masquer la page : garantit qu'une saisie
