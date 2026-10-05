@@ -263,10 +263,15 @@
         .cat-tab{padding:6px 13px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;font-size:0.85rem;cursor:pointer;color:#374151;}
         .cat-tab:hover{background:#f8fafc;}
         .cat-tab.actif{background:#0f3a8a;border-color:#0f3a8a;color:#fff;font-weight:600;}
+        .table-licences-wrap{overflow-x:auto;}
+        .table-licences th,.table-licences td{padding:5px 5px;}
+        .table-licences .act-grid{display:grid;grid-template-columns:repeat(2,auto);gap:3px;justify-content:center;}
+        .table-licences .act-grid .btn{padding:3px 6px;font-size:0.85rem;margin:0;}
         .cat-badge{border-radius:999px;padding:2px 9px;font-size:0.76rem;font-weight:700;white-space:nowrap;}
       </style>
       <div id="cat-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.8rem;">
-        <button class="cat-tab actif" data-cat="tous"     onclick="setCategorie('tous',this)">Tous</button>
+        <button class="cat-tab actif" data-cat="actives"  onclick="setCategorie('actives',this)">Actives</button>
+        <button class="cat-tab"       data-cat="tous"     onclick="setCategorie('tous',this)">Tous</button>
         <button class="cat-tab"       data-cat="auto"     onclick="setCategorie('auto',this)">Auto-inscriptions</button>
         <button class="cat-tab"       data-cat="prospect" onclick="setCategorie('prospect',this)">Prospects</button>
         <button class="cat-tab"       data-cat="client"   onclick="setCategorie('client',this)">Clients</button>
@@ -279,8 +284,8 @@
         <button class="btn btn-primary" onclick="chargerLicences()">↺ Actualiser</button>
         <span id="nb-resultats" style="font-size:0.82rem;color:#9ca3af;margin-left:auto;"></span>
       </div>
-      <div style="overflow-x:auto;">
-      <table>
+      <div class="table-licences-wrap">
+      <table class="table-licences">
         <thead>
           <tr>
             <th>Code</th>
@@ -721,9 +726,10 @@ async function chargerLicences() {
   } catch {}
 }
 
-let _categorie = 'tous';
+let _categorie = 'actives';
 function categorieMatch(l) {
   if (_categorie === 'tous')   return true;
+  if (_categorie === 'actives') return l.actif && new Date(l.dateExpiration) >= new Date();
   if (_categorie === 'auto')   return l.origine === 'auto';
   if (_categorie === 'expire') return new Date(l.dateExpiration) < new Date();
   return (l.statut || 'client') === _categorie;
@@ -788,7 +794,7 @@ function afficherLicences(liste) {
     tbody.innerHTML += `<tr>
       <td><strong>${l.codeClient}</strong></td>
       <td>${l.nomClient || '—'}</td>
-      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.email || ''}">${l.email || '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.email || ''}">${l.email || '—'}</td>
       <td>${origine}</td>
       <td>${statutBadge}</td>
       <td style="text-align:center;">
@@ -810,16 +816,16 @@ function afficherLicences(liste) {
         <button class="btn btn-warning" style="padding:4px 8px;font-size:0.76rem;white-space:nowrap;"
           onclick="ouvrirModifLicence('${l.codeClient}','${l.nomClient}','${l.email}','${l.dateExpiration?.split('T')[0]}','${l.type || 'standard'}','${l.prescripteur || ''}')">✏ Modifier</button>
       </td>
-      <td class="col-admin" style="white-space:nowrap;text-align:center;">
-        <button class="btn btn-success" style="padding:4px 7px;font-size:0.9rem;margin-right:3px;"
+      <td class="col-admin" style="text-align:center;"><div class="act-grid">
+        <button class="btn btn-success"
           onclick="exporterFinLicence('${l.codeClient}')" title="Exporter toutes les données de ce client (Excel)">📦</button>
-        <button class="btn btn-primary" style="padding:4px 7px;font-size:0.9rem;margin-right:3px;"
+        <button class="btn btn-primary"
           onclick="dupliquerLicence('${l.codeClient}')" title="Dupliquer ce client (données incluses)">⧉</button>
-        <button class="btn btn-warning" style="padding:4px 7px;font-size:0.9rem;"
+        <button class="btn btn-warning"
           onclick="toggleLicence('${l.codeClient}')" title="${l.actif ? 'Désactiver' : 'Activer'}">${l.actif ? '⏸' : '▶'}</button>
-        <button class="btn btn-danger" style="padding:4px 7px;font-size:0.9rem;margin-left:3px;"
+        <button class="btn btn-danger"
           onclick="supprimerLicence('${l.codeClient}')" title="Supprimer">✕</button>
-      </td>
+      </div></td>
     </tr>`;
   });
 }
