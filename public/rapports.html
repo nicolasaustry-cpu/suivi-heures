@@ -542,7 +542,22 @@ async function getMoisAvecDonnees() {
   // Toujours inclure le mois en cours pour permettre de saisir
   const now = new Date();
   mois.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
-  return [...mois].sort();   // ordre chronologique
+  // Liste CONTINUE, sans trou : du premier mois ayant des données jusqu'au plus
+  // tardif entre le dernier mois ayant des données et le mois en cours + 2.
+  // (Avant : seuls les mois ayant des données apparaissaient → un mois encore
+  // vide, ex. novembre entre octobre et un décembre déjà planifié, manquait.)
+  const fin = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  mois.add(`${fin.getFullYear()}-${String(fin.getMonth()+1).padStart(2,'0')}`);
+  const tries = [...mois].filter(m => /^\d{4}-\d{2}$/.test(m)).sort();
+  const continus = [];
+  let [a, mm] = tries[0].split('-').map(Number);
+  const [aFin, mFin] = tries[tries.length - 1].split('-').map(Number);
+  while (a < aFin || (a === aFin && mm <= mFin)) {
+    continus.push(`${a}-${String(mm).padStart(2,'0')}`);
+    if (++mm > 12) { mm = 1; a++; }
+    if (continus.length > 240) break;   // garde-fou (20 ans)
+  }
+  return continus;   // ordre chronologique
 }
 
 function majLibelleMois() {
