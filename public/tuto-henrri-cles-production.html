@@ -72,8 +72,58 @@
     .etape,.bloc,.suite{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
+<style id="tuto-impression">
+  /* ── Bouton « Imprimer ce tuto » (écran uniquement) ── */
+  .btn-imprimer-tuto{position:fixed;right:18px;bottom:18px;z-index:50;display:inline-flex;align-items:center;gap:8px;
+    background:#0f3a8a;color:#fff;border:none;border-bottom:3px solid #f59e0b;border-radius:10px;padding:10px 16px;
+    font:700 14px/1 Inter,'Segoe UI',system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 22px -8px rgba(11,44,107,.6)}
+  .btn-imprimer-tuto:hover{background:#0b2c6b}
+  @media (max-width:560px){ .btn-imprimer-tuto{right:12px;bottom:12px;padding:9px 12px;font-size:13px} }
+
+  /* ── Mise en page imprimée (A4) ── */
+  @media print{
+    @page{size:A4 portrait;margin:12mm 11mm 14mm}
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+    html,body{background:#fff !important}
+    body{font-size:10.5pt}
+    .btn-imprimer-tuto,.toc,.sommaire,.backtop,.btn-lien{display:none !important}
+    .topbar,header.hero{position:static !important}
+    .wrap{max-width:none !important;padding:0 2mm !important}
+    a{color:inherit !important;text-decoration:none !important}
+    /* Les grandes parties peuvent se couper entre deux pages : avant, chacune
+       était insécable et laissait une page presque blanche devant elle. */
+    .sec,section{break-inside:auto !important;page-break-inside:auto !important}
+    .sec{margin-top:6mm !important;padding-top:4mm !important}
+    .hero{padding-top:6mm !important}
+    /* … mais un bloc explicatif, une capture ou un encadré ne se coupent pas */
+    .step,.call,.shotwrap,figure,.controls,.etape,.bloc,.suite,.encadre,.ou,.mock,.dbl-paire,
+    .phonewrap,table.ex,table.map,.flux,.mini-bandeau,.card,li{break-inside:avoid;page-break-inside:avoid}
+    tr,img{break-inside:avoid;page-break-inside:avoid}
+    /* un titre ne reste jamais seul en bas de page */
+    .sec-head,.step-h,.etape-tete{break-inside:avoid;page-break-inside:avoid}
+    h1,h2,h3,.sec-head,.step-h,.subhead,.etape-tete,.kicker{break-after:avoid;page-break-after:avoid}
+    .shot-cap{break-before:avoid;page-break-before:avoid}
+    .sec-intro,p.sec-intro,.formule{break-after:avoid;page-break-after:avoid}
+    /* titre de partie + introduction + première capture : un seul bloc */
+    .sec-head + .sec-intro + .shotwrap,.sec-head + .sec-intro + figure,.sec-intro + .shotwrap{break-before:avoid;page-break-before:avoid}
+    /* ombres et effets inutiles sur papier */
+    .shotwrap,.step,.mock,.call,.toc a,.sec-badge,.etape,.bloc{box-shadow:none !important}
+    /* captures : jamais plus larges que la page, pastilles conservées */
+    .shotwrap{max-width:100%}
+    .shotwrap.phone{max-width:78mm !important}
+    .pin{box-shadow:0 0 0 2px #fff !important}
+    /* tableaux défilants à l'écran : affichés en entier sur papier */
+    .wrapx,.mock,[style*="overflow-x"]{overflow:visible !important}
+    table.map,table.bev{min-width:0 !important;font-size:8.5pt}
+    table.bev th,table.bev td{padding:2px 3px !important}
+    .call table.ex{display:table !important}
+    .foot,footer{margin-top:6mm !important;padding:4mm 0 !important}
+  }
+</style>
 </head>
 <body>
+<button type="button" class="btn-imprimer-tuto" onclick="window.print()" title="Imprimer ou enregistrer en PDF">🖨 Imprimer ce tuto</button>
+
 
 <header class="hero">
   <div class="wrap">
