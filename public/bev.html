@@ -1182,12 +1182,31 @@ async function chargerAnnee() {
   try { entCIBTP = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').cibtp; } catch (e) {}
   const COEF_CIBTP = (30 / 12) / (25 / 12);
   const moisData = [];
-  res.forEach((paire, idx) => {
+  // Premier mois « actif » du salarié dans l'année : premier mois portant une donnée réelle
+  // (pointage, planning, événement, récupération ou heures reportées). Les mois ANTÉRIEURS
+  // (avant la mise en route de l'outil) n'ont rien à comparer : sans ce filtre, ils
+  // affichaient un écart égal à −Contrat (mode Planifié « P ») qui faussait le total annuel.
+  const prepa = res.map((paire, idx) => {
     const ym = an + '-' + String(idx+1).padStart(2, '0');
     const saisies  = (paire[0] && paire[0].ok) ? (paire[0].saisies || []) : [];
     const retenues = (paire[1] && paire[1].ok) ? (paire[1].retenues || {}) : {};
     const reporte  = (paire[1] && paire[1].ok) ? (Number(paire[1].reporte) || 0) : 0;
     const lignes = lignesDuMois(sal, ym, saisies, retenues);
+    const actifMois = reporte !== 0 || lignes.some(function (l) {
+      return (l.realise || 0) > 0 || (l.planifie || 0) > 0 || (l.tempsEvt || 0) > 0 || (l.recup || 0) > 0 || !!l.motif;
+    });
+    return { ym: ym, reporte: reporte, lignes: lignes, actifMois: actifMois };
+  });
+  const premierActif = prepa.findIndex(function (x) { return x.actifMois; });   // -1 : aucune donnée de l'année
+  prepa.forEach((pp, idx) => {
+    const ym = pp.ym, reporte = pp.reporte, lignes = pp.lignes;
+    if (premierActif === -1 || idx < premierActif) {
+      // Avant la mise en route : contrat affiché pour mémoire, aucun calcul, hors totaux.
+      const cntVide = {}; evtsAnnee.forEach(function(e){ cntVide[e] = 0; });
+      const contratM = lignes.reduce(function (a, l) { return a + (l.contrat || 0); }, 0);
+      moisData.push({ nom: moisNoms[idx], vide: contratM === 0, avant: true, contrat: contratM, cntEvt: cntVide, totEvtMois: 0 });
+      return;
+    }
     let cContrat=0, cTevt=0, cBase=0, cPlan=0, cReal=0, cCompte=0, cRttRecup=0, cRecup=0, cPlanPasse=0, moisPasse=false;
     const cntEvt = {}; evtsAnnee.forEach(function(e){ cntEvt[e] = 0; });
     lignes.forEach(l => {
@@ -1236,6 +1255,7 @@ async function chargerAnnee() {
   rendreTableauAnnee();
 }
 
+const TITRE_AVANT = 'Aucune donnée pour ce salarié avant ce mois : rien à comparer, mois exclu des totaux';
 function rendreTableauAnnee() {
   const zone = document.getElementById('zone');
   if (!_anneeCtx) return;
@@ -1246,6 +1266,7 @@ function rendreTableauAnnee() {
     thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Heures payées (total)</th><th>Solde compteur</th></tr>';
     moisData.forEach(function(md){
       if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.real)) + '</td>' +
@@ -1262,6 +1283,7 @@ function rendreTableauAnnee() {
     thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées (total)</th><th>Heures dues au salarié</th><th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th><th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
     moisData.forEach(function(md){
       if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + fmt(md.tevt) + '</td>' +
@@ -1305,6 +1327,8 @@ function rendreTableauAnnee() {
     '<tfoot>' + tfoot + '</tfoot></table>' +
     ((_detailAnnee === 'simple' && moisData.some(function(md){ return !md.vide && !md.blanc && md.modePlan; }))
       ? '<div class="note-ecart-plan"><sup class="ecart-plan">P</sup> Mois sans pointage : l\'écart est calculé sur le Planifié (Planifié − Nouvelle Base), comme dans la vue Mois.</div>' : '') +
+    (moisData.some(function(md){ return md.avant && !md.vide; })
+      ? '<div class="note-ecart-plan">Les mois grisés en début d\'année précèdent les premières données de ce salarié : seul le contrat est rappelé, ils ne comptent pas dans les totaux.</div>' : '') +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois' + (entCIBTP ? ' <span style="font-weight:400;font-size:0.8rem;color:#6366f1;">(Congé compté en jours ouvrables, coefficient (30/12)/(25/12) ≈ ' + (Math.round((30/12)/(25/12)*1000)/1000) + ', régime CIBTP)</span>' : '') + '</div>' +
     '<table class="bev bev-annee"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
