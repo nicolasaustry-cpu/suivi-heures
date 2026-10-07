@@ -1,5 +1,5 @@
 /* coordonnees.js — encart de saisie + affichage des coordonnées d'un chantier.
-   Stockage : localStorage 'coordonneesChantiersdata' = { "NOM MAJ": {adresse,ville,mobile,fixe} }
+   Stockage : localStorage 'coordonneesChantiersdata' = { "NOM MAJ": {adresse,ville,mobile,fixe,email} }
    Persistance serveur : /api/data/coordonnees-chantier (token PC) ou
    /api/saisies/coordonnees-chantier (codeEmploye mobile, gérant/admin).
    API publique : window.Coord.{ ouvrir, fermer, enregistrer, get, html, aDesCoordonnees,
@@ -10,7 +10,8 @@
   function _lire()  { try { return JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) { return {}; } }
   function _ecrire(o){ try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(o)); } catch (_) {} }
   function get(nom) { return _lire()[(nom || '').toUpperCase()] || null; }
-  function aDesCoordonnees(nom) { const c = get(nom); return !!(c && (c.adresse || c.ville || c.mobile || c.fixe)); }
+  function aDesCoordonnees(nom) { const c = get(nom); return !!(c && (c.adresse || c.ville || c.mobile || c.fixe || c.email)); }
+  const RE_EMAIL = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
   function _esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function _tel(n) { return String(n || '').replace(/[^0-9+]/g, ''); }
 
@@ -36,6 +37,7 @@
       '.chip-coord .coord-haut{display:flex;align-items:center;gap:10px;}' +
       '.chip-coord .coord-adr{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;}' +
       '.chip-coord .coord-tels{margin-top:3px;}' +
+      '.chip-coord .coord-mail{margin-top:3px;overflow-wrap:anywhere;}' +
       '.chip-coord .coord-itin{flex:0 0 auto;display:inline-block;margin:0;padding:6px 12px;' +
       'border:1px solid #c7d7f5;border-radius:8px;background:#eef4fd;color:#0f3a8a;' +
       'text-decoration:none;font-weight:700;font-size:.78rem;line-height:1.25;white-space:nowrap;}' +
@@ -50,7 +52,7 @@
      les téléphones sur la ligne du dessous. */
   function html(nom) {
     const c = get(nom);
-    if (!c || (!c.adresse && !c.ville && !c.mobile && !c.fixe)) return '';
+    if (!c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email)) return '';
     let l = '';
     if (c.adresse || c.ville) {
       let adr = '';
@@ -65,6 +67,9 @@
     if (c.mobile) tels.push('📱 <a href="tel:' + _tel(c.mobile) + '">' + _esc(c.mobile) + '</a>');
     if (c.fixe)   tels.push('☎ <a href="tel:' + _tel(c.fixe) + '">' + _esc(c.fixe) + '</a>');
     if (tels.length) l += '<div class="coord-tels">' + (l ? '' : '📍 ') + tels.join(' · ') + '</div>';
+    // E-mail cliquable (ouvre la messagerie du téléphone ou du PC)
+    if (c.email) l += '<div class="coord-mail">✉ ' + (RE_EMAIL.test(c.email)
+      ? '<a href="mailto:' + _esc(c.email) + '">' + _esc(c.email) + '</a>' : _esc(c.email)) + '</div>';
     return '<div class="chip-coord">' + l + '</div>';
   }
 
@@ -171,7 +176,8 @@
       adresse: c.adresse || '',
       ville: [c.codePostal, c.ville].filter(Boolean).join(' ').trim(),
       mobile: estMobile ? tel : '',
-      fixe: estMobile ? '' : tel
+      fixe: estMobile ? '' : tel,
+      email: String(c.email || '').trim()
     };
   }
 
@@ -189,7 +195,7 @@
     var hc = client || _henrriMatch(nom);
     if (!hc) return Promise.resolve({ statut: 'aucun' });
     var coord = _henrriVersCoord(hc);
-    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe) return Promise.resolve({ statut: 'aucun' });
+    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe && !coord.email) return Promise.resolve({ statut: 'aucun' });
     var nomU = nom.toUpperCase();
     var o = _lire(); o[nomU] = coord; _ecrire(o);
     var token = _henrriToken();
@@ -242,6 +248,7 @@
       '<div class="cm-ch"><label>Ville</label><input id="coord-ville" placeholder="Code postal et ville"></div>' +
       '<div class="cm-2"><div class="cm-ch"><label>Tél. mobile</label><input id="coord-mobile" type="tel"></div>' +
       '<div class="cm-ch"><label>Tél. fixe</label><input id="coord-fixe" type="tel"></div></div>' +
+      '<div class="cm-ch"><label>E-mail</label><input id="coord-email" type="email" inputmode="email" autocomplete="email" placeholder="client@exemple.fr"></div>' +
       '</div><div class="cm-f"><button type="button" class="cm-an" onclick="Coord.fermer()">Annuler</button>' +
       '<button type="button" class="cm-ok" onclick="Coord.enregistrer()">Enregistrer</button></div></div>';
     m.addEventListener('click', function (e) { if (e.target === m) fermer(); });
@@ -255,7 +262,7 @@
     _nom = nom; _onDone = (typeof onDone === 'function') ? onDone : null;
     var c = get(nom) || {};
     var sousTitre = nom;
-    if (!c.adresse && !c.ville && !c.mobile && !c.fixe) {
+    if (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email) {
       var hc = _henrriMatch(nom);
       if (hc) { c = _henrriVersCoord(hc); sousTitre = nom + ' — pré-rempli depuis Henrri'; }
     }
@@ -264,6 +271,7 @@
     document.getElementById('coord-ville').value   = c.ville   || '';
     document.getElementById('coord-mobile').value  = c.mobile  || '';
     document.getElementById('coord-fixe').value    = c.fixe    || '';
+    document.getElementById('coord-email').value   = c.email   || '';
     document.getElementById('coord-modal').classList.add('on');
   }
 
@@ -274,11 +282,17 @@
       adresse: (document.getElementById('coord-adresse').value || '').trim(),
       ville:   (document.getElementById('coord-ville').value   || '').trim(),
       mobile:  (document.getElementById('coord-mobile').value  || '').trim(),
-      fixe:    (document.getElementById('coord-fixe').value    || '').trim()
+      fixe:    (document.getElementById('coord-fixe').value    || '').trim(),
+      email:   (document.getElementById('coord-email').value   || '').trim()
     };
+    if (coord.email && !RE_EMAIL.test(coord.email)) {
+      alert('Adresse e-mail incorrecte : vérifiez-la (exemple : client@exemple.fr).');
+      document.getElementById('coord-email').focus();
+      return;   // modal laissé ouvert, rien n'est perdu
+    }
     var nomU = _nom.toUpperCase();
     var o = _lire();
-    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe) delete o[nomU]; else o[nomU] = coord;
+    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe && !coord.email) delete o[nomU]; else o[nomU] = coord;
     _ecrire(o);
 
     // Choix du canal : TOKEN en priorité (PC / gérant licence), code employé seulement à défaut (vrai mobile).

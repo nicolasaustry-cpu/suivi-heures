@@ -184,9 +184,10 @@ router.post("/coordonnees-chantier", async (req, res) => {
       adresse: String(c.adresse || "").slice(0, 500),
       ville:   String(c.ville   || "").slice(0, 200),
       mobile:  String(c.mobile  || "").slice(0, 40),
-      fixe:    String(c.fixe    || "").slice(0, 40)
+      fixe:    String(c.fixe    || "").slice(0, 40),
+      email:   String(c.email   || "").trim().slice(0, 120)
     };
-    const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe;
+    const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe && !clean.email;
     if (vide) delete coords[chantier]; else coords[chantier] = clean;
 
     await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });

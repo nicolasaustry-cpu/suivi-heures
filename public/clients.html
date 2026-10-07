@@ -304,13 +304,13 @@ function _clientsPlanning() {
     let co = null;
     for (const ch of g.chantiers) {
       const c = coords[ch] || coordsNorm.get(_norm(ch));
-      if (c && (c.adresse || c.ville || c.mobile || c.fixe)) { co = c; break; }
+      if (c && (c.adresse || c.ville || c.mobile || c.fixe || c.email)) { co = c; break; }
     }
     co = co || {};
     return {
       cle: g.cle, nom: g.nom, chantiers: [...g.chantiers], derniere: g.derniere,
       adresse: co.adresse || '', ville: co.ville || '',
-      telephone: co.mobile || co.fixe || '', email: ''
+      telephone: co.mobile || co.fixe || '', email: co.email || ''
     };
   });
 }
@@ -329,6 +329,8 @@ function _raisonsDoublon(p, h) {
   }
   const tp = _tel(p.telephone), th = _tel(h.telephone);
   if (tp && th && tp === th) { r.push('même téléphone'); score += 3; }
+  const ep = String(p.email || '').trim().toLowerCase(), eh = String(h.email || '').trim().toLowerCase();
+  if (ep && eh && ep === eh) { r.push('même e-mail'); score += 3; }
   const ap = _norm(p.adresse), ah = _norm(h.adresse);
   if (ap.length >= 6 && ap === ah) { r.push('même adresse'); score += 2; }
   const a = _cle(p.nom).replace(/ /g, ''), b = _cle(h.nom).replace(/ /g, '');
@@ -383,16 +385,16 @@ function construireBase() {
       source: ps.length ? 'mixte' : 'henrri', id: h.id, nom: h.nom,
       adresse: h.adresse || pc.adresse || '', ville: h.ville || pc.ville || '',
       codePostal: h.codePostal || _cpDe(h.ville || pc.ville), telephone: h.telephone || pc.telephone || '',
-      email: h.email || '', chantiers, derniere,
+      email: h.email || pc.email || '', chantiers, derniere,
       liensManuels: ps.filter(p => p.mode === 'manuel').map(p => p.cle)
     });
   });
   seuls.forEach(p => liste.push({
     source: 'planning', cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
-    codePostal: _cpDe(p.ville), telephone: p.telephone, email: '',
+    codePostal: _cpDe(p.ville), telephone: p.telephone, email: p.email || '',
     chantiers: p.chantiers, derniere: p.derniere, doublon: enDoublon.has(p.cle)
   }));
-  liste.forEach(c => { c.incomplet = !c.adresse && !c.ville && !c.telephone; });
+  liste.forEach(c => { c.incomplet = !c.adresse && !c.ville && !c.telephone && !c.email; });
   liste.sort((a, b) => _norm(a.nom).localeCompare(_norm(b.nom), 'fr'));
   _clients = liste;
   _majBandeauDoublons();
