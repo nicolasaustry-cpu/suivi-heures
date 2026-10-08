@@ -1017,7 +1017,7 @@ function pl2ChipHTML(sl){
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
-      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(data.motifExclu||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
+      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     ${alerteReservio}
@@ -1492,7 +1492,13 @@ function saveHeure(k, ch, h) {
    nommé (pas TNA, pas pavé vide). Le temps reste affiché et compté dans le total
    du jour du planning (le salarié a bien travaillé), mais sera exclu du
    prévisionnel, de la jauge réalisé, et son motif est repérable dans les rapports. */
-const MOTIFS_EXCLU = ['SAV', 'Fournisseur', 'Visite client'];
+const MOTIFS_EXCLU = ['SAV', 'Fournisseur', 'RDV client'];
+/* « Visite client » a été renommé « RDV client » (08/10/2026) : les créneaux déjà
+   exclus avec l'ancien libellé sont affichés et repris sous le nouveau. */
+function motifExcluAffiche(m) {
+  const v = String(m || '').trim();
+  return v.toLowerCase() === 'visite client' ? 'RDV client' : v;
+}
 let _exclPopK = null;
 function ouvrirExclu(k) {
   const btn = document.getElementById(k + 'exclu-btn');
@@ -1523,7 +1529,7 @@ function ouvrirExclu(k) {
   const sel   = document.getElementById('excl-pop-motif');
   const autre = document.getElementById('excl-pop-autre');
   const actif = !!heures[k].exclu;
-  const motifActuel = actif ? (heures[k].motifExclu || 'SAV') : '';
+  const motifActuel = actif ? (motifExcluAffiche(heures[k].motifExclu) || 'SAV') : '';
   if (!motifActuel || MOTIFS_EXCLU.includes(motifActuel)) {
     sel.value = motifActuel || 'SAV';
     autre.style.display = 'none';
@@ -1603,7 +1609,7 @@ function appliquerExclu(k, actif, motif) {
   if (btn) {
     btn.classList.toggle('actif', !!heures[k].exclu);
     btn.title = heures[k].exclu
-      ? 'Temps EXCLU du calcul (' + heures[k].motifExclu + ') — cliquer pour modifier'
+      ? 'Temps EXCLU du calcul (' + motifExcluAffiche(heures[k].motifExclu) + ') — cliquer pour modifier'
       : 'Exclure ce temps du calcul';
   }
   if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
@@ -1836,7 +1842,7 @@ function rafraichirLigne(salarieId, dateStr) {
       const nomOk = (e.chantier || '').trim() !== '' && (e.chantier || '').toUpperCase() !== TNA;
       bex.classList.toggle('masque', !nomOk);          // apparaît dès qu'un chantier est nommé
       bex.classList.toggle('actif', !!e.exclu);
-      bex.title = e.exclu ? 'Temps EXCLU du calcul (' + (e.motifExclu || 'SAV') + ') — cliquer pour modifier' : 'Exclure ce temps du calcul';
+      bex.title = e.exclu ? 'Temps EXCLU du calcul (' + (motifExcluAffiche(e.motifExclu) || 'SAV') + ') — cliquer pour modifier' : 'Exclure ce temps du calcul';
     }
   }
   majTotalLigne(salarieId, dateStr);
