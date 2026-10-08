@@ -116,6 +116,18 @@
     .imp-apercu tr.imp-skip td { color:#94a3b8; }
     .imp-resume { background:#f1f5f9; border-radius:8px; padding:8px 12px; margin:10px 0; }
     .imp-err { color:#b91c1c; font-weight:600; }
+    .col-sel { width:30px; text-align:center; }
+    .col-sel input { width:16px; height:16px; cursor:pointer; vertical-align:middle; }
+    tr.cl-selection td { background:#fef9c3 !important; }
+    tr.cl-masque td { color:#94a3b8; }
+    .btn-suppr-cl { background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; padding:5px 8px; font-size:.8rem; font-weight:700; cursor:pointer; margin-left:4px; }
+    .btn-suppr-cl:hover { background:#fecaca; }
+    .btn-reafficher { background:#dcfce7; color:#166534; border:none; border-radius:6px; padding:5px 9px; font-size:.78rem; font-weight:700; cursor:pointer; margin-left:4px; white-space:nowrap; }
+    #barre-selection { display:none; align-items:center; gap:10px; flex-wrap:wrap; background:#fef9c3; border:1px solid #fde047; color:#713f12; padding:.5rem .9rem; border-radius:8px; margin:.4rem 0; font-size:.88rem; }
+    #barre-selection.on { display:flex; }
+    #barre-selection button { border:none; border-radius:6px; padding:6px 12px; font-weight:700; font-size:.82rem; cursor:pointer; }
+    .bs-suppr { background:#dc2626; color:#fff; } .bs-reaff { background:#16a34a; color:#fff; } .bs-annul { background:#fff; color:#713f12; border:1px solid #fde047 !important; }
+    .b-masque { background:#e2e8f0; color:#475569; }
     .clients-alerte {
       background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
       padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.88rem;
@@ -170,14 +182,18 @@
       <option value="planning">Planning uniquement</option>
       <option value="incomplet">Fiches à compléter</option>
       <option value="doublon">Doublons probables</option>
+      <option value="masques">Clients supprimés (masqués)</option>
     </select>
     <span id="clients-info"></span>
   </div>
+
+  <div id="barre-selection"></div>
 
   <div class="clients-scroll">
     <table class="clients-table" id="table-clients">
       <thead>
         <tr>
+          <th class="col-sel"><input type="checkbox" id="sel-tous" onclick="selectionnerTousVisibles(this.checked)" title="Sélectionner toutes les lignes affichées (selon la recherche et le filtre)"></th>
           <th>Nom</th>
           <th>Adresse</th>
           <th>Ville</th>
@@ -304,12 +320,14 @@ function _isoFr(iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '
 function _decisions() {
   const ent = _lire('entreprisedata', {});
   const d = ent.clientsDoublons || {};
-  return { liens: d.liens || {}, distincts: Array.isArray(d.distincts) ? d.distincts : [] };
+  return { liens: d.liens || {}, distincts: Array.isArray(d.distincts) ? d.distincts : [],
+           masques: Array.isArray(d.masques) ? d.masques : [] };
 }
 function _enregistrerDecisions(d) {
   const ent = _lire('entreprisedata', {});
-  ent.clientsDoublons = { liens: d.liens, distincts: d.distincts };
+  ent.clientsDoublons = { liens: d.liens, distincts: d.distincts, masques: d.masques || [] };
   localStorage.setItem('entreprisedata', JSON.stringify(ent));     // sync.js pousse au serveur
+  try { if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde(); } catch (_) {}
 }
 
 /* ── 1. Clients issus du planning, du prévisionnel et des fiches coordonnées ── */
@@ -352,7 +370,8 @@ function _clientsPlanning() {
       cle: g.cle, nom: g.nom, chantiers: [...g.chantiers], derniere: g.derniere,
       adresse: co.adresse || '', ville: co.ville || '',
       telephone: co.mobile || co.fixe || '', email: co.email || '',
-      importe: co.origine === 'import' && !g.horsFiche   // client venu d'un fichier, sans chantier encore
+      importe: co.origine === 'import' && !g.horsFiche,  // client venu d'un fichier, sans chantier encore
+      ficheSeule: !g.horsFiche                           // n'existe que par sa fiche coordonnées
     };
   });
 }
@@ -405,7 +424,9 @@ function construireBase() {
 
   // Doublons probables : planning seul ↔ Henrri, hors paires déclarées distinctes
   _doublons = [];
+  const _masquesDbl = new Set(dec.masques || []);
   seuls.forEach(p => {
+    if (_masquesDbl.has('P:' + p.cle)) return;     // client supprimé (masqué) : plus de doublon signalé
     let meilleur = null;
     henrri.forEach(h => {
       if (distincts.has(p.cle + '|' + h.id)) return;
@@ -432,13 +453,18 @@ function construireBase() {
     });
   });
   seuls.forEach(p => liste.push({
-    source: 'planning', importe: !!p.importe, cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
+    source: 'planning', importe: !!p.importe, ficheSeule: !!p.ficheSeule, cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
     codePostal: _cpDe(p.ville), telephone: p.telephone, email: p.email || '',
     chantiers: p.chantiers, derniere: p.derniere, doublon: enDoublon.has(p.cle)
   }));
   liste.forEach(c => { c.incomplet = !c.adresse && !c.ville && !c.telephone && !c.email; });
   liste.sort((a, b) => _norm(a.nom).localeCompare(_norm(b.nom), 'fr'));
+  const masques = new Set(dec.masques || []);
+  liste.forEach(c => { c.k = _cleClient(c); c.masque = masques.has(c.k); });
   _clients = liste;
+  // La sélection ne garde que des clients encore présents
+  const presents = new Set(liste.map(c => c.k));
+  [..._selection].forEach(k => { if (!presents.has(k)) _selection.delete(k); });
   _majBandeauDoublons();
 }
 
@@ -446,7 +472,7 @@ function construireBase() {
 function rendreClients(liste) {
   const tbody = document.getElementById('tbody-clients');
   if (!liste.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="clients-vide">' + (_clients.length
+    tbody.innerHTML = '<tr><td colspan="8" class="clients-vide">' + (_clients.length
       ? 'Aucun client ne correspond à la recherche.'
       : 'Aucun client pour l’instant. Ils apparaîtront ici dès qu’un chantier sera saisi dans le planning ou le prévisionnel' + (_henrriActif ? ', ou après « Actualiser depuis Henrri ».' : '.')) + '</td></tr>';
     return;
@@ -464,14 +490,20 @@ function rendreClients(liste) {
     const sous = (nb && !c.importe) ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} au planning/prévisionnel${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
     const completer = (c.incomplet || c.source === 'planning') && nb && window.Coord && Coord.ouvrir
       ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="Renseigner l'adresse et les téléphones">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
-    return `<tr>
-      <td><b>${_clEsc(c.nom)}</b>${badge}${dbl}${inc}${sous}</td>
+    const coche = _selection.has(c.k);
+    const msq = c.masque ? '<span class="badge-src b-masque">supprimé</span>' : '';
+    const actionFin = c.masque
+      ? `<button type="button" class="btn-reafficher" onclick="reafficherClients([${_jsArg(c.k)}])" title="Remettre ce client dans la liste">↺ Réafficher</button>`
+      : `<button type="button" class="btn-suppr-cl" onclick="supprimerClients([${_jsArg(c.k)}])" title="Supprimer ce client de la liste">🗑</button>`;
+    return `<tr class="${coche ? 'cl-selection' : ''}${c.masque ? ' cl-masque' : ''}">
+      <td class="col-sel"><input type="checkbox" ${coche ? 'checked' : ''} onclick="basculerSelection(${_jsArg(c.k)}, this.checked)"></td>
+      <td><b>${_clEsc(c.nom)}</b>${badge}${msq}${dbl}${inc}${sous}</td>
       <td>${_clEsc(c.adresse).replace(/\n/g, '<br>')}</td>
       <td>${_clEsc(c.ville)}</td>
       <td>${_clEsc(c.telephone)}</td>
       <td>${_clEsc(c.email)}</td>
       <td>${_isoFr(c.derniere)}</td>
-      <td style="white-space:nowrap;"><button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}</td>
+      <td style="white-space:nowrap;">${c.masque ? '' : `<button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}`}${actionFin}</td>
     </tr>`;
   }).join('');
 }
@@ -479,7 +511,9 @@ function rendreClients(liste) {
 function filtrerClients() {
   const terme = _norm(document.getElementById('recherche-client').value || '');
   const f = (document.getElementById('filtre-source') || {}).value || '';
-  rendreClients(_clients.filter(c => {
+  _visibles = _clients.filter(c => {
+    if (f === 'masques') { if (!c.masque) return false; }
+    else if (c.masque) return false;                 // clients supprimés : seulement via le filtre dédié
     if (f === 'henrri'    && c.source === 'planning') return false;
     if (f === 'planning'  && c.source !== 'planning') return false;
     if (f === 'incomplet' && !c.incomplet) return false;
@@ -487,17 +521,21 @@ function filtrerClients() {
     if (!terme) return true;
     return _norm(c.nom).includes(terme) || _norm(c.ville).includes(terme) || _norm(c.email).includes(terme)
         || c.chantiers.some(ch => _norm(ch).includes(terme));
-  }));
+  });
+  rendreClients(_visibles);
   _majInfo();
+  _majBarreSelection();
 }
 
 let _actualiseLe = null;
 function _majInfo() {
   const el = document.getElementById('clients-info');
   if (!el) return;
-  const nH = _clients.filter(c => c.source !== 'planning').length;
-  const nP = _clients.filter(c => c.source === 'planning').length;
-  let t = `${_clients.length} client${_clients.length > 1 ? 's' : ''}`;
+  const actifs = _clients.filter(c => !c.masque);
+  const nH = actifs.filter(c => c.source !== 'planning').length;
+  const nP = actifs.filter(c => c.source === 'planning').length;
+  const nM = _clients.length - actifs.length;
+  let t = `${actifs.length} client${actifs.length > 1 ? 's' : ''}`;
   if (_henrriActif) {
     t += ` (${nH} Henrri, ${nP} planning seul)`;
     if (_actualiseLe) {
@@ -505,6 +543,7 @@ function _majInfo() {
       t += ' · Henrri actualisé le ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     } else t += ' · Henrri jamais actualisé';
   }
+  if (nM) t += ` · ${nM} supprimé${nM > 1 ? 's' : ''}`;
   el.textContent = t;
 }
 
@@ -515,6 +554,95 @@ function _majBandeauDoublons() {
   if (!n) { b.style.display = 'none'; b.innerHTML = ''; return; }
   b.innerHTML = `⚠ <b>${n} doublon${n > 1 ? 's' : ''} probable${n > 1 ? 's' : ''}</b> entre les clients du planning et ceux d'Henrri.<button type="button" onclick="ouvrirDoublons()">Examiner</button>`;
   b.style.display = 'block';
+}
+
+/* ═══ Suppression de clients (une ligne ou une sélection) ═══
+   Deux cas, selon ce qui fait exister le client :
+   • client qui n'existe QUE par sa fiche coordonnées (import de fichier,
+     fiche saisie sans chantier) → la fiche est SUPPRIMÉE définitivement ;
+   • client présent au planning / prévisionnel ou dans Henrri → il est
+     MASQUÉ de la liste (sinon il réapparaîtrait aussitôt). Planning,
+     prévisionnel, heures, notes et coordonnées restent intacts ; il se
+     retrouve via le filtre « Clients supprimés (masqués) » → ↺ Réafficher.
+   Les clients masqués sont enregistrés dans entreprisedata.clientsDoublons.masques
+   (synchronisé sur tous les postes). */
+let _selection = new Set();   // clés c.k des lignes cochées
+let _visibles  = [];          // lignes affichées (recherche + filtre)
+function _cleClient(c) { return c.source === 'planning' ? 'P:' + c.cle : 'H:' + c.id; }
+function basculerSelection(k, oui) {
+  if (oui) _selection.add(k); else _selection.delete(k);
+  filtrerClients();
+}
+function selectionnerTousVisibles(oui) {
+  _visibles.forEach(c => { if (oui) _selection.add(c.k); else _selection.delete(c.k); });
+  filtrerClients();
+}
+function _majBarreSelection() {
+  const b = document.getElementById('barre-selection');
+  const tous = document.getElementById('sel-tous');
+  const nVis = _visibles.filter(c => _selection.has(c.k)).length;
+  if (tous) { tous.checked = !!_visibles.length && nVis === _visibles.length; tous.indeterminate = nVis > 0 && nVis < _visibles.length; }
+  if (!b) return;
+  const sel = _clients.filter(c => _selection.has(c.k));
+  if (!sel.length) { b.classList.remove('on'); b.innerHTML = ''; return; }
+  const nMasq = sel.filter(c => c.masque).length, nAct = sel.length - nMasq;
+  const horsVue = sel.length - nVis;
+  b.innerHTML = `<b>${sel.length} client${sel.length > 1 ? 's' : ''} sélectionné${sel.length > 1 ? 's' : ''}</b>`
+    + (horsVue ? `<span>(dont ${horsVue} hors de l’affichage actuel)</span>` : '')
+    + (nAct ? `<button type="button" class="bs-suppr" onclick="supprimerClients()">🗑 Supprimer${nAct < sel.length ? ' (' + nAct + ')' : ''}</button>` : '')
+    + (nMasq ? `<button type="button" class="bs-reaff" onclick="reafficherClients()">↺ Réafficher${nMasq < sel.length ? ' (' + nMasq + ')' : ''}</button>` : '')
+    + `<button type="button" class="bs-annul" onclick="_selection.clear();filtrerClients()">Tout désélectionner</button>`;
+  b.classList.add('on');
+}
+
+async function supprimerClients(cles) {
+  const cibles = _clients.filter(c => !c.masque && (cles ? cles.includes(c.k) : _selection.has(c.k)));
+  if (!cibles.length) return;
+  const aEffacer = cibles.filter(c => c.source === 'planning' && c.ficheSeule);
+  const aMasquer = cibles.filter(c => !(c.source === 'planning' && c.ficheSeule));
+  let msg = cibles.length === 1 ? `Supprimer le client « ${cibles[0].nom} » ?` : `Supprimer ${cibles.length} clients ?`;
+  if (aEffacer.length) msg += `\n\n• ${aEffacer.length} fiche${aEffacer.length > 1 ? 's' : ''} client (adresse, téléphones, e-mail) ${aEffacer.length > 1 ? 'seront effacées' : 'sera effacée'} définitivement.`;
+  if (aMasquer.length) msg += `\n\n• ${aMasquer.length} client${aMasquer.length > 1 ? 's' : ''} présent${aMasquer.length > 1 ? 's' : ''} au planning, au prévisionnel ou dans Henrri ${aMasquer.length > 1 ? 'seront retirés' : 'sera retiré'} de la liste uniquement : planning, heures, notes et coordonnées sont conservés. Filtre « Clients supprimés » pour ${aMasquer.length > 1 ? 'les' : 'le'} réafficher.`;
+  if (!confirm(msg)) return;
+
+  if (aEffacer.length) {
+    const token = _clToken();
+    if (!token) { alert("Activez d'abord votre licence."); return; }
+    const noms = [...new Set(aEffacer.flatMap(c => c.chantiers))];
+    try {
+      const r = await fetch('/api/data/coordonnees-chantiers-supprimer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ noms })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'échec');
+      if (d.coordonnees) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonnees));
+    } catch (e) {
+      alert('Suppression des fiches impossible : ' + (e && e.message ? e.message : e) + '\nAucune fiche n’a été effacée.');
+      return;
+    }
+  }
+  if (aMasquer.length) {
+    const d = _decisions();
+    const m = new Set(d.masques);
+    aMasquer.forEach(c => m.add(c.k));
+    d.masques = [...m];
+    _enregistrerDecisions(d);
+  }
+  cibles.forEach(c => _selection.delete(c.k));
+  construireBase(); filtrerClients();
+}
+
+function reafficherClients(cles) {
+  const cibles = _clients.filter(c => c.masque && (cles ? cles.includes(c.k) : _selection.has(c.k)));
+  if (!cibles.length) return;
+  const d = _decisions();
+  const retirer = new Set(cibles.map(c => c.k));
+  d.masques = d.masques.filter(k => !retirer.has(k));
+  _enregistrerDecisions(d);
+  cibles.forEach(c => _selection.delete(c.k));
+  construireBase(); filtrerClients();
 }
 
 /* ── Examen des doublons ── */

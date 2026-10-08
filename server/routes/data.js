@@ -330,6 +330,39 @@ router.post("/coordonnees-chantiers-import", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Suppression en masse de fiches clients (page Clients) ──
+   N'efface QUE des entrées de coordonneesChantiers (fiches « client sans chantier »,
+   ex. clients importés) ; planning, prévisionnel, notes et heures ne sont jamais touchés.
+   body : { noms:[...] } */
+router.post("/coordonnees-chantiers-supprimer", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const noms = Array.isArray(req.body.noms) ? req.body.noms : null;
+    if (!noms || !noms.length) return res.status(400).json({ ok: false, message: "Aucun client à supprimer" });
+    if (noms.length > 10000) return res.status(400).json({ ok: false, message: "Trop de clients en une fois" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const coords = doc.coordonneesChantiers || {};
+    let supprimes = 0;
+    for (const n of noms) {
+      const cle = String(n || "").trim().toUpperCase();
+      if (cle && Object.prototype.hasOwnProperty.call(coords, cle)) { delete coords[cle]; supprimes++; }
+    }
+    if (supprimes) {
+      await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    }
+    res.json({ ok: true, supprimes, coordonnees: coords });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Renommer un chantier PARTOUT (historique inclus) : opération transversale ──
 router.post("/renommer-chantier", verifyToken, async (req, res) => {
   try {
