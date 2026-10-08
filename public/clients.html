@@ -174,7 +174,6 @@
 
   <div class="clients-toolbar">
     <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
-    <a href="import-henrri.html" id="btn-import-henrri" style="display:none;background:#0284c7;color:#fff;border-radius:6px;padding:7px 16px;font-size:0.85rem;font-weight:700;text-decoration:none;" title="Importer l'export des devis validés Henrri (les coordonnées des clients alimentent cette page)">📥 Importer un export Henrri</a>
     <button type="button" id="btn-import-clients" onclick="ouvrirImport()" title="Importer une liste de clients depuis un fichier Excel ou CSV">📥 Importer un fichier</button>
     <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
     <select id="filtre-source" onchange="filtrerClients()">
@@ -745,10 +744,9 @@ async function chargerClients() {
     }
   }
   document.getElementById('clients-non-connecte').style.display = _henrriActif ? 'none' : 'block';
-  // Mode API : bouton d'actualisation ; mode import : lien vers l'import des devis validés
+  // Mode API : bouton d'actualisation. Mode import : rien ici, l'import des devis
+  // validés se fait depuis le bouton « Devis Henrri » du Prévisionnel.
   document.getElementById('btn-sync-clients').style.display = (_henrriActif && _henrriMode === 'api') ? '' : 'none';
-  const lienImp = document.getElementById('btn-import-henrri');
-  if (lienImp) lienImp.style.display = (_henrriActif && _henrriMode === 'import') ? '' : 'none';
   construireBase();
   filtrerClients();
 }

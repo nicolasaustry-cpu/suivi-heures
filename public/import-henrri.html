@@ -79,13 +79,14 @@
 <div class="nav">
   <a href="index.html">Entreprise</a>
   <a href="salaries.html">Salariés</a>
-  <a href="chantiers.html">Prévisionnel</a>
+  <a href="chantiers.html" class="active">Prévisionnel</a>
   <a href="planning.html">Planning</a>
   <a href="clients.html">Clients</a>
   <a href="rapports.html">Rapports</a>
 </div>
 
 <section class="ih-page">
+  <a href="chantiers.html?henrri=1" style="display:inline-block;margin-top:.8rem;font-size:.85rem;font-weight:700;color:#0f3a8a;text-decoration:none;">← Retour au Prévisionnel (Devis Henrri)</a>
   <p class="ih-intro">
     Exportez vos <strong>devis validés</strong> depuis Henrri (fichier Excel) puis déposez le fichier ci-dessous.
     Données reprises : <strong>n° de devis</strong>, <strong>nom prénom</strong>, <strong>coordonnées complètes</strong>,
@@ -228,7 +229,7 @@ async function verifierMode() {
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');
     if (!d.pilotage || d.mode !== 'import') {
-      afficherMessage('L\'import des devis validés n\'est pas activé. Dans la page <a href="index.html">Entreprise</a>, indiquez « Henrri version pilotage : Oui » puis choisissez « Import des devis validés ».', 'erreur');
+      afficherMessage('L\'import des devis validés n\'est pas activé. Dans la page <a href="index.html">Entreprise</a>, indiquez « Henrri version pilotage : Oui » puis choisissez « Import des devis validés » ; l\'import se lance ensuite depuis le bouton « Devis Henrri » du Prévisionnel.', 'erreur');
       _bloquer();
     }
   } catch (e) {
@@ -432,7 +433,6 @@ async function confirmer() {
       + 'Les coordonnées des clients ont aussi été ajoutées à la page Clients.</p>'
       + '<div class="ih-actions">'
       + '<a class="ih-btn ih-btn-principal" href="chantiers.html?henrri=1">📄 Affecter les devis au Prévisionnel</a>'
-      + '<a class="ih-btn ih-btn-secondaire" href="clients.html">Voir les clients</a>'
       + '<button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Importer un autre fichier</button>'
       + '</div>';
     afficherMessage('');
