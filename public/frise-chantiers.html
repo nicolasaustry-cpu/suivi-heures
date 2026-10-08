@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frise des chantiers – Suiv'Heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+  #frise-wrap { padding: 10px 14px 40px; overflow-x: auto; }
+  .top-bar { position:fixed; top:0; left:0; right:0; z-index:100; background:#f4f6f8; box-shadow:0 2px 8px rgba(0,0,0,0.10); }
+  .nav { background:#e8edf3; display:flex; justify-content:center; gap:1rem; padding:0.5rem; flex-wrap:wrap; }
+  .nav a { text-decoration:none; color:#2563eb; font-weight:bold; font-size:0.9rem; }
+  .nav a.active { text-decoration:underline; }
+  .fixed-tools { background:#fff; border-bottom:1px solid #ccc; padding:0.45rem 0.8rem; }
+  .wk-nav { display:flex; align-items:center; gap:0.7rem; justify-content:center; flex-wrap:wrap; }
+  .wk-btn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; font-size:0.95rem; line-height:1; }
+  .wk-btn:hover { border-color:#0f3a8a; background:#eff4ff; }
+  .wk-label { font-weight:800; color:#0f3a8a; min-width:240px; text-align:center; font-size:0.95rem; }
+  /* Barre latérale rétractable (même mécanisme que le planning prévu) */
+  #pl-rail-toggle { display:none;position:fixed;top:50%;left:208px;transform:translateY(-50%);z-index:1500;
+    width:20px;height:54px;padding:0;border:none;cursor:pointer;background:#1d8cf0;color:#fff;
+    font-size:15px;line-height:54px;text-align:center;border-radius:0 7px 7px 0;box-shadow:2px 0 8px rgba(0,0,0,0.18); }
+  #pl-rail-toggle:hover { background:#1675c9; }
+  html.sh-lateral #pl-rail-toggle { display:block; }
+  html.pl-rail-reduit #pl-rail-toggle { left:0; }
+  html.pl-rail-reduit #sh-rail { display:none !important; }
+  html.pl-rail-reduit.sh-lateral body { padding-left:0 !important; }
+  html.pl-rail-reduit.sh-lateral .main-header,
+  html.pl-rail-reduit.sh-lateral .header-desktop { margin-left:0 !important;width:100% !important; }
+  @media print { #pl-rail-toggle { display:none !important; } }
+  .sy-msg { padding: 30px; text-align: center; color: #64748b; }
+  /* ── Frise des chantiers ── */
+  .fr-grille { display: grid; grid-template-columns: 170px 1fr 92px; min-width: 900px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+  .fr-lib { background: #e8edf3; font-size: 0.8rem; font-weight: 700; color: #334155; display: flex; align-items: flex-end; padding: 0 8px 6px; }
+  .fr-lib.droite { justify-content: flex-end; }
+  .fr-tsem, .fr-tjours { position: relative; }
+  .fr-tsem { height: 22px; background: #e8edf3; }
+  .fr-tsem div { position: absolute; top: 0; bottom: 0; background: #0f3a8a; color: #fff; font-size: 0.74rem; font-weight: 700; text-align: center; line-height: 22px; border-left: 1px solid #fff; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
+  .fr-tjours { height: 32px; background: #e8edf3; }
+  .fr-tjours div { position: absolute; top: 0; bottom: 0; text-align: center; font-size: 0.7rem; font-weight: 700; color: #334155; line-height: 1.2; padding-top: 4px; box-sizing: border-box; overflow: hidden; }
+  .fr-tjours div small { display: block; color: #64748b; font-weight: 400; font-size: 0.68rem; }
+  .fr-tjours div.auj { background: #fef3c7; }
+  .fr-tjours div.debsem, .fr-tsem div:first-child { border-left: none; }
+  .fr-nom { padding: 8px; border-top: 1px solid #e2e8f0; font-weight: 700; color: #0f3a8a; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; }
+  .fr-nom small { display: block; color: #64748b; font-weight: 400; font-size: 0.72rem; }
+  .fr-tot { border-top: 1px solid #e2e8f0; text-align: right; padding: 8px 8px 0 0; font-size: 0.82rem; font-weight: 700; color: #0f3a8a; white-space: nowrap; }
+  .fr-tot small { display: block; color: #64748b; font-weight: 400; font-size: 0.72rem; }
+  .fr-ligne { position: relative; height: 50px; border-top: 1px solid #e2e8f0; }
+  .fr-piste { position: absolute; left: 0; right: 0; top: 9px; height: 28px; overflow: hidden; }
+  .fr-seg { position: absolute; top: 0; bottom: 0; box-sizing: border-box; color: #fff; font-size: 0.7rem; font-weight: 700;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 5px; line-height: 28px;
+            box-shadow: inset 1px 0 0 rgba(255,255,255,.8); cursor: default; }
+  .fr-seg small { font-weight: 400; opacity: .85; margin-left: 4px; }
+  .fr-seg.vide { background: #fff; border: 1px dashed #94a3b8; box-shadow: none; color: #64748b; font-weight: 400; }
+  .fr-seg.abs { background: repeating-linear-gradient(45deg,#fde68a 0 6px,#fef3c7 6px 12px); color: #78350f; }
+  .fr-seg.ecole { background: #E6F1FB; color: #0C447C; box-shadow: inset 1px 0 0 #85B7EB; }
+  .fr-seg.off { background: repeating-linear-gradient(45deg,#d9dde3 0 4px,#eef1f5 4px 8px); color: #64748b; font-weight: 400; text-align: center; }
+  .fr-rep { position: absolute; top: 4px; height: 4px; width: 1px; background: #94a3b8; }
+  .fr-rep.sem { top: 2px; height: 46px; opacity: .55; }
+  .fr-ecart { position: absolute; bottom: 4px; height: 3px; }
+  .fr-legende { display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 4px 2px; font-size: 0.78rem; color: #475569; justify-content: center; }
+  .fr-legende i { display: inline-block; width: 22px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+  @media print {
+    @page { size: landscape; margin: 6mm; }
+    .no-print, .top-bar .nav, .fixed-tools { display: none !important; }
+    body { background: #fff; }
+    #top-bar { position: static !important; box-shadow: none !important; }
+    #frise-wrap { margin-top: 0 !important; padding: 0 !important; }
+    .fr-grille { min-width: 0; }
+    .fr-grille, .fr-grille * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    #fr-print-titre { display: block !important; }
+  }
+  </style>
+</head>
+<body>
+
+<div class="top-bar" id="top-bar">
+  <header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, tout simplement !</span>
+    </div>
+  </div>
+  <h1 class="page-title">Frise des chantiers</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+  <div class="nav no-print">
+    <a href="index.html">Entreprise</a>
+    <a href="salaries.html">Salariés</a>
+    <a href="chantiers.html">Prévisionnel</a>
+    <a href="planning.html">Planning</a>
+    <a href="rapports.html">Rapports</a>
+  </div>
+
+  <div class="fixed-tools no-print">
+    <div class="wk-nav">
+      <button class="wk-btn" onclick="location.href='planning.html'" title="Revenir au planning prévu">← Planning</button>
+      <button class="wk-btn" onclick="moisDecalage(-1)" title="Mois précédent">‹</button>
+      <div class="wk-label" id="fr-mois-label">—</div>
+      <button class="wk-btn" onclick="moisDecalage(1)" title="Mois suivant">›</button>
+      <button class="wk-btn" onclick="moisAujourdhui()" title="Revenir au mois en cours">Ce mois</button>
+      <button class="wk-btn" id="fr-btn-sam" onclick="toggleSamedi()" title="Afficher / masquer le samedi">Afficher le samedi</button>
+      <button class="wk-btn" onclick="window.print()" title="Imprimer la frise">🖨 Imprimer</button>
+    </div>
+    <div class="fr-legende">
+      <span>Une couleur par chantier</span>
+      <span><i style="background:#fff;border:1px dashed #94a3b8"></i>À planifier</span>
+      <span><i style="background:repeating-linear-gradient(45deg,#fde68a 0 4px,#fef3c7 4px 8px)"></i>Absence (motif)</span>
+      <span><i style="background:#E6F1FB;border:0.5px solid #85B7EB"></i>École</span>
+      <span><i style="background:repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px)"></i>Non travaillé / férié</span>
+      <span><i style="background:linear-gradient(90deg,#16a34a 33%,#f59e0b 33% 66%,#dc2626 66%);height:4px;vertical-align:2px"></i>Trait : conforme / à compléter / dépassement</span>
+      <span style="color:#94a3b8">Survolez un chantier pour le détail</span>
+    </div>
+  </div>
+</div>
+
+<div id="fr-print-titre" style="display:none;font-weight:700;color:#0f3a8a;margin:0 0 6px;"></div>
+<div id="frise-wrap">
+  <div class="sy-msg">Chargement…</div>
+</div>
+
+<script src="assets/script.js"></script>
+
+<script>
+/* ============================================================
+   FRISE DES CHANTIERS (ouverte depuis « Graphiques et synthèse »
+   du planning prévu). Structure de page reprise de
+   planning-synthese.html.
+   Fonctions de calcul reprises À L'IDENTIQUE de planning.html
+   (contrat, alternance A/B, fériés, jours d'école) pour garantir
+   des chiffres cohérents avec le planning prévu.
+   ============================================================ */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function nbSemainesEntre(lundiRef, lundiCible) {
+  const ms = lundiCible - lundiRef;
+  return Math.round(ms / (7 * 24 * 3600 * 1000));
+}
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+  const lundiCible = lundiDeLaSemaine(d);
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb);
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return s.heuresParJour || {};
+}
+var _plCacheFeries = {};
+function _plPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+function _plFeries(y){
+  if(_plCacheFeries[y])return _plCacheFeries[y];
+  var f={},pad=function(n){return String(n).padStart(2,'0');},isod=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+  [[0,1,"Jour de l'an"],[4,1,'Fête du travail'],[4,8,'Victoire 1945'],[6,14,'Fête nationale'],[7,15,'Assomption'],[10,1,'Toussaint'],[10,11,'Armistice'],[11,25,'Noël']].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=x[2];});
+  var p=_plPaques(y);
+  [[1,'Lundi de Pâques'],[39,'Ascension'],[50,'Lundi de Pentecôte']].forEach(function(x){var d=new Date(p);d.setDate(p.getDate()+x[0]);f[isod(d)]=x[1];});
+  _plCacheFeries[y]=f;return f;
+}
+function estFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return !!_plFeries(y)[dateStr];}
+function nomFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return _plFeries(y)[dateStr]||'Férié';}
+function estJourEcolePl(s,dateStr){return !!(s&&s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(dateStr)!==-1);}
+function contratDuJour(s, dateStr) {
+  if (estFeriePl(dateStr)) return 0;
+  if (estJourEcolePl(s, dateStr)) return 0;
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const dObj = new Date(a, m - 1, j);
+  const cle = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][dObj.getDay()];
+  return (grilleHeuresPourDate(s, dObj))[cle] || 0;
+}
+function pl2NumSemaine(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const j=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-j+3);
+  const p=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  return 1+Math.round(((t-p)/86400000-3+((p.getUTCDay()+6)%7))/7);
+}
+const TNA = 'TEMPS NON AFFECTE';
+
+/* Infobulles : même construction que la synthèse */
+function syEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function syTip(entete, corps){
+  return '<div style="font-weight:700;margin-bottom:5px">' + syEsc(entete) + '</div>' + corps;
+}
+function syLigneTip(txt, coul){
+  return '<div' + (coul ? ' style="color:' + coul + '"' : '') + '>' + syEsc(txt) + '</div>';
+}
+
+/* ============================================================
+   Frise des chantiers — rendu
+   Une ligne par salarié, les jours du mois en abscisse, SANS
+   espace entre les journées. Chaque journée a la même largeur
+   (= contrat du jour, ou plus en cas de dépassement) et se
+   remplit des chantiers au prorata de leurs heures, dans l'ordre
+   des heures de RDV (puis ordre de saisie). Un même chantier sur
+   des journées consécutives forme UNE seule barre. Le détail
+   (chantier, période, heures, adresse) s'affiche au survol.
+   Source : heuresdata / salariesdata (même lecture que la synthèse).
+   ============================================================ */
+const FR_MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const FR_JC   = ['Di','Lu','Ma','Me','Je','Ve','Sa'];
+const FR_JL   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const FR_PALETTE = ['#2563eb','#0d9488','#9333ea','#ea580c','#db2777','#16a34a','#0891b2','#ca8a04',
+                    '#4f46e5','#be123c','#0f766e','#7c3aed','#c2410c','#1d4ed8','#65a30d','#a21caf'];
+let frY, frM, frSam = false;
+
+function frPad2(n){ return String(n).padStart(2,'0'); }
+function frIso(d){ return d.getFullYear()+'-'+frPad2(d.getMonth()+1)+'-'+frPad2(d.getDate()); }
+function frFmt(h){ return (Math.round((parseFloat(h)||0)*100)/100).toString().replace('.',','); }
+function frEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function frDateCourte(d){ return frPad2(d.getDate()) + '/' + frPad2(d.getMonth()+1); }
+
+/* Couleur stable d'un chantier (même couleur d'un mois à l'autre). */
+function frCouleur(nom){
+  let h = 0; const t = String(nom || '').toUpperCase();
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return FR_PALETTE[h % FR_PALETTE.length];
+}
+
+function frChargerSalaries(){
+  let a = [];
+  try { a = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch(e){ a = []; }
+  return a.filter(s => !s.administratif || s.planningPrevu);
+}
+function frChargerHeures(){
+  try { return JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch(e){ return {}; }
+}
+
+/* Adresse du chantier (fiche coordonnées) pour l'infobulle, si coordonnees.js est chargé. */
+function frAdresse(nom){
+  try {
+    if (window.Coord && typeof Coord.get === 'function'){
+      const c = Coord.get(nom) || Coord.get(String(nom).trim().toUpperCase());
+      if (c) return [c.adresse, c.ville].filter(Boolean).join(', ').replace(/\s*\n\s*/g, ', ');
+    }
+  } catch (_) {}
+  return '';
+}
+
+/* Journée d'un salarié : chantiers ordonnés + contrat + absence. */
+function frJournee(s, heures, d){
+  const dateStr = frIso(d);
+  const safe = dateStr.replace(/-/g,'_');
+  const contrat = contratDuJour(s, dateStr);
+  const absE = heures[String(s.id) + safe + 'abs'];
+  const abs = absE ? (parseFloat(absE.heures) || 0) : 0;
+  const motif = absE ? String(absE.motif || '').trim() : '';
+  const chs = [];
+  const nbSlots = s.sav ? 10 : 5;
+  for (let i = 1; i <= nbSlots; i++){
+    const e = heures[String(s.id) + safe + 'ch' + i];
+    if (!e) continue;
+    const nom = String(e.chantier || '').trim();
+    if (!nom || nom.toUpperCase() === TNA) continue;
+    const h = parseFloat(e.heures) || 0;
+    if (h <= 0) continue;
+    chs.push({ nom, cle: nom.toUpperCase(), h, rdv: String(e.rdv || '').trim(), ordre: i });
+  }
+  // Ordre de la journée : heure de RDV d'abord (ordre réel), puis ordre de saisie
+  chs.sort((a, b) => {
+    if (a.rdv && b.rdv) return a.rdv.localeCompare(b.rdv) || (a.ordre - b.ordre);
+    if (a.rdv) return -1;
+    if (b.rdv) return 1;
+    return a.ordre - b.ordre;
+  });
+  const planifie = chs.reduce((t, c) => t + c.h, 0);
+  return { dateStr, d, contrat, abs, motif, chs, planifie,
+           ecole: estJourEcolePl(s, dateStr), ferie: estFeriePl(dateStr) };
+}
+
+/* Jours affichés : jours du mois, du lundi au vendredi (+ samedi si demandé). */
+function frJoursDuMois(y, m){
+  const jours = [];
+  const n = new Date(y, m + 1, 0).getDate();
+  for (let k = 1; k <= n; k++){
+    const d = new Date(y, m, k);
+    const w = d.getDay();
+    if (w === 0 || (w === 6 && !frSam)) continue;
+    jours.push(d);
+  }
+  return jours;
+}
+
+function frRender(){
+  const label = document.getElementById('fr-mois-label');
+  if (label) label.textContent = FR_MOIS[frM] + ' ' + frY;
+  const pt = document.getElementById('fr-print-titre');
+  if (pt) pt.textContent = 'Frise des chantiers — ' + FR_MOIS[frM] + ' ' + frY;
+  const btnSam = document.getElementById('fr-btn-sam');
+  if (btnSam) btnSam.textContent = frSam ? 'Masquer le samedi' : 'Afficher le samedi';
+  const zone = document.getElementById('frise-wrap');
+
+  const salaries = frChargerSalaries();
+  const heures = frChargerHeures();
+  if (!salaries.length){ zone.innerHTML = '<div class="sy-msg">Aucun salarié à afficher. Vérifiez la fiche Salariés.</div>'; return; }
+  const jours = frJoursDuMois(frY, frM);
+  const N = jours.length;
+  if (!N){ zone.innerHTML = '<div class="sy-msg">Aucun jour à afficher pour ce mois.</div>'; return; }
+  const pct = x => (x / N * 100) + '%';
+  const aujIso = frIso(new Date());
+
+  // ── En-têtes : semaines puis jours ──
+  let hSem = '', hJ = '', semPrec = null, debS = 0;
+  jours.forEach((d, i) => {
+    const sm = pl2NumSemaine(d);
+    if (sm !== semPrec){
+      if (semPrec !== null) hSem += '<div style="left:' + pct(debS) + ';width:' + pct(i - debS) + '">S' + semPrec + '</div>';
+      semPrec = sm; debS = i;
+    }
+    hJ += '<div class="' + (frIso(d) === aujIso ? 'auj' : '') + '" style="left:' + pct(i) + ';width:' + pct(1) + '" title="' + FR_JL[d.getDay()] + ' ' + frDateCourte(d) + '">'
+        + FR_JC[d.getDay()] + '<small>' + d.getDate() + '</small></div>';
+  });
+  hSem += '<div style="left:' + pct(debS) + ';width:' + pct(N - debS) + '">S' + semPrec + '</div>';
+
+  let html = '<div class="fr-grille">'
+    + '<div class="fr-lib" style="grid-row:span 2">Salarié</div>'
+    + '<div class="fr-tsem">' + hSem + '</div>'
+    + '<div class="fr-lib droite" style="grid-row:span 2">Mois</div>'
+    + '<div class="fr-tjours">' + hJ + '</div>';
+
+  salaries.forEach(s => {
+    const nomSal = ((s.prenom ? s.prenom + ' ' : '') + (s.nom || '')).trim() || s.nom || '—';
+    const segs = [];      // segments élémentaires, abscisses en « jours » (0..N)
+    const ecarts = [];
+    let totPlan = 0, totContrat = 0;
+
+    jours.forEach((d, i) => {
+      const j = frJournee(s, heures, d);
+      const jl = FR_JL[d.getDay()] + ' ' + frDateCourte(d);
+      // Jour non travaillé (contrat nul) sans chantier : férié / école / repos
+      if (j.contrat <= 0 && !j.chs.length){
+        if (j.abs > 0) segs.push({ k:'abs', cle:'ABS:' + (j.motif || 'Absence'), lib: j.motif || 'Absence', x0:i, x1:i+1, jours:[{ d, h:j.abs }] });
+        else if (j.ecole) segs.push({ k:'ecole', cle:'ECOLE', lib:'École', x0:i, x1:i+1, jours:[{ d, h:0 }] });
+        else segs.push({ k:'off', cle:'OFF:' + (j.ferie ? nomFeriePl(j.dateStr) : 'repos'), lib: j.ferie ? nomFeriePl(j.dateStr) : 'Non travaillé', ferie:j.ferie, x0:i, x1:i+1, jours:[{ d, h:0 }] });
+        return;
+      }
+      const effContrat = Math.max(0, j.contrat - j.abs);
+      totContrat += effContrat;
+      totPlan += j.planifie;
+      // Largeur de la journée = contrat, ou heures réellement posées si elles le dépassent
+      const base = Math.max(j.contrat, j.planifie + j.abs) || 1;
+      let x = i;
+      j.chs.forEach(c => {
+        const w = c.h / base;
+        segs.push({ k:'ch', cle:'CH:' + c.cle, lib:c.nom, x0:x, x1:x + w, jours:[{ d, h:c.h, rdv:c.rdv }] });
+        x += w;
+      });
+      const reste = Math.max(0, effContrat - j.planifie);
+      if (reste > 0){
+        const w = reste / base;
+        segs.push({ k:'vide', cle:'VIDE:' + i, lib:'À planifier', x0:x, x1:x + w, jours:[{ d, h:reste }] });
+        x += w;
+      }
+      if (j.abs > 0){
+        const w = j.abs / base;
+        segs.push({ k:'abs', cle:'ABS:' + (j.motif || 'Absence'), lib: j.motif || 'Absence', x0:x, x1:Math.min(i + 1, x + w), jours:[{ d, h:j.abs }] });
+        x += w;
+      }
+      if (x < i + 1 - 1e-6) segs.push({ k:'vide', cle:'VIDE:' + i, lib:'', x0:x, x1:i + 1, jours:[] });
+      if (effContrat <= 0 && j.planifie <= 0) return;   // absence sur toute la journée : pas de trait d'écart
+      const coul = j.planifie < effContrat - 0.01 ? '#f59e0b' : (j.planifie > effContrat + 0.01 ? '#dc2626' : '#16a34a');
+      ecarts.push('<div class="fr-ecart" style="left:' + pct(i) + ';width:' + pct(1) + ';background:' + coul + '" data-tip="'
+        + frEsc(syTip(jl, 'Planifié <b>' + frFmt(j.planifie) + ' h</b> / ' + frFmt(effContrat) + ' h')) + '"></div>');
+    });
+
+    // ── Fusion des segments contigus de même nature (continuité d'un chantier sur plusieurs jours) ──
+    const fus = [];
+    segs.forEach(sg => {
+      const der = fus[fus.length - 1];
+      if (der && der.cle === sg.cle && Math.abs(der.x1 - sg.x0) < 1e-6){
+        der.x1 = sg.x1;
+        der.jours = der.jours.concat(sg.jours);
+      } else fus.push({ ...sg, jours: sg.jours.slice() });
+    });
+
+    let piste = '';
+    fus.forEach(sg => {
+      const larg = sg.x1 - sg.x0;
+      if (larg <= 1e-6) return;
+      const totalH = sg.jours.reduce((t, x) => t + (x.h || 0), 0);
+      const d0 = sg.jours.length ? sg.jours[0].d : null;
+      const d1 = sg.jours.length ? sg.jours[sg.jours.length - 1].d : null;
+      const periode = !d0 ? '' : (d0 === d1 || frIso(d0) === frIso(d1)
+        ? FR_JL[d0.getDay()] + ' ' + frDateCourte(d0)
+        : 'du ' + FR_JL[d0.getDay()].toLowerCase() + ' ' + frDateCourte(d0) + ' au ' + FR_JL[d1.getDay()].toLowerCase() + ' ' + frDateCourte(d1));
+      const nbJ = new Set(sg.jours.map(x => frIso(x.d))).size;
+      let cls = 'fr-seg', style = 'left:' + pct(sg.x0) + ';width:' + pct(larg) + ';', txt = '', tip = '';
+
+      if (sg.k === 'ch'){
+        style += 'background:' + frCouleur(sg.lib) + ';';
+        if (larg >= 0.9) txt = frEsc(sg.lib) + (larg >= 1.6 ? '<small>' + frFmt(totalH) + ' h</small>' : '');
+        let corps = '<div style="opacity:.8;margin-bottom:4px">' + frEsc(nomSal) + '</div>'
+                  + '<div>' + frEsc(periode) + (nbJ > 1 ? ' · ' + nbJ + ' jours' : '') + '</div>'
+                  + '<div><b>' + frFmt(totalH) + ' h</b> prévues</div>';
+        if (sg.jours.length > 1 && sg.jours.length <= 12){
+          corps += '<div style="margin-top:4px;border-top:1px solid rgba(255,255,255,.18);padding-top:4px;font-size:0.76rem;opacity:.9">'
+                 + sg.jours.map(x => frDateCourte(x.d) + ' : ' + frFmt(x.h) + ' h' + (x.rdv ? ' (RDV ' + frEsc(x.rdv) + ')' : '')).join('<br>') + '</div>';
+        } else if (sg.jours[0] && sg.jours[0].rdv) corps += '<div>RDV ' + frEsc(sg.jours[0].rdv) + '</div>';
+        const adr = frAdresse(sg.lib);
+        if (adr) corps += '<div style="margin-top:4px">📍 ' + frEsc(adr) + '</div>';
+        tip = syTip(sg.lib, corps);
+      } else if (sg.k === 'vide'){
+        cls += ' vide';
+        if (!sg.jours.length) return; // complément de largeur sans contenu
+        if (larg >= 1.2) txt = frFmt(totalH) + ' h';
+        tip = syTip(periode, syLigneTip('Reste ' + frFmt(totalH) + ' h à planifier', '#F09595'));
+      } else if (sg.k === 'abs'){
+        cls += ' abs';
+        if (larg >= 0.9) txt = frEsc(sg.lib);
+        tip = syTip(periode + (nbJ > 1 ? ' · ' + nbJ + ' jours' : ''), syLigneTip('Absence : ' + sg.lib + ' (' + frFmt(totalH) + ' h)', '#FAC775'));
+      } else if (sg.k === 'ecole'){
+        cls += ' ecole';
+        if (larg >= 0.9) txt = 'École';
+        tip = syTip(periode, syLigneTip('École (apprenti)', '#85B7EB'));
+      } else {
+        cls += ' off';
+        if (larg >= 0.9 && sg.ferie) txt = 'férié';
+        tip = syTip(periode, syLigneTip(sg.lib, 'rgba(255,255,255,.65)'));
+      }
+      piste += '<div class="' + cls + '" style="' + style + '" data-tip="' + frEsc(tip) + '">' + txt + '</div>';
+    });
+
+    // Repères de début de journée (petits traits) et de semaine (trait plein)
+    let reperes = '', sp = null;
+    jours.forEach((d, i) => {
+      const sm = pl2NumSemaine(d);
+      if (i > 0) reperes += '<div class="fr-rep' + (sm !== sp ? ' sem' : '') + '" style="left:' + pct(i) + '"></div>';
+      sp = sm;
+    });
+
+    const info = s.alternance ? 'Alternance A/B' : (s.apprenti ? 'Apprenti' : (s.sav ? 'SAV' : ''));
+    html += '<div class="fr-nom" title="' + frEsc(nomSal) + '">' + frEsc(nomSal) + (info ? '<small>' + info + '</small>' : '') + '</div>'
+          + '<div class="fr-ligne">' + reperes + '<div class="fr-piste">' + piste + '</div>' + ecarts.join('') + '</div>'
+          + '<div class="fr-tot" style="color:' + (totPlan < totContrat - 0.01 ? '#b45309' : (totPlan > totContrat + 0.01 ? '#dc2626' : '#0f3a8a')) + '">'
+          + frFmt(totPlan) + ' h<small>/ ' + frFmt(totContrat) + ' h</small></div>';
+  });
+  html += '</div>';
+  zone.innerHTML = html;
+}
+
+function moisDecalage(n){
+  frM += n;
+  if (frM < 0){ frM = 11; frY--; }
+  else if (frM > 11){ frM = 0; frY++; }
+  frRender();
+}
+function moisAujourdhui(){ const d = new Date(); frY = d.getFullYear(); frM = d.getMonth(); frRender(); }
+function toggleSamedi(){ frSam = !frSam; frRender(); }
+
+function syAjusterHauteur(){
+  const tb = document.getElementById('top-bar');
+  const wrap = document.getElementById('frise-wrap');
+  if (tb && wrap) wrap.style.marginTop = Math.ceil(tb.getBoundingClientRect().height) + 'px';
+}
+
+/* Barre latérale rétractable — même mécanisme (et même état localStorage) que le planning prévu. */
+function majToggleRail(){
+  const btn = document.getElementById('pl-rail-toggle');
+  if (!btn) return;
+  const reduit = document.documentElement.classList.contains('pl-rail-reduit');
+  btn.textContent = reduit ? '›' : '‹';
+  btn.title = reduit ? 'Afficher le menu' : 'Réduire le menu';
+}
+function togglerRail(){
+  document.documentElement.classList.toggle('pl-rail-reduit');
+  try { localStorage.setItem('pl-rail-reduit', document.documentElement.classList.contains('pl-rail-reduit') ? '1' : '0'); } catch (e) {}
+  majToggleRail();
+  setTimeout(syAjusterHauteur, 30);
+}
+function initRailRetractable(){
+  try { if (localStorage.getItem('pl-rail-reduit') === '1') document.documentElement.classList.add('pl-rail-reduit'); } catch (e) {}
+  let btn = document.getElementById('pl-rail-toggle');
+  if (!btn){
+    btn = document.createElement('button');
+    btn.id = 'pl-rail-toggle';
+    btn.type = 'button';
+    btn.onclick = togglerRail;
+    document.body.appendChild(btn);
+  }
+  majToggleRail();
+}
+
+function syInit(){
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+  // Mois de départ : ?mois=AAAA-MM (envoyé par le planning), sinon le mois en cours
+  const d = new Date();
+  frY = d.getFullYear(); frM = d.getMonth();
+  try {
+    const p = new URLSearchParams(location.search).get('mois') || '';
+    const m = /^(\d{4})-(\d{2})$/.exec(p);
+    if (m){ frY = parseInt(m[1], 10); frM = Math.min(11, Math.max(0, parseInt(m[2], 10) - 1)); }
+  } catch (_) {}
+  frRender();
+  initRailRetractable();
+  syAjusterHauteur();
+  // La hauteur de la barre fixe change quand sync.js construit/replie le menu :
+  // on suit ces changements pour garder le contenu bien décalé dessous.
+  window.addEventListener('resize', syAjusterHauteur);
+  const tb = document.getElementById('top-bar');
+  if (tb && window.ResizeObserver){ try { new ResizeObserver(syAjusterHauteur).observe(tb); } catch (_) {} }
+  setTimeout(syAjusterHauteur, 300);
+  setTimeout(syAjusterHauteur, 1200);
+}
+
+/* Infobulle custom — même graphisme que le prévisionnel (boîte sombre au curseur). */
+(function(){
+  let el = null;
+  function box(){
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'sy-ttip';
+    el.style.cssText =
+      'position:fixed;z-index:9999;pointer-events:none;display:none;' +
+      'background:#0f2747;color:#fff;border-radius:8px;padding:9px 12px;' +
+      'font-size:0.82rem;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.32);' +
+      'min-width:200px;max-width:300px;';
+    document.body.appendChild(el);
+    return el;
+  }
+  function placer(e){
+    const t = box(); const ox = 16, oy = 16;
+    let x = e.clientX + ox, y = e.clientY + oy;
+    const w = t.offsetWidth, hh = t.offsetHeight;
+    if (x + w > window.innerWidth  - 8) x = e.clientX - w - ox;
+    if (y + hh > window.innerHeight - 8) y = e.clientY - hh - oy;
+    t.style.left = Math.max(4, x) + 'px';
+    t.style.top  = Math.max(4, y) + 'px';
+  }
+  document.addEventListener('mouseover', e => {
+    const c = e.target.closest && e.target.closest('[data-tip]');
+    if (!c) return;
+    const t = box();
+    t.innerHTML = c.getAttribute('data-tip');
+    t.style.display = 'block';
+    placer(e);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!el || el.style.display !== 'block') return;
+    if (e.target.closest && e.target.closest('[data-tip]')) placer(e);
+    else el.style.display = 'none';
+  });
+  document.addEventListener('mouseout', e => {
+    const to = e.relatedTarget;
+    if (!to || !(to.closest && to.closest('[data-tip]'))) { if (el) el.style.display = 'none'; }
+  });
+})();
+
+window.addEventListener('DOMContentLoaded', syInit);
+window.addEventListener('donnees-chargees', () => {
+  const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  if (ent.nom){ const el = document.getElementById('entreprise-nom'); if (el) el.textContent = ent.nom; }
+  frRender();
+  syAjusterHauteur();
+});
+</script>
+
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
+<script>
+// Les adresses (coordonnees.js) arrivent après le premier rendu : on redessine une fois chargées
+window.addEventListener('load', () => { try { frRender(); } catch (_) {} });
+</script>
+</body>
+</html>

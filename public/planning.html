@@ -489,8 +489,7 @@
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
       <button type="button" class="pl2-toolbtn" id="btn-absence-longue" onclick="alOuvrir()" title="Poser une absence sur une période à plusieurs salariés">🚫 Absence longue</button>
-      <button type="button" class="pl2-toolbtn" id="btn-graphiques-prevu" onclick="location.href='graphiques-prevu.html'" title="Graphique contrat vs planifié">📊 Graphiques</button>
-      <button type="button" class="pl2-toolbtn" id="btn-planning-synthese" onclick="location.href='planning-synthese.html'" title="Vue synthèse : heures planifiées / restant à planifier par jour">🗓️ Synthèse</button>
+      <button type="button" class="pl2-toolbtn" id="btn-graphiques-prevu" onclick="gxOuvrirFenetre()" title="Graphique, synthèse et frise des chantiers">📊 Graphiques et synthèse</button>
       <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
       <button type="button" class="pl2-toolbtn" id="btn-samedi" onclick="pl3ToggleSamedi()">👁 Afficher le samedi</button>
       <button type="button" class="pl2-toolbtn" onclick="location.reload()" title="Recharger les données du serveur">↻ Rafraîchir</button>
@@ -3753,6 +3752,114 @@ async function plnAffecter(salarieId, dateStr) {
   window.addEventListener('DOMContentLoaded', majNavClients);
   window.addEventListener('donnees-chargees', majNavClients);
 })();
+</script>
+
+
+<!-- ══ FENÊTRE « GRAPHIQUES ET SYNTHÈSE » : vignettes cliquables (Graphique, Synthèse, Frise) ══ -->
+<style>
+  #gx-overlay { position:fixed; inset:0; z-index:3000; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px; }
+  #gx-overlay.on { display:flex; }
+  #gx-overlay .gx-box { background:#fff; border-radius:14px; width:100%; max-width:1020px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  #gx-overlay .gx-h { background:#0f3a8a; color:#fff; padding:12px 18px; border-bottom:3px solid #f59e0b; display:flex; align-items:center; gap:10px; }
+  #gx-overlay .gx-h b { font-size:1rem; }
+  #gx-overlay .gx-h small { opacity:.8; font-size:.82rem; }
+  #gx-overlay .gx-x { margin-left:auto; background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer; opacity:.85; line-height:1; }
+  #gx-overlay .gx-x:hover { opacity:1; }
+  #gx-overlay .gx-b { padding:18px; display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+  #gx-overlay .gx-v { border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; cursor:pointer; background:#fff; text-align:left; padding:0; font:inherit; transition:border-color .15s, box-shadow .15s, transform .15s; }
+  #gx-overlay .gx-v:hover, #gx-overlay .gx-v:focus-visible { border-color:#f59e0b; box-shadow:0 6px 20px rgba(245,158,11,.25); transform:translateY(-2px); outline:none; }
+  #gx-overlay .gx-ap { height:160px; background:#f8fafc; border-bottom:1px solid #e2e8f0; position:relative; display:flex; align-items:center; justify-content:center; }
+  #gx-overlay .gx-ap svg { width:92%; height:88%; }
+  #gx-overlay .gx-loupe { position:absolute; right:8px; bottom:8px; background:#0f3a8a; color:#fff; font-size:.72rem; font-weight:700; padding:4px 8px; border-radius:6px; }
+  #gx-overlay .gx-t { padding:10px 12px 12px; }
+  #gx-overlay .gx-t b { font-size:.9rem; color:#0f3a8a; display:block; }
+  #gx-overlay .gx-t small { font-size:.78rem; color:#64748b; line-height:1.4; display:block; margin-top:3px; }
+  #gx-overlay .gx-new { display:inline-block; font-size:.66rem; font-weight:700; border-radius:999px; padding:1px 8px; margin-left:6px; vertical-align:2px; background:#fef3c7; color:#92400e; }
+  #gx-overlay .gx-f { padding:10px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; font-size:.78rem; color:#64748b; }
+  @media print { #gx-overlay { display:none !important; } }
+</style>
+<div id="gx-overlay" class="no-print" onclick="if(event.target===this)gxFermer()">
+  <div class="gx-box" role="dialog" aria-modal="true" aria-label="Graphiques et synthèse">
+    <div class="gx-h"><b>📊 Graphiques et synthèse</b><small id="gx-mois"></small>
+      <button type="button" class="gx-x" onclick="gxFermer()" aria-label="Fermer">✕</button></div>
+    <div class="gx-b">
+      <button type="button" class="gx-v" onclick="gxOuvrir('graphique')">
+        <div class="gx-ap">
+          <svg viewBox="0 0 260 130" aria-hidden="true">
+            <g fill="#334155"><rect x="14" y="30" width="9" height="88"/><rect x="40" y="48" width="9" height="70"/><rect x="66" y="34" width="9" height="84"/><rect x="92" y="34" width="9" height="84"/><rect x="118" y="80" width="9" height="38"/><rect x="144" y="28" width="9" height="90"/><rect x="170" y="30" width="9" height="88"/><rect x="196" y="48" width="9" height="70"/><rect x="222" y="32" width="9" height="86"/></g>
+            <g fill="#2563eb"><rect x="24" y="98" width="9" height="20"/><rect x="50" y="98" width="9" height="20"/><rect x="76" y="98" width="9" height="20"/><rect x="102" y="98" width="9" height="20"/><rect x="128" y="108" width="9" height="10"/><rect x="154" y="98" width="9" height="20"/><rect x="180" y="98" width="9" height="20"/><rect x="206" y="98" width="9" height="20"/><rect x="232" y="98" width="9" height="20"/></g>
+            <polyline points="14,112 60,96 110,78 160,58 210,40 246,26" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="5 4"/>
+            <polyline points="14,116 80,110 150,104 246,96" fill="none" stroke="#2563eb" stroke-width="2"/>
+            <line x1="8" y1="119" x2="252" y2="119" stroke="#94a3b8"/>
+          </svg>
+          <span class="gx-loupe">🔍 Agrandir</span>
+        </div>
+        <div class="gx-t"><b>Graphique</b><small>Heures contrat / planifiées par jour et cumuls du mois, avec écart et taux de planification.</small></div>
+      </button>
+      <button type="button" class="gx-v" onclick="gxOuvrir('synthese')">
+        <div class="gx-ap">
+          <svg viewBox="0 0 260 130" aria-hidden="true">
+            <text x="8" y="14" font-size="9" font-weight="700" fill="#0f3a8a">Semaine</text>
+            <line x1="56" y1="17" x2="252" y2="17" stroke="#0f3a8a" stroke-width="1.5"/>
+            <g font-size="8" fill="#334155"><text x="8" y="36">Salarié 1</text><text x="8" y="60">Salarié 2</text><text x="8" y="84">Salarié 3</text><text x="8" y="108">Salarié 4</text></g>
+            <g fill="#d9dde3"><rect x="58" y="26" width="34" height="14" rx="2"/><rect x="96" y="26" width="34" height="14" rx="2"/><rect x="134" y="26" width="34" height="14" rx="2"/><rect x="172" y="26" width="34" height="14" rx="2"/><rect x="210" y="26" width="34" height="14" rx="2"/></g>
+            <g fill="#E24B4A"><rect x="58" y="50" width="34" height="14" rx="2"/><rect x="96" y="50" width="34" height="14" rx="2"/><rect x="58" y="74" width="34" height="14" rx="2"/><rect x="96" y="74" width="34" height="14" rx="2"/><rect x="134" y="74" width="34" height="14" rx="2"/><rect x="172" y="98" width="34" height="14" rx="2"/><rect x="210" y="98" width="34" height="14" rx="2"/></g>
+            <g fill="#1D9E75"><rect x="134" y="50" width="34" height="14" rx="2"/><rect x="172" y="50" width="34" height="14" rx="2"/><rect x="210" y="50" width="34" height="14" rx="2"/><rect x="172" y="74" width="34" height="14" rx="2"/><rect x="210" y="74" width="34" height="14" rx="2"/><rect x="58" y="98" width="34" height="14" rx="2"/><rect x="96" y="98" width="34" height="14" rx="2"/><rect x="134" y="98" width="34" height="14" rx="2"/></g>
+          </svg>
+          <span class="gx-loupe">🔍 Agrandir</span>
+        </div>
+        <div class="gx-t"><b>Synthèse</b><small>État de planification de chaque salarié, jour par jour, et heures restant à planifier.</small></div>
+      </button>
+      <button type="button" class="gx-v" onclick="gxOuvrir('frise')">
+        <div class="gx-ap">
+          <svg viewBox="0 0 260 130" aria-hidden="true">
+            <rect x="56" y="8" width="196" height="9" fill="#0f3a8a"/>
+            <g font-size="8" fill="#0f3a8a" font-weight="700"><text x="6" y="36">Salarié 1</text><text x="6" y="64">Salarié 2</text><text x="6" y="92">Salarié 3</text><text x="6" y="120">Salarié 4</text></g>
+            <rect x="56" y="26" width="30" height="14" fill="#9333ea"/><rect x="86" y="26" width="70" height="14" fill="#c2410c"/><rect x="156" y="26" width="46" height="14" fill="#fde68a"/><rect x="202" y="26" width="24" height="14" fill="#db2777"/><rect x="226" y="26" width="26" height="14" fill="#0891b2"/>
+            <rect x="56" y="54" width="104" height="14" fill="#a21caf"/><rect x="160" y="54" width="10" height="14" fill="#fff" stroke="#94a3b8" stroke-dasharray="2 2"/><rect x="170" y="54" width="82" height="14" fill="#4f46e5"/>
+            <rect x="56" y="82" width="150" height="14" fill="#c2410c"/><rect x="206" y="82" width="22" height="14" fill="#0891b2"/><rect x="228" y="82" width="24" height="14" fill="#ca8a04"/>
+            <rect x="56" y="110" width="20" height="14" fill="#0f766e"/><rect x="76" y="110" width="16" height="14" fill="#fff" stroke="#94a3b8" stroke-dasharray="2 2"/><rect x="92" y="110" width="58" height="14" fill="#0f766e"/><rect x="150" y="110" width="14" height="14" fill="#e2e8f0"/><rect x="164" y="110" width="88" height="14" fill="#0f766e"/>
+          </svg>
+          <span class="gx-loupe">🔍 Agrandir</span>
+        </div>
+        <div class="gx-t"><b>Frise des chantiers <span class="gx-new">nouveau</span></b><small>Succession des chantiers de chaque salarié, jour après jour, en continu. Détail au survol.</small></div>
+      </button>
+    </div>
+    <div class="gx-f">Cliquez sur une vignette pour l'ouvrir en grand. La frise s'ouvre sur le mois affiché dans le planning.</div>
+  </div>
+</div>
+<script>
+/* Fenêtre « Graphiques et synthèse » : remplace les deux boutons séparés
+   « Graphiques » et « Synthèse » du planning prévu. Chaque vignette ouvre
+   la vue correspondante en grand (pages existantes inchangées ; la frise
+   reçoit le mois affiché via ?mois=AAAA-MM). */
+function gxMoisAffiche() {
+  const el = document.getElementById('moisPlanning');
+  const v = el && el.value ? el.value : '';
+  return /^\d{4}-\d{2}$/.test(v) ? v : '';
+}
+function gxOuvrirFenetre() {
+  const m = gxMoisAffiche();
+  const lib = document.getElementById('gx-mois');
+  if (lib) {
+    if (m) {
+      const [a, mo] = m.split('-').map(Number);
+      const t = new Date(a, mo - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      lib.textContent = '— ' + t.charAt(0).toUpperCase() + t.slice(1);
+    } else lib.textContent = '';
+  }
+  document.getElementById('gx-overlay').classList.add('on');
+}
+function gxFermer() { document.getElementById('gx-overlay').classList.remove('on'); }
+function gxOuvrir(vue) {
+  const m = gxMoisAffiche();
+  if (vue === 'graphique') location.href = 'graphiques-prevu.html';
+  else if (vue === 'synthese') location.href = 'planning-synthese.html';
+  else location.href = 'frise-chantiers.html' + (m ? '?mois=' + m : '');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { const o = document.getElementById('gx-overlay'); if (o && o.classList.contains('on')) gxFermer(); }
+});
 </script>
 
 </body>
