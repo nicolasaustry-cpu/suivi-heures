@@ -230,12 +230,28 @@
 
   <!-- Mode import -->
   <div id="henrri-bloc-import" style="display:none;margin-bottom:1rem;">
-    <p style="font-size:0.82rem;color:#475569;margin:0;">
-      L'import se fait depuis le bouton <strong>« 📄 Devis Henrri »</strong> de la page <strong>Prévisionnel</strong>.
-      Deux fichiers exportés de Henrri : <strong>① la liste des clients</strong> (coordonnées) puis <strong>② les devis validés</strong>
-      (n° de devis, nom prénom, nombre d'heures et nombre d'heures analysées — les heures analysées servent de référence,
-      à défaut le nombre d'heures du devis). Les coordonnées sont ensuite rattachées aux devis pour la fiche du chantier.
-    </p>
+    <div style="font-size:0.82rem;color:#475569;line-height:1.45;">
+      <div style="font-weight:700;color:#0f172a;margin-bottom:4px;">Démarche d'import des devis validés</div>
+      <ol style="margin:0 0 6px;padding-left:1.2rem;">
+        <li>Dans <strong>Henrri</strong>, exportez en Excel :
+          <strong>① la liste des clients</strong> (raison sociale, nom, adresse, code postal, ville, téléphone, e-mail)
+          et <strong>② le suivi des devis validés</strong> (n°, raison sociale, nombre d'heures, nombre d'heures analysées).</li>
+        <li>Dans Suiv'Heures, page <strong>Prévisionnel</strong> : bouton <strong>« 📄 Devis Henrri »</strong>, puis
+          <strong>« 📥 Importer clients + devis validés »</strong>.</li>
+        <li>Déposez le fichier clients en zone ① et le fichier devis en zone ②, vérifiez la correspondance des colonnes,
+          puis <strong>Analyser</strong> et <strong>Appliquer l'import</strong>.</li>
+        <li>Revenez dans <strong>« Devis Henrri »</strong> : choisissez le mois de démarrage de chaque devis
+          (ou « même mois pour tous »), puis <strong>Affecter</strong> ligne par ligne ou <strong>« ✔ Tout affecter »</strong>.</li>
+      </ol>
+      <div style="font-size:0.78rem;color:#64748b;">
+        • <strong>Heures</strong> : les heures analysées sont proposées ; si elles valent 0, le nombre d'heures du devis. Valeur modifiable avant affectation.<br>
+        • <strong>Coordonnées</strong> : reprises en priorité des fiches chantier déjà présentes, sinon de la liste clients importée
+          (raison sociale, ou nom pour les particuliers ; rapprochement sur le nom de famille seul signalé « à vérifier »).
+          Une fiche déjà remplie n'est jamais écrasée.<br>
+        • <strong>Mise à jour</strong> : réimportez les deux fichiers quand vous voulez ; rien n'est supprimé et un devis déjà affecté ou écarté n'est pas reproposé.
+          La liste clients peut être sautée si elle n'a pas changé.
+      </div>
+    </div>
     <div id="henrri-import-info" style="font-size:0.78rem;color:#94a3b8;margin-top:6px;"></div>
   </div>
 
