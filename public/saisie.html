@@ -2309,7 +2309,7 @@ function chipsJourMonPlanning(dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
   const salId = _salarie?.id;
   const planifies = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 60; i++) {   // miroir de NB_SLOTS (planning.html) — auparavant limité à 5
     const dd = heures[`${salId}${safeDate}ch${i}`];
     if (!dd || !dd.chantier || !String(dd.chantier).trim()) continue;
     const _nomP = String(dd.chantier).trim();
@@ -2349,17 +2349,23 @@ function _mpHtmlChip(c) {
     ? `<div class="chip-notetxt">📝 ${_mpEsc(_noteAff)}</div>`
     : '';
   const coord = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
+  const nbDocs = _mpDocs[(c.nom || '').trim().toUpperCase()] || 0;
+  const docs = nbDocs > 0
+    ? `<button type="button" class="chip-etat chip-note-planning mp-docs" data-nom="${_mpEsc(c.nom)}" style="align-self:flex-start;margin-top:6px;">📎 ${nbDocs} document${nbDocs > 1 ? 's' : ''}</button>`
+    : '';
   return `<div class="chip s-${c.etat}"><div class="cn">${icone}<span class="nm">${_mpEsc(c.nom)}</span>${tag}</div>`
-       + note + coord
+       + note + docs + coord
        + `<div class="chip-hrs"><span class="hp">h plan. : ${_mpFmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${_mpFmtHM(c.hReal)}</span></div></div>`;
 }
 
 async function ouvrirMonPlanning() {
   const base = document.getElementById('date-saisie').value || _ymd(new Date());
   _monPlanningLundi = _lundiDe(base);
+  _mpDocs = {};                        // documents relus à chaque ouverture (ajouts récents)
   rendreMonPlanning();                 // affichage immédiat (planifié)
   document.getElementById('mon-planning-overlay').style.display = 'flex';
   await chargerRealiseMonPlanning();    // puis enrichissement avec le réalisé
+  await chargerDocsMonPlanning();       // puis nombre de PDF joints par chantier
   rendreMonPlanning();
 }
 async function naviguerMonPlanning(deltaSemaines) {
@@ -2367,7 +2373,32 @@ async function naviguerMonPlanning(deltaSemaines) {
   _monPlanningLundi.setDate(_monPlanningLundi.getDate() + deltaSemaines * 7);
   rendreMonPlanning();
   await chargerRealiseMonPlanning();
+  await chargerDocsMonPlanning();
   rendreMonPlanning();
+}
+/* Documents joints (PDF) dans Mon planning : nombre de PDF par chantier de la
+   semaine affichée (métadonnées seulement, via /api/documents/liste). Cache par
+   nom de chantier en MAJUSCULES, vidé à chaque ouverture de Mon planning. */
+let _mpDocs = {};
+async function chargerDocsMonPlanning() {
+  const ce  = localStorage.getItem('saisie_codeEmploye');
+  const sid = _salarie && _salarie.id;
+  if (!ce || !sid || !_monPlanningLundi) return;
+  const noms = new Set();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(_monPlanningLundi); d.setDate(_monPlanningLundi.getDate() + i);
+    chipsJourMonPlanning(_ymd(d)).forEach(c => { const n = (c.nom || '').trim(); if (n) noms.add(n); });
+  }
+  const aCharger = [...noms].filter(n => !(n.toUpperCase() in _mpDocs));
+  await Promise.all(aCharger.map(nom =>
+    fetch('/api/documents/liste', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: ce, salarieId: sid, chantier: nom })
+    }).then(r => r.json()).then(r => {
+      if (r && r.ok && Array.isArray(r.documents)) _mpDocs[nom.toUpperCase()] = r.documents.length;
+    }).catch(() => {})
+  ));
 }
 function rendreMonPlanning() {
   let ov = document.getElementById('mon-planning-overlay');
@@ -2398,6 +2429,11 @@ function rendreMonPlanning() {
     ov.querySelector('#mon-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
     ov.querySelector('#mon-planning-prec').addEventListener('click', function () { naviguerMonPlanning(-1); });
     ov.querySelector('#mon-planning-suiv').addEventListener('click', function () { naviguerMonPlanning(1); });
+    // Bouton « 📎 N document(s) » d'un chantier → même fenêtre que sur l'écran de saisie
+    ov.querySelector('#mon-planning-corps').addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.mp-docs');
+      if (b) ouvrirNotePlanning(b.getAttribute('data-nom') || '');
+    });
     // Swipe horizontal pour changer de semaine (mobile)
     (function () {
       var x0 = 0, y0 = 0, actif = false;
@@ -2476,7 +2512,9 @@ function rendrePrev() {
     if (_texteNote || _nbDocs > 0) {
       const btnNP = document.createElement('button');
       btnNP.type = 'button';
-      btnNP.textContent = _texteNote ? '📋 Note' : '📎 Document' + (_nbDocs > 1 ? 's' : '');
+      btnNP.textContent = _texteNote
+        ? ('📋 Note' + (_nbDocs > 0 ? ' · 📎 ' + _nbDocs : ''))
+        : '📎 Document' + (_nbDocs > 1 ? 's' : '');
       btnNP.title = _texteNote ? 'Voir la note du planning' : 'Voir les documents joints';
       btnNP.className = 'chip-etat chip-note-planning';
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
