@@ -130,6 +130,14 @@ function _clientHenrriVersFiche(c) {
 }
 // Même répartition mobile / fixe que coordonnees.js (_henrriVersCoord)
 function _ficheVersCoordonnees(f) {
+  // Fiche issue de l'import du fichier clients : mobile et fixe déjà séparés
+  if (f && (f.mobile || f.fixe)) {
+    return {
+      adresse: String(f.adresse || "").slice(0, 500), ville: String(f.ville || "").slice(0, 200),
+      mobile: String(f.mobile || "").slice(0, 40), fixe: String(f.fixe || "").slice(0, 40),
+      email: String(f.email || "").trim().slice(0, 120)
+    };
+  }
   const tel = String((f && f.telephone) || "");
   const estMobile = /^0[67]/.test(tel.replace(/[.\s-]/g, ""));
   return {
@@ -223,10 +231,46 @@ function _normaliserLigne(l) {
     numero,
     reference: _simplifierReference(numero) || numero,
     client: nom,
+    codeClient: _txt(l.codeClient, 60),
     heures: _nombre(l.heures),
     heuresAnalysees: _nombre(l.heuresAnalysees)
   };
 }
+
+// Téléphone : Excel perd souvent le 0 initial (612345678 → 0612345678)
+function _tel(v) {
+  let t = String(v == null ? "" : v).trim();
+  if (/^\d{9}$/.test(t)) t = "0" + t;
+  return t.slice(0, 40);
+}
+const _estMobile = t => /^(\+33\s?|0)[67]/.test(String(t || "").replace(/[.\s-]/g, ""));
+
+/* Ligne du fichier « liste des clients Henrri » → fiche de la base clients
+   (même format que clientsCache, + mobile/fixe séparés). */
+function _normaliserClient(l) {
+  const nom = _txt([l && l.nom, l && l.prenom].filter(x => _txt(x)).join(" "), 200);
+  if (!nom) return null;
+  const code = _txt(l.codeClient, 60);
+  let mobile = _tel(l.mobile), fixe = "";
+  const tel = _tel(l.telephone);
+  if (tel) {
+    if (!mobile && _estMobile(tel)) mobile = tel;
+    else if (tel !== mobile) fixe = tel;
+  }
+  const cp = _txt(l.codePostal, 20), ville = _txt(l.ville, 200);
+  return {
+    id: "imp:" + (code ? "#" + code.toUpperCase() : _cleClient(nom)),
+    code,
+    nom,
+    adresse: _txt([l.adresse, l.adresse2].filter(x => _txt(x)).join(", "), 500),
+    codePostal: cp,
+    ville: [cp, ville].filter(Boolean).join(" ").trim(),
+    telephone: mobile || fixe,
+    mobile, fixe,
+    email: _txt(l.email, 120)
+  };
+}
+const _cleFicheClient = f => (f.code ? "#" + String(f.code).toUpperCase() : _cleClient(f.nom));
 
 /* ── Recherche du client d'un devis importé dans la base clients ──
    L'export Henrri ne contient pas les coordonnées : on les cherche dans ce que
@@ -266,16 +310,29 @@ function _indexBaseClients(coordonneesChantiers, clientsCache) {
     };
     proposer(_cleClient(nom), coord, "fiche", nom);
   });
-  // 2. Cache Henrri (seulement pour les clients absents des fiches)
+  // 2. Base clients Henrri (fichier importé ou API), pour les clients absents des
+  //    fiches ; indexée aussi par code client quand il existe (« #C0012 »)
   (Array.isArray(clientsCache) ? clientsCache : []).forEach(f => {
-    const cle = _cleClient(f && f.nom);
-    if (cle && !index.has(cle)) proposer(cle, _ficheVersCoordonnees(f), "henrri", f.nom);
+    if (!f) return;
+    const coord = _ficheVersCoordonnees(f);
+    const cle = _cleClient(f.nom);
+    if (cle && !index.has(cle)) proposer(cle, coord, "henrri", f.nom);
+    if (f.code) proposer("#" + String(f.code).toUpperCase(), coord, "henrri", f.nom);
   });
   return index;
 }
 
+/* Coordonnées d'un devis : fiche Suiv'Heures déjà présente en priorité (par nom),
+   sinon base clients Henrri (par code client, puis par nom). */
+function _coordPourDevis(d, index) {
+  const parNom = index.get(_cleClient(d && d.client));
+  if (parNom && parNom.source === "fiche") return parNom;
+  const parCode = d && d.codeClient ? index.get("#" + String(d.codeClient).toUpperCase()) : null;
+  return parCode || parNom || null;
+}
+
 const CHAMPS_COMPARES = [
-  ["client", "Nom"], ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
+  ["client", "Nom"], ["codeClient", "Code client"], ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
 ];
 
 /* Analyse (sans écriture) d'un lot de lignes au regard de ce qui est déjà en base */
@@ -451,7 +508,7 @@ router.get("/devis", verifyToken, async (req, res) => {
             // Pas de coordonnées dans l'export : coordonnées trouvées dans la base
             // clients, à PROPOSER (case cochée par défaut dans la modale)
             coordonnees: null,
-            coordBase: indexBase.get(_cleClient(d.client)) || null,
+            coordBase: _coordPourDevis(d, indexBase),
             customerId: ""
           };
         });
@@ -674,11 +731,88 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
    L'export ne contient pas les coordonnées : elles sont proposées à
    l'affectation depuis la base clients (voir _indexBaseClients).
    ─────────────────────────────────────────────────────────────── */
+/* Fichier 1 — liste des clients Henrri, envoyée par lots (taille des requêtes).
+   Aperçu : compte nouveaux / mis à jour / inchangés, sans rien écrire. */
+const _CHAMPS_FICHE = ["nom", "adresse", "codePostal", "ville", "mobile", "fixe", "email"];
+function _fusionClients(cache, lignes) {
+  const liste = cache.map(c => ({ ...(c && c.toObject ? c.toObject() : c) }));
+  const index = new Map();
+  liste.forEach((c, i) => { if (c) { index.set(_cleFicheClient(c), i); if (!c.code) index.set(_cleClient(c.nom), i); } });
+  const r = { nouveaux: 0, misAJour: 0, inchanges: 0, rejets: 0 };
+  (Array.isArray(lignes) ? lignes : []).slice(0, 2000).forEach(l => {
+    const f = _normaliserClient(l || {});
+    if (!f) { r.rejets++; return; }
+    const i = index.has(_cleFicheClient(f)) ? index.get(_cleFicheClient(f)) : index.get(_cleClient(f.nom));
+    if (i === undefined) {
+      index.set(_cleFicheClient(f), liste.length); index.set(_cleClient(f.nom), liste.length);
+      liste.push(f); r.nouveaux++; return;
+    }
+    // Mise à jour : seuls les champs NON VIDES du fichier remplacent l'existant
+    const c = liste[i];
+    let change = false;
+    _CHAMPS_FICHE.concat(["code"]).forEach(k => { if (f[k] && String(c[k] || "") !== String(f[k])) { c[k] = f[k]; change = true; } });
+    if (change) { c.telephone = c.mobile || c.fixe || c.telephone || ""; r.misAJour++; } else r.inchanges++;
+  });
+  return { liste, r };
+}
+
+router.post("/import/clients/apercu", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const cfg = await _config(clientId);
+    const { r } = _fusionClients(Array.isArray(cfg.clientsCache) ? cfg.clientsCache : [], req.body && req.body.clients);
+    res.json({ ok: true, rapport: r });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+router.post("/import/clients/confirmer", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const brut = (await Henrri.findOne({ clientId }, "clientsCache").lean()) || {};
+    const { liste, r } = _fusionClients(Array.isArray(brut.clientsCache) ? brut.clientsCache : [], req.body && req.body.clients);
+    const maintenant = new Date();
+    await Henrri.updateOne(
+      { clientId },
+      { $set: { clientsCache: liste, clientsCacheLe: maintenant, updatedAt: maintenant } },
+      { strict: false, upsert: true }
+    );
+    res.json({ ok: true, rapport: r, total: liste.length });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* Fichier 2 — devis validés. L'aperçu indique aussi, pour chaque devis, si des
+   coordonnées seront trouvées : fiches déjà présentes, base clients en place,
+   ou clients du fichier 1 en cours d'import (clesClients : codes/noms). */
 router.post("/import/apercu", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const etat = await _etat(clientId);
     const r = _analyserImport(req.body && req.body.lignes, etat);
+    try {
+      const cfg = await _config(clientId);
+      const doc = await Donnees.findOne({ clientId }, "coordonneesChantiers").lean();
+      const index = _indexBaseClients(doc && doc.coordonneesChantiers, cfg.clientsCache);
+      const nouv = req.body && req.body.clesClients ? req.body.clesClients : {};
+      const codes = new Set((nouv.codes || []).map(c => "#" + String(c).toUpperCase()));
+      const noms = new Set((nouv.noms || []).map(n => _cleClient(n)));
+      const parId = new Map(r.valides.map(d => [d.id, d]));
+      let avec = 0, sans = 0;
+      [r.nouveaux, r.misAJour, r.inchanges].forEach(liste => liste.forEach(x => {
+        const d = parId.get("imp:" + String(x.numero).toUpperCase()) || {};
+        const trouve = _coordPourDevis(d, index);
+        const dansFichier = (d.codeClient && codes.has("#" + d.codeClient.toUpperCase())) || noms.has(_cleClient(d.client));
+        x.coord = trouve ? trouve.source : (dansFichier ? "fichier" : "");
+        if (x.statut === "attente") { if (x.coord) avec++; else sans++; }
+      }));
+      r.totaux.coordTrouvees = avec;
+      r.totaux.coordManquantes = sans;
+    } catch (e) {
+      console.warn("[HENRRI] correspondance clients non calculée :", e.message);
+    }
     delete r.valides;
     res.json({ ok: true, rapport: r });
   } catch (err) {

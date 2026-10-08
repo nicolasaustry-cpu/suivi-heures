@@ -521,7 +521,7 @@
       </p>
       <div id="henrri-modale-import" style="display:none;margin:0 0 1rem;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.82rem;color:#075985;align-items:center;gap:10px;flex-wrap:wrap;">
         <span id="henrri-modale-import-info" style="flex:1;"></span>
-        <a href="import-henrri.html" style="padding:5px 12px;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap;">📥 Importer un export Henrri</a>
+        <a href="import-henrri.html" style="padding:5px 12px;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap;">📥 Importer clients + devis validés</a>
       </div>
       <div id="henrri-devis-corps"><p style="color:#94a3b8;">Chargement…</p></div>
     </div>
@@ -2000,8 +2000,8 @@ async function ouvrirModaleHenrri() {
       const info = document.getElementById('henrri-modale-import-info');
       if (info && modeImport) {
         info.textContent = d.importeLe
-          ? 'Liste issue de votre dernier import Henrri (' + new Date(d.importeLe).toLocaleDateString('fr-FR') + '). Importez un nouvel export pour la mettre à jour.'
-          : "Aucun import pour l'instant : exportez vos devis validés depuis Henrri puis importez le fichier.";
+          ? 'Liste issue de votre dernier import Henrri (' + new Date(d.importeLe).toLocaleDateString('fr-FR') + '). Importez de nouveaux exports (clients + devis validés) pour la mettre à jour.'
+          : "Aucun import pour l'instant : exportez depuis Henrri la liste de vos clients et vos devis validés, puis importez les deux fichiers.";
       }
     }
     if (aide) {
