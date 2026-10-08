@@ -527,6 +527,8 @@
     </div>
     <div class="modale-footer">
       <button class="btn-modale-annuler" onclick="fermerModaleHenrri()">Fermer</button>
+      <button class="btn-modale-copier" id="btn-henrri-tout" onclick="affecterTousDevisHenrri()" style="display:none;"
+        title="Affecte en une fois tous les devis cochés, chacun au mois choisi sur sa ligne">✔ Tout affecter</button>
     </div>
   </div>
 </div>
@@ -1989,6 +1991,8 @@ async function ouvrirModaleHenrri() {
   const blocImport = document.getElementById('henrri-modale-import');
   const aide = document.getElementById('henrri-modale-aide');
   corps.innerHTML = '<p style="color:#94a3b8;">Chargement…</p>';
+  const btnTout = document.getElementById('btn-henrri-tout');
+  if (btnTout) btnTout.style.display = 'none';
   ov.classList.add('open');
   try {
     const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
@@ -2020,10 +2024,13 @@ async function ouvrirModaleHenrri() {
     const td = 'padding:5px 8px;border:1px solid #e2e8f0;';
     let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
     html += '<thead><tr style="background:#e8edf3;">'
+          + '<th style="' + th + 'width:26px;text-align:center;"><input type="checkbox" id="henrri-sel-tous" checked onclick="_henrriCocherTous(this.checked)" title="Tout cocher / décocher"></th>'
           + '<th style="' + th + 'text-align:left;">Client</th>'
           + '<th style="' + th + 'text-align:left;">N° devis</th>'
           + (modeImport ? '<th style="' + th + 'text-align:right;" title="Heures analysées si renseignées, sinon nombre d\'heures du devis">Heures</th>' : '')
-          + '<th style="' + th + '">Mois de démarrage</th>'
+          + '<th style="' + th + '">Mois de démarrage'
+          + '<div><select id="henrri-mois-tous" onchange="_henrriMoisPourTous(this)" style="margin-top:4px;font-size:0.75rem;font-weight:400;max-width:150px;">'
+          + '<option value="">— même mois pour tous —</option>' + _henrriOptionsMois().replace(/ selected/g, '') + '</select></div></th>'
           + '<th style="' + th + '"></th></tr></thead><tbody>';
     d.devis.forEach(dv => {
       let celH = '';
@@ -2040,6 +2047,7 @@ async function ouvrirModaleHenrri() {
              + src + '</td>';
       }
       html += '<tr>'
+        + '<td style="' + td + 'text-align:center;"><input type="checkbox" class="henrri-sel" checked onchange="_henrriMajTout()"></td>'
         + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
         + (modeImport ? _henrriCelluleCoord(dv) : '')
         + '</td>'
@@ -2063,13 +2071,16 @@ async function ouvrirModaleHenrri() {
     });
     html += '</tbody></table>';
     corps.innerHTML = html;
+    _henrriMajTout();
   } catch (e) {
     corps.innerHTML = '<p style="color:#dc2626;">Erreur réseau : ' + _henrriEscAttr(e && e.message ? e.message : e) + '</p>';
   }
 }
 
-async function affecterDevisHenrri(btn) {
-  const tr = btn.closest('tr');
+/* Envoie l'affectation d'UNE ligne de la modale (sans recharger la page).
+   Renvoie { annee, mois } ; lève une erreur en cas d'échec. */
+async function _henrriEnvoyerAffectation(tr) {
+  const btn = tr.querySelector('button[data-devis-id][data-devis-client]');
   const sel = tr.querySelector('.henrri-mois-select');
   const [anneeStr, moisStr] = sel.value.split('|');
   const annee = parseInt(anneeStr, 10);
@@ -2089,17 +2100,21 @@ async function affecterDevisHenrri(btn) {
   // Heures proposées (mode import) : valeur éventuellement corrigée dans la modale
   const inpH = tr.querySelector('.henrri-heures-input');
   const hPrevues = inpH ? String(inpH.value || '').trim() : '';
-  const token = _henrriToken();
+  const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _henrriToken() },
+    body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees, sansCoordonnees, hPrevues })
+  });
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.message || 'échec');
+  return { annee, mois };
+}
 
+async function affecterDevisHenrri(btn) {
+  const tr = btn.closest('tr');
   btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees, sansCoordonnees, hPrevues })
-    });
-    const d = await r.json();
-    if (!d.ok) throw new Error(d.message || 'échec');
+    const { annee, mois } = await _henrriEnvoyerAffectation(tr);
     tr.remove();
     alert('Devis affecté à ' + MOIS_FULL[mois] + ' ' + annee + '.\nLa page va se recharger pour afficher la nouvelle ligne.');
     location.reload();
@@ -2107,6 +2122,74 @@ async function affecterDevisHenrri(btn) {
     alert('Erreur : ' + (e && e.message ? e.message : e));
     btn.disabled = false; btn.textContent = 'Affecter';
   }
+}
+
+/* ── Affectation groupée : tous les devis cochés, chacun au mois choisi sur sa ligne ── */
+function _henrriLignesCochees() {
+  return Array.from(document.querySelectorAll('#henrri-devis-corps tbody tr'))
+    .filter(tr => { const cb = tr.querySelector('.henrri-sel'); return cb && cb.checked; });
+}
+function _henrriMajTout() {
+  const btn = document.getElementById('btn-henrri-tout');
+  const total = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+  const n = _henrriLignesCochees().length;
+  if (btn) {
+    btn.style.display = total ? '' : 'none';
+    btn.disabled = n === 0;
+    btn.textContent = '✔ Tout affecter (' + n + ')';
+  }
+  const tous = document.getElementById('henrri-sel-tous');
+  if (tous) { tous.checked = total > 0 && n === total; tous.indeterminate = n > 0 && n < total; }
+}
+function _henrriCocherTous(etat) {
+  document.querySelectorAll('#henrri-devis-corps .henrri-sel').forEach(cb => { cb.checked = etat; });
+  _henrriMajTout();
+}
+// « Même mois pour tous » : applique le mois choisi aux lignes cochées
+function _henrriMoisPourTous(sel) {
+  if (!sel.value) return;
+  _henrriLignesCochees().forEach(tr => { const s2 = tr.querySelector('.henrri-mois-select'); if (s2) s2.value = sel.value; });
+}
+
+async function affecterTousDevisHenrri() {
+  const lignes = _henrriLignesCochees();
+  if (!lignes.length) return;
+  // Récapitulatif par mois avant confirmation
+  const parMois = {};
+  lignes.forEach(tr => {
+    const [a, m] = tr.querySelector('.henrri-mois-select').value.split('|');
+    const lib = MOIS_FULL[parseInt(m, 10)] + ' ' + a;
+    parMois[lib] = (parMois[lib] || 0) + 1;
+  });
+  const recap = Object.entries(parMois).map(([lib, n]) => '• ' + lib + ' : ' + n + ' devis').join('\n');
+  if (!confirm('Affecter ' + lignes.length + ' devis au Prévisionnel ?\n\n' + recap)) return;
+
+  const btn = document.getElementById('btn-henrri-tout');
+  btn.disabled = true;
+  let ok = 0;
+  const erreurs = [];
+  // Envoi l'un après l'autre : chaque affectation met à jour le même Prévisionnel côté serveur
+  for (let i = 0; i < lignes.length; i++) {
+    const tr = lignes[i];
+    btn.textContent = 'Affectation ' + (i + 1) + ' / ' + lignes.length + '…';
+    try {
+      await _henrriEnvoyerAffectation(tr);
+      tr.remove();
+      ok++;
+    } catch (e) {
+      const b = tr.querySelector('button[data-devis-client]');
+      erreurs.push(((b && b.getAttribute('data-devis-client')) || 'devis') + ' : ' + (e && e.message ? e.message : e));
+      tr.style.background = '#fee2e2';
+    }
+  }
+  if (erreurs.length) {
+    alert(ok + ' devis affecté(s).\n' + erreurs.length + ' erreur(s) :\n\n' + erreurs.join('\n')
+      + (ok ? '\n\nLa page va se recharger ; les devis en erreur restent proposés dans « Devis Henrri ».' : ''));
+    if (ok) location.reload(); else _henrriMajTout();
+    return;
+  }
+  alert(ok + ' devis affecté(s) au Prévisionnel.\nLa page va se recharger pour afficher les nouvelles lignes.');
+  location.reload();
 }
 
 async function supprimerDevisHenrri(btn) {
@@ -2124,6 +2207,7 @@ async function supprimerDevisHenrri(btn) {
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');
     tr.remove();
+    _henrriMajTout();
   } catch (e) {
     alert('Erreur : ' + (e && e.message ? e.message : e));
     btn.disabled = false;
