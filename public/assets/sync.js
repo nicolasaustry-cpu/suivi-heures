@@ -859,7 +859,10 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['tableau-de-bord.html', 'index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'clients.html'];
+    'planning-equipe.html', 'planning-synthese.html', 'frise-chantiers.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'clients.html'];
+
+  // Sous-pages sans entrée propre dans le menu : on surligne la rubrique parente.
+  var MENU_PARENT = { 'planning-synthese.html': 'planning.html', 'frise-chantiers.html': 'planning.html' };
 
   // Structure canonique du menu (indépendante de la licence).
   // Le premier groupe n'a pas d'intitulé : le tableau de bord est la page
@@ -1018,7 +1021,7 @@ const SYNC = (() => {
         const verrou = !!it.plus && !estPlus;   // Standard + page Plus → teasing
         const a = document.createElement('a');
         a.href = verrou ? '#' : it.href;
-        a.className = 'sh-i' + (page === it.href ? ' active' : '') + (verrou ? ' sh-lock' : '');
+        a.className = 'sh-i' + ((page === it.href || MENU_PARENT[page] === it.href) ? ' active' : '') + (verrou ? ' sh-lock' : '');
         a.textContent = it.label;
         if (it.plus) {
           const b = document.createElement('span');
@@ -1115,7 +1118,7 @@ const SYNC = (() => {
       const verrou = !!it.plus && !estPlus;
       const a = document.createElement('a');
       a.href = verrou ? '#' : it.href;
-      a.className = 'sh-dd-i' + (page === it.href ? ' active' : '') + (verrou ? ' sh-lock' : '');
+      a.className = 'sh-dd-i' + ((page === it.href || MENU_PARENT[page] === it.href) ? ' active' : '') + (verrou ? ' sh-lock' : '');
       a.textContent = it.label;
       if (it.plus) {
         const b = document.createElement('span');
