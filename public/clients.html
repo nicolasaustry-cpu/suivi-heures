@@ -167,13 +167,14 @@
   </p>
 
   <div id="clients-non-connecte" class="clients-info-douce" style="display:none;">
-    ℹ Henrri n'est pas connecté : la base ci-dessous provient uniquement de votre planning et de votre prévisionnel. Pour y ajouter votre base clients Henrri, renseignez vos identifiants API dans la page <a href="index.html">Entreprise</a>.
+    ℹ Henrri n'est pas activé : la base ci-dessous provient uniquement de votre planning et de votre prévisionnel. Pour y ajouter vos clients Henrri, indiquez « Henrri version pilotage : Oui » dans la page <a href="index.html">Entreprise</a> (liaison par API ou par import des devis validés).
   </div>
 
   <div id="clients-doublons"></div>
 
   <div class="clients-toolbar">
     <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
+    <a href="import-henrri.html" id="btn-import-henrri" style="display:none;background:#0284c7;color:#fff;border-radius:6px;padding:7px 16px;font-size:0.85rem;font-weight:700;text-decoration:none;" title="Importer l'export des devis validés Henrri (les coordonnées des clients alimentent cette page)">📥 Importer un export Henrri</a>
     <button type="button" id="btn-import-clients" onclick="ouvrirImport()" title="Importer une liste de clients depuis un fichier Excel ou CSV">📥 Importer un fichier</button>
     <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
     <select id="filtre-source" onchange="filtrerClients()">
@@ -270,6 +271,7 @@
    ═══════════════════════════════════════════════════════════════ */
 let _clientsHenrri = [];   // cache serveur Henrri (vide si non connecté)
 let _henrriActif   = false;
+let _henrriMode    = 'api';  // 'api' | 'import' (page Entreprise)
 let _clients       = [];   // liste fusionnée affichée
 let _doublons      = [];   // paires { plan, henrri, raisons, score }
 
@@ -734,6 +736,7 @@ async function chargerClients() {
       const d = await r.json();
       if (d.ok) {
         _henrriActif = !!d.actif;
+        _henrriMode = d.mode === 'import' ? 'import' : 'api';
         _clientsHenrri = d.actif ? (d.clients || []) : [];
         _actualiseLe = d.actualiseLe || null;
       }
@@ -742,7 +745,10 @@ async function chargerClients() {
     }
   }
   document.getElementById('clients-non-connecte').style.display = _henrriActif ? 'none' : 'block';
-  document.getElementById('btn-sync-clients').style.display = _henrriActif ? '' : 'none';
+  // Mode API : bouton d'actualisation ; mode import : lien vers l'import des devis validés
+  document.getElementById('btn-sync-clients').style.display = (_henrriActif && _henrriMode === 'api') ? '' : 'none';
+  const lienImp = document.getElementById('btn-import-henrri');
+  if (lienImp) lienImp.style.display = (_henrriActif && _henrriMode === 'import') ? '' : 'none';
   construireBase();
   filtrerClients();
 }

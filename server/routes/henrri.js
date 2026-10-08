@@ -165,14 +165,162 @@ async function _config(clientId) {
   return cfg;
 }
 
+/* ───────────────────────────────────────────────────────────────
+   Henrri « version pilotage » : OUI / NON, puis mode de liaison
+   - mode "api"    : connexion API (client_id/secret), fonctionnement historique ;
+   - mode "import" : import d'un export Excel des devis validés (même démarche
+                     que DuoPilot : dépôt → correspondance des colonnes →
+                     rapport → application).
+   Les champs pilotage / mode / devisFichier ne sont pas forcément déclarés dans
+   le modèle Mongoose : ils sont LUS en .lean() (renvoie tout ce qui est en base)
+   et ÉCRITS avec { strict: false }, ce qui évite toute modification du modèle.
+   Compatibilité : une entreprise déjà connectée par API avant cette évolution
+   (pas de champ pilotage) est lue comme pilotage = oui, mode = api.
+   ─────────────────────────────────────────────────────────────── */
+async function _etat(clientId) {
+  await _config(clientId); // garantit l'existence du document
+  const brut = (await Henrri.findOne({ clientId }).lean()) || {};
+  const pilotage = typeof brut.pilotage === "boolean" ? brut.pilotage : !!brut.actif;
+  const mode = brut.mode === "import" ? "import" : "api";
+  const actifApi = !!brut.actif;
+  // « Henrri actif » au sens de l'appli : bouton Devis Henrri, page Clients…
+  const henrriActif = pilotage && (mode === "import" || actifApi);
+  return {
+    brut, pilotage, mode, actifApi, henrriActif,
+    devisFichier: Array.isArray(brut.devisFichier) ? brut.devisFichier : [],
+    devisImportes: Array.isArray(brut.devisImportes) ? brut.devisImportes.map(String) : [],
+    devisIgnores:  Array.isArray(brut.devisIgnores)  ? brut.devisIgnores.map(String)  : []
+  };
+}
+
+// Nombre lu dans un export : accepte 12,5 / "12,5 h" / 12.5 / vide → null
+function _nombre(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  const t = String(v).replace(/\u00a0/g, " ").replace(/\s+/g, "").replace(/h$/i, "").replace(",", ".");
+  if (t === "") return null;
+  const n = parseFloat(t);
+  return isFinite(n) ? n : null;
+}
+// Téléphone : Excel perd souvent le 0 initial (612345678 → 0612345678)
+function _tel(v) {
+  let t = String(v == null ? "" : v).trim();
+  if (/^\d{9}$/.test(t)) t = "0" + t;
+  return t.slice(0, 40);
+}
+const _txt = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max || 200);
+
+// Heures de référence : heures analysées si > 0, sinon nombre d'heures du devis
+function _heuresReference(d) {
+  const ha = Number(d && d.heuresAnalysees) || 0;
+  if (ha > 0) return { valeur: ha, source: "analysees" };
+  const h = Number(d && d.heures) || 0;
+  return { valeur: h > 0 ? h : null, source: h > 0 ? "devis" : "" };
+}
+
+/* Ligne envoyée par import-henrri.html → devis normalisé (ou { rejet }) */
+function _normaliserLigne(l) {
+  const numero = _txt(l && l.numero, 60);
+  const nom = _txt([l && l.nom, l && l.prenom].filter(x => _txt(x)).join(" "), 200);
+  if (!numero) return { rejet: "N° de devis manquant", nom };
+  if (!nom) return { rejet: "Nom manquant", numero };
+  const telephone = _tel(l.telephone);
+  const mobile = _tel(l.mobile);
+  return {
+    id: "imp:" + numero.toUpperCase(),
+    numero,
+    reference: _simplifierReference(numero) || numero,
+    client: nom,
+    adresse: _txt(l.adresse, 500),
+    codePostal: _txt(l.codePostal, 20),
+    ville: _txt(l.ville, 200),
+    telephone,
+    mobile,
+    email: _txt(l.email, 120),
+    heures: _nombre(l.heures),
+    heuresAnalysees: _nombre(l.heuresAnalysees)
+  };
+}
+
+// Devis importé → coordonnées de chantier Suiv'Heures (même format que l'API)
+function _devisFichierVersCoord(d) {
+  const estMob = t => /^0[67]/.test(String(t || "").replace(/[.\s-]/g, ""));
+  let mobile = d.mobile || "";
+  let fixe = "";
+  if (d.telephone) {
+    if (!mobile && estMob(d.telephone)) mobile = d.telephone;
+    else if (d.telephone !== mobile) fixe = d.telephone;
+  }
+  return {
+    adresse: String(d.adresse || "").slice(0, 500),
+    ville: [d.codePostal, d.ville].filter(Boolean).join(" ").trim().slice(0, 200),
+    mobile: String(mobile).slice(0, 40),
+    fixe: String(fixe).slice(0, 40),
+    email: String(d.email || "").slice(0, 120)
+  };
+}
+
+const CHAMPS_COMPARES = [
+  ["client", "Nom"], ["adresse", "Adresse"], ["codePostal", "Code postal"], ["ville", "Ville"],
+  ["telephone", "Téléphone"], ["mobile", "Mobile"], ["email", "E-mail"],
+  ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
+];
+
+/* Analyse (sans écriture) d'un lot de lignes au regard de ce qui est déjà en base */
+function _analyserImport(lignes, etat) {
+  const existants = new Map(etat.devisFichier.map(d => [String(d.id), d]));
+  const affectes = new Set(etat.devisImportes);
+  const ecartes = new Set(etat.devisIgnores);
+  const statut = id => affectes.has(id) ? "affecte" : (ecartes.has(id) ? "ecarte" : "attente");
+
+  const vus = new Set();
+  const r = { nouveaux: [], misAJour: [], inchanges: [], absents: [], doublons: [], rejets: [], valides: [] };
+  (Array.isArray(lignes) ? lignes : []).slice(0, 5000).forEach(l => {
+    const d = _normaliserLigne(l || {});
+    if (d.rejet) { r.rejets.push({ raison: d.rejet, numero: d.numero || "", client: d.nom || "" }); return; }
+    if (vus.has(d.id)) { r.doublons.push({ numero: d.numero, client: d.client }); return; }
+    vus.add(d.id);
+    r.valides.push(d);
+    const ref = _heuresReference(d);
+    const resume = { numero: d.numero, client: d.client, heures: d.heures, heuresAnalysees: d.heuresAnalysees,
+                     heuresRef: ref.valeur, heuresRefSource: ref.source, statut: statut(d.id) };
+    const ancien = existants.get(d.id);
+    if (!ancien) { r.nouveaux.push(resume); return; }
+    const changements = [];
+    CHAMPS_COMPARES.forEach(([cle, libelle]) => {
+      const a = ancien[cle] == null ? "" : ancien[cle];
+      const b = d[cle] == null ? "" : d[cle];
+      if (String(a) !== String(b)) changements.push({ champ: libelle, avant: a, apres: b });
+    });
+    if (changements.length) r.misAJour.push({ ...resume, changements });
+    else r.inchanges.push(resume);
+  });
+  etat.devisFichier.forEach(d => {
+    if (!vus.has(String(d.id)) && statut(String(d.id)) === "attente")
+      r.absents.push({ numero: d.numero, client: d.client });
+  });
+  r.totaux = {
+    lignes: Array.isArray(lignes) ? lignes.length : 0,
+    nouveaux: r.nouveaux.length, misAJour: r.misAJour.length, inchanges: r.inchanges.length,
+    absents: r.absents.length, doublons: r.doublons.length, rejets: r.rejets.length
+  };
+  return r;
+}
+
 // ── Lire l'état de la connexion (jamais le secret en clair) ──
 router.get("/config", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const cfg = await _config(clientId);
+    const etat = await _etat(clientId);
     res.json({
       ok: true,
-      actif: cfg.actif,
+      actif: cfg.actif,                     // connexion API active (historique)
+      pilotage: etat.pilotage,              // Henrri version pilotage : oui / non
+      mode: etat.mode,                      // "api" | "import"
+      henrriActif: etat.henrriActif,        // fonctions Henrri visibles dans l'appli
+      nbDevisFichier: etat.devisFichier.length,
+      devisFichierLe: etat.brut.devisFichierLe || null,
       henrriClientId: cfg.henrriClientId || "",
       henrriClientSecretDefini: !!cfg.henrriClientSecret,
       henrriEnvironnement: cfg.henrriEnvironnement || "sandbox"
@@ -188,7 +336,13 @@ router.post("/config", verifyToken, async (req, res) => {
     const clientId = (req.user.clientId || "").toUpperCase();
     const henrriClientId     = String(req.body.henrriClientId || "").trim();
     const henrriClientSecret = String(req.body.henrriClientSecret || "").trim();
-    const actif = !!req.body.actif;
+    // Nouvelle page Entreprise : pilotage (oui/non) + mode (api/import).
+    // Ancienne page (pas de champ pilotage) : comportement historique.
+    const avecPilotage = typeof req.body.pilotage === "boolean";
+    const pilotage = avecPilotage ? req.body.pilotage : !!req.body.actif;
+    const mode = avecPilotage ? (req.body.mode === "import" ? "import" : "api") : "api";
+    // La connexion API n'est active que si pilotage = oui ET mode = api
+    const actif = pilotage && mode === "api";
     const environnement = req.body.henrriEnvironnement === "production" ? "production" : "sandbox";
 
     if (actif && !henrriClientId) {
@@ -220,10 +374,11 @@ router.post("/config", verifyToken, async (req, res) => {
     cfg.actif               = actif;
     cfg.updatedAt           = new Date();
     await cfg.save();
+    await Henrri.updateOne({ clientId }, { $set: { pilotage, mode } }, { strict: false });
     _tokenCache.delete(clientId + ":sandbox");
     _tokenCache.delete(clientId + ":production");
 
-    res.json({ ok: true, actif: cfg.actif });
+    res.json({ ok: true, actif: cfg.actif, pilotage, mode });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -251,6 +406,36 @@ router.get("/devis", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const cfg = await _config(clientId);
+    const etat = await _etat(clientId);
+    if (!etat.pilotage) return res.status(400).json({ ok: false, message: "Henrri n'est pas activé (page Entreprise)." });
+
+    // ── Mode « import de devis validés » : liste issue du dernier import Excel ──
+    if (etat.mode === "import") {
+      const affectes = new Set(etat.devisImportes);
+      const ecartes = new Set(etat.devisIgnores);
+      const devis = etat.devisFichier
+        .filter(d => d && !affectes.has(String(d.id)) && !ecartes.has(String(d.id)))
+        .map(d => {
+          const ref = _heuresReference(d);
+          return {
+            id: String(d.id),
+            client: d.client || "",
+            reference: d.reference || d.numero || "",
+            numero: d.numero || "",
+            montant: null,
+            date: null,
+            signe: false,
+            heures: d.heures,
+            heuresAnalysees: d.heuresAnalysees,
+            heuresRef: ref.valeur,
+            heuresRefSource: ref.source,
+            coordonnees: _devisFichierVersCoord(d),
+            customerId: ""
+          };
+        });
+      return res.json({ ok: true, mode: "import", devis, importeLe: etat.brut.devisFichierLe || null });
+    }
+
     if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
 
     // Filtre côté Henrri sur le type de document (devis = "Quotation") ;
@@ -289,7 +474,7 @@ router.get("/devis", verifyToken, async (req, res) => {
         coordonnees: _ficheVersCoordonnees(_clientHenrriVersFiche(d.customer || {})),
         customerId: d.customer && d.customer.id != null ? String(d.customer.id) : ""
       }));
-    res.json({ ok: true, devis: resultat });
+    res.json({ ok: true, mode: "api", devis: resultat });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -306,6 +491,10 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
     const moisNum   = parseInt(req.body.mois, 10);
     const nomClient = String(req.body.client || "").trim();
     const reference = String(req.body.reference || "").trim();
+    // Heures prévues proposées (mode import : heures analysées, sinon heures du devis).
+    // Vide si non fourni (mode API) : saisie manuelle comme avant.
+    const hNum = _nombre(req.body.hPrevues);
+    const hPrevues = hNum != null && hNum > 0 ? hNum : "";
     if (!Number.isInteger(anneeNum) || anneeNum < 2000 || anneeNum > 2100)
       return res.status(400).json({ ok: false, message: "Année invalide." });
     if (!Number.isInteger(moisNum) || moisNum < 0 || moisNum > 11)
@@ -325,7 +514,7 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
     if (!prev[annee]) prev[annee] = {};
     if (!prev[annee][mois]) prev[annee][mois] = { hVendables: "", caObjectif: "", chantiers: [] };
     if (!Array.isArray(prev[annee][mois].chantiers)) prev[annee][mois].chantiers = [];
-    prev[annee][mois].chantiers.push({ client: nomChantier, hPrevues: "" });
+    prev[annee][mois].chantiers.push({ client: nomChantier, hPrevues });
     doc.previsionnel = prev;
     doc.markModified("previsionnel");
 
@@ -410,10 +599,12 @@ router.get("/clients", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const cfg = await _config(clientId);
+    const etat = await _etat(clientId);
     res.json({
       ok: true,
-      actif: cfg.actif,
-      clients: cfg.clientsCache || [],
+      actif: etat.henrriActif,
+      mode: etat.mode,
+      clients: etat.henrriActif ? (cfg.clientsCache || []) : [],
       actualiseLe: cfg.clientsCacheLe || null
     });
   } catch (err) {
@@ -444,6 +635,81 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     await cfg.save();
 
     res.json({ ok: true, clients: resultat, actualiseLe: cfg.clientsCacheLe });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ───────────────────────────────────────────────────────────────
+   IMPORT DES DEVIS VALIDÉS (mode « import ») — même démarche que DuoPilot
+   1. import-henrri.html lit le fichier Excel et fait la correspondance
+      des colonnes, puis envoie les lignes déjà mappées ;
+   2. /import/apercu  : rapport de fusion, AUCUNE écriture ;
+   3. /import/confirmer : enregistrement.
+   Règles : un import ne supprime jamais rien ; un devis déjà affecté ou écarté
+   n'est jamais reproposé (et sa ligne du Prévisionnel n'est jamais modifiée) ;
+   les coordonnées des clients alimentent aussi la base de la page Clients.
+   ─────────────────────────────────────────────────────────────── */
+router.post("/import/apercu", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const etat = await _etat(clientId);
+    const r = _analyserImport(req.body && req.body.lignes, etat);
+    delete r.valides;
+    res.json({ ok: true, rapport: r });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+router.post("/import/confirmer", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const etat = await _etat(clientId);
+    const r = _analyserImport(req.body && req.body.lignes, etat);
+    const maintenant = new Date();
+
+    // 1. Devis : mise à jour / ajout par n° de devis, rien n'est supprimé
+    const parId = new Map(etat.devisFichier.map(d => [String(d.id), d]));
+    r.valides.forEach(d => {
+      const ancien = parId.get(d.id);
+      parId.set(d.id, { ...(ancien || {}), ...d, importeLe: (ancien && ancien.importeLe) || maintenant, majLe: maintenant });
+    });
+    const devisFichier = Array.from(parId.values());
+
+    // 2. Base clients (page Clients) : une fiche par nom, champs non vides du fichier
+    const cfg = await _config(clientId);
+    const cache = Array.isArray(cfg.clientsCache) ? cfg.clientsCache.map(c => ({ ...(c.toObject ? c.toObject() : c) })) : [];
+    const cleNom = n => String(n || "").trim().toUpperCase();
+    const index = new Map(cache.map((c, i) => [cleNom(c.nom), i]));
+    r.valides.forEach(d => {
+      const fiche = {
+        id: "imp:" + cleNom(d.client),
+        nom: d.client,
+        adresse: d.adresse,
+        ville: [d.codePostal, d.ville].filter(Boolean).join(" ").trim(),
+        codePostal: d.codePostal,
+        telephone: d.mobile || d.telephone,
+        email: d.email
+      };
+      const k = cleNom(d.client);
+      if (index.has(k)) {
+        const c = cache[index.get(k)];
+        Object.keys(fiche).forEach(ch => { if (ch !== "id" && fiche[ch]) c[ch] = fiche[ch]; });
+      } else {
+        index.set(k, cache.length);
+        cache.push(fiche);
+      }
+    });
+
+    await Henrri.updateOne(
+      { clientId },
+      { $set: { devisFichier, devisFichierLe: maintenant, clientsCache: cache, clientsCacheLe: maintenant, updatedAt: maintenant } },
+      { strict: false }
+    );
+
+    delete r.valides;
+    res.json({ ok: true, rapport: r, enAttente: devisFichier.filter(d => !etat.devisImportes.includes(String(d.id)) && !etat.devisIgnores.includes(String(d.id))).length });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

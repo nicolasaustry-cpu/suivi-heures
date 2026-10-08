@@ -198,19 +198,51 @@
   <span id="reservio-msg" style="font-size:0.85rem;color:#16a34a;margin-left:8px;"></span>
 </section>
 
-<!-- Connexion Henrri : récupération des devis validés et de la base clients -->
+<!-- Henrri (logiciel de facturation, version pilotage) : liaison par API OU par import des devis validés -->
 <section class="ent-tuile" style="background:#f0f9ff;border-left-color:#0284c7;">
-  <h2 style="color:#0369a1;">Connexion Henrri</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
-    Connecte votre compte Henrri (logiciel de facturation) pour récupérer vos <strong>devis validés</strong> (à affecter au Prévisionnel) et votre <strong>base clients</strong> (préremplissage des coordonnées de chantier). Les identifiants se trouvent dans votre compte Henrri, rubrique <strong>API &amp; Intégrations</strong>.
+  <h2 style="color:#0369a1;">Henrri — logiciel de facturation</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    Utilisez-vous <strong>Henrri</strong>, version <strong>pilotage</strong> ?
   </p>
-  <a href="tuto-henrri-cles-production.html" target="_blank" rel="noopener"
-     style="display:inline-block;margin:0 0 1rem;padding:6px 12px;border:1px solid #7dd3fc;border-radius:8px;background:#fff;color:#0369a1;font-size:0.85rem;font-weight:700;text-decoration:none;">📘 Comment obtenir mes clés Henrri ?</a>
-  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
-    <input type="checkbox" id="henrriActif" onchange="toggleHenrriBloc()">
-    <label for="henrriActif" style="font-size:0.9rem;">Connecté à Henrri</label>
+  <div style="display:flex;align-items:center;gap:1.2rem;margin-bottom:1rem;">
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="henrriPilotage" id="henrriPilotageOui" value="oui" onchange="toggleHenrriBloc()"> Oui
+    </label>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="henrriPilotage" id="henrriPilotageNon" value="non" onchange="toggleHenrriBloc()"> Non
+    </label>
   </div>
+
+  <!-- Choix du mode de liaison (visible si Oui) -->
+  <div id="henrri-bloc-mode" style="display:none;margin-bottom:1rem;">
+    <div style="font-size:0.85rem;font-weight:600;color:#0f172a;margin-bottom:6px;">Comment relier Henrri à Suiv'Heures ?</div>
+    <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.88rem;cursor:pointer;margin-bottom:6px;">
+      <input type="radio" name="henrriMode" id="henrriModeImport" value="import" onchange="toggleHenrriBloc()" style="margin-top:3px;">
+      <span><strong>Import des devis validés</strong><br>
+        <span style="font-size:0.8rem;color:#64748b;">Vous exportez vos devis validés depuis Henrri (fichier Excel) et vous l'importez dans Suiv'Heures.</span></span>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.88rem;cursor:pointer;">
+      <input type="radio" name="henrriMode" id="henrriModeApi" value="api" onchange="toggleHenrriBloc()" style="margin-top:3px;">
+      <span><strong>Lien par API</strong><br>
+        <span style="font-size:0.8rem;color:#64748b;">Connexion directe avec vos clés Henrri (Client ID / Client Secret).</span></span>
+    </label>
+  </div>
+
+  <!-- Mode import -->
+  <div id="henrri-bloc-import" style="display:none;margin-bottom:1rem;">
+    <p style="font-size:0.82rem;color:#475569;margin:0 0 0.6rem;">
+      Données reprises : n° de devis, nom prénom, coordonnées complètes, nombre d'heures et nombre d'heures analysées
+      (les heures analysées servent de référence ; à défaut, le nombre d'heures du devis).
+    </p>
+    <a href="import-henrri.html" id="henrri-lien-import"
+       style="display:inline-block;padding:6px 12px;border:1px solid #7dd3fc;border-radius:8px;background:#fff;color:#0369a1;font-size:0.85rem;font-weight:700;text-decoration:none;">📥 Importer mes devis validés</a>
+    <div id="henrri-import-info" style="font-size:0.78rem;color:#94a3b8;margin-top:6px;"></div>
+  </div>
+
+  <!-- Mode API (fonctionnement existant) -->
   <div id="henrri-bloc" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;max-width:360px;">
+    <a href="tuto-henrri-cles-production.html" target="_blank" rel="noopener"
+       style="align-self:flex-start;padding:6px 12px;border:1px solid #7dd3fc;border-radius:8px;background:#fff;color:#0369a1;font-size:0.85rem;font-weight:700;text-decoration:none;">📘 Comment obtenir mes clés Henrri ?</a>
     <div>
       <label for="henrriEnvironnement" style="font-size:0.85rem;font-weight:600;">Type de clé :</label><br>
       <select id="henrriEnvironnement" style="width:100%;box-sizing:border-box;">
@@ -729,18 +761,28 @@ window.addEventListener('donnees-chargees', chargerDelaiDefaut);
 </script>
 
 <script>
-/* ── Connexion Henrri (devis validés + base clients), auth par token ──
+/* ── Henrri version pilotage : Oui/Non, puis liaison par API ou par import ──
    Les identifiants (client_id/secret) sont stockés dans une collection
    serveur dédiée (jamais dans entreprisedata/localStorage) : lecture et
    écriture passent par des appels directs à /api/henrri/config, avec le
    même schéma d'authentification que /api/push/delai ci-dessus. */
+function _henrriChoix() {
+  const oui = document.getElementById('henrriPilotageOui').checked;
+  const non = document.getElementById('henrriPilotageNon').checked;
+  const mode = document.getElementById('henrriModeApi').checked ? 'api'
+             : (document.getElementById('henrriModeImport').checked ? 'import' : '');
+  return { pilotage: oui ? true : (non ? false : null), mode };
+}
+
 function toggleHenrriBloc() {
-  const actif = document.getElementById('henrriActif').checked;
-  document.getElementById('henrri-bloc').style.display = actif ? 'flex' : 'none';
+  const c = _henrriChoix();
+  document.getElementById('henrri-bloc-mode').style.display   = c.pilotage ? '' : 'none';
+  document.getElementById('henrri-bloc-import').style.display = (c.pilotage && c.mode === 'import') ? '' : 'none';
+  document.getElementById('henrri-bloc').style.display        = (c.pilotage && c.mode === 'api') ? 'flex' : 'none';
 }
 
 async function chargerHenrri() {
-  const section = document.getElementById('henrriActif')?.closest('section');
+  const section = document.getElementById('henrriPilotageOui')?.closest('section');
   const token = localStorage.getItem('syncToken');
   if (!token) { if (section) section.style.display = 'none'; return; }
   const navClients = document.getElementById('nav-link-clients');
@@ -751,16 +793,29 @@ async function chargerHenrri() {
     const d = await r.json();
     if (!d.ok) { if (section) section.style.display = 'none'; if (navClients) navClients.style.display = 'none'; return; }
     if (section) section.style.display = '';
-    document.getElementById('henrriActif').checked = !!d.actif;
+    // Compatibilité : ancien serveur sans champ « pilotage » → déduit de la connexion API
+    const pilotage = typeof d.pilotage === 'boolean' ? d.pilotage : !!d.actif;
+    const mode = d.mode === 'import' ? 'import' : 'api';
+    document.getElementById('henrriPilotageOui').checked = pilotage;
+    document.getElementById('henrriPilotageNon').checked = !pilotage;
+    document.getElementById('henrriModeImport').checked = pilotage && mode === 'import';
+    document.getElementById('henrriModeApi').checked    = pilotage && mode === 'api';
     document.getElementById('henrriClientId').value = d.henrriClientId || '';
     document.getElementById('henrriEnvironnement').value = d.henrriEnvironnement || 'sandbox';
     document.getElementById('henrri-secret-info').textContent = d.henrriClientSecretDefini
       ? 'Secret déjà enregistré — laissez vide pour le conserver.'
       : 'Aucun secret enregistré pour le moment.';
+    const info = document.getElementById('henrri-import-info');
+    if (info) {
+      if (d.devisFichierLe) {
+        const dt = new Date(d.devisFichierLe);
+        info.textContent = 'Dernier import le ' + dt.toLocaleDateString('fr-FR') + ' — ' + (d.nbDevisFichier || 0) + ' devis connus.';
+      } else info.textContent = mode === 'import' && pilotage ? 'Aucun import réalisé pour le moment.' : '';
+    }
     toggleHenrriBloc();
-    // Le lien « Clients » du menu n'apparaît que si la connexion Henrri est active
-    // (tous les éléments liés à Henrri restent masqués tant que l'API n'est pas liée).
-    if (navClients) navClients.style.display = d.actif ? '' : 'none';
+    // Le lien « Clients » du menu n'apparaît que si Henrri est actif (API connectée ou mode import)
+    const henrriActif = typeof d.henrriActif === 'boolean' ? d.henrriActif : !!d.actif;
+    if (navClients) navClients.style.display = henrriActif ? '' : 'none';
   } catch (_) {
     if (section) section.style.display = 'none';
     if (navClients) navClients.style.display = 'none';
@@ -770,11 +825,13 @@ async function chargerHenrri() {
 async function validerHenrri() {
   const token = localStorage.getItem('syncToken');
   if (!token) { alert("Activez d'abord votre licence."); return; }
-  const actif = document.getElementById('henrriActif').checked;
+  const c = _henrriChoix();
+  if (c.pilotage === null) { alert('Indiquez si vous utilisez Henrri version pilotage (Oui / Non).'); return; }
+  if (c.pilotage && !c.mode) { alert('Choisissez le mode de liaison : import des devis validés ou lien par API.'); return; }
   const henrriClientId = document.getElementById('henrriClientId').value.trim();
   const henrriClientSecret = document.getElementById('henrriClientSecret').value.trim();
   const henrriEnvironnement = document.getElementById('henrriEnvironnement').value;
-  if (actif && !henrriClientId) { alert('Renseignez le Client ID Henrri.'); return; }
+  if (c.pilotage && c.mode === 'api' && !henrriClientId) { alert('Renseignez le Client ID Henrri.'); return; }
 
   const btn = document.getElementById('btn-valider-henrri');
   const msg = document.getElementById('henrri-msg');
@@ -784,7 +841,12 @@ async function validerHenrri() {
     const r = await fetch('/api/henrri/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ actif, henrriClientId, henrriClientSecret, henrriEnvironnement })
+      body: JSON.stringify({
+        pilotage: !!c.pilotage,
+        mode: c.mode || 'api',
+        actif: !!(c.pilotage && c.mode === 'api'),
+        henrriClientId, henrriClientSecret, henrriEnvironnement
+      })
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');

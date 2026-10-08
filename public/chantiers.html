@@ -509,16 +509,20 @@
 
 <!-- ══ MODALE DEVIS HENRRI ══ -->
 <div class="modale-overlay" id="modale-henrri">
-  <div class="modale-box" style="width:640px;">
+  <div class="modale-box" style="width:760px;max-width:96vw;">
     <div class="modale-header">
       <span>Devis validés Henrri à affecter</span>
       <button onclick="fermerModaleHenrri()">✕</button>
     </div>
     <div class="modale-body">
-      <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+      <p id="henrri-modale-aide" style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
         Choisissez le mois de démarrage de chantier pour chaque devis, puis cliquez sur « Affecter ».
         Une ligne est créée dans le Prévisionnel de ce mois (client + heures à saisir).
       </p>
+      <div id="henrri-modale-import" style="display:none;margin:0 0 1rem;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.82rem;color:#075985;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="henrri-modale-import-info" style="flex:1;"></span>
+        <a href="import-henrri.html" style="padding:5px 12px;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap;">📥 Importer un export Henrri</a>
+      </div>
       <div id="henrri-devis-corps"><p style="color:#94a3b8;">Chargement…</p></div>
     </div>
     <div class="modale-footer">
@@ -1902,6 +1906,8 @@ function _henrriToken() {
 /* Affiche le lien « Clients » du menu et le bouton « Devis Henrri » uniquement
    si la connexion Henrri est active (tous les éléments liés à Henrri restent
    masqués tant que l'API n'est pas liée dans la page Entreprise). */
+let _henrriMode = 'api';        // 'api' | 'import' (choix de la page Entreprise)
+let _henrriAutoOuvert = false;
 async function _henrriMajVisibilite() {
   const navClients = document.getElementById('nav-link-clients');
   const btnDevis    = document.getElementById('btn-devis-henrri');
@@ -1910,9 +1916,22 @@ async function _henrriMajVisibilite() {
   try {
     const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
-    const actif = !!(d.ok && d.actif);
+    // henrriActif = Henrri version pilotage ET (API connectée OU mode import)
+    const actif = !!(d.ok && (typeof d.henrriActif === 'boolean' ? d.henrriActif : d.actif));
+    _henrriMode = (d.ok && d.mode === 'import') ? 'import' : 'api';
     if (navClients) navClients.style.display = actif ? '' : 'none';
-    if (btnDevis)    btnDevis.style.display    = actif ? 'inline-block' : 'none';
+    if (btnDevis) {
+      btnDevis.style.display = actif ? 'inline-block' : 'none';
+      btnDevis.title = _henrriMode === 'import'
+        ? 'Devis validés importés depuis Henrri (fichier Excel)'
+        : 'Récupérer les devis validés depuis Henrri';
+    }
+    // Retour depuis la page d'import : ouverture directe de la modale
+    if (actif && !_henrriAutoOuvert && /[?&]henrri=1(&|$)/.test(location.search)) {
+      _henrriAutoOuvert = true;
+      history.replaceState(null, '', location.pathname);
+      ouvrirModaleHenrri();
+    }
   } catch (_) {
     if (navClients) navClients.style.display = 'none';
     if (btnDevis) btnDevis.style.display = 'none';
@@ -1935,35 +1954,80 @@ function _henrriOptionsMois() {
   }).join('');
 }
 
+function _henrriFmtH(v) {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '' || !isFinite(n)) return '—';
+  return (Math.round(n * 100) / 100).toString().replace('.', ',') + ' h';
+}
+
 async function ouvrirModaleHenrri() {
   const token = _henrriToken();
   if (!token) { alert("Activez d'abord votre licence."); return; }
   const ov = document.getElementById('modale-henrri');
   const corps = document.getElementById('henrri-devis-corps');
+  const blocImport = document.getElementById('henrri-modale-import');
+  const aide = document.getElementById('henrri-modale-aide');
   corps.innerHTML = '<p style="color:#94a3b8;">Chargement…</p>';
   ov.classList.add('open');
   try {
     const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
+    const modeImport = d.mode === 'import' || (!d.mode && _henrriMode === 'import');
+    // Bandeau d'import (mode import uniquement)
+    if (blocImport) {
+      blocImport.style.display = modeImport ? 'flex' : 'none';
+      const info = document.getElementById('henrri-modale-import-info');
+      if (info && modeImport) {
+        info.textContent = d.importeLe
+          ? 'Liste issue de votre dernier import Henrri (' + new Date(d.importeLe).toLocaleDateString('fr-FR') + '). Importez un nouvel export pour la mettre à jour.'
+          : "Aucun import pour l'instant : exportez vos devis validés depuis Henrri puis importez le fichier.";
+      }
+    }
+    if (aide) {
+      aide.innerHTML = modeImport
+        ? 'Choisissez le mois de démarrage de chantier pour chaque devis, vérifiez les heures puis cliquez sur « Affecter ». '
+          + 'Les heures proposées sont les <strong>heures analysées</strong> ; si elles valent 0, le <strong>nombre d\'heures du devis</strong> est proposé.'
+        : 'Choisissez le mois de démarrage de chantier pour chaque devis, puis cliquez sur « Affecter ». '
+          + 'Une ligne est créée dans le Prévisionnel de ce mois (client + heures à saisir).';
+    }
     if (!d.ok) { corps.innerHTML = '<p style="color:#dc2626;">' + _henrriEscAttr(d.message || 'Erreur') + '</p>'; return; }
     if (!d.devis || !d.devis.length) {
       corps.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
       return;
     }
+    const th = 'padding:6px 8px;border:1px solid #e2e8f0;';
+    const td = 'padding:5px 8px;border:1px solid #e2e8f0;';
     let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
     html += '<thead><tr style="background:#e8edf3;">'
-          + '<th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">Client</th>'
-          + '<th style="padding:6px 8px;text-align:left;border:1px solid #e2e8f0;">N° devis</th>'
-          + '<th style="padding:6px 8px;border:1px solid #e2e8f0;">Mois de démarrage</th>'
-          + '<th style="padding:6px 8px;border:1px solid #e2e8f0;"></th></tr></thead><tbody>';
+          + '<th style="' + th + 'text-align:left;">Client</th>'
+          + '<th style="' + th + 'text-align:left;">N° devis</th>'
+          + (modeImport ? '<th style="' + th + 'text-align:right;" title="Heures analysées si renseignées, sinon nombre d\'heures du devis">Heures</th>' : '')
+          + '<th style="' + th + '">Mois de démarrage</th>'
+          + '<th style="' + th + '"></th></tr></thead><tbody>';
     d.devis.forEach(dv => {
+      let celH = '';
+      if (modeImport) {
+        const ref = (dv.heuresRef != null && dv.heuresRef !== '') ? dv.heuresRef : '';
+        const src = dv.heuresRefSource === 'analysees'
+          ? '<div style="font-size:0.7rem;color:#16a34a;white-space:nowrap;">analysées</div>'
+          : (dv.heuresRefSource === 'devis'
+              ? '<div style="font-size:0.7rem;color:#b45309;white-space:nowrap;" title="Heures analysées = 0 : nombre d\'heures du devis proposé">h. devis</div>'
+              : '<div style="font-size:0.7rem;color:#94a3b8;">à saisir</div>');
+        const bulle = 'Nombre d\'heures : ' + _henrriFmtH(dv.heures) + ' — Heures analysées : ' + _henrriFmtH(dv.heuresAnalysees);
+        celH = '<td style="' + td + 'text-align:right;" title="' + _henrriEscAttr(bulle) + '">'
+             + '<input type="number" class="henrri-heures-input" min="0" step="0.5" value="' + _henrriEscAttr(ref) + '" style="width:70px;text-align:right;">'
+             + src + '</td>';
+      }
       html += '<tr>'
-        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;">' + _henrriEscAttr(dv.client || '(sans nom)') + '</td>'
-        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;">' + _henrriEscAttr(dv.reference || '—')
+        + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
+        + ((modeImport && dv.coordonnees && dv.coordonnees.ville) ? '<div style="font-size:0.72rem;color:#64748b;">' + _henrriEscAttr(dv.coordonnees.ville) + '</div>' : '')
+        + '</td>'
+        + '<td style="' + td + '">' + _henrriEscAttr(dv.reference || '—')
         + (dv.signe ? ' <span title="Accepté par le client via la validation électronique Henrri" style="background:#dcfce7;color:#166534;border-radius:999px;padding:1px 8px;font-size:0.72rem;font-weight:700;white-space:nowrap;">✔ signé</span>' : '')
         + '</td>'
-        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
-        + '<td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;white-space:nowrap;">'
+        + celH
+        + '<td style="' + td + '"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
+        + '<td style="' + td + 'text-align:center;white-space:nowrap;">'
         + '<button class="btn-modale-copier" style="padding:4px 12px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
         + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
@@ -1994,6 +2058,9 @@ async function affecterDevisHenrri(btn) {
   const customerId = btn.getAttribute('data-devis-customer') || '';
   let coordonnees = null;
   try { coordonnees = JSON.parse(btn.getAttribute('data-devis-coord') || 'null'); } catch (_) {}
+  // Heures proposées (mode import) : valeur éventuellement corrigée dans la modale
+  const inpH = tr.querySelector('.henrri-heures-input');
+  const hPrevues = inpH ? String(inpH.value || '').trim() : '';
   const token = _henrriToken();
 
   btn.disabled = true; btn.textContent = '…';
@@ -2001,7 +2068,7 @@ async function affecterDevisHenrri(btn) {
     const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees })
+      body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees, hPrevues })
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');
