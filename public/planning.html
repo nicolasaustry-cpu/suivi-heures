@@ -442,7 +442,9 @@
   table.tgrid thead th.thhors .dn, table.tgrid thead th.thhors .dd{opacity:.45;}
   #planning-wrapper.masquer-samedi .sam-col { display:none !important; }
   .pl2-toolbtn.actif { background:#0f3a8a; color:#fff; border-color:#0f3a8a; }
-  </style>
+    /* Motif d'exclusion affiché sur le pavé du planning */
+  .chip .exclu-motif { margin-top:4px; display:inline-block; font-size:0.74rem; font-weight:700; color:#991b1b; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:1px 7px; }
+</style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -1021,6 +1023,7 @@ function pl2ChipHTML(sl){
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     ${alerteReservio}
+    <div id="${sl.k}exclu-motif" class="exclu-motif"${(data.exclu && !estTNA)?'':' style="display:none"'}>⛔ Exclu : ${escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')}</div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
     ${(typeof Coord!=='undefined' && nom) ? Coord.html(nom) : ''}
   </div>`;
@@ -1611,6 +1614,12 @@ function appliquerExclu(k, actif, motif) {
     btn.title = heures[k].exclu
       ? 'Temps EXCLU du calcul (' + motifExcluAffiche(heures[k].motifExclu) + ') — cliquer pour modifier'
       : 'Exclure ce temps du calcul';
+  }
+  // Motif visible sur le pavé (pas seulement dans l'info-bulle du bouton)
+  const lm = document.getElementById(k + 'exclu-motif');
+  if (lm) {
+    lm.textContent = heures[k].exclu ? '⛔ Exclu : ' + (motifExcluAffiche(heures[k].motifExclu) || 'SAV') : '';
+    lm.style.display = heures[k].exclu ? '' : 'none';
   }
   if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
 }
