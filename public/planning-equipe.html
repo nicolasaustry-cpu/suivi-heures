@@ -823,7 +823,8 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   for (let i = 1; i <= NB_SLOTS; i++) {
     const data = heures[`${sal.id}${safeDate}ch${i}`];
     if (data && data.chantier && String(data.chantier).trim()) {
-      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim(), rdv: (data.rdv || '').trim() });
+      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim(), rdv: (data.rdv || '').trim(),
+                       exclu: !!data.exclu, motifExclu: data.exclu ? (data.motifExclu || 'SAV') : '' });
     }
   }
 
@@ -851,7 +852,7 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
       noteR = (rs[idx].note || '').trim();
       photosR = Array.isArray(rs[idx].photos) ? rs[idx].photos : [];
     }
-    chips.push({ nom: p.nom, cle: _cleChip(p.nom), hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '',
+    chips.push({ nom: p.nom, cle: _cleChip(p.nom), hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, noteJour: p.note, rdv: p.rdv || '', exclu: p.exclu, motifExclu: p.motifExclu,
                  salId: sal.id, date: dateStr, terrNote: noteR, terrPhotos: photosR.length });
   });
 
@@ -885,6 +886,18 @@ function _nettoyerTagEntretien(ligne) {
   });
 }
 
+/* « Visite client » renommé « RDV client » (08/10/2026) : anciens créneaux repris. */
+function _motifExcluAffiche(m) {
+  const v = String(m || '').trim();
+  return v.toLowerCase() === 'visite client' ? 'RDV client' : (v || 'SAV');
+}
+/* Note du jour + note générale, les deux affichées (comme le planning PC). */
+function _composerNoteEquipe(jour, generale) {
+  const j = String(jour || '').trim(), g = String(generale || '').trim();
+  if (j && g) return '📅 Pour cette journée :\n' + j + '\n📋 Note du chantier :\n' + g;
+  return j || g;
+}
+
 function htmlChip(c) {
   const icone = c.etat === 'parti' ? '<span class="pin-etat">✅</span>'
               : c.etat === 'cours' ? '<span class="pin-etat">📍</span>' : '';
@@ -912,7 +925,8 @@ function htmlChip(c) {
   const editBtn = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim())
     ? `<button type="button" class="chip-edit" title="Modifier / déplacer / supprimer" onclick="ouvrirEditionEquipe(this)" style="flex:0 0 auto;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">✏️</button>`
     : '';
-  const _noteBrut = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim() || (c.note || '').trim();
+  // Note du jour ET note générale du chantier (avant : la générale masquait la note du jour)
+  const _noteBrut = _composerNoteEquipe(c.ajoute ? '' : c.noteJour, _noteG) || (c.note || '').trim();
   const _noteAff = String(_noteBrut).split('\n')
     .map(function(l){ return _nettoyerTagEntretien(l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, '')); })
     .filter(function(l){ return l.trim() !== ''; }).join('\n');
@@ -920,9 +934,14 @@ function htmlChip(c) {
     ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
     : '';
   const coordTxt = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
+  // Motif d'exclusion du créneau (bouton rouge du planning PC)
+  const excluTxt = c.exclu
+    ? `<div class="chip-exclu" style="margin-top:4px;display:inline-block;font-size:0.74rem;font-weight:700;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:1px 7px;">⛔ Exclu : ${escapeHtmlLocal(_motifExcluAffiche(c.motifExclu))}</div>`
+    : '';
   const _movable = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim()) ? '1' : '';
   return `<div class="chip s-${c.etat}${_estTNA ? ' tna' : ''}" data-nom="${escapeHtmlLocal(c.nom)}" data-cle="${escapeHtmlLocal(c.cle || c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
+    ${excluTxt}
     ${noteTxt}
     ${coordTxt}
     <div class="chip-hrs">${hrsHtml}</div>
