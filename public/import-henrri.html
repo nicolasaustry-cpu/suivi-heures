@@ -209,7 +209,14 @@ const FICHIERS = {
   clients: {
     libelle: 'liste des clients',
     champs: [
-      CHAMPS_CODE, CHAMPS_NOM, CHAMPS_PRENOM,
+      CHAMPS_CODE,
+      // Henrri : « Raison Sociale » est VIDE pour les particuliers, le nom est alors
+      // dans la colonne « Nom ». Nom retenu = raison sociale, sinon nom (+ prénom).
+      { cle: 'raisonSociale', libelle: 'Raison sociale', requis: false, motifs: [/raison/] },
+      { cle: 'nom', libelle: 'Nom (particulier ou contact)', requis: false,
+        motifs: [/^nom$/, /nom.*prenom|prenom.*nom/, /^nom\b/, /\bnom\b/, /^client$/],
+        exclure: /raison|^prenom|n°|numero|code|ville|commune|contact.*prenom/ },
+      CHAMPS_PRENOM,
       { cle: 'adresse',    libelle: 'Adresse', motifs: [/^adresse$/, /adresse( 1| ligne 1)?$/, /adresse/, /\brue\b|voie/], exclure: /mail|courriel|electronique|complement|2$|ligne 2/ },
       { cle: 'adresse2',   libelle: "Complément d'adresse", motifs: [/complement|adresse 2|adresse ligne 2/], exclure: /mail/ },
       { cle: 'codePostal', libelle: 'Code postal', motifs: [/code postal|postal/, /^cp$/] },
@@ -218,7 +225,7 @@ const FICHIERS = {
       { cle: 'mobile',     libelle: 'Mobile', motifs: [/mobile|portable|gsm/] },
       { cle: 'email',      libelle: 'E-mail', motifs: [/e-?mail|courriel|mail/] }
     ],
-    ordre: ['codeClient', 'nom', 'prenom', 'mobile', 'telephone', 'email', 'codePostal', 'ville', 'adresse2', 'adresse'],
+    ordre: ['codeClient', 'raisonSociale', 'nom', 'prenom', 'mobile', 'telephone', 'email', 'codePostal', 'ville', 'adresse2', 'adresse'],
     entetes: [], lignes: [], nom: ''
   },
   devis: {
@@ -228,7 +235,7 @@ const FICHIERS = {
         motifs: [/n°.*devis|num.*devis|devis.*n°|devis.*num/, /^n°$|^no$|^num(ero)?$/, /numero|n°|reference|\bref\b/],
         exclure: /tel|phone|portable|mobile|client|siret|tva|postal/ },
       CHAMPS_CODE, CHAMPS_NOM, CHAMPS_PRENOM,
-      { cle: 'heures', libelle: "Nombre d'heures", motifs: [/nombre.*heure|nb.*heure|heure/], exclure: /analys/ },
+      { cle: 'heures', libelle: "Nombre d'heures", motifs: [/^nombre d.?heures$/, /nombre.*heure|nb.*heure|heure/], exclure: /analys|restant|facturer/ },
       { cle: 'heuresAnalysees', libelle: "Nombre d'heures analysées", motifs: [/heure.*analys|analys/] }
     ],
     ordre: ['heuresAnalysees', 'heures', 'codeClient', 'numero', 'nom', 'prenom'],
@@ -433,7 +440,13 @@ function construireEnvoi() {
   let clients = [];
   if (FICHIERS.clients.lignes.length) {
     const c = _construire('clients');
-    if (c.corr.nom < 0) throw new Error('Liste des clients : la colonne « Nom » est indispensable.');
+    if (c.corr.nom < 0 && c.corr.raisonSociale < 0) throw new Error('Liste des clients : associez la colonne « Raison sociale » et/ou « Nom ».');
+    // Nom du client = raison sociale si renseignée, sinon nom (+ prénom) — comme dans l'export des devis
+    c.lignes.forEach(o => {
+      const rs = (o.raisonSociale || '').trim();
+      if (rs) { o.nom = rs; o.prenom = ''; }
+      delete o.raisonSociale;
+    });
     const coordCols = ['adresse', 'codePostal', 'ville', 'telephone', 'mobile', 'email'].filter(k => c.corr[k] >= 0);
     if (!coordCols.length) throw new Error('Liste des clients : associez au moins une colonne de coordonnées (adresse, ville, téléphone…).');
     // Dédoublonnage dans le fichier (code client, sinon nom + prénom)
@@ -477,7 +490,7 @@ async function analyser() {
     }
     // ② aperçu devis + rattachement prévu aux coordonnées
     const clesClients = {
-      codes: _envoi.clients.map(c => c.codeClient).filter(Boolean),
+      codes: _envoi.clients.map(c => c.codeClient || ''),   // aligné sur noms (même index)
       noms: _envoi.clients.map(c => ((c.nom || '') + ' ' + (c.prenom || '')).trim())
     };
     const dd = await _post('/api/henrri/import/apercu', { lignes: _envoi.devis, clesClients });
@@ -506,9 +519,10 @@ function _celHeures(d) {
        + '<td class="nb"><strong>' + _fmtH(d.heuresRef) + '</strong>' + src + '</td>';
 }
 function _celCoord(d) {
-  if (d.coord === 'fiche') return '<td><span class="ih-coord-ok">✔ fiche existante</span></td>';
-  if (d.coord === 'henrri') return '<td><span class="ih-coord-ok">✔ base clients</span></td>';
-  if (d.coord === 'fichier') return '<td><span class="ih-coord-ok">✔ liste importée</span></td>';
+  const ap = d.coordApprox ? ' <span style="color:#b45309;" title="Rapproché sur le nom de famille seul (la liste clients ne contient pas le prénom) : à vérifier à l\'affectation">≈ nom seul</span>' : '';
+  if (d.coord === 'fiche') return '<td><span class="ih-coord-ok">✔ fiche existante</span>' + ap + '</td>';
+  if (d.coord === 'henrri') return '<td><span class="ih-coord-ok">✔ base clients</span>' + ap + '</td>';
+  if (d.coord === 'fichier') return '<td><span class="ih-coord-ok">✔ liste importée</span>' + ap + '</td>';
   return '<td><span class="ih-coord-ko">✖ client introuvable</span></td>';
 }
 function _statut(s) {

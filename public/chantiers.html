@@ -1975,12 +1975,15 @@ function _henrriCelluleCoord(dv) {
   const lignes = [c.adresse, c.ville].filter(Boolean).join(', ');
   const tels = [c.mobile, c.fixe].filter(Boolean).join(' / ');
   const detail = [lignes, tels, c.email].filter(Boolean).join(' · ');
-  const origine = b.source === 'henrri' ? 'base Henrri' : 'fiche « ' + (b.nomTrouve || '') + ' »';
+  const origine = b.source === 'henrri' ? 'base clients Henrri' : 'fiche « ' + (b.nomTrouve || '') + ' »';
+  // Rapprochement sur le seul nom de famille (liste clients sans prénom) : à vérifier
+  const approx = b.approx
+    ? '<br><span style="color:#b45309;">≈ trouvé sur le nom « ' + _henrriEscAttr(b.nomTrouve || '') + ' » — à vérifier</span>' : '';
   return '<label style="display:flex;gap:6px;align-items:flex-start;margin-top:4px;font-size:0.72rem;color:#075985;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:4px 6px;cursor:pointer;" '
        + 'title="Coordonnées trouvées dans : ' + _henrriEscAttr(origine) + '">'
        + '<input type="checkbox" class="henrri-coord-cb" checked style="margin-top:1px;">'
        + '<span><strong>Client connu</strong> — reprendre ses coordonnées dans la fiche chantier<br>'
-       + '<span style="color:#475569;">📍 ' + _henrriEscAttr(detail) + '</span></span></label>';
+       + '<span style="color:#475569;">📍 ' + _henrriEscAttr(detail) + '</span>' + approx + '</span></label>';
 }
 
 async function ouvrirModaleHenrri() {

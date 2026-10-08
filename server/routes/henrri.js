@@ -241,6 +241,8 @@ function _normaliserLigne(l) {
 function _tel(v) {
   let t = String(v == null ? "" : v).trim();
   if (/^\d{9}$/.test(t)) t = "0" + t;
+  // Format international Henrri (+33298980020) → format français (0298980020)
+  if (/^\+33\s?[1-9]/.test(t)) t = "0" + t.replace(/^\+33\s?/, "");
   return t.slice(0, 40);
 }
 const _estMobile = t => /^(\+33\s?|0)[67]/.test(String(t || "").replace(/[.\s-]/g, ""));
@@ -294,8 +296,11 @@ const _nbChamps = c => ["adresse", "ville", "mobile", "fixe", "email"].filter(k 
 
 function _indexBaseClients(coordonneesChantiers, clientsCache) {
   const index = new Map();
-  const proposer = (cle, coord, source, nomTrouve) => {
+  // Liste complète pour la recherche approchée (voir _coordPourDevis)
+  index._candidats = [];
+  const proposer = (cle, coord, source, nomTrouve, email) => {
     if (!cle || _coordVide(coord)) return;
+    if (cle.charAt(0) !== "#") index._candidats.push({ mots: cle.split(" "), coord, source, nomTrouve, email: String(email || "").toLowerCase() });
     const actuel = index.get(cle);
     if (!actuel || (actuel.source === source && _nbChamps(coord) > _nbChamps(actuel.coord)))
       index.set(cle, { coord, source, nomTrouve });
@@ -316,7 +321,7 @@ function _indexBaseClients(coordonneesChantiers, clientsCache) {
     if (!f) return;
     const coord = _ficheVersCoordonnees(f);
     const cle = _cleClient(f.nom);
-    if (cle && !index.has(cle)) proposer(cle, coord, "henrri", f.nom);
+    if (cle && !index.has(cle)) proposer(cle, coord, "henrri", f.nom, f.email);
     if (f.code) proposer("#" + String(f.code).toUpperCase(), coord, "henrri", f.nom);
   });
   return index;
@@ -328,7 +333,35 @@ function _coordPourDevis(d, index) {
   const parNom = index.get(_cleClient(d && d.client));
   if (parNom && parNom.source === "fiche") return parNom;
   const parCode = d && d.codeClient ? index.get("#" + String(d.codeClient).toUpperCase()) : null;
-  return parCode || parNom || null;
+  return parCode || parNom || _coordApprochee(d, index) || null;
+}
+
+/* Recherche approchée : la liste clients Henrri ne contient souvent que le NOM
+   de famille (« PITET ») alors que le devis porte « PITET Virginie ». On retient
+   une fiche dont TOUS les mots figurent dans le nom du devis, si elle est seule
+   dans ce cas ; s'il y en a plusieurs (homonymes), celle dont l'e-mail contient
+   un autre mot du devis (le prénom) ; sinon rien (pas de devinette).
+   Fiches Suiv'Heures prioritaires sur la base Henrri. Signalée « approx ». */
+function _coordApprochee(d, index) {
+  const motsDevis = _cleClient(d && d.client).split(" ").filter(Boolean);
+  if (!motsDevis.length || !Array.isArray(index._candidats)) return null;
+  const ens = new Set(motsDevis);
+  const choisir = source => {
+    const cands = index._candidats.filter(c => c.source === source && c.mots.length && c.mots.every(m => ens.has(m)));
+    if (!cands.length) return null;
+    // Le plus de mots en commun d'abord (« DUPONT JEAN » avant « DUPONT »)
+    const max = Math.max(...cands.map(c => c.mots.length));
+    let top = cands.filter(c => c.mots.length === max);
+    if (top.length > 1) {
+      const autres = motsDevis.filter(m => !top[0].mots.includes(m)).map(m => m.toLowerCase());
+      const parMail = top.filter(c => c.email && autres.some(m => m.length > 2 && c.email.includes(m)));
+      if (parMail.length === 1) top = parMail;
+    }
+    if (top.length !== 1) return null;
+    const c = top[0];
+    return { coord: c.coord, source: c.source, nomTrouve: c.nomTrouve, approx: true };
+  };
+  return choisir("fiche") || choisir("henrri");
 }
 
 const CHAMPS_COMPARES = [
@@ -795,17 +828,22 @@ router.post("/import/apercu", verifyToken, async (req, res) => {
     try {
       const cfg = await _config(clientId);
       const doc = await Donnees.findOne({ clientId }, "coordonneesChantiers").lean();
-      const index = _indexBaseClients(doc && doc.coordonneesChantiers, cfg.clientsCache);
+      // Clients du fichier ① en cours d'import : ajoutés comme fiches « témoin »
+      // (pas encore enregistrés) pour savoir si chaque devis trouvera ses coordonnées
       const nouv = req.body && req.body.clesClients ? req.body.clesClients : {};
-      const codes = new Set((nouv.codes || []).map(c => "#" + String(c).toUpperCase()));
-      const noms = new Set((nouv.noms || []).map(n => _cleClient(n)));
+      const TEMOIN = "\u0000liste importée";
+      const noms = Array.isArray(nouv.noms) ? nouv.noms : [];
+      const codes = Array.isArray(nouv.codes) ? nouv.codes : [];
+      const temoins = noms.map((n, i) => ({ nom: n, code: codes[i] || "", adresse: TEMOIN }));
+      const base = (Array.isArray(cfg.clientsCache) ? cfg.clientsCache : []).map(c => (c && c.toObject ? c.toObject() : c));
+      const index = _indexBaseClients(doc && doc.coordonneesChantiers, base.concat(temoins));
       const parId = new Map(r.valides.map(d => [d.id, d]));
       let avec = 0, sans = 0;
       [r.nouveaux, r.misAJour, r.inchanges].forEach(liste => liste.forEach(x => {
         const d = parId.get("imp:" + String(x.numero).toUpperCase()) || {};
         const trouve = _coordPourDevis(d, index);
-        const dansFichier = (d.codeClient && codes.has("#" + d.codeClient.toUpperCase())) || noms.has(_cleClient(d.client));
-        x.coord = trouve ? trouve.source : (dansFichier ? "fichier" : "");
+        x.coord = !trouve ? "" : (trouve.coord.adresse === TEMOIN ? "fichier" : trouve.source);
+        x.coordApprox = !!(trouve && trouve.approx);
         if (x.statut === "attente") { if (x.coord) avec++; else sans++; }
       }));
       r.totaux.coordTrouvees = avec;
