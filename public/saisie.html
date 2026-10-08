@@ -1490,7 +1490,16 @@
 ═══════════════════════════ */
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
-let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) }
+let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) — jour + générale }
+let _notesJourPlanning = {}; // { nomChantier: note « pour cette journée » seule (heures[k].note) }
+/* Assemble la note du jour et la note générale du chantier : les deux sont affichées,
+   la note du jour en premier (consigne propre à l'intervention). */
+function _composerNote(jour, generale) {
+  const j = String(jour || '').trim();
+  const g = String(generale || '').trim();
+  if (j && g) return '📅 Pour cette journée :\n' + j + '\n\n📋 Note du chantier :\n' + g;
+  return j || g;
+}
 let _docsPlanning = {};  // { nomChantier: nombre de documents (PDF) joints au chantier }
 let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin" } }
 let _rdvMobileNom = null;
@@ -1915,6 +1924,7 @@ async function chargerChantiersPrev() {
 
   _chantiersP = [];
   _notesPlanning = {};
+  _notesJourPlanning = {};
   _rdvPlanning = {};
   // On RÉINITIALISE pas _saisiesPrev / _chantiersA ici : ils sont remis à zéro
   // au changement de date / déconnexion. Au premier appel après login, ils sont vides.
@@ -1945,21 +1955,27 @@ async function chargerChantiersPrev() {
     const h = parseFloat(entry?.heures) || 0;
     chantiersTrouves.push({ nom: nomChantier, hPrevues: h, occ, cle });
     // Note saisie dans le planning (première non vide rencontrée pour ce chantier, tous passages confondus)
+    // Note « pour cette journée » : toutes les notes distinctes des passages du jour, cumulées.
     const noteP = (entry?.note || '').trim();
-    if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
+    if (noteP) {
+      const _deja = (_notesJourPlanning[nomChantier] || '');
+      if (!_deja.split('\n').includes(noteP)) _notesJourPlanning[nomChantier] = _deja ? (_deja + '\n' + noteP) : noteP;
+    }
     // Heure de RDV saisie dans le planning (première non vide rencontrée)
     const rdvP = (entry?.rdv || '').trim();
     if (rdvP && !_rdvPlanning[nomChantier]) _rdvPlanning[nomChantier] = { rdv: rdvP, auteur: entry?.rdvAuteur || 'gerant', delai: (entry?.rdvDelai != null ? entry.rdvDelai : undefined) };
   }
-  // Note générale du chantier (unifiée) — prioritaire, lue depuis le journal
-  try {
-    const _ng = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}');
+  // Note affichée = note du JOUR + note GÉNÉRALE du chantier, les deux (comme sur le
+  // planning PC). Avant : la note générale remplaçait la note du jour, qui disparaissait.
+  {
+    let _ng = {};
+    try { _ng = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}') || {}; } catch (_) {}
     const _nomsVus = new Set(chantiersTrouves.map(c => c.nom));
     for (const nom of _nomsVus) {
-      const g = _ng[nom.toUpperCase()];
-      if (g) _notesPlanning[nom] = g;
+      const t = _composerNote(_notesJourPlanning[nom], _ng[nom.toUpperCase()]);
+      if (t) _notesPlanning[nom] = t;
     }
-  } catch (_) {}
+  }
 
   _chantiersP = chantiersTrouves.map(c => ({ nom: c.nom, hPrevues: c.hPrevues, occ: c.occ, cle: c.cle }));
 
@@ -2101,10 +2117,13 @@ function afficherNotePopup(titre, texte) {
   }
   ov.style.display = 'flex';
 }
-function ouvrirNotePlanning(nom) {
+/* noteJour : note « pour cette journée » à afficher (Mon planning, autre date) ;
+   absente → celle du jour sélectionné sur l'écran de saisie. */
+function ouvrirNotePlanning(nom, noteJour) {
   let g = '';
   try { g = (JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'))[nom.toUpperCase()] || ''; } catch (_) {}
-  afficherNotePopup(nom, g || _notesPlanning[nom] || '');
+  const j = (noteJour != null) ? noteJour : (_notesJourPlanning[nom] || '');
+  afficherNotePopup(nom, _composerNote(j, g));
 }
 
 /* Interroge, pour chaque chantier prévu du jour, le nombre de PDF joints (sans les
@@ -2323,7 +2342,8 @@ function chipsJourMonPlanning(dateStr) {
     let etat = 'plan', hReal = 0, noteR = '';
     const idx = rs.findIndex((c, j) => !pris[j] && _mpNorm(c.nom) === _mpNorm(p.nom));
     if (idx >= 0) { pris[idx] = true; etat = _mpEtat(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: _noteGen(p.nom) || p.note || noteR });
+    // Note du jour ET note générale (avant : la générale masquait la note du jour)
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, noteJour: p.note, note: _composerNote(p.note, _noteGen(p.nom)) || noteR });
   });
   rs.forEach((c, j) => {
     if (pris[j]) return;
@@ -2351,7 +2371,7 @@ function _mpHtmlChip(c) {
   const coord = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
   const nbDocs = _mpDocs[(c.nom || '').trim().toUpperCase()] || 0;
   const docs = nbDocs > 0
-    ? `<button type="button" class="chip-etat chip-note-planning mp-docs" data-nom="${_mpEsc(c.nom)}" style="align-self:flex-start;margin-top:6px;">📎 ${nbDocs} document${nbDocs > 1 ? 's' : ''}</button>`
+    ? `<button type="button" class="chip-etat chip-note-planning mp-docs" data-nom="${_mpEsc(c.nom)}" data-notejour="${_mpEsc(c.noteJour || '')}"style="align-self:flex-start;margin-top:6px;">📎 ${nbDocs} document${nbDocs > 1 ? 's' : ''}</button>`
     : '';
   return `<div class="chip s-${c.etat}"><div class="cn">${icone}<span class="nm">${_mpEsc(c.nom)}</span>${tag}</div>`
        + note + docs + coord
@@ -2432,7 +2452,7 @@ function rendreMonPlanning() {
     // Bouton « 📎 N document(s) » d'un chantier → même fenêtre que sur l'écran de saisie
     ov.querySelector('#mon-planning-corps').addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('.mp-docs');
-      if (b) ouvrirNotePlanning(b.getAttribute('data-nom') || '');
+      if (b) ouvrirNotePlanning(b.getAttribute('data-nom') || '', b.getAttribute('data-notejour') || '');
     });
     // Swipe horizontal pour changer de semaine (mobile)
     (function () {
