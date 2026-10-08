@@ -439,16 +439,25 @@ function construireBase() {
   const enDoublon = new Set(_doublons.map(d => d.plan.cle));
 
   const liste = [];
+  const _coordsTous = _lire('coordonneesChantiersdata', {});
   henrri.forEach(h => {
     const ps = rattache.get(h.id) || [];
-    const chantiers = ps.flatMap(p => p.chantiers);
+    // Une fiche créée avec « 📍 Fiche » sur la ligne Henrri n'est PAS un chantier :
+    // elle ne fait pas passer le client en « Henrri + planning ».
+    const psReels = ps.filter(p => !p.ficheSeule);
+    const chantiers = psReels.flatMap(p => p.chantiers);
     const derniere = ps.reduce((m, p) => (p.derniere > m ? p.derniere : m), '');
     const pc = ps.find(p => p.adresse || p.ville || p.telephone) || {};
+    // Fiche enregistrée sous le nom exact du client Henrri (corrigée dans Suiv'Heures) :
+    // prioritaire, champ par champ, sur les données Henrri ; Henrri prime sur le reste.
+    const fl = _coordsTous[String(h.nom || '').trim().toUpperCase()] || {};
+    const flTel = fl.mobile || fl.fixe || '';
     liste.push({
-      source: ps.length ? 'mixte' : 'henrri', id: h.id, nom: h.nom,
-      adresse: h.adresse || pc.adresse || '', ville: h.ville || pc.ville || '',
-      codePostal: h.codePostal || _cpDe(h.ville || pc.ville), telephone: h.telephone || pc.telephone || '',
-      email: h.email || pc.email || '', chantiers, derniere,
+      source: psReels.length ? 'mixte' : 'henrri', id: h.id, nom: h.nom,
+      adresse: fl.adresse || h.adresse || pc.adresse || '', ville: fl.ville || h.ville || pc.ville || '',
+      codePostal: _cpDe(fl.ville) || h.codePostal || _cpDe(h.ville || pc.ville), telephone: flTel || h.telephone || pc.telephone || '',
+      email: fl.email || h.email || pc.email || '', chantiers, derniere,
+      ficheLocale: !!(fl.adresse || fl.ville || flTel || fl.email),
       liensManuels: ps.filter(p => p.mode === 'manuel').map(p => p.cle)
     });
   });
@@ -488,8 +497,10 @@ function rendreClients(liste) {
     const nb = c.chantiers.length;
     const defaire = (c.liensManuels || []).map(k => `<span class="lien-defaire" onclick="defaireFusion(${_jsArg(k)})" title="Annuler la fusion avec « ${_clEsc(k)} »">✕ défusionner ${_clEsc(k)}</span>`).join('');
     const sous = (nb && !c.importe) ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} au planning/prévisionnel${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
-    const completer = (c.incomplet || c.source === 'planning') && nb && window.Coord && Coord.ouvrir
-      ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="Renseigner l'adresse et les téléphones">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
+    // Fiche ouvrable sur TOUS les clients (Henrri compris) : pour un client Henrri,
+    // la fenêtre est pré-remplie avec ses coordonnées Henrri.
+    const completer = (window.Coord && Coord.ouvrir && (nb || c.source !== 'planning'))
+      ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="${c.source === 'planning' ? "Renseigner l'adresse et les téléphones" : 'Voir / corriger la fiche (pré-remplie depuis Henrri)'}">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
     const coche = _selection.has(c.k);
     const msq = c.masque ? '<span class="badge-src b-masque">supprimé</span>' : '';
     const actionFin = c.masque
@@ -693,8 +704,13 @@ function defaireFusion(clePlan) {
 /* ── Compléter une fiche (coordonnées du chantier, outil partagé coordonnees.js) ── */
 function completerFiche(i) {
   const c = _clients[i];
-  if (!c || !c.chantiers.length || !(window.Coord && Coord.ouvrir)) return;
-  Coord.ouvrir(c.chantiers[0]);
+  if (!c || !(window.Coord && Coord.ouvrir)) return;
+  // Liste rafraîchie dès l'enregistrement de la fiche (sans attendre un retour sur la page)
+  const apres = () => { construireBase(); filtrerClients(); };
+  if (c.source === 'planning') { if (c.chantiers.length) Coord.ouvrir(c.chantiers[0], apres); return; }
+  // Client Henrri : fiche au nom exact du client — reprise par le planning pour les
+  // chantiers de ce nom et ceux créés depuis ses devis (« NOM 26-09-1 »).
+  Coord.ouvrir(String(c.nom || '').trim(), apres);
 }
 // Toute écriture des coordonnées (fiche enregistrée) rafraîchit la liste.
 (function () {
