@@ -89,8 +89,10 @@
   <a href="chantiers.html?henrri=1" style="display:inline-block;margin-top:.8rem;font-size:.85rem;font-weight:700;color:#0f3a8a;text-decoration:none;">← Retour au Prévisionnel (Devis Henrri)</a>
   <p class="ih-intro">
     Exportez vos <strong>devis validés</strong> depuis Henrri (fichier Excel) puis déposez le fichier ci-dessous.
-    Données reprises : <strong>n° de devis</strong>, <strong>nom prénom</strong>, <strong>coordonnées complètes</strong>,
+    Données reprises : <strong>n° de devis</strong>, <strong>nom prénom</strong>,
     <strong>nombre d'heures</strong> et <strong>nombre d'heures analysées</strong>.
+    Les coordonnées ne figurent pas dans l'export : si le client est déjà connu de votre base clients,
+    ses coordonnées vous seront proposées pour la fiche du chantier au moment de l'affectation.
     Les devis importés sont ensuite proposés dans le bouton <strong>« Devis Henrri »</strong> du Prévisionnel, pour être affectés à un mois.
   </p>
 
@@ -167,25 +169,13 @@ const CHAMPS = [
     exclure: /^prenom|n°|numero|code|ville|commune/ },
   { cle: 'prenom',          libelle: 'Prénom (si colonne séparée)', groupe: 'Client', requis: false,
     motifs: [/^prenom/] , exclure: /nom.*prenom|prenom.*nom/ },
-  { cle: 'adresse',         libelle: 'Adresse',            groupe: 'Coordonnées',  requis: false,
-    motifs: [/^adresse$/, /adresse/, /\brue\b|voie/], exclure: /mail|courriel|electronique|complement/ },
-  { cle: 'codePostal',      libelle: 'Code postal',        groupe: 'Coordonnées',  requis: false,
-    motifs: [/code postal|postal/, /^cp$/] },
-  { cle: 'ville',           libelle: 'Ville',              groupe: 'Coordonnées',  requis: false,
-    motifs: [/ville/, /commune|localite/] },
-  { cle: 'telephone',       libelle: 'Téléphone',          groupe: 'Coordonnées',  requis: false,
-    motifs: [/tel|phone/, /fixe/], exclure: /mobile|portable|gsm|fax/ },
-  { cle: 'mobile',          libelle: 'Mobile',             groupe: 'Coordonnées',  requis: false,
-    motifs: [/mobile|portable|gsm/] },
-  { cle: 'email',           libelle: 'E-mail',             groupe: 'Coordonnées',  requis: false,
-    motifs: [/e-?mail|courriel|mail/] },
   { cle: 'heures',          libelle: "Nombre d'heures",    groupe: 'Heures',       requis: false,
     motifs: [/nombre.*heure|nb.*heure|heure/], exclure: /analys/ },
   { cle: 'heuresAnalysees', libelle: "Nombre d'heures analysées", groupe: 'Heures', requis: false,
     motifs: [/heure.*analys|analys/] }
 ];
 // Ordre d'attribution automatique (les plus spécifiques d'abord)
-const ORDRE_RECO = ['heuresAnalysees', 'heures', 'numero', 'nom', 'prenom', 'mobile', 'telephone', 'email', 'codePostal', 'ville', 'adresse'];
+const ORDRE_RECO = ['heuresAnalysees', 'heures', 'numero', 'nom', 'prenom'];
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -430,7 +420,7 @@ async function confirmer() {
         '<div class="ih-msg ih-msg-succes"><strong>Import appliqué.</strong> '
       + t.nouveaux + ' nouveau' + (t.nouveaux > 1 ? 'x' : '') + ' devis, ' + t.misAJour + ' mis à jour, ' + t.inchanges + ' inchangé' + (t.inchanges > 1 ? 's' : '') + '.</div>'
       + '<p style="font-size:.88rem;color:#334155;"><strong>' + (d.enAttente || 0) + '</strong> devis en attente d\'affectation dans le Prévisionnel. '
-      + 'Les coordonnées des clients ont aussi été ajoutées à la page Clients.</p>'
+      + 'Pour chaque devis dont le client est déjà connu, ses coordonnées vous seront proposées à l\'affectation.</p>'
       + '<div class="ih-actions">'
       + '<a class="ih-btn ih-btn-principal" href="chantiers.html?henrri=1">📄 Affecter les devis au Prévisionnel</a>'
       + '<button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Importer un autre fichier</button>'

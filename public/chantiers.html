@@ -1960,6 +1960,27 @@ function _henrriFmtH(v) {
   return (Math.round(n * 100) / 100).toString().replace('.', ',') + ' h';
 }
 
+/* Mode import : l'export Henrri ne contient pas les coordonnées. Si le client
+   existe déjà dans la base clients (fiche chantier ou base Henrri), le serveur
+   renvoie ses coordonnées (dv.coordBase) : on PROPOSE de les reporter sur la
+   fiche du chantier créé (case cochée par défaut, décochable). */
+function _henrriCelluleCoord(dv) {
+  const b = dv.coordBase;
+  if (!b || !b.coord) {
+    return '<div style="font-size:0.72rem;color:#94a3b8;">Client absent de la base — coordonnées à saisir dans la fiche chantier</div>';
+  }
+  const c = b.coord;
+  const lignes = [c.adresse, c.ville].filter(Boolean).join(', ');
+  const tels = [c.mobile, c.fixe].filter(Boolean).join(' / ');
+  const detail = [lignes, tels, c.email].filter(Boolean).join(' · ');
+  const origine = b.source === 'henrri' ? 'base Henrri' : 'fiche « ' + (b.nomTrouve || '') + ' »';
+  return '<label style="display:flex;gap:6px;align-items:flex-start;margin-top:4px;font-size:0.72rem;color:#075985;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:4px 6px;cursor:pointer;" '
+       + 'title="Coordonnées trouvées dans : ' + _henrriEscAttr(origine) + '">'
+       + '<input type="checkbox" class="henrri-coord-cb" checked style="margin-top:1px;">'
+       + '<span><strong>Client connu</strong> — reprendre ses coordonnées dans la fiche chantier<br>'
+       + '<span style="color:#475569;">📍 ' + _henrriEscAttr(detail) + '</span></span></label>';
+}
+
 async function ouvrirModaleHenrri() {
   const token = _henrriToken();
   if (!token) { alert("Activez d'abord votre licence."); return; }
@@ -2020,7 +2041,7 @@ async function ouvrirModaleHenrri() {
       }
       html += '<tr>'
         + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
-        + ((modeImport && dv.coordonnees && dv.coordonnees.ville) ? '<div style="font-size:0.72rem;color:#64748b;">' + _henrriEscAttr(dv.coordonnees.ville) + '</div>' : '')
+        + (modeImport ? _henrriCelluleCoord(dv) : '')
         + '</td>'
         + '<td style="' + td + '">' + _henrriEscAttr(dv.reference || '—')
         + (dv.signe ? ' <span title="Accepté par le client via la validation électronique Henrri" style="background:#dcfce7;color:#166534;border-radius:999px;padding:1px 8px;font-size:0.72rem;font-weight:700;white-space:nowrap;">✔ signé</span>' : '')
@@ -2032,7 +2053,8 @@ async function ouvrirModaleHenrri() {
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
         + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
         + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
-        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify(dv.coordonnees || {})) + '" '
+        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
+        + 'data-mode-import="' + (modeImport ? '1' : '') + '" '
         + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
         + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
@@ -2058,6 +2080,12 @@ async function affecterDevisHenrri(btn) {
   const customerId = btn.getAttribute('data-devis-customer') || '';
   let coordonnees = null;
   try { coordonnees = JSON.parse(btn.getAttribute('data-devis-coord') || 'null'); } catch (_) {}
+  // Mode import : coordonnées de la base clients reportées seulement si la case est cochée
+  let sansCoordonnees = false;
+  if (btn.getAttribute('data-mode-import') === '1') {
+    const cb = tr.querySelector('.henrri-coord-cb');
+    if (!cb || !cb.checked) { coordonnees = null; sansCoordonnees = true; }
+  }
   // Heures proposées (mode import) : valeur éventuellement corrigée dans la modale
   const inpH = tr.querySelector('.henrri-heures-input');
   const hPrevues = inpH ? String(inpH.value || '').trim() : '';
@@ -2068,7 +2096,7 @@ async function affecterDevisHenrri(btn) {
     const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees, hPrevues })
+      body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees, sansCoordonnees, hPrevues })
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');

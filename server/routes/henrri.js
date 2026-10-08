@@ -202,12 +202,6 @@ function _nombre(v) {
   const n = parseFloat(t);
   return isFinite(n) ? n : null;
 }
-// Téléphone : Excel perd souvent le 0 initial (612345678 → 0612345678)
-function _tel(v) {
-  let t = String(v == null ? "" : v).trim();
-  if (/^\d{9}$/.test(t)) t = "0" + t;
-  return t.slice(0, 40);
-}
 const _txt = (v, max) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max || 200);
 
 // Heures de référence : heures analysées si > 0, sinon nombre d'heures du devis
@@ -224,46 +218,64 @@ function _normaliserLigne(l) {
   const nom = _txt([l && l.nom, l && l.prenom].filter(x => _txt(x)).join(" "), 200);
   if (!numero) return { rejet: "N° de devis manquant", nom };
   if (!nom) return { rejet: "Nom manquant", numero };
-  const telephone = _tel(l.telephone);
-  const mobile = _tel(l.mobile);
   return {
     id: "imp:" + numero.toUpperCase(),
     numero,
     reference: _simplifierReference(numero) || numero,
     client: nom,
-    adresse: _txt(l.adresse, 500),
-    codePostal: _txt(l.codePostal, 20),
-    ville: _txt(l.ville, 200),
-    telephone,
-    mobile,
-    email: _txt(l.email, 120),
     heures: _nombre(l.heures),
     heuresAnalysees: _nombre(l.heuresAnalysees)
   };
 }
 
-// Devis importé → coordonnées de chantier Suiv'Heures (même format que l'API)
-function _devisFichierVersCoord(d) {
-  const estMob = t => /^0[67]/.test(String(t || "").replace(/[.\s-]/g, ""));
-  let mobile = d.mobile || "";
-  let fixe = "";
-  if (d.telephone) {
-    if (!mobile && estMob(d.telephone)) mobile = d.telephone;
-    else if (d.telephone !== mobile) fixe = d.telephone;
-  }
-  return {
-    adresse: String(d.adresse || "").slice(0, 500),
-    ville: [d.codePostal, d.ville].filter(Boolean).join(" ").trim().slice(0, 200),
-    mobile: String(mobile).slice(0, 40),
-    fixe: String(fixe).slice(0, 40),
-    email: String(d.email || "").slice(0, 120)
+/* ── Recherche du client d'un devis importé dans la base clients ──
+   L'export Henrri ne contient pas les coordonnées : on les cherche dans ce que
+   Suiv'Heures connaît déjà, pour PROPOSER de les reporter sur la fiche du
+   chantier créé à l'affectation :
+   1. les fiches coordonnées de chantier (planning, prévisionnel, page Clients),
+      dont le nom correspond au client (n° de devis final « 26-09-1 » ignoré) ;
+   2. à défaut, la base clients Henrri en cache (connexion API antérieure).
+   Comparaison sans accents ni casse, ordre des mots indifférent
+   (« DUPONT Jean » = « Jean Dupont »). Plusieurs fiches pour un même client :
+   on garde la plus complète. */
+const _RE_REF_DEVIS = /\s+\d{2}-\d{2}-\d+\s*$/;
+function _cleClient(nom) {
+  return String(nom || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase().replace(_RE_REF_DEVIS, "")
+    .replace(/[^A-Z0-9]+/g, " ").trim()
+    .split(" ").filter(Boolean).sort().join(" ");
+}
+const _nbChamps = c => ["adresse", "ville", "mobile", "fixe", "email"].filter(k => c && String(c[k] || "").trim()).length;
+
+function _indexBaseClients(coordonneesChantiers, clientsCache) {
+  const index = new Map();
+  const proposer = (cle, coord, source, nomTrouve) => {
+    if (!cle || _coordVide(coord)) return;
+    const actuel = index.get(cle);
+    if (!actuel || (actuel.source === source && _nbChamps(coord) > _nbChamps(actuel.coord)))
+      index.set(cle, { coord, source, nomTrouve });
   };
+  // 1. Fiches coordonnées (prioritaires : saisies ou corrigées dans Suiv'Heures)
+  Object.entries(coordonneesChantiers || {}).forEach(([nom, c]) => {
+    if (!c || typeof c !== "object") return;
+    const coord = {
+      adresse: String(c.adresse || "").slice(0, 500), ville: String(c.ville || "").slice(0, 200),
+      mobile: String(c.mobile || "").slice(0, 40), fixe: String(c.fixe || "").slice(0, 40),
+      email: String(c.email || "").trim().slice(0, 120)
+    };
+    proposer(_cleClient(nom), coord, "fiche", nom);
+  });
+  // 2. Cache Henrri (seulement pour les clients absents des fiches)
+  (Array.isArray(clientsCache) ? clientsCache : []).forEach(f => {
+    const cle = _cleClient(f && f.nom);
+    if (cle && !index.has(cle)) proposer(cle, _ficheVersCoordonnees(f), "henrri", f.nom);
+  });
+  return index;
 }
 
 const CHAMPS_COMPARES = [
-  ["client", "Nom"], ["adresse", "Adresse"], ["codePostal", "Code postal"], ["ville", "Ville"],
-  ["telephone", "Téléphone"], ["mobile", "Mobile"], ["email", "E-mail"],
-  ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
+  ["client", "Nom"], ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
 ];
 
 /* Analyse (sans écriture) d'un lot de lignes au regard de ce qui est déjà en base */
@@ -411,6 +423,13 @@ router.get("/devis", verifyToken, async (req, res) => {
 
     // ── Mode « import de devis validés » : liste issue du dernier import Excel ──
     if (etat.mode === "import") {
+      let indexBase = new Map();
+      try {
+        const doc = await Donnees.findOne({ clientId }, "coordonneesChantiers").lean();
+        indexBase = _indexBaseClients(doc && doc.coordonneesChantiers, cfg.clientsCache);
+      } catch (e) {
+        console.warn("[HENRRI] base clients illisible :", e.message);
+      }
       const affectes = new Set(etat.devisImportes);
       const ecartes = new Set(etat.devisIgnores);
       const devis = etat.devisFichier
@@ -429,7 +448,10 @@ router.get("/devis", verifyToken, async (req, res) => {
             heuresAnalysees: d.heuresAnalysees,
             heuresRef: ref.valeur,
             heuresRefSource: ref.source,
-            coordonnees: _devisFichierVersCoord(d),
+            // Pas de coordonnées dans l'export : coordonnées trouvées dans la base
+            // clients, à PROPOSER (case cochée par défaut dans la modale)
+            coordonnees: null,
+            coordBase: indexBase.get(_cleClient(d.client)) || null,
             customerId: ""
           };
         });
@@ -539,7 +561,8 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
           };
           if (!_coordVide(c)) coord = c;
         }
-        if (!coord) {
+        // Proposition refusée dans la modale (mode import) : aucune coordonnée reportée
+        if (!coord && !req.body.sansCoordonnees) {
           const cfgC = await Henrri.findOne({ clientId }, "clientsCache");
           const cache = (cfgC && Array.isArray(cfgC.clientsCache)) ? cfgC.clientsCache : [];
           const custId = String(req.body.customerId || "");
@@ -647,8 +670,9 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
    2. /import/apercu  : rapport de fusion, AUCUNE écriture ;
    3. /import/confirmer : enregistrement.
    Règles : un import ne supprime jamais rien ; un devis déjà affecté ou écarté
-   n'est jamais reproposé (et sa ligne du Prévisionnel n'est jamais modifiée) ;
-   les coordonnées des clients alimentent aussi la base de la page Clients.
+   n'est jamais reproposé (et sa ligne du Prévisionnel n'est jamais modifiée).
+   L'export ne contient pas les coordonnées : elles sont proposées à
+   l'affectation depuis la base clients (voir _indexBaseClients).
    ─────────────────────────────────────────────────────────────── */
 router.post("/import/apercu", verifyToken, async (req, res) => {
   try {
@@ -669,7 +693,7 @@ router.post("/import/confirmer", verifyToken, async (req, res) => {
     const r = _analyserImport(req.body && req.body.lignes, etat);
     const maintenant = new Date();
 
-    // 1. Devis : mise à jour / ajout par n° de devis, rien n'est supprimé
+    // Devis : mise à jour / ajout par n° de devis, rien n'est supprimé
     const parId = new Map(etat.devisFichier.map(d => [String(d.id), d]));
     r.valides.forEach(d => {
       const ancien = parId.get(d.id);
@@ -677,34 +701,9 @@ router.post("/import/confirmer", verifyToken, async (req, res) => {
     });
     const devisFichier = Array.from(parId.values());
 
-    // 2. Base clients (page Clients) : une fiche par nom, champs non vides du fichier
-    const cfg = await _config(clientId);
-    const cache = Array.isArray(cfg.clientsCache) ? cfg.clientsCache.map(c => ({ ...(c.toObject ? c.toObject() : c) })) : [];
-    const cleNom = n => String(n || "").trim().toUpperCase();
-    const index = new Map(cache.map((c, i) => [cleNom(c.nom), i]));
-    r.valides.forEach(d => {
-      const fiche = {
-        id: "imp:" + cleNom(d.client),
-        nom: d.client,
-        adresse: d.adresse,
-        ville: [d.codePostal, d.ville].filter(Boolean).join(" ").trim(),
-        codePostal: d.codePostal,
-        telephone: d.mobile || d.telephone,
-        email: d.email
-      };
-      const k = cleNom(d.client);
-      if (index.has(k)) {
-        const c = cache[index.get(k)];
-        Object.keys(fiche).forEach(ch => { if (ch !== "id" && fiche[ch]) c[ch] = fiche[ch]; });
-      } else {
-        index.set(k, cache.length);
-        cache.push(fiche);
-      }
-    });
-
     await Henrri.updateOne(
       { clientId },
-      { $set: { devisFichier, devisFichierLe: maintenant, clientsCache: cache, clientsCacheLe: maintenant, updatedAt: maintenant } },
+      { $set: { devisFichier, devisFichierLe: maintenant, updatedAt: maintenant } },
       { strict: false }
     );
 
