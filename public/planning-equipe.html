@@ -936,7 +936,7 @@ function htmlChip(c) {
   const coordTxt = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
   // Motif d'exclusion du créneau (bouton rouge du planning PC)
   const excluTxt = c.exclu
-    ? `<div class="chip-exclu" style="margin-top:4px;display:inline-block;font-size:0.74rem;font-weight:700;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:1px 7px;">⛔ Exclu : ${escapeHtmlLocal(_motifExcluAffiche(c.motifExclu))}</div>`
+    ? `<div class="chip-exclu" style="margin-top:4px;display:inline-block;font-size:0.74rem;font-weight:700;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:1px 7px;">${escapeHtmlLocal(_motifExcluAffiche(c.motifExclu))}</div>`
     : '';
   const _movable = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim()) ? '1' : '';
   return `<div class="chip s-${c.etat}${_estTNA ? ' tna' : ''}" data-nom="${escapeHtmlLocal(c.nom)}" data-cle="${escapeHtmlLocal(c.cle || c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">

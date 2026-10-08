@@ -1023,7 +1023,7 @@ function pl2ChipHTML(sl){
       <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
     </div>
     ${alerteReservio}
-    <div id="${sl.k}exclu-motif" class="exclu-motif"${(data.exclu && !estTNA)?'':' style="display:none"'}>⛔ Exclu : ${escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')}</div>
+    <div id="${sl.k}exclu-motif" class="exclu-motif"${(data.exclu && !estTNA)?'':' style="display:none"'}>${escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')}</div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
     ${(typeof Coord!=='undefined' && nom) ? Coord.html(nom) : ''}
   </div>`;
@@ -1618,7 +1618,7 @@ function appliquerExclu(k, actif, motif) {
   // Motif visible sur le pavé (pas seulement dans l'info-bulle du bouton)
   const lm = document.getElementById(k + 'exclu-motif');
   if (lm) {
-    lm.textContent = heures[k].exclu ? '⛔ Exclu : ' + (motifExcluAffiche(heures[k].motifExclu) || 'SAV') : '';
+    lm.textContent = heures[k].exclu ? (motifExcluAffiche(heures[k].motifExclu) || 'SAV') : '';
     lm.style.display = heures[k].exclu ? '' : 'none';
   }
   if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
