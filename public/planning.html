@@ -2106,6 +2106,13 @@ function ouvrirNoteChantier(k, modeCreation) {
   if (entrLbl) entrLbl.style.display = (suiviActif && !aNoteJour) ? 'flex' : 'none';
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
+  // Motif d'exclusion du créneau (hors mode création, qui a ses propres champs)
+  const exInfo = document.getElementById('note-modal-exclu-info');
+  if (exInfo) {
+    const ex = !_noteModalCreation && heures[k] && heures[k].exclu;
+    exInfo.style.display = ex ? 'flex' : 'none';
+    if (ex) document.getElementById('note-modal-exclu-motif-txt').textContent = motifExcluAffiche(heures[k].motifExclu) || 'SAV';
+  }
   rendreHistNoteChantier(nom);
   const txt = document.getElementById('note-modal-txt');
   txt.value = '';
@@ -2922,6 +2929,10 @@ document.addEventListener('DOMContentLoaded', () => {
   <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
     <h3 id="note-modal-titre" style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <div id="note-modal-exclu-info" style="display:none;align-items:center;gap:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:0.84rem;">
+      <span style="flex:1;min-width:0;">⛔ Temps exclu du calcul — motif : <b id="note-modal-exclu-motif-txt"></b></span>
+      <button type="button" onclick="{ const _k=_noteCleCourante; fermerNoteChantier(); if(_k) ouvrirExclu(_k); }" style="flex:0 0 auto;border:1px solid #fca5a5;background:#fff;color:#991b1b;border-radius:6px;padding:4px 9px;font-size:0.78rem;font-weight:700;cursor:pointer;">Modifier</button>
+    </div>
     <div id="note-modal-creation-champs" style="display:none;margin-bottom:12px;">
       <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Heures prévues</label>
       <select id="note-modal-heures" class="h" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:10px;"></select>
