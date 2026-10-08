@@ -91,6 +91,31 @@
     #dbl-overlay .pm-f { padding:10px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:right; }
     #dbl-overlay .pm-f button { border:none; border-radius:8px; padding:9px 16px; font-weight:700; background:#e2e8f0; cursor:pointer; }
     @media (max-width:640px){ .dbl-paire{ grid-template-columns:1fr; } .clients-toolbar input[type="text"]{ width:100%; } }
+    #btn-import-clients { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 16px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+    #btn-import-clients:hover { background:#15803d; }
+    .b-import { background:#ede9fe; color:#5b21b6; }
+    #imp-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
+    #imp-overlay.on { display:flex; }
+    #imp-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:860px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #imp-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; }
+    #imp-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #imp-corps { overflow-y:auto; padding:14px 16px; font-size:.86rem; color:#334155; }
+    #imp-overlay .pm-f { display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; padding:10px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    #imp-overlay .pm-f button { border:none; border-radius:8px; padding:9px 16px; font-weight:700; font-size:.86rem; cursor:pointer; }
+    .imp-ok { background:#16a34a; color:#fff; } .imp-ok:disabled { opacity:.5; cursor:default; }
+    .imp-an { background:#e2e8f0; color:#334155; }
+    .imp-lien { background:none !important; color:#0369a1 !important; padding:0 !important; text-decoration:underline; font-weight:600 !important; margin-right:auto; }
+    .imp-zone { border:2px dashed #93c5fd; background:#eff6ff; border-radius:10px; padding:18px; text-align:center; color:#1e3a8a; cursor:pointer; }
+    .imp-zone.survol { background:#dbeafe; }
+    .imp-map { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px 12px; margin:10px 0 12px; }
+    .imp-map label { display:block; font-size:.74rem; font-weight:700; color:#475569; margin-bottom:3px; }
+    .imp-map select { width:100%; padding:5px 6px; border:1px solid #cbd5e1; border-radius:6px; font-size:.82rem; }
+    .imp-apercu { border-collapse:collapse; width:100%; font-size:.78rem; }
+    .imp-apercu th { background:#e2e8f0; text-align:left; padding:5px 7px; }
+    .imp-apercu td { border-bottom:1px solid #e2e8f0; padding:4px 7px; vertical-align:top; }
+    .imp-apercu tr.imp-skip td { color:#94a3b8; }
+    .imp-resume { background:#f1f5f9; border-radius:8px; padding:8px 12px; margin:10px 0; }
+    .imp-err { color:#b91c1c; font-weight:600; }
     .clients-alerte {
       background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
       padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.88rem;
@@ -137,6 +162,7 @@
 
   <div class="clients-toolbar">
     <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
+    <button type="button" id="btn-import-clients" onclick="ouvrirImport()" title="Importer une liste de clients depuis un fichier Excel ou CSV">📥 Importer un fichier</button>
     <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
     <select id="filtre-source" onchange="filtrerClients()">
       <option value="">Tous les clients</option>
@@ -178,6 +204,20 @@
     <div class="pm-f">
       <button type="button" class="pm-an" onclick="fermerPlanifier()">Annuler</button>
       <button type="button" class="pm-ok" onclick="validerPlanifier()">Voir le planning ➜</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre « Importer un fichier clients » -->
+<div id="imp-overlay" onclick="if(event.target===this)fermerImport()">
+  <div class="pm">
+    <div class="pm-h"><b>📥 Importer des clients (Excel ou CSV)</b>
+      <div class="pm-sub">Une ligne par client. Chaque client importé reçoit une fiche (adresse, téléphones, e-mail) reprise par le planning dès qu'un chantier porte son nom.</div></div>
+    <div id="imp-corps"></div>
+    <div class="pm-f">
+      <button type="button" class="imp-lien" onclick="telechargerModeleImport()">Télécharger un modèle CSV</button>
+      <button type="button" class="imp-an" onclick="fermerImport()">Fermer</button>
+      <button type="button" class="imp-ok" id="imp-valider" onclick="validerImport()" disabled>Importer</button>
     </div>
   </div>
 </div>
@@ -278,13 +318,14 @@ function _clientsPlanning() {
   const prev   = _lire('previsionnel_data', {});
   const coords = _lire('coordonneesChantiersdata', {});
   const groupes = new Map();
-  const ajouter = (nomBrut, date) => {
+  const ajouter = (nomBrut, date, depuisFiche) => {
     const nom = String(nomBrut || '').trim();
     const cle = _cle(nom);
     if (!cle || EXCLUS.has(cle)) return;
     let g = groupes.get(cle);
     if (!g) { g = { cle, nom: _sansRef(nom), chantiers: new Set(), derniere: '' }; groupes.set(cle, g); }
     g.chantiers.add(nom.toUpperCase());
+    if (!depuisFiche) g.horsFiche = true;      // vu au planning / prévisionnel
     if (date && date > g.derniere) g.derniere = date;
   };
   Object.keys(heures).forEach(k => {
@@ -296,7 +337,7 @@ function _clientsPlanning() {
   Object.values(prev || {}).forEach(an => Object.values(an || {}).forEach(mo => {
     (mo && Array.isArray(mo.chantiers) ? mo.chantiers : []).forEach(c => c && ajouter(c.client, ''));
   }));
-  Object.keys(coords || {}).forEach(nom => ajouter(nom, ''));
+  Object.keys(coords || {}).forEach(nom => ajouter(nom, '', true));
 
   // Coordonnées : première fiche renseignée parmi les chantiers du groupe
   const coordsNorm = new Map(Object.keys(coords || {}).map(k => [_norm(k), coords[k]]));
@@ -310,7 +351,8 @@ function _clientsPlanning() {
     return {
       cle: g.cle, nom: g.nom, chantiers: [...g.chantiers], derniere: g.derniere,
       adresse: co.adresse || '', ville: co.ville || '',
-      telephone: co.mobile || co.fixe || '', email: co.email || ''
+      telephone: co.mobile || co.fixe || '', email: co.email || '',
+      importe: co.origine === 'import' && !g.horsFiche   // client venu d'un fichier, sans chantier encore
     };
   });
 }
@@ -390,7 +432,7 @@ function construireBase() {
     });
   });
   seuls.forEach(p => liste.push({
-    source: 'planning', cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
+    source: 'planning', importe: !!p.importe, cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
     codePostal: _cpDe(p.ville), telephone: p.telephone, email: p.email || '',
     chantiers: p.chantiers, derniere: p.derniere, doublon: enDoublon.has(p.cle)
   }));
@@ -413,12 +455,13 @@ function rendreClients(liste) {
     const i = _clients.indexOf(c);
     const badge = c.source === 'mixte' ? '<span class="badge-src b-mixte" title="Présent dans Henrri et dans le planning">Henrri + planning</span>'
                 : c.source === 'henrri' ? '<span class="badge-src b-henrri">Henrri</span>'
+                : c.importe ? '<span class="badge-src b-import" title="Client importé depuis un fichier">Fichier importé</span>'
                 : '<span class="badge-src b-planning">Planning</span>';
     const dbl = c.doublon ? `<span class="badge-src b-doublon" onclick="ouvrirDoublons(${_jsArg(c.cle)})" title="Ressemble à un client Henrri">⚠ doublon probable</span>` : '';
     const inc = c.incomplet ? '<span class="badge-src b-incomplet">fiche à compléter</span>' : '';
     const nb = c.chantiers.length;
     const defaire = (c.liensManuels || []).map(k => `<span class="lien-defaire" onclick="defaireFusion(${_jsArg(k)})" title="Annuler la fusion avec « ${_clEsc(k)} »">✕ défusionner ${_clEsc(k)}</span>`).join('');
-    const sous = nb ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} au planning/prévisionnel${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
+    const sous = (nb && !c.importe) ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} au planning/prévisionnel${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
     const completer = (c.incomplet || c.source === 'planning') && nb && window.Coord && Coord.ouvrir
       ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="Renseigner l'adresse et les téléphones">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
     return `<tr>
@@ -583,6 +626,312 @@ async function synchroniserClientsHenrri() {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   IMPORT D'UN FICHIER CLIENTS (Excel .xlsx/.xls ou CSV)
+   ═══════════════════════════════════════════════════════════════
+   1. lecture du fichier dans le navigateur (CSV : séparateur ; , ou tabulation,
+      encodage UTF-8 ou Windows-1252 détecté ; Excel : bibliothèque SheetJS
+      chargée seulement au premier import) ;
+   2. repérage automatique des colonnes (Nom, Prénom, Adresse, CP, Ville,
+      Téléphone, Mobile, Fixe, E-mail), corrigeable à la main ;
+   3. aperçu, puis envoi en UNE fois au serveur (/api/data/coordonnees-chantiers-import).
+   Les fiches déjà renseignées ne sont pas modifiées, sauf case cochée. */
+const IMP_CHAMPS = [
+  { id: 'nom',      lib: 'Nom / raison sociale *', mots: ['NOM','CLIENT','NOM CLIENT','RAISON SOCIALE','SOCIETE','ENTREPRISE','DENOMINATION','NOM COMPLET','NOM DU CLIENT','CONTACT'] },
+  { id: 'prenom',   lib: 'Prénom',                 mots: ['PRENOM'] },
+  { id: 'adresse',  lib: 'Adresse',                mots: ['ADRESSE','ADRESSE 1','ADRESSE1','RUE','VOIE','ADRESSE LIGNE 1','ADRESSE POSTALE','ADRESSE FACTURATION'] },
+  { id: 'adresse2', lib: 'Complément d’adresse',   mots: ['ADRESSE 2','ADRESSE2','COMPLEMENT','COMPLEMENT D ADRESSE','COMPLEMENT ADRESSE','ADRESSE LIGNE 2'] },
+  { id: 'cp',       lib: 'Code postal',            mots: ['CODE POSTAL','CP','C P','POSTAL','CODEPOSTAL'] },
+  { id: 'ville',    lib: 'Ville',                  mots: ['VILLE','COMMUNE','LOCALITE'] },
+  { id: 'tel',      lib: 'Téléphone',              mots: ['TELEPHONE','TEL','PHONE','NUMERO DE TELEPHONE','N TELEPHONE'] },
+  { id: 'mobile',   lib: 'Mobile',                 mots: ['MOBILE','PORTABLE','TEL MOBILE','TELEPHONE MOBILE','TEL PORTABLE','TELEPHONE PORTABLE','GSM'] },
+  { id: 'fixe',     lib: 'Fixe',                   mots: ['FIXE','TEL FIXE','TELEPHONE FIXE'] },
+  { id: 'email',    lib: 'E-mail',                 mots: ['EMAIL','E MAIL','MAIL','COURRIEL','ADRESSE EMAIL','ADRESSE E MAIL','ADRESSE MAIL'] }
+];
+let _imp = null;   // { entetes:[], lignes:[[]], map:{champ:index|-1}, nomFichier }
+
+function ouvrirImport() {
+  _imp = null;
+  _impRendreDepot();
+  document.getElementById('imp-overlay').classList.add('on');
+}
+function fermerImport() {
+  document.getElementById('imp-overlay').classList.remove('on');
+  _imp = null;
+}
+function _impRendreDepot(message) {
+  document.getElementById('imp-valider').disabled = true;
+  document.getElementById('imp-corps').innerHTML =
+    (message ? `<p class="imp-err">${_clEsc(message)}</p>` : '') +
+    `<label class="imp-zone" id="imp-zone">
+       <div style="font-size:1.6rem;">📄</div>
+       <b>Choisir un fichier</b> ou le déposer ici<br>
+       <span style="font-size:.8rem;color:#475569;">Excel (.xlsx, .xls) ou CSV — première ligne = titres des colonnes</span>
+       <input type="file" id="imp-fichier" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none;">
+     </label>
+     <p style="font-size:.8rem;color:#64748b;margin-top:10px;">Colonnes reconnues automatiquement : Nom (ou Raison sociale), Prénom, Adresse, Complément, Code postal, Ville, Téléphone, Mobile, Fixe, E-mail. Seul le nom est obligatoire.</p>`;
+  const inp = document.getElementById('imp-fichier');
+  inp.addEventListener('change', () => { if (inp.files && inp.files[0]) _impLireFichier(inp.files[0]); });
+  const zone = document.getElementById('imp-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('survol'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('survol'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('survol');
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) _impLireFichier(f);
+  });
+}
+
+/* ── Lecture ── */
+async function _impLireFichier(f) {
+  const nom = f.name || '';
+  document.getElementById('imp-corps').innerHTML = '<p>Lecture de « ' + _clEsc(nom) + ' »…</p>';
+  try {
+    if (f.size > 15 * 1024 * 1024) throw new Error('Fichier trop volumineux (15 Mo maximum).');
+    const buf = await f.arrayBuffer();
+    let tableau;
+    if (/\.(xlsx|xls|xlsm|ods)$/i.test(nom)) tableau = await _impLireExcel(buf);
+    else tableau = _impLireCsv(_impDecoder(buf));
+    tableau = (tableau || []).map(r => (r || []).map(v => String(v == null ? '' : v).trim()))
+                             .filter(r => r.some(v => v !== ''));
+    if (tableau.length < 2) throw new Error('Le fichier ne contient pas de lignes de clients (il faut une ligne de titres puis au moins un client).');
+    _impPreparer(tableau, nom);
+  } catch (e) {
+    _impRendreDepot(e && e.message ? e.message : String(e));
+  }
+}
+function _impDecoder(buf) {
+  const octets = new Uint8Array(buf);
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(octets).replace(/^﻿/, ''); }
+  catch (_) { return new TextDecoder('windows-1252').decode(octets); }   // CSV Excel « ANSI »
+}
+function _impLireCsv(texte) {
+  const premiere = (texte.split(/\r?\n/).find(l => l.trim()) || '');
+  const compte = c => premiere.split(c).length - 1;
+  const sep = [';', '\t', ','].sort((a, b) => compte(b) - compte(a))[0];
+  const lignes = []; let ligne = [], champ = '', guil = false;
+  for (let i = 0; i < texte.length; i++) {
+    const ch = texte[i];
+    if (guil) {
+      if (ch === '"') { if (texte[i + 1] === '"') { champ += '"'; i++; } else guil = false; }
+      else champ += ch;
+    } else if (ch === '"' && champ === '') guil = true;
+    else if (ch === sep) { ligne.push(champ); champ = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && texte[i + 1] === '\n') i++;
+      ligne.push(champ); lignes.push(ligne); ligne = []; champ = '';
+    } else champ += ch;
+  }
+  if (champ !== '' || ligne.length) { ligne.push(champ); lignes.push(ligne); }
+  return lignes;
+}
+let _impSheetJs = null;
+function _impChargerSheetJs() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_impSheetJs) return _impSheetJs;
+  _impSheetJs = new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => window.XLSX ? ok(window.XLSX) : ko(new Error('Lecteur Excel indisponible.'));
+    sc.onerror = () => { _impSheetJs = null; ko(new Error('Impossible de charger le lecteur Excel (connexion ?). Vous pouvez enregistrer le fichier au format CSV depuis Excel puis l’importer.')); };
+    document.head.appendChild(sc);
+  });
+  return _impSheetJs;
+}
+async function _impLireExcel(buf) {
+  const XLSX = await _impChargerSheetJs();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) throw new Error('Classeur vide.');
+  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+}
+
+/* ── Repérage des colonnes ── */
+function _impPreparer(tableau, nomFichier) {
+  // Ligne de titres : la première (parmi les 10 premières) qui contient au moins 2 titres reconnus
+  let iTitres = 0, meilleur = -1;
+  for (let i = 0; i < Math.min(10, tableau.length); i++) {
+    const n = _impDetecter(tableau[i]).nb;
+    if (n > meilleur) { meilleur = n; iTitres = i; }
+    if (n >= 2) { iTitres = i; break; }
+  }
+  const entetes = tableau[iTitres];
+  const lignes = tableau.slice(iTitres + 1);
+  const nbCol = Math.max(entetes.length, ...lignes.map(r => r.length));
+  const ent = Array.from({ length: nbCol }, (_, i) => entetes[i] || ('Colonne ' + (i + 1)));
+  _imp = { entetes: ent, lignes, map: _impDetecter(ent).map, nomFichier };
+  _impRendreCorrespondance();
+}
+function _impDetecter(entetes) {
+  const map = {}; let nb = 0;
+  const norm = (entetes || []).map(e => _norm(e));
+  const pris = new Set();
+  // 1er passage : titre exactement égal à un synonyme ; 2e : titre qui le contient
+  [true, false].forEach(exact => {
+    IMP_CHAMPS.forEach(ch => {
+      if (map[ch.id] != null) return;
+      const i = norm.findIndex((t, j) => t && !pris.has(j) && ch.mots.some(m => exact ? t === m : (t.includes(m) && m.length >= 3)));
+      if (i >= 0) { map[ch.id] = i; pris.add(i); nb++; }
+    });
+  });
+  IMP_CHAMPS.forEach(ch => { if (map[ch.id] == null) map[ch.id] = -1; });
+  return { map, nb };
+}
+
+/* ── Conversion d'une ligne du fichier en fiche ── */
+function _impTel(v) {
+  let t = String(v || '').trim();
+  if (!t) return '';
+  const chiffres = t.replace(/\D/g, '');
+  if (/^[1-9]\d{8}$/.test(chiffres) && !/^\+/.test(t)) t = '0' + chiffres;   // 0 de tête perdu par Excel
+  if (/^0\d{9}$/.test(t.replace(/\D/g, '')) && !/[\s.]/.test(t)) t = t.replace(/\D/g, '').replace(/(\d{2})(?=\d)/g, '$1 ');
+  return t;
+}
+function _impLigneVersFiche(r) {
+  const m = _imp.map;
+  const v = id => (m[id] >= 0 ? String(r[m[id]] || '').trim() : '');
+  const nomBrut = v('nom'), prenom = v('prenom');
+  const nom = (prenom && nomBrut && !_norm(nomBrut).includes(_norm(prenom)) ? (prenom + ' ' + nomBrut) : (nomBrut || prenom)).replace(/\s+/g, ' ').trim();
+  let cp = v('cp');
+  if (/^\d{4}$/.test(cp)) cp = '0' + cp;                                      // 2800 → 02800 (Excel)
+  let ville = v('ville');
+  if (cp && !ville.includes(cp)) ville = (cp + ' ' + ville).trim();
+  const adresse = [v('adresse'), v('adresse2')].filter(Boolean).join('\n');
+  let mobile = _impTel(v('mobile')), fixe = _impTel(v('fixe'));
+  const tel = _impTel(v('tel'));
+  if (tel) {
+    const estMobile = /^(\+33\s?[67]|0[67])/.test(tel.replace(/[.\s-]/g, ''));
+    if (estMobile && !mobile) mobile = tel; else if (!estMobile && !fixe) fixe = tel; else if (!mobile) mobile = tel;
+  }
+  return { nom, coordonnees: { adresse, ville, mobile, fixe, email: v('email') } };
+}
+
+/* ── Écran de correspondance + aperçu ── */
+function _impRendreCorrespondance() {
+  const opts = '<option value="-1">— (ignorer)</option>' +
+    _imp.entetes.map((e, i) => `<option value="${i}">${_clEsc(e)}</option>`).join('');
+  const sel = IMP_CHAMPS.map(ch =>
+    `<div><label>${_clEsc(ch.lib)}</label><select data-champ="${ch.id}" onchange="_imp.map[this.dataset.champ]=parseInt(this.value,10);_impRendreApercu()">${opts}</select></div>`).join('');
+  document.getElementById('imp-corps').innerHTML =
+    `<div><b>${_clEsc(_imp.nomFichier)}</b> — ${_imp.lignes.length} ligne${_imp.lignes.length > 1 ? 's' : ''}
+       <button type="button" class="btn-mini" onclick="_impRendreDepot()">Changer de fichier</button></div>
+     <div style="margin-top:10px;font-weight:700;color:#1e3a8a;">Correspondance des colonnes</div>
+     <div class="imp-map">${sel}</div>
+     <label style="display:flex;align-items:center;gap:7px;cursor:pointer;">
+       <input type="checkbox" id="imp-ecraser" onchange="_impRendreApercu()"> Mettre à jour les fiches clients déjà renseignées (sinon elles sont conservées telles quelles)
+     </label>
+     <div id="imp-resume" class="imp-resume"></div>
+     <div id="imp-apercu"></div>`;
+  document.querySelectorAll('#imp-corps select[data-champ]').forEach(s => { s.value = String(_imp.map[s.dataset.champ]); });
+  _impRendreApercu();
+}
+function _impAnalyser() {
+  const coords = _lire('coordonneesChantiersdata', {});
+  const ecraser = !!(document.getElementById('imp-ecraser') || {}).checked;
+  const vus = new Set();
+  return _imp.lignes.map(r => {
+    const f = _impLigneVersFiche(r);
+    const c = f.coordonnees;
+    const cle = f.nom.toUpperCase();
+    let statut = 'nouveau';
+    if (!f.nom) statut = 'sans-nom';
+    else if (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email) statut = 'vide';
+    else if (vus.has(cle)) statut = 'doublon';
+    else {
+      const ex = coords[cle];
+      if (ex && (ex.adresse || ex.ville || ex.mobile || ex.fixe || ex.email)) statut = ecraser ? 'maj' : 'existant';
+    }
+    if (f.nom) vus.add(cle);
+    return { ...f, statut };
+  });
+}
+const IMP_STATUTS = { nouveau: 'Nouveau', maj: 'Mis à jour', existant: 'Déjà renseigné — conservé', doublon: 'En double dans le fichier', vide: 'Aucune coordonnée', 'sans-nom': 'Sans nom' };
+function _impRendreApercu() {
+  if (!_imp) return;
+  const btn = document.getElementById('imp-valider');
+  const res = document.getElementById('imp-resume');
+  if (_imp.map.nom < 0 && _imp.map.prenom < 0) {
+    res.innerHTML = '<span class="imp-err">Indiquez la colonne qui contient le nom du client.</span>';
+    document.getElementById('imp-apercu').innerHTML = '';
+    btn.disabled = true; return;
+  }
+  const a = _impAnalyser();
+  const n = k => a.filter(x => x.statut === k).length;
+  const aImporter = n('nouveau') + n('maj');
+  const ignores = a.length - aImporter;
+  res.innerHTML = `<b>${aImporter}</b> client${aImporter > 1 ? 's' : ''} à importer`
+    + (n('maj') ? ` (dont ${n('maj')} mis à jour)` : '')
+    + (ignores ? ` · ${ignores} ligne${ignores > 1 ? 's' : ''} ignorée${ignores > 1 ? 's' : ''}`
+      + ` (${['existant', 'doublon', 'vide', 'sans-nom'].filter(k => n(k)).map(k => n(k) + ' ' + IMP_STATUTS[k].toLowerCase()).join(', ')})` : '');
+  const extrait = a.slice(0, 15);
+  document.getElementById('imp-apercu').innerHTML =
+    `<table class="imp-apercu"><thead><tr><th>Nom</th><th>Adresse</th><th>Ville</th><th>Mobile</th><th>Fixe</th><th>E-mail</th><th>Statut</th></tr></thead><tbody>`
+    + extrait.map(x => `<tr class="${(x.statut === 'nouveau' || x.statut === 'maj') ? '' : 'imp-skip'}">
+        <td><b>${_clEsc(x.nom)}</b></td><td>${_clEsc(x.coordonnees.adresse).replace(/\n/g, '<br>')}</td><td>${_clEsc(x.coordonnees.ville)}</td>
+        <td>${_clEsc(x.coordonnees.mobile)}</td><td>${_clEsc(x.coordonnees.fixe)}</td><td>${_clEsc(x.coordonnees.email)}</td>
+        <td>${IMP_STATUTS[x.statut]}</td></tr>`).join('')
+    + `</tbody></table>` + (a.length > extrait.length ? `<div class="cl-sous">… et ${a.length - extrait.length} autre(s) ligne(s)</div>` : '');
+  btn.disabled = !aImporter;
+  btn.textContent = aImporter ? `Importer ${aImporter} client${aImporter > 1 ? 's' : ''}` : 'Importer';
+}
+
+/* ── Envoi ── */
+async function validerImport() {
+  if (!_imp) return;
+  const token = _clToken();
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const ecraser = !!(document.getElementById('imp-ecraser') || {}).checked;
+  const lignes = _impAnalyser().filter(x => x.statut === 'nouveau' || x.statut === 'maj')
+                               .map(x => ({ nom: x.nom, coordonnees: x.coordonnees }));
+  if (!lignes.length) return;
+  const btn = document.getElementById('imp-valider');
+  btn.disabled = true; btn.textContent = '⏳ Import…';
+  // Envoi par lots de 300 : reste sous la limite de taille des requêtes du serveur.
+  const LOT = 300;
+  const rp = { crees: 0, misAJour: 0, ignores: 0 };
+  let envoyes = 0;
+  try {
+    for (let i = 0; i < lignes.length; i += LOT) {
+      btn.textContent = '⏳ Import… ' + Math.min(i + LOT, lignes.length) + '/' + lignes.length;
+      const r = await fetch('/api/data/coordonnees-chantiers-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ lignes: lignes.slice(i, i + LOT), ecraser })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'échec');
+      if (d.coordonnees) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonnees));
+      const x = d.rapport || {};
+      rp.crees += x.crees || 0; rp.misAJour += x.misAJour || 0; rp.ignores += x.ignores || 0;
+      envoyes = Math.min(i + LOT, lignes.length);
+    }
+    document.getElementById('imp-corps').innerHTML =
+      `<p style="font-size:1rem;">✔ Import terminé : <b>${rp.crees || 0}</b> client${(rp.crees || 0) > 1 ? 's' : ''} ajouté${(rp.crees || 0) > 1 ? 's' : ''}`
+      + (rp.misAJour ? `, <b>${rp.misAJour}</b> mis à jour` : '')
+      + (rp.ignores ? `, ${rp.ignores} déjà renseigné(s) conservé(s)` : '') + '.</p>'
+      + `<p style="font-size:.84rem;color:#475569;">Ils apparaissent dans la liste avec l'étiquette « Fichier importé ». Si Henrri est connecté, les doublons probables avec la base Henrri sont signalés dans le bandeau jaune.</p>`;
+    btn.disabled = true; btn.textContent = 'Importer';
+    _imp = null;
+    construireBase(); filtrerClients();
+  } catch (e) {
+    alert('Import impossible : ' + (e && e.message ? e.message : e)
+      + (envoyes ? '\n\n' + envoyes + ' client(s) ont déjà été importés avant l’erreur ; relancer l’import ne les dupliquera pas.' : ''));
+    if (envoyes) { construireBase(); filtrerClients(); }
+    btn.disabled = false; btn.textContent = 'Importer';
+  }
+}
+
+function telechargerModeleImport() {
+  const csv = '﻿Nom;Prénom;Adresse;Code postal;Ville;Mobile;Fixe;E-mail\r\n'
+            + 'DUPONT;Jean;12 rue des Lilas;72000;Le Mans;06 12 34 56 78;02 43 00 00 00;jean.dupont@exemple.fr\r\n'
+            + 'SARL BATI OUEST;;3 avenue du Port;44000;Nantes;;02 40 00 00 00;contact@batiouest.fr\r\n';
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'modele-import-clients.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 /* ── Planifier une intervention : date souhaitée → planning de la semaine ── */
 let _clientAPlanifier = null;
 function _isoJour(d) {
@@ -618,6 +967,7 @@ function validerPlanifier() {
 }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.getElementById('dbl-overlay').classList.contains('on')) { fermerDoublons(); return; }
+  if (e.key === 'Escape' && document.getElementById('imp-overlay').classList.contains('on')) { fermerImport(); return; }
   if (!document.getElementById('plan-overlay').classList.contains('on')) return;
   if (e.key === 'Escape') fermerPlanifier();
   if (e.key === 'Enter') validerPlanifier();

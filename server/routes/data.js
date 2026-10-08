@@ -277,6 +277,59 @@ router.post("/coordonnees-chantier", verifyToken, async (req, res) => {
   }
 });
 
+/* ── Import en masse de fiches clients (page Clients, fichier Excel / CSV) ──
+   Chaque client devient une fiche « coordonnées » indexée par son NOM en
+   majuscules — le même stockage que les coordonnées de chantier : la fiche
+   alimente ainsi la page Clients ET l'adresse affichée au planning dès qu'un
+   chantier porte ce nom. Écriture ciblée et unique ($set coordonneesChantiers).
+   body : { lignes:[{ nom, coordonnees:{adresse,ville,mobile,fixe,email} }], ecraser:bool }
+   ecraser=false (défaut) : une fiche déjà renseignée n'est JAMAIS modifiée. */
+router.post("/coordonnees-chantiers-import", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const lignes = Array.isArray(req.body.lignes) ? req.body.lignes : null;
+    const ecraser = req.body.ecraser === true;
+    if (!lignes || !lignes.length) return res.status(400).json({ ok: false, message: "Aucune ligne à importer" });
+    if (lignes.length > 5000) return res.status(400).json({ ok: false, message: "Fichier trop volumineux (5 000 clients maximum par import)" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const coords = doc.coordonneesChantiers || {};
+    const vide = c => !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email);
+    const rapport = { crees: 0, misAJour: 0, ignores: 0, invalides: 0 };
+    const vus = new Set();
+    for (const l of lignes) {
+      const nom = String((l && l.nom) || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 150);
+      const c = (l && l.coordonnees) || {};
+      const clean = {
+        adresse: String(c.adresse || "").slice(0, 500),
+        ville:   String(c.ville   || "").slice(0, 200),
+        mobile:  String(c.mobile  || "").slice(0, 40),
+        fixe:    String(c.fixe    || "").slice(0, 40),
+        email:   String(c.email   || "").trim().slice(0, 120)
+      };
+      if (!nom || nom.startsWith("$") || vide(clean) || vus.has(nom)) { rapport.invalides++; continue; }
+      vus.add(nom);
+      const existe = !vide(coords[nom]);
+      if (existe && !ecraser) { rapport.ignores++; continue; }
+      coords[nom] = { ...clean, origine: "import" };
+      if (existe) rapport.misAJour++; else rapport.crees++;
+    }
+
+    if (rapport.crees || rapport.misAJour) {
+      await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    }
+    res.json({ ok: true, rapport, coordonnees: coords });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Renommer un chantier PARTOUT (historique inclus) : opération transversale ──
 router.post("/renommer-chantier", verifyToken, async (req, res) => {
   try {
