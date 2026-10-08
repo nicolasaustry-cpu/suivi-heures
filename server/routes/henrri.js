@@ -111,6 +111,37 @@ function _simplifierReference(ref) {
   return parties.slice(-3).join("-");
 }
 
+/* Fiche client Henrri (objet "customer" d'un devis OU élément de /v1/customers,
+   même modèle camelCase : name, address{address,postCode,city}, contacts[])
+   → format des coordonnées de chantier de Suiv'Heures. */
+function _clientHenrriVersFiche(c) {
+  const adr = (c && c.address) || {};
+  const contacts = Array.isArray(c && c.contacts) ? c.contacts : [];
+  const principal = contacts.find(ct => ct && (ct.primary || ct.isPrimary)) || contacts[0] || {};
+  return {
+    id: c && c.id != null ? String(c.id) : "",
+    nom: (c && (c.name || c.tradeName || c.companyName)) || "",
+    adresse: adr.address || "",
+    ville: [adr.postCode, adr.city].filter(Boolean).join(" ").trim() || adr.city || "",
+    codePostal: adr.postCode || "",
+    telephone: principal.phone || principal.mobile || (c && c.phone) || "",
+    email: principal.email || (c && c.email) || ""
+  };
+}
+// Même répartition mobile / fixe que coordonnees.js (_henrriVersCoord)
+function _ficheVersCoordonnees(f) {
+  const tel = String((f && f.telephone) || "");
+  const estMobile = /^0[67]/.test(tel.replace(/[.\s-]/g, ""));
+  return {
+    adresse: String((f && f.adresse) || "").slice(0, 500),
+    ville:   String((f && f.ville) || "").slice(0, 200),
+    mobile:  (estMobile ? tel : "").slice(0, 40),
+    fixe:    (estMobile ? "" : tel).slice(0, 40),
+    email:   String((f && f.email) || "").trim().slice(0, 120)
+  };
+}
+const _coordVide = c => !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email);
+
 async function appelHenrriPagine(clientId, henrriClientId, henrriClientSecret, environnement, chemin, params) {
   let tous = [];
   for (let page = 1; page <= HENRRI_PAGES_MAX; page++) {
@@ -252,7 +283,11 @@ router.get("/devis", verifyToken, async (req, res) => {
         // avec identité du signataire). Le statut manuel « Validé par le client »
         // de l'interface Henrri n'est PAS exposé par l'API : on ne s'en sert qu'en
         // information (badge « signé »), jamais comme filtre.
-        signe: d.validated === true
+        signe: d.validated === true,
+        // Coordonnées du client portées par le devis : renvoyées à l'affectation
+        // pour remplir la fiche du chantier créé (adresse visible au planning).
+        coordonnees: _ficheVersCoordonnees(_clientHenrriVersFiche(d.customer || {})),
+        customerId: d.customer && d.customer.id != null ? String(d.customer.id) : ""
       }));
     res.json({ ok: true, devis: resultat });
   } catch (err) {
@@ -293,6 +328,47 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
     prev[annee][mois].chantiers.push({ client: nomChantier, hPrevues: "" });
     doc.previsionnel = prev;
     doc.markModified("previsionnel");
+
+    // Coordonnées du chantier créé : sans elles, le planning (qui cherche l'adresse
+    // sous le nom EXACT du chantier, « NOM 26-09-1 ») n'affiche rien, alors que la
+    // base clients, elle, connaît l'adresse sous « NOM ». Source : coordonnées
+    // portées par le devis (envoyées par chantiers.html), à défaut la base clients
+    // Henrri en cache (par id client, puis par nom). Une fiche déjà remplie n'est
+    // JAMAIS écrasée.
+    let coordAjoutees = false;
+    try {
+      const cleCh = nomChantier.trim().toUpperCase();
+      const coords = doc.coordonneesChantiers || {};
+      if (_coordVide(coords[cleCh])) {
+        let coord = null;
+        const recu = req.body.coordonnees;
+        if (recu && typeof recu === "object") {
+          const c = {
+            adresse: String(recu.adresse || "").slice(0, 500), ville: String(recu.ville || "").slice(0, 200),
+            mobile: String(recu.mobile || "").slice(0, 40),    fixe: String(recu.fixe || "").slice(0, 40),
+            email: String(recu.email || "").trim().slice(0, 120)
+          };
+          if (!_coordVide(c)) coord = c;
+        }
+        if (!coord) {
+          const cfgC = await Henrri.findOne({ clientId }, "clientsCache");
+          const cache = (cfgC && Array.isArray(cfgC.clientsCache)) ? cfgC.clientsCache : [];
+          const custId = String(req.body.customerId || "");
+          const nomU = nomClient.toUpperCase();
+          const f = (custId && cache.find(x => x && String(x.id) === custId))
+                 || cache.find(x => x && String(x.nom || "").trim().toUpperCase() === nomU);
+          if (f) { const c = _ficheVersCoordonnees(f); if (!_coordVide(c)) coord = c; }
+        }
+        if (coord) {
+          coords[cleCh] = coord;
+          doc.coordonneesChantiers = coords;
+          doc.markModified("coordonneesChantiers");
+          coordAjoutees = true;
+        }
+      }
+    } catch (e) {
+      console.warn("[HENRRI] coordonnées non reportées sur le chantier :", e.message);
+    }
     doc.updatedAt = new Date();
     await doc.save();
 
@@ -302,7 +378,7 @@ router.post("/devis/:id/affecter", verifyToken, async (req, res) => {
       { upsert: true }
     );
 
-    res.json({ ok: true });
+    res.json({ ok: true, chantier: nomChantier, coordonnees: coordAjoutees });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -360,20 +436,7 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
     // Champs Henrri en camelCase (confirmé sur le modèle Document.customer d'un
     // vrai devis sandbox : name, tradeName, address, contacts) — corrigé du
     // snake_case initialement supposé (post_code, is_primary…).
-    const resultat = liste.map(c => {
-      const adr = c.address || {};
-      const contacts = Array.isArray(c.contacts) ? c.contacts : [];
-      const principal = contacts.find(ct => ct && (ct.primary || ct.isPrimary)) || contacts[0] || {};
-      return {
-        id: String(c.id),
-        nom: c.name || c.tradeName || c.companyName || "",
-        adresse: adr.address || "",
-        ville: [adr.postCode, adr.city].filter(Boolean).join(" ").trim() || adr.city || "",
-        codePostal: adr.postCode || "",
-        telephone: principal.phone || principal.mobile || c.phone || "",
-        email: principal.email || c.email || ""
-      };
-    });
+    const resultat = liste.map(c => _clientHenrriVersFiche(c));
 
     cfg.clientsCache = resultat;
     cfg.clientsCacheLe = new Date();

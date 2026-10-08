@@ -1967,6 +1967,8 @@ async function ouvrirModaleHenrri() {
         + '<button class="btn-modale-copier" style="padding:4px 12px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
         + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
+        + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
+        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify(dv.coordonnees || {})) + '" '
         + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
         + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
@@ -1989,6 +1991,9 @@ async function affecterDevisHenrri(btn) {
   const devisId = btn.getAttribute('data-devis-id');
   const clientNom = btn.getAttribute('data-devis-client');
   const reference = btn.getAttribute('data-devis-reference');
+  const customerId = btn.getAttribute('data-devis-customer') || '';
+  let coordonnees = null;
+  try { coordonnees = JSON.parse(btn.getAttribute('data-devis-coord') || 'null'); } catch (_) {}
   const token = _henrriToken();
 
   btn.disabled = true; btn.textContent = '…';
@@ -1996,7 +2001,7 @@ async function affecterDevisHenrri(btn) {
     const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ annee, mois, client: clientNom, reference })
+      body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees })
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');

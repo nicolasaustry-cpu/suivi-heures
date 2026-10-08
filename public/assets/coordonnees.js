@@ -10,6 +10,27 @@
   function _lire()  { try { return JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) { return {}; } }
   function _ecrire(o){ try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(o)); } catch (_) {} }
   function get(nom) { return _lire()[(nom || '').toUpperCase()] || null; }
+  function _coordVide(c) { return !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email); }
+
+  /* Chantiers créés par l'import d'un devis Henrri : nommés « NOM CLIENT 26-09-1 ».
+     _sansRef retire ce n° de devis final pour retrouver le nom du client. */
+  var RE_REF_DEVIS = /\s+\d{2}-\d{2}-\d+\s*$/;
+  function _sansRef(nom) { return String(nom || '').trim().replace(RE_REF_DEVIS, '').trim(); }
+
+  /* Coordonnées à AFFICHER pour un chantier : sa propre fiche ; à défaut, pour un
+     chantier issu d'un devis, la fiche du client (« NOM ») ou le client Henrri.
+     Lecture seule : rien n'est écrit ici. */
+  function getAffichage(nom) {
+    var c = get(nom);
+    if (!_coordVide(c)) return c;
+    var base = _sansRef(nom);
+    if (!base || base.toUpperCase() === String(nom || '').trim().toUpperCase()) return c;
+    var cb = get(base);
+    if (!_coordVide(cb)) return cb;
+    var hc = _henrriMatch(base);
+    if (hc) { var ch = _henrriVersCoord(hc); if (!_coordVide(ch)) return ch; }
+    return c;
+  }
   function aDesCoordonnees(nom) { const c = get(nom); return !!(c && (c.adresse || c.ville || c.mobile || c.fixe || c.email)); }
   const RE_EMAIL = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
   function _esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -51,7 +72,7 @@
      L'adresse et le bouton Itinéraire tiennent sur une même rangée,
      les téléphones sur la ligne du dessous. */
   function html(nom) {
-    const c = get(nom);
+    const c = getAffichage(nom);
     if (!c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email)) return '';
     let l = '';
     if (c.adresse || c.ville) {
@@ -98,7 +119,7 @@
        {statut:'introuvable'}    le service ne reconnaît pas l'adresse
        {statut:'erreur'}         réseau indisponible (rien n'est mis en cache, on retentera) */
   function localiser(nom) {
-    var c = get(nom);
+    var c = getAffichage(nom);
     var texte = c ? _geoTexte(c) : '';
     if (!texte) return Promise.resolve({ statut: 'sans-adresse' });
     var cle = texte.toLowerCase();
@@ -157,8 +178,44 @@
     if (!token) return;
     fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d && d.ok && d.actif && Array.isArray(d.clients)) _henrriClients = d.clients; })
+      .then(function (d) {
+        if (d && d.ok && d.actif && Array.isArray(d.clients)) { _henrriClients = d.clients; _rattraperDevis(); }
+      })
       .catch(function () {});
+  }
+
+  /* Rattrapage des chantiers DÉJÀ importés depuis un devis Henrri sans fiche
+     coordonnées (avant le correctif serveur) : on leur écrit la fiche du client
+     Henrri, sur le serveur, pour que les téléphones des équipes la reçoivent
+     aussi. Uniquement les chantiers « NOM 26-09-1 » à fiche VIDE dont le NOM
+     correspond exactement à un client Henrri — jamais d'écrasement.
+     Une seule passe par chargement de page. */
+  var _rattrapageFait = false;
+  function _rattraperDevis() {
+    if (_rattrapageFait || !_henrriClients.length) return;
+    _rattrapageFait = true;
+    var noms = {};
+    function noter(n) { n = String(n || '').trim(); if (n && RE_REF_DEVIS.test(n)) noms[n.toUpperCase()] = n; }
+    try {
+      var prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}') || {};
+      Object.keys(prev).forEach(function (a) {
+        var an = prev[a] || {};
+        Object.keys(an).forEach(function (m) {
+          var mo = an[m];
+          (mo && Array.isArray(mo.chantiers) ? mo.chantiers : []).forEach(function (c) { if (c) noter(c.client); });
+        });
+      });
+    } catch (_) {}
+    try {
+      var h = JSON.parse(localStorage.getItem('heuresdata') || '{}') || {};
+      Object.keys(h).forEach(function (k) { if (h[k]) noter(h[k].chantier); });
+    } catch (_) {}
+    Object.keys(noms).forEach(function (k) {
+      var nom = noms[k];
+      if (!_coordVide(get(nom))) return;
+      var hc = _henrriMatch(_sansRef(nom));
+      if (hc) definirDepuisHenrri(nom, hc).catch(function () {});
+    });
   }
   _chargerClientsHenrri();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _chargerClientsHenrri);
@@ -174,7 +231,12 @@
     var estMobile = /^0[67]/.test(tel.replace(/[.\s-]/g, ''));
     return {
       adresse: c.adresse || '',
-      ville: [c.codePostal, c.ville].filter(Boolean).join(' ').trim(),
+      // Le cache serveur fournit déjà « 72190 Sargé » dans ville : on n'ajoute le
+      // code postal que s'il n'y figure pas (sinon « 72190 72190 Sargé »).
+      ville: (function () {
+        var v = String(c.ville || '').trim(), cp = String(c.codePostal || '').trim();
+        return (cp && v.indexOf(cp) === -1) ? (cp + ' ' + v).trim() : v;
+      })(),
       mobile: estMobile ? tel : '',
       fixe: estMobile ? '' : tel,
       email: String(c.email || '').trim()
@@ -263,8 +325,12 @@
     var c = get(nom) || {};
     var sousTitre = nom;
     if (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email) {
-      var hc = _henrriMatch(nom);
+      var hc = _henrriMatch(nom) || _henrriMatch(_sansRef(nom));
       if (hc) { c = _henrriVersCoord(hc); sousTitre = nom + ' — pré-rempli depuis Henrri'; }
+      else {
+        var cb = get(_sansRef(nom));
+        if (!_coordVide(cb)) { c = cb; sousTitre = nom + ' — pré-rempli depuis la fiche client'; }
+      }
     }
     document.getElementById('coord-sub').textContent = sousTitre;
     document.getElementById('coord-adresse').value = c.adresse || '';
