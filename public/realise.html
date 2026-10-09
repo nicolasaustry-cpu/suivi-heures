@@ -212,7 +212,7 @@
           <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-vert"   d="" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round"/>
           <text id="pct-jauge" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
-          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
+          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">des h. vendables</text>
         </svg>
 
         <!-- Lignes de totaux à droite -->
@@ -220,6 +220,10 @@
           <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
             <span style="color:#64748b;font-weight:600;">Réalisé</span>
             <span id="tot-total" style="font-weight:700;color:#0f172a;">0 h</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;" title="Contrat des jours saisis × taux de performance de chaque salarié — base de la jauge">
+            <span style="color:#64748b;font-weight:600;">Vendables</span>
+            <span id="tot-vend" style="font-weight:700;color:#0f172a;">—</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:3px 8px;background:#f8fafc;border-radius:4px;">
             <span style="color:#64748b;font-weight:600;">Contrat</span>
@@ -729,10 +733,15 @@ function afficherRealise() {
   }).join('');
 
   // Calculer le prévu uniquement sur les jours avec des saisies
-  let grandPrevuMin = 0;
+  // + heures vendables : contrat de chaque salarié × son taux de performance
+  let grandPrevuMin = 0, grandVendMin = 0;
   Object.keys(parDate).forEach(date => {
     const salsDuJour = [...new Set(parDate[date].map(s => s.salarieId))];
-    salsDuJour.forEach(sid => { grandPrevuMin += getPrevuMin(date, sid); });
+    salsDuJour.forEach(sid => {
+      const pm = getPrevuMin(date, sid);
+      grandPrevuMin += pm;
+      grandVendMin  += pm * tauxPerfSalarie(salaries.find(x => String(x.id) === String(sid))) / 100;
+    });
   });
 
   // Mettre à jour le badge du total d'heures exclues actuellement visibles (respecte les filtres Salarié/Chantier/Motif)
@@ -749,7 +758,7 @@ function afficherRealise() {
   }
 
   // Mettre à jour la jauge et les totaux
-  majJauge(grandTotalMin, grandDeplMin, grandPrevuMin);
+  majJauge(grandTotalMin, grandDeplMin, grandPrevuMin, grandVendMin);
   setTimeout(ajusterMarginTop, 50);
 
   // Scroll auto vers le jour du jour (ou le plus proche si pas de saisie aujourd'hui)
@@ -1026,11 +1035,30 @@ function arcPathJauge(pctFrom, pctTo) {
   return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A 40 40 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 }
 
-function majJauge(totalMin = 0, deplMin = 0, prevMin = 0) {
+/* ── Heures vendables (jauge) : contrat effectif × taux de performance du salarié ──
+   Taux saisi dans la fiche salarié ; à défaut, seuil orange (ancien taux global). */
+function _seuilOrangeVend() {
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {};
+    if (ent.jauge && ent.jauge.orange != null) return parseFloat(ent.jauge.orange) || 0;
+    if (ent.orange != null) return parseFloat(ent.orange) || 0;
+  } catch (_) {}
+  return parseInt(localStorage.getItem('jaugeOrange')) || 0;
+}
+function tauxPerfSalarie(sal) {
+  const t = parseFloat(sal && sal.tauxPerformance);
+  return (isFinite(t) && t >= 0) ? t : _seuilOrangeVend();
+}
+
+/* La jauge mesure la part des heures VENDABLES réalisées (réalisé / vendables) ;
+   les lignes Contrat et Écart restent calculées sur le contrat. */
+function majJauge(totalMin = 0, deplMin = 0, prevMin = 0, vendMin = 0) {
   const realiseMin = totalMin + deplMin;
   const realiseH   = (realiseMin / 60).toFixed(1);
   const prevH      = (prevMin / 60).toFixed(1);
-  const pct        = prevMin > 0 ? Math.min(100, Math.round((realiseMin / prevMin) * 100)) : 0;
+  const pct        = vendMin > 0 ? Math.min(100, Math.round((realiseMin / vendMin) * 100)) : 0;
+  const elV = document.getElementById('tot-vend');
+  if (elV) elV.textContent = vendMin > 0 ? (vendMin / 60).toFixed(1) + ' h' : '—';
   const ecartMin   = realiseMin - prevMin;
   const ecart      = prevMin > 0 ? (ecartMin / 60).toFixed(1) : null;
 

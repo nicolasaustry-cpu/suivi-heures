@@ -500,9 +500,9 @@
           <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-vert"   d="" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round"/>
           <text id="pourcentage" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
-          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
+          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">des h. vendables</text>
         </svg>
-        <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif mois</span><b id="pl2-obj">—</b></div>
+        <div class="pl2-obj"><span class="pl2-obj-lbl">Planifié / vendables</span><b id="pl2-obj">—</b></div>
       </div>
       <div class="pl2-tnabox" title="Total des heures non affectées sur le mois affiché">
         <span class="pl2-obj-lbl">Temps non affecté</span><b id="pl2-tna">—</b>
@@ -2466,14 +2466,38 @@ function majTotalLigne(salarieId, dateStr) {
   majTotauxGlobaux();
 }
 
+/* ── Heures vendables (jauge) : contrat effectif × taux de performance du salarié ──
+   Taux saisi dans la fiche salarié ; à défaut, seuil orange (ancien taux global). */
+function _seuilOrangeVend() {
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {};
+    if (ent.jauge && ent.jauge.orange != null) return parseFloat(ent.jauge.orange) || 0;
+    if (ent.orange != null) return parseFloat(ent.orange) || 0;
+  } catch (_) {}
+  return parseInt(localStorage.getItem('jaugeOrange')) || 0;
+}
+function tauxPerfSalarie(sal) {
+  const t = parseFloat(sal && sal.tauxPerformance);
+  return (isFinite(t) && t >= 0) ? t : _seuilOrangeVend();
+}
+
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0, totTNA = 0;
+  let totVend = 0, totEquiv = 0;   // heures vendables ; équivalent Férié/Even. Familial (compté mais non vendu)
   document.querySelectorAll('[data-salarie][data-date]:not(.hors-mois)').forEach(tr => {
     totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
     totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
-    totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
+    const prevuCase = parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
+    totP += prevuCase;
     const sid = tr.getAttribute('data-salarie');
     const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
+    const salV = salaries.find(x => String(x.id) === String(sid));
+    totVend += prevuCase * tauxPerfSalarie(salV) / 100;
+    const absE = heures[`${sid}${dsafe}abs`];
+    if (salV && absE && (parseFloat(absE.heures) || 0) > 0 && (absE.motif === 'Férié' || absE.motif === 'Even. Familial')) {
+      const pv = contratDuJour(salV, tr.getAttribute('data-date'));
+      totEquiv += pv >= 7 ? 7 : pv;
+    }
     for (let i = 1; i <= NB_SLOTS; i++) {
       const c = heures[`${sid}${dsafe}ch${i}`];
       if (c && (c.chantier || '').trim().toUpperCase() === TNA) totTNA += parseFloat(c.heures) || 0;
@@ -2494,10 +2518,16 @@ function majTotauxGlobaux() {
     ligneEcart.style.background = '#f0fdf4';
   }
 
-  const pct = totP > 0 ? (totT / totP) * 100 : 0;
+  // Jauge = part des heures VENDABLES effectivement planifiées sur chantier
+  // (TNA déjà exclu du total ; l'équivalent Férié / Even. Familial n'est pas une heure vendue).
+  const vendu = Math.max(0, totT - totEquiv);
+  const pct = totVend > 0 ? (vendu / totVend) * 100 : 0;
   dessinerJauge(pct);
   const objEl = document.getElementById('pl2-obj');
-  if (objEl) objEl.textContent = totT.toFixed(1).replace('.',',') + ' h / ' + totP.toFixed(1).replace('.',',') + ' h';
+  if (objEl) {
+    objEl.textContent = vendu.toFixed(1).replace('.',',') + ' h / ' + totVend.toFixed(1).replace('.',',') + ' h';
+    objEl.title = 'Heures planifiées sur chantier / heures vendables du mois (contrat − absences, × taux de performance de chaque salarié)';
+  }
   const tnaEl = document.getElementById('pl2-tna');
   if (tnaEl) tnaEl.textContent = totTNA.toFixed(1).replace('.',',') + ' h';
   if (typeof pl3MajSemaine === 'function') pl3MajSemaine();
