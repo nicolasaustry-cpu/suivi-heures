@@ -1505,6 +1505,67 @@ let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin
 let _rdvMobileNom = null;
 let _chantiersA = [];   // chantiers ajoutés
 let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
+
+/* ════════════ PERSISTANCE LOCALE DE LA JOURNÉE EN COURS ════════════
+   CORRECTIF « données perdues après coupure réseau » : l'état de la journée
+   (_saisiesPrev / _chantiersA : arrivée, départ, déplacement, pause, note)
+   ne vivait QU'EN MÉMOIRE. Hors réseau, seule l'arrivée partait dans la file
+   d'attente ; le départ, le déplacement et la note n'existaient que dans la
+   page. Dès que le téléphone fermait l'appli en arrière-plan (veille, appel,
+   changement d'appli) ou qu'elle était rouverte, tout était perdu — alors que
+   le bandeau annonçait les saisies « enregistrées sur le téléphone ».
+   Désormais l'état est recopié dans localStorage à chaque modification
+   (clé par code employé + salarié + date) et relu à l'ouverture.
+   _jourRestaure empêche d'écraser la copie d'une date avant qu'elle ait été
+   relue (changement de date, connexion en cours). */
+let _jourRestaure = null;
+function _cleJourLocal(date) {
+  return 'saisie_jour_' + (localStorage.getItem('saisie_codeEmploye') || '') + '_'
+       + (_salarie && _salarie.id) + '_' + date;
+}
+function sauverJourLocal() {
+  if (!_salarie || typeof document === 'undefined' || !document) return;
+  const el = document.getElementById('date-saisie');
+  const date = el ? el.value : '';
+  if (!date || _jourRestaure !== date) return;
+  const cle = _cleJourLocal(date);
+  const etat = { v: 1, t: Date.now(), prev: _saisiesPrev, ajout: _chantiersA };
+  try { localStorage.setItem(cle, JSON.stringify(etat)); return; } catch (_) {}
+  // Quota dépassé (photos volumineuses) : on garde au moins les heures, sans les photos.
+  try {
+    const sansPhotos = o => { const c = { ...o }; delete c.photos; return c; };
+    const prev = {}; Object.keys(_saisiesPrev).forEach(k => { prev[k] = sansPhotos(_saisiesPrev[k] || {}); });
+    localStorage.setItem(cle, JSON.stringify({ v: 1, t: Date.now(), prev, ajout: _chantiersA.map(sansPhotos), sansPhotos: true }));
+  } catch (_) {}
+}
+function lireJourLocal(date) {
+  try { return JSON.parse(localStorage.getItem(_cleJourLocal(date)) || 'null'); } catch (_) { return null; }
+}
+/* Purge des copies de plus de 10 jours (évite d'encombrer le stockage). */
+function purgerJoursLocaux() {
+  try {
+    const limite = Date.now() - 10 * 86400000;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf('saisie_jour_') !== 0) continue;
+      let t = 0; try { t = (JSON.parse(localStorage.getItem(k)) || {}).t || 0; } catch (_) {}
+      if (t < limite) localStorage.removeItem(k);
+    }
+  } catch (_) {}
+}
+function _aDesDonnees(o) {
+  return !!(o && (o.arrivee || o.depart || (o.depl || 0) > 0 || (o.pause || 0) > 0 || o.note || (o.photos && o.photos.length)));
+}
+/* fetch avec délai maximum : sur un réseau « fantôme » (barres affichées mais rien
+   ne passe), un fetch peut rester pendu de longues secondes et bloquer l'écran. */
+function _fetchDelai(url, opts, ms) {
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const t = ctrl ? setTimeout(() => ctrl.abort(), ms || 8000) : null;
+  return fetch(url, { ...(opts || {}), ...(ctrl ? { signal: ctrl.signal } : {}) })
+    .finally(() => { if (t) clearTimeout(t); });
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sauverJourLocal(); });
+window.addEventListener('pagehide', sauverJourLocal);
 let _pauseJour  = 0;    // pause déjeuner hors chantier, en minutes (0 = aucune)
 let _deplJournee = 0;  // Déplacement global de la journée
 let _selModal   = null; // chantier sélectionné dans la modal
@@ -1521,6 +1582,8 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('date-saisie').addEventListener('change', async function() {
     majDateAffichee(this.value);
     // Réinitialiser les saisies du chantier précédent : on change de jour
+    // (la journée quittée est déjà sauvegardée localement à chaque modification)
+    _jourRestaure = null;
     _saisiesPrev = {};
     _chantiersA  = [];
     await rafraichirDonneesServeur();
@@ -1915,6 +1978,8 @@ async function chargerChantiersPrev() {
   majAccesGerant();
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
+  _jourRestaure = null;   // pas de sauvegarde tant que la journée n'est pas relue
+  purgerJoursLocaux();
 
   // Chercher les chantiers du salarié ce jour dans le planning (heuresdata)
   // Format des clés (cf. planning.html) : `${salarieId}${YYYY_MM_DD}ch${1..5}`
@@ -1993,13 +2058,56 @@ async function chargerChantiersPrev() {
     }
   });
 
+  // ── RESTAURATION DE LA COPIE LOCALE (saisies faites sur ce téléphone) ──
+  // Relue AVANT le serveur : c'est elle qui détient ce qui n'a pas encore pu partir
+  // (hors réseau) ou ce qui ne part qu'à « Envoyer ce chantier » (départ, déplacement…).
+  const _snap = lireJourLocal(date);
+  if (_snap) {
+    const sp = _snap.prev || {};
+    Object.keys(sp).forEach(cle => {
+      const loc = sp[cle];
+      if (!_aDesDonnees(loc)) return;
+      const cur = _saisiesPrev[cle];
+      if (_chantiersP.some(p => p.cle === cle)) {
+        if (!_aDesDonnees(cur)) _saisiesPrev[cle] = { ...(cur || {}), ...loc };
+      } else {
+        // Chantier retiré du planning entre-temps : on ne perd pas la saisie,
+        // elle réapparaît parmi les chantiers ajoutés.
+        const nom = loc.nom || cle.replace(/__occ\d+$/, '');
+        const occ = loc.occurrence || 1;
+        if (!_chantiersA.some(a => a.nom === nom && (a.occ || 1) === occ))
+          _chantiersA.push({ ...loc, nom, occ });
+      }
+    });
+    if (!_chantiersA.some(_aDesDonnees) && Array.isArray(_snap.ajout)) {
+      _snap.ajout.forEach(a => {
+        if (a && a.nom && !_chantiersA.some(x => x.nom === a.nom && (x.occ || 1) === (a.occ || 1))) _chantiersA.push(a);
+      });
+    }
+  }
+  // Envois encore en file d'attente pour ce jour → le serveur est forcément en retard.
+  const _fileEnAttente = (typeof window.outboxPourJour === 'function') && window.outboxPourJour(date, salarieId) > 0;
+  // Règle de fusion : tant qu'un chantier n'a pas été finalisé (« Envoyer ce chantier »)
+  // ou qu'un envoi est en attente, la saisie du téléphone PRIME champ par champ ;
+  // une fois finalisé, le serveur fait foi (corrections éventuelles du gérant).
+  const _localPrime = loc => !!loc && _aDesDonnees(loc) && (_fileEnAttente || !(loc.envoye || loc.dejaEnvoye));
+  const _fusion = (loc, c) => ({
+    arrivee: loc.arrivee || c.heureArrivee || '',
+    depart:  loc.depart  || c.heureDepart  || '',
+    depl:    (loc.depl || 0) > 0 ? loc.depl : (c.deplacement || 0),
+    pause:   (loc.pauseValidee || (loc.pause || 0) > 0) ? (loc.pause || 0) : (c.pause || 0),
+    pauseValidee: !!loc.pauseValidee || (c.pause || 0) > 0,
+    note:    loc.note || c.note || '',
+    photos:  (loc.photos && loc.photos.length) ? loc.photos : (Array.isArray(c.photos) ? c.photos : [])
+  });
+
   // ── RESTAURATION DES SAISIES DÉJÀ ENVOYÉES POUR CE JOUR ──
   // Si le salarié revient sur l'app après avoir déjà cliqué OK plus tôt,
   // on récupère ses chantiers déjà saisis et on préremplit l'écran.
   try {
     const codeEmploye = localStorage.getItem('saisie_codeEmploye');
     if (codeEmploye && salarieId) {
-      const r = await fetch('/api/saisies/mobile-day', {
+      const r = await _fetchDelai('/api/saisies/mobile-day', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codeEmploye, salarieId, date })
@@ -2016,7 +2124,12 @@ async function chargerChantiersPrev() {
           const cle = occ === 1 ? nom : (nom + '__occ' + occ);
           // Trouver si CE passage précis (nom + occurrence) est dans le planning ou pas
           const estPlanifie = _chantiersP.some(p => p.cle === cle);
-          if (estPlanifie) {
+          const _locP = estPlanifie ? _saisiesPrev[cle] : null;
+          if (estPlanifie && _localPrime(_locP)) {
+            // Saisie du téléphone plus récente : on la garde, complétée par le serveur.
+            _saisiesPrev[cle] = { ..._locP, nom, occurrence: occ, ..._fusion(_locP, c), synchronise: true,
+                                  dejaEnvoye: !!(c.heureDepart) && !!_locP.dejaEnvoye };
+          } else if (estPlanifie) {
             // Préremplir la saisie prévue
             _saisiesPrev[cle] = {
               nom, occurrence: occ,
@@ -2033,7 +2146,19 @@ async function chargerChantiersPrev() {
           } else {
             // Chantier ajouté librement précédemment (ou passage non retrouvé dans le
             // planning actuel) : on l'ajoute aux chantiers libres, avec son occurrence.
-            if (!_chantiersA.some(a => a.nom === nom && (a.occ || 1) === occ)) {
+            const _iA = _chantiersA.findIndex(a => a.nom === nom && (a.occ || 1) === occ);
+            if (_iA >= 0) {
+              const _locA = _chantiersA[_iA];
+              if (_localPrime(_locA)) {
+                _chantiersA[_iA] = { ..._locA, ..._fusion(_locA, c), synchronise: true };
+              } else {
+                _chantiersA[_iA] = { ..._locA,
+                  arrivee: c.heureArrivee || '', depart: c.heureDepart || '',
+                  depl: c.deplacement || 0, pause: c.pause || 0, pauseValidee: (c.pause || 0) > 0,
+                  note: c.note || '', photos: Array.isArray(c.photos) ? c.photos : [],
+                  synchronise: true, dejaEnvoye: !!(c.heureDepart) };
+              }
+            } else {
               _chantiersA.push({
                 nom, occ,
                 arrivee: c.heureArrivee || '',
@@ -2074,6 +2199,9 @@ async function chargerChantiersPrev() {
 
   // Chantiers porteurs d'un RDV : classés par heure croissante (les autres gardent leur place)
   trierChantiersParRdv(_chantiersP);
+
+  // Journée relue (copie locale + serveur) : les sauvegardes locales peuvent reprendre.
+  if (document.getElementById('date-saisie').value === date) _jourRestaure = date;
 
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   chargerPauseJour();   // relit la pause déjeuner mémorisée pour ce jour
@@ -2136,11 +2264,11 @@ async function chargerDocsPlanning() {
   if (!ce || !sid) return;
   const noms = [...new Set(_chantiersP.map(c => c.nom))];
   await Promise.all(noms.map(nom =>
-    fetch('/api/documents/liste', {
+    _fetchDelai('/api/documents/liste', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ codeEmploye: ce, salarieId: sid, chantier: nom })
-    }).then(r => r.json()).then(r => {
+    }, 5000).then(r => r.json()).then(r => {
       if (r && r.ok && Array.isArray(r.documents)) _docsPlanning[nom] = r.documents.length;
     }).catch(() => {})
   ));
@@ -2411,11 +2539,11 @@ async function chargerDocsMonPlanning() {
   }
   const aCharger = [...noms].filter(n => !(n.toUpperCase() in _mpDocs));
   await Promise.all(aCharger.map(nom =>
-    fetch('/api/documents/liste', {
+    _fetchDelai('/api/documents/liste', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ codeEmploye: ce, salarieId: sid, chantier: nom })
-    }).then(r => r.json()).then(r => {
+    }, 5000).then(r => r.json()).then(r => {
       if (r && r.ok && Array.isArray(r.documents)) _mpDocs[nom.toUpperCase()] = r.documents.length;
     }).catch(() => {})
   ));
@@ -3021,6 +3149,7 @@ function calcMinutes(arrivee, depart, pause) {
 }
 
 function majTotal() {
+  sauverJourLocal();   // toute modification affichée est aussi gardée sur le téléphone
   // Réalisé = temps TRAVAILLÉ uniquement. La pause déjeuner (_pauseJour) n'y entre JAMAIS.
   let total = 0;
   _chantiersP.forEach(c => {
@@ -3286,14 +3415,25 @@ async function envoyerPauseJour(min) {
     date,
     pauseJournee: min
   };
+  const URL_PAUSE = '/api/saisies/pause';
+  if (!navigator.onLine && window.outboxAdd) {
+    window._reseauReel = false;
+    outboxAdd(payload, URL_PAUSE);
+    if (window.majIndicateurReseau) majIndicateurReseau();
+    return;
+  }
   try {
-    await fetch('/api/saisies/pause', {
+    await fetch(URL_PAUSE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    window._reseauReel = true;
   } catch (_) {
-    // hors-ligne : la pause reste en local, réenvoyée au prochain passage si besoin
+    // Hors-ligne : la pause part dans la file d'attente, renvoyée au retour du réseau
+    // (avant : elle restait seulement en local et n'atteignait jamais le serveur).
+    window._reseauReel = false;
+    if (window.outboxAdd) { outboxAdd(payload, URL_PAUSE); if (window.majIndicateurReseau) majIndicateurReseau(); }
   }
 }
 
@@ -3567,6 +3707,8 @@ function changerEntreprise(ev) {
 function seDeconnecter() {
   // Effacer le salarié mémorisé
   localStorage.removeItem('saisie_salarie');
+  sauverJourLocal();
+  _jourRestaure = null;
   _salarie = null;
   _saisiesPrev = {};
   _chantiersA  = [];
@@ -3935,6 +4077,7 @@ function validerNote() {
     nom = s.nom || '';
   }
   if (s) { s.note = val; s.photos = fotos; }
+  sauverJourLocal();   // la note est gardée sur le téléphone même sans réseau
   fermerNote();
   // Note mise à jour sur un chantier déjà ENVOYÉ : on dé-finalise pour redemander
   // l'envoi explicite (cohérent avec la pause). « Envoyer ce chantier » réapparaît.
@@ -4591,12 +4734,22 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   }
   function fileEcrire(arr) { try { localStorage.setItem(CLE, JSON.stringify(arr)); } catch (e) {} }
 
-  window.outboxAdd = function (payload) {
+  /* url optionnelle : /api/saisies/envoyer par défaut (compatibilité avec les
+     éléments déjà en file sur les téléphones), /api/saisies/pause pour la pause du jour. */
+  window.outboxAdd = function (payload, url) {
     var arr = fileLire();
-    arr.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), payload: payload });
+    var item = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), payload: payload };
+    if (url) item.url = url;
+    arr.push(item);
     fileEcrire(arr);
   };
   window.outboxCount = function () { return fileLire().length; };
+  /* Nombre d'envois en attente pour un salarié et une date (sert à la fusion au rechargement). */
+  window.outboxPourJour = function (date, salarieId) {
+    return fileLire().filter(function (it) {
+      var p = it && it.payload; return p && p.date === date && String(p.salarieId) === String(salarieId);
+    }).length;
+  };
 
   var _enCours = false;
   window.outboxFlush = async function () {
@@ -4606,18 +4759,25 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     _enCours = true; majIndicateurReseau();
     try {
       while (arr.length) {
-        var ok = false;
+        var ok = false, rejete = false;
         try {
-          var r = await fetch('/api/saisies/envoyer', {
+          var r = await fetch(arr[0].url || '/api/saisies/envoyer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(arr[0].payload)
           });
-          window._reseauReel = true;          // serveur joint
-          var d = await r.json();
+          var d = null;
+          try { d = await r.json(); } catch (e2) { d = null; }
+          if (d) window._reseauReel = true;   // vraie réponse du serveur (pas une page de secours)
           ok = !!(d && d.ok === true);
+          // Refus définitif du serveur (données invalides, 4xx) : on écarte l'élément
+          // au lieu de bloquer indéfiniment toute la file derrière lui.
+          if (!ok && d && r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) {
+            rejete = true;
+            console.warn('[file hors-ligne] envoi refusé par le serveur, écarté :', r.status, d.message, arr[0]);
+          }
         } catch (e) { ok = false; window._reseauReel = false; }
-        if (!ok) break;                 // réseau de nouveau coupé : on s'arrête, on réessaiera
+        if (!ok && !rejete) break;      // réseau de nouveau coupé : on s'arrête, on réessaiera
         arr.shift(); fileEcrire(arr);   // envoyé : on retire de la file
         majIndicateurReseau();
       }
@@ -4666,6 +4826,10 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     majIndicateurReseau();
     outboxFlush();
     window.addEventListener('online',  outboxFlush);
+    // Retour sur l'appli (sortie de veille, retour d'une autre appli) : on retente l'envoi.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && outboxCount() > 0) outboxFlush();
+    });
     window.addEventListener('offline', function () { window._reseauReel = false; majIndicateurReseau(); });
     setInterval(function () { if (outboxCount() > 0) outboxFlush(); }, 20000);
     var ecran = document.getElementById('ecran-saisie');
