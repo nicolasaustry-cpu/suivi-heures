@@ -718,15 +718,21 @@ function _cvFeries(y){ if(_cvCacheF[y])return _cvCacheF[y]; var f={},isod=functi
 function _cvEstFerie(d){ var iso=d.getFullYear()+'-'+_cvPad2(d.getMonth()+1)+'-'+_cvPad2(d.getDate()); return !!_cvFeries(d.getFullYear())[iso]; }
 function _cvDansPeriode(s,d){ if(s.dateEntree){var de=new Date(s.dateEntree+'T00:00:00'); if(d<de)return false;} if(s.dateSortie){var ds=new Date(s.dateSortie+'T00:00:00'); if(d>ds)return false;} return true; }
 var _cvCacheCE={};
-function contratEffectifMois(annee, mois){
-  var key=annee+'-'+mois;
+/* Taux de performance individuel (fiche Salariés, en %). Salarié sans taux renseigné :
+   repli sur le seuil orange de la jauge (ancien calcul global, comptes existants). */
+function _cvTauxSal(s, defaut){ var t=parseFloat(s&&s.tauxPerformance); return (isFinite(t)&&t>=0)?t:defaut; }
+/* ponderer=true : chaque salarié compte pour contrat effectif × son taux / 100 (= H. vendables) */
+function contratEffectifMois(annee, mois, ponderer){
+  var key=annee+'-'+mois+(ponderer?'-v':'');
   if(_cvCacheCE[key]!=null) return _cvCacheCE[key];
+  var tauxDefaut=ponderer?_cvSeuilOrange():100;
   var salaries=[], heures={};
   try{ salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
   try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
   if(!Array.isArray(salaries)) salaries=[];
   var nbJours=new Date(annee,mois+1,0).getDate(), total=0;
   salaries.forEach(function(s){
+    var coef=ponderer?_cvTauxSal(s,tauxDefaut)/100:1, totS=0;
     for(var j=1;j<=nbJours;j++){
       var d=new Date(annee,mois,j), iso=annee+'-'+_cvPad2(mois+1)+'-'+_cvPad2(j);
       if(!_cvDansPeriode(s,d)) continue;
@@ -736,8 +742,9 @@ function contratEffectifMois(annee, mois){
       var absence;
       if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;
       else { var e=heures[String(s.id)+iso.replace(/-/g,'_')+'abs']; absence=(e&&parseFloat(e.heures))||0; }
-      total+=Math.max(0,contrat-absence);
+      totS+=Math.max(0,contrat-absence);
     }
+    total+=totS*coef;
   });
   _cvCacheCE[key]=total; return total;
 }
@@ -754,8 +761,9 @@ function _cvSeuilOrange(){
   // Dernier repli : clé locale non synchronisée (peut disparaître à la fermeture)
   return parseInt(localStorage.getItem('jaugeOrange'))||0;
 }
+/* H. vendables = Σ par salarié de (heures contrat − absences) × taux de performance du salarié */
 function hVendablesMois(annee, mois){
-  return contratEffectifMois(annee, mois) * _cvSeuilOrange() / 100;
+  return contratEffectifMois(annee, mois, true);
 }
 
 function getDataMois(annee, mois) {
@@ -803,9 +811,14 @@ function ajouterAnnee() {
 function majTauxVendables() {
   var el = document.getElementById('taux-vendables');
   if (!el) return;
-  var s = _cvSeuilOrange();
-  if (s > 0) { el.textContent = s + ' %'; el.style.color = '#2563eb'; }
-  else { el.textContent = 'seuil non réglé'; el.style.color = '#dc2626'; }
+  // Taux désormais individuel : on signale les salariés (avec horaires) sans taux ni repli possible.
+  var sals = []; try { sals = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) {}
+  if (!Array.isArray(sals)) sals = [];
+  var defaut = _cvSeuilOrange();
+  var manquants = sals.filter(function (x) { return !x.administratif && !(_cvTauxSal(x, defaut) > 0); }).length;
+  el.title = 'Chaque salarié a son propre taux de performance (page Salariés)';
+  if (manquants) { el.textContent = 'taux de performance de chaque salarié — ' + manquants + ' sans taux'; el.style.color = '#dc2626'; }
+  else { el.textContent = 'taux de performance de chaque salarié'; el.style.color = '#2563eb'; }
 }
 
 function rendrePage() {
@@ -885,7 +898,7 @@ function rendreSynthese() {
       } else if (l.type === 'vendables') {
         // H. vendables = contrat effectif du mois (hors événements) × seuil orange
         const vend = hVendablesMois(annee, mois);
-        html += `<td class="td-calc" id="hvend-${uid}" style="${bgHors}" title="Somme des heures contrat du mois (hors fériés, congés, école, absences) × seuil orange">${vend > 0 ? vend.toFixed(1) + ' h' : '—'}</td>`;
+        html += `<td class="td-calc" id="hvend-${uid}" style="${bgHors}" title="Somme, par salarié, des heures contrat du mois (hors fériés, congés, école, absences) × son taux de performance">${vend > 0 ? vend.toFixed(1) + ' h' : '—'}</td>`;
 
       } else if (l.type === 'calc') {
         // H. devis = somme hPrevues des chantiers du mois

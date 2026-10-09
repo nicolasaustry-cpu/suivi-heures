@@ -65,6 +65,10 @@
         <div><label style="font-size:0.85rem;font-weight:600;">Prénom :</label><br><input id="prenomEl" placeholder="Jean"></div>
         <div><label style="font-size:0.85rem;font-weight:600;">Nom :</label><br><input id="nomEl" placeholder="Dupont"></div>
         <div><label style="font-size:0.85rem;font-weight:600;">Date d'entrée :</label><br><input type="date" id="dateEntreeEl"></div>
+        <div id="bloc-taux-perf" title="Part des heures contractuelles que ce salarié peut vendre (facturer). Heures vendables = heures contrat (hors absences) × ce taux.">
+          <label style="font-size:0.85rem;font-weight:600;">Taux de performance :</label><br>
+          <input type="number" id="tauxPerfEl" min="0" max="100" step="1" placeholder="ex. 90" style="width:80px;"> %
+        </div>
       </div>
 
       <!-- Poste administratif (sans horaires) -->
@@ -200,6 +204,7 @@
         <th style="min-width:90px;">Prénom</th>
         <th style="min-width:90px;">Nom</th>
         <th style="width:60px;text-align:center;" title="Donne accès à la page Planning équipe (mobile et PC)">Gérant</th>
+        <th style="width:90px;text-align:center;" title="Taux de performance : part des heures contractuelles vendables. Heures vendables = heures contrat (hors absences) × ce taux">Taux perf.</th>
         <th style="width:110px;">Entrée</th>
         <th style="width:140px;">Sortie</th>
         <th style="width:38px;text-align:center;">Lun</th>

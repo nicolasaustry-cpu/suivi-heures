@@ -213,14 +213,19 @@
   function _gvEstFerie(d){ var iso=d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); return !!_gvFeries(d.getFullYear())[iso]; }
   function _gvDansPeriode(s,d){ if(s.dateEntree){var de=new Date(s.dateEntree+'T00:00:00'); if(d<de)return false;} if(s.dateSortie){var ds=new Date(s.dateSortie+'T00:00:00'); if(d>ds)return false;} return true; }
   var _gvCacheCE={};
+  /* Taux de performance individuel (fiche Salariés, %) ; repli sur le seuil orange si absent */
+  function _gvTauxSal(s, defaut){ var t=parseFloat(s&&s.tauxPerformance); return (isFinite(t)&&t>=0)?t:defaut; }
+  /* Renvoie directement les H. vendables : Σ (contrat effectif du salarié × son taux / 100) */
   function _gvContratEffectifMois(annee, mois){
     var key=annee+'-'+mois; if(_gvCacheCE[key]!=null)return _gvCacheCE[key];
+    var tauxDefaut=_gvSeuilOrange();
     var salaries=[], hh={};
     try{ salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
     try{ hh=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
     if(!Array.isArray(salaries)) salaries=[];
     var nbJours=new Date(annee,mois+1,0).getDate(), total=0;
     salaries.forEach(function(s){
+      var coef=_gvTauxSal(s,tauxDefaut)/100, totS=0;
       for(var j=1;j<=nbJours;j++){
         var d=new Date(annee,mois,j), iso=annee+'-'+pad2(mois+1)+'-'+pad2(j);
         if(!_gvDansPeriode(s,d))continue;
@@ -230,8 +235,9 @@
         var absence;
         if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;
         else { var e=hh[String(s.id)+iso.replace(/-/g,'_')+'abs']; absence=(e&&parseFloat(e.heures))||0; }
-        total+=Math.max(0,contrat-absence);
+        totS+=Math.max(0,contrat-absence);
       }
+      total+=totS*coef;
     });
     _gvCacheCE[key]=total; return total;
   }
@@ -246,7 +252,7 @@
     return parseInt(localStorage.getItem('jaugeOrange'))||0;                             // repli local non synchronisé
   }
   function vendablesMois(y, m) {
-    return _gvContratEffectifMois(y, m) * _gvSeuilOrange() / 100;
+    return _gvContratEffectifMois(y, m);   // déjà pondéré par le taux de chaque salarié
   }
   function realMois(nomUp, y, m) {
     var mois = y + '-' + pad2(m + 1);

@@ -114,8 +114,15 @@
 <!-- Paramétrage des jauges (utilisé par Planning et Planning Réalisé) -->
 <section class="ent-tuile" style="background:#f0fdfa;border-left-color:#0d9488;">
   <h2 style="color:#0d9488;">Paramétrage des jauges</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
-    Ces seuils s'appliquent aux jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong>. Ils déterminent à partir de quel pourcentage d'avancement l'indicateur passe au rouge, à l'orange ou au vert.
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.6rem;">
+    <strong>Objectif de % de vente des heures vendables pour atteindre votre objectif de résultat.</strong>
+    Ces seuils colorent les jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong> :
+    rouge tant que vous êtes sous le premier seuil, orange en approche de l'objectif, vert une fois l'objectif atteint.
+    Si vous ne connaissez pas votre objectif, nous conseillons <strong>85 %</strong> (rouge) et <strong>90 %</strong> (orange).
+  </p>
+  <p style="font-size:0.8rem;color:#64748b;margin:0 0 1rem;">
+    Les <strong>heures vendables</strong> ne dépendent plus de ces seuils : elles se calculent salarié par salarié,
+    à partir du <strong>taux de performance</strong> saisi dans sa fiche (page <a href="salaries.html">Salariés</a>).
   </p>
 
   <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;">
@@ -702,6 +709,21 @@ function sauverSeuilsJauge() {
   const f = document.getElementById('seuilFige').checked;
   document.getElementById('seuilRouge').disabled  = f;
   document.getElementById('seuilOrange').disabled = f;
+  // Avant de changer le seuil orange : les salariés qui n'ont pas encore de taux de performance
+  // reçoivent l'ANCIEN seuil (qui servait jusqu'ici à leurs heures vendables). Leurs heures
+  // vendables ne bougent donc pas quand on règle la jauge, qui a désormais un autre rôle.
+  try {
+    const ancien = (_getEntreprise().jauge || {}).orange;
+    if (ancien != null && Number(ancien) > 0 && Number(ancien) !== o) {
+      const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+      let change = false;
+      if (Array.isArray(sals)) sals.forEach(function (x) {
+        const t = parseFloat(x.tauxPerformance);
+        if (!x.administratif && !(isFinite(t) && t >= 0 && t <= 100)) { x.tauxPerformance = Number(ancien); change = true; }
+      });
+      if (change) localStorage.setItem('salariesdata', JSON.stringify(sals));
+    }
+  } catch (_) {}
   // Stocker dans entreprisedata pour que la sync auto les pousse au serveur
   _setEntrepriseField({ rouge: r, orange: o, fige: f });
   // Garder aussi les anciennes clés (autres pages les lisent encore peut-être)
