@@ -584,8 +584,16 @@ function tauxMajorationHS() {
   const t = parseFloat(ent.tauxMajorationHS);
   return (isFinite(t) && t >= 0 && t <= 100) ? t : 25;
 }
+/* Page Entreprise › Gestion du compteur d'heures : « Application des 25 % liés aux heures
+   complémentaires ». Absent = Oui (comportement historique). Non = aucune majoration : les
+   heures reportées entrent au compteur pour leur valeur réelle et la notion disparaît. */
+function majorationCompteurActive() {
+  let ent = {}; try { ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {}; } catch (e) {}
+  return ent.majorationCompteur !== false;
+}
 function creditCompteur(reporte) {
   reporte = Number(reporte) || 0;
+  if (!majorationCompteurActive()) return r2(reporte);
   return reporte > 0 ? r2(reporte * (1 + tauxMajorationHS() / 100)) : r2(reporte);
 }
 function fmtTaux(t) { return String(t).replace('.', ','); }
@@ -623,7 +631,7 @@ function verifierModaleRegleRecup(ym) {
     '<div class="rr-boite">' +
       '<h3>Nouveau calcul du compteur d\'heures</h3>' +
       '<p>À partir de <b>septembre 2026</b>, le compteur d\'heures de chaque salarié évolue ainsi :</p>' +
-      '<ul><li>les heures sup reportées au compteur y entrent <b>majorées</b> (' + fmtTaux(tauxMajorationHS()) + ' %) ;</li>' +
+      '<ul>' + (majorationCompteurActive() ? '<li>les heures sup reportées au compteur y entrent <b>majorées</b> (' + fmtTaux(tauxMajorationHS()) + ' %) ;</li>' : '') +
       '<li>les heures de <b>Récupération</b> posées au Planning en sont <b>déduites automatiquement</b> ;</li>' +
       '<li>les heures payées ne changent pas.</li></ul>' +
       '<p>Votre entreprise a des données avant septembre 2026. Faut-il appliquer ce calcul aussi aux mois précédents ? ' +
@@ -1063,13 +1071,16 @@ function majCompteur(rep) {
   const tab = document.getElementById('bev-compteur');
   if (!tab) return;
   const actif = regleRecupActive(tab.dataset.ym);
-  const taux  = actif ? tauxMajorationHS() : 0;
+  const avecMaj = majorationCompteurActive();
+  const taux  = (actif && avecMaj) ? tauxMajorationHS() : 0;
   const recup = actif ? r2(parseFloat(tab.dataset.recup) || 0) : 0;
   const cred  = actif ? creditCompteur(rep) : r2(rep);
   const maj   = r2(cred - rep);
   const mvt   = r2(cred - recup);
   const set = function (id, txt, cls) { const e = document.getElementById(id); if (e) { e.textContent = txt; if (cls !== undefined) e.className = cls; } };
   set('cpt-th-maj', 'Majoration ' + fmtTaux(taux) + ' %');
+  // Majoration non appliquée par l'entreprise : la colonne disparaît du compteur
+  ['cpt-th-maj', 'cpt-maj'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = avecMaj ? '' : 'none'; });
   set('cpt-rep', signe(rep));
   set('cpt-maj', maj ? signe(maj) : fmt(0));
   set('cpt-cred', signe(cred));
@@ -1078,6 +1089,10 @@ function majCompteur(rep) {
   if (!actif) {
     set('cpt-recup', 'non déduites');
     set('cpt-formule', 'Mois antérieur à septembre 2026 : calcul précédent (report sans majoration, récupérations non déduites). Mouvement = ' + signe(mvt) + ' h.');
+    return;
+  }
+  if (!avecMaj) {
+    set('cpt-formule', 'Mouvement = ' + signe(rep) + ' h reportées − ' + fmt(recup) + ' h récupérées = ' + signe(mvt) + ' h de repos');
     return;
   }
   set('cpt-formule', rep > 0
@@ -1280,10 +1295,12 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.TPAYEES) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   } else {
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées (total)</th><th>Heures dues au salarié</th><th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th><th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
+    const avecMaj = majorationCompteurActive();   // colonne Majoration masquée si l'entreprise ne l'applique pas
+    const tdM = avecMaj ? '<td></td>' : '';
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées (total)</th><th>Heures dues au salarié</th>' + (avecMaj ? '<th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th>' : '') + '<th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
     moisData.forEach(function(md){
-      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
-      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>' + tdM + '<td></td><td></td></tr>'; return; }
+      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>' + tdM + '<td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + fmt(md.tevt) + '</td>' +
@@ -1294,7 +1311,7 @@ function rendreTableauAnnee() {
         '<td>' + (md.blanc ? '' : fmt(md.compte)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.reporte)) + '</td>' +
-        '<td>' + (md.blanc ? '' : fmt(md.majo)) + '</td>' +
+        (avecMaj ? '<td>' + (md.blanc ? '' : fmt(md.majo)) + '</td>' : '') +
         '<td>' + (md.blanc ? '' : (md.recup ? '−' + fmt(md.recup) : fmt(0))) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
     });
@@ -1308,7 +1325,7 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.TCOMPTE) + '</td>' +
       '<td>' + fmt(r2(totaux.TCOMPTE - totaux.TREPORTE)) + '</td>' +
       '<td>' + fmt(totaux.TREPORTE) + '</td>' +
-      '<td>' + fmt(totaux.TMAJO) + '</td>' +
+      (avecMaj ? '<td>' + fmt(totaux.TMAJO) + '</td>' : '') +
       '<td>' + (totaux.TRECUP ? '−' + fmt(totaux.TRECUP) : fmt(0)) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   }

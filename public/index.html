@@ -320,6 +320,30 @@
   </div>
 </section>
 
+<!-- Gestion du compteur d'heures : majoration de 25 % des heures complémentaires reportées -->
+<section class="ent-tuile" style="background:#f5f3ff;border-left-color:#7c3aed;">
+  <h2 style="color:#6d28d9;">Gestion du compteur d'heures</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Dans <strong>Éléments Pointage Paie</strong>, les heures complémentaires reportées au compteur peuvent y entrer
+    <strong>majorées de 25 %</strong> (1 h reportée = 1,25 h au compteur). Si votre entreprise n'applique pas cette majoration,
+    choisissez <strong>Non</strong> : les heures reportées entrent alors au compteur pour leur valeur réelle (1 h = 1 h)
+    et la notion de majoration disparaît des décomptes et des compteurs.
+  </p>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+    <span style="font-size:0.9rem;font-weight:600;">Application des 25 % liés aux heures complémentaires :</span>
+    <div style="display:flex;align-items:center;gap:1.2rem;">
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="majCompteur" id="majCompteurOui" value="oui"> Oui
+      </label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="majCompteur" id="majCompteurNon" value="non"> Non
+      </label>
+    </div>
+    <button type="button" id="btn-valider-maj-compteur" class="btn btn-success" onclick="validerMajCompteur()">💾 Valider</button>
+    <span id="maj-compteur-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+</section>
+
 <!-- Zones d'indemnités de trajet : point de départ + bornes kilométriques (vol d'oiseau) -->
 <section class="ent-tuile" style="background:#fff7ed;border-left-color:#ea580c;">
   <h2 style="color:#c2410c;">Zones d'indemnités de trajet</h2>
@@ -486,6 +510,34 @@ async function validerCIBTP() {
 }
 window.addEventListener('DOMContentLoaded', chargerCIBTP);
 window.addEventListener('donnees-chargees', chargerCIBTP);
+
+/* Gestion du compteur d'heures — entreprisedata.majorationCompteur (booléen).
+   Absent = Oui : les clients existants gardent la majoration de 25 % sans rien faire. */
+function chargerMajCompteur() {
+  const ent = _entLire();
+  const actif = ent.majorationCompteur !== false;
+  const oui = document.getElementById('majCompteurOui');
+  const non = document.getElementById('majCompteurNon');
+  if (oui && non) { oui.checked = actif; non.checked = !actif; }
+}
+async function validerMajCompteur() {
+  const oui = document.getElementById('majCompteurOui');
+  const non = document.getElementById('majCompteurNon');
+  if (!oui.checked && !non.checked) { alert('Choisissez Oui ou Non.'); return; }
+  const ent = _entLire();
+  ent.majorationCompteur = !!oui.checked;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-maj-compteur');
+  const msg = document.getElementById('maj-compteur-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
+  if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+window.addEventListener('DOMContentLoaded', chargerMajCompteur);
+window.addEventListener('donnees-chargees', chargerMajCompteur);
 </script>
 
 <script>
