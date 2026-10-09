@@ -91,6 +91,16 @@ function seuilOrangeEntreprise() {
 }
 function tauxPerfValide(v) { const t = parseFloat(v); return (isFinite(t) && t >= 0 && t <= 100) ? t : null; }
 function fmtTauxPerf(t) { return String(Math.round(t * 100) / 100).replace('.', ','); }
+/* Valeur affichée dans le tableau : le taux du salarié, sinon le seuil orange de la jauge
+   (licences en cours). C'est exactement le taux utilisé par les calculs tant qu'aucun taux
+   propre n'est saisi, donc l'affichage ne ment jamais — y compris en consultation admin,
+   où rien n'est enregistré. */
+function tauxPerfAffiche(s) {
+  const t = tauxPerfValide(s && s.tauxPerformance);
+  if (t !== null) return t;
+  const d = seuilOrangeEntreprise();
+  return d > 0 ? d : '';
+}
 
 /* Comptes existants : chaque salarié (avec horaires) sans taux reçoit le seuil orange actuel,
    ENREGISTRÉ dans sa fiche. Il ne bouge plus ensuite, même si la jauge est modifiée.
@@ -184,7 +194,7 @@ function afficherSalaries() {
         </td>
         <td style="text-align:center;white-space:nowrap;">${s.administratif
           ? '<span style="color:#9ca3af;" title="Poste administratif : sans horaires, donc sans heures vendables">—</span>'
-          : `<input type="number" min="0" max="100" step="1" value="${tauxPerfValide(s.tauxPerformance) ?? ''}" placeholder="—" ${estAdmin ? 'disabled' : ''}
+          : `<input type="number" min="0" max="100" step="1" value="${tauxPerfAffiche(s)}" placeholder="—" ${estAdmin ? 'disabled' : ''}
                    onchange="majTauxPerf(${s.id}, this.value)" style="width:58px;text-align:center;"
                    title="Taux de performance : part des heures contractuelles vendables"> %`}</td>
         <td>${fmtDateFr(s.dateEntree)}</td>
