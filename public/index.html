@@ -108,6 +108,7 @@
     <button class="btn btn-primary" onclick="activerLicence()" style="display:none;">Activer la licence</button>
     <button type="button" class="btn" onclick="ouvrirGuide()" style="background:#f59e0b;color:#0f172a;font-weight:700;">📘 Démarrer avec Suiv'Heures</button>
     <a href="assets/videos/presentation-equipes.mp4" target="_blank" rel="noopener" class="btn" style="background:#fff;color:#b45309;border:1.5px solid #f59e0b;font-weight:700;text-decoration:none;display:inline-block;">🎬 Voir la vidéo de présentation</a>
+    <button type="button" class="btn" onclick="ouvrirTutosVideo()" style="background:#fff;color:#b45309;border:1.5px solid #f59e0b;font-weight:700;">▶️ Tutos vidéo</button>
   </div>
   <div id="msg-licence" style="margin-top:0.5rem;"></div>
 </section>
@@ -1144,6 +1145,108 @@ if ('serviceWorker' in navigator) {
   function _pwaInit() { setTimeout(_pwaAfficher, 700); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _pwaInit);
   else _pwaInit();
+})();
+</script>
+
+<!-- ══ Tutos vidéo YouTube : modale listant les épisodes ══
+     Pour publier un nouvel épisode : coller son lien YouTube dans "url" sur la ligne correspondante.
+     Un épisode sans lien s'affiche grisé « Bientôt disponible ». -->
+<script>
+var TUTOS_VIDEO = [
+  { num: 1, titre: "Démarrer en 3 étapes",                  desc: "Paramétrage de l'entreprise, saisie des salariés et du prévisionnel", url: "https://youtu.be/__mEFVrn2x0" },
+  { num: 2, titre: "Installer Suiv'Heures sur les mobiles", desc: "Mise en place sur les téléphones des salariés et du responsable",   url: "" },
+  { num: 3, titre: "Créer un chantier sur le planning",     desc: "Création du chantier et affectation des équipes",                    url: "" },
+  { num: 4, titre: "Utiliser l'appli sur mobile",           desc: "Le pointage des heures au quotidien par le salarié",                 url: "" },
+  { num: 5, titre: "Les rapports d'activité",               desc: "Exploiter les heures remontées du terrain",                          url: "" },
+  { num: 6, titre: "L'aide à la saisie de la paie",         desc: "Préparer les éléments de paie en quelques clics",                    url: "" }
+];
+</script>
+<style>
+#tutos-modal{display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center;padding:16px;}
+#tutos-modal .tv-boite{background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:92vh;overflow:auto;padding:24px 22px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,Helvetica,sans-serif;}
+#tutos-modal .tv-fermer{position:absolute;top:10px;right:14px;background:none;border:none;font-size:26px;color:#94a3b8;cursor:pointer;line-height:1;}
+#tutos-modal h3{margin:0 0 4px;font-size:19px;color:#0f3a8a;}
+#tutos-modal .tv-sous{font-size:13px;color:#64748b;margin-bottom:16px;}
+#tutos-modal .tv-lecteur{display:none;margin-bottom:16px;}
+#tutos-modal .tv-cadre{position:relative;width:100%;padding-top:56.25%;background:#0f172a;border-radius:10px;overflow:hidden;}
+#tutos-modal .tv-cadre iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+#tutos-modal .tv-lecteur-pied{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:13px;}
+#tutos-modal .tv-lecteur-pied a{color:#b45309;font-weight:700;text-decoration:none;}
+#tutos-modal .tv-liste{display:flex;flex-direction:column;gap:8px;}
+#tutos-modal .tv-ep{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit;color:#0f172a;}
+#tutos-modal .tv-ep:hover{border-color:#f59e0b;}
+#tutos-modal .tv-ep.actif{border-color:#0f3a8a;background:#eef4fd;}
+#tutos-modal .tv-ep.avenir{background:#f8fafc;border-color:#e2e8f0;color:#94a3b8;cursor:default;}
+#tutos-modal .tv-num{flex:0 0 34px;height:34px;border-radius:50%;background:#f59e0b;color:#412402;font-weight:700;display:flex;align-items:center;justify-content:center;}
+#tutos-modal .tv-ep.avenir .tv-num{background:#e2e8f0;color:#94a3b8;}
+#tutos-modal .tv-txt{flex:1 1 auto;min-width:0;}
+#tutos-modal .tv-titre{font-weight:700;font-size:14.5px;}
+#tutos-modal .tv-desc{font-size:12.5px;color:#64748b;margin-top:2px;}
+#tutos-modal .tv-ep.avenir .tv-desc{color:#94a3b8;}
+#tutos-modal .tv-etat{flex:0 0 auto;font-size:12px;font-weight:700;white-space:nowrap;}
+</style>
+<div id="tutos-modal" onclick="if(event.target===this)fermerTutosVideo()">
+  <div class="tv-boite">
+    <button class="tv-fermer" onclick="fermerTutosVideo()" aria-label="Fermer">&times;</button>
+    <h3>▶️ Tutos vidéo Suiv'Heures</h3>
+    <div class="tv-sous">Prise en main de Suiv'Heures, épisode par épisode.</div>
+    <div class="tv-lecteur" id="tv-lecteur">
+      <div class="tv-cadre" id="tv-cadre"></div>
+      <div class="tv-lecteur-pied">
+        <span id="tv-lecteur-titre" style="font-weight:700;color:#0f172a;"></span>
+        <a id="tv-lien-yt" href="#" target="_blank" rel="noopener">Ouvrir sur YouTube ↗</a>
+      </div>
+    </div>
+    <div class="tv-liste" id="tv-liste"></div>
+  </div>
+</div>
+<script>
+(function () {
+  function idYoutube(url) {
+    var m = String(url || '').match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : '';
+  }
+  function echap(t) {
+    return String(t).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+  }
+  function rendreListe(actif) {
+    var html = TUTOS_VIDEO.map(function (t, i) {
+      var dispo = !!idYoutube(t.url);
+      return '<button type="button" class="tv-ep' + (dispo ? '' : ' avenir') + (i === actif ? ' actif' : '') + '"' +
+        (dispo ? ' onclick="lireTutoVideo(' + i + ')"' : ' disabled') + '>' +
+        '<span class="tv-num">' + t.num + '</span>' +
+        '<span class="tv-txt"><div class="tv-titre">Épisode ' + t.num + ' — ' + echap(t.titre) + '</div>' +
+        '<div class="tv-desc">' + echap(t.desc) + '</div></span>' +
+        '<span class="tv-etat" style="color:' + (dispo ? '#b45309' : '#94a3b8') + ';">' + (dispo ? (i === actif ? '● En lecture' : '▶ Regarder') : 'Bientôt disponible') + '</span>' +
+        '</button>';
+    }).join('');
+    document.getElementById('tv-liste').innerHTML = html;
+  }
+  window.lireTutoVideo = function (i) {
+    var t = TUTOS_VIDEO[i], id = idYoutube(t && t.url);
+    if (!id) return;
+    document.getElementById('tv-cadre').innerHTML =
+      '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0" title="' + echap(t.titre) + '" ' +
+      'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
+    document.getElementById('tv-lecteur-titre').textContent = 'Épisode ' + t.num + ' — ' + t.titre;
+    document.getElementById('tv-lien-yt').href = 'https://youtu.be/' + id;
+    document.getElementById('tv-lecteur').style.display = 'block';
+    rendreListe(i);
+    var b = document.querySelector('#tutos-modal .tv-boite'); if (b) b.scrollTop = 0;
+  };
+  window.ouvrirTutosVideo = function () {
+    rendreListe(-1);
+    document.getElementById('tv-lecteur').style.display = 'none';
+    document.getElementById('tv-cadre').innerHTML = '';
+    document.getElementById('tutos-modal').style.display = 'flex';
+  };
+  window.fermerTutosVideo = function () {
+    document.getElementById('tutos-modal').style.display = 'none';
+    document.getElementById('tv-cadre').innerHTML = ''; // coupe le son de la vidéo
+  };
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { var m = document.getElementById('tutos-modal'); if (m && m.style.display === 'flex') fermerTutosVideo(); }
+  });
 })();
 </script>
 
