@@ -703,6 +703,42 @@ function getChantiersPrevisionnel() {
   return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
+/* Chantiers proposés dans la liste déroulante du planning :
+   - mois en cours et mois suivant (M, M+1) : tous les chantiers du prévisionnel ;
+   - mois précédent (M-1) : seulement ceux qui ne sont pas encore planifiés
+     (absents du planning à toute date à partir du 1er jour de M-1).
+   La vérification « chantier hors prévisionnel » garde, elle, la fenêtre large
+   de getChantiersPrevisionnel() (M-1 à M+3), pour ne pas multiplier les confirmations. */
+function getChantiersSuggestion() {
+  const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+  const now  = new Date();
+  const mois = [-1, 0, 1].map(dec => {
+    const d = new Date(now.getFullYear(), now.getMonth() + dec, 1);
+    return { an: d.getFullYear(), mi: d.getMonth(), dec };
+  });
+  const nomsDu = (m) => {
+    const md = prev?.[m.an]?.[m.mi];
+    return (md && Array.isArray(md.chantiers))
+      ? md.chantiers.map(c => (c.client || '').trim()).filter(Boolean) : [];
+  };
+  // Chantiers déjà planifiés à partir du 1er jour de M-1 (clé heures : <id salarié>AAAA_MM_JJ…)
+  const debut = mois[0].an + '_' + String(mois[0].mi + 1).padStart(2, '0') + '_01';
+  const planifies = new Set();
+  Object.keys(heures || {}).forEach(k => {
+    const e = heures[k];
+    if (!e || !e.chantier || /abs$/.test(k)) return;
+    const m = k.match(/(\d{4}_\d{2}_\d{2})/);
+    if (m && m[1] >= debut) planifies.add(e.chantier.trim().toUpperCase());
+  });
+  const noms = new Map();   // clé majuscules → nom affiché (sans doublon)
+  mois.forEach(m => nomsDu(m).forEach(n => {
+    const u = n.toUpperCase();
+    if (m.dec === -1 && planifies.has(u)) return;   // M-1 déjà planifié : on ne le propose plus
+    if (!noms.has(u)) noms.set(u, n);
+  }));
+  return [...noms.values()].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
 /* Construit le HTML d'un <datalist> à partir des chantiers du prévisionnel. */
 function genDatalistChantiers() {
   const options = getChantiersPrevisionnel()
@@ -714,7 +750,7 @@ function genDatalistChantiers() {
 /* ─── Suggestions de chantier filtrées à la frappe (remplace la <datalist> native
    pour le champ "Chantier" du planning prévu — filtrage garanti sur tous les
    navigateurs/WebView, contrairement au comportement natif d'une datalist). ─── */
-const CHANTIER_SUGG_MAX = 8;
+const CHANTIER_SUGG_MAX = 300;   // la liste défile : on montre tous les chantiers du prévisionnel
 let _chSuggK = null;   // clé du slot dont la liste est actuellement ouverte
 
 function _chSuggNorm(s) {
@@ -726,6 +762,9 @@ function _chSuggBox() {
     box = document.createElement('div');
     box.id = 'chantier-suggest-box';
     box.className = 'chantier-sugg-box';
+    // Clic sur la liste (barre de défilement comprise) : on garde le focus dans le champ,
+    // sinon le blur du champ refermait la liste avant de pouvoir la faire défiler.
+    box.addEventListener('mousedown', e => e.preventDefault());
     document.body.appendChild(box);
   }
   return box;
@@ -734,7 +773,7 @@ function chantierSuggFiltrer(k) {
   const inp = document.getElementById(k + 'chantier');
   if (!inp) return;
   const q = _chSuggNorm(inp.value.trim());
-  const tous = getChantiersPrevisionnel();
+  const tous = getChantiersSuggestion();
   const filtres = (q ? tous.filter(n => _chSuggNorm(n).startsWith(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
   if (!filtres.length) { chantierSuggFermer(); return; }
   const box = _chSuggBox();
@@ -761,7 +800,14 @@ function chantierSuggChoisir(k, nom) {
   onChantierCommit(k);   // validation directe (ne dépend plus du bon déclenchement de l'événement blur, fiabilise le clic/tactile)
   if (document.activeElement === inp) inp.blur();   // retire le focus visuel si le champ existe toujours
 }
-document.addEventListener('scroll', () => { if (_chSuggK) chantierSuggFermer(); }, true);
+// Fermer la liste quand la PAGE défile — mais pas quand on fait défiler la liste elle-même
+// (l'écouteur en phase de capture recevait aussi le défilement interne de la liste et la refermait).
+document.addEventListener('scroll', (e) => {
+  if (!_chSuggK) return;
+  const box = document.getElementById('chantier-suggest-box');
+  if (box && (e.target === box || box.contains(e.target))) return;
+  chantierSuggFermer();
+}, true);
 
 /* ─── ALTERNANCE SEMAINE A / B ───────────────────────────────
    Un salarié "alternant" possède :
