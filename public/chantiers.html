@@ -76,6 +76,12 @@
     white-space: nowrap;
   }
   .bloc-mois-header.hors-annee { background: #64748b; }
+  /* Alerte : heures devis du mois > heures vendables */
+  .alerte-depass { display:inline-flex; vertical-align:middle; margin-left:5px; cursor:help; line-height:0; }
+  .alerte-depass svg { width:15px; height:14px; filter: drop-shadow(0 0 1px rgba(255,255,255,.9)); }
+  .th-mois .alerte-depass { margin-left:3px; }
+  .th-mois .alerte-depass svg { width:13px; height:12px; }
+  @media print { .alerte-depass svg { filter:none; } }
 
   .tr-chantier-header th {
     position: sticky;
@@ -844,6 +850,30 @@ function getMoisAffichage() {
   return liste;
 }
 
+/* ── ALERTE DÉPASSEMENT : H. devis du mois > H. vendables ──
+   Triangle orange affiché à côté du nom du mois (tableau de synthèse + en-tête du bloc mois). */
+function _hDevisMois(annee, mois) {
+  const dm = getDataMois(annee, mois);
+  return (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+}
+function alerteDepassementHTML(annee, mois) {
+  const hDevis = _hDevisMois(annee, mois);
+  const hVb    = hVendablesMois(annee, mois);
+  if (!(hVb > 0) || !(hDevis > hVb + 0.001)) return '';
+  const titre = 'Heures devis (' + hDevis.toFixed(1) + ' h) supérieures aux heures vendables ('
+              + hVb.toFixed(1) + ' h) : dépassement de ' + (hDevis - hVb).toFixed(1) + ' h';
+  return '<span class="alerte-depass" title="' + titre + '">'
+       + '<svg viewBox="0 0 24 22" aria-label="Alerte dépassement"><path d="M12 1.5 23 20.5H1z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/>'
+       + '<rect x="10.9" y="7.5" width="2.2" height="7" rx="1" fill="#fff"/><circle cx="12" cy="17.4" r="1.3" fill="#fff"/></svg></span>';
+}
+function majAlerteDepassement(annee, mois) {
+  const html = alerteDepassementHTML(annee, mois);
+  ['alerte-th-', 'alerte-bloc-'].forEach(function (pref) {
+    const el = document.getElementById(pref + annee + '_' + mois);
+    if (el && el.innerHTML !== html) el.innerHTML = html;
+  });
+}
+
 /* ── TABLEAU SYNTHÈSE (16 mois) ── */
 function rendreSynthese() {
   const thead = document.getElementById('thead-mois');
@@ -856,7 +886,7 @@ function rendreSynthese() {
     const bg = m.isHors ? '#64748b' : '#2563eb';
     const labels = m.label.split('\n');
     thMois += `<th class="th-mois" style="background:${bg};font-size:0.78rem;white-space:nowrap;">`;
-    thMois += labels[0];
+    thMois += labels[0] + `<span id="alerte-th-${m.annee}_${m.mois}">${alerteDepassementHTML(m.annee, m.mois)}</span>`;
     if (labels[1]) thMois += `<br><span style="font-size:0.68rem;opacity:0.85;">${labels[1]}</span>`;
     thMois += '</th>';
   });
@@ -970,7 +1000,7 @@ function rendreChantiers() {
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
     html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 352px;width:352px;overflow:clip;">`;
-    html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
+    html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}<span id="alerte-bloc-${annee}_${mi}">${alerteDepassementHTML(annee, mi)}</span></div>`;
     html += `<table style="width:352px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
       <col style="width:196px;">
@@ -1254,6 +1284,7 @@ function majLigne(uid) {
 
   const hvEl = document.getElementById(`hv-${uid}`);
   if (hvEl) hvEl.textContent = hDevis > 0 ? hDevis.toFixed(1) + ' h' : '—';
+  majAlerteDepassement(annee, mi);
 
   // Écart absolu en heures
   const ecAbsEl = document.getElementById(`ecartAbs-${uid}`);
