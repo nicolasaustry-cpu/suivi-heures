@@ -757,6 +757,9 @@ function afficherRealise() {
     }
   }
 
+  // Uniformiser la largeur des tableaux de tous les jours (base : le plus large)
+  uniformiserTableaux();
+
   // Mettre à jour la jauge et les totaux
   majJauge(grandTotalMin, grandDeplMin, grandPrevuMin, grandVendMin);
   setTimeout(ajusterMarginTop, 50);
@@ -764,6 +767,39 @@ function afficherRealise() {
   // Scroll auto vers le jour du jour (ou le plus proche si pas de saisie aujourd'hui)
   setTimeout(scrollVersAujourdhui, 100);
 }
+
+/* Aligne tous les tableaux jour sur le plus large : les colonnes à largeur variable
+   (Salarié, Chantier) prennent la largeur maximale constatée, puis chaque tableau
+   reçoit la largeur du plus large → plus de décalage d'un jour à l'autre. */
+function uniformiserTableaux() {
+  const tables = [...document.querySelectorAll('#contenu-realise table.real-table')];
+  if (!tables.length) return;
+  // Remise à zéro avant mesure
+  tables.forEach(t => {
+    t.style.width = '';
+    t.querySelectorAll('thead th').forEach(th => { th.style.width = ''; th.style.minWidth = ''; });
+  });
+  // Largeur max de chaque colonne (mesurée sur l'en-tête)
+  const nbCol = tables[0].querySelectorAll('thead th').length;
+  const maxCol = new Array(nbCol).fill(0);
+  tables.forEach(t => {
+    t.querySelectorAll('thead th').forEach((th, i) => {
+      maxCol[i] = Math.max(maxCol[i], Math.ceil(th.getBoundingClientRect().width));
+    });
+  });
+  // Application des largeurs communes
+  tables.forEach(t => {
+    t.querySelectorAll('thead th').forEach((th, i) => {
+      th.style.width = maxCol[i] + 'px';
+      th.style.minWidth = maxCol[i] + 'px';
+    });
+  });
+  // Filet de sécurité : même largeur totale pour tous
+  let maxT = 0;
+  tables.forEach(t => { maxT = Math.max(maxT, Math.ceil(t.getBoundingClientRect().width)); });
+  tables.forEach(t => { t.style.width = maxT + 'px'; });
+}
+window.addEventListener('resize', () => { if (typeof uniformiserTableaux === 'function') uniformiserTableaux(); });
 
 /* ═══════════════════════════
    ÉDITION / SUPPRESSION D'UN CHANTIER (patron uniquement)
