@@ -898,6 +898,9 @@ function pl2AjouterChantier(btn){
   if(inp) inp.focus();
 }
 function pl2ViderPave(btn, k){
+  // « TEMPS NON AFFECTE » n'est jamais supprimable à la main : il disparaît seul quand
+  // les chantiers du jour couvrent le contrat (recalcul automatique).
+  if (((heures[k] && heures[k].chantier) || '').trim().toUpperCase() === TNA) return;
   viderChantier(k);
   const chip = btn.closest('.chip');
   const e = heures[k];
@@ -1065,7 +1068,7 @@ function pl2ChipHTML(sl){
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
       ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
-      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
+      ${estTNA?'':`<button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>`}
     </div>
     ${alerteReservio}
     <div id="${sl.k}exclu-motif" class="exclu-motif"${(data.exclu && !estTNA)?'':' style="display:none"'}>${escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')}</div>
@@ -1496,6 +1499,7 @@ function majCouleursChantiers() {
 /* ====== SAUVEGARDE TEMPS RÉEL ====== */
 /* Vide le nom du chantier d'une case (les heures sont conservées). */
 function viderChantier(k) {
+  if (((heures[k] && heures[k].chantier) || '').trim().toUpperCase() === TNA) return;   // TNA : jamais vidé à la main
   const input = document.getElementById(k + 'chantier');
   if (!input) return;
   input.value = '';
@@ -1830,10 +1834,22 @@ function _eligibleTNA(s, dateStr) {
   return !!(s && !s.sav && !estDatePassee(dateStr));
 }
 
+/* Vrai si la ligne (salarié × jour) porte déjà un « TEMPS NON AFFECTE ».
+   Sur un jour passé, on ne crée jamais de TNA, mais un TNA existant doit pouvoir
+   diminuer / disparaître quand les heures de chantier du jour le permettent. */
+function _ligneATNA(salarieId, dateStr) {
+  const safeDate = dateStr.replace(/-/g, '_');
+  for (let i = 1; i <= NB_SLOTS; i++) {
+    const e = heures[`${salarieId}${safeDate}ch${i}`];
+    if (e && (e.chantier || '').trim().toUpperCase() === TNA) return true;
+  }
+  return false;
+}
+
 /* Recalcule et place/retire « TEMPS NON AFFECTE » sur une ligne (salarié × jour). */
 function appliquerTempsNonAffecte(salarieId, dateStr) {
   const s = salaries.find(x => String(x.id) === String(salarieId));
-  if (!_eligibleTNA(s, dateStr)) return;
+  if (!_eligibleTNA(s, dateStr) && !(s && !s.sav && _ligneATNA(salarieId, dateStr))) return;
   const safeDate = dateStr.replace(/-/g, '_');
   const abs   = parseFloat(heures[`${salarieId}${safeDate}abs`]?.heures) || 0;
   const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
@@ -1960,6 +1976,8 @@ function onChantierCommit(k) {
       }
     }
     appliquerTempsNonAffecte(salarieId, dateStr);
+  } else if (!s.sav && _ligneATNA(salarieId, dateStr)) {
+    appliquerTempsNonAffecte(salarieId, dateStr);   // jour passé : un TNA existant suit les heures de chantier
   }
   rafraichirLigne(salarieId, dateStr);   // affichage + jauge : TOUJOURS
 
@@ -1979,7 +1997,8 @@ function onLigneRecalc(k) {
   const salarieId = mm[1], dateStr = mm[2].replace(/_/g, '-');
   const s = salaries.find(x => String(x.id) === String(salarieId));
   if (!s) return;
-  if (_eligibleTNA(s, dateStr)) appliquerTempsNonAffecte(salarieId, dateStr);   // TNA recalculé seulement pour les jours à venir
+  // TNA recalculé pour les jours à venir, et sur un jour passé uniquement s'il en porte déjà un
+  if (_eligibleTNA(s, dateStr) || (!s.sav && _ligneATNA(salarieId, dateStr))) appliquerTempsNonAffecte(salarieId, dateStr);
   rafraichirLigne(salarieId, dateStr);   // affichage de la ligne + jauge : TOUJOURS (y compris dates passées)
 }
 
