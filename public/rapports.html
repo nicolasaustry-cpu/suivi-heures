@@ -213,8 +213,9 @@
   .sc-table td { padding:5px 12px; border-bottom:1px solid #eef2f7; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .sc-table tbody tr.sc-ligne td { font-weight:600; }
   .sc-table tbody tr.sc-ligne:nth-of-type(odd) td { background:#fafbff; }
-  .sc-table tbody tr.sc-exclu td { color:#9ca3af; font-size:0.76rem; font-style:italic; background:#fff; padding-top:2px; padding-bottom:2px; }
-  .sc-table tbody tr.sc-exclu td.sc-ch { padding-left:28px; }
+  .sc-table tfoot tr.sc-titre-exclu td { background:#fff; color:#dc2626; font-weight:700; font-size:0.76rem; border-top:none; padding-top:12px; text-transform:uppercase; letter-spacing:0.03em; }
+  .sc-table tfoot tr.sc-exclu td { background:#fef2f2; color:#6b7280; font-weight:600; font-size:0.8rem; border-top:none; border-bottom:1px solid #fde2e2; }
+  .sc-table tfoot tr.sc-exclu td.sc-ch { padding-left:20px; }
   .sc-table td.sc-ecart { font-weight:700; border-radius:0; }
   .sc-table tfoot td { font-weight:800; background:#e0e7ff; color:#3730a3; border-top:2px solid #4f46e5; }
   .sc-table tfoot tr.sc-tot-exclu td { font-weight:500; font-size:0.76rem; font-style:italic; background:#f8fafc; color:#64748b; border-top:1px dashed #cbd5e1; }
@@ -491,7 +492,7 @@
           <span><i style="background:#dcfce7;border-color:#15803d;"></i>&lt; 90 % du devis</span>
           <span><i style="background:#ffedd5;border-color:#c2410c;"></i>90 à 100 %</span>
           <span><i style="background:#fee2e2;border-color:#dc2626;"></i>&gt; 100 %</span>
-          <span style="color:#64748b;">Lignes ↳ : temps exclus du calcul (non comptés dans le réalisé)</span>
+          <span style="color:#64748b;">Temps exclus : une ligne par motif, non comptés dans le réalisé ni dans l'écart</span>
         </div>
       </div>
     </div>
@@ -1028,10 +1029,11 @@ function calculerSynthChantiers() {
   const fNorm = (fCh && fCh.size) ? new Set([...fCh].map(_clefSynthCh)) : null;
   const motCle = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
 
-  const map = {};   // clef -> { nom, devis, prev, real, exclus:{motif:{prev,real}} }
+  const map = {};      // clef -> { nom, devis, prev, real }
+  const exclus = {};   // motif -> { prev, real } (tous chantiers confondus)
   const get = nom => {
     const k = _clefSynthCh(nom) || '(SANS CHANTIER)';
-    if (!map[k]) map[k] = { nom: (nom || '').trim() || '(sans chantier)', devis: 0, prev: 0, real: 0, exclus: {} };
+    if (!map[k]) map[k] = { nom: (nom || '').trim() || '(sans chantier)', devis: 0, prev: 0, real: 0 };
     return map[k];
   };
 
@@ -1058,21 +1060,25 @@ function calculerSynthChantiers() {
 
   // Planifié / réalisé (lignes déjà filtrées à l'écran)
   const cumuler = (lignes, champ) => (lignes || []).forEach(l => {
-    const e = get(l.chantier);
     const h = parseFloat(l.heures) || 0;
     if (l.motif) {
-      if (!e.exclus[l.motif]) e.exclus[l.motif] = { prev: 0, real: 0 };
-      e.exclus[l.motif][champ] += h;
+      if (!exclus[l.motif]) exclus[l.motif] = { prev: 0, real: 0 };
+      exclus[l.motif][champ] += h;
     } else {
-      e[champ] += h;
+      get(l.chantier)[champ] += h;
     }
   });
   cumuler(prevVisible, 'prev');
   cumuler(realVisible, 'real');
 
-  return Object.values(map)
-    .filter(e => e.devis || e.prev || e.real || Object.keys(e.exclus).length)
+  const chantiers = Object.values(map)
+    .filter(e => e.devis || e.prev || e.real)
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+  const lignesExclus = Object.keys(exclus)
+    .filter(m => exclus[m].prev || exclus[m].real)
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
+    .map(m => ({ motif: m, prev: exclus[m].prev, real: exclus[m].real }));
+  return { chantiers, exclus: lignesExclus };
 }
 
 function afficherSynthChantiers() {
@@ -1087,9 +1093,10 @@ function afficherSynthChantiers() {
     ? '— ' + [..._moisSelection].sort().map(libelleMoisCourt).join(', ')
     : '— toutes périodes';
 
-  const lignes = calculerSynthChantiers();
+  const res = calculerSynthChantiers();
+  const lignes = res.chantiers;
   badge.textContent = lignes.length + ' chantier' + (lignes.length > 1 ? 's' : '');
-  if (!lignes.length) {
+  if (!lignes.length && !res.exclus.length) {
     tbody.innerHTML = ''; tfoot.innerHTML = '';
     vide.style.display = '';
     return;
@@ -1112,17 +1119,6 @@ function afficherSynthChantiers() {
       <td class="sc-ecart" style="${style}">${ecart}</td>
       <td class="sc-ecart" style="${style}">${pct}</td>
     </tr>`;
-    Object.keys(e.exclus).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })).forEach(m => {
-      const x = e.exclus[m];
-      totExPrev += x.prev; totExReal += x.real;
-      html += `<tr class="sc-exclu">
-        <td class="sc-ch">↳ <span class="sc-badge-exclu">exclu ${escapeHtmlRapport(m)}</span></td>
-        <td></td>
-        <td>${_fmtHSynthCh(x.prev)}</td>
-        <td>${_fmtHSynthCh(x.real)}</td>
-        <td></td><td></td>
-      </tr>`;
-    });
   });
   tbody.innerHTML = html;
 
@@ -1138,13 +1134,24 @@ function afficherSynthChantiers() {
       <td style="${styleT}">${ecartT}</td>
       <td style="${styleT}">${pctT}</td>
     </tr>`
-    + ((totExPrev || totExReal) ? `<tr class="sc-tot-exclu">
-      <td class="sc-ch">Temps exclus (hors total)</td>
-      <td></td>
-      <td>${_fmtHSynthCh(totExPrev)}</td>
-      <td>${_fmtHSynthCh(totExReal)}</td>
-      <td></td><td></td>
-    </tr>` : '');
+    + (res.exclus.length ? `<tr class="sc-titre-exclu"><td class="sc-ch" colspan="6">Temps exclus du calcul (hors total)</td></tr>`
+      + res.exclus.map(x => {
+          totExPrev += x.prev; totExReal += x.real;
+          return `<tr class="sc-exclu">
+            <td class="sc-ch"><span class="sc-badge-exclu">${escapeHtmlRapport(x.motif)}</span></td>
+            <td></td>
+            <td>${_fmtHSynthCh(x.prev)}</td>
+            <td>${_fmtHSynthCh(x.real)}</td>
+            <td></td><td></td>
+          </tr>`;
+        }).join('')
+      + (res.exclus.length > 1 ? `<tr class="sc-tot-exclu">
+          <td class="sc-ch">Total temps exclus</td>
+          <td></td>
+          <td>${_fmtHSynthCh(totExPrev)}</td>
+          <td>${_fmtHSynthCh(totExReal)}</td>
+          <td></td><td></td>
+        </tr>` : '') : '');
 }
 
 /* ═══════════════════════════
