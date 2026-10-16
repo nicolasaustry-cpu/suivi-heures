@@ -1153,7 +1153,7 @@ if ('serviceWorker' in navigator) {
      Un épisode sans lien s'affiche grisé « Bientôt disponible ». -->
 <script>
 var TUTOS_VIDEO = [
-  { num: 1, titre: "Démarrer en 3 étapes",                  desc: "Paramétrage de l'entreprise, saisie des salariés et du prévisionnel", url: "https://youtu.be/__mEFVrn2x0" },
+  { num: 1, titre: "Démarrer en 3 étapes",                  desc: "Paramétrage de l'entreprise, saisie des salariés et du prévisionnel", url: "https://youtu.be/LbfqwIQAz5o" },
   { num: 2, titre: "Installer Suiv'Heures sur les mobiles", desc: "Mise en place sur les téléphones des salariés et du responsable",   url: "" },
   { num: 3, titre: "Créer un chantier sur le planning",     desc: "Création du chantier et affectation des équipes",                    url: "" },
   { num: 4, titre: "Utiliser l'appli sur mobile",           desc: "Le pointage des heures au quotidien par le salarié",                 url: "" },
@@ -1231,7 +1231,7 @@ var TUTOS_VIDEO = [
     var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.add('tv-large');
     document.getElementById('tv-lecteur').style.display = 'block';
     document.getElementById('tv-cadre').innerHTML =
-      '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0" title="' + echap(t.titre) + '" ' +
+      '<iframe src="https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1" title="' + echap(t.titre) + '" ' +
       'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
     document.getElementById('tv-lecteur-titre').textContent = 'Épisode ' + t.num + ' — ' + t.titre;
     document.getElementById('tv-lien-yt').href = 'https://youtu.be/' + id;
