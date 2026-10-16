@@ -1164,6 +1164,8 @@ var TUTOS_VIDEO = [
 <style>
 #tutos-modal{display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center;padding:16px;}
 #tutos-modal .tv-boite{background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:92vh;overflow:auto;padding:24px 22px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,Helvetica,sans-serif;}
+#tutos-modal .tv-boite.tv-large{max-width:min(1600px,96vw,calc((92vh - 150px) * 16 / 9 + 44px));}
+#tutos-modal .tv-astuce{font-size:12px;color:#64748b;}
 #tutos-modal .tv-fermer{position:absolute;top:10px;right:14px;background:none;border:none;font-size:26px;color:#94a3b8;cursor:pointer;line-height:1;}
 #tutos-modal h3{margin:0 0 4px;font-size:19px;color:#0f3a8a;}
 #tutos-modal .tv-sous{font-size:13px;color:#64748b;margin-bottom:16px;}
@@ -1194,6 +1196,7 @@ var TUTOS_VIDEO = [
       <div class="tv-cadre" id="tv-cadre"></div>
       <div class="tv-lecteur-pied">
         <span id="tv-lecteur-titre" style="font-weight:700;color:#0f172a;"></span>
+        <span class="tv-astuce">Plein écran ⛶ pour la meilleure qualité</span>
         <a id="tv-lien-yt" href="#" target="_blank" rel="noopener">Ouvrir sur YouTube ↗</a>
       </div>
     </div>
@@ -1225,6 +1228,8 @@ var TUTOS_VIDEO = [
   window.lireTutoVideo = function (i) {
     var t = TUTOS_VIDEO[i], id = idYoutube(t && t.url);
     if (!id) return;
+    var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.add('tv-large');
+    document.getElementById('tv-lecteur').style.display = 'block';
     document.getElementById('tv-cadre').innerHTML =
       '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0" title="' + echap(t.titre) + '" ' +
       'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
@@ -1236,12 +1241,14 @@ var TUTOS_VIDEO = [
   };
   window.ouvrirTutosVideo = function () {
     rendreListe(-1);
+    var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.remove('tv-large');
     document.getElementById('tv-lecteur').style.display = 'none';
     document.getElementById('tv-cadre').innerHTML = '';
     document.getElementById('tutos-modal').style.display = 'flex';
   };
   window.fermerTutosVideo = function () {
     document.getElementById('tutos-modal').style.display = 'none';
+    var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.remove('tv-large');
     document.getElementById('tv-cadre').innerHTML = ''; // coupe le son de la vidéo
   };
   document.addEventListener('keydown', function (e) {
