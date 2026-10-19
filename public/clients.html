@@ -105,10 +105,25 @@
     .imp-ok { background:#16a34a; color:#fff; } .imp-ok:disabled { opacity:.5; cursor:default; }
     .imp-an { background:#e2e8f0; color:#334155; }
     .imp-lien { background:none !important; color:#0369a1 !important; padding:0 !important; text-decoration:underline; font-weight:600 !important; margin-right:auto; }
-    .imp-zone { border:2px dashed #93c5fd; background:#eff6ff; border-radius:10px; padding:18px; text-align:center; color:#1e3a8a; cursor:pointer; }
-    .imp-zone.survol { background:#dbeafe; }
+    /* Écran de dépôt : div (et non label) pour échapper aux styles globaux des <label> */
+    #imp-corps .imp-zone { display:flex; flex-direction:column; align-items:center; gap:8px; border:2px dashed #93c5fd; background:#eff6ff; border-radius:12px; padding:26px 18px; text-align:center; color:#1e3a8a; cursor:pointer; text-transform:none; letter-spacing:normal; font-weight:400; }
+    #imp-corps .imp-zone.survol { background:#dbeafe; border-color:#2563eb; }
+    #imp-corps .imp-zone-ico { font-size:2rem; line-height:1; }
+    #imp-corps .imp-zone-titre { font-size:1rem; font-weight:700; color:#0f3a8a; }
+    #imp-corps .imp-zone-ou { font-size:.8rem; color:#64748b; }
+    #imp-corps .imp-btn-fichier { background:#0f3a8a; color:#fff; border:none; border-radius:8px; padding:9px 18px; font-weight:700; font-size:.88rem; cursor:pointer; }
+    #imp-corps .imp-btn-fichier:hover { background:#1e4fae; }
+    #imp-corps .imp-zone-formats { font-size:.78rem; color:#475569; }
+    #imp-corps .imp-aide { margin-top:16px; display:flex; flex-direction:column; gap:10px; }
+    #imp-corps .imp-etape { display:flex; gap:10px; align-items:flex-start; }
+    #imp-corps .imp-num { flex:0 0 22px; height:22px; border-radius:50%; background:#f59e0b; color:#412402; font-weight:700; font-size:.78rem; display:flex; align-items:center; justify-content:center; }
+    #imp-corps .imp-etape-txt { font-size:.84rem; color:#334155; line-height:1.45; }
+    #imp-corps .imp-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+    #imp-corps .imp-chip { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; padding:2px 9px; font-size:.75rem; color:#334155; }
+    #imp-corps .imp-chip.oblig { background:#fffbeb; border-color:#fcd34d; color:#92400e; font-weight:700; }
     .imp-map { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px 12px; margin:10px 0 12px; }
-    .imp-map label { display:block; font-size:.74rem; font-weight:700; color:#475569; margin-bottom:3px; }
+    .imp-map label { display:block; font-size:.74rem; font-weight:700; color:#475569; margin-bottom:3px; text-transform:none; letter-spacing:normal; }
+    #imp-corps label.imp-ecraser { display:flex; align-items:center; gap:7px; cursor:pointer; text-transform:none; letter-spacing:normal; font-size:.84rem; font-weight:400; color:#334155; }
     .imp-map select { width:100%; padding:5px 6px; border:1px solid #cbd5e1; border-radius:6px; font-size:.82rem; }
     .imp-apercu { border-collapse:collapse; width:100%; font-size:.78rem; }
     .imp-apercu th { background:#e2e8f0; text-align:left; padding:5px 7px; }
@@ -785,7 +800,8 @@ async function synchroniserClientsHenrri() {
    3. aperçu, puis envoi en UNE fois au serveur (/api/data/coordonnees-chantiers-import).
    Les fiches déjà renseignées ne sont pas modifiées, sauf case cochée. */
 const IMP_CHAMPS = [
-  { id: 'nom',      lib: 'Nom / raison sociale *', mots: ['NOM','CLIENT','NOM CLIENT','RAISON SOCIALE','SOCIETE','ENTREPRISE','DENOMINATION','NOM COMPLET','NOM DU CLIENT','CONTACT'] },
+  { id: 'raison',   lib: 'Raison sociale',         mots: ['RAISON SOCIALE','SOCIETE','ENTREPRISE','DENOMINATION'] },
+  { id: 'nom',      lib: 'Nom',                    mots: ['NOM','CLIENT','NOM CLIENT','NOM COMPLET','NOM DU CLIENT','CONTACT','NOM DE FAMILLE'] },
   { id: 'prenom',   lib: 'Prénom',                 mots: ['PRENOM'] },
   { id: 'adresse',  lib: 'Adresse',                mots: ['ADRESSE','ADRESSE 1','ADRESSE1','RUE','VOIE','ADRESSE LIGNE 1','ADRESSE POSTALE','ADRESSE FACTURATION'] },
   { id: 'adresse2', lib: 'Complément d’adresse',   mots: ['ADRESSE 2','ADRESSE2','COMPLEMENT','COMPLEMENT D ADRESSE','COMPLEMENT ADRESSE','ADRESSE LIGNE 2'] },
@@ -811,16 +827,24 @@ function _impRendreDepot(message) {
   document.getElementById('imp-valider').disabled = true;
   document.getElementById('imp-corps').innerHTML =
     (message ? `<p class="imp-err">${_clEsc(message)}</p>` : '') +
-    `<label class="imp-zone" id="imp-zone">
-       <div style="font-size:1.6rem;">📄</div>
-       <b>Choisir un fichier</b> ou le déposer ici<br>
-       <span style="font-size:.8rem;color:#475569;">Excel (.xlsx, .xls) ou CSV — première ligne = titres des colonnes</span>
+    `<div class="imp-zone" id="imp-zone">
+       <div class="imp-zone-ico">📄</div>
+       <div class="imp-zone-titre">Déposez votre fichier ici</div>
+       <div class="imp-zone-ou">ou</div>
+       <button type="button" class="imp-btn-fichier" id="imp-btn-fichier">📂 Choisir un fichier</button>
+       <div class="imp-zone-formats">Excel (.xlsx, .xls) ou CSV</div>
        <input type="file" id="imp-fichier" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none;">
-     </label>
-     <p style="font-size:.8rem;color:#64748b;margin-top:10px;">Colonnes reconnues automatiquement : Nom (ou Raison sociale), Prénom, Adresse, Complément, Code postal, Ville, Téléphone, Mobile, Fixe, E-mail. Seul le nom est obligatoire.</p>`;
+     </div>
+     <div class="imp-aide">
+       <div class="imp-etape"><span class="imp-num">1</span><div class="imp-etape-txt"><b>Une ligne par client</b>, la première ligne contenant les titres des colonnes.</div></div>
+       <div class="imp-etape"><span class="imp-num">2</span><div class="imp-etape-txt"><b>Colonnes reconnues automatiquement</b> (seul le nom est obligatoire) :
+         <div class="imp-chips"><span class="imp-chip oblig">Nom ou Raison sociale</span><span class="imp-chip">Prénom</span><span class="imp-chip">Adresse</span><span class="imp-chip">Complément</span><span class="imp-chip">Code postal</span><span class="imp-chip">Ville</span><span class="imp-chip">Téléphone</span><span class="imp-chip">Mobile</span><span class="imp-chip">Fixe</span><span class="imp-chip">E-mail</span></div></div></div>
+       <div class="imp-etape"><span class="imp-num">3</span><div class="imp-etape-txt"><b>Vous vérifiez</b> ensuite la correspondance des colonnes et un aperçu avant d'importer. Les fiches déjà renseignées ne sont pas modifiées.</div></div>
+     </div>`;
   const inp = document.getElementById('imp-fichier');
   inp.addEventListener('change', () => { if (inp.files && inp.files[0]) _impLireFichier(inp.files[0]); });
   const zone = document.getElementById('imp-zone');
+  zone.addEventListener('click', e => { if (e.target !== inp) inp.click(); });
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('survol'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('survol'));
   zone.addEventListener('drop', e => {
@@ -938,8 +962,11 @@ function _impTel(v) {
 function _impLigneVersFiche(r) {
   const m = _imp.map;
   const v = id => (m[id] >= 0 ? String(r[m[id]] || '').trim() : '');
-  const nomBrut = v('nom'), prenom = v('prenom');
-  const nom = (prenom && nomBrut && !_norm(nomBrut).includes(_norm(prenom)) ? (prenom + ' ' + nomBrut) : (nomBrut || prenom)).replace(/\s+/g, ' ').trim();
+  // Raison sociale si elle est remplie (société) ; sinon Prénom + Nom (particulier).
+  // Une colonne « Raison sociale » vide ne doit jamais faire perdre le nom de famille.
+  const raison = v('raison'), nomBrut = v('nom'), prenom = v('prenom');
+  const particulier = (prenom && nomBrut && !_norm(nomBrut).includes(_norm(prenom)) ? (prenom + ' ' + nomBrut) : (nomBrut || prenom));
+  const nom = (raison || particulier).replace(/\s+/g, ' ').trim();
   let cp = v('cp');
   if (/^\d{4}$/.test(cp)) cp = '0' + cp;                                      // 2800 → 02800 (Excel)
   let ville = v('ville');
@@ -965,7 +992,7 @@ function _impRendreCorrespondance() {
        <button type="button" class="btn-mini" onclick="_impRendreDepot()">Changer de fichier</button></div>
      <div style="margin-top:10px;font-weight:700;color:#1e3a8a;">Correspondance des colonnes</div>
      <div class="imp-map">${sel}</div>
-     <label style="display:flex;align-items:center;gap:7px;cursor:pointer;">
+     <label class="imp-ecraser">
        <input type="checkbox" id="imp-ecraser" onchange="_impRendreApercu()"> Mettre à jour les fiches clients déjà renseignées (sinon elles sont conservées telles quelles)
      </label>
      <div id="imp-resume" class="imp-resume"></div>
@@ -998,7 +1025,7 @@ function _impRendreApercu() {
   if (!_imp) return;
   const btn = document.getElementById('imp-valider');
   const res = document.getElementById('imp-resume');
-  if (_imp.map.nom < 0 && _imp.map.prenom < 0) {
+  if (_imp.map.nom < 0 && _imp.map.prenom < 0 && _imp.map.raison < 0) {
     res.innerHTML = '<span class="imp-err">Indiquez la colonne qui contient le nom du client.</span>';
     document.getElementById('imp-apercu').innerHTML = '';
     btn.disabled = true; return;
