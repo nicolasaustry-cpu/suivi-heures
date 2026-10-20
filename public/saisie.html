@@ -607,6 +607,11 @@
     gap: 6px;
   }
   .chantier-nom.libre { color: #1e4fa8 !important; }
+  /* Cartes prévues : nom seul sur la 1re ligne, étiquettes regroupées sur une seule 2e ligne */
+  .chantier-nom.nom-seul { flex: 1 1 100%; }
+  .ligne-etiquettes { flex: 1 1 100%; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .ligne-etiquettes::-webkit-scrollbar { display: none; }
+  .ligne-etiquettes > * { flex: 0 0 auto; margin: 0 !important; }
 
   /* ── Étiquettes de la ligne de titre ──
      Ces classes remplacent les styles en ligne posés par le JS. */
@@ -2655,7 +2660,10 @@ function rendrePrev() {
     const header = document.createElement('div');
     header.className = 'chantier-header';
     const nomEl = document.createElement('div');
-    nomEl.className = 'chantier-nom';
+    nomEl.className = 'chantier-nom nom-seul';
+    // Ligne 2 : toutes les étiquettes (À faire, RDV, Prévu, temps prévu) sur une seule ligne
+    const etiq = document.createElement('div');
+    etiq.className = 'ligne-etiquettes';
     nomEl.textContent = ch.nom;
     const _texteNote = (_notesPlanning[ch.nom] || '').trim();
     const _nbDocs    = _docsPlanning[ch.nom] || 0;
@@ -2668,7 +2676,7 @@ function rendrePrev() {
       btnNP.title = _texteNote ? 'Voir ce qui est à faire sur ce chantier' : 'Voir les documents joints';
       btnNP.className = 'chip-etat chip-note-planning' + (_texteNote ? ' chip-afaire' : '');
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
-      nomEl.appendChild(btnNP);
+      etiq.appendChild(btnNP);
     }
     // Heure de RDV : lecture seule pour le salarié ; modifiable pour gérant/admin
     // (avec verrou 🔒 côté admin sur un RDV posé par le gérant).
@@ -2682,7 +2690,7 @@ function rendrePrev() {
         rdvEl.textContent = '🕐 ' + rdvVal;
         rdvEl.title = 'Heure de RDV';
         rdvEl.className = 'chip-etat chip-rdv-lecture';
-        nomEl.appendChild(rdvEl);
+        etiq.appendChild(rdvEl);
       }
     } else {
       const verrou = (role === 'admin' && rdvVal && rdvAut === 'gerant');
@@ -2705,7 +2713,7 @@ function rendrePrev() {
         el.className = 'chip-etat chip-rdv-vide';
         el.onclick = function () { ouvrirRdvMobile(ch.nom, ''); };
       }
-      nomEl.appendChild(el);
+      etiq.appendChild(el);
     }
     header.appendChild(nomEl);
     // Temps prévu, à droite du nom (1re ligne)
@@ -2722,8 +2730,9 @@ function rendrePrev() {
       badge.className = 'tag-prev';
       badge.textContent = 'Prévu';
     }
-    header.appendChild(badge);
-    header.appendChild(hPrevEl);   // temps prévu, à droite de l'étiquette « Prévu »
+    etiq.appendChild(badge);
+    etiq.appendChild(hPrevEl);     // temps prévu, à droite de l'étiquette « Prévu »
+    header.appendChild(etiq);
     div.appendChild(header);
     { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); } }
 
