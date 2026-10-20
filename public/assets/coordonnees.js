@@ -9,7 +9,30 @@
 
   function _lire()  { try { return JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) { return {}; } }
   function _ecrire(o){ try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(o)); } catch (_) {} }
-  function get(nom) { return _lire()[(nom || '').toUpperCase()] || null; }
+  /* Comparaison souple des noms : sans accents, majuscules, ponctuation et espaces
+     multiples ramenés à un espace (« Émilie » = « EMILIE », « DUPONT-MARTIN » = « DUPONT MARTIN »).
+     Même règle que la page Clients, pour que planning, mobile et Clients
+     retrouvent toujours la même fiche. */
+  function _norm(s) {
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  /* Fiche d'un chantier : clé exacte d'abord (cas le plus courant, inchangé),
+     puis comparaison souple sur toutes les fiches existantes. Lecture seule. */
+  function get(nom) {
+    var o = _lire();
+    var exact = o[String(nom || '').toUpperCase()];
+    if (exact) return exact;
+    var n = _norm(nom);
+    if (!n) return null;
+    var ks = Object.keys(o), repli = null;
+    for (var i = 0; i < ks.length; i++) {
+      if (_norm(ks[i]) !== n) continue;
+      if (!_coordVide(o[ks[i]])) return o[ks[i]];   // fiche renseignée prioritaire
+      if (!repli) repli = o[ks[i]];
+    }
+    return repli;
+  }
   function _coordVide(c) { return !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email); }
 
   /* Chantiers créés par l'import d'un devis Henrri : nommés « NOM CLIENT 26-09-1 ».
@@ -222,9 +245,9 @@
   window.addEventListener('donnees-chargees', _chargerClientsHenrri);
 
   function _henrriMatch(nom) {
-    var cle = (nom || '').trim().toUpperCase();
+    var cle = _norm(nom);
     if (!cle || !_henrriClients.length) return null;
-    return _henrriClients.find(function (c) { return (c.nom || '').trim().toUpperCase() === cle; }) || null;
+    return _henrriClients.find(function (c) { return _norm(c.nom) === cle; }) || null;
   }
   function _henrriVersCoord(c) {
     var tel = String(c.telephone || '');
