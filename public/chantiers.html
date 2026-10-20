@@ -204,18 +204,6 @@
   /* Ligne d'un chantier planifié mais ABSENT du devis (remonté automatiquement) */
   .tr-chantier.depuis-planning td { background: #fef9c3; }
   .tr-chantier.depuis-planning:hover td { background: #fde68a; }
-  /* Chantier dont les heures planifiées (tous mois) dépassent les heures du devis :
-     fond qui pulse doucement du rose au rouge clair. Placé AVANT .chantier-surligne
-     pour que la recherche garde la priorité. */
-  @keyframes pulseDepasse { 0%,100% { background:#fee2e2; } 50% { background:#fca5a5; } }
-  .tr-chantier.depasse td,
-  .tr-chantier.depasse:hover td { background:#fee2e2; animation:pulseDepasse 2.4s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { .tr-chantier.depasse td { animation:none; background:#fecaca; } }
-  @media print { .tr-chantier.depasse td { animation:none; background:#fecaca !important; } }
-  .depasse-info { display:none; flex-shrink:0; margin-left:3px; padding:0 5px; border-radius:999px;
-    background:#dc2626; color:#fff; font-size:0.68rem; font-weight:700; line-height:1.5; white-space:nowrap; }
-  .tr-chantier.depasse .depasse-info { display:inline-block; }
-  .tr-chantier.depasse .coche-planifie { display:none; }
   .tr-chantier.chantier-surligne td,
   .tr-chantier.chantier-surligne:hover td { background: #fecaca !important; }
   .coche-planning {
@@ -571,7 +559,6 @@ let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrev
 let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fois (à l'ouverture)
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
 let planningParMois = {};            // { "YYYY_MM": { "NOM CHANTIER": heuresCumulées } }
-let planningTotal = {};              // { "NOM CHANTIER": heures planifiées cumulées, TOUS mois }
 
 /* ═══════════════════════════════
    CHANTIERS PLANNIFIÉS (depuis heuresdata)
@@ -581,7 +568,6 @@ function chargerChantiersPlannifies() {
   // uniquement s'il apparaît dans le planning à une date de ce mois.
   chantiersPlannifies = new Set();
   planningParMois = {};
-  planningTotal = {};
   try {
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
     Object.keys(heures).forEach(k => {
@@ -599,7 +585,6 @@ function chargerChantiersPlannifies() {
       const nomU = nom.toUpperCase();
       if (!planningParMois[ym]) planningParMois[ym] = {};
       planningParMois[ym][nomU] = (planningParMois[ym][nomU] || 0) + (parseFloat(entry.heures) || 0);
-      planningTotal[nomU] = (planningTotal[nomU] || 0) + (parseFloat(entry.heures) || 0);
     });
   } catch (e) {
     console.warn('Impossible de lire heuresdata', e);
@@ -619,40 +604,6 @@ function injecterPlanifiesManquants(annee, mi) {
     if (!nomU || nomU === 'TEMPS NON AFFECTE' || existantes.has(nomU)) return;   // TNA exclu ; ou déjà dans le devis
     dm.chantiers.push({ client: nomU, hPrevues: planning[nomU] || '', _depuisPlanning: true });
     existantes.add(nomU);
-  });
-}
-
-/* ── Dépassement du devis ──
-   Devis d'un chantier = somme de ses heures prévues sur TOUS les mois du prévisionnel
-   (hors lignes jaunes remontées du planning, qui ne sont pas du devis).
-   Planifié = toutes les heures posées au planning, passées et à venir (planningTotal).
-   Toutes les lignes « devis » du chantier pulsent en rouge si planifié > devis. */
-function _devisTotaux() {
-  const tot = {};
-  Object.keys(data || {}).forEach(an => Object.keys(data[an] || {}).forEach(mi => {
-    const dm = data[an][mi];
-    (dm && Array.isArray(dm.chantiers) ? dm.chantiers : []).forEach(ch => {
-      if (!ch || ch._depuisPlanning) return;
-      const nomU = String(ch.client || '').trim().toUpperCase();
-      if (nomU) tot[nomU] = (tot[nomU] || 0) + (parseFloat(ch.hPrevues) || 0);
-    });
-  }));
-  return tot;
-}
-function _fmtH1(h) { return (Math.round(h * 100) / 100).toLocaleString('fr-FR') + ' h'; }
-function majDepassementsDevis() {
-  const devis = _devisTotaux();
-  document.querySelectorAll('tr.tr-chantier[data-ci]').forEach(tr => {
-    const ch = (getDataMois(parseInt(tr.dataset.annee), parseInt(tr.dataset.mi)).chantiers || [])[parseInt(tr.dataset.ci)];
-    const nomU = ch ? String(ch.client || '').trim().toUpperCase() : '';
-    const prevu = devis[nomU] || 0, planif = planningTotal[nomU] || 0;
-    const depasse = !!(ch && !ch._depuisPlanning && nomU && prevu > 0 && planif > prevu + 0.01);
-    tr.classList.toggle('depasse', depasse);
-    const info = tr.querySelector('.depasse-info');
-    if (info) {
-      info.textContent = depasse ? '+' + _fmtH1(planif - prevu) : '';
-      info.title = depasse ? 'Devis dépassé au planning : planifié ' + _fmtH1(planif) + ' pour ' + _fmtH1(prevu) + ' au devis (tous mois confondus)' : '';
-    }
   });
 }
 
@@ -1083,7 +1034,7 @@ function rendreChantiers() {
               style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" oninput="majChantierInput(this)" onkeydown="navEnTree(event,this)">
-            ${coche}<span class="depasse-info"></span>
+            ${coche}
           </div>
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
@@ -1137,7 +1088,6 @@ function rendreChantiers() {
   });
 
   cont.innerHTML = html;
-  majDepassementsDevis();     // lignes dont le devis est dépassé au planning (fond rouge pulsé)
   rechercherChantierPrev();   // ré-applique la surbrillance de recherche après reconstruction du DOM
   // Centrage uniquement à la première ouverture de la page : ensuite, on laisse
   // l'utilisateur sur le mois où il saisit (pas de recentrage après chaque saisie).
@@ -1379,7 +1329,6 @@ function majChantier(annee, mi, ci, champ, val) {
   dm.chantiers[ci][champ] = (champ === 'client' && typeof val === 'string') ? val.toUpperCase() : val;
   if (dm.chantiers[ci]) delete dm.chantiers[ci]._depuisPlanning;   // édité → adopté dans le devis (fin du surlignage jaune)
   sauverData();
-  majDepassementsDevis();   // la modification des heures prévues ou du nom peut créer / lever un dépassement
   majLigne(`${annee}_${mi}`);
   const totH = dm.chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
   const tbody = document.getElementById(`tbody-ch-${annee}_${mi}`);
