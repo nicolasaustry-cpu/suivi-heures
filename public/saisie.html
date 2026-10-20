@@ -630,6 +630,8 @@
     letter-spacing: 0;
   }
   .chip-etat.chip-note-planning { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+  /* Note du planning = consigne « À faire » : étiquette rouge, distincte du bouton Note du salarié */
+  .chip-etat.chip-note-planning.chip-afaire { background: #dc2626; color: #fff; border-color: #b91c1c; }
   .chip-etat.chip-rdv           { background: #dbeafe; color: #1e3a8a; }
   .chip-etat.chip-rdv-vide      { background: #eef2f7; color: #64748b; }
   .chip-etat.chip-rdv-lock      { background: #e5e7eb; color: #6b7280; cursor: default; }
@@ -2221,7 +2223,7 @@ function afficherNotePopup(titre, texte) {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:18px;';
     ov.innerHTML =
         '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
-      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note du planning</div>'
+      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 À faire</div>'
       + '<div id="note-planning-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
       + '<div id="note-planning-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
       + '<div id="note-planning-docs" style="padding:0 16px 12px;"></div>'
@@ -2661,10 +2663,10 @@ function rendrePrev() {
       const btnNP = document.createElement('button');
       btnNP.type = 'button';
       btnNP.textContent = _texteNote
-        ? ('📋 Note' + (_nbDocs > 0 ? ' · 📎 ' + _nbDocs : ''))
+        ? ('📋 À faire' + (_nbDocs > 0 ? ' · 📎 ' + _nbDocs : ''))
         : '📎 Document' + (_nbDocs > 1 ? 's' : '');
-      btnNP.title = _texteNote ? 'Voir la note du planning' : 'Voir les documents joints';
-      btnNP.className = 'chip-etat chip-note-planning';
+      btnNP.title = _texteNote ? 'Voir ce qui est à faire sur ce chantier' : 'Voir les documents joints';
+      btnNP.className = 'chip-etat chip-note-planning' + (_texteNote ? ' chip-afaire' : '');
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
       nomEl.appendChild(btnNP);
     }
