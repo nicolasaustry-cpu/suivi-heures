@@ -11,7 +11,8 @@ module.exports = defineConfig({
   testDir: './tests',
   timeout: 30000,
   retries: 1, // un 2e essai évite une fausse alerte si Railway répond lentement
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // 'github' publie chaque erreur en annotation lisible par Claude via l'API GitHub
+  reporter: [['list'], ['github'], ['html', { open: 'never' }]],
   use: {
     baseURL: BASE_URL,
     locale: 'fr-FR',
