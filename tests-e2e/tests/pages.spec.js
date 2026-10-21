@@ -41,8 +41,19 @@ for (const chemin of PAGES) {
   });
 }
 
-test('index.html conserve la balise de vérification Google', async ({ page }) => {
+// Vérifie le HTML brut tel que le serveur l'envoie (ce que lit Google),
+// sans exécuter le JS : sur mobile, index.html redirige vers saisie.html.
+test('index.html conserve la balise de vérification Google', async ({ request }) => {
+  const rep = await request.get('/index.html');
+  expect(rep.status(), 'statut HTTP de /index.html').toBeLessThan(400);
+  expect(await rep.text()).toContain(
+    '<meta name="google-site-verification" content="VbMO8C8t_FwqGU7sun7NZ_btYfsF6-iVE5r2dx-llho"'
+  );
+});
+
+// Sur téléphone, index.html doit envoyer le salarié vers la saisie mobile.
+test('Sur mobile, index.html redirige vers saisie.html', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'contrôle réservé au téléphone');
   await page.goto('/index.html');
-  await expect(page.locator('meta[name="google-site-verification"]'))
-    .toHaveAttribute('content', 'VbMO8C8t_FwqGU7sun7NZ_btYfsF6-iVE5r2dx-llho');
+  await expect(page).toHaveURL(/\/saisie\.html/);
 });
