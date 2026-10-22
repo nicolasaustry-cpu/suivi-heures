@@ -623,16 +623,17 @@ function injecterPlanifiesManquants(annee, mi) {
 }
 
 /* ── Dépassement du devis ──
-   Devis d'un chantier = somme de ses heures prévues sur TOUS les mois du prévisionnel
-   (hors lignes jaunes remontées du planning, qui ne sont pas du devis).
+   Prévu total d'un chantier = somme de ses heures prévues sur TOUS les mois du
+   prévisionnel, lignes jaunes comprises — même base que la colonne « Total »
+   de l'infobulle, pour que le badge et l'infobulle se recoupent.
    Planifié = toutes les heures posées au planning, passées et à venir (planningTotal).
-   Toutes les lignes « devis » du chantier pulsent en rouge si planifié > devis. */
+   Toutes les lignes « devis » du chantier pulsent en rouge si planifié > prévu total. */
 function _devisTotaux() {
   const tot = {};
   Object.keys(data || {}).forEach(an => Object.keys(data[an] || {}).forEach(mi => {
     const dm = data[an][mi];
     (dm && Array.isArray(dm.chantiers) ? dm.chantiers : []).forEach(ch => {
-      if (!ch || ch._depuisPlanning) return;
+      if (!ch) return;
       const nomU = String(ch.client || '').trim().toUpperCase();
       if (nomU) tot[nomU] = (tot[nomU] || 0) + (parseFloat(ch.hPrevues) || 0);
     });
@@ -651,7 +652,7 @@ function majDepassementsDevis() {
     const info = tr.querySelector('.depasse-info');
     if (info) {
       info.textContent = depasse ? '+' + _fmtH1(planif - prevu) : '';
-      info.title = depasse ? 'Devis dépassé au planning : planifié ' + _fmtH1(planif) + ' pour ' + _fmtH1(prevu) + ' au devis (tous mois confondus)' : '';
+      info.title = depasse ? 'Devis dépassé au planning : planifié ' + _fmtH1(planif) + ' pour ' + _fmtH1(prevu) + ' prévues (tous mois confondus)' : '';
     }
   });
 }
