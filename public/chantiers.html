@@ -204,6 +204,10 @@
   /* Ligne d'un chantier planifié mais ABSENT du devis (remonté automatiquement) */
   .tr-chantier.depuis-planning td { background: #fef9c3; }
   .tr-chantier.depuis-planning:hover td { background: #fde68a; }
+  /* Ligne d'un chantier AJOUTÉ SUR MOBILE par un salarié, absent du devis et du planning (remonté automatiquement) */
+  .tr-chantier.depuis-mobile td { background: #dbeafe; }
+  .tr-chantier.depuis-mobile:hover td { background: #bfdbfe; }
+  .coche-mobile { display:inline-block; margin-right:4px; font-size:0.85rem; line-height:1; cursor:help; vertical-align:middle; }
   /* Chantier dont les heures planifiées (tous mois) dépassent les heures du devis :
      fond qui pulse doucement du rose au rouge clair. Placé AVANT .chantier-surligne
      pour que la recherche garde la priorité. */
@@ -614,11 +618,146 @@ function injecterPlanifiesManquants(annee, mi) {
   if (!planning) return;
   const dm = getDataMois(annee, mi);
   if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
+  // Une ligne « ajout mobile » (bleue) dont le chantier est désormais planifié ce mois-ci
+  // devient une ligne « depuis le planning » (jaune), avec les heures planifiées.
+  dm.chantiers.forEach(c => {
+    const n = (c.client || '').trim().toUpperCase();
+    if (c._depuisMobile && planning[n] != null) {
+      delete c._depuisMobile; delete c._mobileInfo;
+      c._depuisPlanning = true; c.hPrevues = planning[n] || '';
+      _mobileModifie = true;
+    }
+  });
   const existantes = new Set(dm.chantiers.map(c => (c.client || '').trim().toUpperCase()));
   Object.keys(planning).forEach(nomU => {
     if (!nomU || nomU === 'TEMPS NON AFFECTE' || existantes.has(nomU)) return;   // TNA exclu ; ou déjà dans le devis
     dm.chantiers.push({ client: nomU, hPrevues: planning[nomU] || '', _depuisPlanning: true });
     existantes.add(nomU);
+  });
+}
+
+/* ═══════════════════════════════
+   CHANTIERS AJOUTÉS SUR MOBILE (réalisé, hors devis et hors planning)
+   Un salarié peut ajouter librement un chantier sur le mobile (saisie marquée
+   isPrevisionnel === false). S'il n'est ni dans le devis ni dans le planning du
+   mois, il remonte ici en ligne BLEUE, avec les heures réalisées du mois.
+   - heures tenues à jour tant que la ligne n'a pas été modifiée à la main ;
+   - ligne modifiée (nom, heures, report) → adoptée dans le devis (fin du bleu) ;
+   - ligne supprimée → mémorisée dans le mois (mobileIgnores), plus reproposée ;
+   - chantier renommé/supprimé côté Réalisé → la ligne bleue disparaît ;
+   - chantier planifié ensuite → la ligne devient jaune (depuis le planning).
+   Les créneaux « exclu du calcul » (SAV…) restent hors prévisionnel.
+═══════════════════════════════ */
+let mobileParMois  = {};     // { 'YYYY_MM': { NOM: { h, sal:[noms], jours:[dates] } } } — mois chargés uniquement
+let _mobileCharge  = 0;      // horodatage du dernier chargement réussi
+let _mobileEnCours = null;   // chargement en cours (promesse)
+let _mobileAnnee   = null;   // année active du dernier chargement
+let _mobileModifie = false;  // données du prévisionnel modifiées pendant un rendu → à sauvegarder
+
+function _tokenMobile() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+}
+/* Créneaux marqués « exclu du calcul » au Planning : salarié|date|NOM */
+function _exclusMobile() {
+  const ex = {};
+  try {
+    const h = JSON.parse(localStorage.getItem('heuresdata') || '{}') || {};
+    Object.keys(h).forEach(k => {
+      const e = h[k];
+      if (!e || !e.exclu || !e.chantier) return;
+      const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (m) ex[m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + String(e.chantier).trim().toUpperCase()] = 1;
+    });
+  } catch (e) {}
+  return ex;
+}
+
+async function chargerChantiersMobile(forcer) {
+  if (_mobileEnCours) return _mobileEnCours;
+  if (!forcer && _mobileAnnee === anneeActive && Date.now() - _mobileCharge < 120000) return;
+  const token = _tokenMobile();
+  if (!token) return;
+  _mobileEnCours = (async () => {
+    try {
+      const rl = await fetch('/api/saisies/mois-list', { headers: { Authorization: 'Bearer ' + token } });
+      const dl = await rl.json();
+      if (!dl || !dl.ok) return;
+      const avecSaisies = new Set(dl.mois || []);
+      const affiches = getMoisAffichage().map(x => x.annee + '-' + String(x.mois + 1).padStart(2, '0'));
+      const exclus = _exclusMobile();
+      const nouveau = {};
+      // Mois affichés sans aucune saisie : chargés « à vide » (une ligne bleue périmée y sera retirée)
+      affiches.forEach(ym => { if (!avecSaisies.has(ym)) nouveau[ym.replace('-', '_')] = {}; });
+      await Promise.all(affiches.filter(ym => avecSaisies.has(ym)).map(async ym => {
+        const r = await fetch('/api/saisies/' + ym + '?sansPhotos=1', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        if (!d || !d.ok || !Array.isArray(d.saisies)) return;     // échec : mois non chargé, rien n'est retiré
+        const parCh = {};
+        d.saisies.forEach(sx => (sx.chantiers || []).forEach(c => {
+          if (c.isPrevisionnel !== false) return;                 // seuls les chantiers ajoutés sur le mobile
+          const nom = String(c.nom || '').trim().toUpperCase();
+          if (!nom || nom === 'TEMPS NON AFFECTE' || nom === 'ABSENCE') return;
+          if (exclus[sx.salarieId + '|' + sx.date + '|' + nom]) return;
+          const e = parCh[nom] || (parCh[nom] = { min: 0, sal: [], jours: [] });
+          e.min += parseFloat(c.dureeMin) || 0;
+          const sn = String(sx.salarieNom || '').trim();
+          if (sn && e.sal.indexOf(sn) === -1) e.sal.push(sn);
+          if (sx.date && e.jours.indexOf(sx.date) === -1) e.jours.push(sx.date);
+        }));
+        const out = {};
+        Object.keys(parCh).forEach(n => {
+          out[n] = { h: Math.round(parCh[n].min / 60 * 100) / 100, sal: parCh[n].sal, jours: parCh[n].jours.sort() };
+        });
+        nouveau[ym.replace('-', '_')] = out;
+      }).map(p => p.catch(() => {})));
+      mobileParMois = nouveau;
+      _mobileCharge = Date.now();
+      _mobileAnnee  = anneeActive;
+      if (typeof rendreChantiers === 'function') rendreChantiers();
+    } catch (e) {
+      console.warn('Chantiers ajoutés sur mobile : chargement impossible', e);
+    } finally {
+      _mobileEnCours = null;
+    }
+  })();
+  return _mobileEnCours;
+}
+
+function _texteInfoMobile(info) {
+  const h = info.h || 0;
+  const hTxt = (Number.isInteger(h) ? h : h.toFixed(2).replace(/0$/, '').replace('.', ',')) + ' h';
+  const jours = (info.jours || []).map(d => d.slice(8, 10) + '/' + d.slice(5, 7));
+  return 'Ajouté sur mobile par ' + ((info.sal && info.sal.length) ? info.sal.join(', ') : 'un salarié')
+    + ' — chantier absent du devis et du planning.\nHeures = réalisé pointé ce mois : ' + hTxt
+    + (jours.length ? ' (' + jours.join(', ') + ')' : '')
+    + '.\nModifiez la ligne pour l\'intégrer au prévisionnel.';
+}
+
+/* Injecte / met à jour / retire les lignes bleues d'un mois (si le mois a été chargé) */
+function injecterMobileManquants(annee, mi) {
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  const mob = mobileParMois[ym];
+  if (!mob) return;                                       // mois pas (encore) chargé : on ne touche à rien
+  const dm = getDataMois(annee, mi);
+  if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
+  const ignores = new Set((dm.mobileIgnores || []).map(n => String(n).toUpperCase()));
+  const planning = planningParMois[ym] || {};
+  // Lignes bleues existantes : retirées si le chantier n'est plus pointé, sinon heures à jour
+  for (let i = dm.chantiers.length - 1; i >= 0; i--) {
+    const c = dm.chantiers[i];
+    if (!c._depuisMobile) continue;
+    const n = (c.client || '').trim().toUpperCase();
+    const info = mob[n];
+    if (!info || ignores.has(n)) { dm.chantiers.splice(i, 1); _mobileModifie = true; continue; }
+    if ((parseFloat(c.hPrevues) || 0) !== info.h) { c.hPrevues = info.h; _mobileModifie = true; }
+    c._mobileInfo = _texteInfoMobile(info);
+  }
+  const existantes = new Set(dm.chantiers.map(c => (c.client || '').trim().toUpperCase()));
+  Object.keys(mob).forEach(n => {
+    if (existantes.has(n) || ignores.has(n) || planning[n] != null) return;   // déjà au devis / ignoré / planifié (ligne jaune)
+    dm.chantiers.push({ client: n, hPrevues: mob[n].h, _depuisMobile: true, _mobileInfo: _texteInfoMobile(mob[n]) });
+    existantes.add(n);
+    _mobileModifie = true;
   });
 }
 
@@ -685,6 +824,7 @@ window.addEventListener('DOMContentLoaded', () => {
   chargerChantiersPlannifies();
   remplirSelectAnnee();
   chargerAnnee();
+  chargerChantiersMobile(true);
 });
 
 // Au retour sur la page (navigation arrière ou restauration depuis le cache
@@ -700,6 +840,7 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     chargerChantiersPlannifies();
     if (typeof rendreChantiers === 'function') rendreChantiers();
+    chargerChantiersMobile(false);     // nouveaux ajouts mobile (au plus toutes les 2 min)
   }
 });
 
@@ -717,6 +858,7 @@ window.addEventListener('donnees-chargees', () => {
   chargerChantiersPlannifies();
   if (typeof rendreChantiers === 'function') rendreChantiers();
   if (typeof chargerAnnee === 'function') chargerAnnee();
+  chargerChantiersMobile(true);
 });
 
 /* ═══════════════════════════════
@@ -848,6 +990,7 @@ function remplirSelectAnnee() {
 function chargerAnnee() {
   anneeActive = parseInt(document.getElementById('selectAnnee').value);
   rendrePage();
+  if (_mobileAnnee !== null && _mobileAnnee !== anneeActive) chargerChantiersMobile(true);   // autre année : autres mois affichés
 }
 
 function ajouterAnnee() {
@@ -1024,7 +1167,11 @@ function rendreChantiers() {
   let html = '';
 
   // Faire remonter dans le devis les chantiers planifiés absents (surlignés en jaune)
+  _mobileModifie = false;
   liste.forEach(({ annee, mois: mi }) => injecterPlanifiesManquants(annee, mi));
+  // Puis les chantiers ajoutés sur mobile, ni au devis ni au planning (surlignés en bleu)
+  liste.forEach(({ annee, mois: mi }) => injecterMobileManquants(annee, mi));
+  if (_mobileModifie) { _mobileModifie = false; sauverData(); }
 
   // Calcul du nombre max de chantiers sur l'ensemble des mois affichés
   let maxChantiers = 0;
@@ -1066,18 +1213,22 @@ function rendreChantiers() {
     // Lignes saisies
     chantiers.forEach((ch, ci) => {
       const depuisPlan = !!ch._depuisPlanning;
+      const depuisMob  = !!ch._depuisMobile;
       const isPlanifie = estPlannifie(ch.client, annee, mi);
       let classes = 'tr-chantier';
       let coche = '';        // ✓ vert, à côté du nom (chantier du devis déjà planifié)
       let alertePlan = '';   // ⚠ jaune, dans la colonne action (chantier planifié absent du devis)
-      if (depuisPlan) {
+      if (depuisMob) {
+        classes += ' depuis-mobile';
+        alertePlan = '<span class="coche-mobile" title="' + _henrriEscAttr(ch._mobileInfo || 'Ajouté sur mobile par un salarié — absent du devis et du planning') + '">📱</span>';
+      } else if (depuisPlan) {
         classes += ' depuis-planning';
         alertePlan = '<span class="coche-planning" title="Planifié mais absent du prévisionnel - heures cumulées du planning">⚠</span>';
       } else if (isPlanifie) {
         classes += ' planifie';
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
       }
-      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
+      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}"${depuisMob ? ' data-mobile="' + _henrriEscAttr(ch._mobileInfo || '') + '"' : ''}>
         <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder="" title="${_henrriEscAttr(ch.client||'')}"
@@ -1366,9 +1517,19 @@ function ajouterChantier(annee, mi) {
   rendreChantiers();
 }
 
+/* Ligne bleue supprimée (ou entièrement reportée) : plus jamais reproposée pour ce mois */
+function _memoriserIgnoreMobile(dm, ch) {
+  if (!ch || !ch._depuisMobile) return;
+  const n = (ch.client || '').trim().toUpperCase();
+  if (!n) return;
+  if (!Array.isArray(dm.mobileIgnores)) dm.mobileIgnores = [];
+  if (dm.mobileIgnores.indexOf(n) === -1) dm.mobileIgnores.push(n);
+}
+
 function supprimerChantier(annee, mi, ci) {
   if (!confirm('Supprimer ce chantier ?')) return;
   const dm = getDataMois(annee, mi);
+  _memoriserIgnoreMobile(dm, dm.chantiers[ci]);
   dm.chantiers.splice(ci, 1);
   sauverData();
   rendreChantiers();
@@ -1378,7 +1539,11 @@ function supprimerChantier(annee, mi, ci) {
 function majChantier(annee, mi, ci, champ, val) {
   const dm = getDataMois(annee, mi);
   dm.chantiers[ci][champ] = (champ === 'client' && typeof val === 'string') ? val.toUpperCase() : val;
-  if (dm.chantiers[ci]) delete dm.chantiers[ci]._depuisPlanning;   // édité → adopté dans le devis (fin du surlignage jaune)
+  if (dm.chantiers[ci]) {                                            // édité → adopté dans le devis (fin du surlignage jaune / bleu)
+    delete dm.chantiers[ci]._depuisPlanning;
+    delete dm.chantiers[ci]._depuisMobile;
+    delete dm.chantiers[ci]._mobileInfo;
+  }
   sauverData();
   majDepassementsDevis();   // la modification des heures prévues ou du nom peut créer / lever un dépassement
   majLigne(`${annee}_${mi}`);
@@ -1560,9 +1725,12 @@ function executerCopie() {
   if (dmSrc.chantiers && dmSrc.chantiers[srcCi]) {
     if (resteSource <= 0) {
       // Tout est reporté → on supprime le chantier source
+      _memoriserIgnoreMobile(dmSrc, dmSrc.chantiers[srcCi]);
       dmSrc.chantiers.splice(srcCi, 1);
     } else {
       dmSrc.chantiers[srcCi].hPrevues = resteSource;
+      delete dmSrc.chantiers[srcCi]._depuisMobile;     // reporté à la main → adopté dans le devis
+      delete dmSrc.chantiers[srcCi]._mobileInfo;
     }
   }
 
@@ -1889,6 +2057,10 @@ function navEnTree(event, input) {
 
   function htmlDeux(c) {
     var dot = 'rgba(255,255,255,.4)';
+    var bandeau = c.mobile
+      ? '<div style="background:#2563eb;border-radius:6px;padding:6px 8px;margin:0 0 9px;font-size:0.74rem;line-height:1.4;">' +
+          '<b>📱 Ajout mobile</b><br>' + String(c.mobile).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>'
+      : '';
     if (typeof c.realM === 'number' && c.realM > 0 && c.prevuM > 0) dot = coulRatio(c.realM / c.prevuM);
     else if (c.planifM > 0 && c.prevuM > 0) dot = coulRatio(c.planifM / c.prevuM);
     return '<div style="display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:10px;">' +
@@ -1899,7 +2071,7 @@ function navEnTree(event, input) {
         colonne('Ce mois', c.prevuM, c.planifM, c.realM) +
         '<div style="width:1px;background:rgba(255,255,255,.14);flex:none;"></div>' +
         colonne('Total', c.prevuT, c.planifT, c.realT) +
-      '</div>';
+      '</div>' + bandeau;
   }
 
   function rendreCourant() {
@@ -1938,6 +2110,7 @@ function navEnTree(event, input) {
     const cachedM = realDuCache(mois, nomUp);
     _cur = {
       cle, nom: nomUp,
+      mobile:  tr.classList.contains('depuis-mobile') ? (tr.dataset.mobile || 'Ajouté sur mobile par un salarié') : '',
       prevuM:  prevuMois(devInp),
       planifM: planifieMois(nom, annee, mi),
       realM:   (cachedM !== null ? cachedM : (_cacheReal[mois] && _cacheReal[mois].status === 'error' ? 'nd' : 'load')),
