@@ -571,6 +571,13 @@ function grilleHeuresPourDate(s, d) {
 
 /* ── Utilitaires ── */
 const JOURS_KEYS = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];   // getDay() 1..6
+const NB_SLOTS_PLANNING = 60;   // créneaux de chantier par jour dans le Planning (ch1..ch60)
+/* « Temps non affecté » (remplissage par défaut du Planning) et absences : pas de vrai chantier,
+   donc pas d'adresse ni de distance — ignorés pour les tranches de trajet. */
+function _estChantierReel(nom) {
+  const n = String(nom || '').trim().toUpperCase();
+  return !!n && n !== 'TEMPS NON AFFECTE' && n !== 'TEMPS NON AFFECTÉ' && n !== 'ABSENCE';
+}
 function r2(x) { return Math.round(x * 100) / 100; }
 function fmt(x) { return r2(x).toFixed(2); }
 function cle(d) {
@@ -745,8 +752,9 @@ function planifieParJour(salarieId, ym) {
     const k    = cle(new Date(an, mo - 1, j));
     const safe = k.replace(/-/g, '_');
     let t = 0;
-    for (let i = 1; i <= 5; i++) {
-      t += parseFloat(heures[salarieId + safe + 'ch' + i] && heures[salarieId + safe + 'ch' + i].heures || 0) || 0;
+    for (let i = 1; i <= NB_SLOTS_PLANNING; i++) {
+      const e = heures[salarieId + safe + 'ch' + i];
+      if (e) t += parseFloat(e.heures || 0) || 0;
     }
     if (t) map[k] = t;
   }
@@ -1581,7 +1589,7 @@ function codeTranchePourKm(km, bornes) {
 /* Noms des chantiers d'une journée : réalisé d'abord, planning à défaut. */
 function chantiersDuJour(salId, l, saisies) {
   const noms = [];
-  const ajouter = function (n) { n = (n || '').trim(); if (n && noms.indexOf(n.toUpperCase()) === -1) noms.push(n.toUpperCase()); };
+  const ajouter = function (n) { n = (n || '').trim(); if (_estChantierReel(n) && noms.indexOf(n.toUpperCase()) === -1) noms.push(n.toUpperCase()); };
   if ((parseFloat(l.realise) || 0) > 0) {
     (saisies || []).forEach(function (s) {
       if (String(s.salarieId) !== String(salId) || s.date !== l.date) return;
@@ -1591,7 +1599,7 @@ function chantiersDuJour(salId, l, saisies) {
   if (!noms.length && (parseFloat(l.planifie) || 0) > 0) {
     const heures = _heuresData();
     const safe = l.date.replace(/-/g, '_');
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= NB_SLOTS_PLANNING; i++) {
       const e = heures[salId + safe + 'ch' + i];
       if (e && e.chantier && (parseFloat(e.heures) || 0) > 0) ajouter(e.chantier);
     }
