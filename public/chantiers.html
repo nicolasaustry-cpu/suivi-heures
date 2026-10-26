@@ -2248,22 +2248,107 @@ function _henrriFmtH(v) {
    fiche du chantier créé (case cochée par défaut, décochable). */
 function _henrriCelluleCoord(dv) {
   const b = dv.coordBase;
-  if (!b || !b.coord) {
+  const cands = (b && Array.isArray(b.candidats)) ? b.candidats : [];
+  let etat;
+  if (b && b.choisi) etat = b.aucun ? 'aucun' : 'choisi';
+  else if (b && b.approx) etat = cands.length ? 'choix' : 'absent';
+  else etat = (b && b.coord) ? 'connu' : 'absent';
+  const donnees = { etat, client: dv.client || '', base: b || null, cands, suggere: (b && b.suggere != null) ? b.suggere : -1 };
+  return '<div class="henrri-coord" data-info="' + _henrriEscAttr(JSON.stringify(donnees)) + '">' + _henrriHtmlCoord(donnees) + '</div>';
+}
+
+/* Libellé d'un client candidat : adresse, ville, téléphone, e-mail + origine */
+function _henrriLibCand(c) {
+  const k = c.coord || {};
+  const lieu = [k.adresse, k.ville].filter(Boolean).join(', ');
+  const tels = [k.mobile, k.fixe].filter(Boolean).join(' / ');
+  return [lieu || '(sans adresse)', tels, k.email].filter(Boolean).join(' · ')
+    + (c.source === 'fiche' ? ' — fiche « ' + (c.nomTrouve || '') + ' »' : ' — base Henrri');
+}
+
+/* Contenu de la cellule selon l'état : connu (correspondance exacte), choix (homonymes ou
+   rapprochement sur le nom de famille : liste, rien de pré-sélectionné), choisi / aucun
+   (choix mémorisé pour ce nom de client), absent. */
+function _henrriHtmlCoord(x) {
+  const cadre = 'display:flex;gap:6px;align-items:flex-start;margin-top:4px;font-size:0.72rem;border-radius:6px;padding:4px 6px;';
+  const lienChanger = x.cands.length
+    ? ' <a href="#" onclick="_henrriChangerClient(this);return false;" style="color:#0369a1;white-space:nowrap;">changer</a>' : '';
+  if (x.etat === 'absent') {
     return '<div style="font-size:0.72rem;color:#94a3b8;">Client absent de la base — coordonnées à saisir dans la fiche chantier</div>';
   }
-  const c = b.coord;
-  const lignes = [c.adresse, c.ville].filter(Boolean).join(', ');
-  const tels = [c.mobile, c.fixe].filter(Boolean).join(' / ');
-  const detail = [lignes, tels, c.email].filter(Boolean).join(' · ');
-  const origine = b.source === 'henrri' ? 'base clients Henrri' : 'fiche « ' + (b.nomTrouve || '') + ' »';
-  // Rapprochement sur le seul nom de famille (liste clients sans prénom) : à vérifier
-  const approx = b.approx
-    ? '<br><span style="color:#b45309;">≈ trouvé sur le nom « ' + _henrriEscAttr(b.nomTrouve || '') + ' » — à vérifier</span>' : '';
-  return '<label style="display:flex;gap:6px;align-items:flex-start;margin-top:4px;font-size:0.72rem;color:#075985;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:4px 6px;cursor:pointer;" '
+  if (x.etat === 'aucun') {
+    return '<div style="font-size:0.72rem;color:#64748b;margin-top:4px;">Aucune coordonnée reprise (choix mémorisé) — à saisir dans la fiche chantier' + lienChanger + '</div>';
+  }
+  if (x.etat === 'choix') {
+    const n = x.cands.length;
+    const opts = '<option value="">— Choisir le client (' + n + ' proposition' + (n > 1 ? 's' : '') + ') —</option>'
+      + x.cands.map((c, i) => '<option value="' + i + '">' + _henrriEscAttr(_henrriLibCand(c)) + (i === x.suggere ? ' ★ e-mail' : '') + '</option>').join('')
+      + '<option value="aucun">Aucun de ces clients — coordonnées à saisir</option>';
+    return '<div style="' + cadre + 'flex-direction:column;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;">'
+      + '<span><strong>⚠ ' + (x.base && x.base.ambigu ? 'Plusieurs clients portent ce nom' : 'Client trouvé sur le nom de famille seulement') + '</strong> — choisissez le bon :</span>'
+      + '<select class="henrri-coord-choix" onchange="_henrriChoisirClient(this)" style="width:100%;max-width:340px;font-size:0.72rem;padding:2px;">' + opts + '</select>'
+      + '<span style="color:#78350f;">Sans choix, aucune coordonnée n\'est reprise. Le choix est mémorisé pour les prochains devis de ce client.</span></div>';
+  }
+  // connu (correspondance exacte) ou choisi (mémorisé)
+  const c = (x.etat === 'choisi') ? { coord: x.base.coord, source: x.base.source, nomTrouve: x.base.nomTrouve } : x.base;
+  const k = c.coord || {};
+  const detail = [[k.adresse, k.ville].filter(Boolean).join(', '), [k.mobile, k.fixe].filter(Boolean).join(' / '), k.email].filter(Boolean).join(' · ');
+  const origine = c.source === 'henrri' ? 'base clients Henrri' : (c.source === 'fiche' ? 'fiche « ' + (c.nomTrouve || '') + ' »' : 'votre choix');
+  return '<label style="' + cadre + 'color:#075985;background:#f0f9ff;border:1px solid #bae6fd;cursor:pointer;" '
        + 'title="Coordonnées trouvées dans : ' + _henrriEscAttr(origine) + '">'
        + '<input type="checkbox" class="henrri-coord-cb" checked style="margin-top:1px;">'
-       + '<span><strong>Client connu</strong> — reprendre ses coordonnées dans la fiche chantier<br>'
-       + '<span style="color:#475569;">📍 ' + _henrriEscAttr(detail) + '</span>' + approx + '</span></label>';
+       + '<span><strong>' + (x.etat === 'choisi' ? 'Client choisi' : 'Client connu') + '</strong> — reprendre ses coordonnées dans la fiche chantier<br>'
+       + '<span style="color:#475569;">📍 ' + _henrriEscAttr(detail) + '</span></span></label>' + lienChanger;
+}
+
+function _henrriInfoCoord(el) {
+  const box = el.closest('.henrri-coord');
+  let x = null; try { x = JSON.parse(box.getAttribute('data-info') || 'null'); } catch (_) {}
+  return { box, x };
+}
+function _henrriMajCoord(box, x) {
+  box.setAttribute('data-info', JSON.stringify(x));
+  box.innerHTML = _henrriHtmlCoord(x);
+  // Coordonnées envoyées à l'affectation (bouton « Affecter » de la ligne)
+  const tr = box.closest('tr');
+  const btn = tr && tr.querySelector('button[data-devis-id][data-devis-client]');
+  if (btn) btn.setAttribute('data-devis-coord', JSON.stringify((x.etat === 'choisi' || x.etat === 'connu') && x.base && x.base.coord ? x.base.coord : {}));
+}
+
+/* Choix dans la liste : appliqué à la ligne, puis mémorisé côté serveur pour ce nom de client */
+async function _henrriChoisirClient(sel) {
+  const { box, x } = _henrriInfoCoord(sel);
+  if (!x || sel.value === '') return;
+  const corps = { client: x.client };
+  if (sel.value === 'aucun') {
+    x.etat = 'aucun'; corps.aucun = true;
+  } else {
+    const c = x.cands[parseInt(sel.value, 10)];
+    if (!c) return;
+    x.etat = 'choisi';
+    x.base = Object.assign({}, x.base || {}, { coord: c.coord, source: c.source, nomTrouve: c.nomTrouve, choisi: true, aucun: false });
+    corps.coord = c.coord; corps.source = c.source; corps.nomTrouve = c.nomTrouve;
+  }
+  _henrriMajCoord(box, x);
+  try {
+    const r = await fetch('/api/henrri/clients/choix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _henrriToken() },
+      body: JSON.stringify(corps)
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+  } catch (e) {
+    // Le choix reste appliqué à cette affectation ; seule la mémorisation a échoué
+    console.warn('Choix du client non mémorisé :', e && e.message ? e.message : e);
+  }
+}
+/* « changer » : réaffiche la liste des clients possibles */
+function _henrriChangerClient(lien) {
+  const { box, x } = _henrriInfoCoord(lien);
+  if (!x) return;
+  x.etat = 'choix';
+  _henrriMajCoord(box, x);
 }
 
 async function ouvrirModaleHenrri() {
@@ -2344,7 +2429,7 @@ async function ouvrirModaleHenrri() {
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
         + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
         + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
-        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
+        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && !dv.coordBase.approx && !dv.coordBase.aucun && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
         + 'data-mode-import="' + (modeImport ? '1' : '') + '" '
         + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
         + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
