@@ -830,14 +830,34 @@ window.addEventListener('DOMContentLoaded', () => {
 // Au retour sur la page (navigation arrière ou restauration depuis le cache
 // navigateur/PWA), DOMContentLoaded ne se redéclenche pas toujours. On replace
 // alors le mois en cours au centre de l'écran.
-window.addEventListener('pageshow', () => {
+window.addEventListener('pageshow', (e) => {
+  // Page restaurée depuis le cache du navigateur (bouton Retour) : la copie en mémoire du
+  // Prévisionnel peut être ancienne → relecture avant toute nouvelle modification.
+  if (e && e.persisted) { chargerData(); chargerChantiersPlannifies(); if (typeof rendreChantiers === 'function') rendreChantiers(); }
   setTimeout(centrerMoisCourant, 120);
+});
+
+/* ── Copie en mémoire toujours à jour ──
+   Le Prévisionnel est gardé en mémoire (variable « data ») et réécrit EN ENTIER à chaque
+   modification. Si un autre onglet (autre page Prévisionnel, Planning, import Henrri…) a
+   modifié le Prévisionnel entre-temps, la première modification faite ici réécrivait
+   l'ancienne copie : les lignes supprimées ailleurs revenaient (localement puis sur le
+   serveur). On relit donc le stockage dès qu'un autre onglet le modifie. */
+window.addEventListener('storage', (e) => {
+  if (e.key === CLE_DATA || e.key === null) {
+    chargerData();
+    if (typeof rendreChantiers === 'function') rendreChantiers();
+  } else if (e.key === 'heuresdata') {
+    chargerChantiersPlannifies();
+    if (typeof rendreChantiers === 'function') rendreChantiers();
+  }
 });
 
 // Rafraîchir la coloration quand l'utilisateur revient sur l'onglet
 // (cas : il modifie le planning dans un autre onglet et revient ici)
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
+    chargerData();                     // relire le Prévisionnel (modifié peut-être dans un autre onglet)
     chargerChantiersPlannifies();
     if (typeof rendreChantiers === 'function') rendreChantiers();
     chargerChantiersMobile(false);     // nouveaux ajouts mobile (au plus toutes les 2 min)
