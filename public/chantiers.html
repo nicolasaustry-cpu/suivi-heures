@@ -2179,17 +2179,29 @@ function _henrriToken() {
    masqués tant que l'API n'est pas liée dans la page Entreprise). */
 let _henrriMode = 'api';        // 'api' | 'import' (choix de la page Entreprise)
 let _henrriAutoOuvert = false;
+/* Dernier état connu de la connexion Henrri (session de l'onglet) : évite que le bouton
+   « Devis Henrri » disparaisse après un rechargement si la licence ou la configuration
+   n'a pas encore répondu (le bouton reste alors utilisable pour rappeler la modale). */
+function _henrriEtatMemo() { try { return sessionStorage.getItem('henrriActif') === '1'; } catch (_) { return false; } }
+function _henrriMemoriser(actif) { try { sessionStorage.setItem('henrriActif', actif ? '1' : '0'); } catch (_) {} }
+function _henrriAfficherBoutons(actif) {
+  const navClients = document.getElementById('nav-link-clients');
+  const btnDevis   = document.getElementById('btn-devis-henrri');
+  if (navClients) navClients.style.display = actif ? '' : 'none';
+  if (btnDevis)   btnDevis.style.display   = actif ? 'inline-block' : 'none';
+}
 async function _henrriMajVisibilite() {
   const navClients = document.getElementById('nav-link-clients');
   const btnDevis    = document.getElementById('btn-devis-henrri');
   const token = _henrriToken();
-  if (!token) { if (navClients) navClients.style.display = 'none'; if (btnDevis) btnDevis.style.display = 'none'; return; }
+  if (!token) { _henrriAfficherBoutons(_henrriEtatMemo()); return; }   // licence pas encore prête : dernier état connu
   try {
     const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
     // henrriActif = Henrri version pilotage ET (API connectée OU mode import)
     const actif = !!(d.ok && (typeof d.henrriActif === 'boolean' ? d.henrriActif : d.actif));
     _henrriMode = (d.ok && d.mode === 'import') ? 'import' : 'api';
+    if (d.ok) _henrriMemoriser(actif);
     if (navClients) navClients.style.display = actif ? '' : 'none';
     if (btnDevis) {
       btnDevis.style.display = actif ? 'inline-block' : 'none';
@@ -2204,8 +2216,7 @@ async function _henrriMajVisibilite() {
       ouvrirModaleHenrri();
     }
   } catch (_) {
-    if (navClients) navClients.style.display = 'none';
-    if (btnDevis) btnDevis.style.display = 'none';
+    _henrriAfficherBoutons(_henrriEtatMemo());   // erreur réseau passagère : on ne masque pas le bouton
   }
 }
 window.addEventListener('DOMContentLoaded', _henrriMajVisibilite);
@@ -2382,14 +2393,24 @@ async function _henrriEnvoyerAffectation(tr) {
   return { annee, mois };
 }
 
+/* Recharge la page pour afficher les nouvelles lignes du Prévisionnel ; s'il reste des devis
+   à affecter, la modale « Devis Henrri » se rouvre automatiquement après le rechargement. */
+function _henrriRecharger() {
+  const reste = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+  _henrriMemoriser(true);
+  location.replace(location.pathname + (reste ? '?henrri=1' : ''));
+}
+
 async function affecterDevisHenrri(btn) {
   const tr = btn.closest('tr');
   btn.disabled = true; btn.textContent = '…';
   try {
     const { annee, mois } = await _henrriEnvoyerAffectation(tr);
     tr.remove();
-    alert('Devis affecté à ' + MOIS_FULL[mois] + ' ' + annee + '.\nLa page va se recharger pour afficher la nouvelle ligne.');
-    location.reload();
+    const reste = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+    alert('Devis affecté à ' + MOIS_FULL[mois] + ' ' + annee + '.\nLa page va se recharger pour afficher la nouvelle ligne'
+      + (reste ? ', puis la liste des ' + reste + ' devis restant(s) se rouvrira.' : '.'));
+    _henrriRecharger();
   } catch (e) {
     alert('Erreur : ' + (e && e.message ? e.message : e));
     btn.disabled = false; btn.textContent = 'Affecter';
@@ -2457,11 +2478,11 @@ async function affecterTousDevisHenrri() {
   if (erreurs.length) {
     alert(ok + ' devis affecté(s).\n' + erreurs.length + ' erreur(s) :\n\n' + erreurs.join('\n')
       + (ok ? '\n\nLa page va se recharger ; les devis en erreur restent proposés dans « Devis Henrri ».' : ''));
-    if (ok) location.reload(); else _henrriMajTout();
+    if (ok) _henrriRecharger(); else _henrriMajTout();
     return;
   }
   alert(ok + ' devis affecté(s) au Prévisionnel.\nLa page va se recharger pour afficher les nouvelles lignes.');
-  location.reload();
+  _henrriRecharger();
 }
 
 async function supprimerDevisHenrri(btn) {
