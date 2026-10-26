@@ -483,7 +483,7 @@ function rendreRecapIndemnites() {
   const compter = function (sansDemiJournees) {
     const cnt = {}; codes.forEach(function(c){ cnt[c] = 0; });
     Object.keys(_tranches).forEach(function(k){
-      if (_trJourFutur(k)) return;
+      if (_trJourBloque(k)) return;
       if (sansDemiJournees && estDemiJourneeSansRepas(k)) return;
       const c = _tranches[k]; if (cnt[c] !== undefined) cnt[c]++;
     });
@@ -1390,6 +1390,16 @@ function estDemiJourneeSansRepas(date) {
 
 /* Jour à venir (après aujourd'hui) : pas de tranche affichée, proposée ni saisissable tant qu'il n'est pas passé */
 function _trJourFutur(date){ return !!date && date > AUJOURDHUI; }
+/* Tranches de trajet : les jours à venir du MOIS EN COURS restent saisissables (anticipation des
+   déplacements prévus). Seuls les jours des mois suivants sont bloqués. Le repas, lui, reste limité aux jours passés. */
+function _trJourBloque(date){ return _trJourFutur(date) && date.slice(0, 7) !== AUJOURDHUI.slice(0, 7); }
+/* Jour sélectionnable dans le calendrier des tranches : jour travaillé (réalisé ou planifié) ;
+   pour un jour à venir du mois en cours, il suffit aussi d'une Nouvelle Base non nulle (jour prévu au contrat, sans absence pleine). */
+function _mtEstSaisissable(l){
+  if (!l || _trJourBloque(l.date)) return false;
+  if (_mtEstTravaille(l)) return true;
+  return _trJourFutur(l.date) && (parseFloat(l.base) || 0) > 0;
+}
 /* Jour travaillé = du temps réalisé ou planifié, week-end compris (samedi/dimanche travaillé : tranche et repas dus) */
 function _mtEstTravaille(l){ return !!(l && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
 function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()); t.setDate(t.getDate()+3-((t.getDay()+6)%7)); const s=new Date(t.getFullYear(),0,4); return 1+Math.round(((t-s)/86400000-3+((s.getDay()+6)%7))/7); }
@@ -1442,14 +1452,14 @@ function ouvrirCalendrierTranches(){
       else {
         const key = an + '-' + String(mo).padStart(2,'0') + '-' + String(num).padStart(2,'0');
         const l = parLigne[key];
-        if (_mtEstTravaille(l) && !_trJourFutur(key)){
+        if (_mtEstSaisissable(l)){
           td.className = 'mt-j'; td.dataset.date = key;
           const tagPartiel = (l && l.motif) ? '<span class="mt-tag">' + l.motif + '</span>' : '';
           td.innerHTML = '<span class="mt-n">' + num + '</span>' + tagPartiel;
           td.onclick = (function(kk){ return function(){ mtToggleJour(kk); }; })(key);
         } else {
           td.className = 'mt-j off';
-          const tag = (l && l.motif) ? l.motif : (_mtEstTravaille(l) && _trJourFutur(key) ? 'à venir' : '');
+          const tag = (l && l.motif) ? l.motif : (_mtEstTravaille(l) && _trJourBloque(key) ? 'à venir' : '');
           td.innerHTML = '<span class="mt-n">' + num + '</span>' + (tag ? '<span class="mt-tag">' + tag + '</span>' : '');
         }
       }
@@ -1593,7 +1603,7 @@ async function proposerTranches() {
   const jours = [];
   ctx.lignes.forEach(function (l) {
     if (!_mtEstTravaille(l)) return;
-    if (_trJourFutur(l.date)) return;                         // jour pas encore passé : rien à proposer
+    if (_trJourBloque(l.date)) return;                        // jour d'un mois suivant : rien à proposer
     const meta = _tranchesMeta[l.date];
     if (meta === 'efface') return;
     if (_tranches[l.date] && meta !== 'auto') return;       // tranche manuelle ou ancienne : intouchable
@@ -1646,7 +1656,7 @@ function _moisValideBev() {
 }
 function celluleReinit(date) {
   const ctx = _calCtx;
-  if (!date || !ctx || _moisValideBev() || _trJourFutur(date)) return '';
+  if (!date || !ctx || _moisValideBev() || _trJourBloque(date)) return '';
   const meta = _tranchesMeta[date];
   const manuelle = (_tranches[date] && meta !== 'auto') || meta === 'efface';
   if (!manuelle) return '';
@@ -1673,7 +1683,7 @@ function _escAttr(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').r
 
 /* Contenu d'une cellule « Tranche indemnité » */
 function celluleTranche(date) {
-  if (_trJourFutur(date)) return '';                       // jour à venir : cellule vide
+  if (_trJourBloque(date)) return '';                      // jour d'un mois suivant : cellule vide
   return _celluleTrancheBase(date);
 }
 
