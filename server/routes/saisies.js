@@ -159,7 +159,12 @@ router.post("/note-chantier", async (req, res) => {
   }
 });
 
-/* ── Coordonnées d'un chantier (mobile : gérant ou administratif) ── */
+/* ── Coordonnées d'un chantier (mobile) ──
+   Gérant / administratif : création, modification, effacement.
+   Salarié simple : CRÉATION uniquement, sur un chantier qui n'a encore aucune
+   coordonnée (cas du chantier ajouté sur place, adresse proposée par le GPS du
+   téléphone). Il ne peut ni modifier ni effacer une fiche existante. La fiche
+   créée garde la trace de son origine (origine « mobile », auteur, date). */
 router.post("/coordonnees-chantier", async (req, res) => {
   try {
     const codeEmp   = (req.body.codeEmploye || "").trim().toUpperCase();
@@ -176,8 +181,7 @@ router.post("/coordonnees-chantier", async (req, res) => {
     if (!doc) return res.status(403).json({ ok: false, message: "Code employé invalide" });
     const sal = (doc.salaries || []).find(s => String(s.id) === String(salarieId));
     if (!sal) return res.status(401).json({ ok: false, message: "Salarié inconnu" });
-    if (!sal.administratif && !sal.gerant)
-      return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+    const habilite = !!(sal.administratif || sal.gerant);
 
     const coords = doc.coordonneesChantiers || {};
     const clean = {
@@ -188,6 +192,17 @@ router.post("/coordonnees-chantier", async (req, res) => {
       email:   String(c.email   || "").trim().slice(0, 120)
     };
     const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe && !clean.email;
+    if (!habilite) {
+      const ex = coords[chantier];
+      const exVide = !ex || (!ex.adresse && !ex.ville && !ex.mobile && !ex.fixe && !ex.email);
+      if (vide)
+        return res.status(403).json({ ok: false, message: "Effacement des coordonnées réservé aux administratifs et gérants." });
+      if (!exVide)
+        return res.status(403).json({ ok: false, message: "Ce chantier a déjà des coordonnées : seul un administratif ou un gérant peut les modifier." });
+      clean.origine = "mobile";
+      clean.auteur  = `${sal.prenom || ""} ${sal.nom || ""}`.trim().slice(0, 80);
+      clean.le      = new Date().toISOString();
+    }
     if (vide) delete coords[chantier]; else coords[chantier] = clean;
 
     await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });

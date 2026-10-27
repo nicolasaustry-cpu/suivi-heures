@@ -381,8 +381,10 @@
     }
     var nomU = _nom.toUpperCase();
     var o = _lire();
+    var avant = Object.prototype.hasOwnProperty.call(o, nomU) ? o[nomU] : undefined;
     if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe && !coord.email) delete o[nomU]; else o[nomU] = coord;
     _ecrire(o);
+    var restaurer = function () { var o2 = _lire(); if (avant === undefined) delete o2[nomU]; else o2[nomU] = avant; _ecrire(o2); };
 
     // Choix du canal : TOKEN en priorité (PC / gérant licence), code employé seulement à défaut (vrai mobile).
     var token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
@@ -402,13 +404,20 @@
       return; // on garde le modal ouvert, rien n'est perdu
     }
 
-    var okServeur = false;
+    var okServeur = false, refus = '';
     try {
       var r = await fetch(url, opts);
       var d = await r.json();
       okServeur = !!(d && d.ok);
+      if (!okServeur && r.status === 403 && d && d.message) refus = d.message;   // refus de droits (pas un problème de connexion)
     } catch (_) { okServeur = false; }
 
+    if (!okServeur && refus) {
+      // Refus du serveur : la fiche locale est remise dans son état d'avant (rien n'a été enregistré).
+      restaurer();
+      alert('⚠️ ' + refus);
+      return;
+    }
     if (!okServeur) {
       // Échec serveur : on NE ferme PAS, on prévient — évite toute perte silencieuse à la synchro suivante.
       alert('⚠️ Les coordonnées n\'ont PAS pu être enregistrées sur le serveur (connexion ?).\n\nElles restent affichées à l\'écran. Recliquez sur « Enregistrer » une fois la connexion rétablie pour les sauvegarder définitivement.');
