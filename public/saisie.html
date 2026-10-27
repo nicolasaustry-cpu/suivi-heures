@@ -689,6 +689,19 @@
   }
   .chantier-card .chip-coord a { color: #0f3a8a !important; font-weight: 700 !important; }
 
+  /* ── Chantier ajouté sans adresse : proposition par la position GPS du téléphone ── */
+  .adr-gps { margin: 0 0 0.55rem; }
+  .adr-gps .btn-gps { width: 100%; border: 1px dashed #0f3a8a; background: #eef4fd; color: #0f3a8a; border-radius: 9px;
+    padding: 8px 10px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+  .adr-gps .gps-box { border: 1px solid #c7d7f5; background: #f8fbff; border-radius: 9px; padding: 8px 10px; font-size: 0.8rem; color: #334155; line-height: 1.45; }
+  .adr-gps .gps-adr { font-weight: 700; color: #0f172a; }
+  .adr-gps .gps-prec { font-size: 0.72rem; color: #64748b; }
+  .adr-gps .gps-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .adr-gps .gps-actions a, .adr-gps .gps-actions button { flex: 1 1 auto; text-align: center; text-decoration: none; border-radius: 8px;
+    padding: 7px 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #c7d7f5; background: #fff; color: #0f3a8a; }
+  .adr-gps .gps-actions .gps-ok { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .adr-gps .gps-err { color: #b45309; }
+
   /* ── Déplacement depuis le chantier précédent ── */
   .depl-row {
     background: #f8fafc !important;
@@ -2897,6 +2910,79 @@ function majSaisiePrev(nom, champ, val) {
 }
 
 /* ═══════════════════════════
+   ADRESSE PROPOSÉE PAR GPS (chantier ajouté sans adresse)
+   Le salarié est sur place : la position du téléphone est convertie en adresse
+   (géocodage inverse public de l'IGN, gratuit, sans clé — même service que le
+   calcul des zones de trajet). Il vérifie sur Google Maps, puis « Utiliser »
+   ouvre la fiche du chantier pré-remplie : rien n'est enregistré sans son
+   clic sur Enregistrer. Un lien cherche aussi le nom du chantier sur Google Maps.
+═══════════════════════════ */
+function _escGps(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _blocAdresseGps(nom) {
+  const box = document.createElement('div');
+  box.className = 'adr-gps';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-gps';
+  btn.textContent = '📍 Pas d’adresse — proposer celle où je suis';
+  btn.onclick = function () { _proposerAdresseGps(nom, box); };
+  box.appendChild(btn);
+  return box;
+}
+function _proposerAdresseGps(nom, box) {
+  const lienNom = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nom);
+  const erreur = function (msg) {
+    box.innerHTML = '<div class="gps-box"><span class="gps-err">⚠ ' + _escGps(msg) + '</span>'
+      + '<div class="gps-actions"><button type="button" class="gps-retry">↻ Réessayer</button>'
+      + '<a href="' + lienNom + '" target="_blank" rel="noopener">🔎 Chercher sur Google Maps</a></div></div>';
+    box.querySelector('.gps-retry').onclick = function () { _proposerAdresseGps(nom, box); };
+  };
+  if (!navigator.geolocation) { erreur('Localisation non disponible sur ce téléphone.'); return; }
+  box.innerHTML = '<div class="gps-box">📡 Localisation en cours…</div>';
+  navigator.geolocation.getCurrentPosition(async function (pos) {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude, prec = Math.round(pos.coords.accuracy || 0);
+    const lienPos = 'https://www.google.com/maps/search/?api=1&query=' + lat.toFixed(6) + ',' + lon.toFixed(6);
+    let adresse = '', ville = '', label = '';
+    try {
+      const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const t = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
+      const r = await fetch('https://data.geopf.fr/geocodage/reverse?limit=1&lon=' + lon + '&lat=' + lat, ctrl ? { signal: ctrl.signal } : undefined);
+      if (t) clearTimeout(t);
+      const d = await r.json();
+      const pr = (d && d.features && d.features[0] && d.features[0].properties) || {};
+      adresse = pr.name || [pr.housenumber, pr.street].filter(Boolean).join(' ');
+      ville = [pr.postcode, pr.city].filter(Boolean).join(' ');
+      label = pr.label || [adresse, ville].filter(Boolean).join(', ');
+    } catch (e) { /* hors réseau ou service indisponible : on garde la position seule */ }
+    if (!label) {
+      box.innerHTML = '<div class="gps-box"><span class="gps-err">⚠ Adresse non trouvée pour cette position.</span>'
+        + '<div class="gps-prec">Position : ' + lat.toFixed(5) + ', ' + lon.toFixed(5) + (prec ? ' (± ' + prec + ' m)' : '') + '</div>'
+        + '<div class="gps-actions"><a href="' + lienPos + '" target="_blank" rel="noopener">🗺 Voir ma position</a>'
+        + '<a href="' + lienNom + '" target="_blank" rel="noopener">🔎 Chercher sur Google Maps</a></div></div>';
+      return;
+    }
+    box.innerHTML = '<div class="gps-box">Adresse proposée (votre position) :<br><span class="gps-adr">📍 ' + _escGps(label) + '</span>'
+      + (prec ? '<div class="gps-prec">Précision ± ' + prec + ' m' + (prec > 100 ? ' — à vérifier' : '') + '</div>' : '')
+      + '<div class="gps-actions"><a href="' + lienPos + '" target="_blank" rel="noopener">🗺 Vérifier sur Google Maps</a>'
+      + '<button type="button" class="gps-ok">✔ Utiliser</button></div>'
+      + '<div class="gps-actions"><a href="' + lienNom + '" target="_blank" rel="noopener">🔎 Chercher « ' + _escGps(nom) + ' » sur Google Maps</a></div></div>';
+    box.querySelector('.gps-ok').onclick = function () {
+      if (typeof Coord === 'undefined') { alert('Fiche du chantier indisponible : rechargez la page puis réessayez.'); return; }
+      Coord.ouvrir(nom, function () { rendreAjout(); });
+      const ia = document.getElementById('coord-adresse'), iv = document.getElementById('coord-ville');
+      if (ia && !ia.value.trim()) ia.value = adresse;
+      if (iv && !iv.value.trim()) iv.value = ville;
+      const sub = document.getElementById('coord-sub');
+      if (sub) sub.textContent = nom + ' — adresse proposée par la position GPS (à vérifier puis Enregistrer)';
+    };
+  }, function (err) {
+    erreur(err && err.code === 1
+      ? 'Localisation refusée : autorisez la position pour cette application dans les réglages du téléphone.'
+      : 'Position introuvable (signal GPS faible ?).');
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+}
+
+/* ═══════════════════════════
    RENDU CHANTIERS AJOUTÉS
 ═══════════════════════════ */
 function rendreAjout() {
@@ -2973,7 +3059,8 @@ function rendreAjout() {
     suppr.onclick = function() { supprimerAjout(parseInt(this.dataset.idx)); };
     header.appendChild(suppr);
     div.appendChild(header);
-    { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); } }
+    { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); }
+      else div.appendChild(_blocAdresseGps(ch.nom)); }   // pas d'adresse : proposition GPS (affichée même si coordonnees.js n'est pas encore chargé)
 
     // Ligne 2 : déplacement
     const deplRow = document.createElement('div');
