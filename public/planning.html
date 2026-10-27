@@ -3618,7 +3618,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- ===== En-tête flottant : bandeau Semaine + jours restent visibles au défilement des salariés ===== -->
 <style>
-  #pl-float { position:fixed; z-index:90; display:none; pointer-events:none; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,.18); border-radius:0 0 10px 10px; }
+  #pl-float { position:fixed; z-index:999; display:none; pointer-events:none; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,.18); border-radius:0 0 10px 10px; }
   #pl-float .wtitle { margin:0 !important; border-radius:0 !important; }
   #pl-float .plf-x { overflow:hidden; }
   #pl-float table.tgrid thead th { position:static; }
@@ -3638,10 +3638,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return flot;
   }
 
-  // Bas des barres collées en haut de l'écran (en-tête bleu, barre de menu)
+  // Bas des barres collées en haut de l'écran (barre fixe .top-bar avec outils + jauge, en-tête bleu, barre de menu)
   function hautDispo(){
     let h=0;
-    document.querySelectorAll('.main-header, .sh-topbar').forEach(el=>{
+    document.querySelectorAll('.top-bar, .main-header, .sh-topbar').forEach(el=>{
       const cs=getComputedStyle(el);
       if (cs.display==='none' || (cs.position!=='sticky' && cs.position!=='fixed')) return;
       const r=el.getBoundingClientRect();
