@@ -204,6 +204,15 @@
   /* Ligne d'un chantier planifié mais ABSENT du devis (remonté automatiquement) */
   .tr-chantier.depuis-planning td { background: #fef9c3; }
   .tr-chantier.depuis-planning:hover td { background: #fde68a; }
+  /* Ligne jaune PÉRIMÉE : remontée du planning, mais le chantier n'y figure plus ce mois-ci
+     (retiré, renommé, déplacé). Hachures grises, nom barré. */
+  .tr-chantier.perime td { background: repeating-linear-gradient(135deg, #f1f5f9 0 6px, #e2e8f0 6px 12px); color:#64748b; }
+  .tr-chantier.perime:hover td { background: repeating-linear-gradient(135deg, #e2e8f0 0 6px, #cbd5e1 6px 12px); }
+  .tr-chantier.perime input[data-champ="client"] { text-decoration: line-through; color:#64748b; }
+  .coche-perime { display:inline-block; margin-right:4px; font-size:0.85rem; line-height:1; cursor:help; vertical-align:middle; }
+  .btn-nettoyer { width:100%; margin:0 0 4px; padding:4px 0; font-size:0.8rem; font-weight:600; cursor:pointer;
+    border:1px dashed #94a3b8; border-radius:6px; background:#f8fafc; color:#475569; }
+  .btn-nettoyer:hover { background:#e2e8f0; color:#0f172a; }
   /* Ligne d'un chantier AJOUTÉ SUR MOBILE par un salarié, absent du devis et du planning (remonté automatiquement) */
   .tr-chantier.depuis-mobile td { background: #dbeafe; }
   .tr-chantier.depuis-mobile:hover td { background: #bfdbfe; }
@@ -576,6 +585,7 @@ let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fo
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
 let planningParMois = {};            // { "YYYY_MM": { "NOM CHANTIER": heuresCumulées } }
 let planningTotal = {};              // { "NOM CHANTIER": heures planifiées cumulées, TOUS mois }
+let planningCharge = false;          // le planning contient des données (sinon aucune ligne n'est dite périmée)
 
 /* ═══════════════════════════════
    CHANTIERS PLANNIFIÉS (depuis heuresdata)
@@ -588,6 +598,7 @@ function chargerChantiersPlannifies() {
   planningTotal = {};
   try {
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+    planningCharge = Object.keys(heures).length > 0;
     Object.keys(heures).forEach(k => {
       const entry = heures[k];
       if (!entry || !entry.chantier || !entry.chantier.trim()) return;
@@ -759,6 +770,36 @@ function injecterMobileManquants(annee, mi) {
     existantes.add(n);
     _mobileModifie = true;
   });
+}
+
+/* ═══════════════════════════════
+   LIGNES JAUNES PÉRIMÉES
+   Une ligne remontée du planning (_depuisPlanning) reste enregistrée dans le
+   prévisionnel. Si le chantier n'apparaît plus au planning CE MOIS-CI (retiré,
+   renommé, déplacé, marqué « exclu du calcul »), la ligne est dite périmée :
+   hachures grises + ⌛, et bouton « Nettoyer » au pied du mois.
+   Jamais de retrait automatique : le planning peut être incomplet au moment
+   du calcul (chargement en cours, autre poste). Rien n'est marqué tant que le
+   planning est vide.
+═══════════════════════════════ */
+function estLignePerimee(ch, annee, mi) {
+  if (!ch || !ch._depuisPlanning || !planningCharge) return false;
+  const nomU = (ch.client || '').trim().toUpperCase();
+  if (!nomU) return false;
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  return !(planningParMois[ym] && planningParMois[ym][nomU] != null);
+}
+function nettoyerLignesPerimees(annee, mi) {
+  const dm = getDataMois(annee, mi);
+  const perimees = (dm.chantiers || []).filter(ch => estLignePerimee(ch, annee, mi));
+  if (!perimees.length) return;
+  const noms = perimees.map(ch => '• ' + (ch.client || '(sans nom)') + (parseFloat(ch.hPrevues) ? ' (' + ch.hPrevues + ' h)' : '')).join('\n');
+  if (!confirm('Retirer ' + perimees.length + ' ligne(s) périmée(s) de ' + MOIS_FULL[mi] + ' ' + annee + ' ?\n\n'
+    + 'Ces chantiers ne figurent plus au Planning ce mois-ci :\n' + noms)) return;
+  dm.chantiers = dm.chantiers.filter(ch => !estLignePerimee(ch, annee, mi));
+  sauverData();
+  rendreChantiers();
+  majLigne(annee + '_' + mi);
 }
 
 /* ── Dépassement du devis ──
@@ -1231,9 +1272,12 @@ function rendreChantiers() {
     </tr></thead><tbody id="tbody-ch-${annee}_${mi}">`;
 
     // Lignes saisies
+    let nbPerimes = 0;
     chantiers.forEach((ch, ci) => {
       const depuisPlan = !!ch._depuisPlanning;
       const depuisMob  = !!ch._depuisMobile;
+      const perimee    = estLignePerimee(ch, annee, mi);
+      if (perimee) nbPerimes++;
       const isPlanifie = estPlannifie(ch.client, annee, mi);
       let classes = 'tr-chantier';
       let coche = '';        // ✓ vert, à côté du nom (chantier du devis déjà planifié)
@@ -1241,6 +1285,9 @@ function rendreChantiers() {
       if (depuisMob) {
         classes += ' depuis-mobile';
         alertePlan = '<span class="coche-mobile" title="' + _henrriEscAttr(ch._mobileInfo || 'Ajouté sur mobile par un salarié — absent du devis et du planning') + '">📱</span>';
+      } else if (perimee) {
+        classes += ' perime';
+        alertePlan = '<span class="coche-perime" title="Ligne périmée : remontée du planning, mais ce chantier ne figure plus au Planning en ' + MOIS_FULL[mi] + ' ' + annee + ' (retiré, renommé ou déplacé). Modifiez-la pour la garder, ou utilisez « Nettoyer » en bas du mois.">⌛</span>';
       } else if (depuisPlan) {
         classes += ' depuis-planning';
         alertePlan = '<span class="coche-planning" title="Planifié mais absent du prévisionnel - heures cumulées du planning">⚠</span>';
@@ -1248,7 +1295,7 @@ function rendreChantiers() {
         classes += ' planifie';
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
       }
-      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}"${depuisMob ? ' data-mobile="' + _henrriEscAttr(ch._mobileInfo || '') + '"' : ''}>
+      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}"${depuisMob ? ' data-mobile="' + _henrriEscAttr(ch._mobileInfo || '') + '"' : ''}${perimee ? ' data-perime="1"' : ''}>
         <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder="" title="${_henrriEscAttr(ch.client||'')}"
@@ -1304,6 +1351,7 @@ function rendreChantiers() {
 
     html += `</tbody></table>`;
     html += `<div style="padding:5px 6px;border-top:1px solid #e5e7eb;">
+      ${nbPerimes ? `<button class="btn-nettoyer" onclick="nettoyerLignesPerimees(${annee},${mi})" title="Retirer les lignes remontées du planning dont le chantier n'y figure plus ce mois-ci">🧹 Nettoyer les lignes périmées (${nbPerimes})</button>` : ''}
       <button class="btn-add-row" onclick="ajouterChantier(${annee},${mi})" style="width:100%;font-size:0.88rem;padding:4px 0;">+ Chantier</button>
     </div></div>`;
   });
@@ -2080,7 +2128,10 @@ function navEnTree(event, input) {
     var bandeau = c.mobile
       ? '<div style="background:#2563eb;border-radius:6px;padding:6px 8px;margin:0 0 9px;font-size:0.74rem;line-height:1.4;">' +
           '<b>📱 Ajout mobile</b><br>' + String(c.mobile).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>'
-      : '';
+      : (c.perime
+        ? '<div style="background:#475569;border-radius:6px;padding:6px 8px;margin:0 0 9px;font-size:0.74rem;line-height:1.4;">' +
+            '<b>⌛ Ligne périmée</b><br>Remontée du planning, mais ce chantier n\'y figure plus ce mois-ci. Modifiez-la pour la garder, sinon « Nettoyer » en bas du mois.</div>'
+        : '');
     if (typeof c.realM === 'number' && c.realM > 0 && c.prevuM > 0) dot = coulRatio(c.realM / c.prevuM);
     else if (c.planifM > 0 && c.prevuM > 0) dot = coulRatio(c.planifM / c.prevuM);
     return '<div style="display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:10px;">' +
@@ -2131,6 +2182,7 @@ function navEnTree(event, input) {
     _cur = {
       cle, nom: nomUp,
       mobile:  tr.classList.contains('depuis-mobile') ? (tr.dataset.mobile || 'Ajouté sur mobile par un salarié') : '',
+      perime:  tr.dataset.perime === '1',
       prevuM:  prevuMois(devInp),
       planifM: planifieMois(nom, annee, mi),
       realM:   (cachedM !== null ? cachedM : (_cacheReal[mois] && _cacheReal[mois].status === 'error' ? 'nd' : 'load')),
