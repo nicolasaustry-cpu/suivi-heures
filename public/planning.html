@@ -3616,6 +3616,102 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 })();
 </script>
+<!-- ===== En-tête flottant : bandeau Semaine + jours restent visibles au défilement des salariés ===== -->
+<style>
+  #pl-float { position:fixed; z-index:90; display:none; pointer-events:none; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,.18); border-radius:0 0 10px 10px; }
+  #pl-float .wtitle { margin:0 !important; border-radius:0 !important; }
+  #pl-float .plf-x { overflow:hidden; }
+  #pl-float table.tgrid thead th { position:static; }
+  #pl-float table.tgrid thead th.tcorner { position:sticky; left:0; z-index:8; }
+  #pl-float.masquer-samedi .sam-col { display:none !important; }
+  @media print { #pl-float { display:none !important; } }
+</style>
+<script>
+(function(){
+  let flot=null, blocActif=null, theadSrc=null, rafEnCours=false;
+
+  function creerFlot(){
+    if (flot) return flot;
+    flot=document.createElement('div');
+    flot.id='pl-float'; flot.className='no-print';
+    document.body.appendChild(flot);
+    return flot;
+  }
+
+  // Bas des barres collées en haut de l'écran (en-tête bleu, barre de menu)
+  function hautDispo(){
+    let h=0;
+    document.querySelectorAll('.main-header, .sh-topbar').forEach(el=>{
+      const cs=getComputedStyle(el);
+      if (cs.display==='none' || (cs.position!=='sticky' && cs.position!=='fixed')) return;
+      const r=el.getBoundingClientRect();
+      if (r.top<=1 && r.bottom>h) h=r.bottom;
+    });
+    return Math.round(h);
+  }
+
+  function construire(bloc){
+    const f=creerFlot();
+    const titre=bloc.querySelector('.wtitle');
+    const thead=bloc.querySelector('table.tgrid thead');
+    if (!thead) return false;
+    f.innerHTML='';
+    if (titre) f.appendChild(titre.cloneNode(true));
+    const x=document.createElement('div'); x.className='plf-x';
+    const t=document.createElement('table'); t.className='tgrid';
+    t.appendChild(thead.cloneNode(true));
+    x.appendChild(t); f.appendChild(x);
+    blocActif=bloc; theadSrc=thead;
+    return true;
+  }
+
+  function masquer(){ if (flot) flot.style.display='none'; }
+
+  function maj(){
+    rafEnCours=false;
+    const cont=document.getElementById('planning-wrapper');
+    if (!cont || cont.offsetParent===null) return masquer();
+    const top=hautDispo();
+    let cible=null;
+    for (const b of cont.querySelectorAll('.wblock')){
+      if (b.offsetParent===null) continue;           // semaine masquée (filtre)
+      const th=b.querySelector('table.tgrid thead');
+      if (!th) continue;
+      const rTh=th.getBoundingClientRect(), rB=b.getBoundingClientRect();
+      // l'en-tête d'origine est passé sous la barre du haut, et la semaine est encore à l'écran
+      if (rTh.top < top && rB.bottom > top + 110) { cible=b; }
+    }
+    if (!cible) return masquer();
+    const f=creerFlot();
+    if (cible!==blocActif || !theadSrc || !theadSrc.isConnected) { if(!construire(cible)) return masquer(); }
+    f.classList.toggle('masquer-samedi', cont.classList.contains('masquer-samedi'));
+    const wrap=cible.querySelector('.twrap');
+    const rW=(wrap||cible).getBoundingClientRect();
+    f.style.left=rW.left+'px';
+    f.style.width=rW.width+'px';
+    f.style.top=top+'px';
+    f.style.display='block';
+    const x=f.querySelector('.plf-x');
+    if (x && wrap) x.scrollLeft=wrap.scrollLeft;
+  }
+
+  function demander(){ if (!rafEnCours){ rafEnCours=true; requestAnimationFrame(maj); } }
+
+  window.addEventListener('scroll', demander, {passive:true});
+  window.addEventListener('resize', demander);
+  // défilement horizontal des semaines (capture : l'événement scroll ne remonte pas)
+  document.addEventListener('scroll', e=>{ if (e.target && e.target.classList && e.target.classList.contains('twrap')) demander(); }, true);
+  document.addEventListener('transitionend', demander);   // ouverture/fermeture du menu latéral
+  function observer(){
+    const cont=document.getElementById('planning-wrapper');
+    if (!cont) return;
+    new MutationObserver(()=>{ blocActif=null; demander(); }).observe(cont,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+    demander();
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', observer); else observer();
+  window.addEventListener('beforeprint', masquer);
+})();
+</script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/renommer-chantier.js"></script>
