@@ -2747,7 +2747,8 @@ function fermerModaleHenrri() {
       if (!m.length) return null;
       if ([...m].sort().join(' ') === cleBase) return Object.assign(x, { score: 2 });          // même nom
       const [petit, grand] = m.length <= base.length ? [m, base] : [base, m];
-      if (petit.some(t => t.length >= 3) && petit.every(t => grand.includes(t))) return Object.assign(x, { score: 1 });   // nom inclus
+      if (petit.some(t => t.length >= 3) && petit.every(t => grand.includes(t)))
+        return Object.assign(x, { score: 1, plusComplet: m.length > base.length });   // nom inclus (le candidat est-il plus complet ?)
       return null;
     }).filter(Boolean);
     const max = evalue.reduce((a, x) => Math.max(a, x.score), 0);
@@ -2761,7 +2762,17 @@ function fermerModaleHenrri() {
 
   function fermer() { const o = document.getElementById('prop-adr'); if (o) o.remove(); }
 
-  function afficher(nomChantier, cands) {
+  /* Nom final du chantier si l'on choisit ce candidat : quand le nom tapé n'est qu'une partie
+     du nom du client (« TEST » → « TEST LOCALISATION »), la ligne prend le nom complet du client,
+     en gardant le n° de devis tapé. Sinon le nom tapé est conservé (« MEUNIER SUZANNE » reste tel quel). */
+  function nomFinal(nomChantier, c) {
+    if (!c.plusComplet) return nomChantier;
+    const base = sansDevis(nomChantier).trim();
+    const suffixe = nomChantier.trim().slice(base.length).trim();
+    return (sansDevis(c.nom).trim().toUpperCase() + (suffixe ? ' ' + suffixe : '')).trim();
+  }
+
+  function afficher(nomChantier, cands, ctx) {
     fermer();
     const o = document.createElement('div');
     o.id = 'prop-adr';
@@ -2778,7 +2789,9 @@ function fermerModaleHenrri() {
           const plus = [[k.mobile, k.fixe].filter(Boolean).join(' / '), k.email].filter(Boolean).join(' · ');
           return '<button type="button" data-i="' + i + '" style="display:block;width:100%;text-align:left;border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:7px 10px;margin:0 0 6px;cursor:pointer;font-size:0.82rem;line-height:1.4;">'
             + '📍 <b>' + esc(lieu) + '</b>' + (plus ? '<br><span style="color:#475569;">' + esc(plus) + '</span>' : '')
-            + '<br><span style="font-size:0.72rem;color:#64748b;">' + (c.source === 'henrri' ? 'Client Henrri' : 'Fiche') + ' « ' + esc(c.nom) + ' »</span></button>';
+            + '<br><span style="font-size:0.72rem;color:#64748b;">' + (c.source === 'henrri' ? 'Client Henrri' : 'Fiche') + ' « ' + esc(c.nom) + ' »</span>'
+            + (nomFinal(nomChantier, c) !== nomChantier ? '<br><span style="font-size:0.74rem;color:#0f3a8a;font-weight:700;">→ le chantier sera renommé « ' + esc(nomFinal(nomChantier, c)) + ' »</span>' : '')
+            + '</button>';
         }).join('')
       + '</div><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0;">'
       + '<button type="button" data-plus-tard="1" style="border:none;background:#e2e8f0;color:#334155;border-radius:7px;padding:7px 14px;font-weight:700;cursor:pointer;">Plus tard</button></div></div>';
@@ -2789,6 +2802,24 @@ function fermerModaleHenrri() {
       const c = cands[parseInt(b.dataset.i, 10)];
       fermer();
       if (!c || !(window.Coord && Coord.ouvrir)) return;
+      const cible = nomFinal(nomChantier, c);
+      if (cible !== nomChantier && ctx) {
+        // Renommer la ligne saisie (dernière ligne du mois portant le nom tapé)
+        const dm = getDataMois(ctx.annee, ctx.mi);
+        const lignes = dm.chantiers || [];
+        for (let i = lignes.length - 1; i >= 0; i--) {
+          if (String(lignes[i].client || '').trim().toUpperCase() === nomChantier) {
+            lignes[i].client = cible;
+            delete lignes[i]._depuisPlanning; delete lignes[i]._depuisMobile; delete lignes[i]._mobileInfo;
+            break;
+          }
+        }
+        sauverData();
+        rendreChantiers();
+        majLigne(ctx.annee + '_' + ctx.mi);
+      }
+      if (Coord.aDesCoordonnees(cible)) return;              // le nom complet a déjà sa fiche : rien à saisir
+      nomChantier = cible;
       Coord.ouvrir(nomChantier);
       ['adresse', 'ville', 'mobile', 'fixe', 'email'].forEach(f => {
         const inp = document.getElementById('coord-' + f);
@@ -2800,7 +2831,7 @@ function fermerModaleHenrri() {
     document.body.appendChild(o);
   }
 
-  async function proposer(nomBrut) {
+  async function proposer(nomBrut, ctx) {
     const nom = String(nomBrut || '').trim().toUpperCase();
     if (!nom || nom.length < 2 || nom === 'TEMPS NON AFFECTE') return;
     if (_ignores.has(norm(nom))) return;
@@ -2809,7 +2840,7 @@ function fermerModaleHenrri() {
     const cands = await candidats(nom);
     if (!cands.length) return;
     if (document.getElementById('coord-modal') && document.getElementById('coord-modal').classList.contains('on')) return;
-    afficher(nom, cands);
+    afficher(nom, cands, ctx);
   }
 
   /* Nom de chantier saisi ou modifié (ligne vierge ou ligne existante), validé par
@@ -2818,7 +2849,8 @@ function fermerModaleHenrri() {
     const t = e.target;
     if (!t || !t.matches || !t.matches('input[data-champ="client"]')) return;
     const v = t.value;
-    setTimeout(() => proposer(v), 150);   // après l'enregistrement et le redessin de la ligne
+    const ctx = { annee: parseInt(t.dataset.annee, 10), mi: parseInt(t.dataset.mi, 10) };
+    setTimeout(() => proposer(v, (isNaN(ctx.annee) || isNaN(ctx.mi)) ? null : ctx), 150);   // après l'enregistrement et le redessin de la ligne
   });
 })();
 </script>
