@@ -228,7 +228,10 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
       // Déplacement MANUEL dans Suiv'Heures (autre salarié ou autre jour) : la case actuelle
       // n'est plus celle où le sync l'avait posée (reservioCle). Créneaux plus anciens, sans
       // reservioCle : on garde l'ancienne règle (case hors du jour/salarié attendu = déplacé).
-      const dejaBouge = d.reservioCle ? keyExistante !== d.reservioCle
+      // Seuls le salarié et le jour comptent (préfixe de la case) : un simple réordonnancement
+      // des pavés dans la même journée change le n° de case mais n'est PAS une modification.
+      const jourCase = c => String(c || "").replace(/ch\d+$/, "");
+      const dejaBouge = d.reservioCle ? jourCase(keyExistante) !== jourCase(d.reservioCle)
                                       : !keyExistante.startsWith(cleAttendue);
       const modifie = !dejaBouge && d.reservioSnapshot && !memeEmpreinte(d, d.reservioSnapshot);
 
@@ -255,8 +258,8 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
         existantParUid.set(ev.uid, kNouv);
         d = heures[kNouv];
         d.reservioCle = kNouv;
-      } else if (!d.reservioCle) {
-        d.reservioCle = keyExistante;           // créneau ancien : mémorise sa case
+      } else {
+        d.reservioCle = keyExistante;           // mémorise la case actuelle (réordonnancement compris)
       }
       const keyCourante = existantParUid.get(ev.uid);
 
