@@ -2726,19 +2726,33 @@ function fermerModaleHenrri() {
     return { adresse: f.adresse || '', ville, mobile: f.mobile || (estMob ? tel : ''), fixe: f.fixe || (estMob ? '' : tel), email: String(f.email || '').trim() };
   }
 
+  /* Clients supprimés dans la page Clients (masqués) : jamais proposés.
+     Clés identiques à clients.html : « P:<nom sans n° de devis> » pour une fiche,
+     « H:<id> » pour un client Henrri. */
+  function masques() {
+    try {
+      const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {};
+      const m = ent.clientsDoublons && Array.isArray(ent.clientsDoublons.masques) ? ent.clientsDoublons.masques : [];
+      return new Set(m.map(String));
+    } catch (_) { return new Set(); }
+  }
+  const cleClientPage = nom => 'P:' + norm(String(nom || '').trim().replace(/\s+\d{2}-\d{2}-\d+\s*$/, '').trim());
+  function estMasque(nom, msq) { return (msq || masques()).has(cleClientPage(nom)); }
+
   async function candidats(nomChantier) {
     const base = mots(sansDevis(nomChantier));
     if (!base.length) return [];
+    const msq = masques();
     const cleBase = [...base].sort().join(' ');
     const liste = [];
     let fiches = {}; try { fiches = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) {}
     Object.keys(fiches).forEach(k => {
-      if (norm(k) === norm(nomChantier) || vide(fiches[k])) return;
+      if (norm(k) === norm(nomChantier) || vide(fiches[k]) || msq.has(cleClientPage(k))) return;   // client supprimé : ignoré
       const c = fiches[k];
       liste.push({ nom: k, source: 'fiche', coord: { adresse: c.adresse || '', ville: c.ville || '', mobile: c.mobile || '', fixe: c.fixe || '', email: c.email || '' } });
     });
     (await chargerHenrri()).forEach(f => {
-      if (!f || !String(f.nom || '').trim()) return;
+      if (!f || !String(f.nom || '').trim() || msq.has('H:' + String(f.id))) return;
       const c = versCoord(f);
       if (!vide(c)) liste.push({ nom: f.nom, source: 'henrri', coord: c });
     });
@@ -2836,7 +2850,7 @@ function fermerModaleHenrri() {
     if (!nom || nom.length < 2 || nom === 'TEMPS NON AFFECTE') return;
     if (_ignores.has(norm(nom))) return;
     if (!(window.Coord && Coord.ouvrir && Coord.aDesCoordonnees)) return;
-    if (Coord.aDesCoordonnees(nom)) return;                  // le chantier a déjà sa fiche
+    if (Coord.aDesCoordonnees(nom) && !estMasque(nom)) return;   // le chantier a déjà sa fiche (sauf client supprimé)
     const cands = await candidats(nom);
     if (!cands.length) return;
     if (document.getElementById('coord-modal') && document.getElementById('coord-modal').classList.contains('on')) return;
