@@ -2671,5 +2671,157 @@ function fermerModaleHenrri() {
 
 </script>
 
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ADRESSE PROPOSÉE À LA SAISIE D'UN NOUVEAU CHANTIER
+   Quand un nom de chantier est saisi (ou modifié) à la main — « DUPONT » ou
+   « DUPONT 26-09-1 » —, s'il n'a pas encore d'adresse, on cherche le client
+   dans la base Clients : fiches coordonnées existantes + clients Henrri.
+   Le n° de devis en fin de nom est ignoré pour la recherche.
+   - correspondance exacte du nom (ordre des mots indifférent) en priorité ;
+   - à défaut, nom inclus dans l'autre (« MEUNIER » ↔ « MEUNIER SUZANNE ») ;
+   - homonymes : toutes les adresses distinctes sont proposées.
+   Un clic ouvre la fiche du chantier pré-remplie : rien n'est enregistré
+   avant « Enregistrer ». « Plus tard » : plus reproposé pour ce nom (session).
+═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const MOTS_NEUTRES = new Set(['SARL','SAS','SASU','EURL','SCI','SA','SNC','EI','EIRL','SCEA','GAEC','EARL',
+    'M','MR','MME','MLLE','MONSIEUR','MADAME','ET','LE','LA','LES','L','DE','DU','DES','D','DEVIS']);
+  let _henrri = null;            // base clients Henrri (cache de la page)
+  const _ignores = new Set();    // noms pour lesquels l'utilisateur a répondu « Plus tard »
+
+  function norm(t) {
+    return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  /* Nom du client sans le n° de devis final : mots finaux contenant un chiffre retirés
+     (« DUPONT 26-09-1 », « DUPONT I-26-09-1 », « DUPONT D2026-045 » → « DUPONT »). */
+  function sansDevis(nom) {
+    const mots = String(nom || '').trim().split(/\s+/);
+    while (mots.length > 1 && /\d/.test(mots[mots.length - 1])) mots.pop();
+    return mots.join(' ');
+  }
+  function mots(t) { return norm(t).split(' ').filter(m => m && !MOTS_NEUTRES.has(m)); }
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const vide = c => !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email);
+
+  async function chargerHenrri() {
+    if (_henrri) return _henrri;
+    _henrri = [];
+    const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+    if (!token) return _henrri;
+    try {
+      const r = await fetch('/api/henrri/clients', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d && d.ok && d.actif && Array.isArray(d.clients)) _henrri = d.clients;
+    } catch (_) {}
+    return _henrri;
+  }
+
+  function versCoord(f) {
+    const tel = String(f.telephone || '');
+    const estMob = /^0[67]/.test(tel.replace(/[.\s-]/g, ''));
+    let ville = String(f.ville || '').trim();
+    const cp = String(f.codePostal || '').trim();
+    if (cp && ville.indexOf(cp) === -1) ville = (cp + ' ' + ville).trim();
+    return { adresse: f.adresse || '', ville, mobile: f.mobile || (estMob ? tel : ''), fixe: f.fixe || (estMob ? '' : tel), email: String(f.email || '').trim() };
+  }
+
+  async function candidats(nomChantier) {
+    const base = mots(sansDevis(nomChantier));
+    if (!base.length) return [];
+    const cleBase = [...base].sort().join(' ');
+    const liste = [];
+    let fiches = {}; try { fiches = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) {}
+    Object.keys(fiches).forEach(k => {
+      if (norm(k) === norm(nomChantier) || vide(fiches[k])) return;
+      const c = fiches[k];
+      liste.push({ nom: k, source: 'fiche', coord: { adresse: c.adresse || '', ville: c.ville || '', mobile: c.mobile || '', fixe: c.fixe || '', email: c.email || '' } });
+    });
+    (await chargerHenrri()).forEach(f => {
+      if (!f || !String(f.nom || '').trim()) return;
+      const c = versCoord(f);
+      if (!vide(c)) liste.push({ nom: f.nom, source: 'henrri', coord: c });
+    });
+    const evalue = liste.map(x => {
+      const m = mots(sansDevis(x.nom));
+      if (!m.length) return null;
+      if ([...m].sort().join(' ') === cleBase) return Object.assign(x, { score: 2 });          // même nom
+      const [petit, grand] = m.length <= base.length ? [m, base] : [base, m];
+      if (petit.some(t => t.length >= 3) && petit.every(t => grand.includes(t))) return Object.assign(x, { score: 1 });   // nom inclus
+      return null;
+    }).filter(Boolean);
+    const max = evalue.reduce((a, x) => Math.max(a, x.score), 0);
+    const vus = new Set();
+    return evalue.filter(x => x.score === max)
+      .sort((a, b) => (a.source === 'fiche' ? 0 : 1) - (b.source === 'fiche' ? 0 : 1))
+      .filter(x => { const k = norm(x.coord.adresse) + '|' + norm(x.coord.ville) + '|' + norm(x.coord.email); if (vus.has(k)) return false; vus.add(k); return true; })
+      .slice(0, 8)
+      .map(x => Object.assign(x, { approx: max === 1 }));
+  }
+
+  function fermer() { const o = document.getElementById('prop-adr'); if (o) o.remove(); }
+
+  function afficher(nomChantier, cands) {
+    fermer();
+    const o = document.createElement('div');
+    o.id = 'prop-adr';
+    o.style.cssText = 'position:fixed;inset:0;z-index:11000;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;padding:16px;';
+    const homonymes = cands.length > 1;
+    o.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(460px,96vw);max-height:80vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,.3);font-size:0.86rem;">'
+      + '<div style="background:#0f3a8a;color:#fff;padding:10px 14px;border-bottom:3px solid #f59e0b;"><b>📍 Adresse du chantier « ' + esc(nomChantier) + ' »</b>'
+      + '<div style="font-size:0.75rem;color:#bfdbfe;margin-top:2px;">'
+      + (cands[0].approx ? 'Client trouvé sur une partie du nom — à vérifier' : (homonymes ? 'Plusieurs clients portent ce nom : choisissez le bon' : 'Client connu dans la base Clients'))
+      + '</div></div><div style="padding:10px 12px;">'
+      + cands.map((c, i) => {
+          const k = c.coord;
+          const lieu = [k.adresse, k.ville].filter(Boolean).join(', ') || '(sans adresse)';
+          const plus = [[k.mobile, k.fixe].filter(Boolean).join(' / '), k.email].filter(Boolean).join(' · ');
+          return '<button type="button" data-i="' + i + '" style="display:block;width:100%;text-align:left;border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:7px 10px;margin:0 0 6px;cursor:pointer;font-size:0.82rem;line-height:1.4;">'
+            + '📍 <b>' + esc(lieu) + '</b>' + (plus ? '<br><span style="color:#475569;">' + esc(plus) + '</span>' : '')
+            + '<br><span style="font-size:0.72rem;color:#64748b;">' + (c.source === 'henrri' ? 'Client Henrri' : 'Fiche') + ' « ' + esc(c.nom) + ' »</span></button>';
+        }).join('')
+      + '</div><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0;">'
+      + '<button type="button" data-plus-tard="1" style="border:none;background:#e2e8f0;color:#334155;border-radius:7px;padding:7px 14px;font-weight:700;cursor:pointer;">Plus tard</button></div></div>';
+    o.addEventListener('click', e => {
+      if (e.target === o || e.target.closest('[data-plus-tard]')) { _ignores.add(norm(nomChantier)); fermer(); return; }
+      const b = e.target.closest('button[data-i]');
+      if (!b) return;
+      const c = cands[parseInt(b.dataset.i, 10)];
+      fermer();
+      if (!c || !(window.Coord && Coord.ouvrir)) return;
+      Coord.ouvrir(nomChantier);
+      ['adresse', 'ville', 'mobile', 'fixe', 'email'].forEach(f => {
+        const inp = document.getElementById('coord-' + f);
+        if (inp && !String(inp.value || '').trim() && c.coord[f]) inp.value = c.coord[f];
+      });
+      const sub = document.getElementById('coord-sub');
+      if (sub) sub.textContent = nomChantier + ' — pré-rempli : ' + (c.source === 'henrri' ? 'client Henrri' : 'fiche') + ' « ' + c.nom + ' » (à vérifier puis Enregistrer)';
+    });
+    document.body.appendChild(o);
+  }
+
+  async function proposer(nomBrut) {
+    const nom = String(nomBrut || '').trim().toUpperCase();
+    if (!nom || nom.length < 2 || nom === 'TEMPS NON AFFECTE') return;
+    if (_ignores.has(norm(nom))) return;
+    if (!(window.Coord && Coord.ouvrir && Coord.aDesCoordonnees)) return;
+    if (Coord.aDesCoordonnees(nom)) return;                  // le chantier a déjà sa fiche
+    const cands = await candidats(nom);
+    if (!cands.length) return;
+    if (document.getElementById('coord-modal') && document.getElementById('coord-modal').classList.contains('on')) return;
+    afficher(nom, cands);
+  }
+
+  /* Nom de chantier saisi ou modifié (ligne vierge ou ligne existante), validé par
+     sortie du champ ou Entrée — pas à chaque frappe. */
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (!t || !t.matches || !t.matches('input[data-champ="client"]')) return;
+    const v = t.value;
+    setTimeout(() => proposer(v), 150);   // après l'enregistrement et le redessin de la ligne
+  });
+})();
+</script>
+<script src="assets/coordonnees.js"></script>
 </body>
 </html>
