@@ -94,6 +94,7 @@
     #btn-import-clients { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 16px; font-size:0.85rem; font-weight:700; cursor:pointer; }
     #btn-import-clients:hover { background:#15803d; }
     .b-import { background:#ede9fe; color:#5b21b6; }
+    .b-mobile { background:#dbeafe; color:#1e40af; cursor:help; }
     #imp-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
     #imp-overlay.on { display:flex; }
     #imp-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:860px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
@@ -195,6 +196,7 @@
       <option value="">Tous les clients</option>
       <option value="henrri">Présents dans Henrri</option>
       <option value="planning">Planning uniquement</option>
+      <option value="mobile">Ajoutés sur mobile</option>
       <option value="incomplet">Fiches à compléter</option>
       <option value="doublon">Doublons probables</option>
       <option value="masques">Clients supprimés (masqués)</option>
@@ -288,6 +290,10 @@ let _henrriActif   = false;
 let _henrriMode    = 'api';  // 'api' | 'import' (page Entreprise)
 let _clients       = [];   // liste fusionnée affichée
 let _doublons      = [];   // paires { plan, henrri, raisons, score }
+/* Chantiers AJOUTÉS SUR MOBILE par les salariés (pointages « non prévus ») : ils n'existent
+   que dans le réalisé, ni au planning ni au prévisionnel. Chargés depuis le serveur
+   (12 derniers mois) : { NOM: { derniere:'YYYY-MM-DD', sal:[noms] } } */
+let _chantiersMobile = {};
 
 function _clToken() {
   return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
@@ -352,15 +358,17 @@ function _clientsPlanning() {
   const prev   = _lire('previsionnel_data', {});
   const coords = _lire('coordonneesChantiersdata', {});
   const groupes = new Map();
-  const ajouter = (nomBrut, date, depuisFiche) => {
+  const ajouter = (nomBrut, date, depuisFiche, depuisMobile) => {
     const nom = String(nomBrut || '').trim();
     const cle = _cle(nom);
-    if (!cle || EXCLUS.has(cle)) return;
+    if (!cle || EXCLUS.has(cle) || cle === 'ABSENCE') return null;
     let g = groupes.get(cle);
-    if (!g) { g = { cle, nom: _sansRef(nom), chantiers: new Set(), derniere: '' }; groupes.set(cle, g); }
+    if (!g) { g = { cle, nom: _sansRef(nom), chantiers: new Set(), derniere: '', sal: new Set() }; groupes.set(cle, g); }
     g.chantiers.add(nom.toUpperCase());
-    if (!depuisFiche) g.horsFiche = true;      // vu au planning / prévisionnel
+    if (!depuisFiche) g.horsFiche = true;      // vu au planning / prévisionnel / sur mobile
+    if (depuisMobile) g.mobile = true; else if (!depuisFiche) g.vuPlanning = true;
     if (date && date > g.derniere) g.derniere = date;
+    return g;
   };
   Object.keys(heures).forEach(k => {
     const e = heures[k];
@@ -371,7 +379,18 @@ function _clientsPlanning() {
   Object.values(prev || {}).forEach(an => Object.values(an || {}).forEach(mo => {
     (mo && Array.isArray(mo.chantiers) ? mo.chantiers : []).forEach(c => c && ajouter(c.client, ''));
   }));
-  Object.keys(coords || {}).forEach(nom => ajouter(nom, '', true));
+  Object.keys(coords || {}).forEach(nom => {
+    const g = ajouter(nom, '', true);
+    // Fiche créée sur le mobile par un salarié (adresse saisie ou proposée par le GPS)
+    const c = coords[nom];
+    if (g && c && c.origine === 'mobile') { g.ficheMobile = true; if (c.auteur) g.sal.add(c.auteur); }
+  });
+  // Chantiers ajoutés sur mobile (réalisé), absents du planning et du prévisionnel
+  Object.keys(_chantiersMobile || {}).forEach(nom => {
+    const m = _chantiersMobile[nom];
+    const g = ajouter(nom, m.derniere, false, true);
+    if (g) (m.sal || []).forEach(x => g.sal.add(x));
+  });
 
   // Coordonnées : première fiche renseignée parmi les chantiers du groupe
   const coordsNorm = new Map(Object.keys(coords || {}).map(k => [_norm(k), coords[k]]));
@@ -387,7 +406,10 @@ function _clientsPlanning() {
       adresse: co.adresse || '', ville: co.ville || '',
       telephone: co.mobile || co.fixe || '', email: co.email || '',
       importe: co.origine === 'import' && !g.horsFiche,  // client venu d'un fichier, sans chantier encore
-      ficheSeule: !g.horsFiche                           // n'existe que par sa fiche coordonnées
+      ficheSeule: !g.horsFiche,                          // n'existe que par sa fiche coordonnées
+      // Ajouté sur mobile : pointé (ou fiche créée) sur le téléphone, jamais vu au planning ni au prévisionnel
+      mobile: !!((g.mobile || g.ficheMobile) && !g.vuPlanning),
+      mobileSal: [...g.sal]
     };
   });
 }
@@ -478,7 +500,7 @@ function construireBase() {
     });
   });
   seuls.forEach(p => liste.push({
-    source: 'planning', importe: !!p.importe, ficheSeule: !!p.ficheSeule, cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
+    source: 'planning', importe: !!p.importe, ficheSeule: !!p.ficheSeule, mobile: !!p.mobile, mobileSal: p.mobileSal || [], cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
     codePostal: _cpDe(p.ville), telephone: p.telephone, email: p.email || '',
     chantiers: p.chantiers, derniere: p.derniere, doublon: enDoublon.has(p.cle)
   }));
@@ -507,12 +529,13 @@ function rendreClients(liste) {
     const badge = c.source === 'mixte' ? '<span class="badge-src b-mixte" title="Présent dans Henrri et dans le planning">Henrri + planning</span>'
                 : c.source === 'henrri' ? '<span class="badge-src b-henrri">Henrri</span>'
                 : c.importe ? '<span class="badge-src b-import" title="Client importé depuis un fichier">Fichier importé</span>'
+                : c.mobile ? `<span class="badge-src b-mobile" title="${_clEsc('Chantier ajouté sur le mobile' + (c.mobileSal.length ? ' par ' + c.mobileSal.join(', ') : '') + ' — absent du planning et du prévisionnel')}">📱 Ajouté sur mobile</span>`
                 : '<span class="badge-src b-planning">Planning</span>';
     const dbl = c.doublon ? `<span class="badge-src b-doublon" onclick="ouvrirDoublons(${_jsArg(c.cle)})" title="Ressemble à un client Henrri">⚠ doublon probable</span>` : '';
     const inc = c.incomplet ? '<span class="badge-src b-incomplet">fiche à compléter</span>' : '';
     const nb = c.chantiers.length;
     const defaire = (c.liensManuels || []).map(k => `<span class="lien-defaire" onclick="defaireFusion(${_jsArg(k)})" title="Annuler la fusion avec « ${_clEsc(k)} »">✕ défusionner ${_clEsc(k)}</span>`).join('');
-    const sous = (nb && !c.importe) ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} au planning/prévisionnel${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
+    const sous = (nb && !c.importe) ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} ${c.mobile ? 'pointé' + (nb > 1 ? 's' : '') + ' sur mobile' : 'au planning/prévisionnel'}${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
     // Fiche ouvrable sur TOUS les clients (Henrri compris) : pour un client Henrri,
     // la fenêtre est pré-remplie avec ses coordonnées Henrri.
     const completer = (window.Coord && Coord.ouvrir && (nb || c.source !== 'planning'))
@@ -543,6 +566,7 @@ function filtrerClients() {
     else if (c.masque) return false;                 // clients supprimés : seulement via le filtre dédié
     if (f === 'henrri'    && c.source === 'planning') return false;
     if (f === 'planning'  && c.source !== 'planning') return false;
+    if (f === 'mobile'    && !c.mobile) return false;
     if (f === 'incomplet' && !c.incomplet) return false;
     if (f === 'doublon'   && !c.doublon) return false;
     if (!terme) return true;
@@ -741,6 +765,42 @@ function completerFiche(i) {
 })();
 window.addEventListener('focus', () => { construireBase(); filtrerClients(); });
 
+/* ── Chantiers ajoutés sur mobile (pointages non prévus, 12 derniers mois) ── */
+async function chargerChantiersMobile() {
+  const token = _clToken();
+  if (!token) return;
+  try {
+    const rl = await fetch('/api/saisies/mois-list', { headers: { Authorization: 'Bearer ' + token } });
+    const dl = await rl.json();
+    if (!dl || !dl.ok) return;
+    const d0 = new Date(); d0.setMonth(d0.getMonth() - 11);
+    const depuis = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0');
+    const mois = (dl.mois || []).filter(m => m >= depuis);
+    const res = {};
+    await Promise.all(mois.map(async m => {
+      try {
+        const r = await fetch('/api/saisies/' + m + '?sansPhotos=1', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        if (!d || !d.ok || !Array.isArray(d.saisies)) return;
+        d.saisies.forEach(sx => (sx.chantiers || []).forEach(c => {
+          if (c.isPrevisionnel !== false) return;          // seuls les chantiers ajoutés sur le mobile
+          const nom = String(c.nom || '').trim().toUpperCase();
+          if (!nom) return;
+          const e = res[nom] || (res[nom] = { derniere: '', sal: [] });
+          if (sx.date && sx.date > e.derniere) e.derniere = sx.date;
+          const sn = String(sx.salarieNom || '').trim();
+          if (sn && e.sal.indexOf(sn) === -1) e.sal.push(sn);
+        }));
+      } catch (_) {}
+    }));
+    _chantiersMobile = res;
+    construireBase();
+    filtrerClients();
+  } catch (e) {
+    console.warn('Chantiers ajoutés sur mobile : chargement impossible', e);
+  }
+}
+
 /* ── Chargement / actualisation Henrri (facultatif) ── */
 async function chargerClients() {
   const token = _clToken();
@@ -764,6 +824,7 @@ async function chargerClients() {
   document.getElementById('btn-sync-clients').style.display = (_henrriActif && _henrriMode === 'api') ? '' : 'none';
   construireBase();
   filtrerClients();
+  chargerChantiersMobile();   // en tâche de fond : la liste se complète à l'arrivée
 }
 
 async function synchroniserClientsHenrri() {
