@@ -1084,15 +1084,49 @@ function pl2ChipHTML(sl){
 function pl2TraiterAlerteReservio(k){
   const d = heures[k];
   if(!d) return;
-  const msg = "Ce RDV a été annulé dans Reservio, mais vous l'aviez modifié manuellement dans le planning.\n\n"
-    + "OK = conserver ce créneau tel quel.\nAnnuler = le supprimer.";
-  if(confirm(msg)){
-    delete d.reservioAnnule;
-  } else {
-    delete heures[k];
-  }
-  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
-  genererPlanning();
+  const annules = Object.keys(heures).filter(x => heures[x] && heures[x].reservioUid && heures[x].reservioAnnule);
+  const ancien = document.getElementById('rsv-alerte'); if (ancien) ancien.remove();
+  const o = document.createElement('div');
+  o.id = 'rsv-alerte';
+  o.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:16px;';
+  const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+  const sal = m ? salaries.find(x => String(x.id) === m[1]) : null;
+  const qui = sal ? ((sal.prenom || '') + ' ' + (sal.nom || '')).trim() : '';
+  const quand = m ? m[4] + '/' + m[3] + '/' + m[2] : '';
+  const btn = 'flex:1;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:.86rem;cursor:pointer;';
+  o.innerHTML = '<div style="background:#fff;border-radius:14px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 14px 48px rgba(0,0,0,.35);font-family:inherit;">'
+    + '<div style="background:#991b1b;color:#fff;padding:12px 16px;"><b>⚠️ RDV annulé dans Reservio</b></div>'
+    + '<div style="padding:14px 16px;font-size:.88rem;color:#334155;line-height:1.5;">'
+    +   '<b>' + escapeHtml(d.chantier || '') + '</b><br>' + escapeHtml([qui, quand, d.rdv ? 'à ' + d.rdv : ''].filter(Boolean).join(' · '))
+    +   '<p style="margin:10px 0 0;">Ce rendez-vous a été annulé dans Reservio. Il avait été modifié dans le planning, il n\'a donc pas été retiré automatiquement.</p>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:0 16px 12px;">'
+    +   '<button type="button" data-a="suppr" style="' + btn + 'background:#dc2626;color:#fff;">🗑 Supprimer du planning</button>'
+    +   '<button type="button" data-a="garder" style="' + btn + 'background:#e2e8f0;color:#334155;">Conserver</button>'
+    + '</div>'
+    + (annules.length > 1 ? '<div style="padding:0 16px 12px;"><button type="button" data-a="tous" style="' + btn + 'width:100%;background:#fff;color:#991b1b;border:1px solid #fca5a5;">🗑 Supprimer les ' + annules.length + ' RDV annulés par Reservio</button></div>' : '')
+    + '<div style="padding:8px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:.75rem;color:#64748b;">« Conserver » garde le créneau comme un créneau ordinaire, détaché de Reservio.</div>'
+    + '</div>';
+  const fin = () => {
+    localStorage.setItem('heuresdata', JSON.stringify(heures));   // sans cette écriture, rien n'était enregistré
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    o.remove();
+    genererPlanning();
+  };
+  o.addEventListener('click', e => {
+    if (e.target === o) { o.remove(); return; }
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'garder') { _rsvDetacher(d); fin(); return; }
+    const cibles = a === 'tous' ? annules : [k];
+    if (a === 'tous' && !confirm('Supprimer du planning les ' + cibles.length + ' RDV annulés par Reservio ?')) return;
+    cibles.forEach(x => { delete heures[x]; });
+    fin();
+    cibles.forEach(x => { const mm = x.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch/); if (mm) { try { appliquerTempsNonAffecte(mm[1], mm[2].replace(/_/g, '-')); } catch (_) {} } });
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    genererPlanning();
+  });
+  document.body.appendChild(o);
 }
 
 /* ── Réordonnancement des pavés dans le planning prévu (glisser-déposer, poignée ⠿) ── */
@@ -1497,6 +1531,10 @@ function majCouleursChantiers() {
 }
 
 /* ====== SAUVEGARDE TEMPS RÉEL ====== */
+var _RSV_CHAMPS = ['reservioUid', 'reservioSnapshot', 'reservioLocked', 'reservioAnnule', 'reservioCle'];
+/* Détache un créneau de Reservio : il devient un créneau ordinaire, que la synchro ne
+   touche plus (elle ne recrée pas non plus un RDV qu'elle avait déjà importé). */
+function _rsvDetacher(e) { if (e) _RSV_CHAMPS.forEach(c => { delete e[c]; }); }
 /* Vide le nom du chantier d'une case (les heures sont conservées). */
 function viderChantier(k) {
   if (((heures[k] && heures[k].chantier) || '').trim().toUpperCase() === TNA) return;   // TNA : jamais vidé à la main
@@ -1507,6 +1545,10 @@ function viderChantier(k) {
   if (hSel) hSel.value = '0';            // remet les heures saisies à 0 (affichage)
   if (heures[k]) delete heures[k].note;  // on retire aussi la note de la cellule
   saveHeure(k, '', 0);                   // enregistre : chantier vidé ET 0 heure saisie
+  if (heures[k] && heures[k].reservioUid) {  // RDV Reservio supprimé à la main : détaché (pas recréé par la synchro)
+    _rsvDetacher(heures[k]);
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+  }
   majBoutonNote(k);                      // met à jour l'indicateur + la note imprimable
   onLigneRecalc(k);                      // recalcule « TEMPS NON AFFECTE » si nécessaire
   input.focus();
@@ -1521,7 +1563,13 @@ function saveHeure(k, ch, h) {
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
   const excluAv = !!(heures[k] && heures[k].exclu);
   const motifExcluAv = (heures[k] && heures[k].motifExclu) ? heures[k].motifExclu : '';
+  // Lien Reservio : conservé quand on modifie le nom ou les heures (avant, il était effacé →
+  // la synchro recréait un doublon, et une annulation Reservio n'était plus jamais signalée).
+  // C'est la synchro qui détecte la modification et verrouille le RDV.
+  const reservioAv = {};
+  if (heures[k] && heures[k].reservioUid) _RSV_CHAMPS.forEach(c => { if (heures[k][c] !== undefined) reservioAv[c] = heures[k][c]; });
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  Object.assign(heures[k], reservioAv);
   if (motifAv) heures[k].motif = motifAv;
   if (excluAv) heures[k].exclu = true;   // le marquage « exclu du calcul » survit aux modifs de nom/heures
   if (motifExcluAv) heures[k].motifExclu = motifExcluAv;
@@ -1972,7 +2020,7 @@ function onChantierCommit(k) {
       if (nbReels === 1) {
         const abs = parseFloat(heures[`${salarieId}${safe}abs`]?.heures) || 0;
         const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
-        if (cible > 0) { heures[k] = { chantier: nom, heures: cible }; localStorage.setItem('heuresdata', JSON.stringify(heures)); }
+        if (cible > 0) { heures[k] = Object.assign({}, e, { chantier: nom, heures: cible }); localStorage.setItem('heuresdata', JSON.stringify(heures)); }
       }
     }
     appliquerTempsNonAffecte(salarieId, dateStr);

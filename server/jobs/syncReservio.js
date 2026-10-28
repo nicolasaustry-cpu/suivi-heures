@@ -62,7 +62,10 @@ function libelleRdv(summary) {
   let service = idx >= 0 ? s.slice(idx + 3).trim()     : "";
   if (!service || /^non assign/i.test(service)) service = "Prestation non définie";
   if (!client) client = "Client";
-  return { client, service, chantier: `${client} — ${service}` };
+  // Nom de chantier en MAJUSCULES, comme partout dans Suiv'Heures (le planning met le nom en
+  // majuscules dès qu'on touche la ligne : en casse mixte, ce simple geste passait pour une
+  // modification manuelle et verrouillait le RDV).
+  return { client, service, chantier: `${client} — ${service}`.toUpperCase() };
 }
 
 // ── Extrait email / téléphone / adresse depuis la DESCRIPTION Reservio ──
@@ -159,18 +162,32 @@ function trouverSlotLibre(heures, salarieId, dateKey, dejaPris) {
 }
 
 // ── Empreinte des champs "visibles" du créneau, pour détecter une modif manuelle ──
+// Comparaison tolérante aux simples reformatages du planning (casse du nom, espaces,
+// « 9:30 » / « 09:30 », heures « 1.50 » / 1.5) : seule une vraie modification verrouille.
+function _hhmm(v) {
+  const m = String(v || "").trim().match(/^(\d{1,2}):(\d{2})/);
+  return m ? m[1].padStart(2, "0") + ":" + m[2] : String(v || "").trim();
+}
 function empreinte(d) {
   return JSON.stringify({
-    chantier: String(d.chantier || "").trim(),
-    heures:   parseFloat(d.heures) || 0,
-    rdv:      String(d.rdv || "").trim(),
-    note:     String(d.note || "").trim()
+    chantier: String(d.chantier || "").replace(/\s+/g, " ").trim().toUpperCase(),
+    heures:   Math.round((parseFloat(d.heures) || 0) * 100) / 100,
+    rdv:      _hhmm(d.rdv),
+    note:     String(d.note || "").replace(/\s+/g, " ").trim()
   });
+}
+
+/* Le créneau est-il resté tel que le sync l'a écrit ? L'empreinte mémorisée est relue puis
+   normalisée avec les règles actuelles : les empreintes enregistrées avant cette version
+   (nom en casse mixte, « 1.5 » vs 1.50…) ne provoquent donc aucun verrouillage abusif. */
+function memeEmpreinte(d, snapshot) {
+  try { return empreinte(JSON.parse(snapshot)) === empreinte(d); }
+  catch (_) { return empreinte(d) === snapshot; }
 }
 
 // ── Synchronise UN salarié (une URL ICS) pour UN client ──
 // Retourne l'ensemble des UID Reservio vus dans ce flux (RDV à venir).
-async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
+async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
   const uidsVus = new Set();
   let events;
   try {
@@ -204,16 +221,44 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
     const keyExistante = existantParUid.get(ev.uid);
 
     if (keyExistante) {
-      const d = heures[keyExistante];
+      vus[ev.uid] = dateKey;                 // date actuelle du RDV (purge des RDV passés)
+      let d = heures[keyExistante];
       if (d.reservioLocked) continue; // verrouillé : on ne touche plus jamais
 
-      const dejaBouge = !keyExistante.startsWith(cleAttendue); // déplacé vers un autre salarié
-      const modifie = !dejaBouge && d.reservioSnapshot && empreinte(d) !== d.reservioSnapshot;
+      // Déplacement MANUEL dans Suiv'Heures (autre salarié ou autre jour) : la case actuelle
+      // n'est plus celle où le sync l'avait posée (reservioCle). Créneaux plus anciens, sans
+      // reservioCle : on garde l'ancienne règle (case hors du jour/salarié attendu = déplacé).
+      const dejaBouge = d.reservioCle ? keyExistante !== d.reservioCle
+                                      : !keyExistante.startsWith(cleAttendue);
+      const modifie = !dejaBouge && d.reservioSnapshot && !memeEmpreinte(d, d.reservioSnapshot);
 
       if (dejaBouge || modifie) {
         d.reservioLocked = true; // on gèle tel quel, on ne retouche plus
+        doc.markModified(`heures.${keyExistante}`);
         continue;
       }
+
+      // RDV DÉPLACÉ DANS RESERVIO (autre jour ou autre salarié) alors que le créneau n'a pas
+      // été touché ici : on le déplace dans le planning (avant, il restait verrouillé à
+      // l'ancienne date et le nouveau rendez-vous n'apparaissait jamais).
+      if (!keyExistante.startsWith(cleAttendue)) {
+        const kNouv = trouverSlotLibre(heures, salarieId, dateKey, dejaPrisParDate);
+        if (!kNouv) {
+          console.warn(`   ⚠️  Planning plein le ${dateKey} pour le salarié ${salarieId} — RDV déplacé "${chantier}" non reporté.`);
+          continue;
+        }
+        dejaPrisParDate.add(kNouv);
+        heures[kNouv] = d;
+        delete heures[keyExistante];
+        delete d.rdvNotifie;                    // nouvelle date / heure : rappel re-déclenchable
+        doc.markModified("heures");
+        existantParUid.set(ev.uid, kNouv);
+        d = heures[kNouv];
+        d.reservioCle = kNouv;
+      } else if (!d.reservioCle) {
+        d.reservioCle = keyExistante;           // créneau ancien : mémorise sa case
+      }
+      const keyCourante = existantParUid.get(ev.uid);
 
       // Rien de manuel détecté → on rafraîchit avec les données Reservio
       d.chantier = chantier;
@@ -223,7 +268,11 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
       d.note     = note || "";  // annotation libre laissée par le client sur ce RDV
       d.reservioSnapshot = empreinte(d);
       d.reservioAnnule = false;
-      doc.markModified(`heures.${keyExistante}`);
+      doc.markModified(`heures.${keyCourante}`);
+    } else if (vus[ev.uid]) {
+      // RDV déjà importé, absent du planning : supprimé (ou détaché) à la main dans
+      // Suiv'Heures → on ne le recrée pas (avant, il réapparaissait toutes les 15 min).
+      continue;
     } else {
       // Nouveau RDV : on cherche un slot libre du jour pour ce salarié
       const k = trouverSlotLibre(heures, salarieId, dateKey, dejaPrisParDate);
@@ -232,9 +281,10 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate) {
         continue;
       }
       dejaPrisParDate.add(k);
+      vus[ev.uid] = dateKey;                 // mémorisé : importé une fois, jamais réimporté
       const d = {
         chantier, heures: dureeH, rdv, rdvAuteur: "reservio", note: note || "",
-        reservioUid: ev.uid, reservioLocked: false, reservioAnnule: false
+        reservioUid: ev.uid, reservioLocked: false, reservioAnnule: false, reservioCle: k
       };
       d.reservioSnapshot = empreinte(d);
       heures[k] = d;
@@ -273,7 +323,8 @@ function traiterAnnulations(doc, uidsEncoreValides) {
     if (!m || m[1] < aujourdHui) continue; // créneau passé : on n'y touche pas
 
     if (d.reservioLocked) {
-      d.reservioAnnule = true; // alerte à traiter par le gérant (planning.html — à faire)
+      if (d.reservioAnnule) continue;  // alerte déjà posée : rien à réécrire
+      d.reservioAnnule = true; // alerte à traiter par le gérant dans planning.html
       doc.markModified(`heures.${k}`);
     } else {
       delete heures[k]; // jamais modifié manuellement → suppression silencieuse
@@ -290,6 +341,19 @@ async function syncClient(doc) {
   const dejaPrisParDate = new Set(); // évite deux RDV sur le même slot pendant ce cycle
   const tousLesUids = new Set();
 
+  /* RDV déjà importés { uid: 'YYYY_MM_DD' } : champ propre au sync, lu et écrit directement
+     dans la collection (hors schéma, hors synchronisation des postes). Initialisé avec les
+     RDV présents dans le planning, puis purgé des RDV passés. */
+  let vus = {};
+  try {
+    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1 } });
+    vus = (brut && brut.reservioVus && typeof brut.reservioVus === "object") ? brut.reservioVus : {};
+  } catch (_) {}
+  for (const [k, d] of Object.entries(doc.heures || {})) {
+    const m = k.match(/(\d{4}_\d{2}_\d{2})ch\d+$/);
+    if (d && d.reservioUid && m && !vus[d.reservioUid]) vus[d.reservioUid] = m[1];
+  }
+
   for (const s of cfg.salaries) {
     const salarieId = s?.salarieId;
     // Plusieurs fiches Reservio peuvent exister pour un même salarié (cas constaté
@@ -301,7 +365,7 @@ async function syncClient(doc) {
     for (const urlBrute of urls) {
       const url = (urlBrute || "").trim();
       if (!url) continue;
-      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate);
+      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate, vus);
       uids.forEach(u => tousLesUids.add(u));
     }
   }
@@ -310,6 +374,15 @@ async function syncClient(doc) {
 
   doc.updatedAt = new Date();
   await doc.save();
+
+  // Purge des RDV passés puis enregistrement de la liste des RDV déjà importés
+  const aujourdHui = aujourdHuiKeyParis();
+  for (const u of Object.keys(vus)) if (!vus[u] || vus[u] < aujourdHui) delete vus[u];
+  try {
+    await Donnees.collection.updateOne({ _id: doc._id }, { $set: { reservioVus: vus } });
+  } catch (e) {
+    console.warn(`   ⚠️  Reservio ${doc.clientId} : liste des RDV importés non enregistrée (${e.message})`);
+  }
 }
 
 // ── Cycle complet : tous les clients ayant Reservio actif ──
