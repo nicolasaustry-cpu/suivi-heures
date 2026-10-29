@@ -145,12 +145,16 @@ function voieRegex() {
 const MOTS_INFO = new Set(("contrat entretien marque pac chaudiere type modele info infos information informations " +
   "remarque remarques note notes merci code digicode portail etage bat batiment tel telephone mail appareil ref " +
   "annuel annuelle maintenance intervention client sav clim climatisation gaz fioul pellets granules poele ballon " +
-  "acces attention svp rdv contact abonnement garantie depannage visite installation equipement chaudière").split(" "));
+  "locataire proprietaire mme madame monsieur mr acces attention svp rdv contact abonnement garantie depannage visite installation equipement chaudière").split(" "));
 const LIAISONS = new Set("de du des la le les l d sur sous en les lez lès aux au et".split(" "));
 const sansAccent = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
 const norm = s => sansAccent(s).toLowerCase().replace(/[’']/g, " ").replace(/[^a-z0-9 -]/g, "").trim();
 const motNorm = m => { const n = norm(m).replace(/-/g, ""); return n === "st" ? "saint" : n === "ste" ? "sainte" : n; };
 
+function adressePolluee(ancienne, nouvelle) {
+  const a = cleNom(ancienne), n = cleNom(nouvelle);
+  return contientMotInfo(ancienne) || (!!n && a !== n && a.includes(n));
+}
 function contientMotInfo(s) {
   return String(s || "").split(/[^\p{L}]+/u).map(motNorm).some(w => MOTS_INFO.has(w));
 }
@@ -223,6 +227,66 @@ function longueurVille(cp, apres) {
   return { fin, nom: fin ? apres.slice(0, fin).trim() : "" };
 }
 
+// ── Communes par NOM (adresse sans code postal) ──
+const _communesParNom = new Map();            // nom normalisé → nom officiel ("" si inconnu)
+const cleNom = s => motsAvecPos(s).map(x => motNorm(x.mot)).filter(Boolean).join(" ");
+// Fins de rue candidates à être une ville : 1 à 4 derniers mots, après le mot de voie
+// et au moins un mot de nom de voie ; la rue restante ne doit pas finir par « de / du / la… ».
+function candidatsVille(rue) {
+  const m = voieRegex().exec(rue);
+  if (!m) return [];
+  const finVoie = m.index + m[0].length;
+  const mots = motsAvecPos(rue);
+  const out = [];
+  for (let k = 1; k <= 4 && k < mots.length; k++) {
+    const debut = mots[mots.length - k].debut;
+    const avantVille = mots.filter(w => w.debut >= finVoie && w.fin <= debut);
+    if (!avantVille.length) break;
+    if (LIAISONS.has(motNorm(avantVille[avantVille.length - 1].mot))) continue;
+    out.push({ debut, nom: rue.slice(debut) });
+  }
+  return out;
+}
+// Sans code postal, rien ne borne la fin de l'adresse : on la coupe au premier mot d'info
+// situé après la voie (« 12 avenue Jean Jaurès Coulaines contrat confort »).
+function couperInfos(rue) {
+  const m = voieRegex().exec(rue);
+  if (!m) return { rue, reste: "" };
+  const finVoie = m.index + m[0].length;
+  const w = motsAvecPos(rue).find(x => x.debut >= finVoie && MOTS_INFO.has(motNorm(x.mot)));
+  if (!w) return { rue, reste: "" };
+  return { rue: rue.slice(0, w.debut).replace(/[\s,\-–—:]+$/, "").trim(), reste: rue.slice(w.debut).trim() };
+}
+function villeEnFinDeRue(rue) {
+  let trouve = null;
+  for (const c of candidatsVille(rue)) {                 // du plus court au plus long : on garde le plus long
+    const off = _communesParNom.get(cleNom(c.nom));
+    if (off) trouve = { ville: off, rue: rue.slice(0, c.debut).replace(/[\s,\-–—]+$/, "").trim() };
+  }
+  return trouve;
+}
+async function chargerCommunesParNom(descriptions) {
+  const noms = new Set();
+  for (const d of descriptions) {
+    const blocs = String(d || "").trim().split(/\n\s*\n/).slice(1).map(nettoyerLibelleAdresse);
+    for (const b of blocs) {
+      if (CP_RE_1.test(b) || /^https?:/i.test(b)) continue;
+      for (const ligne of b.replace(/[ \t]{2,}/g, "\n").split(/[\n;]/))
+        for (const c of candidatsVille(couperInfos(ligne.trim()).rue)) { const k = cleNom(c.nom); if (k && !_communesParNom.has(k)) noms.add(k); }
+    }
+  }
+  await Promise.all([...noms].slice(0, 80).map(async k => {
+    try {
+      const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(k)}&fields=nom&boost=population&limit=5`,
+                            { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return;
+      const j = await r.json();
+      const exact = (Array.isArray(j) ? j : []).find(c => c && cleNom(c.nom) === k);
+      _communesParNom.set(k, exact ? exact.nom : "");
+    } catch { /* réseau indisponible : la ville reste dans la rue */ }
+  }));
+}
+
 // Sépare, dans la zone de saisie unique : ce qui précède l'adresse (avant), la rue,
 // "CP Ville", et tout ce qui suit la ville (après). avant + après → note du créneau.
 function extraireAdresseVilleNote(txt) {
@@ -241,7 +305,7 @@ function extraireAdresseVilleNote(txt) {
   }
   if (!choix && cands.length) choix = cands[0];
 
-  let prefixe, apresVille = "", ville = "";
+  let prefixe, apresVille = "", ville = "", sansCp = false;
   if (choix) {
     prefixe = brut.slice(0, choix.i);
     const reste = brut.slice(choix.i + 5);
@@ -252,6 +316,7 @@ function extraireAdresseVilleNote(txt) {
     apresVille = apres.slice(v.fin);
   } else {
     // Pas de code postal : l'adresse s'arrête au premier retour à la ligne / point-virgule.
+    sansCp = true;
     const m = voieRegex().exec(brut);
     if (!m) return { rue: "", ville: "", avant: brut, apres: "" };   // aucune adresse repérable → tout en note
     const fin = brut.slice(m.index).search(/[\n;]/);
@@ -269,7 +334,9 @@ function extraireAdresseVilleNote(txt) {
   if (voie && voie.index > 0) {
     const tete = rue.slice(0, voie.index);
     const motsTete = tete.split(/[^\p{L}]+/u).map(motNorm).filter(Boolean);
-    if (/[:;.\n]\s*$/.test(tete) || /[:;\n]/.test(tete) || motsTete.some(w => MOTS_INFO.has(w))) {
+    // « locataire de Mme X 16 rue … » : texte sans mot de voie devant un n° + voie = info.
+    const teteSansVoie = voie[1] && !voieRegex().test(tete);
+    if (teteSansVoie || /[:;.\n]\s*$/.test(tete) || /[:;\n]/.test(tete) || motsTete.some(w => MOTS_INFO.has(w))) {
       avant = tete; rue = rue.slice(voie.index);
     }
   } else if (!voie) {
@@ -282,6 +349,15 @@ function extraireAdresseVilleNote(txt) {
     else if (morceaux.length > 1) { rue = morceaux.pop(); avant = morceaux.join(" / "); }
   }
   rue = rue.replace(/\n/g, " ").replace(/\s+/g, " ").replace(/^[\s,\-–—:]+|[\s,\-–—:]+$/g, "").trim();
+
+  // Sans code postal, la ville est souvent tapée à la fin, en minuscules (« 16 rue du 11
+  // novembre le mans ») : on la reconnaît d'après la liste officielle des communes.
+  if (sansCp && rue) {
+    const c = couperInfos(rue);
+    if (c.reste) { rue = c.rue; apresVille = c.reste + (apresVille ? "\n" + apresVille : ""); }
+    const v = villeEnFinDeRue(rue);
+    if (v) { ville = v.ville; rue = v.rue; }
+  }
   return { rue, ville, avant: avant.replace(/\n/g, " / "), apres: apresVille.replace(/\n/g, " / ") };
 }
 
@@ -327,9 +403,9 @@ function nettoyerCoordonneesPassees(doc, ev) {
   if (!coords) return;
   const cle = libelleRdv(ev.summary).chantier.trim().toUpperCase();
   const c = coords[cle];
-  if (!c || !contientMotInfo(c.adresse)) return;
+  if (!c) return;
   const { adresse, ville } = parserDescription(ev.description);
-  if (!ville) return;
+  if (!ville || !adressePolluee(c.adresse, adresse)) return;
   coords[cle] = { ...c, adresse: adresse || "", ville };
   doc.markModified("coordonneesChantiers");
 }
@@ -349,6 +425,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
   }
   // Noms officiels des communes des CP présents dans ce flux (pour isoler la ville).
   await chargerCommunes(events.map(e => e.description));
+  await chargerCommunesParNom(events.map(e => e.description));
 
   const maintenant = Date.now();
   const heures = doc.heures || (doc.heures = {});
@@ -465,7 +542,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
       // Une ancienne adresse polluée par les infos (« CONTRAT LIBERTE+ », import avant ce
       // correctif) est remplacée dès que Reservio fournit le CP + ville, même sans rue.
       const ancAdr = coords[cle]?.adresse || "";
-      const ancPolluee = ville && contientMotInfo(ancAdr);
+      const ancPolluee = ville && adressePolluee(ancAdr, adresse);
       coords[cle] = {
         adresse: adresse || (ancPolluee ? "" : ancAdr),
         ville:   ville   || (coords[cle]?.ville   || ""),
