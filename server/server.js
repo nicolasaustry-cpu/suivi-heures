@@ -55,6 +55,16 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Version en ligne : identifiant du déploiement Railway (change à chaque mise en ligne).
+// Lue régulièrement par les pages (sync.js) pour proposer « Mise à jour disponible ».
+// Repli hors Railway : heure de démarrage du serveur (change à chaque redémarrage).
+const VERSION_EN_LIGNE = process.env.RAILWAY_DEPLOYMENT_ID || process.env.RAILWAY_GIT_COMMIT_SHA
+  || ("demarrage-" + Date.now());
+app.get("/api/version", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, version: VERSION_EN_LIGNE });
+});
+
 // URL courte et partageable pour l'auto-inscription à l'essai
 app.get("/essai", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/inscription.html"));

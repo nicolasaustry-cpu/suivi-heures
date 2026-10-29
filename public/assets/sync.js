@@ -1359,6 +1359,7 @@ const SYNC = (() => {
     ouvrirModalConnexion, fermerModalConnexion, validerModalConnexion,
     rafraichirMenu: () => { construireMenuLateral(); },
     estConnecte: () => !!_token,
+    aSauvegardeEnAttente: () => !!_pendingSave,
     estAdmin:    () => _modeAdmin,
     getClientId: () => _clientId,
     getType:     () => _type,
@@ -1463,3 +1464,159 @@ function SYNC_quitterConsultation(ev) {
   // on revient à l'admin dans CE même onglet plutôt que d'en créer un nouveau.
   setTimeout(() => { location.replace('/admin.html'); }, 150);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MISE À JOUR DISPONIBLE — redémarrage maintenant ou à l'heure choisie
+   Un poste qui ne ferme jamais Suiv'Heures garde l'ancienne version. Toutes les
+   5 minutes (et au retour sur l'onglet), on compare la version en ligne
+   (/api/version = identifiant du déploiement) à celle chargée par la page.
+   Si elle a changé : alerte avec « Redémarrer maintenant » ou « Plus tard à… ».
+   Plusieurs mises en ligne par jour : l'alerte n'est proposée qu'à partir de
+   17 h 00 (HEURE_ALERTE), une seule fois pour toutes les versions de la journée.
+   Le redémarrage programmé est partagé par tous les onglets du poste ; à l'heure
+   dite, il attend qu'aucune saisie ne soit en cours (champ actif, fenêtre ouverte,
+   enregistrement en attente), puis enregistre et recharge tous les fichiers.
+═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  const CLE_PROG = 'shMajProgrammee';      // { version, a: horodatage du redémarrage }
+  const CLE_MASQ = 'shMajMasquee';         // { version, jusqua: horodatage }
+  const HEURE_ALERTE = 17;                 // l'alerte n'apparaît qu'à partir de 17 h 00
+  let versionChargee = null, versionEnLigne = null;
+
+  const lire = c => { try { return JSON.parse(localStorage.getItem(c) || 'null'); } catch (_) { return null; } };
+  const ecrire = (c, v) => { try { if (v == null) localStorage.removeItem(c); else localStorage.setItem(c, JSON.stringify(v)); } catch (_) {} };
+  const hhmm = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+
+  async function lireVersion() {
+    try {
+      const r = await fetch('/api/version', { cache: 'no-store' });
+      const d = await r.json();
+      return (d && d.ok && d.version) ? String(d.version) : null;
+    } catch (_) { return null; }
+  }
+
+  async function verifier() {
+    const v = await lireVersion();
+    if (!v) return;
+    if (!versionChargee) { versionChargee = v; return; }   // 1re lecture : version de cette page
+    if (v === versionChargee) return;
+    versionEnLigne = v;
+    if (new Date().getHours() < HEURE_ALERTE && !lire(CLE_PROG)) return;   // proposée à partir de 17 h
+    afficher();
+  }
+
+  /* Une saisie est-elle en cours ? (ne jamais recharger sous les doigts de l'utilisateur) */
+  function saisieEnCours() {
+    if (typeof SYNC !== 'undefined' && SYNC.aSauvegardeEnAttente && SYNC.aSauvegardeEnAttente()) return true;
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#sh-maj')) return true;
+    // Fenêtre (modale) ouverte : élément fixe visible couvrant une grande partie de l'écran
+    return [...document.querySelectorAll('body *')].some(el => {
+      if (el.closest('#sh-maj')) return false;
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = el.getBoundingClientRect();
+      return r.width >= innerWidth * 0.6 && r.height >= innerHeight * 0.6;
+    });
+  }
+
+  async function redemarrer() {
+    ecrire(CLE_PROG, null);
+    try { if (typeof SYNC !== 'undefined' && SYNC.aSauvegardeEnAttente && SYNC.aSauvegardeEnAttente()) await SYNC.sauvegarderTout(); } catch (_) {}
+    // Recharge depuis le serveur la page ET ses scripts / styles (équivalent Ctrl + F5)
+    const urls = [location.href].concat(
+      [...document.querySelectorAll('script[src], link[rel="stylesheet"][href]')].map(e => e.src || e.href)
+    ).filter(u => u && u.indexOf(location.origin) === 0);
+    await Promise.all(urls.map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+    location.reload();
+  }
+
+  function retirer() { const e = document.getElementById('sh-maj'); if (e) e.remove(); }
+
+  function afficher() {
+    const prog = lire(CLE_PROG);
+    if (prog) { afficherProgramme(prog); return; }           // redémarrage déjà programmé (vaut pour toute version)
+    const masq = lire(CLE_MASQ);
+    if (masq && Date.now() < masq.jusqua) return;
+    retirer();
+    const d = new Date();
+    const options = [];
+    const ajouter = (h, m, lib) => {
+      const t = new Date(d); t.setHours(h, m, 0, 0);
+      if (t > d) options.push({ ts: t.getTime(), lib: lib || hhmm(t.getTime()) });
+    };
+    options.push({ ts: Date.now() + 3600000, lib: 'dans 1 heure' });
+    ajouter(12, 30); ajouter(18, 0); ajouter(20, 0);
+    const demain = new Date(d); demain.setDate(d.getDate() + 1); demain.setHours(7, 30, 0, 0);
+    options.push({ ts: demain.getTime(), lib: 'demain 07:30' });
+
+    const box = document.createElement('div');
+    box.id = 'sh-maj';
+    box.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:13000;width:330px;max-width:calc(100vw - 36px);background:#fff;'
+      + 'border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);font-family:inherit;overflow:hidden;border-top:4px solid #2563eb;';
+    box.innerHTML = '<div style="padding:12px 14px 6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
+      + '<div><b style="font-size:.95rem;color:#0f3a8a;">🔄 Mise à jour disponible</b>'
+      + '<div style="font-size:.8rem;color:#475569;margin-top:3px;line-height:1.4;">Une nouvelle version de Suiv\'Heures est en ligne. Redémarrez pour en profiter : vos données sont enregistrées avant.</div></div>'
+      + '<button type="button" data-a="x" title="Me le rappeler plus tard" style="border:none;background:none;font-size:1.1rem;color:#94a3b8;cursor:pointer;line-height:1;">✕</button></div>'
+      + '<div style="padding:6px 14px 12px;display:flex;flex-direction:column;gap:7px;">'
+      + '<button type="button" data-a="maintenant" style="border:none;border-radius:8px;padding:9px;font-weight:700;font-size:.86rem;cursor:pointer;background:#2563eb;color:#fff;">Redémarrer maintenant</button>'
+      + '<div style="display:flex;gap:6px;align-items:center;">'
+      + '<span style="font-size:.8rem;color:#334155;white-space:nowrap;">Plus tard :</span>'
+      + '<select data-heure style="flex:1;padding:6px;border:1px solid #cbd5e1;border-radius:7px;font-size:.82rem;">'
+      + options.map(o => '<option value="' + o.ts + '">' + o.lib + '</option>').join('') + '</select>'
+      + '<button type="button" data-a="plustard" style="border:1px solid #2563eb;border-radius:7px;padding:6px 10px;font-weight:700;font-size:.8rem;cursor:pointer;background:#fff;color:#2563eb;">OK</button>'
+      + '</div></div>';
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button[data-a]'); if (!b) return;
+      if (b.dataset.a === 'maintenant') { redemarrer(); return; }
+      if (b.dataset.a === 'x') { ecrire(CLE_MASQ, { version: versionEnLigne, jusqua: Date.now() + 3600000 }); retirer(); return; }
+      const ts = parseInt(box.querySelector('[data-heure]').value, 10);
+      const p = { version: versionEnLigne, a: ts };
+      ecrire(CLE_PROG, p);
+      afficherProgramme(p);
+    });
+    (document.body || document.documentElement).appendChild(box);
+  }
+
+  /* Rappel discret une fois l'heure choisie */
+  function afficherProgramme(p) {
+    retirer();
+    const box = document.createElement('div');
+    box.id = 'sh-maj';
+    box.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:13000;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;'
+      + 'border-radius:999px;padding:6px 12px;font-size:.78rem;box-shadow:0 4px 14px rgba(0,0,0,.12);font-family:inherit;';
+    box.innerHTML = '🔄 Redémarrage prévu à <b>' + hhmm(p.a) + '</b> · '
+      + '<a href="#" data-a="maintenant" style="color:#1d4ed8;font-weight:700;">maintenant</a> · '
+      + '<a href="#" data-a="changer" style="color:#1d4ed8;">changer</a>';
+    box.addEventListener('click', e => {
+      const a = e.target.closest('[data-a]'); if (!a) return;
+      e.preventDefault();
+      if (a.dataset.a === 'maintenant') redemarrer();
+      else { ecrire(CLE_PROG, null); afficher(); }
+    });
+    (document.body || document.documentElement).appendChild(box);
+  }
+
+  /* Redémarrage programmé : vérifié toutes les 30 s, reporté tant qu'une saisie est en cours */
+  setInterval(() => {
+    const p = lire(CLE_PROG);
+    if (!p || Date.now() < p.a) return;
+    if (saisieEnCours()) return;
+    redemarrer();
+  }, 30000);
+
+  // Un autre onglet a programmé / annulé : mise à jour de l'affichage ici
+  window.addEventListener('storage', e => {
+    if (e.key !== CLE_PROG || !versionEnLigne) return;
+    const p = lire(CLE_PROG);
+    if (p) afficherProgramme(p); else afficher();
+  });
+
+  function demarrer() {
+    verifier();
+    setInterval(verifier, 5 * 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) verifier(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer); else demarrer();
+})();
