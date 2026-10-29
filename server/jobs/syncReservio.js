@@ -322,7 +322,7 @@ function memeEmpreinte(d, snapshot) {
 
 // ── Synchronise UN salarié (une URL ICS) pour UN client ──
 // Retourne l'ensemble des UID Reservio vus dans ce flux (RDV à venir).
-async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
+async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats = {}) {
   const uidsVus = new Set();
   let events;
   try {
@@ -330,6 +330,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
     events = Object.values(data).filter(e => e && e.type === "VEVENT");
   } catch (e) {
     console.error(`   ⚠️  Reservio salarié ${salarieId} — flux illisible : ${e.message}`);
+    (stats.fluxEnErreur = stats.fluxEnErreur || []).push({ salarieId, erreur: e.message });
     return uidsVus;
   }
   // Noms officiels des communes des CP présents dans ce flux (pour isoler la ville).
@@ -347,6 +348,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
     if (!ev.uid || !ev.start) continue;
     if (ev.start.getTime() < maintenant) continue; // RDV passé : hors périmètre
     uidsVus.add(ev.uid);
+    stats.aVenir = (stats.aVenir || 0) + 1;
 
     const dateKey = dateKeyParis(ev.start);
     const { client, service, chantier } = libelleRdv(ev.summary);
@@ -412,15 +414,18 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus) {
     } else if (vus[ev.uid]) {
       // RDV déjà importé, absent du planning : supprimé (ou détaché) à la main dans
       // Suiv'Heures → on ne le recrée pas (avant, il réapparaissait toutes les 15 min).
+      stats.supprimesALaMain = (stats.supprimesALaMain || 0) + 1;
       continue;
     } else {
       // Nouveau RDV : on cherche un slot libre du jour pour ce salarié
       const k = trouverSlotLibre(heures, salarieId, dateKey, dejaPrisParDate);
       if (!k) {
         console.warn(`   ⚠️  Planning plein le ${dateKey} pour le salarié ${salarieId} — RDV "${chantier}" ignoré.`);
+        stats.planningPlein = (stats.planningPlein || 0) + 1;
         continue;
       }
       dejaPrisParDate.add(k);
+      stats.nouveaux = (stats.nouveaux || 0) + 1;
       vus[ev.uid] = dateKey;                 // mémorisé : importé une fois, jamais réimporté
       const d = {
         chantier, heures: dureeH, rdv, rdvAuteur: "reservio", note: note || "",
@@ -478,9 +483,10 @@ function traiterAnnulations(doc, uidsEncoreValides) {
 }
 
 // ── Synchronise UN client (toutes ses licences Reservio configurées) ──
-async function syncClient(doc) {
+async function syncClient(doc, opts = {}) {
+  const stats = { aVenir: 0, nouveaux: 0, planningPlein: 0, supprimesALaMain: 0, fluxEnErreur: [] };
   const cfg = doc.entreprise?.reservio;
-  if (!cfg || cfg.actif !== true || !Array.isArray(cfg.salaries) || !cfg.salaries.length) return;
+  if (!cfg || cfg.actif !== true || !Array.isArray(cfg.salaries) || !cfg.salaries.length) return stats;
 
   const dejaPrisParDate = new Set(); // évite deux RDV sur le même slot pendant ce cycle
   const tousLesUids = new Set();
@@ -493,6 +499,9 @@ async function syncClient(doc) {
     const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1 } });
     vus = (brut && brut.reservioVus && typeof brut.reservioVus === "object") ? brut.reservioVus : {};
   } catch (_) {}
+  // Mise à jour forcée « tout réimporter » : on oublie la liste des RDV déjà importés,
+  // donc tout RDV à venir absent du planning est recréé (y compris ceux supprimés à la main).
+  if (opts.reimporter) vus = {};
   for (const [k, d] of Object.entries(doc.heures || {})) {
     const m = k.match(/(\d{4}_\d{2}_\d{2})ch\d+$/);
     if (d && d.reservioUid && m && !vus[d.reservioUid]) vus[d.reservioUid] = m[1];
@@ -509,7 +518,7 @@ async function syncClient(doc) {
     for (const urlBrute of urls) {
       const url = (urlBrute || "").trim();
       if (!url) continue;
-      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate, vus);
+      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate, vus, stats);
       uids.forEach(u => tousLesUids.add(u));
     }
   }
@@ -527,6 +536,26 @@ async function syncClient(doc) {
   } catch (e) {
     console.warn(`   ⚠️  Reservio ${doc.clientId} : liste des RDV importés non enregistrée (${e.message})`);
   }
+  return stats;
+}
+
+// Un client n'est jamais synchronisé deux fois en même temps (cron + bouton).
+const _enCours = new Set();
+async function syncClientVerrouille(doc, opts) {
+  const id = String(doc.clientId || doc._id);
+  if (_enCours.has(id)) return null;
+  _enCours.add(id);
+  try { return await syncClient(doc, opts); } finally { _enCours.delete(id); }
+}
+
+// ── Mise à jour forcée pour UN client (bouton de la page Entreprise) ──
+export async function synchroniserClientReservio(clientId, opts = {}) {
+  const doc = await Donnees.findOne({ clientId: String(clientId || "").toUpperCase() });
+  if (!doc) return { ok: false, message: "Compte introuvable." };
+  if (doc.entreprise?.reservio?.actif !== true) return { ok: false, message: "La connexion Reservio n'est pas activée." };
+  const stats = await syncClientVerrouille(doc, opts);
+  if (!stats) return { ok: false, message: "Une synchronisation est déjà en cours, réessayez dans une minute." };
+  return { ok: true, ...stats };
 }
 
 // ── Cycle complet : tous les clients ayant Reservio actif ──
@@ -538,7 +567,7 @@ export async function synchroniserReservioMaintenant() {
     console.log(`🔗 Synchro Reservio — ${clients.length} client(s) concerné(s).`);
     for (const doc of clients) {
       try {
-        await syncClient(doc);
+        await syncClientVerrouille(doc);
       } catch (e) {
         console.error(`   ⚠️  Échec synchro Reservio pour ${doc.clientId} : ${e.message}`);
       }

@@ -5,6 +5,7 @@ import Licence from "../models/licence.js";
 import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
 import Henrri from "../models/henrri.js";
+import { synchroniserClientReservio } from "../jobs/syncReservio.js";
 
 const router = express.Router();
 
@@ -476,6 +477,18 @@ router.post("/renommer-chantier", verifyToken, async (req, res) => {
 });
 
 // ── Sauvegarder toutes les données du client ──
+// ── Reservio : mise à jour forcée immédiate (bouton page Entreprise) ──
+// body: { reimporter: bool } — reimporter=true recrée aussi les RDV à venir absents du planning.
+router.post("/reservio-resync", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const r = await synchroniserClientReservio(clientId, { reimporter: req.body?.reimporter === true });
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 router.post("/", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();

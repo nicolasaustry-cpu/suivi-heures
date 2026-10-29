@@ -205,6 +205,11 @@
   <div id="reservio-bloc-salaries" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;"></div>
   <button type="button" id="btn-valider-reservio" class="btn btn-success" onclick="validerReservio()">💾 Enregistrer</button>
   <span id="reservio-msg" style="font-size:0.85rem;color:#16a34a;margin-left:8px;"></span>
+  <div id="reservio-resync" style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid #e5e7eb;">
+    <button type="button" id="btn-resync-reservio" class="btn" onclick="resynchroniserReservio()">🔄 Mettre à jour depuis Reservio</button>
+    <label style="font-size:0.85rem;margin-left:10px;"><input type="checkbox" id="reservioReimporter"> Réimporter aussi les RDV absents du planning</label>
+    <div id="reservio-resync-msg" style="font-size:0.85rem;margin-top:6px;white-space:pre-line;"></div>
+  </div>
 </section>
 
 <!-- Henrri (logiciel de facturation, version pilotage) : liaison par API OU par import des devis validés -->
@@ -490,6 +495,42 @@ async function validerReservio() {
   }
   if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
   if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+/* Mise à jour forcée depuis Reservio (sans attendre le quart d'heure). Les RDV verrouillés
+   🔒 ne sont jamais touchés. « Réimporter » recrée aussi les RDV à venir qui ne sont plus
+   dans le planning, y compris ceux supprimés volontairement. */
+async function resynchroniserReservio() {
+  const token = localStorage.getItem('syncToken');
+  const msg = document.getElementById('reservio-resync-msg');
+  const btn = document.getElementById('btn-resync-reservio');
+  const reimporter = !!document.getElementById('reservioReimporter')?.checked;
+  if (!token) { msg.style.color = '#dc2626'; msg.textContent = 'Session expirée : reconnectez-vous.'; return; }
+  if (reimporter && !confirm("Les rendez-vous Reservio à venir absents du planning vont être recréés, y compris ceux que vous aviez supprimés volontairement. Continuer ?")) return;
+  btn.disabled = true; btn.textContent = '⏳ Mise à jour…';
+  msg.style.color = '#374151'; msg.textContent = '';
+  try {
+    // Les modifications en attente partent d'abord, pour ne rien écraser au rechargement.
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    const r = await fetch('/api/data/reservio-resync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ reimporter })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.message || ('Erreur ' + r.status));
+    const lignes = ['✔ Mise à jour terminée : ' + j.aVenir + ' RDV à venir dans Reservio, ' + j.nouveaux + ' ajouté(s) au planning.'];
+    if (j.supprimesALaMain) lignes.push(j.supprimesALaMain + ' RDV supprimé(s) du planning non recréé(s) (cochez « Réimporter » pour les récupérer).');
+    if (j.planningPlein) lignes.push('⚠ ' + j.planningPlein + ' RDV non placé(s) : planning du jour plein.');
+    (j.fluxEnErreur || []).forEach(f => lignes.push('⚠ Une URL Reservio est illisible (' + f.erreur + ') : vérifiez-la.'));
+    lignes.push('Rechargement de la page…');
+    msg.style.color = (j.fluxEnErreur || []).length ? '#b45309' : '#16a34a';
+    msg.textContent = lignes.join('\n');
+    // Recharge pour relire les données serveur (planning, coordonnées) à jour.
+    setTimeout(() => location.reload(), 3500);
+  } catch (e) {
+    msg.style.color = '#dc2626'; msg.textContent = '✖ ' + e.message;
+    btn.disabled = false; btn.textContent = '🔄 Mettre à jour depuis Reservio';
+  }
 }
 window.addEventListener('DOMContentLoaded', chargerReservio);
 window.addEventListener('donnees-chargees', chargerReservio);
