@@ -141,17 +141,17 @@ function fmtDateFr(iso) {
 }
 
 /* Total hebdomadaire des heures contractuelles d'une grille { lun..sam } */
-function totalSemaine(g) {
+function salTotalSemaine(g) {
   const t = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam'].reduce((s, j) => s + (parseFloat(g && g[j]) || 0), 0);
   return Math.round(t * 100) / 100;
 }
-const _fmtH = v => String(v).replace('.', ',');
+const _salFmtH = v => String(v).replace('.', ',');
 /* Cellule « Total sem. » : somme des heures journalières AFFICHÉES sur la ligne (Lun → Sam).
    Alternance A/B : la ligne affiche la semaine A, le total est donc celui de la semaine A
    (semaine B indiquée au survol). */
-function celluleTotalSemaine(s, h) {
-  const tot = _fmtH(totalSemaine(h));
-  if (s.alternance) return `<span title="Semaine A : ${tot} h — Semaine B : ${_fmtH(totalSemaine(s.heuresParJourB))} h">${tot}</span>`;
+function salCelluleTotalSemaine(s, h) {
+  const tot = _salFmtH(salTotalSemaine(h));
+  if (s.alternance) return `<span title="Semaine A : ${tot} h — Semaine B : ${_salFmtH(salTotalSemaine(s.heuresParJourB))} h">${tot}</span>`;
   return tot;
 }
 
@@ -224,7 +224,7 @@ function afficherSalaries() {
         <td id="h-jeu-${s.id}" style="text-align:center;">${h.jeu ?? 0}</td>
         <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
-        <td id="h-tot-${s.id}" style="text-align:center;font-weight:700;color:#15803d;background:#f0fdf4;">${celluleTotalSemaine(s, h)}</td>
+        <td id="h-tot-${s.id}" style="text-align:center;font-weight:700;color:#15803d;background:#f0fdf4;">${salCelluleTotalSemaine(s, h)}</td>
         <td style="white-space:nowrap;">${pinCell}</td>
         <td style="white-space:nowrap;">
           <button class="btn" title="Monter" style="padding:3px 7px;font-size:0.8rem;background:#eef2ff;color:#3730a3;" onclick="deplacerSalarie(${idx}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
