@@ -785,6 +785,10 @@ function _bevFeries(y){
 function estFerieBev(dateStr){var y=parseInt(dateStr.slice(0,4),10);return !!_bevFeries(y)[dateStr];}
 function estJourEcoleBev(sal,dateStr){return !!(sal&&sal.apprenti&&Array.isArray(sal.joursEcole)&&sal.joursEcole.indexOf(dateStr)!==-1);}
 
+/* Motifs d'absence légaux, rémunérés : le temps d'absence est conservé dans le Temps pris en compte
+   (comme une récupération), sans être déduit du compteur d'heures. */
+const MOTIFS_ABS_PAYEES = ['Visite médicale', 'Formation', 'Even. Familial'];
+
 function lignesDuMois(sal, ym, saisies, retenues) {
   const [an, mo] = ym.split('-').map(Number);
   const planifMap = planifieParJour(sal.id, ym);
@@ -812,11 +816,12 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     }
     if (tempsEvt <= 0) motif = '';               // plus d'absence effective → pas de motif résiduel
     let base = Math.max(0, r2(contrat - tempsEvt));
-    // Férié / Even. Familial : la Nouvelle Base part de 7h (ou du contractuel du jour s'il est < 7)
+    // Férié : la Nouvelle Base part de 7h (ou du contractuel du jour s'il est < 7)
     // au lieu de 0 — le salarié est réputé avoir fait sa journée. On utilise ici `contratNormal`
     // (grille habituelle du salarié pour ce jour de semaine), PAS `contrat` : sur un vrai jour férié
     // calendaire, `contrat` est déjà neutralisé à 0 juste au-dessus, ce qui annulerait la règle.
-    if (motif === 'Férié' || motif === 'Even. Familial') {
+    // (Even. Familial suit désormais la règle des absences légales rémunérées, voir evtPaye plus bas.)
+    if (motif === 'Férié') {
       base = r2(contratNormal >= 7 ? 7 : contratNormal);
     }
     const planifie = r2(planifMap[k] || 0);
@@ -826,9 +831,11 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     // Heures de récupération : rémunérées (prises sur le compteur) → comptées dans le Temps pris en compte,
     // à partir de la date d'effet de la règle. L'écart du jour, lui, n'en tient pas compte (base déjà réduite).
     const recupPayee = (motif === 'Récupération' && regleRecupActive(ym)) ? r2(tempsEvt) : 0;
-    // Visite médicale (médecine du travail) : temps de travail effectif, rémunéré comme tel
-    const evtPaye = (motif === 'Visite médicale') ? r2(tempsEvt) : 0;
-    const tempsCompte = r2(base + ecartRetenu + recupPayee + evtPaye);   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération + visite médicale
+    // Absences légales rémunérées — Visite médicale, Formation, Even. Familial : même règle que la
+    // récupération (le temps d'absence est ajouté au Temps pris en compte, donc aucune baisse de salaire),
+    // mais SANS déduction du compteur d'heures (ce ne sont pas des heures récupérées).
+    const evtPaye = MOTIFS_ABS_PAYEES.indexOf(motif) !== -1 ? r2(tempsEvt) : 0;
+    const tempsCompte = r2(base + ecartRetenu + recupPayee + evtPaye);   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération + absences légales rémunérées
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
       passe: (k < AUJOURDHUI),
