@@ -558,6 +558,9 @@ export function planifierSynchroReservio() {
   }
   cron.schedule(RESERVIO_CRON, () => { synchroniserReservioMaintenant(); }, { timezone: TZ });
   console.log(`🗓️  Synchro Reservio planifiée : « ${RESERVIO_CRON} » (${TZ}).`);
+  // Un passage 30 s après chaque démarrage du serveur : un correctif déployé s'applique
+  // tout de suite, sans attendre le prochain quart d'heure.
+  setTimeout(() => { synchroniserReservioMaintenant(); }, 30000);
 }
 
 export default planifierSynchroReservio;
