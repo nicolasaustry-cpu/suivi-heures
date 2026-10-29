@@ -62,10 +62,12 @@ function libelleRdv(summary) {
   let service = idx >= 0 ? s.slice(idx + 3).trim()     : "";
   if (!service || /^non assign/i.test(service)) service = "Prestation non définie";
   if (!client) client = "Client";
-  // Nom de chantier en MAJUSCULES, comme partout dans Suiv'Heures (le planning met le nom en
-  // majuscules dès qu'on touche la ligne : en casse mixte, ce simple geste passait pour une
-  // modification manuelle et verrouillait le RDV).
-  return { client, service, chantier: `${client} — ${service}`.toUpperCase() };
+  // Nom de chantier = nom du client seul, en MAJUSCULES comme partout dans Suiv'Heures (le
+  // planning met le nom en majuscules dès qu'on touche la ligne : en casse mixte, ce simple
+  // geste passait pour une modification manuelle et verrouillait le RDV). Le type d'entretien
+  // n'est plus accolé au nom : il part en première ligne de la note (« À faire »).
+  const aFaire = /^prestation non d[ée]finie$/i.test(service) ? "" : service;
+  return { client, service, aFaire, chantier: client.toUpperCase() };
 }
 
 // ── Extrait email / téléphone / adresse depuis la DESCRIPTION Reservio ──
@@ -328,6 +330,7 @@ function extraireAdresseVilleNote(txt) {
   // détache : début de la voie (n° + rue/chemin…) précédé d'une ponctuation, d'un retour à
   // la ligne ou d'un mot d'info. Sinon le préfixe entier reste la rue (ex. « Résidence Les Pins 12 rue X »).
   let rue = prefixe.replace(/[\s,\-–—]+$/, "");
+  if (choix) rue = rue.replace(new RegExp(`[\\s,\\-–—]*(?<!\\d)${choix.cp}$`), "").replace(/[\s,\-–—]+$/, "");
   let avant = "";
   const voies = [...rue.matchAll(voieRegex())];
   const voie = voies.find(m => m[1]) || voies[0];
@@ -447,10 +450,12 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
     stats.aVenir = (stats.aVenir || 0) + 1;
 
     const dateKey = dateKeyParis(ev.start);
-    const { client, service, chantier } = libelleRdv(ev.summary);
+    const { client, service, chantier, aFaire } = libelleRdv(ev.summary);
     const dureeH = ev.end ? Math.max(0.25, (ev.end - ev.start) / 3600000) : 2;
     const rdv = heureHHMMParis(ev.start);
-    const { email, tel, adresse, ville, note } = parserDescription(ev.description);
+    const { email, tel, adresse, ville, note: noteClient } = parserDescription(ev.description);
+    // Note du créneau : type d'entretien en 1re ligne, puis les infos laissées par le client.
+    const note = [aFaire, noteClient].filter(Boolean).join("\n");
 
     const cleAttendue = `${salarieId}${dateKey}`;
     const keyExistante = existantParUid.get(ev.uid);
