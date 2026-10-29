@@ -320,6 +320,20 @@ function memeEmpreinte(d, snapshot) {
   catch (_) { return empreinte(d) === snapshot; }
 }
 
+// ── Fiche Coordonnées d'un RDV passé : corrige seulement une adresse polluée ──
+// Ne crée rien et ne touche ni le téléphone ni une adresse propre (saisie à la main ou non).
+function nettoyerCoordonneesPassees(doc, ev) {
+  const coords = doc.coordonneesChantiers;
+  if (!coords) return;
+  const cle = libelleRdv(ev.summary).chantier.trim().toUpperCase();
+  const c = coords[cle];
+  if (!c || !contientMotInfo(c.adresse)) return;
+  const { adresse, ville } = parserDescription(ev.description);
+  if (!ville) return;
+  coords[cle] = { ...c, adresse: adresse || "", ville };
+  doc.markModified("coordonneesChantiers");
+}
+
 // ── Synchronise UN salarié (une URL ICS) pour UN client ──
 // Retourne l'ensemble des UID Reservio vus dans ce flux (RDV à venir).
 async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats = {}) {
@@ -346,7 +360,12 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
 
   for (const ev of events) {
     if (!ev.uid || !ev.start) continue;
-    if (ev.start.getTime() < maintenant) continue; // RDV passé : hors périmètre
+    if (ev.start.getTime() < maintenant) {
+      // RDV passé (ex. ce matin) : le créneau n'est plus touché, mais une fiche Coordonnées
+      // polluée par un ancien import (« CONTRAT LIBERTE+ » en guise de rue) est nettoyée.
+      nettoyerCoordonneesPassees(doc, ev);
+      continue;
+    }
     uidsVus.add(ev.uid);
     stats.aVenir = (stats.aVenir || 0) + 1;
 
