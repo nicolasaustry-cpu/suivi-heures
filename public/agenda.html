@@ -113,7 +113,8 @@
     .sem-grille .lignes { position:absolute; left:0; right:8px; top:6px; }
     .sem-grille .ligne-h span { width:30px; font-size:10px; }
     .sem-corps { margin-left:34px; flex:1; position:relative; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
-    .sem-col { position:relative; border-radius:6px; }
+    .sem-col { position:relative; border-radius:6px; cursor:pointer; }
+    .grille { cursor:pointer; }
     .sem-col.we { background:#e9edf5; }
     .sem-col.auj { background:rgba(245,158,11,.08); }
     .sem-col .evt { left:1px; right:1px; border-radius:6px; padding:3px; font-size:9.5px; }
@@ -270,10 +271,14 @@ function retourSaisie() { location.href = 'saisie.html'; }
 function ouvrirCase(cle) { S.caseCle = cle; S.vue = 'case'; S.message = null; rendre(); window.scrollTo(0, 0); }
 function ouvrirDetail(id) { S.detailId = id; S.vue = 'detail'; S.message = null; rendre(); window.scrollTo(0, 0); }
 
-function nouveauRdv() {
+/* Nouveau RDV : par le bouton + (date affichée, prochaine demi-heure si aujourd'hui)
+   ou par un toucher sur un créneau vide de la grille (date et heure du créneau). */
+function nouveauRdv(date, debutMin) {
   const auj = aujourdhui();
+  if (date) S.date = date;
   let deb = 9 * 60;
-  if (S.date === auj) { const n = new Date(); deb = Math.min(20 * 60, Math.ceil((n.getHours() * 60 + n.getMinutes() + 1) / 30) * 30); }
+  if (debutMin != null) deb = Math.max(0, Math.min(23 * 60, debutMin));
+  else if (S.date === auj) { const n = new Date(); deb = Math.min(20 * 60, Math.ceil((n.getHours() * 60 + n.getMinutes() + 1) / 30) * 30); }
   S.form = { id: '', titre: '', type: 'client', date: S.date, debut: hhmm(deb), fin: hhmm(Math.min(23 * 60 + 30, deb + 60)),
              lieu: '', tel: '', salaries: [String(S.ger.id)], note: '', lieuAuto: false, telAuto: false };
   S.vue = 'form'; S.message = null; rendre(); window.scrollTo(0, 0);
@@ -298,6 +303,26 @@ function rendre() {
   if (S.vue === 'formcase') { app.innerHTML = vueFormCase(); return; }
   app.innerHTML = (S.vue === 'semaine' ? vueSemaine() : vueJour());
   if (S.vue === 'jour') positionnerDefilement();
+  brancherCreneaux();
+}
+
+/* Toucher un créneau vide (hors rendez-vous et chantiers) = nouveau RDV à ce jour et
+   cette heure, arrondie à la demi-heure inférieure. */
+function brancherCreneaux() {
+  const minDe = (el, e, hMin, pxH) => {
+    const y = e.clientY - el.getBoundingClientRect().top;
+    return Math.floor((hMin * 60 + y / pxH * 60) / 30) * 30;
+  };
+  const g = document.querySelector('.grille');
+  if (g) g.addEventListener('click', e => {
+    if (e.target.closest('.evt')) return;
+    if (e.clientX - g.getBoundingClientRect().left < 50) return;   // colonne des heures
+    nouveauRdv(S.date, minDe(g, e, H_MIN, PX_H));
+  });
+  document.querySelectorAll('.sem-col[data-date]').forEach(c => c.addEventListener('click', e => {
+    if (e.target.closest('.evt')) return;
+    nouveauRdv(c.dataset.date, minDe(c, e, S_MIN, S_PX));
+  }));
 }
 
 function msgHTML() { return S.message ? `<div class="message ${S.message.err ? 'err' : 'ok'}" role="status">${esc(S.message.txt)}</div>` : ''; }
@@ -441,7 +466,7 @@ function vueSemaine() {
       if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
       return `<button type="button" class="evt c-${catPlan(e.plan)}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
     }).join('');
-    cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" style="height:${haut}px">${evts}</div>`;
+    cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" data-date="${d}" style="height:${haut}px">${evts}</div>`;
   }
   let lignes = '';
   for (let h = S_MIN; h <= S_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - S_MIN) * S_PX}px"><span>${h}h</span><hr></div>`;
