@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Agenda – Suiv'Heures</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Suiv'Heures">
+  <meta name="theme-color" content="#0f3a8a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <!--
+    AGENDA DU DIRIGEANT (mobile)
+    Ouvert depuis la saisie mobile (bouton « Agenda » du gérant), quand l'option
+    « Agenda du dirigeant » est cochée sur la page Entreprise.
+    Données : routes /api/saisies/agenda/* (code employé + gerantId).
+    Chaque rendez-vous part au planning des personnes choisies ; un RDV client
+    y est marqué « RDV client » (payé, hors heures productives).
+    Aucune police distante : la page s'appuie sur les polices du système.
+  -->
+  <style>
+    :root { --navy:#0f3a8a; --navy-f:#0a2a66; --ambre:#f59e0b; --ambre-c:#fff3dc; --ambre-b:#f3c770; --ambre-t:#6b3d00;
+            --fond:#f4f6fb; --bord:#dde3ef; --texte:#1b2440; --gris:#5b6478; --gris-c:#e3e8f4; --rouge:#b42318; --vert:#1d6b3a; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; }
+    body { background:var(--fond); color:var(--texte); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+           -webkit-tap-highlight-color:transparent; }
+    button, input, textarea, select { font-family:inherit; font-size:inherit; }
+    button { cursor:pointer; }
+    .app { display:flex; flex-direction:column; min-height:100%; max-width:640px; margin:0 auto; position:relative; }
+
+    /* En-tête */
+    .hd { background:var(--navy); color:#fff; padding:14px 14px 12px; position:sticky; top:0; z-index:20; }
+    .hd-l1 { display:flex; align-items:center; gap:8px; }
+    .hd h1 { margin:0; flex:1; font-size:22px; font-weight:800; letter-spacing:.01em; }
+    .hd-sur { display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#c9d6f2; font-weight:600; }
+    .btn-hd { min-height:40px; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:12px;
+              background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:13px; font-weight:600; text-decoration:none; }
+    .btn-ico { width:40px; padding:0; justify-content:center; }
+    .bascule { display:flex; background:rgba(255,255,255,.12); border-radius:10px; padding:3px; }
+    .bascule button { border:0; background:transparent; color:#e6ecfa; font-size:13px; padding:7px 11px; border-radius:8px; }
+    .bascule button.on { background:var(--ambre); color:var(--navy); font-weight:700; }
+
+    /* Bande semaine */
+    .semaine-nav { display:flex; align-items:center; gap:6px; margin-top:12px; }
+    .semaine-nav .lbl { flex:1; text-align:center; font-size:13px; color:#c9d6f2; }
+    .jours { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin-top:8px; }
+    .jour { border:0; background:transparent; color:#c9d6f2; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; border-radius:12px; }
+    .jour b { font-size:17px; color:#fff; }
+    .jour i { width:5px; height:5px; border-radius:50%; background:transparent; }
+    .jour.rdv i { background:var(--ambre); }
+    .jour.we b { color:#9fb2dd; }
+    .jour.sel { background:var(--ambre); color:var(--navy); }
+    .jour.sel b { color:var(--navy); }
+    .jour.sel i { background:var(--navy); }
+    .jour.auj:not(.sel) b { text-decoration:underline; text-underline-offset:3px; }
+
+    /* Titre du jour */
+    .titre-jour { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:14px 16px 6px; }
+    .titre-jour h2 { margin:0; font-size:19px; color:var(--navy); }
+    .titre-jour h2::first-letter { text-transform:uppercase; }
+    .titre-jour span { font-size:12px; color:var(--gris); }
+
+    /* Bandeau « au planning ce jour » */
+    .plan-jour { margin:4px 12px 8px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .plan-jour .lbl { font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; width:100%; }
+    .puce-plan { background:var(--navy); color:#fff; border-radius:8px; padding:5px 9px; font-size:12px; font-weight:700; }
+    .puce-plan small { font-weight:400; color:#c9d6f2; margin-left:4px; }
+
+    /* Grille horaire */
+    .grille-zone { position:relative; padding:6px 10px 110px 0; }
+    .grille { position:relative; }
+    .ligne-h { position:absolute; left:0; right:0; display:flex; align-items:flex-start; gap:8px; }
+    .ligne-h span { width:46px; text-align:right; font-size:11px; color:#6b7389; transform:translateY(-7px); flex:0 0 auto; }
+    .ligne-h hr { flex:1; border:0; height:1px; background:var(--bord); margin:0; }
+    .evt { position:absolute; border-radius:10px; padding:5px 8px; overflow:hidden; display:flex; flex-direction:column; gap:1px;
+           text-align:left; border:1px solid var(--ambre-b); background:var(--ambre-c); color:var(--ambre-t); font-size:11px; }
+    .evt b { font-size:13px; line-height:1.15; color:var(--ambre-t); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .evt.visite { background:#e8f2ff; border-color:#a9c6f0; color:#163d73; }
+    .evt.visite b { color:#163d73; }
+    .evt.chantier { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
+    .evt.chantier b { color:#1d5b34; }
+    .evt.plan { background:var(--navy); border-color:var(--navy); color:#c9d6f2; cursor:default; }
+    .evt.plan b { color:#fff; }
+    .evt .tag { align-self:flex-start; font-size:9px; font-weight:800; background:var(--ambre); color:var(--navy); border-radius:5px; padding:1px 5px; margin-top:2px; }
+    .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
+    .maintenant::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:#d9480f; }
+
+    /* Vue semaine */
+    .legende { display:flex; justify-content:center; gap:14px; padding:9px 12px; background:#fff; border-bottom:1px solid var(--bord); font-size:12px; color:#2d3550; }
+    .legende span { display:flex; align-items:center; gap:6px; }
+    .legende i { width:12px; height:12px; border-radius:3px; display:inline-block; }
+    .sem-entete { display:flex; padding:8px 8px 6px 0; }
+    .sem-entete .vide { width:34px; flex:0 0 auto; }
+    .sem-cols { flex:1; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .sem-j { border:0; background:transparent; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0; border-radius:10px; color:var(--gris); font-size:11px; }
+    .sem-j b { font-size:15px; color:var(--texte); }
+    .sem-j.auj { background:var(--ambre); color:var(--navy); }
+    .sem-j.auj b { color:var(--navy); }
+    .sem-grille { position:relative; display:flex; padding:6px 8px 110px 0; }
+    .sem-grille .lignes { position:absolute; left:0; right:8px; top:6px; }
+    .sem-grille .ligne-h span { width:30px; font-size:10px; }
+    .sem-corps { margin-left:34px; flex:1; position:relative; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .sem-col { position:relative; border-radius:6px; }
+    .sem-col.we { background:#e9edf5; }
+    .sem-col.auj { background:rgba(245,158,11,.08); }
+    .sem-col .evt { left:1px; right:1px; border-radius:6px; padding:3px; font-size:9.5px; }
+    .sem-col .evt b { font-size:9.5px; }
+
+    /* Bouton + */
+    .fab { position:fixed; right:max(20px, calc(50% - 300px)); bottom:24px; width:58px; height:58px; border-radius:18px; border:0;
+           background:var(--ambre); color:var(--navy); display:flex; align-items:center; justify-content:center;
+           box-shadow:0 8px 20px rgba(15,58,138,.28); z-index:30; }
+
+    /* Formulaire et détail */
+    .page { padding:16px; display:flex; flex-direction:column; gap:14px; padding-bottom:120px; }
+    .champ { display:flex; flex-direction:column; gap:6px; }
+    .champ > label, .champ > .lbl { font-size:12px; font-weight:700; color:#46506a; text-transform:uppercase; letter-spacing:.04em; }
+    .champ input, .champ textarea { border:1px solid #cfd7e8; border-radius:12px; padding:0 14px; min-height:46px; font-size:16px; color:var(--texte); background:#fff; width:100%; }
+    .champ textarea { padding:10px 14px; line-height:1.4; resize:vertical; }
+    .champ input:focus, .champ textarea:focus { outline:2px solid var(--navy); outline-offset:0; border-color:var(--navy); }
+    .aide { font-size:12px; color:var(--vert); display:flex; align-items:center; gap:6px; }
+    .seg { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .seg button { min-height:44px; border-radius:10px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:14px; }
+    .seg button.on { background:var(--ambre); border-color:var(--ambre); color:var(--navy); font-weight:700; }
+    .heures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .duree { min-height:46px; display:flex; align-items:center; padding:0 12px; font-size:16px; font-weight:700; color:var(--navy); background:var(--gris-c); border-radius:12px; }
+    .puces { display:flex; flex-wrap:wrap; gap:6px; }
+    .puces button { min-height:38px; border-radius:999px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:14px; padding:0 14px; }
+    .puces button.on { background:var(--navy); border-color:var(--navy); color:#fff; font-weight:600; }
+    .info-plan { display:flex; align-items:center; gap:10px; background:var(--gris-c); border-radius:12px; padding:10px 12px; font-size:13px; color:var(--navy); font-weight:600; }
+    .info-plan small { display:block; font-weight:600; color:var(--ambre-t); font-size:12px; margin-top:1px; }
+    .btn-princ { min-height:52px; border-radius:14px; border:0; background:var(--ambre); color:var(--navy); font-size:18px; font-weight:800; letter-spacing:.02em; width:100%; }
+    .btn-princ:disabled { opacity:.6; }
+    .btn-sec { min-height:52px; border-radius:14px; border:0; background:var(--navy); color:#fff; font-size:17px; font-weight:700; width:100%; }
+    .btn-suppr { min-height:44px; border:0; background:transparent; color:var(--rouge); font-size:14px; font-weight:600; }
+    .pied { position:fixed; left:0; right:0; bottom:0; padding:12px 16px 18px; background:var(--fond); border-top:1px solid var(--bord); z-index:25; }
+    .pied > div { max-width:608px; margin:0 auto; }
+
+    .bloc { background:#fff; border:1px solid var(--bord); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .bloc .lbl { font-size:12px; font-weight:700; color:#46506a; text-transform:uppercase; letter-spacing:.04em; }
+    .actions2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .actions2 a { min-height:44px; border-radius:12px; background:#eef4fd; border:1px solid #c7d7f5; color:var(--navy); display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px; font-weight:700; text-decoration:none; }
+    .det-hd { background:var(--navy); color:#fff; padding:6px 16px 20px; display:flex; flex-direction:column; gap:10px; }
+    .badge-type { align-self:flex-start; font-size:11px; font-weight:800; background:var(--ambre); color:var(--navy); border-radius:6px; padding:3px 8px; letter-spacing:.04em; }
+    .det-hd h2 { margin:0; font-size:26px; line-height:1.1; }
+    .det-hd .quand { font-size:14px; color:#e6ecfa; }
+
+    .message { margin:12px 16px 0; padding:10px 12px; border-radius:10px; font-size:14px; }
+    .message.err { background:#fde8e6; color:var(--rouge); border:1px solid #f6c3bd; }
+    .message.ok { background:#e7f6ec; color:var(--vert); border:1px solid #b9e2c6; }
+    .vide-etat { margin:30px 20px; text-align:center; color:var(--gris); font-size:15px; line-height:1.5; }
+    .charge { text-align:center; color:var(--gris); font-size:13px; padding:8px; }
+  </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
+   ÉTAT
+   ═══════════════════════════════════════════════════════════════ */
+const H_MIN = 6, H_MAX = 21;          // amplitude de la vue jour
+const PX_H  = 56;                     // hauteur d'une heure (vue jour)
+const S_MIN = 7, S_MAX = 20, S_PX = 40; // vue semaine
+const TYPES = { client: 'RDV client', visite: 'Visite', chantier: 'Chantier' };
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const JOURS_C = ['L','M','M','J','V','S','D'];
+
+const S = {
+  code: '', ger: null, salaries: [],
+  vue: 'jour', date: '', semaineChargee: '',
+  rdvs: [], planning: [], chargement: false,
+  message: null, form: null, detailId: null
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   OUTILS
+   ═══════════════════════════════════════════════════════════════ */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dateDe(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function ajoutJours(s, n) { const d = dateDe(s); d.setDate(d.getDate() + n); return iso(d); }
+function lundiDe(s) { const d = dateDe(s); const j = (d.getDay() + 6) % 7; d.setDate(d.getDate() - j); return iso(d); }
+function aujourdhui() { return iso(new Date()); }
+function minutes(hhmm) { const m = String(hhmm || '').match(/^(\d{1,2})[:hH](\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function hhmm(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function fmtDuree(min) { if (min <= 0) return '—'; const h = Math.floor(min / 60), m = min % 60; return h ? (h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : '')) : (m + ' min'); }
+function dateLongue(s) { const d = dateDe(s); return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+function lsJSON(cle, defaut) { try { const v = JSON.parse(localStorage.getItem(cle) || 'null'); return v == null ? defaut : v; } catch (_) { return defaut; } }
+function nomSal(id) {
+  if (S.ger && String(id) === String(S.ger.id)) return 'Moi';
+  const s = S.salaries.find(x => String(x.id) === String(id));
+  return s ? ((s.prenom || '') + ' ' + (s.nom || '')).trim() : 'Salarié ' + id;
+}
+function coordsDe(titre) { const c = lsJSON('coordonneesChantiersdata', {}); return c[String(titre || '').trim().toUpperCase()] || null; }
+function lieuDepuisCoords(c) { if (!c) return ''; return [c.adresse, c.ville].map(x => String(x || '').trim()).filter(Boolean).join('\n'); }
+function mapsUrl(lieu) {
+  const dest = String(lieu || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).join(', ').replace(/\s{2,}/g, ' ');
+  return dest ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(dest) : '';
+}
+function telDe(c) { const t = c && (c.mobile || c.fixe); return t ? 'tel:' + String(t).replace(/[^\d+]/g, '') : ''; }
+
+const ICO = {
+  retour: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>',
+  suiv:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>',
+  plus:   '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>',
+  itin:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8-8-2z"></path></svg>',
+  tel:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>',
+  plan:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18M9 3v18"></path></svg>',
+  ok:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>'
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   SERVEUR
+   ═══════════════════════════════════════════════════════════════ */
+async function api(route, corps) {
+  const r = await fetch('/api/saisies/agenda/' + route, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ codeEmploye: S.code, gerantId: S.ger.id }, corps || {}))
+  });
+  let d = null;
+  try { d = await r.json(); } catch (_) {}
+  if (!r.ok || !d || !d.ok) throw new Error((d && d.message) || 'Erreur serveur (' + r.status + ')');
+  return d;
+}
+
+/* Charge la semaine (lundi → dimanche) qui contient S.date. */
+async function chargerSemaine(force) {
+  const lundi = lundiDe(S.date);
+  if (!force && S.semaineChargee === lundi) return;
+  S.chargement = true; rendre();
+  try {
+    const d = await api('liste', { du: lundi, au: ajoutJours(lundi, 6) });
+    S.rdvs = d.rdvs || [];
+    S.planning = d.planning || [];
+    S.semaineChargee = lundi;
+    if (d.coordonneesChantiers) { try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers)); } catch (_) {} }
+  } catch (e) {
+    S.message = { err: true, txt: navigator.onLine === false ? 'Pas de connexion : l\'agenda a besoin du réseau.' : e.message };
+  }
+  S.chargement = false; rendre();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════════ */
+function allerJour(date) { S.vue = 'jour'; if (date) S.date = date; S.message = null; chargerSemaine(); rendre(); }
+function allerSemaine() { S.vue = 'semaine'; S.message = null; chargerSemaine(); rendre(); }
+function decalerSemaine(n) { S.date = ajoutJours(S.date, 7 * n); chargerSemaine(); rendre(); }
+function retourSaisie() { location.href = 'saisie.html'; }
+function ouvrirDetail(id) { S.detailId = id; S.vue = 'detail'; S.message = null; rendre(); window.scrollTo(0, 0); }
+
+function nouveauRdv() {
+  const auj = aujourdhui();
+  let deb = 9 * 60;
+  if (S.date === auj) { const n = new Date(); deb = Math.min(20 * 60, Math.ceil((n.getHours() * 60 + n.getMinutes() + 1) / 30) * 30); }
+  S.form = { id: '', titre: '', type: 'client', date: S.date, debut: hhmm(deb), fin: hhmm(Math.min(23 * 60 + 30, deb + 60)),
+             lieu: '', salaries: [String(S.ger.id)], note: '', lieuAuto: false };
+  S.vue = 'form'; S.message = null; rendre(); window.scrollTo(0, 0);
+  setTimeout(() => { const t = document.getElementById('f-titre'); if (t) t.focus(); }, 50);
+}
+function modifierRdv(id) {
+  const r = S.rdvs.find(x => x.id === id); if (!r) return;
+  S.form = { id: r.id, titre: r.titre, type: r.type, date: r.date, debut: r.debut, fin: r.fin, lieu: r.lieu,
+             salaries: (r.salaries || []).map(String), note: r.note, lieuAuto: false };
+  S.vue = 'form'; S.message = null; rendre(); window.scrollTo(0, 0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDU
+   ═══════════════════════════════════════════════════════════════ */
+function rendre() {
+  const app = document.getElementById('app');
+  if (S.vue === 'bloque') { app.innerHTML = vueBloquee(); return; }
+  if (S.vue === 'form') { app.innerHTML = vueForm(); brancherForm(); return; }
+  if (S.vue === 'detail') { app.innerHTML = vueDetail(); return; }
+  app.innerHTML = (S.vue === 'semaine' ? vueSemaine() : vueJour());
+  if (S.vue === 'jour') positionnerDefilement();
+}
+
+function msgHTML() { return S.message ? `<div class="message ${S.message.err ? 'err' : 'ok'}" role="status">${esc(S.message.txt)}</div>` : ''; }
+
+function enTete(sousTitre) {
+  return `<header class="hd">
+    <div class="hd-l1">
+      <button type="button" class="btn-hd" onclick="retourSaisie()">${ICO.retour} Ma saisie</button>
+      <h1><span class="hd-sur">Suiv'Heures</span>Agenda</h1>
+      <div class="bascule" role="group" aria-label="Affichage">
+        <button type="button" class="${S.vue === 'jour' ? 'on' : ''}" onclick="allerJour()">Jour</button>
+        <button type="button" class="${S.vue === 'semaine' ? 'on' : ''}" onclick="allerSemaine()">Semaine</button>
+      </div>
+    </div>
+    ${sousTitre}
+  </header>`;
+}
+
+function libelleSemaine(lundi) {
+  const a = dateDe(lundi), b = dateDe(ajoutJours(lundi, 6));
+  const ga = a.getDate() === 1 ? '1er' : a.getDate();
+  return a.getMonth() === b.getMonth()
+    ? `${ga} – ${b.getDate()} ${MOIS[b.getMonth()]} ${b.getFullYear()}`
+    : `${ga} ${MOIS[a.getMonth()].slice(0, 4)}. – ${b.getDate()} ${MOIS[b.getMonth()].slice(0, 4)}. ${b.getFullYear()}`;
+}
+
+function navSemaine(lundi) {
+  return `<div class="semaine-nav">
+    <button type="button" class="btn-hd btn-ico" aria-label="Semaine précédente" onclick="decalerSemaine(-1)">${ICO.retour}</button>
+    <span class="lbl">${esc(libelleSemaine(lundi))}</span>
+    <button type="button" class="btn-hd btn-ico" aria-label="Semaine suivante" onclick="decalerSemaine(1)">${ICO.suiv}</button>
+  </div>`;
+}
+
+/* Place des événements qui se chevauchent côte à côte (colonnes). */
+function colonnes(evts) {
+  evts.sort((a, b) => a.deb - b.deb || b.fin - a.fin);
+  let groupe = [], finGroupe = -1;
+  const fermer = () => { const n = Math.max(...groupe.map(e => e.col)) + 1; groupe.forEach(e => { e.nb = n; }); groupe = []; };
+  for (const e of evts) {
+    if (groupe.length && e.deb >= finGroupe) { fermer(); finGroupe = -1; }
+    const prises = new Set(groupe.filter(g => g.fin > e.deb).map(g => g.col));
+    let c = 0; while (prises.has(c)) c++;
+    e.col = c; groupe.push(e); finGroupe = Math.max(finGroupe, e.fin);
+  }
+  if (groupe.length) fermer();
+  return evts;
+}
+
+/* Événements d'un jour : rendez-vous + chantiers du planning ayant une heure. */
+function evenementsDu(date) {
+  const ev = [];
+  S.rdvs.filter(r => r.date === date).forEach(r => {
+    const deb = minutes(r.debut), fin = minutes(r.fin);
+    if (deb == null || fin == null) return;
+    ev.push({ deb, fin: Math.max(fin, deb + 15), rdv: r });
+  });
+  S.planning.filter(p => p.date === date && p.rdv).forEach(p => {
+    const deb = minutes(p.rdv); if (deb == null) return;
+    ev.push({ deb, fin: deb + Math.max(30, Math.round((p.heures || 1) * 60)), plan: p });
+  });
+  return colonnes(ev);
+}
+
+function vueJour() {
+  const lundi = lundiDe(S.date), auj = aujourdhui();
+  let jours = '';
+  for (let i = 0; i < 7; i++) {
+    const d = ajoutJours(lundi, i), dd = dateDe(d);
+    const cls = ['jour', d === S.date ? 'sel' : '', d === auj ? 'auj' : '', i >= 5 ? 'we' : '',
+                 S.rdvs.some(r => r.date === d) ? 'rdv' : ''].filter(Boolean).join(' ');
+    jours += `<button type="button" class="${cls}" aria-label="${esc(dateLongue(d))}" onclick="allerJour('${d}')"><span>${JOURS_C[i]}</span><b>${dd.getDate()}</b><i></i></button>`;
+  }
+  const rdvJour = S.rdvs.filter(r => r.date === S.date);
+  const planSansHeure = S.planning.filter(p => p.date === S.date && !p.rdv);
+  const planAvecHeure = S.planning.filter(p => p.date === S.date && p.rdv);
+  const nbPlan = planSansHeure.length + planAvecHeure.length;
+  const resume = [rdvJour.length ? rdvJour.length + ' rendez-vous' : 'Aucun rendez-vous',
+                  nbPlan ? nbPlan + ' chantier' + (nbPlan > 1 ? 's' : '') + ' planifié' + (nbPlan > 1 ? 's' : '') : ''].filter(Boolean).join(' · ');
+
+  let bande = '';
+  if (planSansHeure.length) {
+    bande = `<div class="plan-jour"><span class="lbl">Mon planning ce jour</span>${planSansHeure.map(p =>
+      `<span class="puce-plan">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></span>`).join('')}</div>`;
+  }
+
+  // Grille
+  const haut = (H_MAX - H_MIN) * PX_H;
+  let lignes = '';
+  for (let h = H_MIN; h <= H_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - H_MIN) * PX_H}px"><span>${h}:00</span><hr></div>`;
+  const G = 58;   // marge des heures
+  const evts = evenementsDu(S.date).map(e => {
+    const top = Math.max(0, (e.deb - H_MIN * 60) / 60 * PX_H) + 1;
+    const bas = Math.min(haut, (e.fin - H_MIN * 60) / 60 * PX_H) - 1;
+    const h = Math.max(24, bas - top);
+    const larg = `calc((100% - ${G}px) / ${e.nb})`;
+    const style = `top:${top}px;height:${h}px;left:calc(${G}px + (100% - ${G}px) / ${e.nb} * ${e.col});width:calc(${larg} - 3px)`;
+    if (e.rdv) {
+      const r = e.rdv;
+      return `<button type="button" class="evt ${r.type}" style="${style}" onclick="ouvrirDetail('${esc(r.id)}')">
+        <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[r.type] || '')}</span></button>`;
+    }
+    const p = e.plan;
+    return `<div class="evt plan" style="${style}"><b>${esc(p.chantier)}</b><span>RDV ${esc(p.rdv)} · ${esc(String(p.heures).replace('.', ','))} h</span><span class="tag">PLANNING</span></div>`;
+  }).join('');
+  let ligneMaint = '';
+  if (S.date === auj) {
+    const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+    if (m >= H_MIN * 60 && m <= H_MAX * 60) ligneMaint = `<div class="maintenant" style="top:${(m - H_MIN * 60) / 60 * PX_H}px"></div>`;
+  }
+  return enTete(navSemaine(lundi) + `<div class="jours">${jours}</div>`)
+    + msgHTML()
+    + `<div class="titre-jour"><h2>${esc(dateLongue(S.date))}</h2><span>${esc(resume)}</span></div>`
+    + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
+    + bande
+    + `<div class="grille-zone" id="grille-zone"><div class="grille" style="height:${haut}px">${lignes}${ligneMaint}${evts}</div></div>`
+    + `<button type="button" class="fab" aria-label="Nouveau rendez-vous" onclick="nouveauRdv()">${ICO.plus}</button>`;
+}
+
+/* Fait défiler la vue jour vers le premier rendez-vous, ou l'heure actuelle. */
+function positionnerDefilement() {
+  const zone = document.getElementById('grille-zone'); if (!zone) return;
+  const evts = evenementsDu(S.date);
+  let cible = 7.5 * 60;
+  if (S.date === aujourdhui()) { const n = new Date(); cible = n.getHours() * 60 + n.getMinutes() - 60; }
+  else if (evts.length) cible = Math.min(...evts.map(e => e.deb)) - 30;
+  const y = zone.getBoundingClientRect().top + window.scrollY + Math.max(0, (cible - H_MIN * 60) / 60 * PX_H) - 180;
+  window.scrollTo(0, Math.max(0, y));
+}
+
+function vueSemaine() {
+  const lundi = lundiDe(S.date), auj = aujourdhui();
+  let entetes = '', cols = '';
+  const haut = (S_MAX - S_MIN) * S_PX;
+  for (let i = 0; i < 7; i++) {
+    const d = ajoutJours(lundi, i), dd = dateDe(d);
+    entetes += `<button type="button" class="sem-j${d === auj ? ' auj' : ''}" aria-label="${esc(dateLongue(d))}" onclick="allerJour('${d}')"><span>${JOURS_C[i]}</span><b>${dd.getDate()}</b></button>`;
+    const evts = evenementsDu(d).map(e => {
+      const top = Math.max(0, (e.deb - S_MIN * 60) / 60 * S_PX) + 1;
+      const bas = Math.min(haut, (e.fin - S_MIN * 60) / 60 * S_PX) - 1;
+      if (bas <= 0 || top >= haut) return '';
+      const h = Math.max(18, bas - top);
+      const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
+      if (e.rdv) return `<button type="button" class="evt ${e.rdv.type}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
+      return `<div class="evt plan" style="${style}"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></div>`;
+    }).join('');
+    cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" style="height:${haut}px">${evts}</div>`;
+  }
+  let lignes = '';
+  for (let h = S_MIN; h <= S_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - S_MIN) * S_PX}px"><span>${h}h</span><hr></div>`;
+  const nb = S.rdvs.length;
+  return enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous cette semaine</span></div>`)
+    + `<div class="legende"><span><i style="background:var(--ambre-c);border:1px solid var(--ambre-b)"></i>RDV client</span>`
+    + `<span><i style="background:#e8f2ff;border:1px solid #a9c6f0"></i>Visite</span>`
+    + `<span><i style="background:#e7f6ec;border:1px solid #9fd3b0"></i>Chantier</span>`
+    + `<span><i style="background:var(--navy)"></i>Planning</span></div>`
+    + msgHTML()
+    + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
+    + `<div class="sem-entete"><span class="vide"></span><div class="sem-cols">${entetes}</div></div>`
+    + `<div class="sem-grille"><div class="lignes">${lignes}</div><div class="sem-corps">${cols}</div></div>`
+    + `<button type="button" class="fab" aria-label="Nouveau rendez-vous" onclick="nouveauRdv()">${ICO.plus}</button>`;
+}
+
+/* ── Formulaire ── */
+function nomsChantiers() {
+  const noms = new Set();
+  Object.keys(lsJSON('coordonneesChantiersdata', {})).forEach(n => n && noms.add(n));
+  const prev = lsJSON('previsionnel_data', {});
+  for (const a in prev) for (const m in (prev[a] || {})) ((prev[a][m] && prev[a][m].chantiers) || []).forEach(c => { if (c && c.client) noms.add(String(c.client).trim().toUpperCase()); });
+  S.rdvs.forEach(r => noms.add(r.titre));
+  S.planning.forEach(p => noms.add(p.chantier.toUpperCase()));
+  noms.delete('TEMPS NON AFFECTE');
+  return [...noms].filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+function salariesProposes(date) {
+  return S.salaries.filter(s => {
+    if (String(s.id) === String(S.ger.id)) return false;
+    if (s.dateEntree && date < s.dateEntree) return false;
+    if (s.dateSortie && date > s.dateSortie) return false;
+    return true;
+  });
+}
+
+function vueForm() {
+  const f = S.form;
+  const coords = coordsDe(f.titre);
+  const aide = coords && f.lieuAuto ? `<div class="aide">${ICO.ok} Chantier existant : adresse reprise de la fiche</div>`
+             : (coords ? `<div class="aide">${ICO.ok} Chantier existant</div>` : '');
+  const dm = (minutes(f.fin) || 0) - (minutes(f.debut) || 0);
+  const autres = salariesProposes(f.date);
+  const puces = [`<button type="button" class="${f.salaries.includes(String(S.ger.id)) ? 'on' : ''}" data-sal="${esc(S.ger.id)}">Moi</button>`]
+    .concat(autres.map(s => `<button type="button" class="${f.salaries.includes(String(s.id)) ? 'on' : ''}" data-sal="${esc(s.id)}">${esc(((s.prenom || '') + ' ' + (s.nom || '')).trim())}</button>`)).join('');
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="${f.id ? `ouvrirDetail('${esc(f.id)}')` : 'allerJour()'}">${ICO.retour}</button>
+      <h1>${f.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</h1></div></header>`
+    + msgHTML()
+    + `<form class="page" id="form-rdv" onsubmit="enregistrer(event)" autocomplete="off">
+      <div class="champ">
+        <label for="f-titre">Titre = nom du chantier</label>
+        <input id="f-titre" list="liste-chantiers" value="${esc(f.titre)}" placeholder="Ex : DUPONT — Salle de bain" required maxlength="120" autocapitalize="characters">
+        <datalist id="liste-chantiers">${nomsChantiers().map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+        <div id="f-aide">${aide}</div>
+      </div>
+      <div class="champ">
+        <span class="lbl">Type</span>
+        <div class="seg" role="group" aria-label="Type de rendez-vous">
+          ${Object.keys(TYPES).map(t => `<button type="button" data-type="${t}" class="${f.type === t ? 'on' : ''}">${TYPES[t]}</button>`).join('')}
+        </div>
+      </div>
+      <div class="champ">
+        <label for="f-date">Date</label>
+        <input id="f-date" type="date" value="${esc(f.date)}" required>
+      </div>
+      <div class="heures">
+        <div class="champ"><label for="f-debut">Début</label><input id="f-debut" type="time" step="300" value="${esc(f.debut)}" required></div>
+        <div class="champ"><label for="f-fin">Fin</label><input id="f-fin" type="time" step="300" value="${esc(f.fin)}" required></div>
+        <div class="champ"><span class="lbl">Durée</span><span class="duree" id="f-duree">${esc(fmtDuree(dm))}</span></div>
+      </div>
+      <div class="champ">
+        <label for="f-lieu">Lieu</label>
+        <textarea id="f-lieu" rows="2" placeholder="Adresse&#10;Code postal Ville">${esc(f.lieu)}</textarea>
+      </div>
+      <div class="champ">
+        <span class="lbl">Avec</span>
+        <div class="puces" id="f-avec">${puces}</div>
+      </div>
+      <div class="champ">
+        <label for="f-note">Note</label>
+        <textarea id="f-note" rows="2" placeholder="Ex : apporter le catalogue faïence">${esc(f.note)}</textarea>
+      </div>
+      <div class="info-plan">${ICO.plan}<span>Envoyé au planning (PC et mobile)<small id="f-mention">${f.type === 'client' ? 'RDV client : payé, hors heures productives' : 'Compté comme du temps de chantier'}</small></span></div>
+      <div class="pied"><div><button type="submit" class="btn-princ" id="f-ok">${f.id ? 'Enregistrer les modifications' : 'Enregistrer le rendez-vous'}</button></div></div>
+    </form>`;
+}
+
+function lireForm() {
+  const f = S.form;
+  f.titre = document.getElementById('f-titre').value.replace(/\s+/g, ' ').trim().toUpperCase();
+  f.date = document.getElementById('f-date').value;
+  f.debut = document.getElementById('f-debut').value;
+  f.fin = document.getElementById('f-fin').value;
+  f.lieu = document.getElementById('f-lieu').value.trim();
+  f.note = document.getElementById('f-note').value.trim();
+}
+
+function brancherForm() {
+  const f = S.form;
+  const titre = document.getElementById('f-titre');
+  const lieu = document.getElementById('f-lieu');
+  const majAide = () => {
+    const c = coordsDe(titre.value.replace(/\s+/g, ' ').trim());
+    // Lieu repris de la fiche chantier tant que l'utilisateur ne l'a pas écrit lui-même
+    if (c && (!lieu.value.trim() || f.lieuAuto)) { const l = lieuDepuisCoords(c); if (l) { lieu.value = l; f.lieuAuto = true; } }
+    else if (!c && f.lieuAuto) { lieu.value = ''; f.lieuAuto = false; }
+    document.getElementById('f-aide').innerHTML = c
+      ? `<div class="aide">${ICO.ok} Chantier existant${f.lieuAuto ? ' : adresse reprise de la fiche' : ''}</div>` : '';
+  };
+  titre.addEventListener('input', majAide);
+  titre.addEventListener('change', majAide);
+  lieu.addEventListener('input', () => { f.lieuAuto = false; });
+  const majDuree = () => {
+    const dm = (minutes(document.getElementById('f-fin').value) || 0) - (minutes(document.getElementById('f-debut').value) || 0);
+    document.getElementById('f-duree').textContent = fmtDuree(dm);
+  };
+  const debut = document.getElementById('f-debut');
+  let ancienDebut = minutes(debut.value);
+  debut.addEventListener('change', () => {
+    // Décaler la fin pour garder la durée
+    const nd = minutes(debut.value), fi = document.getElementById('f-fin'), nf = minutes(fi.value);
+    if (nd != null && ancienDebut != null && nf != null) fi.value = hhmm(Math.min(23 * 60 + 55, Math.max(nd + 5, nf + (nd - ancienDebut))));
+    ancienDebut = nd; majDuree();
+  });
+  document.getElementById('f-fin').addEventListener('change', majDuree);
+  document.getElementById('f-fin').addEventListener('input', majDuree);
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    f.type = b.dataset.type;
+    document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById('f-mention').textContent = f.type === 'client' ? 'RDV client : payé, hors heures productives' : 'Compté comme du temps de chantier';
+  }));
+  document.getElementById('f-avec').addEventListener('click', e => {
+    const b = e.target.closest('button[data-sal]'); if (!b) return;
+    const id = String(b.dataset.sal), i = f.salaries.indexOf(id);
+    if (i >= 0) f.salaries.splice(i, 1); else f.salaries.push(id);
+    b.classList.toggle('on', i < 0);
+  });
+  document.getElementById('f-date').addEventListener('change', () => { lireForm(); rendre(); });
+  if (!f.id && titre.value) majAide();
+}
+
+async function enregistrer(ev) {
+  ev.preventDefault();
+  lireForm();
+  const f = S.form;
+  const err = (txt) => { S.message = { err: true, txt }; rendre(); window.scrollTo(0, 0); };
+  if (!f.titre) return err('Indiquez le nom du chantier.');
+  if (!f.date) return err('Indiquez la date.');
+  if (minutes(f.debut) == null || minutes(f.fin) == null) return err('Indiquez les heures de début et de fin.');
+  if (minutes(f.fin) <= minutes(f.debut)) return err('L\'heure de fin doit suivre l\'heure de début.');
+  // Participants présents à la date (un salarié sorti n'est plus proposé)
+  const valides = new Set([String(S.ger.id)].concat(salariesProposes(f.date).map(s => String(s.id))));
+  f.salaries = f.salaries.filter(id => valides.has(id));
+  if (!f.salaries.length) return err('Choisissez au moins une personne.');
+
+  const btn = document.getElementById('f-ok'); if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  try {
+    const d = await api('enregistrer', { rdv: { id: f.id, date: f.date, debut: f.debut, fin: f.fin, titre: f.titre, type: f.type, lieu: f.lieu, salaries: f.salaries, note: f.note } });
+    S.date = d.rdv.date;
+    S.form = null;
+    S.vue = 'jour';
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Rendez-vous enregistré et envoyé au planning.' };
+    rendre();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = f.id ? 'Enregistrer les modifications' : 'Enregistrer le rendez-vous'; }
+    err(e.message);
+  }
+}
+
+/* ── Détail ── */
+function vueDetail() {
+  const r = S.rdvs.find(x => x.id === S.detailId);
+  if (!r) return enTete('') + msgHTML() + `<div class="vide-etat">Ce rendez-vous n'existe plus.</div>`;
+  const c = coordsDe(r.titre);
+  const lieu = r.lieu || lieuDepuisCoords(c);
+  const itin = mapsUrl(lieu), tel = telDe(c);
+  const actions = (itin || tel) ? `<div class="actions2">
+      ${itin ? `<a href="${esc(itin)}" target="_blank" rel="noopener">${ICO.itin} Itinéraire</a>` : ''}
+      ${tel ? `<a href="${esc(tel)}">${ICO.tel} Appeler</a>` : ''}</div>` : '';
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="allerJour('${esc(r.date)}')">${ICO.retour}</button>
+      <h1 style="font-size:17px">Rendez-vous</h1></div></header>
+    <div class="det-hd">
+      <span class="badge-type">${esc((TYPES[r.type] || '').toUpperCase())}</span>
+      <h2>${esc(r.titre)}</h2>
+      <div class="quand">${esc(dateLongue(r.date))} · ${esc(r.debut)} – ${esc(r.fin)}</div>
+    </div>`
+    + msgHTML()
+    + `<div class="page">
+      <section class="bloc"><span class="lbl">Lieu et contact</span>
+        <div style="font-size:15px;line-height:1.4;white-space:pre-line">${lieu ? esc(lieu) : '<span style="color:var(--gris)">Aucune adresse</span>'}</div>
+        ${actions}
+      </section>
+      ${r.note ? `<section class="bloc"><span class="lbl">Note</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(r.note)}</div></section>` : ''}
+      <section class="bloc"><span class="lbl">Avec</span><div style="font-size:14px">${esc((r.salaries || []).map(nomSal).join(', '))}</div></section>
+      <div class="info-plan">${ICO.plan}<span>Au planning du ${esc(dateLongue(r.date))}<small>${r.type === 'client' ? 'Payé, hors heures productives' : 'Compté comme du temps de chantier'}</small></span></div>
+      <button type="button" class="btn-sec" onclick="modifierRdv('${esc(r.id)}')">Modifier le rendez-vous</button>
+      <button type="button" class="btn-suppr" onclick="supprimer('${esc(r.id)}')">Supprimer le rendez-vous</button>
+    </div>`;
+}
+
+async function supprimer(id) {
+  const r = S.rdvs.find(x => x.id === id); if (!r) return;
+  if (!confirm('Supprimer le rendez-vous « ' + r.titre + ' » ?\nIl sera aussi retiré du planning.')) return;
+  try {
+    await api('supprimer', { id });
+    S.date = r.date;
+    S.vue = 'jour';
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Rendez-vous supprimé.' };
+    rendre();
+  } catch (e) { S.message = { err: true, txt: e.message }; rendre(); }
+}
+
+function vueBloquee() {
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd" onclick="retourSaisie()">${ICO.retour} Ma saisie</button>
+      <h1><span class="hd-sur">Suiv'Heures</span>Agenda</h1></div></header>
+    <div class="vide-etat">${esc(S.message ? S.message.txt : '')}</div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DÉMARRAGE
+   ═══════════════════════════════════════════════════════════════ */
+(function init() {
+  S.code = (localStorage.getItem('saisie_codeEmploye') || '').toUpperCase();
+  S.ger = lsJSON('saisie_salarie', null);
+  S.salaries = lsJSON('salariesdata', []);
+  const moi = S.ger ? S.salaries.find(s => String(s.id) === String(S.ger.id)) : null;
+  const params = new URLSearchParams(location.search);
+  const pDate = params.get('date');
+  S.date = (pDate && /^\d{4}-\d{2}-\d{2}$/.test(pDate)) ? pDate : aujourdhui();
+
+  if (!S.code || !S.ger) { S.vue = 'bloque'; S.message = { txt: 'Connectez-vous d\'abord depuis la saisie mobile.' }; return rendre(); }
+  if (!moi || !moi.gerant) { S.vue = 'bloque'; S.message = { txt: 'L\'agenda est réservé au dirigeant.' }; return rendre(); }
+  if (localStorage.getItem('agendaDirigeant') !== '1') { S.vue = 'bloque'; S.message = { txt: 'L\'agenda du dirigeant n\'est pas activé (page Entreprise).' }; return rendre(); }
+
+  const pRdv = params.get('rdv');
+  history.replaceState({}, '', location.pathname);
+  rendre();
+  chargerSemaine(true).then(() => { if (pRdv && S.rdvs.some(r => r.id === pRdv)) ouvrirDetail(pRdv); });
+})();
+</script>
+</body>
+</html>

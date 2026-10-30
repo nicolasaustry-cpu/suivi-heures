@@ -3,6 +3,7 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
 import Licence from "../models/licence.js";
+import AgendaRdv from "../models/agenda.js";
 
 const router = express.Router();
 
@@ -73,6 +74,7 @@ router.post("/connect", async (req, res) => {
       notesChantiers: doc.notesChantiers || {},
       coordonneesChantiers: doc.coordonneesChantiers || {},
       ordreMobile:  await getOrdresMobile(doc.clientId),
+      agendaDirigeant: !!(doc.entreprise && doc.entreprise.agendaDirigeant),   // option page Entreprise
       marquePartenaire: licence ? !!licence.marquePartenaire : false,
       logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
     });
@@ -757,6 +759,264 @@ router.post("/ordre-mobile", async (req, res) => {
     await o.save();
 
     res.json({ ok: true, ordres });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENDA DU DIRIGEANT (mobile, page agenda.html)
+   ═══════════════════════════════════════════════════════════════
+   Option activée sur la page Entreprise (entreprise.agendaDirigeant).
+   Réservé au salarié marqué « gérant » ; auth par code employé + gerantId,
+   comme les autres routes mobiles du gérant.
+
+   Chaque rendez-vous est TOUJOURS envoyé au planning : une case par
+   participant (Donnees.heures), écrite de façon CIBLÉE ($set / $unset sur
+   heures.<clé>) pour ne jamais réécrire le reste du planning. La case porte
+   agendaId : on la retrouve ainsi même après un déplacement dans le planning.
+
+   RDV client : la case reçoit exclu + motifExclu « RDV client », le marquage
+   déjà utilisé par le planning. Le temps reste payé (total du jour, paie)
+   mais sort des heures productives, du prévisionnel et de la jauge, et les
+   rapports le classent sous « RDV client », rattaché au chantier.
+   ═══════════════════════════════════════════════════════════════ */
+const NB_SLOTS_AGENDA = 60;                          // miroir de NB_SLOTS (planning.html)
+const _RE_HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const TYPES_RDV = ["client", "visite", "chantier"];
+const MOTIF_RDV_CLIENT = "RDV client";
+
+function _minutes(hhmm) { const [h, m] = String(hhmm).split(":").map(Number); return h * 60 + m; }
+
+/* Durée prévue du planning : au quart d'heure le plus proche, entre 0,25 et 10 h
+   (mêmes valeurs que la liste « temps prévu » de planning.html). */
+function _dureePlanning(debut, fin) {
+  const h = (_minutes(fin) - _minutes(debut)) / 60;
+  return Math.min(10, Math.max(0.25, Math.round(h * 4) / 4));
+}
+
+/* Auth commune : entreprise par code employé, demandeur gérant, option active. */
+async function _authAgenda(req) {
+  const Donnees = (await import("../models/donnees.js")).default;
+  const _r = await resoudreEntrepriseParCode(Donnees, req.body.codeEmploye);
+  if (_r.err) return { err: _r.err };
+  const doc = _r.doc;
+  const ger = (doc.salaries || []).find(s => String(s.id) === String(req.body.gerantId));
+  if (!ger) return { err: [401, "Demandeur inconnu"] };
+  if (!ger.gerant) return { err: [403, "Agenda réservé au dirigeant"] };
+  if (!(doc.entreprise && doc.entreprise.agendaDirigeant))
+    return { err: [403, "L'agenda du dirigeant n'est pas activé (page Entreprise)"] };
+  return { Donnees, doc, ger };
+}
+
+/* Clés du planning portant ce rendez-vous (toutes dates / tous salariés). */
+function _clesDuRdv(heures, rdvId) {
+  return Object.keys(heures || {}).filter(k => heures[k] && heures[k].agendaId === rdvId);
+}
+
+/* Case libre (ou « TEMPS NON AFFECTE », recalculé ensuite par le planning)
+   d'un salarié à une date, en ignorant les clés déjà réservées. */
+function _caseLibre(heures, salId, date, reservees) {
+  const pre = String(salId) + date.replace(/-/g, "_") + "ch";
+  for (let i = 1; i <= NB_SLOTS_AGENDA; i++) {
+    const k = pre + i;
+    if (reservees.has(k)) continue;
+    const n = String((heures[k] && heures[k].chantier) || "").trim();
+    if (!n || n.toUpperCase() === "TEMPS NON AFFECTE") return k;
+  }
+  return null;
+}
+
+/* Contenu de la case planning d'un rendez-vous. */
+function _entreePlanning(rdv, ancienne) {
+  const e = {
+    chantier:  rdv.titre,
+    heures:    _dureePlanning(rdv.debut, rdv.fin),
+    rdv:       rdv.debut,
+    rdvAuteur: "gerant",
+    agendaId:  rdv.rdvId,
+    agendaType: rdv.type
+  };
+  if (rdv.note) e.note = rdv.note;                         // note du jour → visible sur le mobile du salarié
+  if (rdv.type === "client") { e.exclu = true; e.motifExclu = MOTIF_RDV_CLIENT; }
+  // Le délai de rappel propre au RDV posé depuis le planning est conservé ;
+  // le rappel est re-déclenchable si l'heure ou la date a changé.
+  if (ancienne) {
+    if (ancienne.rdvDelai != null) e.rdvDelai = ancienne.rdvDelai;
+    if (ancienne.rdvNotifie != null && ancienne.rdv === rdv.debut) e.rdvNotifie = ancienne.rdvNotifie;
+  }
+  return e;
+}
+
+/* Sépare « 18 avenue Bollée\n72000 Le Mans » en adresse / ville. */
+function _decouperLieu(lieu) {
+  const lignes = String(lieu || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lignes.length) return null;
+  return { adresse: lignes[0].slice(0, 500), ville: lignes.slice(1).join(", ").slice(0, 200) };
+}
+
+function _rdvPublic(r) {
+  return {
+    id: r.rdvId, date: r.date, debut: r.debut, fin: r.fin, titre: r.titre, type: r.type,
+    lieu: r.lieu || "", salaries: r.salaries || [], note: r.note || ""
+  };
+}
+
+/* ── Liste : rendez-vous + planning du gérant sur une période ──
+   body : { codeEmploye, gerantId, du, au } (YYYY-MM-DD, 62 jours max) */
+router.post("/agenda/liste", async (req, res) => {
+  try {
+    const a = await _authAgenda(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const du = String(req.body.du || ""), au = String(req.body.au || "");
+    if (!_RE_DATE.test(du) || !_RE_DATE.test(au) || au < du)
+      return res.status(400).json({ ok: false, message: "Période invalide" });
+    if ((new Date(au) - new Date(du)) / 86400000 > 62)
+      return res.status(400).json({ ok: false, message: "Période trop longue" });
+
+    const rdvs = await AgendaRdv.find({ clientId: a.doc.clientId, date: { $gte: du, $lte: au } })
+      .sort({ date: 1, debut: 1 }).lean();
+
+    // Planning du gérant (hors cases issues de l'agenda, déjà représentées par leur RDV)
+    const heures = a.doc.heures || {};
+    const gid = String(a.ger.id);
+    const planning = [];
+    for (const k of Object.keys(heures)) {
+      const m = k.match(/^(.+?)(\d{4})_(\d{2})_(\d{2})ch(\d+)$/);
+      if (!m || m[1] !== gid) continue;
+      const date = `${m[2]}-${m[3]}-${m[4]}`;
+      if (date < du || date > au) continue;
+      const e = heures[k];
+      const nom = String((e && e.chantier) || "").trim();
+      if (!nom || e.agendaId || nom.toUpperCase() === "TEMPS NON AFFECTE" || nom.toLowerCase() === "absence") continue;
+      planning.push({ date, chantier: nom, heures: parseFloat(e.heures) || 0, rdv: e.rdv || "", rang: parseInt(m[5], 10) });
+    }
+    planning.sort((x, y) => (x.date + String(x.rang).padStart(3, "0")).localeCompare(y.date + String(y.rang).padStart(3, "0")));
+
+    res.json({ ok: true, rdvs: rdvs.map(_rdvPublic), planning, coordonneesChantiers: a.doc.coordonneesChantiers || {} });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Créer ou modifier un rendez-vous (et sa présence au planning) ──
+   body : { codeEmploye, gerantId, rdv: { id?, date, debut, fin, titre, type, lieu, salaries[], note } } */
+router.post("/agenda/enregistrer", async (req, res) => {
+  try {
+    const a = await _authAgenda(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const { Donnees, doc } = a;
+    const b = req.body.rdv || {};
+
+    const rdv = {
+      rdvId: String(b.id || "").trim(),
+      date:  String(b.date || "").trim(),
+      debut: String(b.debut || "").trim(),
+      fin:   String(b.fin || "").trim(),
+      titre: String(b.titre || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 120),
+      type:  TYPES_RDV.includes(b.type) ? b.type : "client",
+      lieu:  String(b.lieu || "").trim().slice(0, 600),
+      note:  String(b.note || "").trim().slice(0, 2000),
+      salaries: []
+    };
+    if (!rdv.titre) return res.status(400).json({ ok: false, message: "Le titre (nom du chantier) est obligatoire" });
+    if (rdv.titre === "TEMPS NON AFFECTE" || rdv.titre === "ABSENCE")
+      return res.status(400).json({ ok: false, message: "Ce nom est réservé par le planning" });
+    if (!_RE_DATE.test(rdv.date)) return res.status(400).json({ ok: false, message: "Date invalide" });
+    if (!_RE_HEURE.test(rdv.debut) || !_RE_HEURE.test(rdv.fin))
+      return res.status(400).json({ ok: false, message: "Heure invalide" });
+    if (_minutes(rdv.fin) <= _minutes(rdv.debut))
+      return res.status(400).json({ ok: false, message: "L'heure de fin doit suivre l'heure de début" });
+
+    // Participants : salariés existants uniquement, sans doublon
+    const ids = new Set((doc.salaries || []).map(s => String(s.id)));
+    const vus = new Set();
+    for (const x of (Array.isArray(b.salaries) ? b.salaries : [])) {
+      const id = String(x);
+      if (ids.has(id) && !vus.has(id)) { vus.add(id); rdv.salaries.push(id); }
+    }
+    if (!rdv.salaries.length) return res.status(400).json({ ok: false, message: "Choisissez au moins une personne" });
+
+    let existant = null;
+    if (rdv.rdvId) {
+      existant = await AgendaRdv.findOne({ clientId: doc.clientId, rdvId: rdv.rdvId });
+      if (!existant) return res.status(404).json({ ok: false, message: "Rendez-vous introuvable (supprimé entre-temps ?)" });
+    } else {
+      rdv.rdvId = "ag" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    // ── Planning : on retire les anciennes cases du RDV puis on pose les nouvelles ──
+    const heures = doc.heures || {};
+    const anciennes = _clesDuRdv(heures, rdv.rdvId);
+    const parSal = {};                                   // salId -> ancienne case (réutilisée si même date)
+    for (const k of anciennes) {
+      const m = k.match(/^(.+?)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (m && `${m[2]}-${m[3]}-${m[4]}` === rdv.date && !parSal[m[1]]) parSal[m[1]] = k;
+    }
+    const aEcrire = {}, reservees = new Set();
+    const pleins = [];
+    for (const sid of rdv.salaries) {
+      let k = parSal[sid] || null;
+      if (!k) k = _caseLibre(heures, sid, rdv.date, reservees);
+      if (!k) { pleins.push(sid); continue; }
+      reservees.add(k);
+      aEcrire[k] = _entreePlanning(rdv, heures[k] && heures[k].agendaId === rdv.rdvId ? heures[k] : null);
+    }
+    if (pleins.length) {
+      const noms = pleins.map(id => { const s = doc.salaries.find(x => String(x.id) === id); return s ? s.prenom : id; });
+      return res.status(409).json({ ok: false, message: `Journée pleine au planning pour : ${noms.join(", ")}` });
+    }
+    const $set = { updatedAt: new Date() }, $unset = {};
+    for (const k of Object.keys(aEcrire)) $set["heures." + k] = aEcrire[k];
+    for (const k of anciennes) if (!aEcrire[k]) $unset["heures." + k] = "";
+
+    // ── Coordonnées du chantier : créées depuis le lieu, adresse mise à jour si
+    //    elle a changé (téléphones et e-mail conservés). Le gérant y est habilité.
+    const lieu = _decouperLieu(rdv.lieu);
+    if (lieu) {
+      const coords = doc.coordonneesChantiers || {};
+      const ex = coords[rdv.titre] || {};
+      if (ex.adresse !== lieu.adresse || (ex.ville || "") !== lieu.ville) {
+        coords[rdv.titre] = { ...ex, adresse: lieu.adresse, ville: lieu.ville };
+        $set.coordonneesChantiers = coords;
+      }
+    }
+
+    const maj = { $set };
+    if (Object.keys($unset).length) maj.$unset = $unset;
+    await Donnees.updateOne({ _id: doc._id }, maj);
+
+    const champs = {
+      date: rdv.date, debut: rdv.debut, fin: rdv.fin, titre: rdv.titre, type: rdv.type,
+      lieu: rdv.lieu, salaries: rdv.salaries, note: rdv.note, majLe: new Date()
+    };
+    let enr;
+    if (existant) { Object.assign(existant, champs); enr = await existant.save(); }
+    else enr = await AgendaRdv.create({ clientId: doc.clientId, rdvId: rdv.rdvId, gerantId: String(a.ger.id), ...champs });
+
+    res.json({ ok: true, rdv: _rdvPublic(enr), cases: Object.keys(aEcrire) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Supprimer un rendez-vous (et ses cases au planning) ──
+   body : { codeEmploye, gerantId, id } */
+router.post("/agenda/supprimer", async (req, res) => {
+  try {
+    const a = await _authAgenda(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const id = String(req.body.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, message: "Paramètres manquants" });
+
+    const cles = _clesDuRdv(a.doc.heures || {}, id);
+    if (cles.length) {
+      const $unset = {};
+      cles.forEach(k => { $unset["heures." + k] = ""; });
+      await a.Donnees.updateOne({ _id: a.doc._id }, { $unset, $set: { updatedAt: new Date() } });
+    }
+    await AgendaRdv.deleteOne({ clientId: a.doc.clientId, rdvId: id });
+    res.json({ ok: true, casesRetirees: cles.length });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

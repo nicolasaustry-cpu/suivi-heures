@@ -224,6 +224,10 @@
   .tag-reservio.annule { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
   @media print { .tag-reservio { border:1px solid #999 !important;background:#fff !important;color:#333 !important; } }
   /* Le 🔗 (auto-synchronisé) est teinté en doré pour rester dans le même ton que le 🔒 (verrouillé) */
+  /* Étiquette d'un RDV posé depuis l'agenda du dirigeant (mobile) */
+  .tag-agenda { display:inline-flex;align-items:center;gap:3px;margin:0 0 3px;padding:1px 7px;border-radius:999px;
+    font-size:0.68rem;font-weight:700;background:#fff3dc;color:#6b3d00;border:1px solid #f3c770; }
+  @media print { .tag-agenda { border:1px solid #999 !important;background:#fff !important;color:#333 !important; } }
   .badge-reservio.badge-reservio-lien { filter: sepia(1) saturate(6) hue-rotate(-15deg) brightness(0.95); }
   /* Alerte : RDV verrouillé annulé côté Reservio, en attente d'une décision du gérant */
   .btn-alerte-reservio { display:block;width:100%;box-sizing:border-box;margin-top:4px;border:none;
@@ -1067,11 +1071,16 @@ function pl2ChipHTML(sl){
           ? `<div class="tag-reservio verrou" title="RDV Reservio modifié dans le planning : verrouillé, plus mis à jour par Reservio">🔒 Reservio · modifié</div>`
           : `<div class="tag-reservio" title="RDV importé automatiquement depuis Reservio">🔗 Reservio</div>`)
     : '';
+  // Étiquette « Agenda » : RDV posé par le dirigeant depuis son agenda mobile
+  const AG_TYPES = { client: 'RDV client', visite: 'Visite', chantier: 'Chantier' };
+  const tagAgenda = data.agendaId
+    ? `<div class="tag-agenda" title="Rendez-vous posé depuis l'agenda du dirigeant (mobile)">📅 Agenda${AG_TYPES[data.agendaType] ? ' · ' + AG_TYPES[data.agendaType] : ''}</div>`
+    : '';
   const alerteReservio = data.reservioAnnule
     ? `<button type="button" class="btn-alerte-reservio no-print" title="Ce RDV a été annulé dans Reservio — cliquer pour décider" onclick="pl2TraiterAlerteReservio('${sl.k}')">⚠️ Annulé Reservio</button>`
     : '';
   return `<div class="${cls}" data-k="${sl.k}" data-move="${_mv}">
-    ${tagReservio}
+    ${tagReservio}${tagAgenda}
     <div class="ligne1">
       ${grip}${badgeReservio}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
         onfocus="onChantierFocus('${sl.k}');chantierSuggFiltrer('${sl.k}')"
@@ -1579,6 +1588,10 @@ function saveHeure(k, ch, h) {
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
   const excluAv = !!(heures[k] && heures[k].exclu);
   const motifExcluAv = (heures[k] && heures[k].motifExclu) ? heures[k].motifExclu : '';
+  // Lien avec l'agenda du dirigeant : conservé quand on modifie le nom ou les heures,
+  // pour que l'agenda retrouve (et mette à jour / retire) sa case au planning.
+  const agendaIdAv = (heures[k] && heures[k].agendaId) ? heures[k].agendaId : '';
+  const agendaTypeAv = (heures[k] && heures[k].agendaType) ? heures[k].agendaType : '';
   // Lien Reservio : conservé quand on modifie le nom ou les heures (avant, il était effacé →
   // la synchro recréait un doublon, et une annulation Reservio n'était plus jamais signalée).
   // C'est la synchro qui détecte la modification et verrouille le RDV.
@@ -1589,6 +1602,7 @@ function saveHeure(k, ch, h) {
   if (motifAv) heures[k].motif = motifAv;
   if (excluAv) heures[k].exclu = true;   // le marquage « exclu du calcul » survit aux modifs de nom/heures
   if (motifExcluAv) heures[k].motifExclu = motifExcluAv;
+  if (agendaIdAv && ch) { heures[k].agendaId = agendaIdAv; if (agendaTypeAv) heures[k].agendaType = agendaTypeAv; }
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
