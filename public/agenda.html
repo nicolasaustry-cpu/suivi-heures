@@ -115,7 +115,8 @@
     .sem-grille .lignes { position:absolute; left:0; right:8px; top:6px; }
     .sem-grille .ligne-h span { width:30px; font-size:10px; }
     .sem-corps { margin-left:34px; flex:1; position:relative; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
-    .sem-col { position:relative; border-radius:6px; cursor:pointer; }
+    .sem-col { position:relative; border-radius:6px; cursor:pointer; box-shadow:-1px 0 0 #c3cbdc; }   /* séparation des jours */
+    .sem-plan .cols > div { box-shadow:-1px 0 0 #c3cbdc; padding-left:1px; }
     .grille { cursor:pointer; }
     .sem-col.we { background:#e9edf5; }
     .sem-col.auj { background:rgba(245,158,11,.08); }
