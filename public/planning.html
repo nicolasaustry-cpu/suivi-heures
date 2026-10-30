@@ -1072,7 +1072,7 @@ function pl2ChipHTML(sl){
           : `<div class="tag-reservio" title="RDV importé automatiquement depuis Reservio">🔗 Reservio</div>`)
     : '';
   // Étiquette « Agenda » : RDV posé par le dirigeant depuis son agenda mobile
-  const AG_TYPES = { client: 'RDV client', visite: 'Visite', chantier: 'Chantier' };
+  const AG_TYPES = { client: 'RDV client', sav: 'SAV', fournisseur: 'Fournisseur', autre: 'Autre', visite: 'Autre', chantier: 'Autre' };
   const tagAgenda = data.agendaId
     ? `<div class="tag-agenda" title="Rendez-vous posé depuis l'agenda du dirigeant (mobile)">📅 Agenda${AG_TYPES[data.agendaType] ? ' · ' + AG_TYPES[data.agendaType] : ''}</div>`
     : '';

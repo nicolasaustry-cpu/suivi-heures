@@ -65,19 +65,15 @@
     button.puce-plan, button.pj { border:0; font-family:inherit; text-align:left; cursor:pointer; display:block; width:100%; }
     button.puce-plan { display:inline-block; width:auto; }
     button.evt.plan { cursor:pointer; }
-    .puce-plan { background:var(--navy); color:#fff; border-radius:8px; padding:5px 9px; font-size:12px; font-weight:700; }
-    .puce-plan small { font-weight:400; color:#c9d6f2; margin-left:4px; }
-    .puce-plan.client { background:var(--ambre-c); color:var(--ambre-t); border:1px solid var(--ambre-b); }
-    .puce-plan.client small { color:var(--ambre-t); }
+    .puce-plan { border-radius:8px; padding:5px 9px; font-size:12px; font-weight:700; }
+    .puce-plan small { font-weight:400; margin-left:4px; }
     /* Vue semaine : chantiers du planning sans heure de RDV, au-dessus de la grille */
     .sem-plan { display:flex; padding:0 8px 6px 0; }
     .sem-plan .vide { width:34px; flex:0 0 auto; font-size:9px; color:var(--gris); text-align:right; padding-right:4px; padding-top:3px; }
     .sem-plan .cols { flex:1; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
-    .pj { background:var(--navy); color:#fff; font-size:9.5px; font-weight:700; border-radius:5px; padding:3px; margin-bottom:2px;
+    .pj { font-size:9.5px; font-weight:700; border-radius:5px; padding:3px; margin-bottom:2px;
           overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .pj small { display:block; font-weight:400; color:#c9d6f2; }
-    .pj.client { background:var(--ambre-c); color:var(--ambre-t); border:1px solid var(--ambre-b); }
-    .pj.client small { color:var(--ambre-t); }
+    .pj small { display:block; font-weight:400; }
 
     /* Grille horaire */
     .grille-zone { position:relative; padding:6px 10px 110px 0; }
@@ -86,22 +82,24 @@
     .ligne-h span { width:46px; text-align:right; font-size:11px; color:#6b7389; transform:translateY(-7px); flex:0 0 auto; }
     .ligne-h hr { flex:1; border:0; height:1px; background:var(--bord); margin:0; }
     .evt { position:absolute; border-radius:10px; padding:5px 8px; overflow:hidden; display:flex; flex-direction:column; gap:1px;
-           text-align:left; border:1px solid var(--ambre-b); background:var(--ambre-c); color:var(--ambre-t); font-size:11px; }
-    .evt b { font-size:13px; line-height:1.15; color:var(--ambre-t); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .evt.visite { background:#e8f2ff; border-color:#a9c6f0; color:#163d73; }
-    .evt.visite b { color:#163d73; }
-    .evt.chantier { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
-    .evt.chantier b { color:#1d5b34; }
-    .evt.plan { background:var(--navy); border-color:var(--navy); color:#c9d6f2; }
-    .evt.plan.client { background:var(--ambre-c); border-color:var(--ambre-b); color:var(--ambre-t); }
-    .evt.plan.client b { color:var(--ambre-t); }
-    .evt.plan b { color:#fff; }
-    .evt .tag { align-self:flex-start; font-size:9px; font-weight:800; background:var(--ambre); color:var(--navy); border-radius:5px; padding:1px 5px; margin-top:2px; }
+           text-align:left; border:1px solid; font-size:11px; font-family:inherit; cursor:pointer; }
+    .evt b { font-size:13px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .evt .tag { align-self:flex-start; font-size:9px; font-weight:800; background:#fff; border:1px solid currentColor; border-radius:5px; padding:0 5px; margin-top:2px; }
+    /* 4 jeux de couleurs = motifs du planning : RDV client, SAV, Fournisseur, Autre */
+    .c-client { background:#fff3dc; border-color:#f3c770; color:#6b3d00; }
+    .c-sav { background:#fde8e6; border-color:#f1a39a; color:#8a1c12; }
+    .c-fournisseur { background:#efe9fb; border-color:#c3b1ec; color:#4b2a8a; }
+    .c-autre { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
+    .c-client b, .c-sav b, .c-fournisseur b, .c-autre b, .c-client small, .c-sav small, .c-fournisseur small, .c-autre small { color:inherit; }
+    .puce-plan[class*="c-"], .pj[class*="c-"] { border:1px solid; }
     .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
     .maintenant::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:#d9480f; }
 
-    /* Vue semaine */
-    .legende { display:flex; justify-content:center; gap:14px; padding:9px 12px; background:#fff; border-bottom:1px solid var(--bord); font-size:12px; color:#2d3550; }
+    /* Vue semaine : en-tête, légende et ligne des jours toujours visibles en haut */
+    .tete-fixe { position:sticky; top:0; z-index:20; background:var(--fond); }
+    .tete-fixe .hd { position:static; }
+    .tete-fixe .sem-entete { background:var(--fond); border-bottom:1px solid var(--bord); }
+    .legende { display:flex; justify-content:center; flex-wrap:wrap; gap:6px 14px; padding:9px 12px; background:#fff; border-bottom:1px solid var(--bord); font-size:12px; color:#2d3550; }
     .legende span { display:flex; align-items:center; gap:6px; }
     .legende i { width:12px; height:12px; border-radius:3px; display:inline-block; }
     .sem-entete { display:flex; padding:8px 8px 6px 0; }
@@ -134,7 +132,7 @@
     .champ textarea { padding:10px 14px; line-height:1.4; resize:vertical; }
     .champ input:focus, .champ textarea:focus { outline:2px solid var(--navy); outline-offset:0; border-color:var(--navy); }
     .aide { font-size:12px; color:var(--vert); display:flex; align-items:center; gap:6px; }
-    .seg { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .seg { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
     .seg button { min-height:44px; border-radius:10px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:14px; }
     .seg button.on { background:var(--ambre); border-color:var(--ambre); color:var(--navy); font-weight:700; }
     .heures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
@@ -176,7 +174,19 @@
 const H_MIN = 6, H_MAX = 21;          // amplitude de la vue jour
 const PX_H  = 56;                     // hauteur d'une heure (vue jour)
 const S_MIN = 7, S_MAX = 20, S_PX = 40; // vue semaine
-const TYPES = { client: 'RDV client', visite: 'Visite', chantier: 'Chantier' };
+/* Types = motifs d'exclusion du planning + « Autre » (visite / chantier : anciennes valeurs). */
+const TYPES = { client: 'RDV client', sav: 'SAV', fournisseur: 'Fournisseur', autre: 'Autre' };
+const MENTIONS = { client: 'RDV client : payé, hors heures productives', sav: 'SAV : payé, hors heures productives',
+                   fournisseur: 'Fournisseur : payé, hors heures productives', autre: 'Compté comme du temps de chantier' };
+function typeNormal(t) { return TYPES[t] ? t : ((t === 'visite' || t === 'chantier') ? 'autre' : 'client'); }
+/* Catégorie (couleur) d'une case du planning selon son motif d'exclusion. */
+function catPlan(p) {
+  const x = String((p && p.motif) || '').trim().toLowerCase();
+  if (x === 'rdv client' || x === 'visite client') return 'client';
+  if (x === 'sav') return 'sav';
+  if (x === 'fournisseur') return 'fournisseur';
+  return 'autre';
+}
 const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 const JOURS_C = ['L','M','M','J','V','S','D'];
 
@@ -206,7 +216,6 @@ function nomSal(id) {
   const s = S.salaries.find(x => String(x.id) === String(id));
   return s ? ((s.prenom || '') + ' ' + (s.nom || '')).trim() : 'Salarié ' + id;
 }
-function estMotifClient(m) { const x = String(m || '').trim().toLowerCase(); return x === 'rdv client' || x === 'visite client'; }
 function coordsDe(titre) { const c = lsJSON('coordonneesChantiersdata', {}); return c[String(titre || '').trim().toUpperCase()] || null; }
 function lieuDepuisCoords(c) { if (!c) return ''; return [c.adresse, c.ville].map(x => String(x || '').trim()).filter(Boolean).join('\n'); }
 
@@ -272,7 +281,7 @@ function nouveauRdv() {
 }
 function modifierRdv(id) {
   const r = S.rdvs.find(x => x.id === id); if (!r) return;
-  S.form = { id: r.id, titre: r.titre, type: r.type, date: r.date, debut: r.debut, fin: r.fin, lieu: r.lieu, tel: r.tel || '',
+  S.form = { id: r.id, titre: r.titre, type: typeNormal(r.type), date: r.date, debut: r.debut, fin: r.fin, lieu: r.lieu, tel: r.tel || '',
              salaries: (r.salaries || []).map(String), note: r.note, lieuAuto: false, telAuto: false };
   S.vue = 'form'; S.message = null; rendre(); window.scrollTo(0, 0);
 }
@@ -369,7 +378,7 @@ function vueJour() {
   let bande = '';
   if (planSansHeure.length) {
     bande = `<div class="plan-jour"><span class="lbl">Mon planning ce jour</span>${planSansHeure.map(p =>
-      `<button type="button" class="puce-plan${estMotifClient(p.motif) ? ' client' : ''}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h${p.motif ? ' · ' + esc(p.motif) : ''}</small></button>`).join('')}</div>`;
+      `<button type="button" class="puce-plan c-${catPlan(p)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h${p.motif ? ' · ' + esc(p.motif) : ''}</small></button>`).join('')}</div>`;
   }
 
   // Grille
@@ -385,11 +394,11 @@ function vueJour() {
     const style = `top:${top}px;height:${h}px;left:calc(${G}px + (100% - ${G}px) / ${e.nb} * ${e.col});width:calc(${larg} - 3px)`;
     if (e.rdv) {
       const r = e.rdv;
-      return `<button type="button" class="evt ${r.type}" style="${style}" onclick="ouvrirDetail('${esc(r.id)}')">
-        <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[r.type] || '')}</span></button>`;
+      return `<button type="button" class="evt c-${typeNormal(r.type)}" style="${style}" onclick="ouvrirDetail('${esc(r.id)}')">
+        <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[typeNormal(r.type)])}</span></button>`;
     }
     const p = e.plan;
-    return `<button type="button" class="evt plan${estMotifClient(p.motif) ? ' client' : ''}" style="${style}" onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>RDV ${esc(p.rdv)} · ${esc(String(p.heures).replace('.', ','))} h</span><span class="tag">PLANNING</span></button>`;
+    return `<button type="button" class="evt c-${catPlan(p)}" style="${style}" onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>RDV ${esc(p.rdv)} · ${esc(String(p.heures).replace('.', ','))} h</span><span class="tag">PLANNING</span></button>`;
   }).join('');
   let ligneMaint = '';
   if (S.date === auj) {
@@ -429,8 +438,8 @@ function vueSemaine() {
       if (bas <= 0 || top >= haut) return '';
       const h = Math.max(18, bas - top);
       const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
-      if (e.rdv) return `<button type="button" class="evt ${e.rdv.type}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
-      return `<button type="button" class="evt plan${estMotifClient(e.plan.motif) ? ' client' : ''}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
+      if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
+      return `<button type="button" class="evt c-${catPlan(e.plan)}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
     }).join('');
     cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" style="height:${haut}px">${evts}</div>`;
   }
@@ -443,17 +452,16 @@ function vueSemaine() {
     const d = ajoutJours(lundi, i);
     const items = S.planning.filter(p => p.date === d && !p.rdv);
     if (items.length) aPlan = true;
-    plan += `<div>${items.map(p => `<button type="button" class="pj${estMotifClient(p.motif) ? ' client' : ''}" title="${esc(p.chantier)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></button>`).join('')}</div>`;
+    plan += `<div>${items.map(p => `<button type="button" class="pj c-${catPlan(p)}" title="${esc(p.chantier)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></button>`).join('')}</div>`;
   }
   const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
-  return enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous · ${S.planning.length} chantier${S.planning.length > 1 ? 's' : ''} au planning</span></div>`)
-    + `<div class="legende"><span><i style="background:var(--ambre-c);border:1px solid var(--ambre-b)"></i>RDV client</span>`
-    + `<span><i style="background:#e8f2ff;border:1px solid #a9c6f0"></i>Visite</span>`
-    + `<span><i style="background:#e7f6ec;border:1px solid #9fd3b0"></i>Chantier</span>`
-    + `<span><i style="background:var(--navy)"></i>Planning</span></div>`
+  return `<div class="tete-fixe">`
+    + enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous · ${S.planning.length} chantier${S.planning.length > 1 ? 's' : ''} au planning</span></div>`)
+    + `<div class="legende">${Object.keys(TYPES).map(t => `<span><i class="c-${t}" style="border:1px solid"></i>${TYPES[t]}</span>`).join('')}</div>`
+    + `<div class="sem-entete"><span class="vide"></span><div class="sem-cols">${entetes}</div></div>`
+    + `</div>`
     + msgHTML()
     + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
-    + `<div class="sem-entete"><span class="vide"></span><div class="sem-cols">${entetes}</div></div>`
     + bandePlan
     + `<div class="sem-grille"><div class="lignes">${lignes}</div><div class="sem-corps">${cols}</div></div>`
     + `<button type="button" class="fab" aria-label="Nouveau rendez-vous" onclick="nouveauRdv()">${ICO.plus}</button>`;
@@ -531,7 +539,7 @@ function vueForm() {
         <label for="f-note">Note</label>
         <textarea id="f-note" rows="2" placeholder="Ex : apporter le catalogue faïence">${esc(f.note)}</textarea>
       </div>
-      <div class="info-plan">${ICO.plan}<span>Envoyé au planning (PC et mobile)<small id="f-mention">${f.type === 'client' ? 'RDV client : payé, hors heures productives' : 'Compté comme du temps de chantier'}</small></span></div>
+      <div class="info-plan">${ICO.plan}<span>Envoyé au planning (PC et mobile)<small id="f-mention">${MENTIONS[f.type]}</small></span></div>
       <div class="pied"><div><button type="submit" class="btn-princ" id="f-ok">${f.id ? 'Enregistrer les modifications' : 'Enregistrer le rendez-vous'}</button></div></div>
     </form>`;
 }
@@ -583,7 +591,7 @@ function brancherForm() {
   document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
     f.type = b.dataset.type;
     document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
-    document.getElementById('f-mention').textContent = f.type === 'client' ? 'RDV client : payé, hors heures productives' : 'Compté comme du temps de chantier';
+    document.getElementById('f-mention').textContent = MENTIONS[f.type];
   }));
   document.getElementById('f-avec').addEventListener('click', e => {
     const b = e.target.closest('button[data-sal]'); if (!b) return;
@@ -637,7 +645,7 @@ function vueDetail() {
       <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(r.date)}')">${ICO.retour}</button>
       <h1 style="font-size:17px">Rendez-vous</h1></div></header>
     <div class="det-hd">
-      <span class="badge-type">${esc((TYPES[r.type] || '').toUpperCase())}</span>
+      <span class="badge-type c-${typeNormal(r.type)}" style="border:1px solid">${esc(TYPES[typeNormal(r.type)].toUpperCase())}</span>
       <h2>${esc(r.titre)}</h2>
       <div class="quand">${esc(dateLongue(r.date))} · ${esc(r.debut)} – ${esc(r.fin)}</div>
     </div>`
@@ -649,7 +657,7 @@ function vueDetail() {
       ${tel ? `<section class="bloc"><span class="lbl">Téléphone</span><div style="font-size:15px">${esc(tel)}</div></section>` : ''}
       ${r.note ? `<section class="bloc"><span class="lbl">Note</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(r.note)}</div></section>` : ''}
       <section class="bloc"><span class="lbl">Avec</span><div style="font-size:14px">${esc((r.salaries || []).map(nomSal).join(', '))}</div></section>
-      <div class="info-plan">${ICO.plan}<span>Au planning du ${esc(dateLongue(r.date))}<small>${r.type === 'client' ? 'Payé, hors heures productives' : 'Compté comme du temps de chantier'}</small></span></div>
+      <div class="info-plan">${ICO.plan}<span>Au planning du ${esc(dateLongue(r.date))}<small>${MENTIONS[typeNormal(r.type)]}</small></span></div>
       <button type="button" class="btn-sec" onclick="modifierRdv('${esc(r.id)}')">Modifier le rendez-vous</button>
       <button type="button" class="btn-suppr" onclick="supprimer('${esc(r.id)}')">Supprimer le rendez-vous</button>
     </div>`;
@@ -667,7 +675,7 @@ function vueCase() {
       <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(p.date)}')">${ICO.retour}</button>
       <h1 style="font-size:17px">Chantier au planning</h1></div></header>
     <div class="det-hd">
-      <span class="badge-type"${p.reservio ? '' : ' style="background:#fff;color:var(--navy)"'}>${p.reservio ? 'RESERVIO' : 'PLANNING'}${p.motif ? ' · ' + esc(p.motif.toUpperCase()) : ''}</span>
+      <span class="badge-type c-${catPlan(p)}" style="border:1px solid">${p.reservio ? 'RESERVIO' : 'PLANNING'}${p.motif ? ' · ' + esc(p.motif.toUpperCase()) : ''}</span>
       <h2>${esc(p.chantier)}</h2>
       <div class="quand">${esc(dateLongue(p.date))}${p.rdv ? ' · RDV ' + esc(p.rdv) : ''} · ${esc(String(p.heures).replace('.', ','))} h prévues</div>
     </div>`

@@ -512,18 +512,6 @@
     color: #3a2603 !important;
     font-weight: 700;
   }
-  /* Encart « Prochain rendez-vous » (gérant, agenda activé) */
-  #agenda-prochain {
-    display: none; align-items: center; gap: 10px; margin: 0.75rem 0.75rem 0;
-    background: #fff7e8; border: 1px solid #f3c770; border-radius: 12px; padding: 10px 12px;
-    text-decoration: none; color: #0f172a;
-  }
-  #agenda-prochain .ap-ico { width: 34px; height: 34px; border-radius: 10px; background: #f59e0b; color: #3a2603;
-    display: flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 1.05rem; }
-  #agenda-prochain .ap-txt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
-  #agenda-prochain .ap-lbl { font-size: 0.68rem; font-weight: 700; color: #6b3d00; letter-spacing: 0.06em; text-transform: uppercase; }
-  #agenda-prochain .ap-val { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #agenda-prochain .ap-fl { color: #6b3d00; font-weight: 700; font-size: 1.1rem; }
   #ecran-saisie header #btn-vue-equipe {
     background: rgba(22,163,74,0.92) !important;
     border-color: rgba(255,255,255,0.28) !important;
@@ -1443,13 +1431,6 @@
   <!-- Zone scrollable -->
   <div class="saisie-scroll">
 
-  <!-- Prochain rendez-vous de l'agenda (gérant, option « Agenda du dirigeant ») -->
-  <a id="agenda-prochain" href="agenda.html">
-    <span class="ap-ico">🕐</span>
-    <span class="ap-txt"><span class="ap-lbl" id="agenda-prochain-lbl">Prochain rendez-vous</span><span class="ap-val" id="agenda-prochain-val"></span></span>
-    <span class="ap-fl">›</span>
-  </a>
-
   <!-- Chantiers prévus -->
   <div class="section">
     <div class="section-title">
@@ -2012,8 +1993,8 @@ function majAccesGerant() {
   majAgendaGerant(estGerant);
 }
 
-/* ── Agenda du dirigeant : bouton « Agenda » + encart « Prochain rendez-vous ».
-   Visibles seulement pour le gérant ET si l'option est cochée sur la page
+/* ── Agenda du dirigeant : bouton « Agenda » dans le bandeau.
+   Visible seulement pour le gérant ET si l'option est cochée sur la page
    Entreprise (drapeau renvoyé par /connect). Le bandeau gagne de la place :
    « Vue équipe » devient « Équipe » et Déconnexion se réduit à son icône. ── */
 function majAgendaGerant(estGerant) {
@@ -2024,51 +2005,6 @@ function majAgendaGerant(estGerant) {
   if (eq) eq.textContent = actif ? '👁 Équipe' : '👁 Vue équipe';
   const deco = document.getElementById('btn-deconnexion');
   if (deco) { deco.textContent = actif ? '⏻' : '⏻ Déconnexion'; deco.title = 'Déconnexion'; deco.setAttribute('aria-label', 'Déconnexion'); }
-  const enc = document.getElementById('agenda-prochain');
-  if (!enc) return;
-  if (!actif) { enc.style.display = 'none'; return; }
-  chargerProchainRdv(enc);
-}
-
-let _prochainRdvSeq = 0;
-async function chargerProchainRdv(enc) {
-  const seq = ++_prochainRdvSeq;
-  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
-  if (!codeEmploye || !_salarie) return;
-  const p2 = n => String(n).padStart(2, '0');
-  const isoL = d => d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
-  const maintenant = new Date();
-  const auj = isoL(maintenant);
-  const fin = new Date(maintenant); fin.setDate(fin.getDate() + 30);
-  try {
-    const r = await fetch('/api/saisies/agenda/liste', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codeEmploye, gerantId: _salarie.id, du: auj, au: isoL(fin) })
-    });
-    const d = await r.json();
-    if (seq !== _prochainRdvSeq) return;
-    if (!d.ok) { enc.style.display = 'none'; return; }
-    const hm = p2(maintenant.getHours()) + ':' + p2(maintenant.getMinutes());
-    // Prochain = premier RDV pas encore terminé (aujourd'hui) ou à venir
-    const prochain = (d.rdvs || []).find(x => x.date > auj || (x.date === auj && x.fin > hm));
-    if (!prochain) {
-      document.getElementById('agenda-prochain-lbl').textContent = 'Agenda';
-      document.getElementById('agenda-prochain-val').textContent = 'Aucun rendez-vous à venir';
-      enc.href = 'agenda.html';
-    } else {
-      let quand = prochain.debut;
-      if (prochain.date !== auj) {
-        const dj = new Date(prochain.date + 'T00:00:00');
-        quand = dj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + prochain.debut;
-      }
-      document.getElementById('agenda-prochain-lbl').textContent = 'Prochain rendez-vous';
-      document.getElementById('agenda-prochain-val').textContent = quand + ' · ' + prochain.titre;
-      enc.href = 'agenda.html?date=' + encodeURIComponent(prochain.date) + '&rdv=' + encodeURIComponent(prochain.id);
-    }
-    enc.style.display = 'flex';
-  } catch (_) {
-    if (seq === _prochainRdvSeq) enc.style.display = 'none';   // hors ligne : pas d'encart
-  }
 }
 
 /* Classe les chantiers porteurs d'une heure de RDV du plus tôt au plus tard,

@@ -9,10 +9,10 @@ import mongoose from "mongoose";
    planning (Donnees.heures) portant agendaId = rdvId, ce qui permet de la
    retrouver même si elle a été déplacée dans le planning entre-temps.
 
-   type : "client"   → RDV client : payé, classé « RDV client » (exclu des
-                       heures productives, du prévisionnel et de la jauge)
-          "visite"   → compte normalement
-          "chantier" → compte normalement
+   type : "client" / "sav" / "fournisseur" → payé, classé sous le motif
+          « RDV client » / « SAV » / « Fournisseur » (exclu des heures productives,
+          du prévisionnel et de la jauge)
+          "autre" → compte normalement
    ═══════════════════════════════════════════════════════════════ */
 const agendaRdvSchema = new mongoose.Schema({
   clientId: { type: String, required: true, index: true },
@@ -22,7 +22,7 @@ const agendaRdvSchema = new mongoose.Schema({
   debut:    { type: String, required: true },     // HH:MM
   fin:      { type: String, required: true },     // HH:MM
   titre:    { type: String, required: true },     // = nom du chantier (majuscules)
-  type:     { type: String, enum: ["client", "visite", "chantier"], default: "client" },
+  type:     { type: String, enum: ["client", "sav", "fournisseur", "autre", "visite", "chantier"], default: "client" },   // visite / chantier : anciennes valeurs, lues comme « autre »
   lieu:     { type: String, default: "" },
   tel:      { type: String, default: "" },        // téléphone du contact (aussi reporté sur la fiche chantier)
   salaries: { type: [String], default: [] },      // ids des participants

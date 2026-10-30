@@ -783,12 +783,24 @@ router.post("/ordre-mobile", async (req, res) => {
    ═══════════════════════════════════════════════════════════════ */
 const NB_SLOTS_AGENDA = 60;                          // miroir de NB_SLOTS (planning.html)
 const _RE_HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const TYPES_RDV = ["client", "visite", "chantier"];
-const MOTIF_RDV_CLIENT = "RDV client";
+/* Types d'un rendez-vous = motifs d'exclusion du planning (MOTIFS_EXCLU de planning.html) + « Autre ».
+   client / sav / fournisseur : temps payé mais classé à part (exclu des heures productives,
+   du prévisionnel et de la jauge), sous le motif correspondant dans les rapports.
+   autre : compté normalement. « visite » et « chantier » (première version) valent « autre ». */
+const TYPES_RDV = ["client", "sav", "fournisseur", "autre"];
+const MOTIF_TYPE = { client: "RDV client", sav: "SAV", fournisseur: "Fournisseur" };
+function _typeNormal(t) { return TYPES_RDV.includes(t) ? t : ((t === "visite" || t === "chantier") ? "autre" : "client"); }
+/* Type d'agenda correspondant au motif d'exclusion d'une case du planning. */
+function _typeDuMotif(e) {
+  if (!e || !e.exclu) return "autre";
+  const x = String(e.motifExclu || "SAV").trim().toLowerCase();
+  if (x === "rdv client" || x === "visite client") return "client";   // « Visite client » = ancien libellé
+  if (x === "fournisseur") return "fournisseur";
+  if (x === "sav") return "sav";
+  return "autre";
+}
 
 function _minutes(hhmm) { const [h, m] = String(hhmm).split(":").map(Number); return h * 60 + m; }
-/* « Visite client » est l'ancien libellé de « RDV client » (renommé le 08/10/2026). */
-function _motifRdvClient(m) { const x = String(m || "").trim().toLowerCase(); return x === "rdv client" || x === "visite client"; }
 
 /* Durée prévue du planning : au quart d'heure le plus proche, entre 0,25 et 10 h
    (mêmes valeurs que la liste « temps prévu » de planning.html). */
@@ -840,12 +852,7 @@ function _entreePlanning(rdv, ancienne) {
     agendaType: rdv.type
   };
   if (rdv.note) e.note = rdv.note;                         // note du jour → visible sur le mobile du salarié
-  if (rdv.type === "client") { e.exclu = true; e.motifExclu = MOTIF_RDV_CLIENT; }
-  // Exclusion posée à la main dans le planning pour un autre motif (SAV, Fournisseur…) :
-  // conservée tant que le RDV n'est pas un RDV client (cas des RDV repris du planning).
-  else if (ancienne && ancienne.exclu && ancienne.motifExclu && !_motifRdvClient(ancienne.motifExclu)) {
-    e.exclu = true; e.motifExclu = ancienne.motifExclu;
-  }
+  if (MOTIF_TYPE[rdv.type]) { e.exclu = true; e.motifExclu = MOTIF_TYPE[rdv.type]; }
   // Le délai de rappel propre au RDV posé depuis le planning est conservé ;
   // le rappel est re-déclenchable si l'heure ou la date a changé.
   if (ancienne) {
@@ -864,7 +871,7 @@ function _decouperLieu(lieu) {
 
 function _rdvPublic(r) {
   return {
-    id: r.rdvId, date: r.date, debut: r.debut, fin: r.fin, titre: r.titre, type: r.type,
+    id: r.rdvId, date: r.date, debut: r.debut, fin: r.fin, titre: r.titre, type: _typeNormal(r.type),
     lieu: r.lieu || "", tel: r.tel || "", salaries: r.salaries || [], note: r.note || ""
   };
 }
@@ -926,7 +933,7 @@ router.post("/agenda/enregistrer", async (req, res) => {
       debut: String(b.debut || "").trim(),
       fin:   String(b.fin || "").trim(),
       titre: String(b.titre || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 120),
-      type:  TYPES_RDV.includes(b.type) ? b.type : "client",
+      type:  _typeNormal(b.type),
       lieu:  String(b.lieu || "").trim().slice(0, 600),
       tel:   String(b.tel || "").replace(/[^\d+ .()-]/g, "").trim().slice(0, 40),
       note:  String(b.note || "").trim().slice(0, 2000),
@@ -1143,11 +1150,11 @@ router.post("/agenda/reprendre", async (req, res) => {
       if (_minutes(debut) > 23 * 60 + 50) continue;
       const cle = `${date}|${titre}|${debut}`;
       let g = groupes.get(cle);
-      if (!g) { g = { date, titre, debut, cles: [], sal: [], hMax: 0, client: false, note: "" }; groupes.set(cle, g); }
+      if (!g) { g = { date, titre, debut, cles: [], sal: [], hMax: 0, type: "autre", note: "" }; groupes.set(cle, g); }
       g.cles.push(k);
       if (!g.sal.includes(m[1])) g.sal.push(m[1]);
       g.hMax = Math.max(g.hMax, parseFloat(e.heures) || 0);
-      if (e.exclu && _motifRdvClient(e.motifExclu)) g.client = true;
+      if (g.type === "autre") g.type = _typeDuMotif(e);
       if (!g.note && e.note) g.note = String(e.note).trim().slice(0, 2000);
     }
 
@@ -1163,7 +1170,7 @@ router.post("/agenda/reprendre", async (req, res) => {
       const fin = Math.min(23 * 60 + 55, deb + (g.hMax > 0 ? Math.round(g.hMax * 60 / 5) * 5 : 60));
       const c = coords[g.titre];
       const lieu = c ? [c.adresse, c.ville].map(x => String(x || "").trim()).filter(Boolean).join("\n") : "";
-      const type = g.client ? "client" : "chantier";
+      const type = g.type;
       aCreer.push({
         clientId: doc.clientId, rdvId, gerantId, date: g.date, debut: g.debut,
         fin: String(Math.floor(fin / 60)).padStart(2, "0") + ":" + String(fin % 60).padStart(2, "0"),
