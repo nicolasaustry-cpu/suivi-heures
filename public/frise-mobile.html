@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Frise – Suiv'Heures</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f3a8a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <!--
+    FRISE DES CHANTIERS — VERSION MOBILE (gérant)
+    Ouverte depuis l'agenda du dirigeant (bouton à droite du sélecteur de semaine).
+    Deux vues : « Équipe » (frise transposée : jours en lignes, salariés en colonnes)
+    et « Par salarié » (une barre horizontale par jour).
+    Calculs repris À L'IDENTIQUE de frise-chantiers.html (contrat, alternance A/B,
+    fériés, jours d'école, largeur de journée, fusion des jours consécutifs) pour
+    garantir les mêmes chiffres que la frise du PC.
+    Données : /api/saisies/equipe-mois (gérant, code employé) → planning à jour.
+  -->
+  <style>
+    :root { --navy:#0f3a8a; --ambre:#f59e0b; --fond:#f4f6fb; --bord:#dde3ef; --texte:#1b2440; --gris:#5b6478; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; }
+    body { background:var(--fond); color:var(--texte); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-tap-highlight-color:transparent; }
+    button { font-family:inherit; cursor:pointer; }
+    .app { display:flex; flex-direction:column; height:100vh; height:100dvh; max-width:900px; margin:0 auto; }
+    .hd { background:var(--navy); color:#fff; padding:10px 12px; display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+    .btn-hd { min-height:40px; display:inline-flex; align-items:center; gap:6px; padding:0 11px; border-radius:12px;
+              background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:13px; font-weight:600; }
+    .btn-ico { width:40px; padding:0; justify-content:center; }
+    .hd-mois { flex:1; min-width:0; text-align:center; font-size:15px; font-weight:700; line-height:1.2; }
+    .hd-mois small { display:block; font-size:11px; font-weight:500; color:#c9d6f2; }
+    .outils { background:#fff; border-bottom:1px solid var(--bord); padding:8px 12px; display:flex; flex-direction:column; gap:7px; flex:0 0 auto; }
+    .bascule { display:grid; grid-template-columns:1fr 1fr; background:#e3e8f4; border-radius:10px; padding:3px; }
+    .bascule button { border:0; background:transparent; color:#46506a; font-size:13px; padding:8px 6px; border-radius:8px; }
+    .bascule button.on { background:#fff; color:var(--navy); font-weight:700; box-shadow:0 1px 2px rgba(15,58,138,.15); }
+    .legende { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 12px; font-size:11px; color:#46506a; }
+    .legende span { display:flex; align-items:center; gap:5px; }
+    .legende i { width:14px; height:10px; border-radius:2px; display:inline-block; }
+    .zone { flex:1 1 auto; overflow:auto; position:relative; -webkit-overflow-scrolling:touch; }
+    .msg { padding:30px 20px; text-align:center; color:var(--gris); font-size:14px; line-height:1.5; }
+
+    /* motifs (mêmes codes que la frise PC) */
+    .k-vide { background:#fff !important; border:1px dashed #94a3b8; color:#64748b !important; font-weight:400 !important; }
+    .k-abs { background:repeating-linear-gradient(45deg,#fde68a 0 6px,#fef3c7 6px 12px) !important; color:#78350f !important; }
+    .k-ecole { background:#E6F1FB !important; color:#0C447C !important; border:1px solid #85B7EB; }
+    .k-off { background:repeating-linear-gradient(45deg,#d9dde3 0 4px,#eef1f5 4px 8px) !important; color:#64748b !important; font-weight:400 !important; }
+
+    /* ── Vue Équipe (transposée) ── */
+    .eq { position:relative; }
+    .eq-tete { position:sticky; top:0; z-index:3; display:flex; background:#fff; border-bottom:1px solid var(--bord); }
+    .eq-coin { position:sticky; left:0; z-index:4; width:44px; flex:0 0 auto; background:#fff; }
+    .eq-nom { flex:0 0 auto; padding:6px 2px; display:flex; flex-direction:column; align-items:center; gap:1px; min-width:0; }
+    .eq-nom b { font-size:12px; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .eq-nom small { font-size:10px; font-weight:600; }
+    .eq-corps { display:flex; }
+    .eq-jours { position:sticky; left:0; z-index:2; width:44px; flex:0 0 auto; background:var(--fond); }
+    .eq-j { position:absolute; left:0; width:44px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; font-size:10px; color:#46506a; line-height:1.1; }
+    .eq-j.auj { background:#fef3c7; font-weight:700; }
+    .eq-pistes { position:relative; flex:0 0 auto; }
+    .eq-ligne { position:absolute; left:0; right:0; height:0; border-top:1px solid #e3e8f2; }
+    .eq-ligne.sem { border-top:2px solid #9aa6c2; }
+    .eq-piste { position:absolute; top:0; bottom:0; }
+    .eq-seg { position:absolute; left:0; right:5px; border:0; border-radius:6px; padding:3px 4px; color:#fff; font-size:10px; font-weight:700;
+              text-align:left; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.2; box-shadow:inset 0 1px 0 rgba(255,255,255,.7); }
+    .eq-seg { display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; }
+    .eq-seg span { display:block; overflow:hidden; text-overflow:ellipsis; }
+    .eq-seg small { display:block; font-weight:400; font-size:9px; opacity:.9; overflow:hidden; text-overflow:ellipsis; }
+    .eq-ecart { position:absolute; right:0; width:3px; border-radius:2px; }
+
+    /* ── Vue Par salarié ── */
+    .ps-chips { display:flex; gap:6px; overflow-x:auto; padding:2px 0; scrollbar-width:none; }
+    .ps-chips::-webkit-scrollbar { display:none; }
+    .ps-chips button { min-height:36px; border-radius:999px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:13px; padding:0 14px; white-space:nowrap; flex:0 0 auto; }
+    .ps-chips button.on { background:var(--navy); border-color:var(--navy); color:#fff; font-weight:700; }
+    .ps-tot { display:flex; align-items:baseline; justify-content:space-between; font-size:12px; color:var(--gris); }
+    .ps-tot b { font-size:15px; }
+    .ps { padding:4px 12px 40px; }
+    .ps-sem { font-size:10px; font-weight:800; color:var(--gris); letter-spacing:.06em; text-transform:uppercase; padding:8px 0 3px; }
+    .ps-ligne { display:flex; align-items:center; gap:8px; height:30px; }
+    .ps-ligne.auj .ps-j { color:#b45309; font-weight:700; }
+    .ps-j { width:38px; flex:0 0 auto; font-size:11px; color:#46506a; }
+    .ps-barre { flex:1; position:relative; height:24px; border-radius:5px; overflow:hidden; background:#eef1f6; }
+    .ps-pc { position:absolute; top:0; bottom:0; border:0; padding:0 6px; color:#fff; font-size:10px; font-weight:700; line-height:22px; text-align:left;
+             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow:inset 1px 0 0 rgba(255,255,255,.8); }
+    .ps-h { width:36px; flex:0 0 auto; text-align:right; font-size:11px; font-weight:700; }
+
+    /* ── Volet détail ── */
+    .voile { position:fixed; inset:0; background:rgba(10,22,52,.5); z-index:50; display:flex; align-items:flex-end; justify-content:center; }
+    .volet { background:#fff; width:100%; max-width:640px; border-radius:20px 20px 0 0; padding:10px 18px 22px; display:flex; flex-direction:column; gap:12px;
+             max-height:85vh; overflow:auto; box-shadow:0 -10px 30px rgba(10,22,52,.25); }
+    .poignee { align-self:center; width:40px; height:5px; border-radius:3px; background:#cfd7e8; }
+    .v-tete { display:flex; align-items:center; gap:10px; }
+    .v-coul { width:14px; height:40px; border-radius:4px; flex:0 0 auto; }
+    .v-tete b { display:block; font-size:21px; color:var(--navy); }
+    .v-tete span { font-size:13px; color:var(--gris); }
+    .v-cartes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .v-carte { background:var(--fond); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:2px; }
+    .v-carte .lbl { font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.04em; }
+    .v-carte .val { font-size:14px; font-weight:600; }
+    .v-carte .gros { font-size:20px; font-weight:800; color:var(--navy); }
+    .v-liste { border:1px solid #e3e8f2; border-radius:12px; }
+    .v-liste div { display:flex; justify-content:space-between; padding:9px 12px; border-bottom:1px solid #eef1f7; font-size:14px; }
+    .v-liste div:last-child { border-bottom:0; }
+    .v-adr { font-size:14px; color:#2d3550; }
+    .v-fermer { min-height:50px; border-radius:14px; border:0; background:var(--navy); color:#fff; font-size:16px; font-weight:700; }
+  </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   Fonctions de calcul reprises À L'IDENTIQUE de frise-chantiers.html
+   (elles-mêmes reprises de planning.html)
+   ============================================================ */
+function lundiDeLaSemaine(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const j = x.getDay();
+  const decal = (j === 0) ? -6 : (1 - j);
+  x.setDate(x.getDate() + decal);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function nbSemainesEntre(lundiRef, lundiCible) {
+  const ms = lundiCible - lundiRef;
+  return Math.round(ms / (7 * 24 * 3600 * 1000));
+}
+function semaineAB(s, d) {
+  const bascules = Array.isArray(s.bascules) ? s.bascules.slice() : [];
+  if (!bascules.length) return 'A';
+  bascules.sort((a, b) => a.date.localeCompare(b.date));
+  const lundiCible = lundiDeLaSemaine(d);
+  let active = null;
+  for (const b of bascules) {
+    const lb = lundiDeLaSemaine(new Date(b.date + 'T00:00:00'));
+    if (lb <= lundiCible) active = { lundi: lb, semaine: b.semaine };
+  }
+  if (!active) {
+    const first = bascules[0];
+    const lb = lundiDeLaSemaine(new Date(first.date + 'T00:00:00'));
+    const n = nbSemainesEntre(lundiCible, lb);
+    return (n % 2 === 0) ? first.semaine : (first.semaine === 'A' ? 'B' : 'A');
+  }
+  const n = nbSemainesEntre(active.lundi, lundiCible);
+  return (n % 2 === 0) ? active.semaine : (active.semaine === 'A' ? 'B' : 'A');
+}
+function grilleHeuresPourDate(s, d) {
+  if (s && s.alternance) {
+    const sem = semaineAB(s, d);
+    return (sem === 'B' ? s.heuresParJourB : s.heuresParJourA) || {};
+  }
+  return s.heuresParJour || {};
+}
+var _plCacheFeries = {};
+function _plPaques(y){var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mm=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*mm+114)/31),jo=((h+l-7*mm+114)%31)+1;return new Date(y,mo-1,jo);}
+function _plFeries(y){
+  if(_plCacheFeries[y])return _plCacheFeries[y];
+  var f={},pad=function(n){return String(n).padStart(2,'0');},isod=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+  [[0,1,"Jour de l'an"],[4,1,'Fête du travail'],[4,8,'Victoire 1945'],[6,14,'Fête nationale'],[7,15,'Assomption'],[10,1,'Toussaint'],[10,11,'Armistice'],[11,25,'Noël']].forEach(function(x){f[isod(new Date(y,x[0],x[1]))]=x[2];});
+  var p=_plPaques(y);
+  [[1,'Lundi de Pâques'],[39,'Ascension'],[50,'Lundi de Pentecôte']].forEach(function(x){var d=new Date(p);d.setDate(p.getDate()+x[0]);f[isod(d)]=x[1];});
+  _plCacheFeries[y]=f;return f;
+}
+function estFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return !!_plFeries(y)[dateStr];}
+function nomFeriePl(dateStr){var y=parseInt(dateStr.slice(0,4),10);return _plFeries(y)[dateStr]||'Férié';}
+function estJourEcolePl(s,dateStr){return !!(s&&s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(dateStr)!==-1);}
+function contratDuJour(s, dateStr) {
+  if (estFeriePl(dateStr)) return 0;
+  if (estJourEcolePl(s, dateStr)) return 0;
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const dObj = new Date(a, m - 1, j);
+  const cle = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][dObj.getDay()];
+  return (grilleHeuresPourDate(s, dObj))[cle] || 0;
+}
+function pl2NumSemaine(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const j=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-j+3);
+  const p=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  return 1+Math.round(((t-p)/86400000-3+((p.getUTCDay()+6)%7))/7);
+}
+const TNA = 'TEMPS NON AFFECTE';
+const NB_SLOTS = 60;   // miroir de NB_SLOTS (planning.html)
+
+const FR_MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const FR_JC   = ['Di','Lu','Ma','Me','Je','Ve','Sa'];
+const FR_JL   = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const FR_PALETTE = ['#2563eb','#0d9488','#9333ea','#ea580c','#db2777','#16a34a','#0891b2','#ca8a04',
+                    '#4f46e5','#be123c','#0f766e','#7c3aed','#c2410c','#1d4ed8','#65a30d','#a21caf'];
+function frPad2(n){ return String(n).padStart(2,'0'); }
+function frIso(d){ return d.getFullYear()+'-'+frPad2(d.getMonth()+1)+'-'+frPad2(d.getDate()); }
+function frFmt(h){ return (Math.round((parseFloat(h)||0)*100)/100).toString().replace('.',','); }
+function frEsc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function frDateCourte(d){ return frPad2(d.getDate()) + '/' + frPad2(d.getMonth()+1); }
+function frCouleur(nom){
+  let h = 0; const t = String(nom || '').toUpperCase();
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return FR_PALETTE[h % FR_PALETTE.length];
+}
+
+/* ============================================================
+   ÉTAT ET DONNÉES
+   ============================================================ */
+const F = { code:'', ger:null, y:0, m:0, vue:'equipe', salSel:null, salaries:[], heures:{}, coords:{},
+            charge:false, erreur:'', calc:null, retour:'' };
+
+function lsJSON(k, d) { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (_) { return d; } }
+
+async function charger() {
+  F.charge = true; F.erreur = ''; rendre();
+  const mois = F.y + '-' + frPad2(F.m + 1);
+  try {
+    const r = await fetch('/api/saisies/equipe-mois', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: F.code, salarieId: F.ger.id, mois })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'Erreur serveur');
+    F.salaries = d.salaries || [];
+    F.heures = d.heures || {};
+    F.coords = d.coordonneesChantiers || {};
+  } catch (e) {
+    // Hors ligne : on retombe sur les données mémorisées par la saisie mobile
+    F.salaries = lsJSON('salariesdata', []);
+    F.heures = lsJSON('heuresdata', {});
+    F.coords = lsJSON('coordonneesChantiersdata', {});
+    F.erreur = navigator.onLine === false ? 'Hors connexion : planning mémorisé sur ce téléphone.' : '';
+  }
+  F.charge = false;
+  F.calc = calculer();
+  if (!F.salSel || !F.calc.sals.some(s => String(s.id) === String(F.salSel))) F.salSel = F.calc.sals.length ? F.calc.sals[0].id : null;
+  rendre();
+}
+
+/* Journée d'un salarié — reprise de frJournee (frise PC). */
+function frJournee(s, heures, d){
+  const dateStr = frIso(d);
+  const safe = dateStr.replace(/-/g,'_');
+  const contrat = contratDuJour(s, dateStr);
+  const absE = heures[String(s.id) + safe + 'abs'];
+  const abs = absE ? (parseFloat(absE.heures) || 0) : 0;
+  const motif = absE ? String(absE.motif || '').trim() : '';
+  const chs = [];
+  for (let i = 1; i <= NB_SLOTS; i++){
+    const e = heures[String(s.id) + safe + 'ch' + i];
+    if (!e) continue;
+    const nom = String(e.chantier || '').trim();
+    if (!nom || nom.toUpperCase() === TNA) continue;
+    const h = parseFloat(e.heures) || 0;
+    if (h <= 0) continue;
+    chs.push({ nom, cle: nom.toUpperCase(), h, rdv: String(e.rdv || '').trim(), ordre: i });
+  }
+  chs.sort((a, b) => {
+    if (a.rdv && b.rdv) return a.rdv.localeCompare(b.rdv) || (a.ordre - b.ordre);
+    if (a.rdv) return -1;
+    if (b.rdv) return 1;
+    return a.ordre - b.ordre;
+  });
+  const planifie = chs.reduce((t, c) => t + c.h, 0);
+  return { dateStr, d, contrat, abs, motif, chs, planifie, ecole: estJourEcolePl(s, dateStr), ferie: estFeriePl(dateStr) };
+}
+
+/* Jours du mois du lundi au vendredi ; le samedi s'ajoute dès qu'un chantier y est posé. */
+function joursDuMois(y, m, salaries, heures) {
+  const n = new Date(y, m + 1, 0).getDate();
+  let samedi = false;
+  for (let k = 1; k <= n && !samedi; k++) {
+    const d = new Date(y, m, k);
+    if (d.getDay() !== 6) continue;
+    salaries.forEach(s => { if (frJournee(s, heures, d).chs.length) samedi = true; });
+  }
+  const jours = [];
+  for (let k = 1; k <= n; k++) { const d = new Date(y, m, k), w = d.getDay(); if (w === 0 || (w === 6 && !samedi)) continue; jours.push(d); }
+  return jours;
+}
+
+/* Segments par salarié — même algorithme que frRender (frise PC), abscisses en jours (0..N). */
+function calculer() {
+  const salaries = F.salaries.filter(s => !s.administratif || s.planningPrevu);
+  const jours = joursDuMois(F.y, F.m, salaries, F.heures);
+  const sals = salaries.map(s => {
+    const nom = ((s.prenom ? s.prenom + ' ' : '') + (s.nom || '')).trim() || s.nom || '—';
+    const segs = [], jourInfo = [];
+    let totPlan = 0, totContrat = 0;
+    jours.forEach((d, i) => {
+      const j = frJournee(s, F.heures, d);
+      if (j.contrat <= 0 && !j.chs.length) {
+        if (j.abs > 0) segs.push({ k:'abs', cle:'ABS:' + (j.motif || 'Absence'), lib: j.motif || 'Absence', x0:i, x1:i+1, jours:[{ d, h:j.abs }] });
+        else if (j.ecole) segs.push({ k:'ecole', cle:'ECOLE', lib:'École', x0:i, x1:i+1, jours:[{ d, h:0 }] });
+        else segs.push({ k:'off', cle:'OFF:' + (j.ferie ? nomFeriePl(j.dateStr) : 'repos'), lib: j.ferie ? nomFeriePl(j.dateStr) : 'Non travaillé', ferie:j.ferie, x0:i, x1:i+1, jours:[{ d, h:0 }] });
+        jourInfo.push(null);
+        return;
+      }
+      const effContrat = Math.max(0, j.contrat - j.abs);
+      totContrat += effContrat;
+      totPlan += j.planifie;
+      const base = Math.max(j.contrat, j.planifie + j.abs) || 1;
+      let x = i;
+      j.chs.forEach(c => { const w = c.h / base; segs.push({ k:'ch', cle:'CH:' + c.cle, lib:c.nom, x0:x, x1:x + w, jours:[{ d, h:c.h, rdv:c.rdv }] }); x += w; });
+      const reste = Math.max(0, effContrat - j.planifie);
+      if (reste > 0) { const w = reste / base; segs.push({ k:'vide', cle:'VIDE:' + i, lib:'À planifier', x0:x, x1:x + w, jours:[{ d, h:reste }] }); x += w; }
+      if (j.abs > 0) { const w = j.abs / base; segs.push({ k:'abs', cle:'ABS:' + (j.motif || 'Absence'), lib: j.motif || 'Absence', x0:x, x1:Math.min(i + 1, x + w), jours:[{ d, h:j.abs }] }); x += w; }
+      if (x < i + 1 - 1e-6) segs.push({ k:'vide', cle:'VIDE:' + i, lib:'', x0:x, x1:i + 1, jours:[] });
+      if (effContrat <= 0 && j.planifie <= 0) { jourInfo.push(null); return; }
+      const ecart = j.planifie < effContrat - 0.01 ? 'manque' : (j.planifie > effContrat + 0.01 ? 'trop' : 'ok');
+      jourInfo.push({ planifie: j.planifie, contrat: effContrat, ecart });
+    });
+    // Fusion des segments contigus de même nature
+    const fus = [];
+    segs.forEach(sg => {
+      const der = fus[fus.length - 1];
+      if (der && der.cle === sg.cle && Math.abs(der.x1 - sg.x0) < 1e-6) { der.x1 = sg.x1; der.jours = der.jours.concat(sg.jours); }
+      else fus.push({ ...sg, jours: sg.jours.slice() });
+    });
+    fus.forEach((sg, idx) => { sg.id = String(s.id) + ':' + idx; sg.salNom = nom; });
+    const info = s.alternance ? 'Alternance A/B' : (s.apprenti ? 'Apprenti' : (s.sav ? 'SAV' : ''));
+    return { id: s.id, nom, prenom: s.prenom || nom, info, segs: fus, jourInfo, totPlan, totContrat };
+  });
+  return { jours, sals };
+}
+
+function couleurTot(p, c) { return p < c - 0.01 ? '#b45309' : (p > c + 0.01 ? '#dc2626' : '#1d6b3a'); }
+
+/* ============================================================
+   RENDU
+   ============================================================ */
+const ICO_G = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>';
+const ICO_D = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>';
+
+function rendre() {
+  const app = document.getElementById('app');
+  const zoneAvant = document.getElementById('zone');
+  const defil = zoneAvant ? { x: zoneAvant.scrollLeft, y: zoneAvant.scrollTop } : null;
+  let html = `<header class="hd">
+      <button type="button" class="btn-hd" onclick="retour()">${ICO_G} Agenda</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Mois précédent" onclick="decaler(-1)">${ICO_G}</button>
+      <span class="hd-mois">${FR_MOIS[F.m]} ${F.y}<small>Frise des chantiers</small></span>
+      <button type="button" class="btn-hd btn-ico" aria-label="Mois suivant" onclick="decaler(1)">${ICO_D}</button>
+    </header>
+    <div class="outils">
+      <div class="bascule" role="group" aria-label="Affichage">
+        <button type="button" class="${F.vue === 'equipe' ? 'on' : ''}" onclick="changerVue('equipe')">Équipe</button>
+        <button type="button" class="${F.vue === 'salarie' ? 'on' : ''}" onclick="changerVue('salarie')">Par salarié</button>
+      </div>`;
+  if (F.vue === 'salarie' && F.calc && F.calc.sals.length) {
+    const s = F.calc.sals.find(x => String(x.id) === String(F.salSel)) || F.calc.sals[0];
+    html += `<div class="ps-chips">${F.calc.sals.map(x => `<button type="button" class="${String(x.id) === String(s.id) ? 'on' : ''}" onclick="choisirSal('${frEsc(x.id)}')">${frEsc(x.nom)}</button>`).join('')}</div>
+      <div class="ps-tot"><span>Planifié sur le mois${s.info ? ' · ' + frEsc(s.info) : ''}</span><b style="color:${couleurTot(s.totPlan, s.totContrat)}">${frFmt(s.totPlan)} h <small style="font-size:12px;font-weight:500;color:var(--gris)">/ ${frFmt(s.totContrat)} h</small></b></div>`;
+  }
+  html += `<div class="legende">
+        <span><i style="background:#fff;border:1px dashed #94a3b8"></i>À planifier</span>
+        <span><i style="background:repeating-linear-gradient(45deg,#fde68a 0 3px,#fef3c7 3px 6px)"></i>Absence</span>
+        <span><i style="background:#E6F1FB;border:1px solid #85B7EB"></i>École</span>
+        <span><i style="background:repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px)"></i>Férié / repos</span>
+      </div>
+    </div>
+    <div class="zone" id="zone">`;
+  if (F.erreur) html += `<div class="msg" style="padding:10px">${frEsc(F.erreur)}</div>`;
+  if (F.charge && !F.calc) html += '<div class="msg">Chargement…</div>';
+  else if (F.calc && !F.calc.sals.length) html += '<div class="msg">Aucun salarié à afficher.</div>';
+  else if (F.calc) html += F.vue === 'equipe' ? vueEquipe() : vueSalarie();
+  html += '</div>';
+  app.innerHTML = html;
+  const z = document.getElementById('zone');
+  if (z && defil && F.garderDefil) { z.scrollLeft = defil.x; z.scrollTop = defil.y; }
+  F.garderDefil = false;
+}
+
+/* Vue Équipe : jours en lignes, un salarié par colonne. */
+function vueEquipe() {
+  const { jours, sals } = F.calc;
+  const RH = 32, N = jours.length;
+  const largeurZone = Math.min(window.innerWidth, 900);
+  const laneW = Math.max(76, Math.floor((largeurZone - 44 - 8) / sals.length));
+  const W = laneW * sals.length;
+  const auj = frIso(new Date());
+  let tete = `<div class="eq-tete" style="width:${44 + W + 8}px"><span class="eq-coin"></span>`;
+  sals.forEach(s => {
+    tete += `<div class="eq-nom" style="width:${laneW}px" title="${frEsc(s.nom)}"><b>${frEsc(s.prenom)}</b><small style="color:${couleurTot(s.totPlan, s.totContrat)}">${frFmt(s.totPlan)} / ${frFmt(s.totContrat)} h</small></div>`;
+  });
+  tete += '</div>';
+  let joursCol = '', lignes = '', semPrec = null;
+  jours.forEach((d, i) => {
+    const sm = pl2NumSemaine(d);
+    joursCol += `<div class="eq-j${frIso(d) === auj ? ' auj' : ''}" style="top:${i * RH}px;height:${RH}px"><span><b>${FR_JC[d.getDay()]}</b> ${d.getDate()}</span></div>`;
+    if (i > 0) lignes += `<div class="eq-ligne${sm !== semPrec ? ' sem' : ''}" style="top:${i * RH}px"></div>`;
+    semPrec = sm;
+  });
+  let pistes = '';
+  sals.forEach((s, c) => {
+    let segs = '';
+    s.segs.forEach(sg => {
+      const h = (sg.x1 - sg.x0) * RH;
+      if (h <= 0.5 || (sg.k === 'vide' && !sg.jours.length)) return;
+      const totalH = sg.jours.reduce((t, x) => t + (x.h || 0), 0);
+      const nbJ = new Set(sg.jours.map(x => frIso(x.d))).size;
+      let txt = '', sous = '', style = `top:${sg.x0 * RH + 2}px;height:${Math.max(4, h - 3)}px;`;
+      if (sg.k === 'ch') { style += `background:${frCouleur(sg.lib)};`; txt = h >= 15 ? frEsc(sg.lib) : ''; if (h >= 44) sous = frFmt(totalH) + ' h' + (nbJ > 1 ? ' · ' + nbJ + ' j' : ''); }
+      else if (sg.k === 'vide') { txt = h >= 26 ? 'À planifier' : ''; }
+      else if (sg.k === 'abs') { txt = h >= 20 ? frEsc(sg.lib) : ''; }
+      else if (sg.k === 'ecole') { txt = h >= 20 ? 'École' : ''; }
+      else { txt = (h >= 20 && sg.ferie) ? 'férié' : ''; }
+      if (h < 22) sous = '';
+      segs += `<button type="button" class="eq-seg k-${sg.k}" style="${style}" onclick="ouvrirDetail('${sg.id}')"><span>${txt}</span>${sous ? '<small>' + sous + '</small>' : ''}</button>`;
+    });
+    let ecarts = '';
+    s.jourInfo.forEach((ji, i) => {
+      if (!ji || ji.ecart === 'ok') return;
+      ecarts += `<span class="eq-ecart" style="top:${i * RH + 3}px;height:${RH - 5}px;background:${ji.ecart === 'trop' ? '#dc2626' : '#f59e0b'}"></span>`;
+    });
+    pistes += `<div class="eq-piste" style="left:${c * laneW}px;width:${laneW}px">${segs}${ecarts}</div>`;
+  });
+  return `<div class="eq">${tete}<div class="eq-corps">
+      <div class="eq-jours" style="height:${N * RH}px">${joursCol}</div>
+      <div class="eq-pistes" style="width:${W + 8}px;height:${N * RH}px">${lignes}${pistes}</div>
+    </div><div style="height:40px"></div></div>`;
+}
+
+/* Vue Par salarié : une barre horizontale par jour, découpée au prorata des chantiers. */
+function vueSalarie() {
+  const { jours } = F.calc;
+  const s = F.calc.sals.find(x => String(x.id) === String(F.salSel)) || F.calc.sals[0];
+  const auj = frIso(new Date());
+  let html = '<div class="ps">', semPrec = null;
+  jours.forEach((d, i) => {
+    const sm = pl2NumSemaine(d);
+    if (sm !== semPrec) { html += `<div class="ps-sem">Semaine ${sm}</div>`; semPrec = sm; }
+    let pieces = '';
+    s.segs.forEach(sg => {
+      const x0 = Math.max(sg.x0, i), x1 = Math.min(sg.x1, i + 1);
+      if (x1 - x0 <= 1e-6 || (sg.k === 'vide' && !sg.jours.length)) return;
+      const premier = Math.abs(x0 - sg.x0) < 1e-6;          // libellé au premier jour de la série
+      let txt = '', style = `left:${(x0 - i) * 100}%;width:${(x1 - x0) * 100}%;`;
+      if (sg.k === 'ch') { style += `background:${frCouleur(sg.lib)};`; txt = premier ? frEsc(sg.lib) : ''; }
+      else if (sg.k === 'vide') { const hj = (sg.jours.find(x => frIso(x.d) === frIso(d)) || {}).h || 0; txt = hj ? frFmt(hj) + ' h à planifier' : ''; }
+      else if (sg.k === 'abs') { txt = frEsc(sg.lib); }
+      else if (sg.k === 'ecole') { txt = 'École'; }
+      else { txt = sg.ferie ? frEsc(sg.lib) : 'Non travaillé'; }
+      pieces += `<button type="button" class="ps-pc k-${sg.k}" style="${style}" onclick="ouvrirDetail('${sg.id}')">${txt}</button>`;
+    });
+    const ji = s.jourInfo[i];
+    const tot = ji ? frFmt(ji.planifie) + ' h' : '—';
+    const coul = !ji ? '#94a3b8' : (ji.ecart === 'manque' ? '#b45309' : (ji.ecart === 'trop' ? '#dc2626' : '#1d6b3a'));
+    html += `<div class="ps-ligne${frIso(d) === auj ? ' auj' : ''}"><span class="ps-j"><b>${FR_JC[d.getDay()]}</b> ${d.getDate()}</span>
+      <div class="ps-barre">${pieces}</div><span class="ps-h" style="color:${coul}">${tot}</span></div>`;
+  });
+  return html + '</div>';
+}
+
+/* Volet de détail : remplace l'infobulle de survol de la frise PC. */
+function ouvrirDetail(id) {
+  let sg = null;
+  F.calc.sals.forEach(s => s.segs.forEach(x => { if (x.id === id) sg = x; }));
+  if (!sg) return;
+  const totalH = sg.jours.reduce((t, x) => t + (x.h || 0), 0);
+  const d0 = sg.jours.length ? sg.jours[0].d : null, d1 = sg.jours.length ? sg.jours[sg.jours.length - 1].d : null;
+  const jc = d => FR_JL[d.getDay()].slice(0, 3).toLowerCase() + '. ' + frDateCourte(d);
+  const periode = !d0 ? '' : (frIso(d0) === frIso(d1) ? FR_JL[d0.getDay()] + ' ' + frDateCourte(d0) : 'du ' + jc(d0) + ' au ' + jc(d1));
+  const nbJ = new Set(sg.jours.map(x => frIso(x.d))).size;
+  let coul = '#94a3b8', titre = sg.lib || 'À planifier', corps = '';
+  if (sg.k === 'ch') {
+    coul = frCouleur(sg.lib);
+    corps += `<div class="v-cartes">
+        <div class="v-carte"><span class="lbl">Période</span><span class="val">${frEsc(periode)}</span><span style="font-size:12px;color:var(--gris)">${nbJ} jour${nbJ > 1 ? 's' : ''}</span></div>
+        <div class="v-carte"><span class="lbl">Prévu</span><span class="gros">${frFmt(totalH)} h</span></div></div>`;
+    if (sg.jours.length > 1 || (sg.jours[0] && sg.jours[0].rdv)) {
+      corps += '<div class="v-liste">' + sg.jours.map(x => `<div><span>${frEsc(jc(x.d))}${x.rdv ? ' · RDV ' + frEsc(x.rdv) : ''}</span><b>${frFmt(x.h)} h</b></div>`).join('') + '</div>';
+    }
+    const c = F.coords[String(sg.lib).trim().toUpperCase()];
+    const adr = c ? [c.adresse, c.ville].filter(Boolean).join(', ').replace(/\s*\n\s*/g, ', ') : '';
+    if (adr) corps += `<div class="v-adr">📍 ${frEsc(adr)}</div>`;
+  } else if (sg.k === 'vide') {
+    corps = `<div class="v-cartes"><div class="v-carte"><span class="lbl">Période</span><span class="val">${frEsc(periode)}</span></div>
+      <div class="v-carte"><span class="lbl">Reste à planifier</span><span class="gros" style="color:#b45309">${frFmt(totalH)} h</span></div></div>`;
+  } else if (sg.k === 'abs') {
+    coul = '#f59e0b';
+    corps = `<div class="v-cartes"><div class="v-carte"><span class="lbl">Période</span><span class="val">${frEsc(periode)}</span><span style="font-size:12px;color:var(--gris)">${nbJ} jour${nbJ > 1 ? 's' : ''}</span></div>
+      <div class="v-carte"><span class="lbl">Absence</span><span class="gros">${frFmt(totalH)} h</span></div></div>`;
+  } else {
+    coul = sg.k === 'ecole' ? '#85B7EB' : '#cbd5e1';
+    corps = `<div class="v-carte"><span class="lbl">${sg.k === 'ecole' ? 'École (apprenti)' : 'Jour non travaillé'}</span><span class="val">${frEsc(periode)}</span></div>`;
+  }
+  const voile = document.createElement('div');
+  voile.className = 'voile';
+  voile.innerHTML = `<section class="volet" role="dialog" aria-label="Détail">
+      <span class="poignee" aria-hidden="true"></span>
+      <div class="v-tete"><span class="v-coul" style="background:${coul}"></span><div><b>${frEsc(titre)}</b><span>${frEsc(sg.salNom)}</span></div></div>
+      ${corps}
+      <button type="button" class="v-fermer">Fermer</button>
+    </section>`;
+  voile.addEventListener('click', e => { if (e.target === voile || e.target.classList.contains('v-fermer')) voile.remove(); });
+  document.body.appendChild(voile);
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function decaler(n) { F.m += n; if (F.m < 0) { F.m = 11; F.y--; } else if (F.m > 11) { F.m = 0; F.y++; } F.calc = null; charger(); }
+function changerVue(v) { F.vue = v; try { localStorage.setItem('friseMobileVue', v); } catch (_) {} rendre(); document.getElementById('zone').scrollTop = 0; }
+function choisirSal(id) { F.salSel = id; try { localStorage.setItem('friseMobileSal', String(id)); } catch (_) {} rendre(); document.getElementById('zone').scrollTop = 0; }
+function retour() { location.href = 'agenda.html' + (F.retour ? '?date=' + encodeURIComponent(F.retour) : ''); }
+window.addEventListener('resize', () => { if (F.calc && F.vue === 'equipe') { F.garderDefil = true; rendre(); } });
+
+(function init() {
+  F.code = (localStorage.getItem('saisie_codeEmploye') || '').toUpperCase();
+  F.ger = lsJSON('saisie_salarie', null);
+  const moi = F.ger ? lsJSON('salariesdata', []).find(s => String(s.id) === String(F.ger.id)) : null;
+  const p = new URLSearchParams(location.search);
+  const d = new Date();
+  F.y = d.getFullYear(); F.m = d.getMonth();
+  const mm = /^(\d{4})-(\d{2})$/.exec(p.get('mois') || '');
+  if (mm) { F.y = +mm[1]; F.m = Math.min(11, Math.max(0, +mm[2] - 1)); }
+  const r = p.get('retour') || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(r)) F.retour = r;
+  try { const v = localStorage.getItem('friseMobileVue'); if (v === 'equipe' || v === 'salarie') F.vue = v; F.salSel = localStorage.getItem('friseMobileSal'); } catch (_) {}
+  if (!F.code || !F.ger || !moi || !moi.gerant) {
+    document.getElementById('app').innerHTML = `<header class="hd"><button type="button" class="btn-hd" onclick="location.href='saisie.html'">${ICO_G} Retour</button></header>
+      <div class="msg">La frise mobile est réservée au dirigeant. Connectez-vous depuis la saisie mobile.</div>`;
+    return;
+  }
+  charger();
+})();
+</script>
+</body>
+</html>

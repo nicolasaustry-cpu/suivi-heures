@@ -34,10 +34,10 @@
     .hd { background:var(--navy); color:#fff; padding:10px 12px; position:sticky; top:0; z-index:20; }
     .hd-sem { flex:1; min-width:0; text-align:center; font-size:14px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .hd-sem small { display:block; font-size:11px; font-weight:500; color:#c9d6f2; }
-    .hd-l1 { display:flex; align-items:center; gap:8px; }
+    .hd-l1 { display:flex; align-items:center; gap:6px; }
     .hd h1 { margin:0; flex:1; font-size:22px; font-weight:800; letter-spacing:.01em; }
     .hd-sur { display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#c9d6f2; font-weight:600; }
-    .btn-hd { min-height:40px; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:12px;
+    .btn-hd { min-height:40px; display:inline-flex; align-items:center; gap:5px; padding:0 10px; border-radius:12px;
               background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:13px; font-weight:600; text-decoration:none; }
     .btn-ico { width:40px; padding:0; justify-content:center; }
 
@@ -227,6 +227,7 @@ const ICO = {
   retour: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>',
   suiv:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>',
   plus:   '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>',
+  frise:  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M4 12h14M4 18h7"></path><path d="M16 6h4M14 18h6" stroke-opacity=".55"></path></svg>',
   plan:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18M9 3v18"></path></svg>',
   ok:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>'
 };
@@ -270,6 +271,11 @@ function allerSemaine(date) { S.vue = S.vueListe = 'semaine'; if (date) S.date =
 /* Retour depuis une fiche ou un formulaire : vers la vue d'où l'on venait (semaine par défaut). */
 function retourListe(date) { if (S.vueListe === 'jour') allerJour(date); else allerSemaine(date); }
 function decalerSemaine(n) { S.date = ajoutJours(S.date, 7 * n); chargerSemaine(); rendre(); }
+/* Frise mobile : mois de la semaine affichée ; elle revient ensuite sur cette semaine. */
+function ouvrirFrise() {
+  const d = dateDe(S.date);
+  location.href = 'frise-mobile.html?mois=' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '&retour=' + S.date;
+}
 function retourSaisie() { location.href = 'saisie.html'; }
 function ouvrirCase(cle) { S.caseCle = cle; S.vue = 'case'; S.message = null; rendre(); window.scrollTo(0, 0); }
 function ouvrirDetail(id) { S.detailId = id; S.vue = 'detail'; S.message = null; rendre(); window.scrollTo(0, 0); }
@@ -340,6 +346,7 @@ function enTete(suite) {
       <button type="button" class="btn-hd btn-ico" aria-label="Semaine précédente" onclick="decalerSemaine(-1)">${ICO.retour}</button>
       <span class="hd-sem">${esc(libelleSemaine(lundi))}<small>${esc(compteurSemaine(lundi))}</small></span>
       <button type="button" class="btn-hd btn-ico" aria-label="Semaine suivante" onclick="decalerSemaine(1)">${ICO.suiv}</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Frise des chantiers" title="Frise des chantiers" onclick="ouvrirFrise()">${ICO.frise}</button>
     </div>
     ${suite || ''}
   </header>`;
@@ -357,9 +364,11 @@ function compteurSemaine(lundi) {
 function libelleSemaine(lundi) {
   const a = dateDe(lundi), b = dateDe(ajoutJours(lundi, 6));
   const ga = a.getDate() === 1 ? '1er' : a.getDate();
+  // Sans l'année (affichée sur la ligne du compteur) pour tenir dans l'en-tête
+  const MC = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
   return a.getMonth() === b.getMonth()
-    ? `${ga} – ${b.getDate()} ${MOIS[b.getMonth()]} ${b.getFullYear()}`
-    : `${ga} ${MOIS[a.getMonth()].slice(0, 4)}. – ${b.getDate()} ${MOIS[b.getMonth()].slice(0, 4)}. ${b.getFullYear()}`;
+    ? `${ga} – ${b.getDate()} ${MC[b.getMonth()]}`
+    : `${ga} ${MC[a.getMonth()]} – ${b.getDate()} ${MC[b.getMonth()]}`;
 }
 
 /* Place des événements qui se chevauchent côte à côte (colonnes). */
