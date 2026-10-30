@@ -67,6 +67,17 @@
     .plan-jour .lbl { font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; width:100%; }
     .puce-plan { background:var(--navy); color:#fff; border-radius:8px; padding:5px 9px; font-size:12px; font-weight:700; }
     .puce-plan small { font-weight:400; color:#c9d6f2; margin-left:4px; }
+    .puce-plan.client { background:var(--ambre-c); color:var(--ambre-t); border:1px solid var(--ambre-b); }
+    .puce-plan.client small { color:var(--ambre-t); }
+    /* Vue semaine : chantiers du planning sans heure de RDV, au-dessus de la grille */
+    .sem-plan { display:flex; padding:0 8px 6px 0; }
+    .sem-plan .vide { width:34px; flex:0 0 auto; font-size:9px; color:var(--gris); text-align:right; padding-right:4px; padding-top:3px; }
+    .sem-plan .cols { flex:1; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .pj { background:var(--navy); color:#fff; font-size:9.5px; font-weight:700; border-radius:5px; padding:3px; margin-bottom:2px;
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pj small { display:block; font-weight:400; color:#c9d6f2; }
+    .pj.client { background:var(--ambre-c); color:var(--ambre-t); border:1px solid var(--ambre-b); }
+    .pj.client small { color:var(--ambre-t); }
 
     /* Grille horaire */
     .grille-zone { position:relative; padding:6px 10px 110px 0; }
@@ -193,6 +204,7 @@ function nomSal(id) {
   const s = S.salaries.find(x => String(x.id) === String(id));
   return s ? ((s.prenom || '') + ' ' + (s.nom || '')).trim() : 'Salarié ' + id;
 }
+function estMotifClient(m) { const x = String(m || '').trim().toLowerCase(); return x === 'rdv client' || x === 'visite client'; }
 function coordsDe(titre) { const c = lsJSON('coordonneesChantiersdata', {}); return c[String(titre || '').trim().toUpperCase()] || null; }
 function lieuDepuisCoords(c) { if (!c) return ''; return [c.adresse, c.ville].map(x => String(x || '').trim()).filter(Boolean).join('\n'); }
 
@@ -340,7 +352,7 @@ function vueJour() {
   for (let i = 0; i < 7; i++) {
     const d = ajoutJours(lundi, i), dd = dateDe(d);
     const cls = ['jour', d === S.date ? 'sel' : '', d === auj ? 'auj' : '', i >= 5 ? 'we' : '',
-                 S.rdvs.some(r => r.date === d) ? 'rdv' : ''].filter(Boolean).join(' ');
+                 (S.rdvs.some(r => r.date === d) || S.planning.some(p => p.date === d)) ? 'rdv' : ''].filter(Boolean).join(' ');
     jours += `<button type="button" class="${cls}" aria-label="${esc(dateLongue(d))}" onclick="allerJour('${d}')"><span>${JOURS_C[i]}</span><b>${dd.getDate()}</b><i></i></button>`;
   }
   const rdvJour = S.rdvs.filter(r => r.date === S.date);
@@ -353,7 +365,7 @@ function vueJour() {
   let bande = '';
   if (planSansHeure.length) {
     bande = `<div class="plan-jour"><span class="lbl">Mon planning ce jour</span>${planSansHeure.map(p =>
-      `<span class="puce-plan">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></span>`).join('')}</div>`;
+      `<span class="puce-plan${estMotifClient(p.motif) ? ' client' : ''}">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h${p.motif ? ' · ' + esc(p.motif) : ''}</small></span>`).join('')}</div>`;
   }
 
   // Grille
@@ -421,7 +433,16 @@ function vueSemaine() {
   let lignes = '';
   for (let h = S_MIN; h <= S_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - S_MIN) * S_PX}px"><span>${h}h</span><hr></div>`;
   const nb = S.rdvs.length;
-  return enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous cette semaine</span></div>`)
+  // Chantiers du planning sans heure de RDV : listés en tête de chaque jour
+  let plan = '', aPlan = false;
+  for (let i = 0; i < 7; i++) {
+    const d = ajoutJours(lundi, i);
+    const items = S.planning.filter(p => p.date === d && !p.rdv);
+    if (items.length) aPlan = true;
+    plan += `<div>${items.map(p => `<div class="pj${estMotifClient(p.motif) ? ' client' : ''}" title="${esc(p.chantier)}">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></div>`).join('')}</div>`;
+  }
+  const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
+  return enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous · ${S.planning.length} chantier${S.planning.length > 1 ? 's' : ''} au planning</span></div>`)
     + `<div class="legende"><span><i style="background:var(--ambre-c);border:1px solid var(--ambre-b)"></i>RDV client</span>`
     + `<span><i style="background:#e8f2ff;border:1px solid #a9c6f0"></i>Visite</span>`
     + `<span><i style="background:#e7f6ec;border:1px solid #9fd3b0"></i>Chantier</span>`
@@ -429,6 +450,7 @@ function vueSemaine() {
     + msgHTML()
     + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
     + `<div class="sem-entete"><span class="vide"></span><div class="sem-cols">${entetes}</div></div>`
+    + bandePlan
     + `<div class="sem-grille"><div class="lignes">${lignes}</div><div class="sem-corps">${cols}</div></div>`
     + `<button type="button" class="fab" aria-label="Nouveau rendez-vous" onclick="nouveauRdv()">${ICO.plus}</button>`;
 }

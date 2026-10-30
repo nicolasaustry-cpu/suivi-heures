@@ -900,7 +900,8 @@ router.post("/agenda/liste", async (req, res) => {
       const e = heures[k];
       const nom = String((e && e.chantier) || "").trim();
       if (!nom || e.agendaId || nom.toUpperCase() === "TEMPS NON AFFECTE" || nom.toLowerCase() === "absence") continue;
-      planning.push({ date, chantier: nom, heures: parseFloat(e.heures) || 0, rdv: e.rdv || "", rang: parseInt(m[5], 10) });
+      planning.push({ date, chantier: nom, heures: parseFloat(e.heures) || 0, rdv: e.rdv || "", rang: parseInt(m[5], 10),
+                      motif: e.exclu ? String(e.motifExclu || "SAV") : "" });
     }
     planning.sort((x, y) => (x.date + String(x.rang).padStart(3, "0")).localeCompare(y.date + String(y.rang).padStart(3, "0")));
 
