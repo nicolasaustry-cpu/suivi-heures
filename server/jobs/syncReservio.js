@@ -440,13 +440,15 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
 
   for (const ev of events) {
     if (!ev.uid || !ev.start) continue;
+    // Toujours présent dans le flux = pas annulé, même si l'heure est passée (sinon un RDV
+    // du jour disparaissait du planning dès son heure dépassée, cf. traiterAnnulations).
+    uidsVus.add(ev.uid);
     if (ev.start.getTime() < maintenant) {
       // RDV passé (ex. ce matin) : le créneau n'est plus touché, mais une fiche Coordonnées
       // polluée par un ancien import (« CONTRAT LIBERTE+ » en guise de rue) est nettoyée.
       nettoyerCoordonneesPassees(doc, ev);
       continue;
     }
-    uidsVus.add(ev.uid);
     stats.aVenir = (stats.aVenir || 0) + 1;
 
     const dateKey = dateKeyParis(ev.start);
@@ -571,6 +573,9 @@ function traiterAnnulations(doc, uidsEncoreValides) {
     if (uidsEncoreValides.has(d.reservioUid)) continue; // toujours dans le flux
     const m = k.match(/(\d{4}_\d{2}_\d{2})ch\d+$/);
     if (!m || m[1] < aujourdHui) continue; // créneau passé : on n'y touche pas
+    // RDV du jour dont l'heure est passée : on n'y touche pas non plus (le flux Reservio
+    // peut ne plus le contenir, ce n'est pas une annulation).
+    if (m[1] === aujourdHui && (!d.rdv || _hhmm(d.rdv) <= heureHHMMParis(new Date()))) continue;
 
     if (d.reservioLocked) {
       if (d.reservioAnnule) continue;  // alerte déjà posée : rien à réécrire
