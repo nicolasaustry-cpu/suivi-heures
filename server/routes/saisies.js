@@ -787,6 +787,8 @@ const TYPES_RDV = ["client", "visite", "chantier"];
 const MOTIF_RDV_CLIENT = "RDV client";
 
 function _minutes(hhmm) { const [h, m] = String(hhmm).split(":").map(Number); return h * 60 + m; }
+/* « Visite client » est l'ancien libellé de « RDV client » (renommé le 08/10/2026). */
+function _motifRdvClient(m) { const x = String(m || "").trim().toLowerCase(); return x === "rdv client" || x === "visite client"; }
 
 /* Durée prévue du planning : au quart d'heure le plus proche, entre 0,25 et 10 h
    (mêmes valeurs que la liste « temps prévu » de planning.html). */
@@ -839,6 +841,11 @@ function _entreePlanning(rdv, ancienne) {
   };
   if (rdv.note) e.note = rdv.note;                         // note du jour → visible sur le mobile du salarié
   if (rdv.type === "client") { e.exclu = true; e.motifExclu = MOTIF_RDV_CLIENT; }
+  // Exclusion posée à la main dans le planning pour un autre motif (SAV, Fournisseur…) :
+  // conservée tant que le RDV n'est pas un RDV client (cas des RDV repris du planning).
+  else if (ancienne && ancienne.exclu && ancienne.motifExclu && !_motifRdvClient(ancienne.motifExclu)) {
+    e.exclu = true; e.motifExclu = ancienne.motifExclu;
+  }
   // Le délai de rappel propre au RDV posé depuis le planning est conservé ;
   // le rappel est re-déclenchable si l'heure ou la date a changé.
   if (ancienne) {
@@ -858,7 +865,7 @@ function _decouperLieu(lieu) {
 function _rdvPublic(r) {
   return {
     id: r.rdvId, date: r.date, debut: r.debut, fin: r.fin, titre: r.titre, type: r.type,
-    lieu: r.lieu || "", salaries: r.salaries || [], note: r.note || ""
+    lieu: r.lieu || "", tel: r.tel || "", salaries: r.salaries || [], note: r.note || ""
   };
 }
 
@@ -874,8 +881,12 @@ router.post("/agenda/liste", async (req, res) => {
     if ((new Date(au) - new Date(du)) / 86400000 > 62)
       return res.status(400).json({ ok: false, message: "Période trop longue" });
 
-    const rdvs = await AgendaRdv.find({ clientId: a.doc.clientId, date: { $gte: du, $lte: au } })
-      .sort({ date: 1, debut: 1 }).lean();
+    const gidL = String(a.ger.id);
+    // Agenda du gérant : les RDV qu'il a créés, ou ceux où il est participant
+    // (un RDV posé dans le planning d'un autre salarié n'y figure pas).
+    const rdvs = (await AgendaRdv.find({ clientId: a.doc.clientId, date: { $gte: du, $lte: au } })
+      .sort({ date: 1, debut: 1 }).lean())
+      .filter(r => String(r.gerantId || "") === gidL || (r.salaries || []).map(String).includes(gidL));
 
     // Planning du gérant (hors cases issues de l'agenda, déjà représentées par leur RDV)
     const heures = a.doc.heures || {};
@@ -916,6 +927,7 @@ router.post("/agenda/enregistrer", async (req, res) => {
       titre: String(b.titre || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 120),
       type:  TYPES_RDV.includes(b.type) ? b.type : "client",
       lieu:  String(b.lieu || "").trim().slice(0, 600),
+      tel:   String(b.tel || "").replace(/[^\d+ .()-]/g, "").trim().slice(0, 40),
       note:  String(b.note || "").trim().slice(0, 2000),
       salaries: []
     };
@@ -970,14 +982,18 @@ router.post("/agenda/enregistrer", async (req, res) => {
     for (const k of Object.keys(aEcrire)) $set["heures." + k] = aEcrire[k];
     for (const k of anciennes) if (!aEcrire[k]) $unset["heures." + k] = "";
 
-    // ── Coordonnées du chantier : créées depuis le lieu, adresse mise à jour si
-    //    elle a changé (téléphones et e-mail conservés). Le gérant y est habilité.
+    // ── Coordonnées du chantier : créées depuis le lieu et le téléphone saisis,
+    //    mises à jour s'ils ont changé (fixe et e-mail conservés). Le gérant y est
+    //    habilité. Le salarié les retrouve sur la carte du chantier de sa saisie.
     const lieu = _decouperLieu(rdv.lieu);
-    if (lieu) {
+    if (lieu || rdv.tel) {
       const coords = doc.coordonneesChantiers || {};
       const ex = coords[rdv.titre] || {};
-      if (ex.adresse !== lieu.adresse || (ex.ville || "") !== lieu.ville) {
-        coords[rdv.titre] = { ...ex, adresse: lieu.adresse, ville: lieu.ville };
+      const nv = { ...ex };
+      if (lieu) { nv.adresse = lieu.adresse; nv.ville = lieu.ville; }
+      if (rdv.tel) nv.mobile = rdv.tel;
+      if (nv.adresse !== ex.adresse || (nv.ville || "") !== (ex.ville || "") || (nv.mobile || "") !== (ex.mobile || "")) {
+        coords[rdv.titre] = nv;
         $set.coordonneesChantiers = coords;
       }
     }
@@ -988,13 +1004,124 @@ router.post("/agenda/enregistrer", async (req, res) => {
 
     const champs = {
       date: rdv.date, debut: rdv.debut, fin: rdv.fin, titre: rdv.titre, type: rdv.type,
-      lieu: rdv.lieu, salaries: rdv.salaries, note: rdv.note, majLe: new Date()
+      lieu: rdv.lieu, tel: rdv.tel, salaries: rdv.salaries, note: rdv.note, majLe: new Date()
     };
     let enr;
     if (existant) { Object.assign(existant, champs); enr = await existant.save(); }
     else enr = await AgendaRdv.create({ clientId: doc.clientId, rdvId: rdv.rdvId, gerantId: String(a.ger.id), ...champs });
 
     res.json({ ok: true, rdv: _rdvPublic(enr), cases: Object.keys(aEcrire) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Reprise des RDV déjà posés dans le planning ──
+   Crée dans l'agenda un rendez-vous pour chaque heure de RDV saisie au planning
+   AVANT la mise en place de l'agenda, depuis 4 mois en arrière (RDV à venir
+   compris). Les cases d'un même chantier, même jour, même heure chez plusieurs
+   salariés deviennent UN rendez-vous avec plusieurs participants.
+   SEULS les RDV affectés au gérant sont repris : un groupe n'est retenu que
+   s'il contient une case sur la ligne d'un salarié « gérant » (les autres
+   salariés du même RDV deviennent participants). Les RDV posés uniquement
+   pour des techniciens restent dans le planning, hors agenda.
+   Le planning n'est PAS modifié, sauf l'ajout du lien agendaId / agendaType
+   sur les cases reprises (écriture ciblée heures.<clé>.agendaId).
+   - type « RDV client » si la case porte le motif RDV client, sinon « Chantier »
+   - fin = heure de RDV + temps prévu de la case (1 h si aucun)
+   - cases déjà liées à l'agenda : ignorées (la reprise peut être relancée sans doublon)
+   - RDV Reservio : ignorés (ils restent gérés par la synchronisation Reservio)
+   Auth : code employé + gerantId (mobile) OU jeton licence (page Entreprise, PC).
+   body : { mois? (1 à 12, défaut 4) } */
+router.post("/agenda/reprendre", async (req, res) => {
+  try {
+    let Donnees, doc;
+    if (req.body.codeEmploye) {
+      const a = await _authAgenda(req);
+      if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+      ({ Donnees, doc } = a);
+    } else {
+      const jwt = (await import("jsonwebtoken")).default;
+      let token = req.headers.authorization?.split(" ")[1];
+      if (!token && req.body._token) token = req.body._token;
+      if (!token) return res.status(401).json({ ok: false, message: "Accès refusé : aucun token" });
+      let clientId;
+      try { clientId = _U(jwt.verify(token, process.env.JWT_SECRET).clientId); }
+      catch { return res.status(400).json({ ok: false, message: "Token invalide ou expiré" }); }
+      Donnees = (await import("../models/donnees.js")).default;
+      doc = (await Donnees.find({})).find(d => _U(d.clientId) === clientId) || null;
+      if (!doc) return res.status(403).json({ ok: false, message: "Entreprise introuvable" });
+      if (!(doc.entreprise && doc.entreprise.agendaDirigeant))
+        return res.status(403).json({ ok: false, message: "L'agenda du dirigeant n'est pas activé" });
+    }
+    const gerants = new Set((doc.salaries || []).filter(s => s.gerant).map(s => String(s.id)));
+
+    const mois = Math.min(12, Math.max(1, parseInt(req.body.mois, 10) || 4));
+    const dep = new Date(); dep.setMonth(dep.getMonth() - mois);
+    const depuis = dep.getFullYear() + "-" + String(dep.getMonth() + 1).padStart(2, "0") + "-" + String(dep.getDate()).padStart(2, "0");
+
+    const heures = doc.heures || {};
+    const ids = new Set((doc.salaries || []).map(s => String(s.id)));
+    const groupes = new Map();          // "date|TITRE|HH:MM" -> { date, titre, debut, cles[], sal[], hMax, client, note }
+    let reservio = 0, dejaLies = 0;
+    for (const k of Object.keys(heures)) {
+      const m = k.match(/^(.+?)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (!m) continue;
+      const e = heures[k];
+      if (!e || !e.rdv) continue;
+      const date = `${m[2]}-${m[3]}-${m[4]}`;
+      if (date < depuis || !ids.has(m[1])) continue;
+      const titre = String(e.chantier || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 120);
+      if (!titre || titre === "TEMPS NON AFFECTE" || titre === "ABSENCE") continue;
+      if (e.agendaId) { dejaLies++; continue; }
+      if (e.reservioUid) { reservio++; continue; }
+      const hm = String(e.rdv).trim().match(/^(\d{1,2})[:hH](\d{2})/);
+      if (!hm || +hm[1] > 23 || +hm[2] > 59) continue;
+      const debut = String(+hm[1]).padStart(2, "0") + ":" + hm[2];
+      if (_minutes(debut) > 23 * 60 + 50) continue;
+      const cle = `${date}|${titre}|${debut}`;
+      let g = groupes.get(cle);
+      if (!g) { g = { date, titre, debut, cles: [], sal: [], hMax: 0, client: false, note: "" }; groupes.set(cle, g); }
+      g.cles.push(k);
+      if (!g.sal.includes(m[1])) g.sal.push(m[1]);
+      g.hMax = Math.max(g.hMax, parseFloat(e.heures) || 0);
+      if (e.exclu && _motifRdvClient(e.motifExclu)) g.client = true;
+      if (!g.note && e.note) g.note = String(e.note).trim().slice(0, 2000);
+    }
+
+    const coords = doc.coordonneesChantiers || {};
+    const aCreer = [], $set = {};
+    let n = 0, nbCases = 0;
+    let horsGerant = 0;
+    for (const g of groupes.values()) {
+      const gerantId = g.sal.find(id => gerants.has(id));
+      if (!gerantId) { horsGerant += g.cles.length; continue; }   // RDV de techniciens seuls : non repris
+      const rdvId = "ag" + Date.now().toString(36) + (n++).toString(36) + Math.random().toString(36).slice(2, 6);
+      const deb = _minutes(g.debut);
+      const fin = Math.min(23 * 60 + 55, deb + (g.hMax > 0 ? Math.round(g.hMax * 60 / 5) * 5 : 60));
+      const c = coords[g.titre];
+      const lieu = c ? [c.adresse, c.ville].map(x => String(x || "").trim()).filter(Boolean).join("\n") : "";
+      const type = g.client ? "client" : "chantier";
+      aCreer.push({
+        clientId: doc.clientId, rdvId, gerantId, date: g.date, debut: g.debut,
+        fin: String(Math.floor(fin / 60)).padStart(2, "0") + ":" + String(fin % 60).padStart(2, "0"),
+        titre: g.titre, type, lieu, tel: c ? String(c.mobile || c.fixe || "").slice(0, 40) : "", salaries: g.sal, note: g.note, creeLe: new Date(), majLe: new Date()
+      });
+      for (const k of g.cles) { $set[`heures.${k}.agendaId`] = rdvId; $set[`heures.${k}.agendaType`] = type; nbCases++; }
+    }
+
+    if (aCreer.length) {
+      await AgendaRdv.insertMany(aCreer);
+      try {
+        $set.updatedAt = new Date();
+        await Donnees.updateOne({ _id: doc._id }, { $set });
+      } catch (e) {
+        // Le planning n'a pas pu être lié : on retire les rendez-vous créés (pas de doublon à la relance)
+        await AgendaRdv.deleteMany({ clientId: doc.clientId, rdvId: { $in: aCreer.map(r => r.rdvId) } });
+        throw e;
+      }
+    }
+    res.json({ ok: true, depuis, crees: aCreer.length, cases: nbCases, horsGerant, dejaLies, reservio });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

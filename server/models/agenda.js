@@ -24,6 +24,7 @@ const agendaRdvSchema = new mongoose.Schema({
   titre:    { type: String, required: true },     // = nom du chantier (majuscules)
   type:     { type: String, enum: ["client", "visite", "chantier"], default: "client" },
   lieu:     { type: String, default: "" },
+  tel:      { type: String, default: "" },        // téléphone du contact (aussi reporté sur la fiche chantier)
   salaries: { type: [String], default: [] },      // ids des participants
   note:     { type: String, default: "" },
   creeLe:   { type: Date, default: Date.now },
