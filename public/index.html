@@ -70,6 +70,19 @@
   font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
   margin:0 0 12px; border:none; padding:0;
 }
+/* Volets repliables : réglages et explications détaillées masqués par défaut */
+.volet { margin:0 0 0.9rem; border:1px solid rgba(15,23,42,.10); border-radius:8px; background:rgba(255,255,255,.65); }
+.volet > summary {
+  cursor:pointer; list-style:none; padding:7px 12px; font-size:0.84rem; font-weight:700; color:#334155;
+  display:flex; align-items:center; gap:8px; user-select:none;
+}
+.volet > summary::-webkit-details-marker { display:none; }
+.volet > summary::after { content:"▸"; margin-left:auto; color:#94a3b8; transition:transform .15s; }
+.volet[open] > summary::after { transform:rotate(90deg); }
+.volet > summary:hover { background:rgba(15,23,42,.04); border-radius:8px; }
+.volet-corps { padding:4px 12px 12px; }
+.volet-resume { font-weight:500; color:#64748b; font-size:0.8rem; }
+@media print { .volet > summary::after { display:none; } }
 @media (max-width:1000px) {
   .ent-grille { columns:2 280px; }
 }
@@ -116,8 +129,11 @@
 <!-- Paramétrage des jauges (utilisé par Planning et Planning Réalisé) -->
 <section class="ent-tuile" style="background:#f0fdfa;border-left-color:#0d9488;">
   <h2 style="color:#0d9488;">Paramétrage des jauges</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.6rem;">
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
     <strong>Objectif de % de vente des heures vendables pour atteindre votre objectif de résultat.</strong>
+  </p>
+  <details class="volet" data-volet="jauges"><summary>⚙ Régler les seuils <span class="volet-resume" id="resume-jauges"></span></summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.6rem;">
     Ces seuils colorent les jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong> :
     rouge tant que vous êtes sous le premier seuil, orange en approche de l'objectif, vert une fois l'objectif atteint.
     Si vous ne connaissez pas votre objectif, nous conseillons <strong>85 %</strong> (rouge) et <strong>90 %</strong> (orange).
@@ -172,6 +188,7 @@
       </div>
     </div>
   </div>
+  </div></details>
 </section>
 
 <!-- Notifications de RDV : délai de rappel par défaut (réglage entreprise) -->
@@ -194,20 +211,25 @@
 <!-- Connexion Reservio : import automatique des RDV pris en ligne dans le planning -->
 <section class="ent-tuile" style="background:#eff6ff;border-left-color:#2563eb;">
   <h2 style="color:#1d4ed8;">Connexion Reservio</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
-    Importe automatiquement dans le planning les rendez-vous pris en ligne sur Reservio (vérification toutes les 15 minutes). Un RDV importé que vous modifiez à la main dans le planning (technicien, heures, type d'entretien…) n'est ensuite plus jamais écrasé par Reservio.
-    Si Reservio propose <strong>plusieurs URL</strong> pour un même salarié (plusieurs fiches), collez-les <strong>toutes</strong>, une par ligne.
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    Importe automatiquement dans le planning les rendez-vous pris en ligne sur Reservio (toutes les 15 minutes).
   </p>
-  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem;">
     <input type="checkbox" id="reservioActif" onchange="toggleReservioBloc()">
     <label for="reservioActif" style="font-size:0.9rem;">Connecté à Reservio</label>
   </div>
+  <details class="volet" data-volet="reservio"><summary>⚙ Agendas Reservio des salariés <span class="volet-resume" id="resume-reservio"></span></summary><div class="volet-corps">
+  <p style="font-size:0.82rem;color:#475569;margin:0 0 1rem;">
+    Un RDV importé que vous modifiez à la main dans le planning (technicien, heures, type d'entretien…) n'est ensuite plus jamais écrasé par Reservio.
+    Si Reservio propose <strong>plusieurs URL</strong> pour un même salarié (plusieurs fiches), collez-les <strong>toutes</strong>, une par ligne.
+  </p>
   <div id="reservio-bloc-salaries" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;"></div>
   <button type="button" id="btn-valider-reservio" class="btn btn-success" onclick="validerReservio()">💾 Enregistrer</button>
-  <span id="reservio-msg" style="font-size:0.85rem;color:#16a34a;margin-left:8px;"></span>
-  <div id="reservio-resync" style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid #e5e7eb;">
+  </div></details>
+  <span id="reservio-msg" style="display:block;font-size:0.85rem;color:#16a34a;"></span>
+  <div id="reservio-resync" style="margin-top:0.2rem;">
     <button type="button" id="btn-resync-reservio" class="btn" onclick="resynchroniserReservio()">🔄 Mettre à jour depuis Reservio</button>
-    <label style="font-size:0.85rem;margin-left:10px;"><input type="checkbox" id="reservioReimporter"> Réimporter aussi les RDV absents du planning</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;margin-top:8px;"><input type="checkbox" id="reservioReimporter"> Réimporter aussi les RDV absents du planning</label>
     <div id="reservio-resync-msg" style="font-size:0.85rem;margin-top:6px;white-space:pre-line;"></div>
   </div>
 </section>
@@ -244,8 +266,8 @@
 
   <!-- Mode import -->
   <div id="henrri-bloc-import" style="display:none;margin-bottom:1rem;">
+    <details class="volet" data-volet="henrri-import"><summary>📘 Démarche d'import des devis validés</summary><div class="volet-corps">
     <div style="font-size:0.82rem;color:#475569;line-height:1.45;">
-      <div style="font-weight:700;color:#0f172a;margin-bottom:4px;">Démarche d'import des devis validés</div>
       <ol style="margin:0 0 6px;padding-left:1.2rem;">
         <li>Dans <strong>Henrri</strong>, exportez en Excel :
           <strong>① la liste des clients</strong> (raison sociale, nom, adresse, code postal, ville, téléphone, e-mail)
@@ -266,11 +288,14 @@
           La liste clients peut être sautée si elle n'a pas changé.
       </div>
     </div>
+    </div></details>
     <div id="henrri-import-info" style="font-size:0.78rem;color:#94a3b8;margin-top:6px;"></div>
   </div>
 
   <!-- Mode API (fonctionnement existant) -->
-  <div id="henrri-bloc" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;max-width:360px;">
+  <div id="henrri-bloc" style="display:none;flex-direction:column;margin-bottom:1rem;max-width:360px;">
+    <details class="volet" data-volet="henrri-cles"><summary>🔑 Clés API Henrri <span class="volet-resume" id="resume-henrri"></span></summary><div class="volet-corps">
+    <div style="display:flex;flex-direction:column;gap:0.8rem;">
     <a href="tuto-henrri-cles-production.html" target="_blank" rel="noopener"
        style="align-self:flex-start;padding:6px 12px;border:1px solid #7dd3fc;border-radius:8px;background:#fff;color:#0369a1;font-size:0.85rem;font-weight:700;text-decoration:none;">📘 Comment obtenir mes clés Henrri ?</a>
     <div>
@@ -293,6 +318,8 @@
       <input id="henrriClientSecret" type="password" placeholder="" style="width:100%;box-sizing:border-box;">
       <div id="henrri-secret-info" style="font-size:0.78rem;color:#94a3b8;margin-top:2px;"></div>
     </div>
+    </div>
+    </div></details>
   </div>
   <button type="button" id="btn-valider-henrri" class="btn btn-success" onclick="validerHenrri()">💾 Enregistrer</button>
   <span id="henrri-msg" style="font-size:0.85rem;margin-left:8px;"></span>
@@ -301,10 +328,12 @@
 <!-- Suivi des entretiens : activation de la page de suivi des contrats d'entretien annuel -->
 <section class="ent-tuile" style="background:#f8fafc;border-left-color:#64748b;">
   <h2 style="color:#475569;">Suivi des entretiens</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+  <details class="volet" data-volet="entretiens"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
     Liste les chantiers marqués « Contrat entretien annuel » (case à cocher dans <strong>Notes</strong>) avec la date de leur
     dernière intervention taguée « Entretien » et l'échéance à venir (+ 1 an), signalée en rouge en cas de dépassement.
   </p>
+  </div></details>
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:0.5rem;">
       <input type="checkbox" id="suiviEntretienActif">
@@ -317,9 +346,11 @@
 <!-- Congés payés — régime CIBTP (jours ouvrables) -->
 <section class="ent-tuile" style="background:#eef2ff;border-left-color:#6366f1;">
   <h2 style="color:#4338ca;">Congés payés — Régime CIBTP</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+  <details class="volet" data-volet="cibtp"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
     Pour les entreprises concernées par la <strong>CIBTP</strong>, le décompte des congés se fait en <strong>jours ouvrables</strong> (et non en jours ouvrés) : <strong>2,5 jours acquis par mois</strong>, soit <strong>30 jours par an</strong> (hors ancienneté). Concrètement, dans le suivi des congés, <strong>1 journée posée sur une semaine de 5 jours vaut 1,2 jour</strong>.
   </p>
+  </div></details>
   <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:1.2rem;">
       <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
@@ -337,12 +368,14 @@
 <!-- Gestion du compteur d'heures : majoration de 25 % des heures complémentaires reportées -->
 <section class="ent-tuile" style="background:#f5f3ff;border-left-color:#7c3aed;">
   <h2 style="color:#6d28d9;">Gestion du compteur d'heures</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+  <details class="volet" data-volet="compteur"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
     Dans <strong>Éléments Pointage Paie</strong>, les heures complémentaires reportées au compteur peuvent y entrer
     <strong>majorées de 25 %</strong> (1 h reportée = 1,25 h au compteur). Si votre entreprise n'applique pas cette majoration,
     choisissez <strong>Non</strong> : les heures reportées entrent alors au compteur pour leur valeur réelle (1 h = 1 h)
     et la notion de majoration disparaît des décomptes et des compteurs.
   </p>
+  </div></details>
   <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
     <span style="font-size:0.9rem;font-weight:600;">Application des 25 % liés aux heures complémentaires :</span>
     <div style="display:flex;align-items:center;gap:1.2rem;">
@@ -361,10 +394,11 @@
 <!-- Zones d'indemnités de trajet : point de départ + bornes kilométriques (vol d'oiseau) -->
 <section class="ent-tuile" style="background:#fff7ed;border-left-color:#ea580c;">
   <h2 style="color:#c2410c;">Zones d'indemnités de trajet</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
     Sert à <strong>proposer automatiquement la tranche</strong> dans Éléments Pointage Paie, à partir de l'adresse du chantier.
     La distance est mesurée <strong>à vol d'oiseau</strong> entre le point de départ ci-dessous et le chantier.
   </p>
+  <details class="volet" data-volet="trajet"><summary>⚙ Point de départ et barème <span class="volet-resume" id="resume-trajet"></span></summary><div class="volet-corps">
   <div style="margin-bottom:0.9rem;">
     <label for="zt-adresse" style="font-size:0.85rem;font-weight:600;">Point de départ (siège, agence ou dépôt) :</label><br>
     <input id="zt-adresse" placeholder="Ex : 12 rue de la Gare, 72190 Sargé-lès-le-Mans" style="width:100%;max-width:420px;box-sizing:border-box;">
@@ -381,6 +415,7 @@
     <tbody id="zt-corps"></tbody>
   </table>
   <button type="button" id="btn-valider-zt" class="btn btn-success" onclick="validerZonesTrajet()">💾 Enregistrer</button>
+  </div></details>
   <span id="zt-msg" style="font-size:0.85rem;margin-left:8px;"></span>
 </section>
 
@@ -532,6 +567,36 @@ async function resynchroniserReservio() {
     btn.disabled = false; btn.textContent = '🔄 Mettre à jour depuis Reservio';
   }
 }
+/* ── Volets repliables : état mémorisé par poste, résumé affiché volet fermé ── */
+function _voletsInit() {
+  document.querySelectorAll('details.volet[data-volet]').forEach(d => {
+    const cle = 'volet_ent_' + d.dataset.volet;
+    try { if (localStorage.getItem(cle) === '1') d.open = true; } catch (_) {}
+    d.addEventListener('toggle', () => {
+      try { localStorage.setItem(cle, d.open ? '1' : '0'); } catch (_) {}
+    });
+  });
+  majResumesVolets();
+  document.addEventListener('change', majResumesVolets);
+  document.addEventListener('input', majResumesVolets);
+}
+function majResumesVolets() {
+  const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt ? '— ' + txt : ''; };
+  const v = id => (document.getElementById(id) || {}).value || '';
+  // Jauges
+  if (v('seuilRouge') || v('seuilOrange')) set('resume-jauges', 'rouge ' + v('seuilRouge') + ' % · orange ' + v('seuilOrange') + ' %');
+  // Reservio : nombre de salariés ayant au moins une URL
+  const nbR = [...document.querySelectorAll('.reservio-url-salarie')].filter(t => t.value.trim()).length;
+  set('resume-reservio', document.getElementById('reservioActif')?.checked ? nbR + ' salarié(s) relié(s)' : '');
+  // Henrri : clé renseignée ?
+  set('resume-henrri', v('henrriClientId') ? 'renseignées' : 'à renseigner');
+  // Trajet : point de départ
+  const adr = v('zt-adresse').trim();
+  set('resume-trajet', adr ? (adr.length > 34 ? adr.slice(0, 32) + '…' : adr) : 'à renseigner');
+}
+window.addEventListener('DOMContentLoaded', _voletsInit);
+window.addEventListener('donnees-chargees', () => setTimeout(majResumesVolets, 50));
+window.addEventListener('load', () => setTimeout(majResumesVolets, 300));
 window.addEventListener('DOMContentLoaded', chargerReservio);
 window.addEventListener('donnees-chargees', chargerReservio);
 </script>
