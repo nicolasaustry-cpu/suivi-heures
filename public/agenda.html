@@ -38,9 +38,6 @@
     .btn-hd { min-height:40px; display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:12px;
               background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:13px; font-weight:600; text-decoration:none; }
     .btn-ico { width:40px; padding:0; justify-content:center; }
-    .bascule { display:flex; background:rgba(255,255,255,.12); border-radius:10px; padding:3px; }
-    .bascule button { border:0; background:transparent; color:#e6ecfa; font-size:13px; padding:7px 11px; border-radius:8px; }
-    .bascule button.on { background:var(--ambre); color:var(--navy); font-weight:700; }
 
     /* Bande semaine */
     .semaine-nav { display:flex; align-items:center; gap:6px; margin-top:12px; }
@@ -185,7 +182,7 @@ const JOURS_C = ['L','M','M','J','V','S','D'];
 
 const S = {
   code: '', ger: null, salaries: [],
-  vue: 'jour', date: '', semaineChargee: '',
+  vue: 'semaine', vueListe: 'semaine', date: '', semaineChargee: '',
   rdvs: [], planning: [], chargement: false,
   message: null, form: null, detailId: null
 };
@@ -255,8 +252,10 @@ async function chargerSemaine(force) {
 /* ═══════════════════════════════════════════════════════════════
    NAVIGATION
    ═══════════════════════════════════════════════════════════════ */
-function allerJour(date) { S.vue = 'jour'; if (date) S.date = date; S.message = null; chargerSemaine(); rendre(); }
-function allerSemaine() { S.vue = 'semaine'; S.message = null; chargerSemaine(); rendre(); }
+function allerJour(date) { S.vue = S.vueListe = 'jour'; if (date) S.date = date; S.message = null; chargerSemaine(); rendre(); }
+function allerSemaine(date) { S.vue = S.vueListe = 'semaine'; if (date) S.date = date; S.message = null; chargerSemaine(); rendre(); window.scrollTo(0, 0); }
+/* Retour depuis une fiche ou un formulaire : vers la vue d'où l'on venait (semaine par défaut). */
+function retourListe(date) { if (S.vueListe === 'jour') allerJour(date); else allerSemaine(date); }
 function decalerSemaine(n) { S.date = ajoutJours(S.date, 7 * n); chargerSemaine(); rendre(); }
 function retourSaisie() { location.href = 'saisie.html'; }
 function ouvrirCase(cle) { S.caseCle = cle; S.vue = 'case'; S.message = null; rendre(); window.scrollTo(0, 0); }
@@ -299,10 +298,7 @@ function enTete(sousTitre) {
     <div class="hd-l1">
       <button type="button" class="btn-hd" onclick="retourSaisie()">${ICO.retour} Ma saisie</button>
       <h1><span class="hd-sur">Suiv'Heures</span>Agenda</h1>
-      <div class="bascule" role="group" aria-label="Affichage">
-        <button type="button" class="${S.vue === 'jour' ? 'on' : ''}" onclick="allerJour()">Jour</button>
-        <button type="button" class="${S.vue === 'semaine' ? 'on' : ''}" onclick="allerSemaine()">Semaine</button>
-      </div>
+      ${S.vue === 'jour' ? '<button type="button" class="btn-hd" onclick="allerSemaine()">Semaine</button>' : ''}
     </div>
     ${sousTitre}
   </header>`;
@@ -494,7 +490,7 @@ function vueForm() {
   const puces = [`<button type="button" class="${f.salaries.includes(String(S.ger.id)) ? 'on' : ''}" data-sal="${esc(S.ger.id)}">Moi</button>`]
     .concat(autres.map(s => `<button type="button" class="${f.salaries.includes(String(s.id)) ? 'on' : ''}" data-sal="${esc(s.id)}">${esc(((s.prenom || '') + ' ' + (s.nom || '')).trim())}</button>`)).join('');
   return `<header class="hd"><div class="hd-l1">
-      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="${f.id ? `ouvrirDetail('${esc(f.id)}')` : 'allerJour()'}">${ICO.retour}</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="${f.id ? `ouvrirDetail('${esc(f.id)}')` : 'retourListe()'}">${ICO.retour}</button>
       <h1>${f.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</h1></div></header>`
     + msgHTML()
     + `<form class="page" id="form-rdv" onsubmit="enregistrer(event)" autocomplete="off">
@@ -618,7 +614,7 @@ async function enregistrer(ev) {
     const d = await api('enregistrer', { rdv: { id: f.id, date: f.date, debut: f.debut, fin: f.fin, titre: f.titre, type: f.type, lieu: f.lieu, tel: f.tel, salaries: f.salaries, note: f.note } });
     S.date = d.rdv.date;
     S.form = null;
-    S.vue = 'jour';
+    S.vue = S.vueListe;
     await chargerSemaine(true);
     S.message = { err: false, txt: 'Rendez-vous enregistré et envoyé au planning.' };
     rendre();
@@ -638,7 +634,7 @@ function vueDetail() {
   const lieu = r.lieu || lieuDepuisCoords(c);
   const tel = r.tel || (c && (c.mobile || c.fixe)) || '';
   return `<header class="hd"><div class="hd-l1">
-      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="allerJour('${esc(r.date)}')">${ICO.retour}</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(r.date)}')">${ICO.retour}</button>
       <h1 style="font-size:17px">Rendez-vous</h1></div></header>
     <div class="det-hd">
       <span class="badge-type">${esc((TYPES[r.type] || '').toUpperCase())}</span>
@@ -668,7 +664,7 @@ function vueCase() {
   const c = coordsDe(p.chantier);
   const lieu = lieuDepuisCoords(c), tel = (c && (c.mobile || c.fixe)) || '';
   return `<header class="hd"><div class="hd-l1">
-      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="allerJour('${esc(p.date)}')">${ICO.retour}</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(p.date)}')">${ICO.retour}</button>
       <h1 style="font-size:17px">Chantier au planning</h1></div></header>
     <div class="det-hd">
       <span class="badge-type"${p.reservio ? '' : ' style="background:#fff;color:var(--navy)"'}>${p.reservio ? 'RESERVIO' : 'PLANNING'}${p.motif ? ' · ' + esc(p.motif.toUpperCase()) : ''}</span>
@@ -739,7 +735,7 @@ async function supprimer(id) {
   try {
     await api('supprimer', { id });
     S.date = r.date;
-    S.vue = 'jour';
+    S.vue = S.vueListe;
     await chargerSemaine(true);
     S.message = { err: false, txt: 'Rendez-vous supprimé.' };
     rendre();
