@@ -31,7 +31,9 @@
     .app { display:flex; flex-direction:column; min-height:100%; max-width:640px; margin:0 auto; position:relative; }
 
     /* En-tête */
-    .hd { background:var(--navy); color:#fff; padding:14px 14px 12px; position:sticky; top:0; z-index:20; }
+    .hd { background:var(--navy); color:#fff; padding:10px 12px; position:sticky; top:0; z-index:20; }
+    .hd-sem { flex:1; min-width:0; text-align:center; font-size:14px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hd-sem small { display:block; font-size:11px; font-weight:500; color:#c9d6f2; }
     .hd-l1 { display:flex; align-items:center; gap:8px; }
     .hd h1 { margin:0; flex:1; font-size:22px; font-weight:800; letter-spacing:.01em; }
     .hd-sur { display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#c9d6f2; font-weight:600; }
@@ -42,7 +44,7 @@
     /* Bande semaine */
     .semaine-nav { display:flex; align-items:center; gap:6px; margin-top:12px; }
     .semaine-nav .lbl { flex:1; text-align:center; font-size:13px; color:#c9d6f2; }
-    .jours { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin-top:8px; }
+    .jours { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin-top:6px; }
     .jour { border:0; background:transparent; color:#c9d6f2; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; border-radius:12px; }
     .jour b { font-size:17px; color:#fff; }
     .jour i { width:5px; height:5px; border-radius:50%; background:transparent; }
@@ -327,15 +329,28 @@ function brancherCreneaux() {
 
 function msgHTML() { return S.message ? `<div class="message ${S.message.err ? 'err' : 'ok'}" role="status">${esc(S.message.txt)}</div>` : ''; }
 
-function enTete(sousTitre) {
+/* En-tête compact sur une ligne : Retour + navigation de semaine (+ compteur).
+   « Retour » ramène de la vue Jour à la Semaine, et de la Semaine à la saisie. */
+function enTete(suite) {
+  const lundi = lundiDe(S.date);
   return `<header class="hd">
     <div class="hd-l1">
-      <button type="button" class="btn-hd" onclick="retourSaisie()">${ICO.retour} Ma saisie</button>
-      <h1><span class="hd-sur">Suiv'Heures</span>Agenda</h1>
-      ${S.vue === 'jour' ? '<button type="button" class="btn-hd" onclick="allerSemaine()">Semaine</button>' : ''}
+      <button type="button" class="btn-hd" onclick="${S.vue === 'jour' ? 'allerSemaine()' : 'retourSaisie()'}">${ICO.retour} Retour</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Semaine précédente" onclick="decalerSemaine(-1)">${ICO.retour}</button>
+      <span class="hd-sem">${esc(libelleSemaine(lundi))}<small>${esc(compteurSemaine(lundi))}</small></span>
+      <button type="button" class="btn-hd btn-ico" aria-label="Semaine suivante" onclick="decalerSemaine(1)">${ICO.suiv}</button>
     </div>
-    ${sousTitre}
+    ${suite || ''}
   </header>`;
+}
+
+/* Compteur de la semaine affichée : rendez-vous = RDV de l'agenda + chantiers du planning
+   ayant une heure de RDV ; chantiers = chantiers du planning sans heure. */
+function compteurSemaine(lundi) {
+  if (S.semaineChargee !== lundi) return S.chargement ? 'Chargement…' : '';
+  const nbRdv = S.rdvs.length + S.planning.filter(p => p.rdv).length;
+  const nbCh = S.planning.filter(p => !p.rdv).length;
+  return nbRdv + ' RDV · ' + nbCh + ' chantier' + (nbCh > 1 ? 's' : '');
 }
 
 function libelleSemaine(lundi) {
@@ -344,14 +359,6 @@ function libelleSemaine(lundi) {
   return a.getMonth() === b.getMonth()
     ? `${ga} – ${b.getDate()} ${MOIS[b.getMonth()]} ${b.getFullYear()}`
     : `${ga} ${MOIS[a.getMonth()].slice(0, 4)}. – ${b.getDate()} ${MOIS[b.getMonth()].slice(0, 4)}. ${b.getFullYear()}`;
-}
-
-function navSemaine(lundi) {
-  return `<div class="semaine-nav">
-    <button type="button" class="btn-hd btn-ico" aria-label="Semaine précédente" onclick="decalerSemaine(-1)">${ICO.retour}</button>
-    <span class="lbl">${esc(libelleSemaine(lundi))}</span>
-    <button type="button" class="btn-hd btn-ico" aria-label="Semaine suivante" onclick="decalerSemaine(1)">${ICO.suiv}</button>
-  </div>`;
 }
 
 /* Place des événements qui se chevauchent côte à côte (colonnes). */
@@ -396,9 +403,8 @@ function vueJour() {
   const rdvJour = S.rdvs.filter(r => r.date === S.date);
   const planSansHeure = S.planning.filter(p => p.date === S.date && !p.rdv);
   const planAvecHeure = S.planning.filter(p => p.date === S.date && p.rdv);
-  const nbPlan = planSansHeure.length + planAvecHeure.length;
-  const resume = [rdvJour.length ? rdvJour.length + ' rendez-vous' : 'Aucun rendez-vous',
-                  nbPlan ? nbPlan + ' chantier' + (nbPlan > 1 ? 's' : '') + ' planifié' + (nbPlan > 1 ? 's' : '') : ''].filter(Boolean).join(' · ');
+  const nbRdvJ = rdvJour.length + planAvecHeure.length, nbChJ = planSansHeure.length;
+  const resume = nbRdvJ + ' RDV · ' + nbChJ + ' chantier' + (nbChJ > 1 ? 's' : '');
 
   let bande = '';
   if (planSansHeure.length) {
@@ -430,7 +436,7 @@ function vueJour() {
     const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
     if (m >= H_MIN * 60 && m <= H_MAX * 60) ligneMaint = `<div class="maintenant" style="top:${(m - H_MIN * 60) / 60 * PX_H}px"></div>`;
   }
-  return enTete(navSemaine(lundi) + `<div class="jours">${jours}</div>`)
+  return enTete(`<div class="jours">${jours}</div>`)
     + msgHTML()
     + `<div class="titre-jour"><h2>${esc(dateLongue(S.date))}</h2><span>${esc(resume)}</span></div>`
     + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
@@ -470,7 +476,6 @@ function vueSemaine() {
   }
   let lignes = '';
   for (let h = S_MIN; h <= S_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - S_MIN) * S_PX}px"><span>${h}h</span><hr></div>`;
-  const nb = S.rdvs.length;
   // Chantiers du planning sans heure de RDV : listés en tête de chaque jour
   let plan = '', aPlan = false;
   for (let i = 0; i < 7; i++) {
@@ -481,7 +486,7 @@ function vueSemaine() {
   }
   const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
   return `<div class="tete-fixe">`
-    + enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous · ${S.planning.length} chantier${S.planning.length > 1 ? 's' : ''} au planning</span></div>`)
+    + enTete()
     + `<div class="legende">${Object.keys(TYPES).map(t => `<span><i class="c-${t}" style="border:1px solid"></i>${TYPES[t]}</span>`).join('')}</div>`
     + `<div class="sem-entete"><span class="vide"></span><div class="sem-cols">${entetes}</div></div>`
     + `</div>`
