@@ -65,6 +65,9 @@
     /* Bandeau « au planning ce jour » */
     .plan-jour { margin:4px 12px 8px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
     .plan-jour .lbl { font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; width:100%; }
+    button.puce-plan, button.pj { border:0; font-family:inherit; text-align:left; cursor:pointer; display:block; width:100%; }
+    button.puce-plan { display:inline-block; width:auto; }
+    button.evt.plan { cursor:pointer; }
     .puce-plan { background:var(--navy); color:#fff; border-radius:8px; padding:5px 9px; font-size:12px; font-weight:700; }
     .puce-plan small { font-weight:400; color:#c9d6f2; margin-left:4px; }
     .puce-plan.client { background:var(--ambre-c); color:var(--ambre-t); border:1px solid var(--ambre-b); }
@@ -92,7 +95,9 @@
     .evt.visite b { color:#163d73; }
     .evt.chantier { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
     .evt.chantier b { color:#1d5b34; }
-    .evt.plan { background:var(--navy); border-color:var(--navy); color:#c9d6f2; cursor:default; }
+    .evt.plan { background:var(--navy); border-color:var(--navy); color:#c9d6f2; }
+    .evt.plan.client { background:var(--ambre-c); border-color:var(--ambre-b); color:var(--ambre-t); }
+    .evt.plan.client b { color:var(--ambre-t); }
     .evt.plan b { color:#fff; }
     .evt .tag { align-self:flex-start; font-size:9px; font-weight:800; background:var(--ambre); color:var(--navy); border-radius:5px; padding:1px 5px; margin-top:2px; }
     .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
@@ -254,6 +259,7 @@ function allerJour(date) { S.vue = 'jour'; if (date) S.date = date; S.message = 
 function allerSemaine() { S.vue = 'semaine'; S.message = null; chargerSemaine(); rendre(); }
 function decalerSemaine(n) { S.date = ajoutJours(S.date, 7 * n); chargerSemaine(); rendre(); }
 function retourSaisie() { location.href = 'saisie.html'; }
+function ouvrirCase(cle) { S.caseCle = cle; S.vue = 'case'; S.message = null; rendre(); window.scrollTo(0, 0); }
 function ouvrirDetail(id) { S.detailId = id; S.vue = 'detail'; S.message = null; rendre(); window.scrollTo(0, 0); }
 
 function nouveauRdv() {
@@ -280,6 +286,8 @@ function rendre() {
   if (S.vue === 'bloque') { app.innerHTML = vueBloquee(); return; }
   if (S.vue === 'form') { app.innerHTML = vueForm(); brancherForm(); return; }
   if (S.vue === 'detail') { app.innerHTML = vueDetail(); return; }
+  if (S.vue === 'case') { app.innerHTML = vueCase(); return; }
+  if (S.vue === 'formcase') { app.innerHTML = vueFormCase(); return; }
   app.innerHTML = (S.vue === 'semaine' ? vueSemaine() : vueJour());
   if (S.vue === 'jour') positionnerDefilement();
 }
@@ -365,7 +373,7 @@ function vueJour() {
   let bande = '';
   if (planSansHeure.length) {
     bande = `<div class="plan-jour"><span class="lbl">Mon planning ce jour</span>${planSansHeure.map(p =>
-      `<span class="puce-plan${estMotifClient(p.motif) ? ' client' : ''}">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h${p.motif ? ' · ' + esc(p.motif) : ''}</small></span>`).join('')}</div>`;
+      `<button type="button" class="puce-plan${estMotifClient(p.motif) ? ' client' : ''}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h${p.motif ? ' · ' + esc(p.motif) : ''}</small></button>`).join('')}</div>`;
   }
 
   // Grille
@@ -385,7 +393,7 @@ function vueJour() {
         <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[r.type] || '')}</span></button>`;
     }
     const p = e.plan;
-    return `<div class="evt plan" style="${style}"><b>${esc(p.chantier)}</b><span>RDV ${esc(p.rdv)} · ${esc(String(p.heures).replace('.', ','))} h</span><span class="tag">PLANNING</span></div>`;
+    return `<button type="button" class="evt plan${estMotifClient(p.motif) ? ' client' : ''}" style="${style}" onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>RDV ${esc(p.rdv)} · ${esc(String(p.heures).replace('.', ','))} h</span><span class="tag">PLANNING</span></button>`;
   }).join('');
   let ligneMaint = '';
   if (S.date === auj) {
@@ -426,7 +434,7 @@ function vueSemaine() {
       const h = Math.max(18, bas - top);
       const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
       if (e.rdv) return `<button type="button" class="evt ${e.rdv.type}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
-      return `<div class="evt plan" style="${style}"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></div>`;
+      return `<button type="button" class="evt plan${estMotifClient(e.plan.motif) ? ' client' : ''}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
     }).join('');
     cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" style="height:${haut}px">${evts}</div>`;
   }
@@ -439,7 +447,7 @@ function vueSemaine() {
     const d = ajoutJours(lundi, i);
     const items = S.planning.filter(p => p.date === d && !p.rdv);
     if (items.length) aPlan = true;
-    plan += `<div>${items.map(p => `<div class="pj${estMotifClient(p.motif) ? ' client' : ''}" title="${esc(p.chantier)}">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></div>`).join('')}</div>`;
+    plan += `<div>${items.map(p => `<button type="button" class="pj${estMotifClient(p.motif) ? ' client' : ''}" title="${esc(p.chantier)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></button>`).join('')}</div>`;
   }
   const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
   return enTete(navSemaine(lundi) + `<div class="semaine-nav" style="margin-top:2px"><span class="lbl">${nb} rendez-vous · ${S.planning.length} chantier${S.planning.length > 1 ? 's' : ''} au planning</span></div>`)
@@ -649,6 +657,80 @@ function vueDetail() {
       <button type="button" class="btn-sec" onclick="modifierRdv('${esc(r.id)}')">Modifier le rendez-vous</button>
       <button type="button" class="btn-suppr" onclick="supprimer('${esc(r.id)}')">Supprimer le rendez-vous</button>
     </div>`;
+}
+
+/* ── Chantier du planning (case de la ligne du gérant, hors rendez-vous de l'agenda) ── */
+function caseCourante() { return S.planning.find(p => p.cle === S.caseCle) || null; }
+
+function vueCase() {
+  const p = caseCourante();
+  if (!p) return enTete('') + msgHTML() + `<div class="vide-etat">Ce chantier n'est plus dans votre planning.</div>`;
+  const c = coordsDe(p.chantier);
+  const lieu = lieuDepuisCoords(c), tel = (c && (c.mobile || c.fixe)) || '';
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="allerJour('${esc(p.date)}')">${ICO.retour}</button>
+      <h1 style="font-size:17px">Chantier au planning</h1></div></header>
+    <div class="det-hd">
+      <span class="badge-type"${p.reservio ? '' : ' style="background:#fff;color:var(--navy)"'}>${p.reservio ? 'RESERVIO' : 'PLANNING'}${p.motif ? ' · ' + esc(p.motif.toUpperCase()) : ''}</span>
+      <h2>${esc(p.chantier)}</h2>
+      <div class="quand">${esc(dateLongue(p.date))}${p.rdv ? ' · RDV ' + esc(p.rdv) : ''} · ${esc(String(p.heures).replace('.', ','))} h prévues</div>
+    </div>`
+    + msgHTML()
+    + `<div class="page">
+      ${lieu ? `<section class="bloc"><span class="lbl">Lieu</span><div style="font-size:15px;line-height:1.4;white-space:pre-line">${esc(lieu)}</div></section>` : ''}
+      ${tel ? `<section class="bloc"><span class="lbl">Téléphone</span><div style="font-size:15px">${esc(tel)}</div></section>` : ''}
+      ${p.note ? `<section class="bloc"><span class="lbl">Note du jour</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(p.note)}</div></section>` : ''}
+      ${p.reservio
+        ? `<div class="info-plan">${ICO.plan}<span>RDV importé de Reservio<small>Il se modifie dans Reservio</small></span></div>`
+        : `<button type="button" class="btn-sec" onclick="modifierCase()">Modifier</button>`}
+    </div>`;
+}
+
+function modifierCase() { S.vue = 'formcase'; S.message = null; rendre(); window.scrollTo(0, 0); }
+
+function vueFormCase() {
+  const p = caseCourante();
+  if (!p) return vueCase();
+  const c = coordsDe(p.chantier);
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour" onclick="ouvrirCase('${esc(p.cle)}')">${ICO.retour}</button>
+      <h1 style="font-size:19px">${esc(p.chantier)}</h1></div></header>`
+    + msgHTML()
+    + `<form class="page" onsubmit="enregistrerCase(event)" autocomplete="off">
+      <div class="info-plan">${ICO.plan}<span>${esc(dateLongue(p.date))}<small>Le nom du chantier se change dans le planning</small></span></div>
+      <div class="heures">
+        <div class="champ"><label for="c-rdv">Heure de RDV</label><input id="c-rdv" type="time" step="300" value="${esc(p.rdv)}"></div>
+        <div class="champ"><label for="c-h">Durée (h)</label><input id="c-h" type="number" min="0" max="10" step="0.25" inputmode="decimal" value="${esc(p.heures)}"></div>
+        <div class="champ"><span class="lbl">&nbsp;</span><button type="button" style="min-height:46px;border-radius:12px;border:1px solid #cfd7e8;background:#fff;color:#2d3550;font-size:13px" onclick="document.getElementById('c-rdv').value=''">Sans heure</button></div>
+      </div>
+      <div class="champ"><label for="c-lieu">Lieu</label><textarea id="c-lieu" rows="2" placeholder="Adresse&#10;Code postal Ville">${esc(lieuDepuisCoords(c))}</textarea></div>
+      <div class="champ"><label for="c-tel">Téléphone</label><input id="c-tel" type="tel" inputmode="tel" maxlength="40" value="${esc((c && (c.mobile || c.fixe)) || '')}" placeholder="06 12 34 56 78"></div>
+      <div class="champ"><label for="c-note">Note du jour</label><textarea id="c-note" rows="3">${esc(p.note)}</textarea></div>
+      <div class="pied"><div><button type="submit" class="btn-princ" id="c-ok">Enregistrer</button></div></div>
+    </form>`;
+}
+
+async function enregistrerCase(ev) {
+  ev.preventDefault();
+  const p = caseCourante(); if (!p) return;
+  const v = id => document.getElementById(id).value;
+  const h = parseFloat(String(v('c-h')).replace(',', '.'));
+  if (isNaN(h) || h < 0 || h > 10) { S.message = { err: true, txt: 'Temps prévu entre 0 et 10 h.' }; rendre(); return; }
+  const c = coordsDe(p.chantier);
+  const lieu = v('c-lieu').trim(), tel = v('c-tel').trim();
+  const btn = document.getElementById('c-ok'); btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    await api('case', { cle: p.cle, rdv: v('c-rdv'), heures: h, note: v('c-note').trim(),
+      // n'envoie la fiche que si elle a changé (évite de réécrire les coordonnées pour rien)
+      lieu: lieu !== lieuDepuisCoords(c) ? lieu : '', tel: tel !== String((c && (c.mobile || c.fixe)) || '') ? tel : '' });
+    S.vue = 'case';
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Modifications enregistrées au planning.' };
+    rendre();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    S.message = { err: true, txt: e.message }; rendre(); window.scrollTo(0, 0);
+  }
 }
 
 async function supprimer(id) {

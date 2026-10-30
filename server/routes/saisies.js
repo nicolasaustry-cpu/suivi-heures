@@ -900,8 +900,8 @@ router.post("/agenda/liste", async (req, res) => {
       const e = heures[k];
       const nom = String((e && e.chantier) || "").trim();
       if (!nom || e.agendaId || nom.toUpperCase() === "TEMPS NON AFFECTE" || nom.toLowerCase() === "absence") continue;
-      planning.push({ date, chantier: nom, heures: parseFloat(e.heures) || 0, rdv: e.rdv || "", rang: parseInt(m[5], 10),
-                      motif: e.exclu ? String(e.motifExclu || "SAV") : "" });
+      planning.push({ cle: k, date, chantier: nom, heures: parseFloat(e.heures) || 0, rdv: e.rdv || "", rang: parseInt(m[5], 10),
+                      motif: e.exclu ? String(e.motifExclu || "SAV") : "", note: String(e.note || ""), reservio: !!e.reservioUid });
     }
     planning.sort((x, y) => (x.date + String(x.rang).padStart(3, "0")).localeCompare(y.date + String(y.rang).padStart(3, "0")));
 
@@ -1012,6 +1012,67 @@ router.post("/agenda/enregistrer", async (req, res) => {
     else enr = await AgendaRdv.create({ clientId: doc.clientId, rdvId: rdv.rdvId, gerantId: String(a.ger.id), ...champs });
 
     res.json({ ok: true, rdv: _rdvPublic(enr), cases: Object.keys(aEcrire) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Modifier une case du planning du gérant depuis l'agenda ──
+   (chantier posé au planning, hors rendez-vous de l'agenda)
+   Modifiables : heure de RDV, temps prévu, note du jour, lieu et téléphone
+   (fiche chantier). Le nom du chantier se change dans le planning.
+   Écriture CIBLÉE sur heures.<clé>.<champ> : le reste de la case et du planning
+   n'est jamais réécrit. Refusé pour un RDV Reservio (il se verrouillerait).
+   body : { codeEmploye, gerantId, cle, rdv ("HH:MM" | ""), heures, note, lieu, tel } */
+router.post("/agenda/case", async (req, res) => {
+  try {
+    const a = await _authAgenda(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const cle = String(req.body.cle || "");
+    const m = cle.match(/^(.+?)(\d{4})_(\d{2})_(\d{2})ch(\d+)$/);
+    if (!m || m[1] !== String(a.ger.id))
+      return res.status(403).json({ ok: false, message: "Seules les cases de votre planning sont modifiables ici" });
+    const e = (a.doc.heures || {})[cle];
+    const nom = String((e && e.chantier) || "").trim();
+    if (!nom || nom.toUpperCase() === "TEMPS NON AFFECTE")
+      return res.status(409).json({ ok: false, perime: true, message: "Cette case a changé dans le planning entre-temps. Rafraîchissez l'agenda." });
+    if (e.agendaId) return res.status(409).json({ ok: false, message: "Ce chantier est un rendez-vous de l'agenda : modifiez le rendez-vous." });
+    if (e.reservioUid) return res.status(403).json({ ok: false, message: "RDV Reservio : à modifier dans Reservio." });
+
+    const rdv = String(req.body.rdv || "").trim();
+    if (rdv && !_RE_HEURE.test(rdv)) return res.status(400).json({ ok: false, message: "Heure invalide" });
+    const h = Math.round((parseFloat(String(req.body.heures).replace(",", ".")) || 0) * 4) / 4;
+    if (h < 0 || h > 10) return res.status(400).json({ ok: false, message: "Temps prévu entre 0 et 10 h" });
+    const note = String(req.body.note || "").trim().slice(0, 2000);
+
+    const p = "heures." + cle + ".";
+    const $set = { [p + "heures"]: h, updatedAt: new Date() }, $unset = {};
+    if (rdv) {
+      $set[p + "rdv"] = rdv; $set[p + "rdvAuteur"] = "gerant";
+      if (rdv !== e.rdv) $unset[p + "rdvNotifie"] = "";          // nouvelle heure → rappel re-déclenchable
+    } else if (e.rdv) {
+      $unset[p + "rdv"] = ""; $unset[p + "rdvAuteur"] = ""; $unset[p + "rdvDelai"] = ""; $unset[p + "rdvNotifie"] = "";
+    }
+    if (note) $set[p + "note"] = note; else if (e.note) $unset[p + "note"] = "";
+
+    // Fiche chantier : adresse / téléphone saisis (fixe et e-mail conservés)
+    const lieu = _decouperLieu(req.body.lieu);
+    const tel = String(req.body.tel || "").replace(/[^\d+ .()-]/g, "").trim().slice(0, 40);
+    if (lieu || tel) {
+      const titre = nom.toUpperCase();
+      const coords = a.doc.coordonneesChantiers || {};
+      const ex = coords[titre] || {};
+      const nv = { ...ex };
+      if (lieu) { nv.adresse = lieu.adresse; nv.ville = lieu.ville; }
+      if (tel) nv.mobile = tel;
+      if (nv.adresse !== ex.adresse || (nv.ville || "") !== (ex.ville || "") || (nv.mobile || "") !== (ex.mobile || "")) {
+        coords[titre] = nv; $set.coordonneesChantiers = coords;
+      }
+    }
+    const maj = { $set };
+    if (Object.keys($unset).length) maj.$unset = $unset;
+    await a.Donnees.updateOne({ _id: a.doc._id }, maj);
+    res.json({ ok: true, cle, rdv, heures: h, note });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
