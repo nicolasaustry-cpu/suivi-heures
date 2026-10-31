@@ -99,6 +99,9 @@
     @keyframes swD { from { transform:translateX(-40px); opacity:.3; } to { transform:none; opacity:1; } }
     body.anim-g .sem-grille, body.anim-g .sem-plan, body.anim-g .grille-zone, body.anim-g .plan-jour, body.anim-g .titre-jour { animation:swG .25s ease-out; }
     body.anim-d .sem-grille, body.anim-d .sem-plan, body.anim-d .grille-zone, body.anim-d .plan-jour, body.anim-d .titre-jour { animation:swD .25s ease-out; }
+    /* Chantier sans heure de RDV, placé à titre indicatif (enchaîné à partir de 8 h 30) */
+    .evt.est { opacity:.82; }
+    .evt.est span { font-style:italic; }
     /* Glisser-déposer (appui long) */
     [data-drag] { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
     body.drag-on { -webkit-user-select:none; user-select:none; }
@@ -605,6 +608,23 @@ function evenementsDu(date) {
     const deb = minutes(p.rdv); if (deb == null) return;
     ev.push({ deb, fin: deb + Math.max(30, Math.round((p.heures || 1) * 60)), plan: p });
   });
+  // Chantiers sans heure de RDV : enchaînés dans la journée à partir de 8 h 30, dans l'ordre
+  // du planning (puis les chantiers ajoutés sur la saisie), chacun selon son temps prévu,
+  // en se décalant après les rendez-vous à heure fixe qu'ils chevaucheraient.
+  // Horaire indicatif (« ≈ ») : un appui long + glisser lui donne une vraie heure de RDV.
+  let h = 8 * 60 + 30;
+  const fixes = ev.slice();
+  S.planning.filter(p => p.date === date && !p.rdv)
+    .sort((a, b) => (a.ajout ? 1 : 0) - (b.ajout ? 1 : 0) || (a.rang || 999) - (b.rang || 999))
+    .forEach(p => {
+      const dur = Math.max(15, Math.round((p.heures || 1) * 60));
+      // décalé après les rendez-vous à heure fixe qu'il chevaucherait
+      let bouge = true;
+      while (bouge) { bouge = false; for (const x of fixes) if (h < x.fin && h + dur > x.deb) { h = x.fin; bouge = true; } }
+      const deb = Math.min(h, 24 * 60 - dur);
+      ev.push({ deb, fin: deb + dur, plan: p, estime: true });
+      h = deb + dur;
+    });
   return colonnes(ev);
 }
 
@@ -624,11 +644,7 @@ function vueJour() {
   const nbChJ = planSansHeure.length + planAvecHeure.filter(p => p.ajout).length;
   const resume = nbRdvJ + ' RDV · ' + nbChJ + ' chantier' + (nbChJ > 1 ? 's' : '');
 
-  let bande = '';
-  if (planSansHeure.length) {
-    bande = `<div class="plan-jour"><span class="lbl">Mon planning ce jour</span>${planSansHeure.map(p =>
-      `<button type="button" class="puce-plan c-${catPlan(p)}${p.ajout ? ' aj' : ''}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${p.ajout ? 'ajouté' : esc(String(p.heures).replace('.', ',')) + ' h'}${p.motif ? ' · ' + esc(p.motif) : ''}</small></button>`).join('')}</div>`;
-  }
+  const bande = '';   // les chantiers sans heure sont placés dans la grille, à partir de 8 h 30
 
   // Grille
   const haut = (H_MAX - H_MIN) * PX_H;
@@ -647,7 +663,7 @@ function vueJour() {
         <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[typeNormal(r.type)])}</span></button>`;
     }
     const p = e.plan;
-    return `<button type="button" class="evt c-${catPlan(p)}${p.ajout ? ' aj' : ''}" style="${style}" ${dragCase(p, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>${p.ajout ? esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : 'RDV ' + esc(p.rdv) + ' · ' + esc(String(p.heures).replace('.', ',')) + ' h'}</span><span class="tag">${p.ajout ? 'AJOUTÉ' : 'PLANNING'}</span></button>`;
+    return `<button type="button" class="evt c-${catPlan(p)}${p.ajout ? ' aj' : ''}${e.estime ? ' est' : ''}" style="${style}" ${dragCase(p, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>${e.estime ? '≈ ' + hhmm(e.deb) + ' · ' + esc(String(p.heures || 1).replace('.', ',')) + ' h · sans heure de RDV' : (p.ajout ? esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : 'RDV ' + esc(p.rdv) + ' · ' + esc(String(p.heures).replace('.', ',')) + ' h')}</span><span class="tag">${p.ajout ? 'AJOUTÉ' : 'PLANNING'}</span></button>`;
   }).join('');
   let ligneMaint = '';
   if (S.date === auj) {
@@ -688,21 +704,13 @@ function vueSemaine() {
       const h = Math.max(18, bas - top);
       const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
       if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" ${dragAttr('rdv', e.rdv.id, e.rdv.date, e.deb, e.fin - e.deb)} onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
-      return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}" style="${style}" ${dragCase(e.plan, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
+      return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}${e.estime ? ' est' : ''}" style="${style}" ${dragCase(e.plan, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${e.estime ? '≈ ' + hhmm(e.deb) : esc(e.plan.rdv)}</span></button>`;
     }).join('');
     cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" data-date="${d}" style="height:${haut}px">${evts}</div>`;
   }
   let lignes = '';
   for (let h = S_MIN; h <= S_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - S_MIN) * S_PX}px"><span>${h}h</span><hr></div>`;
-  // Chantiers du planning sans heure de RDV : listés en tête de chaque jour
-  let plan = '', aPlan = false;
-  for (let i = 0; i < 7; i++) {
-    const d = ajoutJours(lundi, i);
-    const items = S.planning.filter(p => p.date === d && !p.rdv);
-    if (items.length) aPlan = true;
-    plan += `<div class="pcol" data-date="${d}">${items.map(p => `<button type="button" class="pj c-${catPlan(p)}${p.ajout ? ' aj' : ''}" title="${esc(p.chantier)}" ${dragCase(p, null, Math.min(240, Math.max(30, Math.round((p.heures || 1) * 60))))} onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${p.ajout ? 'ajouté' : esc(String(p.heures).replace('.', ',')) + ' h'}</small></button>`).join('')}</div>`;
-  }
-  const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
+  const bandePlan = '';   // chantiers sans heure : placés dans la grille à partir de 8 h 30 (evenementsDu)
   return `<div class="tete-fixe">`
     + enTete()
     + `<div class="legende">${Object.keys(TYPES).map(t => `<span><i class="c-${t}" style="border:1px solid"></i>${TYPES[t]}</span>`).join('')}</div>`
