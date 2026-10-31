@@ -94,6 +94,15 @@
     .c-autre { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
     .c-client b, .c-sav b, .c-fournisseur b, .c-autre b, .c-client small, .c-sav small, .c-fournisseur small, .c-autre small { color:inherit; }
     .puce-plan[class*="c-"], .pj[class*="c-"] { border:1px solid; }
+    /* Glisser-déposer (appui long) */
+    [data-drag] { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+    body.drag-on { -webkit-user-select:none; user-select:none; }
+    .dr-fantome { position:fixed; z-index:100; pointer-events:none; opacity:.92; box-shadow:0 10px 26px rgba(15,58,138,.35); transform:scale(1.04); }
+    .dr-lbl { position:fixed; z-index:101; pointer-events:none; background:var(--navy); color:#fff; font-size:12px; font-weight:700;
+              padding:5px 9px; border-radius:8px; white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,.25); }
+    .dr-source { opacity:.3 !important; }
+    .dr-cible { outline:2px dashed var(--ambre); outline-offset:-2px; }
+    .sem-plan .pcol { min-height:24px; border-radius:5px; }
     /* Chantier ajouté sur la saisie mobile (réalisé, hors planning) : bordure pointillée */
     .aj { border-style:dashed !important; border-width:1.5px !important; }
     .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
@@ -347,6 +356,143 @@ function rendre() {
   brancherCreneaux();
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   GLISSER-DÉPOSER (appui long, comme Google Agenda)
+   Rendez-vous de l'agenda : nouvelle date / heure (même durée) via /agenda/enregistrer,
+   qui déplace aussi ses cases au planning. Chantier du planning du gérant : nouveau
+   jour et/ou heure de RDV via /agenda/case-deplacer ; déposé sur la ligne des
+   chantiers sans heure, il perd son heure. Ne se déplacent pas : chantiers ajoutés
+   (réalisé, à modifier sur la saisie) et RDV Reservio.
+   ═══════════════════════════════════════════════════════════════ */
+function dragAttr(kind, id, date, deb, dur) {
+  return `data-drag="${kind}" data-id="${esc(id)}" data-date="${esc(date)}" data-deb="${deb == null ? '' : deb}" data-dur="${Math.max(15, dur || 60)}"`;
+}
+function dragCase(p, deb, dur) { return (p.ajout || p.reservio) ? '' : dragAttr('case', p.cle, p.date, deb, dur); }
+
+const DR = { timer: null, actif: false, el: null, src: null, x0: 0, y0: 0, offX: 0, offY: 0, w: 0, h: 0,
+             fantome: null, lbl: null, cible: null, colCible: null, y: 0, raf: null, bloqueClic: false };
+const JC_COURT = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+
+function drDebut(el, x, y) {
+  drAnnuler();
+  DR.bloqueClic = false;   // un nouvel appui annule le blocage du clic laissé par un dépôt précédent
+  DR.el = el; DR.x0 = x; DR.y0 = y;
+  DR.src = { kind: el.dataset.drag, id: el.dataset.id, date: el.dataset.date,
+             deb: el.dataset.deb === '' ? null : +el.dataset.deb, dur: +el.dataset.dur || 60 };
+  DR.timer = setTimeout(() => drCommencer(x, y), 420);
+}
+function drAnnuler() { if (DR.timer) clearTimeout(DR.timer); DR.timer = null; }
+function drCommencer(x, y) {
+  DR.timer = null;
+  if (!DR.el || !document.body.contains(DR.el)) return;
+  DR.actif = true;
+  try { if (navigator.vibrate) navigator.vibrate(25); } catch (_) {}
+  const r = DR.el.getBoundingClientRect();
+  DR.offX = x - r.left; DR.offY = y - r.top; DR.w = r.width; DR.h = r.height;
+  const f = DR.el.cloneNode(true);
+  f.className += ' dr-fantome';
+  f.removeAttribute('onclick'); f.removeAttribute('data-drag');
+  Object.assign(f.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', right: 'auto' });
+  document.body.appendChild(f);
+  DR.fantome = f;
+  DR.lbl = document.createElement('div'); DR.lbl.className = 'dr-lbl'; document.body.appendChild(DR.lbl);
+  DR.el.classList.add('dr-source');
+  document.body.classList.add('drag-on');
+  drPlacer(x, y);
+  const boucle = () => {           // défilement automatique près des bords
+    if (!DR.actif) return;
+    if (DR.y < 150) window.scrollBy(0, -10); else if (DR.y > window.innerHeight - 70) window.scrollBy(0, 10);
+    DR.raf = requestAnimationFrame(boucle);
+  };
+  DR.raf = requestAnimationFrame(boucle);
+}
+function drPlacer(x, y) {
+  DR.y = y;
+  DR.fantome.style.left = (x - DR.offX) + 'px';
+  DR.fantome.style.top = (y - DR.offY) + 'px';
+  const sous = document.elementFromPoint(x, y);
+  const col = sous && sous.closest ? sous.closest('.sem-col[data-date], .grille, .pcol[data-date]') : null;
+  let cible = null;
+  if (col) {
+    const rc = col.getBoundingClientRect();
+    if (col.classList.contains('pcol')) {
+      if (DR.src.kind === 'case') cible = { date: col.dataset.date, deb: null };   // un RDV de l'agenda garde toujours une heure
+    } else {
+      const grille = col.classList.contains('grille');
+      const hMin = grille ? H_MIN : S_MIN, px = grille ? PX_H : S_PX;
+      let m = Math.round((hMin * 60 + (y - DR.offY - rc.top) / px * 60) / 15) * 15;
+      m = Math.max(0, Math.min(24 * 60 - DR.src.dur, m));
+      cible = { date: grille ? S.date : col.dataset.date, deb: m };
+    }
+  }
+  if (DR.colCible && DR.colCible !== col) DR.colCible.classList.remove('dr-cible');
+  if (col && cible) { col.classList.add('dr-cible'); DR.colCible = col; } else DR.colCible = null;
+  DR.cible = cible;
+  DR.lbl.textContent = cible ? (JC_COURT[dateDe(cible.date).getDay()] + ' ' + dateDe(cible.date).getDate() + ' · ' + (cible.deb == null ? 'sans heure' : hhmm(cible.deb))) : 'Déposer sur un jour';
+  DR.lbl.style.left = Math.max(6, Math.min(window.innerWidth - 150, x - 50)) + 'px';
+  DR.lbl.style.top = Math.max(6, y - DR.offY - 34) + 'px';
+}
+function drNettoyer() {
+  if (DR.raf) cancelAnimationFrame(DR.raf);
+  if (DR.fantome) DR.fantome.remove();
+  if (DR.lbl) DR.lbl.remove();
+  if (DR.colCible) DR.colCible.classList.remove('dr-cible');
+  if (DR.el) DR.el.classList.remove('dr-source');
+  document.body.classList.remove('drag-on');
+  Object.assign(DR, { actif: false, fantome: null, lbl: null, colCible: null, raf: null });
+}
+async function drDeposer() {
+  const src = DR.src, cible = DR.cible;
+  drNettoyer();
+  DR.bloqueClic = true; setTimeout(() => { DR.bloqueClic = false; }, 450);   // le « clic » qui suit le relâcher n'ouvre rien
+  if (!cible || (cible.date === src.date && cible.deb === src.deb)) return;
+  const quand = JC_COURT[dateDe(cible.date).getDay()] + ' ' + dateDe(cible.date).getDate() + (cible.deb == null ? ' (sans heure)' : ' à ' + hhmm(cible.deb));
+  S.message = { err: false, txt: 'Déplacement en cours…' }; rendre();
+  try {
+    if (src.kind === 'rdv') {
+      const r = S.rdvs.find(x => x.id === src.id);
+      if (!r) throw new Error('Rendez-vous introuvable');
+      const dur = Math.max(5, (minutes(r.fin) || 0) - (minutes(r.debut) || 0));
+      await api('enregistrer', { rdv: { id: r.id, titre: r.titre, type: r.type, lieu: r.lieu, tel: r.tel, salaries: r.salaries, note: r.note,
+                                        date: cible.date, debut: hhmm(cible.deb), fin: hhmm(Math.min(23 * 60 + 55, cible.deb + dur)) } });
+    } else {
+      await api('case-deplacer', { cle: src.id, date: cible.date, rdv: cible.deb == null ? '' : hhmm(cible.deb) });
+    }
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Déplacé au ' + quand + ' — planning mis à jour.' };
+  } catch (e) {
+    await chargerSemaine(true);
+    S.message = { err: true, txt: e.message };
+  }
+  rendre();
+}
+
+function drBrancher() {
+  const cibleDe = e => (e.target && e.target.closest) ? e.target.closest('[data-drag]') : null;
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { drAnnuler(); return; }
+    const el = cibleDe(e); if (!el) return;
+    drDebut(el, e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    const t = e.touches[0]; if (!t) return;
+    if (DR.actif) { e.preventDefault(); drPlacer(t.clientX, t.clientY); return; }
+    if (DR.timer && Math.hypot(t.clientX - DR.x0, t.clientY - DR.y0) > 8) drAnnuler();   // c'est un défilement
+  }, { passive: false });
+  document.addEventListener('touchend', () => { drAnnuler(); if (DR.actif) drDeposer(); });
+  document.addEventListener('touchcancel', () => { drAnnuler(); if (DR.actif) drNettoyer(); });
+  // Souris (PC) : même geste, appui long puis glisser
+  document.addEventListener('mousedown', e => { if (e.button !== 0) return; DR.bloqueClic = false; const el = cibleDe(e); if (el) drDebut(el, e.clientX, e.clientY); });
+  document.addEventListener('mousemove', e => {
+    if (DR.actif) { e.preventDefault(); drPlacer(e.clientX, e.clientY); return; }
+    if (DR.timer && Math.hypot(e.clientX - DR.x0, e.clientY - DR.y0) > 8) drAnnuler();
+  });
+  document.addEventListener('mouseup', () => { drAnnuler(); if (DR.actif) drDeposer(); });
+  document.addEventListener('click', e => { if (DR.bloqueClic) { e.stopPropagation(); e.preventDefault(); DR.bloqueClic = false; } }, true);
+  document.addEventListener('contextmenu', e => { if (cibleDe(e)) e.preventDefault(); });
+}
+drBrancher();
+
 /* Toucher un créneau vide (hors rendez-vous et chantiers) = nouveau RDV à ce jour et
    cette heure, arrondie à la demi-heure inférieure. */
 function brancherCreneaux() {
@@ -468,11 +614,11 @@ function vueJour() {
     const style = `top:${top}px;height:${h}px;left:calc(${G}px + (100% - ${G}px) / ${e.nb} * ${e.col});width:calc(${larg} - 3px)`;
     if (e.rdv) {
       const r = e.rdv;
-      return `<button type="button" class="evt c-${typeNormal(r.type)}" style="${style}" onclick="ouvrirDetail('${esc(r.id)}')">
+      return `<button type="button" class="evt c-${typeNormal(r.type)}" style="${style}" ${dragAttr('rdv', r.id, r.date, e.deb, e.fin - e.deb)} onclick="ouvrirDetail('${esc(r.id)}')">
         <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[typeNormal(r.type)])}</span></button>`;
     }
     const p = e.plan;
-    return `<button type="button" class="evt c-${catPlan(p)}${p.ajout ? ' aj' : ''}" style="${style}" onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>${p.ajout ? esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : 'RDV ' + esc(p.rdv) + ' · ' + esc(String(p.heures).replace('.', ',')) + ' h'}</span><span class="tag">${p.ajout ? 'AJOUTÉ' : 'PLANNING'}</span></button>`;
+    return `<button type="button" class="evt c-${catPlan(p)}${p.ajout ? ' aj' : ''}" style="${style}" ${dragCase(p, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>${p.ajout ? esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : 'RDV ' + esc(p.rdv) + ' · ' + esc(String(p.heures).replace('.', ',')) + ' h'}</span><span class="tag">${p.ajout ? 'AJOUTÉ' : 'PLANNING'}</span></button>`;
   }).join('');
   let ligneMaint = '';
   if (S.date === auj) {
@@ -512,8 +658,8 @@ function vueSemaine() {
       if (bas <= 0 || top >= haut) return '';
       const h = Math.max(18, bas - top);
       const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
-      if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
-      return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
+      if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" ${dragAttr('rdv', e.rdv.id, e.rdv.date, e.deb, e.fin - e.deb)} onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
+      return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}" style="${style}" ${dragCase(e.plan, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
     }).join('');
     cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" data-date="${d}" style="height:${haut}px">${evts}</div>`;
   }
@@ -525,7 +671,7 @@ function vueSemaine() {
     const d = ajoutJours(lundi, i);
     const items = S.planning.filter(p => p.date === d && !p.rdv);
     if (items.length) aPlan = true;
-    plan += `<div>${items.map(p => `<button type="button" class="pj c-${catPlan(p)}${p.ajout ? ' aj' : ''}" title="${esc(p.chantier)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${p.ajout ? 'ajouté' : esc(String(p.heures).replace('.', ',')) + ' h'}</small></button>`).join('')}</div>`;
+    plan += `<div class="pcol" data-date="${d}">${items.map(p => `<button type="button" class="pj c-${catPlan(p)}${p.ajout ? ' aj' : ''}" title="${esc(p.chantier)}" ${dragCase(p, null, Math.min(240, Math.max(30, Math.round((p.heures || 1) * 60))))} onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${p.ajout ? 'ajouté' : esc(String(p.heures).replace('.', ',')) + ' h'}</small></button>`).join('')}</div>`;
   }
   const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
   return `<div class="tete-fixe">`

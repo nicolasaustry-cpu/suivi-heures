@@ -1042,6 +1042,54 @@ router.post("/agenda/enregistrer", async (req, res) => {
   }
 });
 
+/* ── Déplacer une case du planning du gérant (glisser-déposer dans l'agenda) ──
+   Change le jour et/ou l'heure de RDV d'un chantier posé sur la ligne du gérant.
+   Autre jour : la case (heures, note, motif… tout l'objet) part dans une case libre
+   de la ligne du gérant à la nouvelle date ; même jour : seule l'heure change.
+   rdv vide = chantier sans heure. Écriture CIBLÉE heures.<clé>.
+   Refusé : RDV de l'agenda (déplacé via /agenda/enregistrer), RDV Reservio.
+   body : { codeEmploye, gerantId, cle, date (YYYY-MM-DD), rdv ("HH:MM" | "") } */
+router.post("/agenda/case-deplacer", async (req, res) => {
+  try {
+    const a = await _authAgenda(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const cle = String(req.body.cle || "");
+    const date = String(req.body.date || "");
+    const rdv = String(req.body.rdv || "").trim();
+    const m = cle.match(/^(.+?)(\d{4})_(\d{2})_(\d{2})ch(\d+)$/);
+    if (!m || m[1] !== String(a.ger.id))
+      return res.status(403).json({ ok: false, message: "Seules les cases de votre planning sont déplaçables ici" });
+    if (!_RE_DATE.test(date)) return res.status(400).json({ ok: false, message: "Date invalide" });
+    if (rdv && !_RE_HEURE.test(rdv)) return res.status(400).json({ ok: false, message: "Heure invalide" });
+    const heures = a.doc.heures || {};
+    const e = heures[cle];
+    const nom = String((e && e.chantier) || "").trim();
+    if (!nom || nom.toUpperCase() === "TEMPS NON AFFECTE")
+      return res.status(409).json({ ok: false, perime: true, message: "Cette case a changé dans le planning entre-temps. Rafraîchissez l'agenda." });
+    if (e.agendaId) return res.status(409).json({ ok: false, message: "Rendez-vous de l'agenda : déplacez le rendez-vous." });
+    if (e.reservioUid) return res.status(403).json({ ok: false, message: "RDV Reservio : à déplacer dans Reservio." });
+
+    const entree = { ...e };
+    if (rdv) { entree.rdv = rdv; entree.rdvAuteur = "gerant"; }
+    else { delete entree.rdv; delete entree.rdvAuteur; delete entree.rdvDelai; }
+    const dateAv = `${m[2]}-${m[3]}-${m[4]}`;
+    if (dateAv !== date || (e.rdv || "") !== rdv) delete entree.rdvNotifie;   // rappel re-déclenchable
+
+    let cible = cle;
+    const maj = { $set: { updatedAt: new Date() } };
+    if (dateAv !== date) {
+      cible = _caseLibre(heures, a.ger.id, date, new Set());
+      if (!cible) return res.status(409).json({ ok: false, message: "Votre journée est pleine au planning ce jour-là." });
+      maj.$unset = { ["heures." + cle]: "" };
+    }
+    maj.$set["heures." + cible] = entree;
+    await a.Donnees.updateOne({ _id: a.doc._id }, maj);
+    res.json({ ok: true, cle: cible, date, rdv });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Modifier une case du planning du gérant depuis l'agenda ──
    (chantier posé au planning, hors rendez-vous de l'agenda)
    Modifiables : heure de RDV, temps prévu, note du jour, lieu et téléphone
