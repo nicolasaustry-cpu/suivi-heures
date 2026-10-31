@@ -220,7 +220,7 @@ const S = {
   code: '', ger: null, salaries: [],
   vue: 'semaine', vueListe: 'semaine', date: '', semaineChargee: '',
   rdvs: [], planning: [], chargement: false,
-  message: null, form: null, detailId: null
+  message: null, form: null, detailId: null, cache: {}, enCours: {}
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -298,21 +298,59 @@ function ajoutsDeLaSemaine(lundi, serveur) {
   });
 }
 
+/* Cache par semaine (mémoire + téléphone) : une semaine déjà vue s'affiche aussitôt,
+   puis se rafraîchit en arrière-plan ; les semaines voisines sont préchargées pour
+   que le passage à la semaine suivante / précédente soit instantané.
+   Toute modification (enregistrement, déplacement, suppression) vide le cache. */
+const CACHE_TTL = 30000;
+function cleCache() { return 'agendaCache_' + S.code + '_' + (S.ger && S.ger.id); }
+function sauverCache() {
+  try {
+    const cles = Object.keys(S.cache).sort((a, b) => S.cache[b].t - S.cache[a].t).slice(0, 8);
+    const garde = {}; cles.forEach(k => { garde[k] = S.cache[k]; });
+    S.cache = garde;
+    localStorage.setItem(cleCache(), JSON.stringify(garde));
+  } catch (_) {}
+}
+function appliquerSemaine(lundi, c) {
+  S.rdvs = c.rdvs || [];
+  S.planning = (c.planning || []).concat(ajoutsDeLaSemaine(lundi, c.ajouts || []));
+  S.semaineChargee = lundi;
+}
+async function chercherSemaine(lundi) {
+  const d = await api('liste', { du: lundi, au: ajoutJours(lundi, 6) });
+  S.cache[lundi] = { rdvs: d.rdvs || [], planning: d.planning || [], ajouts: d.ajouts || [], t: Date.now() };
+  if (d.coordonneesChantiers) { try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers)); } catch (_) {} }
+  sauverCache();
+  return S.cache[lundi];
+}
+/* Ne redessine que les vues agenda (jamais un formulaire en cours de saisie ni pendant un glisser). */
+function rendreSiListe() { if ((S.vue === 'semaine' || S.vue === 'jour') && !DR.actif) rendre(); }
+function prechargerVoisines(lundi) {
+  [7, -7].forEach(n => {
+    const l = ajoutJours(lundi, n);
+    if (S.cache[l] || S.enCours[l]) return;
+    S.enCours[l] = true;
+    chercherSemaine(l).catch(() => {}).then(() => { delete S.enCours[l]; });
+  });
+}
 /* Charge la semaine (lundi → dimanche) qui contient S.date. */
 async function chargerSemaine(force) {
   const lundi = lundiDe(S.date);
-  if (!force && S.semaineChargee === lundi) return;
-  S.chargement = true; rendre();
+  if (force) S.cache = {};
+  const c = S.cache[lundi];
+  if (c && S.semaineChargee !== lundi) { appliquerSemaine(lundi, c); rendreSiListe(); }
+  if (c && Date.now() - c.t < CACHE_TTL) { prechargerVoisines(lundi); return; }
+  if (!c) { S.chargement = true; rendreSiListe(); }
   try {
-    const d = await api('liste', { du: lundi, au: ajoutJours(lundi, 6) });
-    S.rdvs = d.rdvs || [];
-    S.planning = (d.planning || []).concat(ajoutsDeLaSemaine(lundi, d.ajouts || []));
-    S.semaineChargee = lundi;
-    if (d.coordonneesChantiers) { try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers)); } catch (_) {} }
+    const frais = await chercherSemaine(lundi);
+    if (lundiDe(S.date) === lundi) appliquerSemaine(lundi, frais);
   } catch (e) {
-    S.message = { err: true, txt: navigator.onLine === false ? 'Pas de connexion : l\'agenda a besoin du réseau.' : e.message };
+    if (!c) S.message = { err: true, txt: navigator.onLine === false ? 'Pas de connexion : l\'agenda a besoin du réseau.' : e.message };
   }
-  S.chargement = false; rendre();
+  S.chargement = false;
+  if (lundiDe(S.date) === lundi) rendreSiListe();
+  prechargerVoisines(lundi);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1061,7 +1099,9 @@ function vueBloquee() {
   const pRdv = params.get('rdv');
   history.replaceState({}, '', location.pathname);
   rendre();
-  chargerSemaine(true).then(() => { if (pRdv && S.rdvs.some(r => r.id === pRdv)) ouvrirDetail(pRdv); });
+  S.cache = lsJSON(cleCache(), {}) || {};
+  Object.keys(S.cache).forEach(k => { S.cache[k].t = 0; });   // affiché tout de suite, mais toujours relu
+  chargerSemaine().then(() => { if (pRdv && S.rdvs.some(r => r.id === pRdv)) ouvrirDetail(pRdv); });
 })();
 </script>
 </body>

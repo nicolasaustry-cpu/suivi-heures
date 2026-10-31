@@ -26,8 +26,17 @@ async function resoudreEntrepriseParCode(Donnees, codeEmploye) {
   const code = _U(codeEmploye);
   if (!code) return { err: [400, "Code employé manquant"] };
 
-  const docs = await Donnees.find({});
-  const correspondants = docs.filter(d => _U(d.entreprise?.codeEmploye) === code);
+  // PERFORMANCE : on ne charge plus TOUTES les entreprises (avec tout leur planning) à
+  // chaque appel mobile. Requête ciblée sur le code (insensible à la casse et aux espaces,
+  // comme _U), puis contrôle strict identique à avant. Repli sur la lecture complète si
+  // rien n'est trouvé (code stocké sous une autre forme) : le résultat reste le même.
+  const motif = "^\\s*" + code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$";
+  let docs = await Donnees.find({ "entreprise.codeEmploye": { $regex: motif, $options: "i" } });
+  let correspondants = docs.filter(d => _U(d.entreprise?.codeEmploye) === code);
+  if (!correspondants.length) {
+    docs = await Donnees.find({});
+    correspondants = docs.filter(d => _U(d.entreprise?.codeEmploye) === code);
+  }
 
   if (correspondants.length === 0) return { err: [403, "Code employé invalide"] };
   if (correspondants.length > 1) {
