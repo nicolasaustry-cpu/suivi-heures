@@ -912,7 +912,25 @@ router.post("/agenda/liste", async (req, res) => {
     }
     planning.sort((x, y) => (x.date + String(x.rang).padStart(3, "0")).localeCompare(y.date + String(y.rang).padStart(3, "0")));
 
-    res.json({ ok: true, rdvs: rdvs.map(_rdvPublic), planning, coordonneesChantiers: a.doc.coordonneesChantiers || {} });
+    // Chantiers AJOUTÉS par le gérant sur sa saisie mobile (hors planning) : réalisé,
+    // affiché dans l'agenda à ses heures d'arrivée et de départ. Photos jamais remontées.
+    const ajouts = [];
+    try {
+      const sid = String(a.ger.id), sidN = Number(sid);
+      const ids = isNaN(sidN) ? [sid] : [sid, sidN];
+      const sais = await Saisie.find(
+        { clientId: a.doc.clientId, salarieId: { $in: ids }, date: { $gte: du, $lte: au } },
+        { date: 1, "chantiers.nom": 1, "chantiers.heureArrivee": 1, "chantiers.heureDepart": 1, "chantiers.dureeMin": 1,
+          "chantiers.isPrevisionnel": 1, "chantiers.occurrence": 1, "chantiers.note": 1 }
+      ).lean();
+      for (const sa of sais) for (const c of (sa.chantiers || [])) {
+        if (c.isPrevisionnel || !String(c.nom || "").trim()) continue;
+        ajouts.push({ date: sa.date, nom: String(c.nom).trim(), occ: parseInt(c.occurrence, 10) || 1,
+                      arrivee: c.heureArrivee || "", depart: c.heureDepart || "", dureeMin: c.dureeMin || 0, note: c.note || "" });
+      }
+    } catch (_) { /* l'agenda reste utilisable même si la lecture des saisies échoue */ }
+
+    res.json({ ok: true, rdvs: rdvs.map(_rdvPublic), planning, ajouts, coordonneesChantiers: a.doc.coordonneesChantiers || {} });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

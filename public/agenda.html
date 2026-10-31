@@ -94,6 +94,8 @@
     .c-autre { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
     .c-client b, .c-sav b, .c-fournisseur b, .c-autre b, .c-client small, .c-sav small, .c-fournisseur small, .c-autre small { color:inherit; }
     .puce-plan[class*="c-"], .pj[class*="c-"] { border:1px solid; }
+    /* Chantier ajouté sur la saisie mobile (réalisé, hors planning) : bordure pointillée */
+    .aj { border-style:dashed !important; border-width:1.5px !important; }
     .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
     .maintenant::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:#d9480f; }
 
@@ -246,6 +248,36 @@ async function api(route, corps) {
   return d;
 }
 
+/* Chantiers AJOUTÉS par le gérant sur sa saisie mobile (hors planning), pour la semaine :
+   ceux déjà envoyés (serveur) complétés par la copie locale de la saisie (clé
+   saisie_jour_<code>_<salarié>_<date>), qui contient aussi ceux pas encore envoyés.
+   Ils sont rangés avec les chantiers du planning (ajout:true) : placés à leur heure
+   d'arrivée, ou dans la ligne des chantiers sans heure tant qu'elle n'est pas saisie. */
+function ajoutsDeLaSemaine(lundi, serveur) {
+  const parCle = new Map();
+  const cleDe = (date, nom, occ) => date + '|' + String(nom).trim().toUpperCase() + '|' + (parseInt(occ, 10) || 1);
+  serveur.forEach(a => parCle.set(cleDe(a.date, a.nom, a.occ), { ...a }));
+  for (let i = 0; i < 7; i++) {
+    const date = ajoutJours(lundi, i);
+    const loc = lsJSON('saisie_jour_' + S.code + '_' + S.ger.id + '_' + date, null);
+    ((loc && loc.ajout) || []).forEach(x => {
+      if (!x || !String(x.nom || '').trim()) return;
+      const k = cleDe(date, x.nom, x.occ), ex = parCle.get(k) || { date, nom: String(x.nom).trim(), occ: parseInt(x.occ, 10) || 1, dureeMin: 0, note: '' };
+      ex.arrivee = x.arrivee || ex.arrivee || '';
+      ex.depart = x.depart || ex.depart || '';
+      if (x.note) ex.note = x.note;
+      parCle.set(k, ex);
+    });
+  }
+  return [...parCle.entries()].map(([k, a]) => {
+    const deb = minutes(a.arrivee), fin = minutes(a.depart);
+    const duree = (deb != null && fin != null && fin > deb) ? fin - deb : (a.dureeMin || 0);
+    return { cle: 'aj:' + k, ajout: true, date: a.date, chantier: String(a.nom).toUpperCase(), rdv: deb != null ? hhmm(deb) : '',
+             depart: fin != null ? hhmm(fin) : '', heures: duree ? Math.round(duree / 60 * 100) / 100 : (deb != null ? 1 : 0),
+             motif: '', note: a.note || '' };
+  });
+}
+
 /* Charge la semaine (lundi → dimanche) qui contient S.date. */
 async function chargerSemaine(force) {
   const lundi = lundiDe(S.date);
@@ -254,7 +286,7 @@ async function chargerSemaine(force) {
   try {
     const d = await api('liste', { du: lundi, au: ajoutJours(lundi, 6) });
     S.rdvs = d.rdvs || [];
-    S.planning = d.planning || [];
+    S.planning = (d.planning || []).concat(ajoutsDeLaSemaine(lundi, d.ajouts || []));
     S.semaineChargee = lundi;
     if (d.coordonneesChantiers) { try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers)); } catch (_) {} }
   } catch (e) {
@@ -356,8 +388,8 @@ function enTete(suite) {
    ayant une heure de RDV ; chantiers = chantiers du planning sans heure. */
 function compteurSemaine(lundi) {
   if (S.semaineChargee !== lundi) return S.chargement ? 'Chargement…' : '';
-  const nbRdv = S.rdvs.length + S.planning.filter(p => p.rdv).length;
-  const nbCh = S.planning.filter(p => !p.rdv).length;
+  const nbRdv = S.rdvs.length + S.planning.filter(p => p.rdv && !p.ajout).length;
+  const nbCh = S.planning.filter(p => !p.rdv || p.ajout).length;
   return nbRdv + ' RDV · ' + nbCh + ' chantier' + (nbCh > 1 ? 's' : '');
 }
 
@@ -413,13 +445,14 @@ function vueJour() {
   const rdvJour = S.rdvs.filter(r => r.date === S.date);
   const planSansHeure = S.planning.filter(p => p.date === S.date && !p.rdv);
   const planAvecHeure = S.planning.filter(p => p.date === S.date && p.rdv);
-  const nbRdvJ = rdvJour.length + planAvecHeure.length, nbChJ = planSansHeure.length;
+  const nbRdvJ = rdvJour.length + planAvecHeure.filter(p => !p.ajout).length;
+  const nbChJ = planSansHeure.length + planAvecHeure.filter(p => p.ajout).length;
   const resume = nbRdvJ + ' RDV · ' + nbChJ + ' chantier' + (nbChJ > 1 ? 's' : '');
 
   let bande = '';
   if (planSansHeure.length) {
     bande = `<div class="plan-jour"><span class="lbl">Mon planning ce jour</span>${planSansHeure.map(p =>
-      `<button type="button" class="puce-plan c-${catPlan(p)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h${p.motif ? ' · ' + esc(p.motif) : ''}</small></button>`).join('')}</div>`;
+      `<button type="button" class="puce-plan c-${catPlan(p)}${p.ajout ? ' aj' : ''}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${p.ajout ? 'ajouté' : esc(String(p.heures).replace('.', ',')) + ' h'}${p.motif ? ' · ' + esc(p.motif) : ''}</small></button>`).join('')}</div>`;
   }
 
   // Grille
@@ -439,7 +472,7 @@ function vueJour() {
         <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[typeNormal(r.type)])}</span></button>`;
     }
     const p = e.plan;
-    return `<button type="button" class="evt c-${catPlan(p)}" style="${style}" onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>RDV ${esc(p.rdv)} · ${esc(String(p.heures).replace('.', ','))} h</span><span class="tag">PLANNING</span></button>`;
+    return `<button type="button" class="evt c-${catPlan(p)}${p.ajout ? ' aj' : ''}" style="${style}" onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>${p.ajout ? esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : 'RDV ' + esc(p.rdv) + ' · ' + esc(String(p.heures).replace('.', ',')) + ' h'}</span><span class="tag">${p.ajout ? 'AJOUTÉ' : 'PLANNING'}</span></button>`;
   }).join('');
   let ligneMaint = '';
   if (S.date === auj) {
@@ -480,7 +513,7 @@ function vueSemaine() {
       const h = Math.max(18, bas - top);
       const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
       if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
-      return `<button type="button" class="evt c-${catPlan(e.plan)}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
+      return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}" style="${style}" onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${esc(e.plan.rdv)}</span></button>`;
     }).join('');
     cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" data-date="${d}" style="height:${haut}px">${evts}</div>`;
   }
@@ -492,7 +525,7 @@ function vueSemaine() {
     const d = ajoutJours(lundi, i);
     const items = S.planning.filter(p => p.date === d && !p.rdv);
     if (items.length) aPlan = true;
-    plan += `<div>${items.map(p => `<button type="button" class="pj c-${catPlan(p)}" title="${esc(p.chantier)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${esc(String(p.heures).replace('.', ','))} h</small></button>`).join('')}</div>`;
+    plan += `<div>${items.map(p => `<button type="button" class="pj c-${catPlan(p)}${p.ajout ? ' aj' : ''}" title="${esc(p.chantier)}" onclick="ouvrirCase('${esc(p.cle)}')">${esc(p.chantier)}<small>${p.ajout ? 'ajouté' : esc(String(p.heures).replace('.', ',')) + ' h'}</small></button>`).join('')}</div>`;
   }
   const bandePlan = aPlan ? `<div class="sem-plan"><span class="vide">Plan.</span><div class="cols">${plan}</div></div>` : '';
   return `<div class="tete-fixe">`
@@ -709,6 +742,7 @@ function caseCourante() { return S.planning.find(p => p.cle === S.caseCle) || nu
 function vueCase() {
   const p = caseCourante();
   if (!p) return enTete('') + msgHTML() + `<div class="vide-etat">Ce chantier n'est plus dans votre planning.</div>`;
+  if (p.ajout) return vueAjout(p);
   const c = coordsDe(p.chantier);
   const lieu = lieuDepuisCoords(c), tel = (c && (c.mobile || c.fixe)) || '';
   return `<header class="hd"><div class="hd-l1">
@@ -727,6 +761,28 @@ function vueCase() {
       ${p.reservio
         ? `<div class="info-plan">${ICO.plan}<span>RDV importé de Reservio<small>Il se modifie dans Reservio</small></span></div>`
         : `<button type="button" class="btn-sec" onclick="modifierCase()">Modifier</button>`}
+    </div>`;
+}
+
+/* Chantier ajouté sur la saisie mobile : consultation ; il se modifie dans la saisie. */
+function vueAjout(p) {
+  const c = coordsDe(p.chantier);
+  const lieu = lieuDepuisCoords(c), tel = (c && (c.mobile || c.fixe)) || '';
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(p.date)}')">${ICO.retour}</button>
+      <h1 style="font-size:17px">Chantier ajouté</h1></div></header>
+    <div class="det-hd">
+      <span class="badge-type c-autre aj" style="border:1px solid">AJOUTÉ SUR MA SAISIE</span>
+      <h2>${esc(p.chantier)}</h2>
+      <div class="quand">${esc(dateLongue(p.date))}${p.rdv ? ' · ' + esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : ' · heure d\'arrivée non saisie'}</div>
+    </div>`
+    + `<div class="page">
+      ${p.rdv && p.depart ? `<section class="bloc"><span class="lbl">Temps passé</span><div style="font-size:18px;font-weight:800;color:var(--navy)">${esc(fmtDuree(minutes(p.depart) - minutes(p.rdv)))}</div></section>` : ''}
+      ${lieu ? `<section class="bloc"><span class="lbl">Lieu</span><div style="font-size:15px;line-height:1.4;white-space:pre-line">${esc(lieu)}</div></section>` : ''}
+      ${tel ? `<section class="bloc"><span class="lbl">Téléphone</span><div style="font-size:15px">${esc(tel)}</div></section>` : ''}
+      ${p.note ? `<section class="bloc"><span class="lbl">Note</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(p.note)}</div></section>` : ''}
+      <div class="info-plan">${ICO.plan}<span>Chantier ajouté hors planning<small>Les heures se modifient sur votre saisie mobile</small></span></div>
+      <button type="button" class="btn-sec" onclick="retourSaisie()">Ouvrir ma saisie</button>
     </div>`;
 }
 
