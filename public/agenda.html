@@ -85,13 +85,14 @@
     .ligne-h hr { flex:1; border:0; height:1px; background:var(--bord); margin:0; }
     .evt { position:absolute; border-radius:10px; padding:5px 8px; overflow:hidden; display:flex; flex-direction:column; gap:1px;
            text-align:left; border:1px solid; font-size:11px; font-family:inherit; cursor:pointer; }
-    .evt b { font-size:13px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .evt b { font-size:14px; font-weight:700; line-height:1.15; white-space:normal; overflow-wrap:anywhere; word-break:break-word; overflow:hidden; }
     .evt .tag { align-self:flex-start; font-size:9px; font-weight:800; background:#fff; border:1px solid currentColor; border-radius:5px; padding:0 5px; margin-top:2px; }
     /* 4 jeux de couleurs = motifs du planning : RDV client, SAV, Fournisseur, Autre */
-    .c-client { background:#fff3dc; border-color:#f3c770; color:#6b3d00; }
-    .c-sav { background:#fde8e6; border-color:#f1a39a; color:#8a1c12; }
-    .c-fournisseur { background:#efe9fb; border-color:#c3b1ec; color:#4b2a8a; }
-    .c-autre { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
+    /* Couleurs pleines et lisibles, façon Google Agenda (contraste du texte ≥ 4,5:1) */
+    .c-client { background:#f6bf26; border-color:#e0a800; color:#2b1f00; }
+    .c-sav { background:#d93025; border-color:#b3261e; color:#ffffff; }
+    .c-fournisseur { background:#8e24aa; border-color:#741d8b; color:#ffffff; }
+    .c-autre { background:#0b8043; border-color:#086836; color:#ffffff; }
     .c-client b, .c-sav b, .c-fournisseur b, .c-autre b, .c-client small, .c-sav small, .c-fournisseur small, .c-autre small { color:inherit; }
     .puce-plan[class*="c-"], .pj[class*="c-"] { border:1px solid; }
     /* Changement de semaine / jour au balayage : glissement du contenu */
@@ -100,7 +101,7 @@
     body.anim-g .sem-grille, body.anim-g .sem-plan, body.anim-g .grille-zone, body.anim-g .plan-jour, body.anim-g .titre-jour { animation:swG .25s ease-out; }
     body.anim-d .sem-grille, body.anim-d .sem-plan, body.anim-d .grille-zone, body.anim-d .plan-jour, body.anim-d .titre-jour { animation:swD .25s ease-out; }
     /* Chantier sans heure de RDV, placé à titre indicatif (enchaîné à partir de 8 h 30) */
-    .evt.est { opacity:.82; }
+    .evt.est { opacity:.88; background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.12) 0 6px, transparent 6px 12px); }
     .evt.est span { font-style:italic; }
     /* Glisser-déposer (appui long) */
     [data-drag] { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
@@ -112,7 +113,7 @@
     .dr-cible { outline:2px dashed var(--ambre); outline-offset:-2px; }
     .sem-plan .pcol { min-height:24px; border-radius:5px; }
     /* Chantier ajouté sur la saisie mobile (réalisé, hors planning) : bordure pointillée */
-    .aj { border-style:dashed !important; border-width:1.5px !important; }
+    .aj { border-style:dashed !important; border-width:2px !important; border-color:rgba(255,255,255,.85) !important; outline:1px solid rgba(0,0,0,.25); outline-offset:-1px; }
     .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
     .maintenant::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:#d9480f; }
 
@@ -139,8 +140,10 @@
     .grille { cursor:pointer; }
     .sem-col.we { background:#e9edf5; }
     .sem-col.auj { background:rgba(245,158,11,.08); }
-    .sem-col .evt { left:1px; right:1px; border-radius:6px; padding:3px; font-size:9.5px; }
-    .sem-col .evt b { font-size:9.5px; }
+    /* Vue semaine : intitulé seul, sur plusieurs lignes, comme Google Agenda */
+    .sem-col .evt { left:1px; right:1px; border-radius:5px; padding:3px 3px 2px; box-shadow:0 0 0 1px #f4f6fb; }
+    .sem-col .evt b { font-size:11.5px; line-height:1.15; }
+    .sem-col .evt span, .sem-col .evt .tag { display:none; }
 
     /* Bouton + */
     .fab { position:fixed; right:max(20px, calc(50% - 300px)); bottom:24px; width:58px; height:58px; border-radius:18px; border:0;
@@ -702,7 +705,10 @@ function vueSemaine() {
       const bas = Math.min(haut, (e.fin - S_MIN * 60) / 60 * S_PX) - 1;
       if (bas <= 0 || top >= haut) return '';
       const h = Math.max(18, bas - top);
-      const style = `top:${top}px;height:${h}px;left:calc(100% / ${e.nb} * ${e.col} + 1px);width:calc(100% / ${e.nb} - 2px);right:auto`;
+      // Chevauchement en cascade (comme Google Agenda) : chaque événement suivant est décalé
+      // et passe au-dessus, mais garde l'essentiel de la largeur pour rester lisible.
+      const dec = e.nb > 1 ? Math.min(40, 70 / (e.nb - 1)) * e.col : 0;
+      const style = `top:${top}px;height:${h}px;left:calc(${dec}% + 1px);width:calc(${100 - dec}% - 2px);right:auto;z-index:${2 + e.col}`;
       if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" ${dragAttr('rdv', e.rdv.id, e.rdv.date, e.deb, e.fin - e.deb)} onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
       return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}${e.estime ? ' est' : ''}" style="${style}" ${dragCase(e.plan, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${e.estime ? '≈ ' + hhmm(e.deb) : esc(e.plan.rdv)}</span></button>`;
     }).join('');
