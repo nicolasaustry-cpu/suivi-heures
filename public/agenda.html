@@ -94,6 +94,11 @@
     .c-autre { background:#e7f6ec; border-color:#9fd3b0; color:#1d5b34; }
     .c-client b, .c-sav b, .c-fournisseur b, .c-autre b, .c-client small, .c-sav small, .c-fournisseur small, .c-autre small { color:inherit; }
     .puce-plan[class*="c-"], .pj[class*="c-"] { border:1px solid; }
+    /* Changement de semaine / jour au balayage : glissement du contenu */
+    @keyframes swG { from { transform:translateX(40px); opacity:.3; } to { transform:none; opacity:1; } }
+    @keyframes swD { from { transform:translateX(-40px); opacity:.3; } to { transform:none; opacity:1; } }
+    body.anim-g .sem-grille, body.anim-g .sem-plan, body.anim-g .grille-zone, body.anim-g .plan-jour, body.anim-g .titre-jour { animation:swG .25s ease-out; }
+    body.anim-d .sem-grille, body.anim-d .sem-plan, body.anim-d .grille-zone, body.anim-d .plan-jour, body.anim-d .titre-jour { animation:swD .25s ease-out; }
     /* Glisser-déposer (appui long) */
     [data-drag] { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
     body.drag-on { -webkit-user-select:none; user-select:none; }
@@ -492,6 +497,30 @@ function drBrancher() {
   document.addEventListener('contextmenu', e => { if (cibleDe(e)) e.preventDefault(); });
 }
 drBrancher();
+
+/* ── Balayage horizontal du doigt (les flèches de l'en-tête restent actives) ──
+   Vue Semaine : semaine précédente / suivante. Vue Jour : jour précédent / suivant.
+   Geste reconnu : déplacement surtout horizontal (> 60 px, rapide), hors glisser-déposer. */
+const SW = { x: 0, y: 0, t: 0, ok: false };
+document.addEventListener('touchstart', e => {
+  SW.ok = e.touches.length === 1 && (S.vue === 'semaine' || S.vue === 'jour') && !e.target.closest('.hd, .voile');
+  if (!SW.ok) return;
+  SW.x = e.touches[0].clientX; SW.y = e.touches[0].clientY; SW.t = Date.now();
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (!SW.ok || DR.actif || DR.bloqueClic) return;
+  SW.ok = false;
+  const t = e.changedTouches && e.changedTouches[0]; if (!t) return;
+  const dx = t.clientX - SW.x, dy = t.clientY - SW.y;
+  if (Math.abs(dx) < 60 || Math.abs(dx) < 1.6 * Math.abs(dy) || Date.now() - SW.t > 700) return;
+  const sens = dx < 0 ? 1 : -1;          // doigt vers la gauche = suivant
+  if (S.vue === 'semaine') decalerSemaine(sens);
+  else { S.date = ajoutJours(S.date, sens); chargerSemaine(); rendre(); }
+  document.body.classList.remove('anim-g', 'anim-d');
+  void document.body.offsetWidth;          // relance l'animation
+  document.body.classList.add(sens > 0 ? 'anim-g' : 'anim-d');
+  setTimeout(() => document.body.classList.remove('anim-g', 'anim-d'), 300);
+});
 
 /* Toucher un créneau vide (hors rendez-vous et chantiers) = nouveau RDV à ce jour et
    cette heure, arrondie à la demi-heure inférieure. */
