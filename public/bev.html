@@ -1309,19 +1309,19 @@ function rendreTableauAnnee() {
 
   let corps = '', thead, tfoot;
   if (_detailAnnee === 'simple') {
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Heures payées (total)</th><th>Mouvement du compteur</th><th>Solde compteur</th></tr>';
+    thead = '<tr><th>Mois</th><th title="Contrat − temps des événements (congés, récupérations…)">Nouvelle Base</th><th>Réalisé</th><th>Écart</th><th>Heures payées (total)</th><th>Mouvement du compteur</th><th>Solde compteur</th></tr>';
     moisData.forEach(function(md){
       if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
-      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
-        '<td>' + fmt(md.contrat) + '</td>' +
+        '<td>' + (md.blanc ? '' : '<b class="base">' + fmt(md.base) + '</b>') + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.real)) + '</td>' +
         '<td class="' + (md.blanc ? '' : classeEcart(md.ecart)) + '"' + (!md.blanc && md.modePlan ? ' title="Aucun pointage ce mois-ci : écart calculé sur le Planifié"' : '') + '>' + (md.blanc ? '' : signe(md.ecart) + (md.modePlan ? '<sup class="ecart-plan">P</sup>' : '')) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
         '<td class="' + (md.blanc ? '' : 'mvt-cpt ' + classeEcart(md.mvt)) + '"' + (md.blanc ? '' : ' title="' + titreMvt(md) + '"') + '>' + (md.blanc ? '' : signe(md.mvt)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
     });
-    tfoot = '<tr><td>Total année</td><td></td>' +
+    tfoot = '<tr><td>Total année</td><td><b class="base">' + fmt(totaux.TBASE) + '</b></td>' +
       '<td>' + fmt(totaux.TREAL) + '</td>' +
       '<td class="' + classeEcart(totaux.TECART) + '">' + signe(totaux.TECART) + '</td>' +
       '<td>' + fmt(totaux.TPAYEES) + '</td>' +
@@ -1380,7 +1380,7 @@ function rendreTableauAnnee() {
     ((_detailAnnee === 'simple' && moisData.some(function(md){ return !md.vide && !md.blanc && md.modePlan; }))
       ? '<div class="note-ecart-plan"><sup class="ecart-plan">P</sup> Mois sans pointage : l\'écart est calculé sur le Planifié (Planifié − Nouvelle Base), comme dans la vue Mois.</div>' : '') +
     (moisData.some(function(md){ return md.avant && !md.vide; })
-      ? '<div class="note-ecart-plan">Les mois grisés en début d\'année précèdent les premières données de ce salarié : seul le contrat est rappelé, ils ne comptent pas dans les totaux.</div>' : '') +
+      ? '<div class="note-ecart-plan">Les mois grisés en début d\'année précèdent les premières données de ce salarié' + (_detailAnnee === 'simple' ? '' : ' : seul le contrat est rappelé') + ', ils ne comptent pas dans les totaux.</div>' : '') +
     '<div style="font-weight:700;color:#334155;margin:18px 0 4px;font-size:0.95rem;">Événements — nombre de jours par mois' + (entCIBTP ? ' <span style="font-weight:400;font-size:0.8rem;color:#6366f1;">(Congé compté en jours ouvrables, coefficient (30/12)/(25/12) ≈ ' + (Math.round((30/12)/(25/12)*1000)/1000) + ', régime CIBTP)</span>' : '') + '</div>' +
     '<table class="bev bev-annee"><thead><tr><th>Mois</th>' + evtsAnnee.map(function(e){ return '<th>' + e + '</th>'; }).join('') + '<th>Total</th></tr></thead>' +
     '<tbody>' + corpsEvt + '</tbody>' +
