@@ -52,6 +52,7 @@
     table.bev tfoot td { border-top:2px solid #cbd5e1; font-weight:700; padding:9px 8px; }
     table.bev input { width:64px; text-align:right; padding:2px 6px; border:1px solid #cbd5e1; border-radius:5px; font-size:0.85rem; }
     .pos { color:#16a34a; } .neg { color:#dc2626; } .nul { color:#9ca3af; }
+    table.bev-annee td.mvt-cpt { background:#fff8eb; font-weight:600; }   /* Mouvement du compteur (vues annuelles), même teinte que l'encart de la vue Mois */
     .signatures { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:1.5rem; }
     .sig-box { border:1px solid #94a3b8; border-radius:8px; padding:12px 14px; min-height:110px; }
     .sig-box .lbl { font-size:0.85rem; font-weight:600; color:#374151; }
@@ -1213,7 +1214,7 @@ async function chargerAnnee() {
   }
   const res = await Promise.all(reqs);
 
-  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, TMAJO=0, TRECUP=0, TECART=0, soldeCumule=0;
+  let TC=0, TTE=0, TBASE=0, TPLAN=0, TREAL=0, TCOMPTE=0, TREPORTE=0, TRTTRECUP=0, TPAYEES=0, TMAJO=0, TRECUP=0, TECART=0, TMVT=0, soldeCumule=0;
   const evtsAnnee = EVENEMENTS.filter(function(e){ return e; });   // motifs possibles (sans la valeur vide)
   const TEVT = {}; evtsAnnee.forEach(function(e){ TEVT[e] = 0; });
   // Régime CIBTP (réglage entreprise, page Entreprise) : décompte en jours ouvrables → coefficient (25/12)/(30/12)
@@ -1275,12 +1276,14 @@ async function chargerAnnee() {
     if (moisPasse) TECART += ecart;
     TC += cContrat; TTE += cTevt; TBASE += cBase; TPLAN += cPlan; TRTTRECUP += cRttRecup; TMAJO += majo; TRECUP += recupM;
     if (moisPasse) { TREAL += cReal; TCOMPTE += cCompte; TREPORTE += reporte; TPAYEES += payees; }
-    soldeCumule = r2(soldeCumule + credit - recupM);
+    const mvt = r2(credit - recupM);                 // mouvement du compteur du mois (comme l'encart de la vue Mois)
+    TMVT += mvt;
+    soldeCumule = r2(soldeCumule + mvt);
     moisData.push({
       nom: moisNoms[idx], vide: false, blanc: blanc,
       contrat: cContrat, tevt: cTevt, rttRecup: cRttRecup, base: cBase, plan: cPlan,
       real: cReal, compte: cCompte, ecart: ecart, modePlan: modePlan, payees: payees, reporte: reporte,
-      credit: credit, majo: majo, recup: recupM,
+      credit: credit, majo: majo, recup: recupM, mvt: mvt,
       soldeCumule: soldeCumule, cntEvt: cntEvt, totEvtMois: totEvtMois
     });
   });
@@ -1288,12 +1291,16 @@ async function chargerAnnee() {
   _anneeCtx = {
     moisData: moisData, evtsAnnee: evtsAnnee, TEVT: TEVT, entCIBTP: entCIBTP,
     totaux: { TC:TC, TTE:TTE, TBASE:TBASE, TPLAN:TPLAN, TREAL:TREAL, TCOMPTE:TCOMPTE,
-      TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, TMAJO:r2(TMAJO), TRECUP:r2(TRECUP), soldeCumule:soldeCumule,
+      TREPORTE:TREPORTE, TRTTRECUP:TRTTRECUP, TPAYEES:TPAYEES, TMAJO:r2(TMAJO), TRECUP:r2(TRECUP), TMVT:r2(TMVT), soldeCumule:soldeCumule,
       TECART: r2(TECART) }
   };
   rendreTableauAnnee();
 }
 
+// Infobulle de la cellule Mouvement : détail crédit − récupérations du mois
+function titreMvt(md) {
+  return 'Mouvement = ' + signe(md.credit) + ' h créditées − ' + fmt(md.recup) + ' h récupérées = ' + signe(md.mvt) + ' h';
+}
 const TITRE_AVANT = 'Aucune donnée pour ce salarié avant ce mois : rien à comparer, mois exclu des totaux';
 function rendreTableauAnnee() {
   const zone = document.getElementById('zone');
@@ -1302,29 +1309,31 @@ function rendreTableauAnnee() {
 
   let corps = '', thead, tfoot;
   if (_detailAnnee === 'simple') {
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Heures payées (total)</th><th>Solde compteur</th></tr>';
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Réalisé</th><th>Écart</th><th>Heures payées (total)</th><th>Mouvement du compteur</th><th>Solde compteur</th></tr>';
     moisData.forEach(function(md){
-      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
-      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
+      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.real)) + '</td>' +
         '<td class="' + (md.blanc ? '' : classeEcart(md.ecart)) + '"' + (!md.blanc && md.modePlan ? ' title="Aucun pointage ce mois-ci : écart calculé sur le Planifié"' : '') + '>' + (md.blanc ? '' : signe(md.ecart) + (md.modePlan ? '<sup class="ecart-plan">P</sup>' : '')) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.payees)) + '</td>' +
+        '<td class="' + (md.blanc ? '' : 'mvt-cpt ' + classeEcart(md.mvt)) + '"' + (md.blanc ? '' : ' title="' + titreMvt(md) + '"') + '>' + (md.blanc ? '' : signe(md.mvt)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
     });
     tfoot = '<tr><td>Total année</td><td></td>' +
       '<td>' + fmt(totaux.TREAL) + '</td>' +
       '<td class="' + classeEcart(totaux.TECART) + '">' + signe(totaux.TECART) + '</td>' +
       '<td>' + fmt(totaux.TPAYEES) + '</td>' +
+      '<td class="mvt-cpt ' + classeEcart(totaux.TMVT) + '">' + signe(totaux.TMVT) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   } else {
     const avecMaj = majorationCompteurActive();   // colonne Majoration masquée si l'entreprise ne l'applique pas
     const tdM = avecMaj ? '<td></td>' : '';
-    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées (total)</th><th>Heures dues au salarié</th>' + (avecMaj ? '<th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th>' : '') + '<th>Heures récupérées</th><th>Solde compteur heure</th></tr>';
+    thead = '<tr><th>Mois</th><th>Contrat</th><th>Temps Évt</th><th>Heures RTT et Récup.</th><th>Nouvelle Base</th><th>Planifié y compris récup.</th><th>Réalisé</th><th>Temps pris en compte</th><th>Heures payées (total)</th><th>Heures dues au salarié</th>' + (avecMaj ? '<th>Majoration ' + fmtTaux(tauxMajorationHS()) + ' %</th>' : '') + '<th>Heures récupérées</th><th>Mouvement du compteur</th><th>Solde compteur heure</th></tr>';
     moisData.forEach(function(md){
-      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>' + tdM + '<td></td><td></td></tr>'; return; }
-      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>' + tdM + '<td></td><td></td></tr>'; return; }
+      if (md.vide) { corps += '<tr class="futur"><td>' + md.nom + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>' + tdM + '<td></td><td></td><td></td></tr>'; return; }
+      if (md.avant) { corps += '<tr class="futur" title="' + TITRE_AVANT + '"><td>' + md.nom + '</td><td>' + fmt(md.contrat) + '</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>' + tdM + '<td></td><td></td><td></td></tr>'; return; }
       corps += '<tr' + (md.blanc ? ' class="futur"' : '') + '><td>' + md.nom + '</td>' +
         '<td>' + fmt(md.contrat) + '</td>' +
         '<td>' + fmt(md.tevt) + '</td>' +
@@ -1337,6 +1346,7 @@ function rendreTableauAnnee() {
         '<td>' + (md.blanc ? '' : fmt(md.reporte)) + '</td>' +
         (avecMaj ? '<td>' + (md.blanc ? '' : fmt(md.majo)) + '</td>' : '') +
         '<td>' + (md.blanc ? '' : (md.recup ? '−' + fmt(md.recup) : fmt(0))) + '</td>' +
+        '<td class="' + (md.blanc ? '' : 'mvt-cpt ' + classeEcart(md.mvt)) + '"' + (md.blanc ? '' : ' title="' + titreMvt(md) + '"') + '>' + (md.blanc ? '' : signe(md.mvt)) + '</td>' +
         '<td>' + (md.blanc ? '' : fmt(md.soldeCumule)) + '</td></tr>';
     });
     tfoot = '<tr><td>Total année</td>' +
@@ -1351,6 +1361,7 @@ function rendreTableauAnnee() {
       '<td>' + fmt(totaux.TREPORTE) + '</td>' +
       (avecMaj ? '<td>' + fmt(totaux.TMAJO) + '</td>' : '') +
       '<td>' + (totaux.TRECUP ? '−' + fmt(totaux.TRECUP) : fmt(0)) + '</td>' +
+      '<td class="mvt-cpt ' + classeEcart(totaux.TMVT) + '">' + signe(totaux.TMVT) + '</td>' +
       '<td>' + fmt(totaux.soldeCumule) + '</td></tr>';
   }
 
