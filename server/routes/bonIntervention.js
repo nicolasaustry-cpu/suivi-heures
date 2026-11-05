@@ -175,7 +175,7 @@ router.post("/", async (req, res) => {
 /* Contexte PC : token + fonctionnalité activée. Renvoie { clientId, doc } ou envoie l'erreur. */
 async function contextePC(req, res) {
   const clientId = U(req.user?.clientId);
-  const doc = await Donnees.findOne({ clientId }, "clientId entreprise coordonneesChantiers");
+  const doc = await Donnees.findOne({ clientId }, "clientId entreprise coordonneesChantiers salaries");
   if (!doc?.entreprise?.bonsInterventionActifs) {
     res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise. Activez-les sur la page Entreprise." });
     return null;
@@ -278,7 +278,7 @@ router.get("/pc", verifyToken, async (req, res) => {
     const ctx = await contextePC(req, res); if (!ctx) return;
     await numeroterAnciens(ctx.clientId);
     const bons = await BonIntervention
-      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieNom dateIntervention envois creeLe equipementId equipement.libelle")
+      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieId salarieNom dateIntervention envois creeLe equipementId equipement.libelle")
       .sort({ creeLe: -1 })
       .limit(2000)
       .lean();
@@ -423,6 +423,21 @@ router.post("/pc/:id/envoyer", verifyToken, async (req, res) => {
     const envoi = { a, copie, le: new Date() };
     await BonIntervention.updateOne({ _id: bon._id }, { $push: { envois: envoi } });
     res.json({ ok: true, envoi });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Changer le technicien d'un bon (choisi parmi les salariés) ──
+router.post("/pc/:id/technicien", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const sal = (ctx.doc.salaries || []).find(s => String(s.id) === String(req.body.salarieId));
+    if (!sal) return res.status(400).json({ ok: false, message: "Salarié inconnu" });
+    const salarieNom = `${sal.prenom || ""} ${sal.nom || ""}`.trim();
+    await BonIntervention.updateOne({ _id: bon._id }, { $set: { salarieId: String(sal.id), salarieNom } });
+    res.json({ ok: true, salarieId: String(sal.id), salarieNom });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

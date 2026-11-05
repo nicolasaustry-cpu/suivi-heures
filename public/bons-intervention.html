@@ -339,7 +339,7 @@
         (coord.ville ? '<br>' + esc(coord.ville) : '') +
         (tel ? '<br>Tél. ' + esc(tel) : '') + '</div>' +
       '<div class="bi-cartouche"><div class="t">Intervention</div><strong>Date : ' + esc(fmtDate(b.dateIntervention) || '—') + '</strong>' +
-        '<br>Technicien : ' + esc(b.salarieNom || '—') +
+        '<br>Technicien : ' + selectTechnicien(b) +
         (b.equipement && b.equipement.libelle ? '<br>🔧 ' + esc(b.equipement.libelle) : '') +
         '<br><span style="color:#64748b;font-size:0.82rem;">Bon établi le ' + esc(fmtDateHeure(b.creeLe)) + '</span></div>' +
     '</div>';
@@ -376,6 +376,38 @@
       }).join('<br>') + '</div>';
     }
     return h;
+  }
+
+  /* Technicien du bon, modifiable : liste des salariés de l'entreprise. */
+  function selectTechnicien(b) {
+    var sal = [];
+    try { sal = JSON.parse(localStorage.getItem('salariesdata') || '[]') || []; } catch (e) {}
+    var opts = sal.filter(function (s) { return s && (s.nom || s.prenom); }).map(function (s) {
+      return { id: String(s.id), nom: ((s.prenom || '') + ' ' + (s.nom || '')).trim() };
+    }).sort(function (a, c) { return a.nom.localeCompare(c.nom, 'fr'); });
+    var connu = opts.some(function (o) { return o.id === String(b.salarieId || ''); });
+    var h = '<select onchange="changerTechnicien(\'' + b._id + '\', this.value)" style="max-width:100%;font-weight:600;">';
+    if (!connu) h += '<option value="" selected>' + esc(b.salarieNom || '— à préciser —') + '</option>';
+    opts.forEach(function (o) {
+      h += '<option value="' + esc(o.id) + '"' + (o.id === String(b.salarieId || '') ? ' selected' : '') + '>' + esc(o.nom) + '</option>';
+    });
+    return h + '</select>';
+  }
+
+  function changerTechnicien(id, salarieId) {
+    if (!salarieId) return;
+    _apiFetch('/api/bons-intervention/pc/' + id + '/technicien', { method: 'POST', body: JSON.stringify({ salarieId: salarieId }) })
+      .then(function (res) {
+        if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { _notif(res.body.message || 'Erreur', '#dc2626'); return; }
+        var ligne = _bons.find(function (b) { return b._id === id; });
+        if (ligne) { ligne.salarieId = res.body.salarieId; ligne.salarieNom = res.body.salarieNom; }
+        if (_bonOuvert && _bonOuvert.bon._id === id) {
+          _bonOuvert.bon.salarieId = res.body.salarieId; _bonOuvert.bon.salarieNom = res.body.salarieNom;
+          document.getElementById('bon-corps').innerHTML = rendreBon(_bonOuvert);
+        }
+        remplirFiltres(); rendreListe();
+        _notif('✔ Technicien : ' + res.body.salarieNom);
+      });
   }
 
   function zoom(src) {
