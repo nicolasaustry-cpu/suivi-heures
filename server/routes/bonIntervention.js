@@ -73,12 +73,25 @@ router.post("/masques", async (req, res) => {
     if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
 
     const masques = await MasqueIntervention
-      .find({ clientId: ctx.clientId, actif: true }, "nom champs")
+      .find({ clientId: ctx.clientId, actif: true }, "nom champs cerfa")
       .sort({ nom: 1 });
     res.json({ ok: true, masques });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
+});
+
+// ── Partie CERFA à compléter sur mobile ──
+router.post("/cerfa-mobile", async (req, res) => {
+  try {
+    const ctx = await resoudreContexteMobile(req);
+    if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
+    const m = CERFAS[String(req.body.code || "")];
+    if (!m || !m.MOBILE) return res.status(404).json({ ok: false, message: "CERFA inconnu" });
+    const reg = await ReglageCerfa.findOne({ clientId: ctx.clientId }).lean();
+    res.json({ ok: true, code: m.CODE, titre: m.TITRE, sections: m.MOBILE,
+      memo: { Detecteur_ID: reg?.valeurs?.detecteur || "" } });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
 // ── Nom du signataire client proposé par défaut ──
@@ -160,6 +173,12 @@ router.post("/", async (req, res) => {
       reponses,
       creeLe: new Date()
     });
+
+    // CERFA complété sur mobile : pré-remplissage complet + saisie du technicien
+    if (req.body.cerfa && masque.cerfa && CERFAS[masque.cerfa] && String(req.body.cerfa.code) === masque.cerfa) {
+      try { await joindreCerfaMobile(bon, masque.cerfa, req.body.cerfa.valeurs, ctx.clientId); }
+      catch (e) { console.error("CERFA mobile non joint au bon", bon._id, e.message); }
+    }
 
     res.json({ ok: true, id: bon._id });
   } catch (err) {
@@ -304,6 +323,51 @@ async function valeursCerfaProposees(code, bon, champs, doc) {
   });
 }
 
+/* CERFA rempli sur mobile : les valeurs proposées (entreprise, client, équipement,
+   bon…) complétées par ce qu'a saisi le technicien, puis jointes au bon. */
+async function joindreCerfaMobile(bon, code, brut, clientId) {
+  const saisie = assainirValeurs(code, brut) || {};
+  const doc = await Donnees.findOne({ clientId }, "clientId entreprise coordonneesChantiers");
+  const b = typeof bon.toObject === "function" ? bon.toObject() : bon;
+  const champs = b.masqueChamps || [];
+  const proposees = await valeursCerfaProposees(code, b, champs, doc || {});
+  // Natures cochées par le technicien : elles remplacent celles déduites du texte
+  const natures = ["Case_Assemblage", "Case_MiseService", "Case_Modif", "Case_Maintenance", "Case_CtrlPerio", "Case_CtrlNonPerio", "Case_Demantel", "Case_Autre"];
+  if (natures.some(k => saisie[k])) natures.forEach(k => { if (!saisie[k]) delete proposees[k]; });
+  const valeurs = { ...proposees };
+  for (const [k, v] of Object.entries(saisie)) if (v !== "" && v !== false) valeurs[k] = v;
+  // Date du contrôle d'étanchéité = date du bon
+  if ((valeurs.Case_CtrlPerio || valeurs.Case_CtrlNonPerio) && !valeurs.Controle_Annee) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(b.dateIntervention || "");
+    if (m) { valeurs.Controle_Jour = m[3]; valeurs.Controle_Mois = m[2]; valeurs.Controle_Annee = m[1]; }
+  }
+  // Seuils [7] [8] recalculés si le fluide / la charge viennent du mobile
+  if (saisie.Equipement_Fluide || saisie.Equipement_Charge) {
+    const recalc = CERFAS[code].preremplir({ bon: b, champs, coord: {}, entreprise: {}, reglages: {},
+      equipement: { fluide: valeurs.Equipement_Fluide, chargeKg: String(valeurs.Equipement_Charge || "").replace(",", ".") } });
+    for (const k of Object.keys(valeurs)) if (/^Case_(HCFC|HFC|HFO|Sans|Avec)_/.test(k)) delete valeurs[k];
+    for (const [k, v] of Object.entries(recalc)) if (/^Case_(HCFC|HFC|HFO|Sans|Avec)_|^Equipement_teqCO2$/.test(k)) valeurs[k] = v;
+    if (saisie.Bouton_Oui === "1") {   // détection permanente : fréquences « avec »
+      const m = { Case_Sans_12m: "Case_Avec_24m", Case_Sans_6m: "Case_Avec_12m", Case_Sans_3m: "Case_Avec_6m" };
+      for (const [a, z] of Object.entries(m)) if (valeurs[a]) { delete valeurs[a]; valeurs[z] = true; }
+    }
+  }
+  const finales = assainirValeurs(code, valeurs);
+  await BonIntervention.updateOne({ _id: b._id }, { $set: { cerfas: [{ code, valeurs: finales, modifieLe: new Date(), origine: "mobile" }] } });
+  if (saisie.Detecteur_ID) await ReglageCerfa.updateOne({ clientId }, { $set: { "valeurs.detecteur": saisie.Detecteur_ID, maj: new Date() } }, { upsert: true });
+  // Fluide / charge reportés dans la fiche équipement s'ils y manquent
+  if (b.equipementId && (saisie.Equipement_Fluide || saisie.Equipement_Charge)) {
+    const e = await Equipement.findById(b.equipementId).catch(() => null);
+    if (e) {
+      let modif = false;
+      if (!e.fluide && saisie.Equipement_Fluide) { e.fluide = "R" + String(saisie.Equipement_Fluide).replace(/^R\s*-?\s*/i, ""); modif = true; }
+      const ch = Number(String(saisie.Equipement_Charge || "").replace(",", "."));
+      if (e.chargeKg == null && Number.isFinite(ch) && ch > 0) { e.chargeKg = ch; modif = true; }
+      if (modif) { e.modifieLe = new Date(); await e.save(); }
+    }
+  }
+}
+
 /* Mémorise les valeurs propres à l'entreprise (champs marqués « memo »). */
 async function memoriserReglages(clientId, code, valeurs) {
   const memo = {};
@@ -340,7 +404,7 @@ router.post("/pc/exemple", verifyToken, async (req, res) => {
     let masque = await MasqueIntervention.findOne({ clientId, nom: NOM_MASQUE_EXEMPLE });
     if (!masque) {
       masque = await MasqueIntervention.create({
-        clientId, nom: NOM_MASQUE_EXEMPLE, actif: true, champs: CHAMPS_EXEMPLE,
+        clientId, nom: NOM_MASQUE_EXEMPLE, actif: true, champs: CHAMPS_EXEMPLE, cerfa: "15497",
         creeLe: new Date(), modifieLe: new Date()
       });
     }

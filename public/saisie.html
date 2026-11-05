@@ -1195,6 +1195,20 @@
 
   /* ── Bon d'intervention (mobile) ── */
   .bon-champ { margin:14px 0; }
+  .bon-cerfa { border:2px solid #bfdbfe; background:#f8fbff; border-radius:12px; padding:10px 12px; margin:6px 0 14px; }
+  .bon-cerfa-titre { font-weight:800; color:#0f3a8a; font-size:0.9rem; }
+  .bon-cerfa-sous { font-size:0.82rem; color:#475569; margin:2px 0 8px; }
+  .bon-cerfa-choix { display:flex; gap:8px; flex-wrap:wrap; }
+  .bon-cerfa-btn { flex:1; min-width:70px; padding:9px 10px; border:1.5px solid #cbd5e1; background:#fff; border-radius:9px; font-weight:700; color:#334155; }
+  .bon-cerfa-btn.petit { padding:7px 8px; font-size:0.82rem; }
+  .bon-cerfa-btn.actif { background:#0f3a8a; border-color:#0f3a8a; color:#fff; }
+  .bon-cerfa-corps { margin-top:10px; }
+  .bon-cerfa-section { border-top:1px solid #dbeafe; padding-top:8px; margin-top:8px; }
+  .bon-cerfa-st { font-weight:700; font-size:0.82rem; color:#0f3a8a; margin-bottom:4px; }
+  .bon-cerfa-aide { font-size:0.74rem; color:#64748b; margin-bottom:6px; }
+  .bon-cerfa-champ { margin-bottom:8px; }
+  .bon-cerfa-champ input[type=text] { width:100%; box-sizing:border-box; }
+  .bon-cerfa-lbl { display:block; font-size:0.78rem; font-weight:600; color:#334155; margin-bottom:4px; }
   .bon-auto-info { font-size:0.8rem; color:#5b21b6; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:7px 10px; margin:4px 0 12px; }
   .bon-champ label.bon-lbl { display:block; font-size:0.85rem; font-weight:700; color:#0f172a; margin-bottom:6px; }
   .bon-champ .bon-oblig { color:#dc2626; }
@@ -5190,6 +5204,7 @@ function choisirMasque(masqueId) {
   _bonMasqueActuel = _bonMasques.find(function (m) { return m._id === masqueId; }) || null;
   _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {}; _bonSignatureAEnregistrer = {};
   _bonChampsEquip = {};
+  _bonCerfa = { concerne: null, valeurs: {} };
   _bonRendreChamps();
   _bonAppliquerEquipement();
 }
@@ -5507,7 +5522,119 @@ function _bonRendreChamps() {
     zone.appendChild(wrap);
   });
 
+  _bonRendreCerfa(zone);
   document.getElementById('bon-actions').style.display = '';
+}
+
+/* ═══ CERFA proposé par le masque (ex. 15497 fluides frigorigènes) ═══
+   Le technicien indique si l'intervention est concernée (réponse obligatoire).
+   Si oui, il complète ce qu'il constate sur place ; le serveur pré-remplit
+   tout le reste et joint le CERFA officiel au bon. */
+let _bonCerfa = { concerne: null, valeurs: {}, def: null };
+let _bonCerfaDefs = {};     // définitions mobiles déjà chargées, par code
+
+function _bonRendreCerfa(zone) {
+  const code = _bonMasqueActuel && _bonMasqueActuel.cerfa;
+  if (!code) return;
+  const bloc = document.createElement('div');
+  bloc.id = 'bon-cerfa';
+  bloc.className = 'bon-cerfa';
+  // Avant les signatures, pour signer en dernier
+  const premiereSig = Array.from(zone.querySelectorAll('[id^="bon-sigzone-"]')).map(function (e) { return e.closest('.bon-champ'); })[0];
+  if (premiereSig) zone.insertBefore(bloc, premiereSig); else zone.appendChild(bloc);
+  _bonDessinerCerfa();
+}
+
+function _bonDessinerCerfa() {
+  const bloc = document.getElementById('bon-cerfa'); if (!bloc) return;
+  const code = _bonMasqueActuel.cerfa;
+  const c = _bonCerfa;
+  bloc.innerHTML = '';
+  const q = document.createElement('div');
+  q.className = 'bon-cerfa-q';
+  q.innerHTML = '<div class="bon-cerfa-titre">📑 CERFA ' + code + (code === '15497' ? ' — fluides frigorigènes' : '') + ' <span class="bon-oblig">*</span></div>' +
+    '<div class="bon-cerfa-sous">Cette intervention est-elle concernée ?</div>';
+  const ligne = document.createElement('div');
+  ligne.className = 'bon-cerfa-choix';
+  [['oui', 'Oui', true], ['non', 'Non', false]].forEach(function (o) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = o[1];
+    b.className = 'bon-cerfa-btn' + (c.concerne === o[2] ? ' actif' : '');
+    b.onclick = function () { _bonCerfa.concerne = o[2]; _bonDessinerCerfa(); };
+    ligne.appendChild(b);
+  });
+  q.appendChild(ligne);
+  bloc.appendChild(q);
+  if (c.concerne !== true) return;
+
+  const corps = document.createElement('div');
+  corps.className = 'bon-cerfa-corps';
+  bloc.appendChild(corps);
+  if (_bonCerfaDefs[code]) { _bonFormCerfa(corps, _bonCerfaDefs[code]); return; }
+  corps.textContent = 'Chargement…';
+  fetch('/api/bons-intervention/cerfa-mobile', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, code: code })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { corps.textContent = d.message || 'CERFA indisponible'; return; }
+    _bonCerfaDefs[code] = d;
+    _bonFormCerfa(corps, d);
+  }).catch(function () { corps.textContent = 'Connexion nécessaire pour compléter le CERFA.'; });
+}
+
+function _bonFormCerfa(corps, def) {
+  const v = _bonCerfa.valeurs;
+  // Valeurs d'office : fiche équipement, détecteur déjà utilisé
+  if (v.Detecteur_ID === undefined && def.memo && def.memo.Detecteur_ID) v.Detecteur_ID = def.memo.Detecteur_ID;
+  const e = _bonEquipement;
+  if (e) {
+    if (v.Equipement_Fluide === undefined && e.fluide) v.Equipement_Fluide = String(e.fluide).replace(/^R\s*-?\s*/i, '');
+    if (v.Equipement_Charge === undefined && e.chargeKg != null) v.Equipement_Charge = String(e.chargeKg).replace('.', ',');
+  }
+  corps.innerHTML = '';
+  const fuite = !!v.Case_Fuite_Oui;
+  def.sections.forEach(function (s) {
+    const sec = document.createElement('div');
+    sec.className = 'bon-cerfa-section';
+    sec.innerHTML = '<div class="bon-cerfa-st">' + s.titre + '</div>' + (s.aide ? '<div class="bon-cerfa-aide">' + s.aide + '</div>' : '');
+    s.champs.forEach(function (c) {
+      if (c.siFuite && !fuite) return;
+      const w = document.createElement('div');
+      w.className = 'bon-cerfa-champ';
+      if (c.type === 'case') {
+        const l = document.createElement('label'); l.className = 'bon-case-ligne';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!v[c.pdf];
+        cb.onchange = function () { v[c.pdf] = this.checked; };
+        const sp = document.createElement('span'); sp.textContent = c.label;
+        l.appendChild(cb); l.appendChild(sp); w.appendChild(l);
+      } else if (c.type === 'radio' || c.type === 'choix') {
+        const lab = document.createElement('div'); lab.className = 'bon-cerfa-lbl'; lab.textContent = c.label; w.appendChild(lab);
+        const ligne = document.createElement('div'); ligne.className = 'bon-cerfa-choix';
+        c.options.forEach(function (o) {
+          const b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
+          const actif = c.type === 'radio' ? String(v[c.pdf]) === o[0] : !!v[o[0]];
+          b.className = 'bon-cerfa-btn petit' + (actif ? ' actif' : '');
+          b.onclick = function () {
+            if (c.type === 'radio') v[c.pdf] = o[0];
+            else c.options.forEach(function (x) { v[x[0]] = (x[0] === o[0]); });
+            _bonFormCerfa(corps, def);
+          };
+          ligne.appendChild(b);
+        });
+        w.appendChild(ligne);
+      } else {
+        const lab = document.createElement('label'); lab.className = 'bon-cerfa-lbl'; lab.textContent = c.label; w.appendChild(lab);
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        if (c.type === 'nombre') { inp.inputMode = 'decimal'; inp.placeholder = '0,0'; }
+        inp.value = v[c.pdf] == null ? '' : v[c.pdf];
+        inp.oninput = function () { v[c.pdf] = this.value; };
+        w.appendChild(inp);
+      }
+      sec.appendChild(w);
+    });
+    corps.appendChild(sec);
+  });
 }
 
 /* Dictée par champ : CHAQUE clic sur « Dicter » ajoute une NOUVELLE LIGNE
@@ -5767,6 +5894,11 @@ function _bonAfficherPadSignature(idChamp, zone, proposerEnregistrement) {
 
 async function validerBon() {
   if (!_bonMasqueActuel) { alert('Choisissez un type de bon'); return; }
+  if (_bonMasqueActuel.cerfa && _bonCerfa.concerne === null) {
+    alert('Indiquez si l\'intervention est concernée par le CERFA ' + _bonMasqueActuel.cerfa + ' (Oui / Non).');
+    const b = document.getElementById('bon-cerfa'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   for (const c of (_bonMasqueActuel.champs || [])) {
     if (!c.obligatoire) continue;
     if (c.type === 'datetime' && c.auto) continue;   // repris du pointage, peut être complété après le bon
@@ -5797,6 +5929,7 @@ async function validerBon() {
         chantier: nom,
         masqueId: _bonMasqueActuel._id,
         equipementId: _bonEquipement ? _bonEquipement._id : null,
+        cerfa: (_bonMasqueActuel.cerfa && _bonCerfa.concerne) ? { code: _bonMasqueActuel.cerfa, valeurs: _bonCerfa.valeurs } : null,
         dateIntervention: dateGlobale,
         reponses: _bonReponses
       })

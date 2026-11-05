@@ -95,6 +95,46 @@ export const SECTIONS = [
   ] }
 ];
 
+/* ── Saisie sur MOBILE ──
+   Uniquement ce que le technicien constate sur place ; tout le reste (opérateur,
+   détenteur, équipement, seuils, signatures…) est pré-rempli automatiquement.
+   Types : case, texte, nombre (kg), radio, choix (cases exclusives : [[champPdf, libellé]…]). */
+export const MOBILE = [
+  { titre: "Nature de l'intervention", champs: [
+    C("Case_Maintenance", "Maintenance"), C("Case_MiseService", "Mise en service"),
+    C("Case_CtrlPerio", "Contrôle d'étanchéité périodique"), C("Case_CtrlNonPerio", "Contrôle d'étanchéité non périodique"),
+    C("Case_Modif", "Modification de l'équipement"), C("Case_Assemblage", "Assemblage"),
+    C("Case_Demantel", "Démantèlement"), C("Case_Autre", "Autre"), T("Autre", "Autre : préciser")
+  ] },
+  { titre: "Fluide de l'équipement", aide: "Repris de la fiche équipement s'il est connu.", champs: [
+    T("Equipement_Fluide", "Fluide (ex : 32, 410A)", { equip: "fluide" }),
+    { pdf: "Equipement_Charge", label: "Charge totale (kg)", type: "nombre", equip: "chargeKg" }
+  ] },
+  { titre: "Contrôle d'étanchéité", champs: [
+    T("Detecteur_ID", "Détecteur de fuite utilisé (identification)", { memoMobile: true }),
+    { pdf: "Bouton_Oui", label: "Système permanent de détection de fuites", type: "radio", options: [["1", "Oui"], ["2", "Non"]] },
+    { label: "Fuites constatées", type: "choix", options: [["Case_Fuite_Oui", "Oui"], ["Case_Fuite_Non", "Non"]] },
+    T("Fuite_Loca_1", "Fuite 1 : localisation", { siFuite: true }),
+    { label: "Fuite 1 : réparation", type: "choix", siFuite: true, options: [["Case_Rep_Fuite1_realisee", "Réalisée"], ["Case_Rep_Fuite1_AFaire", "À faire"]] },
+    T("Fuite_Loca_2", "Fuite 2 : localisation", { siFuite: true }),
+    { label: "Fuite 2 : réparation", type: "choix", siFuite: true, options: [["Case_Rep_Fuite2_realisee", "Réalisée"], ["Case_Rep_Fuite2_AFaire", "À faire"]] },
+    T("Fuite_Loca_3", "Fuite 3 : localisation", { siFuite: true }),
+    { label: "Fuite 3 : réparation", type: "choix", siFuite: true, options: [["Case_Rep_Fuite3_realisee", "Réalisée"], ["Case_Rep_Fuite3_AFaire", "À faire"]] }
+  ] },
+  { titre: "Fluide chargé (kg)", champs: [
+    { pdf: "11_QA", label: "A - Fluide vierge", type: "nombre" },
+    { pdf: "11_QB", label: "B - Fluide recyclé", type: "nombre" },
+    { pdf: "11_QC", label: "C - Fluide régénéré", type: "nombre" },
+    T("11_Denom", "Fluide chargé si changement")
+  ] },
+  { titre: "Fluide récupéré (kg)", champs: [
+    { pdf: "11_QD", label: "D - Destiné au traitement", type: "nombre" },
+    { pdf: "11_QE", label: "E - Conservé pour réutilisation", type: "nombre" },
+    T("11_Contenant_ID", "Identification du ou des contenants"),
+    T("11_BSFF", "N° BSFF (Trackdéchets), si connu")
+  ] }
+];
+
 /* Zones où apposer les images de signature du bon (coordonnées PDF, page 1). */
 export const SIGNATURES = {
   operateur: { x: 232, y: 41, w: 104, h: 24 },
@@ -209,5 +249,10 @@ export function completer(v) {
   const abc = s("11_QA", "11_QB", "11_QC"), de = s("11_QD", "11_QE");
   if (abc.length && !String(out["11_Quantite"] || "").trim()) out["11_Quantite"] = fr(abc.reduce((a, b) => a + b, 0));
   if (de.length && !String(out["11_QDE"] || "").trim()) out["11_QDE"] = fr(de.reduce((a, b) => a + b, 0));
+  // [12] Fluide récupéré : rubrique ADR cochée d'après l'inflammabilité du fluide, si rien n'est coché
+  const recupere = de.reduce((a, b) => a + b, 0) > 0;
+  const adr = ["Case_12_UN1078", "Case_12_Autre140601", "Case_12_UN3161", "Case_12_Autre160504"].some(k => out[k]);
+  const fl = infoFluide(out["11_Denom"] || out.Equipement_Fluide);
+  if (recupere && !adr && fl) out[fl.inflammable ? "Case_12_UN3161" : "Case_12_UN1078"] = true;
   return out;
 }

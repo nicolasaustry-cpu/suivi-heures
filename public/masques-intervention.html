@@ -83,6 +83,15 @@
     <input id="masque-nom" placeholder="Ex : Contrôle réglementaire CVC" style="max-width:400px;">
   </div>
 
+  <div style="margin-bottom:14px;">
+    <label for="masque-cerfa">CERFA à proposer avec ce bon</label>
+    <select id="masque-cerfa" style="max-width:400px;"><option value="">Aucun</option></select>
+    <div style="color:#6b7280;font-size:0.8rem;margin-top:3px;">
+      Sur mobile, le technicien indiquera si l'intervention est concernée. Si oui, il complète la partie CERFA dans le bon
+      et le formulaire officiel est rempli automatiquement, joint au PDF du bon.
+    </div>
+  </div>
+
   <h3>Champs du bon</h3>
   <div id="champs-liste"></div>
   <button type="button" class="btn" onclick="ajouterChamp()">+ Ajouter un champ</button>
@@ -256,7 +265,7 @@
       if (!c.libelle || !c.libelle.trim()) { SYNC.afficherNotif('Un champ n\'a pas de libellé', '#dc2626'); return null; }
       if ((c.type === 'liste' || c.type === 'cases_multiples') && !(c.options || []).length) { SYNC.afficherNotif('Le champ « ' + c.libelle + ' » doit avoir au moins une option', '#dc2626'); return null; }
     }
-    return { nom: nom, champs: _champs };
+    return { nom: nom, champs: _champs, cerfa: document.getElementById('masque-cerfa').value };
   }
 
   function enregistrerMasque() {
@@ -284,6 +293,7 @@
     _idEnEdition = null;
     _champs = [];
     document.getElementById('masque-nom').value = '';
+    document.getElementById('masque-cerfa').value = '';
     document.getElementById('titre-formulaire').textContent = 'Créer un masque';
     document.getElementById('btn-annuler-edition').style.display = 'none';
     rendreChamps();
@@ -294,6 +304,7 @@
     if (!m) return;
     _idEnEdition = id;
     document.getElementById('masque-nom').value = m.nom || '';
+    document.getElementById('masque-cerfa').value = m.cerfa || '';
     _champs = (m.champs || []).map(function (c) { return Object.assign({}, c); });
     document.getElementById('titre-formulaire').textContent = 'Modifier le masque « ' + m.nom + ' »';
     document.getElementById('btn-annuler-edition').style.display = '';
@@ -336,7 +347,7 @@
           : '<span class="badge badge-inactif">Inactif</span>';
         return '<tr>' +
           '<td>' + (m.nom || '') + '</td>' +
-          '<td style="text-align:center;">' + ((m.champs || []).length) + '</td>' +
+          '<td style="text-align:center;">' + ((m.champs || []).length) + (m.cerfa ? ' <span class="badge" style="background:#dbeafe;color:#1e40af;">+ CERFA ' + m.cerfa + '</span>' : '') + '</td>' +
           '<td>' + badge + '</td>' +
           '<td style="white-space:nowrap;">' +
             '<button type="button" class="btn" onclick="modifierMasque(\'' + m._id + '\')">Modifier</button> ' +
@@ -354,6 +365,16 @@
     rendreChamps();
     // Laisse SYNC.init() (appelé depuis sync.js) poser le token avant de charger.
     setTimeout(chargerMasques, 300);
+    setTimeout(function () {
+      _apiFetch('/api/masques-intervention/cerfa-modeles', { method: 'GET' }).then(function (res) {
+        if (!res.body || !res.body.ok) return;
+        var sel = document.getElementById('masque-cerfa'), garde = sel.value;
+        (res.body.modeles || []).forEach(function (m) {
+          var o = document.createElement('option'); o.value = m.code; o.textContent = m.titre; sel.appendChild(o);
+        });
+        sel.value = garde;
+      });
+    }, 300);
   });
 </script>
 

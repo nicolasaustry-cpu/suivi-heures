@@ -16,6 +16,7 @@ import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import Donnees from "../models/donnees.js";
+import { MODELES as MODELES_CERFA, listeModeles } from "../cerfa/index.js";
 
 const router = express.Router();
 
@@ -83,6 +84,13 @@ function assainirChamps(brut) {
   return { champs };
 }
 
+const cerfaValide = v => (MODELES_CERFA[String(v || "")] ? String(v) : "");
+
+// ── CERFA proposables sur un masque ──
+router.get("/cerfa-modeles", verifyToken, verifierFonctionActive, (req, res) => {
+  res.json({ ok: true, modeles: listeModeles() });
+});
+
 // ── Liste des masques du client ──
 router.get("/", verifyToken, verifierFonctionActive, async (req, res) => {
   try {
@@ -105,7 +113,7 @@ router.post("/", verifyToken, verifierFonctionActive, async (req, res) => {
     if (err) return res.status(400).json({ ok: false, message: err });
 
     const masque = await MasqueIntervention.create({
-      clientId, nom, champs, actif: true, creeLe: new Date(), modifieLe: new Date()
+      clientId, nom, champs, actif: true, cerfa: cerfaValide(req.body.cerfa), creeLe: new Date(), modifieLe: new Date()
     });
     res.json({ ok: true, masque });
   } catch (err) {
@@ -134,6 +142,7 @@ router.put("/:id", verifyToken, verifierFonctionActive, async (req, res) => {
       masque.markModified("champs");
     }
     if (req.body.actif !== undefined) masque.actif = !!req.body.actif;
+    if (req.body.cerfa !== undefined) masque.cerfa = cerfaValide(req.body.cerfa);
 
     masque.modifieLe = new Date();
     await masque.save();

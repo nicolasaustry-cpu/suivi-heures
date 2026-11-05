@@ -21,6 +21,9 @@ const masqueInterventionSchema = new mongoose.Schema({
   nom:       { type: String, required: true, trim: true },   // ex: "Contrôle réglementaire CVC"
   actif:     { type: Boolean, default: true },
   champs:    { type: [champMasqueSchema], default: [] },
+  // CERFA proposé avec ce type de bon (ex. "15497") : sur mobile, le technicien
+  // indique si l'intervention est concernée et complète alors la partie CERFA.
+  cerfa:     { type: String, default: "" },
   creeLe:    { type: Date, default: Date.now },
   modifieLe: { type: Date, default: Date.now }
 });
