@@ -26,6 +26,7 @@ import express from "express";
 import Donnees from "../models/donnees.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
+import Saisie from "../models/saisies.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Equipement, { cleClient, libelleEquipement } from "../models/equipement.js";
 import { genererPdfBon } from "../services/pdfBon.js";
@@ -99,6 +100,7 @@ router.post("/", async (req, res) => {
     // Vérifie les champs obligatoires du masque
     for (const champ of masque.champs || []) {
       if (!champ.obligatoire) continue;
+      if (champ.type === "datetime" && champ.auto) continue;   // repris du pointage (heure de fin souvent validée après le bon)
       const v = reponses[champ.id];
       const vide = v === undefined || v === null || v === "" ||
         (Array.isArray(v) && v.length === 0);
@@ -148,7 +150,7 @@ router.post("/", async (req, res) => {
 /* Contexte PC : token + fonctionnalité activée. Renvoie { clientId, doc } ou envoie l'erreur. */
 async function contextePC(req, res) {
   const clientId = U(req.user?.clientId);
-  const doc = await Donnees.findOne({ clientId }, "entreprise coordonneesChantiers");
+  const doc = await Donnees.findOne({ clientId }, "clientId entreprise coordonneesChantiers");
   if (!doc?.entreprise?.bonsInterventionActifs) {
     res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise. Activez-les sur la page Entreprise." });
     return null;
@@ -192,13 +194,54 @@ function copieEquipement(e) {
   };
 }
 
+/* ── Champs « AUTO » (date / heures / durée) ──
+   Sur mobile, ils ne sont plus ressaisis dans le bon : ils sont déjà sur l'écran
+   de pointage. On les lit dans le pointage du salarié pour ce chantier et ce jour
+   au moment d'afficher ou d'imprimer le bon — l'heure de fin validée APRÈS la
+   signature du bon y figure donc bien. À défaut de pointage, la valeur enregistrée
+   avec le bon est conservée. */
+function _fmtDureeMin(min) {
+  if (!(min > 0)) return "";
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}`;
+}
+function _minutes(a, d, pause) {
+  const m = /^(\d{1,2}):(\d{2})$/, x = m.exec(a || ""), y = m.exec(d || "");
+  if (!x || !y) return 0;
+  const v = (+y[1] * 60 + +y[2]) - (+x[1] * 60 + +x[2]) - (parseInt(pause) || 0);
+  return v > 0 ? v : 0;
+}
+async function pointageDuBon(bon, doc) {
+  const date = bon.dateIntervention || "";
+  const sid = Number(bon.salarieId);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(sid) || !bon.salarieId) return null;
+  const ids = [...new Set([doc?.clientId, bon.clientId].filter(Boolean))];
+  const s = await Saisie.findOne({ clientId: { $in: ids }, salarieId: sid, date }).lean();
+  const ch = (s?.chantiers || []).find(c => U(c.nom) === U(bon.chantier));
+  if (!ch) return null;
+  const duree = ch.dureeMin > 0 ? ch.dureeMin : _minutes(ch.heureArrivee, ch.heureDepart, ch.pause);
+  return { date, heureDebut: ch.heureArrivee || "", heureFin: ch.heureDepart || "", duree: _fmtDureeMin(duree) };
+}
+/* Copie du bon dont les réponses « AUTO » sont complétées depuis le pointage. */
+async function bonAvecPointage(bon, champs, doc) {
+  const b = typeof bon.toObject === "function" ? bon.toObject() : { ...bon };
+  const p = await pointageDuBon(b, doc).catch(() => null);
+  if (!p) return b;
+  const rep = { ...(b.reponses || {}) };
+  for (const c of champs || []) {
+    if (c.type === "datetime" && c.auto && p[c.auto]) rep[c.id] = p[c.auto];
+  }
+  b.reponses = rep;
+  return b;
+}
+
 const nomFichier = bon => `Bon-intervention-${bon.numero || bon._id}.pdf`;
 
 async function pdfDuBon(bon, doc) {
   const coords = doc.coordonneesChantiers || {};
+  const champs = await champsDuBon(bon);
   return genererPdfBon({
-    bon,
-    champs: await champsDuBon(bon),
+    bon: await bonAvecPointage(bon, champs, doc),
+    champs,
     entreprise: { nom: doc.entreprise?.nom || "" },
     coord: coords[U(bon.chantier)] || {}
   });
@@ -284,7 +327,8 @@ router.get("/pc/:id", verifyToken, async (req, res) => {
     const ctx = await contextePC(req, res); if (!ctx) return;
     const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
     const coords = ctx.doc.coordonneesChantiers || {};
-    res.json({ ok: true, bon, champs: await champsDuBon(bon), coord: coords[U(bon.chantier)] || null });
+    const champs = await champsDuBon(bon);
+    res.json({ ok: true, bon: await bonAvecPointage(bon, champs, ctx.doc), champs, coord: coords[U(bon.chantier)] || null });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

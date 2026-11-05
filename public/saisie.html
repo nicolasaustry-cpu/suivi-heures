@@ -1195,6 +1195,7 @@
 
   /* ── Bon d'intervention (mobile) ── */
   .bon-champ { margin:14px 0; }
+  .bon-auto-info { font-size:0.8rem; color:#5b21b6; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:7px 10px; margin:4px 0 12px; }
   .bon-champ label.bon-lbl { display:block; font-size:0.85rem; font-weight:700; color:#0f172a; margin-bottom:6px; }
   .bon-champ .bon-oblig { color:#dc2626; }
   .bon-champ textarea, .bon-champ select, .bon-champ input[type="text"], .bon-champ input[type="date"], .bon-champ input[type="time"] {
@@ -5309,6 +5310,7 @@ function _bonRendreChamps() {
   const dateEl = document.getElementById('date-saisie');
   const dateGlobale = dateEl ? dateEl.value : '';
 
+  let autoAnnonce = false;
   (_bonMasqueActuel.champs || []).forEach(function (c) {
     const wrap = document.createElement('div');
     wrap.className = 'bon-champ';
@@ -5409,12 +5411,25 @@ function _bonRendreChamps() {
         if (sig) _bonAfficherApercuSignature(c.id, zoneSign, sig);
         else _bonAfficherPadSignature(c.id, zoneSign, true);
       });
-    } else if (c.type === 'datetime') {
-      if (c.auto) {
-        const badge = document.createElement('span');
-        badge.className = 'bon-auto-badge'; badge.textContent = 'AUTO';
-        lbl.appendChild(badge);
+    } else if (c.type === 'datetime' && c.auto) {
+      // Date / heures / durée « AUTO » : déjà saisies sur l'écran de pointage, on ne les
+      // redemande pas. La valeur du moment est enregistrée avec le bon (secours) et le
+      // bureau relit le pointage à l'affichage et au PDF (heure de fin validée après coup comprise).
+      let v = '';
+      if (c.auto === 'date') v = dateGlobale;
+      else if (c.auto === 'heureDebut') v = s.arrivee || '';
+      else if (c.auto === 'heureFin') v = s.depart || '';
+      else if (c.auto === 'duree') v = calcDuree(s.arrivee, s.depart, s.pause) || '';
+      _bonReponses[c.id] = v;
+      if (!autoAnnonce) {
+        autoAnnonce = true;
+        const info = document.createElement('div');
+        info.className = 'bon-auto-info';
+        info.innerHTML = '<span class="bon-auto-badge">AUTO</span> Date et heures reprises de votre pointage : rien à ressaisir.';
+        zone.appendChild(info);
       }
+      return;                                   // champ non affiché
+    } else if (c.type === 'datetime') {
       let valInit = '', inputType = 'text';
       if (c.auto === 'date') { valInit = dateGlobale; inputType = 'date'; }
       else if (c.auto === 'heureDebut') { valInit = s.arrivee || ''; inputType = 'time'; }
@@ -5634,6 +5649,7 @@ async function validerBon() {
   if (!_bonMasqueActuel) { alert('Choisissez un type de bon'); return; }
   for (const c of (_bonMasqueActuel.champs || [])) {
     if (!c.obligatoire) continue;
+    if (c.type === 'datetime' && c.auto) continue;   // repris du pointage, peut être complété après le bon
     if (c.type === 'signature' && c.signataire === 'client') {
       const image = _bonReponses[c.id];
       const nomSign = _bonReponses[c.id + '__nom'];
