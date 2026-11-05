@@ -79,6 +79,31 @@ router.post("/masques", async (req, res) => {
   }
 });
 
+// ── Nom du signataire client proposé par défaut ──
+// Le dernier nom saisi pour ce client sur un bon précédent ; à défaut, le nom
+// du client (chantier sans le n° de devis Henrri).
+router.post("/signataire", async (req, res) => {
+  try {
+    const ctx = await resoudreContexteMobile(req);
+    if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
+    const chantier = String(req.body.chantier || "").trim();
+    const cle = cleClient(chantier);
+    const parDefaut = chantier.replace(/\s+\d{2}-\d{2}-\d+\s*$/, "").trim();
+    if (!cle) return res.json({ ok: true, nom: "" });
+    const recents = await BonIntervention.find({ clientId: ctx.clientId }, "chantier reponses creeLe")
+      .sort({ creeLe: -1 }).limit(300).lean();
+    for (const b of recents) {
+      if (cleClient(b.chantier) !== cle) continue;
+      const rep = b.reponses || {};
+      const k = Object.keys(rep).find(x => x.endsWith("__nom") && String(rep[x] || "").trim());
+      if (k) return res.json({ ok: true, nom: String(rep[k]).trim(), source: "dernier bon" });
+    }
+    res.json({ ok: true, nom: parDefaut, source: "client" });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Enregistrer un bon rempli ──
 router.post("/", async (req, res) => {
   try {

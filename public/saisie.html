@@ -5456,6 +5456,7 @@ function _bonRendreChamps() {
       inpNom.style.marginBottom = '8px';
       inpNom.oninput = function () { _bonReponses[c.id + '__nom'] = this.value; };
       wrap.appendChild(inpNom);
+      _bonProposerSignataire(c.id, inpNom);
 
       const zoneSign = document.createElement('div');
       zoneSign.id = 'bon-sigzone-' + c.id;
@@ -5654,19 +5655,68 @@ function _bonChargerSignatureSalarie(callback) {
 
 /* Affiche la signature déjà enregistrée du salarié, avec la possibilité
    de la redessiner pour ce bon (« Signer autrement »). */
+/* Nom du signataire client proposé d'office : le dernier nom saisi pour ce
+   client sur un bon précédent, sinon le nom du client. Reste modifiable. */
+let _bonSignataireCache = {};   // { nomChantier: nom proposé }
+function _bonProposerSignataire(idChamp, inp) {
+  const chantier = _bonNomChantier();
+  const appliquer = function (nom) {
+    if (!nom || inp.value.trim()) return;           // ne jamais écraser une saisie
+    inp.value = nom; _bonReponses[idChamp + '__nom'] = nom;
+  };
+  if (_bonSignataireCache[chantier] !== undefined) { appliquer(_bonSignataireCache[chantier]); return; }
+  appliquer(chantier.replace(/\s+\d{2}-\d{2}-\d+\s*$/, ''));   // immédiat, même hors connexion
+  fetch('/api/bons-intervention/signataire', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, chantier: chantier })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok || !d.nom) return;
+    _bonSignataireCache[chantier] = d.nom;
+    // Remplace la proposition par défaut (nom du chantier) si l'utilisateur n'y a pas touché
+    const auto = chantier.replace(/\s+\d{2}-\d{2}-\d+\s*$/, '');
+    if (inp.value.trim() === auto) { inp.value = d.nom; _bonReponses[idChamp + '__nom'] = d.nom; }
+  }).catch(function () {});
+}
+
+/* Signature enregistrée du technicien : reprise d'office, modifiable
+   (nouveau tracé enregistré à la place) ou effaçable. */
 function _bonAfficherApercuSignature(idChamp, zone, dataUrl) {
   _bonReponses[idChamp] = dataUrl;
+  _bonSignatureAEnregistrer[idChamp] = false;      // déjà enregistrée : rien à réenregistrer
   zone.innerHTML = '';
   zone.style.color = '';
   const img = document.createElement('img');
   img.src = dataUrl;
   img.style.cssText = 'max-width:100%;max-height:120px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;display:block;';
-  const btnAutre = document.createElement('button');
-  btnAutre.type = 'button'; btnAutre.className = 'btn-modal-cancel'; btnAutre.style.marginTop = '8px';
-  btnAutre.textContent = '✍️ Signer autrement';
-  btnAutre.onclick = function () { _bonAfficherPadSignature(idChamp, zone, true); };
-  zone.appendChild(img);
-  zone.appendChild(btnAutre);
+  const info = document.createElement('div');
+  info.style.cssText = 'font-size:0.76rem;color:#047857;margin-top:4px;';
+  info.textContent = '✔ Votre signature enregistrée';
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+  const btnModif = document.createElement('button');
+  btnModif.type = 'button'; btnModif.className = 'btn-modal-cancel'; btnModif.style.flex = '1';
+  btnModif.textContent = '✏️ Modifier';
+  btnModif.onclick = function () { _bonAfficherPadSignature(idChamp, zone, true); };
+  const btnSuppr = document.createElement('button');
+  btnSuppr.type = 'button'; btnSuppr.className = 'btn-modal-cancel'; btnSuppr.style.flex = '1';
+  btnSuppr.textContent = '🗑 Effacer';
+  btnSuppr.onclick = function () { _bonSupprimerSignatureSalarie(idChamp, zone); };
+  actions.appendChild(btnModif); actions.appendChild(btnSuppr);
+  zone.appendChild(img); zone.appendChild(info); zone.appendChild(actions);
+}
+
+function _bonSupprimerSignatureSalarie(idChamp, zone) {
+  if (!confirm('Effacer votre signature enregistrée ?\nVous pourrez en dessiner une nouvelle.')) return;
+  fetch('/api/signature-salarie/supprimer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { alert(d.message || 'Effacement impossible'); return; }
+    _bonSignatureSalarieCache = null;
+    _bonAfficherPadSignature(idChamp, zone, true);
+  }).catch(function () { alert('Erreur réseau : signature non effacée.'); });
 }
 
 /* Affiche le pavé de dessin, avec une case pour enregistrer cette
@@ -5695,12 +5745,21 @@ function _bonAfficherPadSignature(idChamp, zone, proposerEnregistrement) {
     ligneEnr.style.marginTop = '6px';
     const cbEnr = document.createElement('input');
     cbEnr.type = 'checkbox';
-    cbEnr.checked = (_bonSignatureAEnregistrer[idChamp] !== false); // cochée par défaut
+    cbEnr.checked = true;                            // nouveau tracé : enregistré par défaut
     _bonSignatureAEnregistrer[idChamp] = cbEnr.checked;
     cbEnr.onchange = function () { _bonSignatureAEnregistrer[idChamp] = this.checked; };
-    const spEnr = document.createElement('span'); spEnr.textContent = 'Enregistrer ma signature pour la réutiliser';
+    const spEnr = document.createElement('span');
+    spEnr.textContent = _bonSignatureSalarieCache ? 'Remplacer ma signature enregistrée par celle-ci' : 'Enregistrer ma signature pour la réutiliser';
     ligneEnr.appendChild(cbEnr); ligneEnr.appendChild(spEnr);
     zone.appendChild(ligneEnr);
+    // Modification en cours : possibilité de revenir à la signature enregistrée
+    if (_bonSignatureSalarieCache) {
+      const btnRetour = document.createElement('button');
+      btnRetour.type = 'button'; btnRetour.className = 'btn-modal-cancel'; btnRetour.style.marginTop = '6px';
+      btnRetour.textContent = '↩ Garder ma signature enregistrée';
+      btnRetour.onclick = function () { _bonAfficherApercuSignature(idChamp, zone, _bonSignatureSalarieCache); };
+      zone.appendChild(btnRetour);
+    }
   }
 
   setTimeout(function () { _bonInitSignature(idChamp); }, 30);

@@ -11,6 +11,8 @@
 //        → { ok, data } — data = null si aucune signature enregistrée
 //   POST /api/signature-salarie/enregistrer { codeEmploye, salarieId, data }
 //        → enregistre/écrase la signature du salarié
+//   POST /api/signature-salarie/supprimer   { codeEmploye, salarieId }
+//        → efface la signature enregistrée du salarié
 // ─────────────────────────────────────────────────────────────
 
 import express from "express";
@@ -70,6 +72,18 @@ router.post("/enregistrer", async (req, res) => {
       { data, maj: new Date() },
       { upsert: true }
     );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Effacer la signature enregistrée du salarié ──
+router.post("/supprimer", async (req, res) => {
+  try {
+    const ctx = await resoudreContexteMobile(req);
+    if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
+    await SignatureSalarie.deleteOne({ clientId: ctx.clientId, salarieId: ctx.salarieId });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
