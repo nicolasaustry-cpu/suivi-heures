@@ -50,7 +50,7 @@ async function resoudreContexteMobile(req) {
   if (!sal) return { err: [401, "Salarié inconnu"] };
 
   if (!doc.entreprise?.bonsInterventionActifs) {
-    return { err: [403, "Fonctionnalité non activée pour ce compte (page Entreprise)"] };
+    return { err: [409, "Fonctionnalité non activée pour ce compte (page Entreprise)"], inactif: true };
   }
 
   return {
@@ -126,23 +126,26 @@ router.post("/", async (req, res) => {
 //  CÔTÉ BUREAU (PC)
 // ═════════════════════════════════════════════════════════════
 
+/* « Fonctionnalité non activée » répond 409 et non 403 : sync.js déconnecte
+   l'utilisateur sur tout 401/403 d'une route /api/, ce qui n'a pas lieu d'être
+   ici (la session est valide, seule l'option est désactivée). */
 /* Contexte PC : token + fonctionnalité activée. Renvoie { clientId, doc } ou envoie l'erreur. */
 async function contextePC(req, res) {
   const clientId = U(req.user?.clientId);
   const doc = await Donnees.findOne({ clientId }, "entreprise coordonneesChantiers");
   if (!doc?.entreprise?.bonsInterventionActifs) {
-    res.status(403).json({ ok: false, message: "Fonctionnalité non activée pour ce compte (page Entreprise)" });
+    res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise. Activez-les sur la page Entreprise." });
     return null;
   }
   return { clientId, doc };
 }
 
-/* Bon du client (403 si un autre client, 404 si absent). */
+/* Bon du client (404 si absent ou appartenant à un autre client). */
 async function chargerBon(req, res, clientId) {
   let bon = null;
   try { bon = await BonIntervention.findById(req.params.id); } catch (e) { bon = null; }
   if (!bon) { res.status(404).json({ ok: false, message: "Bon introuvable" }); return null; }
-  if (U(bon.clientId) !== clientId) { res.status(403).json({ ok: false, message: "Accès refusé" }); return null; }
+  if (U(bon.clientId) !== clientId) { res.status(404).json({ ok: false, message: "Bon introuvable" }); return null; }
   return bon;
 }
 

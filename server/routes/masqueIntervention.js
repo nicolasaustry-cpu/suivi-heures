@@ -31,7 +31,8 @@ async function verifierFonctionActive(req, res, next) {
     const clientId = (req.user.clientId || "").toUpperCase();
     const doc = await Donnees.findOne({ clientId }, "entreprise");
     if (!doc?.entreprise?.bonsInterventionActifs) {
-      return res.status(403).json({ ok: false, message: "Fonctionnalité non activée pour ce compte (page Entreprise)" });
+      // 409 et non 403 : sync.js déconnecte sur tout 401/403 d'une route /api/.
+      return res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise. Activez-les sur la page Entreprise." });
     }
     next();
   } catch (err) {
@@ -119,7 +120,7 @@ router.put("/:id", verifyToken, verifierFonctionActive, async (req, res) => {
     const masque = await MasqueIntervention.findById(req.params.id);
     if (!masque) return res.status(404).json({ ok: false, message: "Masque introuvable" });
     if ((masque.clientId || "").toUpperCase() !== clientId)
-      return res.status(403).json({ ok: false, message: "Accès refusé" });
+      return res.status(404).json({ ok: false, message: "Masque introuvable" });
 
     if (req.body.nom !== undefined) {
       const nom = String(req.body.nom || "").trim().slice(0, 150);
@@ -149,7 +150,7 @@ router.delete("/:id", verifyToken, verifierFonctionActive, async (req, res) => {
     const masque = await MasqueIntervention.findById(req.params.id);
     if (!masque) return res.json({ ok: true, supprime: false });
     if ((masque.clientId || "").toUpperCase() !== clientId)
-      return res.status(403).json({ ok: false, message: "Accès refusé" });
+      return res.status(404).json({ ok: false, message: "Masque introuvable" });
 
     await masque.deleteOne();
     res.json({ ok: true, supprime: true });
