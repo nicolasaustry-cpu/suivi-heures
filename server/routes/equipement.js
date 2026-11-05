@@ -12,6 +12,7 @@
 // Mobile (codeEmploye + salarieId dans le corps) :
 //   POST   /api/equipements/mobile/liste    { chantier } → équipements du client de ce chantier
 //   POST   /api/equipements/mobile/creer    { chantier, type, marque, modele, numeroSerie }
+//   POST   /api/equipements/mobile/modifier { chantier, id, type, marque, modele, numeroSerie }
 // ─────────────────────────────────────────────────────────────
 
 import express from "express";
@@ -146,6 +147,27 @@ router.post("/mobile/creer", async (req, res) => {
     const nomSansRef = chantier.replace(/\s+\d{2}-\d{2}-\d+\s*$/, "").trim();
     const e = await Equipement.create({ clientId: ctx.clientId, clientCle, clientNom: nomSansRef, ...champs, creePar: ctx.salarieNom || "mobile" });
     res.json({ ok: true, equipement: { ...e.toObject(), derniereIntervention: "", nbBons: 0 } });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
+// ── Mobile : corriger un équipement constaté sur place ──
+// Seuls type / marque / modèle / n° de série sont modifiables depuis le mobile ;
+// les autres caractéristiques (emplacement, fluide, notes…) restent gérées au bureau.
+router.post("/mobile/modifier", async (req, res) => {
+  try {
+    const ctx = await resoudreContexteMobile(req);
+    if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
+    let e = null;
+    try { e = await Equipement.findById(req.body.id); } catch (_) { e = null; }
+    if (!e || U(e.clientId) !== ctx.clientId || e.clientCle !== cleClient(req.body.chantier))
+      return res.status(404).json({ ok: false, message: "Équipement introuvable pour ce client" });
+    const c = assainir(req.body);
+    const maj = { type: c.type, marque: c.marque, modele: c.modele, numeroSerie: c.numeroSerie };
+    if (vide(maj)) return res.status(400).json({ ok: false, message: "Renseignez au moins le type, la marque, le modèle ou le n° de série" });
+    Object.assign(e, maj, { modifieLe: new Date() });
+    await e.save();
+    const [complet] = await avecInterventions(ctx.clientId, [e.toObject()]);
+    res.json({ ok: true, equipement: complet });
   } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
