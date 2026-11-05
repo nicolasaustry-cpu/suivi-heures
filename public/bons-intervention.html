@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <title>Bons d'intervention – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+    .bi-filtres { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:flex-end; margin-bottom:14px; }
+    .bi-filtres > div { display:flex; flex-direction:column; }
+    .bi-filtres label { margin-bottom:3px; }
+    .bi-filtres input, .bi-filtres select { min-width:150px; }
+    .bi-filtres .bi-recherche input { min-width:240px; }
+    .bi-compte { color:#6b7280; font-size:0.85rem; margin-left:auto; align-self:center; }
+
+    #table-bons td { vertical-align:middle; }
+    #table-bons td.bi-num { font-weight:700; color:#0f3a8a; white-space:nowrap; }
+    #table-bons td.bi-act { white-space:nowrap; text-align:right; }
+    #table-bons td.bi-act button { margin-left:4px; }
+    .bi-envoye { background:#dcfce7; color:#15803d; }
+    .bi-non-envoye { background:#f3f4f6; color:#6b7280; }
+
+    /* Fenêtres */
+    .bi-ov { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:flex-start; justify-content:center; z-index:200; overflow-y:auto; padding:30px 12px; }
+    .bi-ov.ouvert { display:flex; }
+    .bi-box { background:#fff; border-radius:10px; width:100%; max-width:760px; box-shadow:0 12px 40px rgba(15,23,42,.25); overflow:hidden; }
+    .bi-box.etroit { max-width:520px; }
+    .bi-tete { background:#0f3a8a; color:#fff; padding:14px 18px; display:flex; align-items:center; gap:10px; border-bottom:4px solid #f59e0b; }
+    .bi-tete h3 { margin:0; font-size:1.05rem; color:#fff; flex:1; }
+    .bi-tete .bi-sous { font-size:0.82rem; opacity:.85; }
+    .bi-fermer { background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
+    .bi-corps { padding:16px 18px; }
+    .bi-pied { padding:12px 18px; border-top:1px solid #e2e8f0; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+
+    .bi-cartouches { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+    .bi-cartouche { border:1px solid #cbd5e1; border-radius:6px; padding:9px 12px; font-size:0.9rem; line-height:1.45; }
+    .bi-cartouche .t { font-size:0.7rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+    .bi-ligne { display:grid; grid-template-columns:200px 1fr; gap:12px; padding:7px 0; border-bottom:1px solid #f1f5f9; font-size:0.9rem; }
+    .bi-ligne .l { color:#64748b; font-weight:600; font-size:0.82rem; }
+    .bi-ligne .v { white-space:pre-wrap; overflow-wrap:anywhere; }
+    .bi-photos { display:flex; flex-wrap:wrap; gap:8px; }
+    .bi-photos img { width:150px; height:112px; object-fit:cover; border-radius:5px; border:1px solid #cbd5e1; cursor:zoom-in; }
+    .bi-sigs { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+    .bi-sig .l { color:#64748b; font-weight:600; font-size:0.82rem; }
+    .bi-sig .n { font-size:0.85rem; margin:2px 0 4px; }
+    .bi-sig .cadre { border:1px solid #cbd5e1; border-radius:5px; height:110px; display:flex; align-items:center; justify-content:center; }
+    .bi-sig img { max-width:100%; max-height:100px; }
+    .bi-historique { margin-top:14px; font-size:0.82rem; color:#475569; background:#f8fafc; border-radius:6px; padding:8px 12px; }
+
+    .bi-form label { display:block; margin:10px 0 3px; }
+    .bi-form input, .bi-form textarea { width:100%; box-sizing:border-box; }
+    .bi-form textarea { min-height:130px; font-family:inherit; }
+    .bi-aide { color:#6b7280; font-size:0.8rem; margin-top:3px; }
+
+    #bi-zoom { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:300; cursor:zoom-out; }
+    #bi-zoom img { max-width:94vw; max-height:92vh; }
+
+    @media (max-width:640px) {
+      .bi-cartouches, .bi-sigs { grid-template-columns:1fr; }
+      .bi-ligne { grid-template-columns:1fr; gap:2px; }
+    }
+  </style>
+</head>
+<body style="margin:0;">
+
+<header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, simplement</span>
+    </div>
+  </div>
+  <h1 class="page-title">Bons d'intervention</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav"></div>
+
+<section>
+  <h2>Bons remplis par les équipes</h2>
+  <p style="color:#6b7280;font-size:0.85rem;margin-top:-8px;">
+    Retrouvez ici tous les bons saisis sur mobile : consultez-les, téléchargez le PDF ou envoyez-le au client par e-mail.
+    Les modèles de bons se gèrent dans <a href="masques-intervention.html">Masques de bons</a>.
+  </p>
+
+  <div class="bi-filtres">
+    <div class="bi-recherche"><label>Rechercher</label><input id="f-texte" placeholder="Client, chantier, n° de bon…" oninput="rendreListe()"></div>
+    <div><label>Technicien</label><select id="f-tech" onchange="rendreListe()"><option value="">Tous</option></select></div>
+    <div><label>Type de bon</label><select id="f-masque" onchange="rendreListe()"><option value="">Tous</option></select></div>
+    <div><label>Du</label><input type="date" id="f-du" onchange="rendreListe()"></div>
+    <div><label>Au</label><input type="date" id="f-au" onchange="rendreListe()"></div>
+    <div><label>Envoi</label><select id="f-envoi" onchange="rendreListe()">
+      <option value="">Tous</option><option value="non">Non envoyés</option><option value="oui">Envoyés</option>
+    </select></div>
+    <span class="bi-compte" id="bi-compte"></span>
+  </div>
+
+  <table id="table-bons">
+    <thead>
+      <tr><th>N°</th><th>Date</th><th>Chantier</th><th>Type de bon</th><th>Technicien</th><th>Envoi au client</th><th></th></tr>
+    </thead>
+    <tbody id="liste-bons">
+      <tr><td colspan="7" style="text-align:center;color:#6b7280;">Chargement…</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Fenêtre : consultation d'un bon -->
+<div class="bi-ov" id="ov-bon" onclick="if(event.target===this)fermer('ov-bon')">
+  <div class="bi-box">
+    <div class="bi-tete">
+      <div style="flex:1;"><h3 id="bon-titre">Bon d'intervention</h3><div class="bi-sous" id="bon-sous"></div></div>
+      <button class="bi-fermer" onclick="fermer('ov-bon')" title="Fermer">✕</button>
+    </div>
+    <div class="bi-corps" id="bon-corps">Chargement…</div>
+    <div class="bi-pied">
+      <button type="button" class="btn-danger" id="bon-btn-suppr" style="margin-right:auto;">🗑 Supprimer</button>
+      <button type="button" class="btn" id="bon-btn-pdf">📄 PDF</button>
+      <button type="button" class="btn-primary" id="bon-btn-envoyer">✉ Envoyer au client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : envoi par e-mail -->
+<div class="bi-ov" id="ov-envoi" onclick="if(event.target===this)fermer('ov-envoi')">
+  <div class="bi-box etroit">
+    <div class="bi-tete">
+      <div style="flex:1;"><h3>Envoyer le bon au client</h3><div class="bi-sous" id="envoi-sous"></div></div>
+      <button class="bi-fermer" onclick="fermer('ov-envoi')" title="Fermer">✕</button>
+    </div>
+    <div class="bi-corps bi-form">
+      <label for="envoi-a">E-mail du client</label>
+      <input id="envoi-a" type="email" placeholder="client@exemple.fr">
+      <label for="envoi-copie">Votre e-mail (copie et réponses du client)</label>
+      <input id="envoi-copie" type="email" placeholder="vous@entreprise.fr">
+      <div class="bi-aide">Facultatif. Vous recevez une copie, et si le client répond, sa réponse vous arrive directement.</div>
+      <label for="envoi-message">Message</label>
+      <textarea id="envoi-message"></textarea>
+      <div class="bi-aide">Le bon est joint au format PDF.</div>
+    </div>
+    <div class="bi-pied">
+      <button type="button" class="btn" onclick="fermer('ov-envoi')">Annuler</button>
+      <button type="button" class="btn-primary" id="envoi-btn" onclick="envoyerBon()">✉ Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<div id="bi-zoom" onclick="this.style.display='none'"><img alt=""></div>
+
+<script src="assets/sync.js"></script>
+<script>
+  var _bons = [];          // liste légère (sans photos ni signatures)
+  var _bonOuvert = null;   // { bon, champs, coord } du bon affiché
+  var _bonEnvoi = null;    // bon (ligne de liste) en cours d'envoi
+
+  function _token() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : localStorage.getItem('syncToken');
+  }
+  function _apiFetch(url, options) {
+    options = options || {};
+    options.headers = Object.assign(
+      { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token() },
+      options.headers || {}
+    );
+    return fetch(url, options).then(function (r) { return r.json().then(function (d) { return { status: r.status, body: d }; }); });
+  }
+  function _notif(msg, couleur) {
+    if (typeof SYNC !== 'undefined' && SYNC.afficherNotif) SYNC.afficherNotif(msg, couleur); else alert(msg);
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtDate(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : (s || '');
+  }
+  function fmtDateHeure(d) {
+    try {
+      var x = new Date(d);
+      return x.toLocaleDateString('fr-FR') + ' à ' + x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return ''; }
+  }
+  /* Date de référence d'un bon (date d'intervention, sinon date de création), au format AAAA-MM-JJ. */
+  function dateBon(b) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(b.dateIntervention || '')) return b.dateIntervention;
+    try { return new Date(b.creeLe).toISOString().slice(0, 10); } catch (e) { return ''; }
+  }
+  function fermer(id) { document.getElementById(id).classList.remove('ouvert'); }
+  function ouvrir(id) { document.getElementById(id).classList.add('ouvert'); }
+
+  // ── Liste ──
+  function chargerBons() {
+    _apiFetch('/api/bons-intervention/pc', { method: 'GET' }).then(function (res) {
+      var corps = document.getElementById('liste-bons');
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) {
+        corps.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;">' + esc(res.body.message || 'Erreur de chargement') + '</td></tr>';
+        return;
+      }
+      _bons = res.body.bons || [];
+      remplirFiltres();
+      rendreListe();
+    }).catch(function () {
+      document.getElementById('liste-bons').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;">Erreur réseau</td></tr>';
+    });
+  }
+
+  function remplirFiltres() {
+    function remplir(id, valeurs) {
+      var sel = document.getElementById(id), garde = sel.value;
+      sel.innerHTML = '<option value="">Tous</option>' + valeurs.map(function (v) {
+        return '<option value="' + esc(v) + '">' + esc(v) + '</option>';
+      }).join('');
+      sel.value = valeurs.indexOf(garde) >= 0 ? garde : '';
+    }
+    function uniques(cle) {
+      var vus = {};
+      _bons.forEach(function (b) { if (b[cle]) vus[b[cle]] = 1; });
+      return Object.keys(vus).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+    }
+    remplir('f-tech', uniques('salarieNom'));
+    remplir('f-masque', uniques('masqueNom'));
+  }
+
+  function bonsFiltres() {
+    var t = document.getElementById('f-texte').value.trim().toUpperCase();
+    var tech = document.getElementById('f-tech').value;
+    var masque = document.getElementById('f-masque').value;
+    var du = document.getElementById('f-du').value;
+    var au = document.getElementById('f-au').value;
+    var envoi = document.getElementById('f-envoi').value;
+    return _bons.filter(function (b) {
+      if (t && ((b.chantier || '') + ' ' + (b.numero || '') + ' ' + (b.masqueNom || '')).toUpperCase().indexOf(t) < 0) return false;
+      if (tech && b.salarieNom !== tech) return false;
+      if (masque && b.masqueNom !== masque) return false;
+      var d = dateBon(b);
+      if (du && d < du) return false;
+      if (au && d > au) return false;
+      var envoye = (b.envois || []).length > 0;
+      if (envoi === 'oui' && !envoye) return false;
+      if (envoi === 'non' && envoye) return false;
+      return true;
+    });
+  }
+
+  function rendreListe() {
+    var corps = document.getElementById('liste-bons');
+    var liste = bonsFiltres();
+    document.getElementById('bi-compte').textContent = liste.length + ' bon' + (liste.length > 1 ? 's' : '') +
+      (liste.length !== _bons.length ? ' sur ' + _bons.length : '');
+    if (!_bons.length) {
+      corps.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;">Aucun bon pour l\'instant. Les bons apparaissent ici dès que vos équipes les enregistrent sur mobile.</td></tr>';
+      return;
+    }
+    if (!liste.length) {
+      corps.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6b7280;">Aucun bon ne correspond aux filtres</td></tr>';
+      return;
+    }
+    corps.innerHTML = liste.map(function (b) {
+      var envois = b.envois || [];
+      var dernier = envois[envois.length - 1];
+      var badge = dernier
+        ? '<span class="badge bi-envoye" title="' + esc(dernier.a) + '">✔ Envoyé le ' + esc(new Date(dernier.le).toLocaleDateString('fr-FR')) + '</span>'
+        : '<span class="badge bi-non-envoye">Non envoyé</span>';
+      return '<tr>' +
+        '<td class="bi-num">' + esc(b.numero || '') + '</td>' +
+        '<td>' + esc(fmtDate(dateBon(b))) + '</td>' +
+        '<td>' + esc(b.chantier) + '</td>' +
+        '<td>' + esc(b.masqueNom) + '</td>' +
+        '<td>' + esc(b.salarieNom) + '</td>' +
+        '<td>' + badge + '</td>' +
+        '<td class="bi-act">' +
+          '<button type="button" class="btn" onclick="voirBon(\'' + b._id + '\')">👁 Voir</button>' +
+          '<button type="button" class="btn" onclick="ouvrirPdf(\'' + b._id + '\')" title="Télécharger le PDF">📄</button>' +
+          '<button type="button" class="btn" onclick="preparerEnvoi(\'' + b._id + '\')" title="Envoyer au client">✉</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ── Consultation ──
+  function voirBon(id) {
+    var ligne = _bons.find(function (b) { return b._id === id; }) || {};
+    document.getElementById('bon-titre').textContent = 'Bon n° ' + (ligne.numero || '');
+    document.getElementById('bon-sous').textContent = (ligne.masqueNom || '') + ' · ' + (ligne.chantier || '');
+    document.getElementById('bon-corps').innerHTML = '<div style="color:#6b7280;">Chargement…</div>';
+    document.getElementById('bon-btn-pdf').onclick = function () { ouvrirPdf(id); };
+    document.getElementById('bon-btn-envoyer').onclick = function () { preparerEnvoi(id); };
+    document.getElementById('bon-btn-suppr').onclick = function () { supprimerBon(id); };
+    ouvrir('ov-bon');
+
+    _apiFetch('/api/bons-intervention/pc/' + id, { method: 'GET' }).then(function (res) {
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) {
+        document.getElementById('bon-corps').innerHTML = '<div style="color:#dc2626;">' + esc(res.body.message || 'Erreur') + '</div>';
+        return;
+      }
+      _bonOuvert = res.body;
+      document.getElementById('bon-corps').innerHTML = rendreBon(res.body);
+    });
+  }
+
+  function valeurTexte(c, v) {
+    if (v === undefined || v === null || v === '') return '—';
+    if (c.type === 'case') return (v === true || v === 'true') ? 'Oui' : 'Non';
+    if (c.type === 'cases_multiples') return Array.isArray(v) && v.length ? v.join(', ') : '—';
+    if (c.type === 'datetime' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return fmtDate(v);
+    return String(v);
+  }
+  function estImage(v) { return typeof v === 'string' && /^data:image\//.test(v); }
+
+  function rendreBon(d) {
+    var b = d.bon, rep = b.reponses || {}, coord = d.coord || {};
+    var tel = [coord.mobile, coord.fixe].filter(Boolean).join(' · ');
+    var h = '<div class="bi-cartouches">' +
+      '<div class="bi-cartouche"><div class="t">Client / chantier</div><strong>' + esc(b.chantier) + '</strong>' +
+        (coord.adresse ? '<br>' + esc(coord.adresse).replace(/\n/g, '<br>') : '') +
+        (coord.ville ? '<br>' + esc(coord.ville) : '') +
+        (tel ? '<br>Tél. ' + esc(tel) : '') + '</div>' +
+      '<div class="bi-cartouche"><div class="t">Intervention</div><strong>Date : ' + esc(fmtDate(b.dateIntervention) || '—') + '</strong>' +
+        '<br>Technicien : ' + esc(b.salarieNom || '—') +
+        '<br><span style="color:#64748b;font-size:0.82rem;">Bon établi le ' + esc(fmtDateHeure(b.creeLe)) + '</span></div>' +
+    '</div>';
+
+    var sigs = [];
+    (d.champs || []).forEach(function (c) {
+      var v = rep[c.id];
+      if (c.type === 'signature') { sigs.push(c); return; }
+      var val;
+      if (c.type === 'photo') {
+        var photos = (Array.isArray(v) ? v : []).filter(estImage);
+        val = photos.length
+          ? '<div class="bi-photos">' + photos.map(function (p) { return '<img src="' + p + '" alt="" onclick="zoom(this.src)">'; }).join('') + '</div>'
+          : '—';
+      } else {
+        val = esc(valeurTexte(c, v));
+      }
+      h += '<div class="bi-ligne"><div class="l">' + esc(c.libelle) + '</div><div class="v">' + val + '</div></div>';
+    });
+
+    if (sigs.length) {
+      h += '<div class="bi-sigs">' + sigs.map(function (c) {
+        var nom = c.signataire === 'client' ? (rep[c.id + '__nom'] || '') : (b.salarieNom || '');
+        var img = rep[c.id];
+        return '<div class="bi-sig"><div class="l">' + esc(c.libelle) + '</div><div class="n">' + esc(nom || ' ') + '</div>' +
+          '<div class="cadre">' + (estImage(img) ? '<img src="' + img + '" alt="Signature">' : '<span style="color:#94a3b8;">Non signé</span>') + '</div></div>';
+      }).join('') + '</div>';
+    }
+
+    var envois = b.envois || [];
+    if (envois.length) {
+      h += '<div class="bi-historique"><strong>Envois au client :</strong><br>' + envois.map(function (e) {
+        return '✉ ' + esc(fmtDateHeure(e.le)) + ' à ' + esc(e.a) + (e.copie ? ' (copie ' + esc(e.copie) + ')' : '');
+      }).join('<br>') + '</div>';
+    }
+    return h;
+  }
+
+  function zoom(src) {
+    var z = document.getElementById('bi-zoom');
+    z.querySelector('img').src = src;
+    z.style.display = 'flex';
+  }
+
+  // ── PDF ──
+  function ouvrirPdf(id) {
+    // Fenêtre ouverte tout de suite (sinon le navigateur la bloque après l'attente réseau).
+    var fen = window.open('', '_blank');
+    fetch('/api/bons-intervention/pc/' + id + '/pdf', { headers: { 'Authorization': 'Bearer ' + _token() } })
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Erreur'); });
+        return r.blob();
+      })
+      .then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        if (fen) fen.location.href = url;
+        else window.location.href = url;
+      })
+      .catch(function (e) {
+        if (fen) fen.close();
+        _notif(e.message || 'PDF indisponible', '#dc2626');
+      });
+  }
+
+  // ── Envoi par e-mail ──
+  /* Dernière adresse utilisée pour ce chantier (les clients reviennent souvent). */
+  function dernierEmailChantier(chantier) {
+    for (var i = 0; i < _bons.length; i++) {
+      var b = _bons[i];
+      if (b.chantier === chantier && (b.envois || []).length) return b.envois[b.envois.length - 1].a;
+    }
+    return '';
+  }
+
+  function preparerEnvoi(id) {
+    var b = _bons.find(function (x) { return x._id === id; });
+    if (!b) return;
+    _bonEnvoi = b;
+    var nomEnt = '';
+    try { nomEnt = (JSON.parse(localStorage.getItem('entreprisedata') || '{}').nom) || ''; } catch (e) {}
+    document.getElementById('envoi-sous').textContent = 'Bon n° ' + b.numero + ' · ' + b.chantier;
+    document.getElementById('envoi-a').value = dernierEmailChantier(b.chantier);
+    var copie = '';
+    try { copie = localStorage.getItem('bonsCopieEmail') || ''; } catch (e) {}
+    document.getElementById('envoi-copie').value = copie;
+    var d = fmtDate(dateBon(b));
+    document.getElementById('envoi-message').value =
+      'Bonjour,\n\nVeuillez trouver ci-joint le bon d\'intervention n° ' + b.numero + (d ? ' du ' + d : '') + '.\n\nCordialement,\n' + nomEnt;
+    ouvrir('ov-envoi');
+    setTimeout(function () { document.getElementById(document.getElementById('envoi-a').value ? 'envoi-message' : 'envoi-a').focus(); }, 50);
+  }
+
+  function envoyerBon() {
+    if (!_bonEnvoi) return;
+    var a = document.getElementById('envoi-a').value.trim();
+    var copie = document.getElementById('envoi-copie').value.trim();
+    if (!a) { alert('Saisissez l\'e-mail du client.'); return; }
+    var btn = document.getElementById('envoi-btn');
+    btn.disabled = true; btn.textContent = 'Envoi…';
+    _apiFetch('/api/bons-intervention/pc/' + _bonEnvoi._id + '/envoyer', {
+      method: 'POST',
+      body: JSON.stringify({ a: a, copie: copie, message: document.getElementById('envoi-message').value })
+    }).then(function (res) {
+      btn.disabled = false; btn.textContent = '✉ Envoyer';
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { alert(res.body.message || 'L\'envoi a échoué'); return; }
+      try { if (copie) localStorage.setItem('bonsCopieEmail', copie); } catch (e) {}
+      _bonEnvoi.envois = (_bonEnvoi.envois || []).concat([res.body.envoi]);
+      fermer('ov-envoi');
+      _notif('✔ Bon envoyé à ' + a);
+      rendreListe();
+      if (_bonOuvert && _bonOuvert.bon._id === _bonEnvoi._id && document.getElementById('ov-bon').classList.contains('ouvert')) {
+        _bonOuvert.bon.envois = _bonEnvoi.envois;
+        document.getElementById('bon-corps').innerHTML = rendreBon(_bonOuvert);
+      }
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = '✉ Envoyer';
+      alert('Erreur réseau : le bon n\'a pas été envoyé.');
+    });
+  }
+
+  // ── Suppression ──
+  function supprimerBon(id) {
+    var b = _bons.find(function (x) { return x._id === id; }) || {};
+    if (!confirm('Supprimer définitivement le bon n° ' + (b.numero || '') + ' (' + (b.chantier || '') + ') ?')) return;
+    _apiFetch('/api/bons-intervention/pc/' + id, { method: 'DELETE' }).then(function (res) {
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { _notif(res.body.message || 'Erreur', '#dc2626'); return; }
+      _bons = _bons.filter(function (x) { return x._id !== id; });
+      fermer('ov-bon');
+      _notif('Bon supprimé');
+      remplirFiltres();
+      rendreListe();
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var z = document.getElementById('bi-zoom');
+    if (z.style.display === 'flex') { z.style.display = 'none'; return; }
+    if (document.getElementById('ov-envoi').classList.contains('ouvert')) fermer('ov-envoi');
+    else fermer('ov-bon');
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Laisse SYNC.init() (appelé depuis sync.js) poser le token avant de charger.
+    setTimeout(chargerBons, 300);
+  });
+</script>
+
+</body>
+</html>

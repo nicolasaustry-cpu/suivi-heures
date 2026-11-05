@@ -12,12 +12,21 @@
 //   POST /api/bons-intervention          { codeEmploye, salarieId, chantier,
 //                                           masqueId, dateIntervention, reponses }
 //        → enregistre un bon rempli
+//
+// Côté bureau (PC, auth par token comme routes/masqueIntervention.js) :
+//   GET    /api/bons-intervention/pc            → liste (sans photos/signatures)
+//   GET    /api/bons-intervention/pc/:id        → bon complet + champs
+//   GET    /api/bons-intervention/pc/:id/pdf    → PDF du bon
+//   POST   /api/bons-intervention/pc/:id/envoyer { a, copie, message } → e-mail + PDF joint
+//   DELETE /api/bons-intervention/pc/:id        → supprimer un bon
 // ─────────────────────────────────────────────────────────────
 
 import express from "express";
 import Donnees from "../models/donnees.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
-import BonIntervention from "../models/bonIntervention.js";
+import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
+import { genererPdfBon } from "../services/pdfBon.js";
 
 const router = express.Router();
 
@@ -95,9 +104,11 @@ router.post("/", async (req, res) => {
 
     const bon = await BonIntervention.create({
       clientId: ctx.clientId,
+      numero: await prochainNumeroBon(ctx.clientId),
       chantier,
       masqueId: masque._id,
       masqueNom: masque.nom,
+      masqueChamps: (masque.toObject().champs || []),
       salarieId: ctx.salarieId,
       salarieNom: ctx.salarieNom,
       dateIntervention: String(req.body.dateIntervention || "").trim(),
@@ -106,6 +117,169 @@ router.post("/", async (req, res) => {
     });
 
     res.json({ ok: true, id: bon._id });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════
+//  CÔTÉ BUREAU (PC)
+// ═════════════════════════════════════════════════════════════
+
+/* Contexte PC : token + fonctionnalité activée. Renvoie { clientId, doc } ou envoie l'erreur. */
+async function contextePC(req, res) {
+  const clientId = U(req.user?.clientId);
+  const doc = await Donnees.findOne({ clientId }, "entreprise coordonneesChantiers");
+  if (!doc?.entreprise?.bonsInterventionActifs) {
+    res.status(403).json({ ok: false, message: "Fonctionnalité non activée pour ce compte (page Entreprise)" });
+    return null;
+  }
+  return { clientId, doc };
+}
+
+/* Bon du client (403 si un autre client, 404 si absent). */
+async function chargerBon(req, res, clientId) {
+  let bon = null;
+  try { bon = await BonIntervention.findById(req.params.id); } catch (e) { bon = null; }
+  if (!bon) { res.status(404).json({ ok: false, message: "Bon introuvable" }); return null; }
+  if (U(bon.clientId) !== clientId) { res.status(403).json({ ok: false, message: "Accès refusé" }); return null; }
+  return bon;
+}
+
+/* Champs à utiliser pour afficher un bon : la copie figée au remplissage,
+   ou à défaut (bons enregistrés avant cette évolution) le masque actuel. */
+async function champsDuBon(bon) {
+  if (Array.isArray(bon.masqueChamps) && bon.masqueChamps.length) return bon.masqueChamps;
+  const m = await MasqueIntervention.findById(bon.masqueId).lean();
+  return m?.champs || [];
+}
+
+/* Numérote les bons enregistrés avant la numérotation, dans l'ordre de création. */
+async function numeroterAnciens(clientId) {
+  const sansNum = await BonIntervention.find({ clientId, $or: [{ numero: "" }, { numero: { $exists: false } }] }, "_id creeLe")
+    .sort({ creeLe: 1 });
+  for (const b of sansNum) {
+    const numero = await prochainNumeroBon(clientId, b.creeLe);
+    await BonIntervention.updateOne({ _id: b._id }, { $set: { numero } });
+  }
+}
+
+const nomFichier = bon => `Bon-intervention-${bon.numero || bon._id}.pdf`;
+
+async function pdfDuBon(bon, doc) {
+  const coords = doc.coordonneesChantiers || {};
+  return genererPdfBon({
+    bon,
+    champs: await champsDuBon(bon),
+    entreprise: { nom: doc.entreprise?.nom || "" },
+    coord: coords[U(bon.chantier)] || {}
+  });
+}
+
+// ── Liste des bons (légère : sans réponses, donc sans photos ni signatures) ──
+router.get("/pc", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    await numeroterAnciens(ctx.clientId);
+    const bons = await BonIntervention
+      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieNom dateIntervention envois creeLe")
+      .sort({ creeLe: -1 })
+      .limit(2000)
+      .lean();
+    res.json({ ok: true, bons });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Un bon complet ──
+router.get("/pc/:id", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const coords = ctx.doc.coordonneesChantiers || {};
+    res.json({ ok: true, bon, champs: await champsDuBon(bon), coord: coords[U(bon.chantier)] || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── PDF du bon ──
+router.get("/pc/:id/pdf", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const pdf = await pdfDuBon(bon, ctx.doc);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${nomFichier(bon)}"`);
+    res.send(pdf);
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Envoi du bon au client par e-mail (PDF en pièce jointe, via Resend) ──
+const EMAIL_OK = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const echapper = s => String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+router.post("/pc/:id/envoyer", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+
+    const a = String(req.body.a || "").trim().toLowerCase();
+    const copie = String(req.body.copie || "").trim().toLowerCase();
+    const message = String(req.body.message || "").slice(0, 3000);
+    if (!EMAIL_OK(a)) return res.status(400).json({ ok: false, message: "Adresse e-mail du destinataire invalide" });
+    if (copie && !EMAIL_OK(copie)) return res.status(400).json({ ok: false, message: "Adresse e-mail de copie invalide" });
+
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) return res.status(503).json({ ok: false, message: "Envoi d'e-mails non configuré sur le serveur (RESEND_API_KEY)" });
+    const from = process.env.MAIL_FROM || process.env.SMTP_FROM || "contact@volitis.net";
+
+    const entNom = ctx.doc.entreprise?.nom || "Suiv'Heures";
+    const pdf = await pdfDuBon(bon, ctx.doc);
+    const dateTxt = (/^(\d{4})-(\d{2})-(\d{2})$/.exec(bon.dateIntervention || "") || []).slice(1).reverse().join("/");
+    const sujet = `Bon d'intervention n° ${bon.numero} — ${bon.chantier}${dateTxt ? " — " + dateTxt : ""}`;
+    const corps = message.trim() ||
+      `Bonjour,\n\nVeuillez trouver ci-joint le bon d'intervention n° ${bon.numero}${dateTxt ? " du " + dateTxt : ""}.\n\nCordialement,\n${entNom}`;
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1e293b;line-height:1.55;">${echapper(corps).replace(/\n/g, "<br>")}</div>`;
+
+    const payload = {
+      from: `${entNom.replace(/[<>"]/g, "")} <${from}>`,
+      to: [a],
+      subject: sujet,
+      text: corps,
+      html,
+      attachments: [{ filename: nomFichier(bon), content: pdf.toString("base64") }]
+    };
+    if (copie) { payload.cc = [copie]; payload.reply_to = copie; }
+
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      return res.status(502).json({ ok: false, message: `L'envoi a échoué (${r.status}) ${detail}`.trim() });
+    }
+
+    const envoi = { a, copie, le: new Date() };
+    await BonIntervention.updateOne({ _id: bon._id }, { $push: { envois: envoi } });
+    res.json({ ok: true, envoi });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Supprimer un bon ──
+router.delete("/pc/:id", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    await bon.deleteOne();
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
