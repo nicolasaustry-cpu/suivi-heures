@@ -27,6 +27,8 @@ import Donnees from "../models/donnees.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
 import Saisie from "../models/saisies.js";
+import ReglageCerfa from "../models/reglageCerfa.js";
+import { MODELES as CERFAS, listeModeles, assainirValeurs, remplirCerfa, assemblerPdf } from "../cerfa/index.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Equipement, { cleClient, libelleEquipement } from "../models/equipement.js";
 import { genererPdfBon } from "../services/pdfBon.js";
@@ -264,12 +266,52 @@ const nomFichier = bon => `Bon-intervention-${bon.numero || bon._id}.pdf`;
 async function pdfDuBon(bon, doc) {
   const coords = doc.coordonneesChantiers || {};
   const champs = await champsDuBon(bon);
-  return genererPdfBon({
-    bon: await bonAvecPointage(bon, champs, doc),
+  const bonComplet = await bonAvecPointage(bon, champs, doc);
+  const principal = await genererPdfBon({
+    bon: bonComplet,
     champs,
     entreprise: { nom: doc.entreprise?.nom || "" },
     coord: coords[U(bon.chantier)] || {}
   });
+  // CERFA joints au bon, ajoutés à la suite
+  const annexes = [];
+  for (const c of bon.cerfas || []) {
+    if (!CERFAS[c.code]) continue;
+    annexes.push(await remplirCerfa(c.code, c.valeurs || {}, signaturesDuBon(bonComplet, champs)));
+  }
+  return assemblerPdf(principal, annexes);
+}
+
+/* ── CERFA ── */
+function signaturesDuBon(bon, champs) {
+  const rep = bon.reponses || {};
+  const tech = (champs || []).find(c => c.type === "signature" && c.signataire !== "client");
+  const cli  = (champs || []).find(c => c.type === "signature" && c.signataire === "client");
+  return { operateur: tech ? rep[tech.id] : null, detenteur: cli ? rep[cli.id] : null };
+}
+
+async function valeursCerfaProposees(code, bon, champs, doc) {
+  const reg = await ReglageCerfa.findOne({ clientId: U(bon.clientId) }).lean();
+  let equipement = bon.equipement || null;
+  if (bon.equipementId) {
+    const e = await Equipement.findById(bon.equipementId).lean().catch(() => null);
+    if (e) equipement = e;                     // caractéristiques à jour (fluide, charge…)
+  }
+  const coords = doc.coordonneesChantiers || {};
+  return CERFAS[code].preremplir({
+    bon, champs, equipement, coord: coords[U(bon.chantier)] || {},
+    entreprise: doc.entreprise || {}, reglages: reg?.valeurs || {}
+  });
+}
+
+/* Mémorise les valeurs propres à l'entreprise (champs marqués « memo »). */
+async function memoriserReglages(clientId, code, valeurs) {
+  const memo = {};
+  for (const s of CERFAS[code].SECTIONS) for (const c of s.champs) {
+    if (c.memo && String(valeurs[c.pdf] || "").trim()) memo["valeurs." + c.memo] = String(valeurs[c.pdf]).trim();
+  }
+  if (Object.keys(memo).length)
+    await ReglageCerfa.updateOne({ clientId }, { $set: { ...memo, maj: new Date() } }, { upsert: true });
 }
 
 // ── Liste des bons (légère : sans réponses, donc sans photos ni signatures) ──
@@ -278,7 +320,7 @@ router.get("/pc", verifyToken, async (req, res) => {
     const ctx = await contextePC(req, res); if (!ctx) return;
     await numeroterAnciens(ctx.clientId);
     const bons = await BonIntervention
-      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieId salarieNom dateIntervention envois creeLe equipementId equipement.libelle")
+      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieId salarieNom dateIntervention envois creeLe equipementId equipement.libelle cerfas.code")
       .sort({ creeLe: -1 })
       .limit(2000)
       .lean();
@@ -344,6 +386,14 @@ router.post("/pc/exemple", verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
+});
+
+// ── Catalogue des CERFA disponibles ──
+router.get("/pc/cerfa-modeles", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    res.json({ ok: true, modeles: listeModeles() });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
 // ── Un bon complet ──
@@ -426,6 +476,85 @@ router.post("/pc/:id/envoyer", verifyToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
+});
+
+// ── CERFA d'un bon : formulaire (valeurs enregistrées, sinon proposées) ──
+router.get("/pc/:id/cerfa/:code", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const m = CERFAS[req.params.code];
+    if (!m) return res.status(404).json({ ok: false, message: "CERFA inconnu" });
+    const champs = await champsDuBon(bon);
+    const joint = (bon.cerfas || []).find(c => c.code === m.CODE);
+    const proposees = await valeursCerfaProposees(m.CODE, await bonAvecPointage(bon, champs, ctx.doc), champs, ctx.doc);
+    res.json({
+      ok: true,
+      modele: { code: m.CODE, titre: m.TITRE, sections: m.SECTIONS },
+      valeurs: joint ? joint.valeurs : proposees,
+      proposees,
+      joint: !!joint
+    });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
+// ── Joindre / mettre à jour un CERFA sur le bon ──
+router.put("/pc/:id/cerfa/:code", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const code = req.params.code;
+    const valeurs = assainirValeurs(code, req.body.valeurs);
+    if (!valeurs) return res.status(404).json({ ok: false, message: "CERFA inconnu" });
+    const cerfas = (bon.cerfas || []).filter(c => c.code !== code);
+    cerfas.push({ code, valeurs, modifieLe: new Date() });
+    await BonIntervention.updateOne({ _id: bon._id }, { $set: { cerfas } });
+    await memoriserReglages(ctx.clientId, code, valeurs);
+    // Fluide / charge saisis sur le CERFA : reportés dans la fiche de l'équipement s'ils y manquent
+    if (bon.equipementId && (valeurs.Equipement_Fluide || valeurs.Equipement_Charge)) {
+      const e = await Equipement.findById(bon.equipementId).catch(() => null);
+      if (e && U(e.clientId) === ctx.clientId) {
+        let modif = false;
+        if (!e.fluide && valeurs.Equipement_Fluide) { e.fluide = "R" + String(valeurs.Equipement_Fluide).replace(/^R\s*-?\s*/i, ""); modif = true; }
+        const ch = Number(String(valeurs.Equipement_Charge || "").replace(",", "."));
+        if (e.chargeKg == null && Number.isFinite(ch) && ch > 0) { e.chargeKg = ch; modif = true; }
+        if (modif) { e.modifieLe = new Date(); await e.save(); }
+      }
+    }
+    res.json({ ok: true, cerfas: cerfas.map(c => ({ code: c.code, modifieLe: c.modifieLe })) });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
+// ── Retirer un CERFA du bon ──
+router.delete("/pc/:id/cerfa/:code", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const cerfas = (bon.cerfas || []).filter(c => c.code !== req.params.code);
+    await BonIntervention.updateOne({ _id: bon._id }, { $set: { cerfas } });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
+// ── PDF du CERFA seul (valeurs envoyées pour l'aperçu, sinon enregistrées / proposées) ──
+router.post("/pc/:id/cerfa/:code/pdf", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const code = req.params.code;
+    if (!CERFAS[code]) return res.status(404).json({ ok: false, message: "CERFA inconnu" });
+    const champs = await champsDuBon(bon);
+    const bonComplet = await bonAvecPointage(bon, champs, ctx.doc);
+    let valeurs = req.body?.valeurs ? assainirValeurs(code, req.body.valeurs) : null;
+    if (!valeurs) {
+      const joint = (bon.cerfas || []).find(c => c.code === code);
+      valeurs = joint ? joint.valeurs : await valeursCerfaProposees(code, bonComplet, champs, ctx.doc);
+    }
+    const pdf = await remplirCerfa(code, valeurs, signaturesDuBon(bonComplet, champs));
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="CERFA-${code}-${bon.numero || bon._id}.pdf"`);
+    res.send(pdf);
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
 // ── Changer le technicien d'un bon (choisi parmi les salariés) ──

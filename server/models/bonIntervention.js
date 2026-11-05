@@ -24,6 +24,8 @@ const bonInterventionSchema = new mongoose.Schema({
   // en base64, signature en base64) — volontairement libre (Mixed) car la
   // structure varie selon le masque.
   reponses:        { type: mongoose.Schema.Types.Mixed, default: {} },
+  // CERFA joints au bon : [{ code: "15497", valeurs: { champPdf: valeur }, modifieLe }]
+  cerfas:          { type: Array, default: [] },
   // Historique des envois au client depuis le PC : [{ a, copie, le }]
   envois:          { type: Array, default: [] },
   creeLe:          { type: Date, default: Date.now }

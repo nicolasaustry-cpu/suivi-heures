@@ -58,6 +58,21 @@
     #bi-zoom { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:300; cursor:zoom-out; }
     #bi-zoom img { max-width:94vw; max-height:92vh; }
 
+    /* CERFA */
+    .cf-section { border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+    .cf-section h4 { margin:0 0 8px; font-size:0.85rem; color:#0f3a8a; }
+    .cf-section .cf-aide { font-size:0.76rem; color:#64748b; margin:-4px 0 8px; }
+    .cf-grille { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+    .cf-champ label { display:block; font-size:0.74rem; font-weight:600; color:#475569; margin-bottom:2px; }
+    .cf-champ input[type=text], .cf-champ textarea { width:100%; box-sizing:border-box; }
+    .cf-champ textarea { min-height:52px; font-family:inherit; }
+    .cf-champ.large { grid-column:1 / -1; }
+    .cf-case { display:flex; align-items:flex-start; gap:6px; font-size:0.84rem; }
+    .cf-case input { margin-top:3px; }
+    .cf-joints { margin-top:14px; font-size:0.85rem; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; }
+    .cf-joints button { margin-left:6px; }
+    .bi-cerfa-badge { background:#dbeafe; color:#1e40af; font-size:0.7rem; border-radius:999px; padding:1px 7px; margin-left:4px; white-space:nowrap; }
+    @media (max-width:640px) { .cf-grille { grid-template-columns:1fr; } }
     @media (max-width:640px) {
       .bi-cartouches, .bi-sigs { grid-template-columns:1fr; }
       .bi-ligne { grid-template-columns:1fr; gap:2px; }
@@ -126,6 +141,7 @@
     <div class="bi-corps" id="bon-corps">Chargement…</div>
     <div class="bi-pied">
       <button type="button" class="btn-danger" id="bon-btn-suppr" style="margin-right:auto;">🗑 Supprimer</button>
+      <button type="button" class="btn" id="bon-btn-cerfa">📑 CERFA</button>
       <button type="button" class="btn" id="bon-btn-pdf">📄 PDF</button>
       <button type="button" class="btn-primary" id="bon-btn-envoyer">✉ Envoyer au client</button>
     </div>
@@ -152,6 +168,30 @@
     <div class="bi-pied">
       <button type="button" class="btn" onclick="fermer('ov-envoi')">Annuler</button>
       <button type="button" class="btn-primary" id="envoi-btn" onclick="envoyerBon()">✉ Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : CERFA joint au bon -->
+<div class="bi-ov" id="ov-cerfa" onclick="if(event.target===this)fermer('ov-cerfa')">
+  <div class="bi-box">
+    <div class="bi-tete">
+      <div style="flex:1;"><h3 id="cf-titre">CERFA</h3><div class="bi-sous" id="cf-sous"></div></div>
+      <button class="bi-fermer" onclick="fermer('ov-cerfa')" title="Fermer">✕</button>
+    </div>
+    <div class="bi-corps">
+      <div id="cf-choix" style="margin-bottom:12px;">
+        <label>Formulaire</label>
+        <select id="cf-modele" onchange="chargerCerfa(this.value)"></select>
+      </div>
+      <div id="cf-info" style="font-size:0.82rem;color:#475569;margin-bottom:10px;"></div>
+      <div id="cf-form">Chargement…</div>
+    </div>
+    <div class="bi-pied">
+      <button type="button" class="btn-danger" id="cf-btn-retirer" style="margin-right:auto;display:none;" onclick="retirerCerfa()">Retirer du bon</button>
+      <button type="button" class="btn" onclick="reprendreProposees()" title="Revenir aux valeurs pré-remplies depuis le bon">↺ Valeurs proposées</button>
+      <button type="button" class="btn" onclick="apercuCerfa()">👁 Aperçu</button>
+      <button type="button" class="btn-primary" id="cf-btn-ok" onclick="enregistrerCerfa()">💾 Joindre au bon</button>
     </div>
   </div>
 </div>
@@ -288,7 +328,7 @@
         '<td class="bi-num">' + esc(b.numero || '') + '</td>' +
         '<td>' + esc(fmtDate(dateBon(b))) + '</td>' +
         '<td>' + esc(b.chantier) + (b.equipement && b.equipement.libelle ? '<div style="font-size:0.75rem;color:#047857;">🔧 ' + esc(b.equipement.libelle) + '</div>' : '') + '</td>' +
-        '<td>' + esc(b.masqueNom) + '</td>' +
+        '<td>' + esc(b.masqueNom) + (b.cerfas || []).map(function (c) { return '<span class="bi-cerfa-badge">CERFA ' + esc(c.code) + '</span>'; }).join('') + '</td>' +
         '<td>' + esc(b.salarieNom) + '</td>' +
         '<td>' + badge + '</td>' +
         '<td class="bi-act">' +
@@ -307,6 +347,7 @@
     document.getElementById('bon-sous').textContent = (ligne.masqueNom || '') + ' · ' + (ligne.chantier || '');
     document.getElementById('bon-corps').innerHTML = '<div style="color:#6b7280;">Chargement…</div>';
     document.getElementById('bon-btn-pdf').onclick = function () { ouvrirPdf(id); };
+    document.getElementById('bon-btn-cerfa').onclick = function () { ouvrirCerfa(id, ''); };
     document.getElementById('bon-btn-envoyer').onclick = function () { preparerEnvoi(id); };
     document.getElementById('bon-btn-suppr').onclick = function () { supprimerBon(id); };
     ouvrir('ov-bon');
@@ -366,6 +407,14 @@
         var img = rep[c.id];
         return '<div class="bi-sig"><div class="l">' + esc(c.libelle) + '</div><div class="n">' + esc(nom || ' ') + '</div>' +
           '<div class="cadre">' + (estImage(img) ? '<img src="' + img + '" alt="Signature">' : '<span style="color:#94a3b8;">Non signé</span>') + '</div></div>';
+      }).join('') + '</div>';
+    }
+
+    var cerfas = b.cerfas || [];
+    if (cerfas.length) {
+      h += '<div class="cf-joints"><strong>📑 Joint au bon (ajouté au PDF et à l\'envoi) :</strong>' + cerfas.map(function (c) {
+        return '<div style="margin-top:4px;">CERFA ' + esc(c.code) + (c.modifieLe ? ' <span style="color:#64748b;">(mis à jour le ' + esc(fmtDateHeure(c.modifieLe)) + ')</span>' : '') +
+          '<button type="button" class="btn" onclick="ouvrirCerfa(\'' + b._id + '\',\'' + esc(c.code) + '\')">✏️ Modifier</button></div>';
       }).join('') + '</div>';
     }
 
@@ -434,6 +483,139 @@
         if (fen) fen.close();
         _notif(e.message || 'PDF indisponible', '#dc2626');
       });
+  }
+
+  // ── CERFA ──
+  var _cf = { bonId: null, code: '', modele: null, proposees: {}, modeles: null };
+  function _cfId(pdf) { return 'cf-' + String(pdf).replace(/[^A-Za-z0-9_-]/g, '_'); }
+
+  function ouvrirCerfa(bonId, code) {
+    _cf.bonId = bonId;
+    var ligne = _bons.find(function (b) { return b._id === bonId; }) || {};
+    document.getElementById('cf-sous').textContent = 'Bon n° ' + (ligne.numero || '') + ' · ' + (ligne.chantier || '');
+    document.getElementById('cf-form').innerHTML = 'Chargement…';
+    ouvrir('ov-cerfa');
+    var suite = function () {
+      var sel = document.getElementById('cf-modele');
+      sel.innerHTML = _cf.modeles.map(function (m) { return '<option value="' + esc(m.code) + '">' + esc(m.titre) + '</option>'; }).join('');
+      var joint = (ligne.cerfas || [])[0];
+      sel.value = code || (joint && joint.code) || (_cf.modeles[0] && _cf.modeles[0].code) || '';
+      document.getElementById('cf-choix').style.display = _cf.modeles.length > 1 ? '' : 'none';
+      chargerCerfa(sel.value);
+    };
+    if (_cf.modeles) return suite();
+    _apiFetch('/api/bons-intervention/pc/cerfa-modeles', { method: 'GET' }).then(function (res) {
+      if (!res.body.ok) { document.getElementById('cf-form').textContent = res.body.message || 'Erreur'; return; }
+      _cf.modeles = res.body.modeles || [];
+      suite();
+    });
+  }
+
+  function chargerCerfa(code) {
+    _cf.code = code;
+    _apiFetch('/api/bons-intervention/pc/' + _cf.bonId + '/cerfa/' + encodeURIComponent(code), { method: 'GET' }).then(function (res) {
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { document.getElementById('cf-form').textContent = res.body.message || 'Erreur'; return; }
+      _cf.modele = res.body.modele;
+      _cf.proposees = res.body.proposees || {};
+      document.getElementById('cf-titre').textContent = res.body.modele.titre;
+      document.getElementById('cf-btn-retirer').style.display = res.body.joint ? '' : 'none';
+      document.getElementById('cf-btn-ok').textContent = res.body.joint ? '💾 Enregistrer' : '💾 Joindre au bon';
+      document.getElementById('cf-info').innerHTML = res.body.joint
+        ? 'Ce CERFA est joint au bon : il s\'ajoute à la suite du PDF et part avec l\'envoi au client.'
+        : 'Valeurs <strong>pré-remplies</strong> d\'après le bon, l\'équipement, le client et vos saisies précédentes. Complétez puis joignez-le au bon.';
+      rendreFormCerfa(res.body.valeurs || {});
+    });
+  }
+
+  function rendreFormCerfa(v) {
+    var h = '';
+    _cf.modele.sections.forEach(function (s) {
+      h += '<div class="cf-section"><h4>' + esc(s.titre) + '</h4>' + (s.aide ? '<div class="cf-aide">' + esc(s.aide) + '</div>' : '') + '<div class="cf-grille">';
+      s.champs.forEach(function (c) {
+        var id = _cfId(c.pdf), val = v[c.pdf];
+        if (c.type === 'case') {
+          h += '<label class="cf-case"><input type="checkbox" id="' + id + '"' + (val ? ' checked' : '') + '><span>' + esc(c.label) + '</span></label>';
+        } else if (c.type === 'radio') {
+          h += '<div class="cf-champ"><label>' + esc(c.label) + '</label>' + c.options.map(function (o) {
+            return '<label class="cf-case" style="display:inline-flex;margin-right:14px;"><input type="radio" name="' + id + '" value="' + esc(o[0]) + '"' + (String(val) === o[0] ? ' checked' : '') + '> ' + esc(o[1]) + '</label>';
+          }).join('') + '</div>';
+        } else if (c.type === 'zone') {
+          h += '<div class="cf-champ large"><label for="' + id + '">' + esc(c.label) + '</label><textarea id="' + id + '">' + esc(val || '') + '</textarea></div>';
+        } else {
+          h += '<div class="cf-champ' + (c.court ? '' : ' large') + '"><label for="' + id + '">' + esc(c.label) + (c.calcule ? ' <span style="color:#7c3aed;">(calculé si vide)</span>' : '') + '</label>' +
+            '<input type="text" id="' + id + '" value="' + esc(val == null ? '' : val) + '">' + (c.aide ? '<div class="cf-aide" style="margin:2px 0 0;">' + esc(c.aide) + '</div>' : '') + '</div>';
+        }
+      });
+      h += '</div></div>';
+    });
+    document.getElementById('cf-form').innerHTML = h;
+  }
+
+  function valeursFormCerfa() {
+    var v = {};
+    _cf.modele.sections.forEach(function (s) {
+      s.champs.forEach(function (c) {
+        var id = _cfId(c.pdf);
+        if (c.type === 'case') v[c.pdf] = !!(document.getElementById(id) || {}).checked;
+        else if (c.type === 'radio') { var r = document.querySelector('input[name="' + id + '"]:checked'); if (r) v[c.pdf] = r.value; }
+        else { var el = document.getElementById(id); if (el) v[c.pdf] = el.value; }
+      });
+    });
+    return v;
+  }
+
+  function reprendreProposees() {
+    if (!confirm('Remplacer la saisie par les valeurs pré-remplies depuis le bon ?')) return;
+    rendreFormCerfa(_cf.proposees);
+  }
+
+  function apercuCerfa() {
+    var fen = window.open('', '_blank');
+    fetch('/api/bons-intervention/pc/' + _cf.bonId + '/cerfa/' + encodeURIComponent(_cf.code) + '/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token() },
+      body: JSON.stringify({ valeurs: valeursFormCerfa() })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Erreur'); });
+      return r.blob();
+    }).then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      if (fen) fen.location.href = url; else window.location.href = url;
+    }).catch(function (e) { if (fen) fen.close(); _notif(e.message || 'Aperçu indisponible', '#dc2626'); });
+  }
+
+  function _majCerfasLocaux(cerfas) {
+    var ligne = _bons.find(function (b) { return b._id === _cf.bonId; });
+    if (ligne) ligne.cerfas = cerfas;
+    if (_bonOuvert && _bonOuvert.bon._id === _cf.bonId) {
+      _bonOuvert.bon.cerfas = cerfas;
+      document.getElementById('bon-corps').innerHTML = rendreBon(_bonOuvert);
+    }
+    rendreListe();
+  }
+
+  function enregistrerCerfa() {
+    var btn = document.getElementById('cf-btn-ok'); btn.disabled = true;
+    _apiFetch('/api/bons-intervention/pc/' + _cf.bonId + '/cerfa/' + encodeURIComponent(_cf.code), {
+      method: 'PUT', body: JSON.stringify({ valeurs: valeursFormCerfa() })
+    }).then(function (res) {
+      btn.disabled = false;
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { alert(res.body.message || 'Enregistrement impossible'); return; }
+      _majCerfasLocaux(res.body.cerfas || []);
+      fermer('ov-cerfa');
+      _notif('✔ CERFA ' + _cf.code + ' joint au bon');
+    }).catch(function () { btn.disabled = false; alert('Erreur réseau.'); });
+  }
+
+  function retirerCerfa() {
+    if (!confirm('Retirer ce CERFA du bon ?')) return;
+    _apiFetch('/api/bons-intervention/pc/' + _cf.bonId + '/cerfa/' + encodeURIComponent(_cf.code), { method: 'DELETE' }).then(function (res) {
+      if (!res.body.ok) { alert(res.body.message || 'Erreur'); return; }
+      var ligne = _bons.find(function (b) { return b._id === _cf.bonId; }) || {};
+      _majCerfasLocaux((ligne.cerfas || []).filter(function (c) { return c.code !== _cf.code; }));
+      fermer('ov-cerfa');
+      _notif('CERFA retiré du bon');
+    });
   }
 
   // ── Envoi par e-mail ──
@@ -525,6 +707,7 @@
     if (e.key !== 'Escape') return;
     var z = document.getElementById('bi-zoom');
     if (z.style.display === 'flex') { z.style.display = 'none'; return; }
+    if (document.getElementById('ov-cerfa').classList.contains('ouvert')) { fermer('ov-cerfa'); return; }
     if (document.getElementById('ov-envoi').classList.contains('ouvert')) fermer('ov-envoi');
     else fermer('ov-bon');
   });
