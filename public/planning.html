@@ -3794,10 +3794,12 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- ══ CARTE DES CHANTIERS DU JOUR (épingle 📍 à côté de la date du jour) ══ -->
 <style>
-  .pl-carte-btn { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-left:4px;
+  /* Épingle calée sur le bord droit de la colonne du jour (et non collée à la date) */
+  table.tgrid thead th.auj { position:relative; }
+  .pl-carte-btn { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; justify-content:center;
     width:24px; height:24px; padding:0; border:none; border-radius:50%; background:#fff; cursor:pointer;
     box-shadow:0 1px 3px rgba(0,0,0,.3); }
-  .pl-carte-btn:hover { transform:scale(1.12); }
+  .pl-carte-btn:hover { transform:translateY(-50%) scale(1.12); }
   .pl-carte-btn svg { display:block; }
   #plc-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px; }
   #plc-overlay.on { display:flex; }
