@@ -241,7 +241,7 @@
   <div class="clients-toolbar">
     <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
     <button type="button" id="btn-import-clients" onclick="ouvrirImport()" title="Importer une liste de clients depuis un fichier Excel ou CSV">📥 Importer un fichier</button>
-    <button type="button" id="btn-import-organilog" onclick="ouvrirOrganilog()" title="Reprendre les clients et équipements exportés d'Organilog">📥 Import Organilog</button>
+    <button type="button" id="btn-import-organilog" style="display:none;" onclick="ouvrirOrganilog()" title="Reprendre les clients et équipements exportés d'Organilog">📥 Import Organilog</button>
     <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
     <select id="filtre-source" onchange="filtrerClients()">
       <option value="">Tous les clients</option>
@@ -1043,7 +1043,13 @@ function fermerOrganilog() { document.getElementById('og-overlay').classList.rem
 function _ogDepot(erreur) {
   document.getElementById('og-corps').innerHTML =
     (erreur ? '<div class="og-note" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;">⚠ ' + _clEsc(erreur) + '</div>' : '') +
-    '<p>Dans Organilog, exportez la liste voulue (Clients, Adresses, Installations, Tickets ou Interventions) au format <b>CSV</b> ou <b>Excel</b>, puis déposez le fichier ici. Vous pouvez importer plusieurs fichiers l’un après l’autre.</p>' +
+    '<p>Dans Organilog, exportez la liste voulue au format <b>CSV</b> ou <b>Excel</b>, puis déposez le fichier ici. Ordre conseillé :</p>' +
+    '<ol style="margin:0 0 10px 18px;padding:0;line-height:1.55;">' +
+      '<li><b>Installations</b> (menu Installations → Exporter) : le fichier le plus complet. Il crée vos <b>clients</b> avec adresse et e-mail, et leur <b>parc d’équipements</b> : marque, référence et n° de série, <b>fluide et charge</b> (lus dans la référence, ex. « R410A 3.4kg »), type déduit du libellé (« Pac », « Clim »…). Il ne contient pas les téléphones.</li>' +
+      '<li><b>Clients</b> : pour ajouter les <b>téléphones</b>. Cochez alors « Mettre à jour les fiches déjà existantes ».</li>' +
+      '<li><b>Tickets</b> ou <b>Interventions</b> (facultatif) : seuls les clients qui y figurent sont repris, pas les tickets eux-mêmes.</li>' +
+    '</ol>' +
+    '<div class="og-note" style="margin:0 0 10px;">Réimporter un fichier ne crée pas de doublon : un client déjà présent est conservé (ou mis à jour si vous cochez la case), une installation déjà importée est reconnue par son n° Organilog.</div>' +
     '<label class="og-depot" id="og-zone">📂 Cliquez ou déposez un fichier Organilog<input type="file" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="if(this.files[0])_ogLire(this.files[0])"></label>';
   const z = document.getElementById('og-zone');
   ['dragenter', 'dragover'].forEach(t => z.addEventListener(t, e => { e.preventDefault(); z.classList.add('survol'); }));
@@ -1300,6 +1306,10 @@ async function chargerClients() {
   filtrerClients();
   chargerChantiersMobile();   // en tâche de fond : la liste se complète à l'arrivée
   chargerEquipements();       // parc d'équipements (si les bons d'intervention sont activés)
+  // Import Organilog : seulement si « Import Organilog : Oui » sur la page Entreprise
+  let _ogActif = false;
+  try { _ogActif = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').importOrganilog; } catch (_) {}
+  document.getElementById('btn-import-organilog').style.display = _ogActif ? '' : 'none';
 }
 
 async function synchroniserClientsHenrri() {

@@ -459,6 +459,16 @@
     <button type="button" id="btn-valider-bons-intervention" class="btn btn-success" onclick="validerBonsIntervention()">💾 Valider</button>
     <span id="bons-intervention-msg" style="font-size:0.85rem;color:#16a34a;"></span>
   </div>
+  <div style="display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;margin-top:0.9rem;padding-top:0.8rem;border-top:1px solid #bbf7d0;">
+    <span style="font-size:0.9rem;font-weight:600;">Import Organilog :</span>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="importOrganilog" id="importOrganilogOui" value="oui"> Oui
+    </label>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="importOrganilog" id="importOrganilogNon" value="non"> Non
+    </label>
+    <span style="font-size:0.8rem;color:#64748b;flex-basis:100%;">Ajoute dans la page Clients l'import des fichiers exportés d'Organilog (installations, clients). Enregistré avec le bouton Valider ci-dessus.</span>
+  </div>
 </section>
 
 </div>
@@ -859,12 +869,15 @@ function chargerBonsIntervention() {
   const oui = document.getElementById('bonsInterventionOui');
   const non = document.getElementById('bonsInterventionNon');
   if (oui && non) { oui.checked = !!ent.bonsInterventionActifs; non.checked = !ent.bonsInterventionActifs; }
+  const ogO = document.getElementById('importOrganilogOui'), ogN = document.getElementById('importOrganilogNon');
+  if (ogO && ogN) { ogO.checked = !!ent.importOrganilog; ogN.checked = !ent.importOrganilog; }
 }
 async function validerBonsIntervention() {
   const actif = !!document.getElementById('bonsInterventionOui').checked;
   if (!actif && !document.getElementById('bonsInterventionNon').checked) { alert('Choisissez Oui ou Non.'); return; }
   const ent = _entLire();
   ent.bonsInterventionActifs = actif;
+  ent.importOrganilog = !!document.getElementById('importOrganilogOui').checked;
   localStorage.setItem('entreprisedata', JSON.stringify(ent));
   const btn = document.getElementById('btn-valider-bons-intervention');
   const msg = document.getElementById('bons-intervention-msg');
