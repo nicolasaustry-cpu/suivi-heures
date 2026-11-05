@@ -1548,6 +1548,24 @@
       <div id="bon-msg-vide" style="display:none;color:#92400e;font-size:0.85rem;margin-top:10px;">Aucun masque de bon d'intervention n'a été créé pour votre entreprise.</div>
     </div>
 
+    <!-- Équipement du parc client (facultatif) -->
+    <div id="bon-etape-equip" style="display:none;margin-top:12px;">
+      <label class="bon-lbl" style="display:block;font-size:0.85rem;font-weight:700;color:#0f172a;margin-bottom:6px;">🔧 Équipement</label>
+      <select id="bon-select-equip" onchange="choisirEquipement(this.value)"></select>
+      <div id="bon-equip-info" style="font-size:0.78rem;color:#047857;margin-top:5px;"></div>
+      <div id="bon-equip-form" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-top:8px;">
+        <input id="bon-eq-type" list="bon-eq-types" placeholder="Type (ex : Pompe à Chaleur Air Eau)" style="margin-bottom:6px;">
+        <datalist id="bon-eq-types">
+          <option value="Pompe à Chaleur Air Eau"><option value="Pompe à Chaleur Air Air"><option value="Climatisation">
+          <option value="Chaudière gaz"><option value="Chaudière fioul"><option value="Poêle à granulés"><option value="Ballon thermodynamique">
+        </datalist>
+        <input id="bon-eq-marque" placeholder="Marque" style="margin-bottom:6px;">
+        <input id="bon-eq-modele" placeholder="Modèle / référence" style="margin-bottom:6px;">
+        <input id="bon-eq-serie" placeholder="N° de série" style="margin-bottom:8px;">
+        <button type="button" class="btn-valider-note" onclick="creerEquipementMobile(this)">＋ Ajouter cet équipement</button>
+      </div>
+    </div>
+
     <div id="bon-champs"></div>
 
     <div class="note-actions" id="bon-actions" style="display:none;">
@@ -5078,6 +5096,8 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
    BONS D'INTERVENTION (mobile)
    ═══════════════════════════════════════════════════════════ */
 let _bonCible        = null;  // { type: 'prev'|'ajout', ref }
+let _bonEquipements  = [];    // équipements du client du chantier (parc)
+let _bonEquipement   = null;  // équipement choisi pour ce bon, ou null
 let _bonMasques      = [];
 let _bonMasqueActuel = null;
 let _bonReponses     = {};    // { idChamp: valeur }
@@ -5131,6 +5151,7 @@ function ouvrirBon(type, ref) {
   document.getElementById('bon-msg-vide').style.display = 'none';
 
   document.getElementById('modal-bon').classList.add('open');
+  _bonChargerEquipements(nom);
 
   const codeEmploye = localStorage.getItem('saisie_codeEmploye');
   const salarieId = _salarie ? _salarie.id : null;
@@ -5165,6 +5186,109 @@ function choisirMasque(masqueId) {
   _bonMasqueActuel = _bonMasques.find(function (m) { return m._id === masqueId; }) || null;
   _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {}; _bonSignatureAEnregistrer = {};
   _bonRendreChamps();
+  _bonPreremplirEquipement();
+}
+
+/* ── Équipement du parc client ── */
+function _bonChargerEquipements(nomChantier) {
+  _bonEquipements = []; _bonEquipement = null;
+  const zone = document.getElementById('bon-etape-equip');
+  zone.style.display = 'none';
+  document.getElementById('bon-equip-form').style.display = 'none';
+  document.getElementById('bon-equip-info').textContent = '';
+  fetch('/api/equipements/mobile/liste', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, chantier: nomChantier })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) return;                       // module non activé : on n'affiche rien
+    _bonEquipements = d.equipements || [];
+    _bonRendreSelectEquipement('');
+    zone.style.display = '';
+  }).catch(function () { /* hors connexion : bon sans équipement */ });
+}
+
+function _bonLibelleEq(e) {
+  return [e.type, e.marque, e.modele].filter(Boolean).join(' · ') + (e.emplacement ? ' (' + e.emplacement + ')' : '');
+}
+
+function _bonRendreSelectEquipement(valeur) {
+  const sel = document.getElementById('bon-select-equip');
+  sel.innerHTML = '';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = _bonEquipements.length ? '— Aucun / non concerné —' : '— Aucun équipement connu —';
+  sel.appendChild(o0);
+  _bonEquipements.forEach(function (e) {
+    const o = document.createElement('option'); o.value = e._id; o.textContent = _bonLibelleEq(e);
+    sel.appendChild(o);
+  });
+  const oN = document.createElement('option'); oN.value = '__nouveau'; oN.textContent = '＋ Nouvel équipement…';
+  sel.appendChild(oN);
+  sel.value = valeur;
+}
+
+function choisirEquipement(id) {
+  const form = document.getElementById('bon-equip-form');
+  const info = document.getElementById('bon-equip-info');
+  if (id === '__nouveau') {
+    _bonEquipement = null; info.textContent = '';
+    ['bon-eq-type', 'bon-eq-marque', 'bon-eq-modele', 'bon-eq-serie'].forEach(function (k) { document.getElementById(k).value = ''; });
+    form.style.display = '';
+    document.getElementById('bon-eq-type').focus();
+    return;
+  }
+  form.style.display = 'none';
+  _bonEquipement = _bonEquipements.find(function (e) { return e._id === id; }) || null;
+  if (_bonEquipement) {
+    const j = _bonEquipement.derniereIntervention;
+    info.textContent = (_bonEquipement.numeroSerie ? 'N° de série ' + _bonEquipement.numeroSerie + ' · ' : '') +
+      (j ? 'Dernière intervention le ' + j.slice(8, 10) + '/' + j.slice(5, 7) + '/' + j.slice(0, 4) : 'Première intervention enregistrée');
+  } else info.textContent = '';
+  _bonPreremplirEquipement();
+}
+
+function creerEquipementMobile(btn) {
+  const v = function (id) { return document.getElementById(id).value.trim(); };
+  const corps = { type: v('bon-eq-type'), marque: v('bon-eq-marque'), modele: v('bon-eq-modele'), numeroSerie: v('bon-eq-serie') };
+  if (!corps.type && !corps.marque && !corps.modele && !corps.numeroSerie) { alert('Renseignez au moins le type ou la marque.'); return; }
+  btn.disabled = true;
+  fetch('/api/equipements/mobile/creer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, chantier: _bonNomChantier() }, corps))
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    btn.disabled = false;
+    if (!d.ok) { alert(d.message || 'Équipement non enregistré'); return; }
+    _bonEquipements.push(d.equipement);
+    _bonRendreSelectEquipement(d.equipement._id);
+    choisirEquipement(d.equipement._id);
+  }).catch(function () { btn.disabled = false; alert('Erreur réseau : équipement non enregistré.'); });
+}
+
+/* Reporte type / marque / modèle / n° de série de l'équipement choisi dans les
+   champs du masque dont le libellé correspond — uniquement s'ils sont vides. */
+function _bonPreremplirEquipement() {
+  const e = _bonEquipement;
+  if (!e || !_bonMasqueActuel) return;
+  const norm = function (s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); };
+  (_bonMasqueActuel.champs || []).forEach(function (c) {
+    if (c.type !== 'texte' && c.type !== 'liste') return;
+    const l = norm(c.libelle);
+    let val = '';
+    if (/marque/.test(l)) val = e.marque;
+    else if (/serie/.test(l)) val = e.numeroSerie;
+    else if (/reference|modele/.test(l)) val = [e.modele, e.numeroSerie && !/serie/.test(l) ? '(' + e.numeroSerie + ')' : ''].filter(Boolean).join(' ');
+    else if (/type.*(equipement|appareil|materiel)|equipement/.test(l)) val = e.type;
+    if (!val) return;
+    const el = document.getElementById('bon-in-' + c.id);
+    if (!el || (_bonReponses[c.id] && String(_bonReponses[c.id]).trim())) return;
+    if (c.type === 'liste') {
+      const opt = Array.from(el.options).find(function (o) { return norm(o.value) === norm(val); });
+      if (!opt) return;
+      el.value = opt.value; _bonReponses[c.id] = opt.value;
+    } else {
+      el.value = val; _bonReponses[c.id] = val;
+    }
+  });
 }
 
 function _bonRendreChamps() {
@@ -5527,6 +5651,7 @@ async function validerBon() {
         codeEmploye: codeEmploye, salarieId: salarieId,
         chantier: nom,
         masqueId: _bonMasqueActuel._id,
+        equipementId: _bonEquipement ? _bonEquipement._id : null,
         dateIntervention: dateGlobale,
         reponses: _bonReponses
       })

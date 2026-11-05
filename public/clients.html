@@ -60,6 +60,35 @@
     #plan-overlay .pm-f button { flex: 1; border: none; border-radius: 8px; padding: 10px; font-weight: 700; font-size: .86rem; cursor: pointer; }
     #plan-overlay .pm-ok { background: #f59e0b; color: #fff; }
     #plan-overlay .pm-an { background: #e2e8f0; color: #334155; }
+    /* ── Parc d'équipements ── */
+    .btn-equip { background:#ecfdf5; color:#047857; }
+    .btn-equip:hover { background:#d1fae5; }
+    #eq-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:flex-start; justify-content:center; z-index:10000; padding:30px 12px; overflow-y:auto; }
+    #eq-overlay.on { display:flex; }
+    #eq-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:720px; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #eq-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; display:flex; align-items:center; gap:10px; }
+    #eq-overlay .pm-h b { font-size:.95rem; }
+    #eq-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #eq-overlay .pm-b { padding:14px 16px; font-size:.86rem; color:#334155; }
+    #eq-overlay .pm-x { margin-left:auto; background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
+    .eq-carte { border:1px solid #e2e8f0; border-left:4px solid #047857; border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+    .eq-carte .eq-titre { font-weight:700; color:#0f172a; }
+    .eq-carte .eq-det { font-size:.8rem; color:#475569; margin-top:3px; line-height:1.5; }
+    .eq-carte .eq-der { font-size:.8rem; margin-top:5px; color:#047857; font-weight:600; }
+    .eq-carte .eq-der.vide { color:#94a3b8; font-weight:400; }
+    .eq-carte .eq-act { float:right; display:flex; gap:4px; }
+    .eq-vide { color:#64748b; font-style:italic; padding:6px 0 12px; }
+    .eq-form { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-top:6px; }
+    .eq-form .eq-grille { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+    .eq-form label { display:block; font-size:.74rem; font-weight:600; color:#475569; margin-bottom:3px; }
+    .eq-form input, .eq-form textarea { width:100%; box-sizing:border-box; padding:7px 9px; border:1px solid #cbd5e1; border-radius:7px; font-size:.86rem; font-family:inherit; }
+    .eq-form .eq-large { grid-column:1 / -1; }
+    .eq-form .eq-bts { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+    .eq-form .eq-bts button, .eq-ajout { border:none; border-radius:8px; padding:8px 14px; font-weight:700; font-size:.84rem; cursor:pointer; }
+    .eq-ok { background:#f59e0b; color:#fff; }
+    .eq-an { background:#e2e8f0; color:#334155; }
+    .eq-ajout { background:#0f3a8a; color:#fff; }
+    @media (max-width:560px) { .eq-form .eq-grille { grid-template-columns:1fr; } }
     .badge-src { display:inline-block; font-size:.68rem; font-weight:700; border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:1px; white-space:nowrap; }
     .b-henrri  { background:#e0f2fe; color:#075985; }
     .b-planning{ background:#fef3c7; color:#92400e; }
@@ -224,6 +253,41 @@
     </table>
   </div>
 </section>
+
+<!-- Fenêtre « Parc d'équipements » d'un client (module Bons d'intervention) -->
+<div id="eq-overlay" onclick="if(event.target===this)fermerEquipements()">
+  <div class="pm">
+    <div class="pm-h"><div><b>🔧 Parc d'équipements</b><div class="pm-sub" id="eq-client"></div></div>
+      <button type="button" class="pm-x" onclick="fermerEquipements()" title="Fermer">✕</button></div>
+    <div class="pm-b">
+      <div id="eq-liste"></div>
+      <button type="button" class="eq-ajout" id="eq-btn-ajout" onclick="editerEquipement(null)">＋ Ajouter un équipement</button>
+      <div class="eq-form" id="eq-form" style="display:none;">
+        <div class="eq-grille">
+          <div class="eq-large"><label for="eq-type">Type d'équipement</label>
+            <input id="eq-type" list="eq-types" placeholder="Ex : Pompe à Chaleur Air Eau">
+            <datalist id="eq-types">
+              <option value="Pompe à Chaleur Air Eau"><option value="Pompe à Chaleur Air Air"><option value="Climatisation">
+              <option value="Chaudière gaz"><option value="Chaudière fioul"><option value="Poêle à granulés">
+              <option value="Chaudière granulés"><option value="Ballon thermodynamique"><option value="Chauffe-eau"><option value="VMC">
+            </datalist></div>
+          <div><label for="eq-marque">Marque</label><input id="eq-marque" placeholder="Ex : Hitachi"></div>
+          <div><label for="eq-modele">Modèle / référence</label><input id="eq-modele" placeholder="Ex : RAS-5WHNPE"></div>
+          <div><label for="eq-serie">N° de série</label><input id="eq-serie"></div>
+          <div><label for="eq-emplacement">Emplacement</label><input id="eq-emplacement" placeholder="Ex : Garage, façade nord…"></div>
+          <div><label for="eq-mes">Mise en service</label><input id="eq-mes" type="date"></div>
+          <div><label for="eq-fluide">Fluide frigorigène</label><input id="eq-fluide" placeholder="Ex : R32"></div>
+          <div><label for="eq-charge">Charge (kg)</label><input id="eq-charge" inputmode="decimal" placeholder="Ex : 1,4"></div>
+          <div class="eq-large"><label for="eq-notes">Notes</label><textarea id="eq-notes" rows="2"></textarea></div>
+        </div>
+        <div class="eq-bts">
+          <button type="button" class="eq-an" onclick="annulerEquipement()">Annuler</button>
+          <button type="button" class="eq-ok" id="eq-btn-ok" onclick="enregistrerEquipement()">💾 Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Fenêtre « Planifier une intervention » -->
 <div id="plan-overlay" onclick="if(event.target===this)fermerPlanifier()">
@@ -540,6 +604,8 @@ function rendreClients(liste) {
     // la fenêtre est pré-remplie avec ses coordonnées Henrri.
     const completer = (window.Coord && Coord.ouvrir && (nb || c.source !== 'planning'))
       ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="${c.source === 'planning' ? "Renseigner l'adresse et les téléphones" : 'Voir / corriger la fiche (pré-remplie depuis Henrri)'}">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
+    const nbEq = _bonsActifs() ? _equipementsDe(c).length : -1;
+    const equip = nbEq < 0 ? '' : `<button type="button" class="btn-mini btn-equip" onclick="ouvrirEquipements(${i})" title="Parc d'équipements du client">🔧 ${nbEq ? nbEq + ' équip.' : 'Équip.'}</button>`;
     const coche = _selection.has(c.k);
     const msq = c.masque ? '<span class="badge-src b-masque">supprimé</span>' : '';
     const actionFin = c.masque
@@ -552,8 +618,8 @@ function rendreClients(liste) {
       <td>${_clEsc(c.ville)}</td>
       <td>${_clEsc(c.telephone)}</td>
       <td>${_clEsc(c.email)}</td>
-      <td>${_isoFr(c.derniere)}</td>
-      <td style="white-space:nowrap;">${c.masque ? '' : `<button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}`}${actionFin}</td>
+      <td>${_isoFr(_derniereClient(c))}</td>
+      <td style="white-space:nowrap;">${c.masque ? '' : `<button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}${equip}`}${actionFin}</td>
     </tr>`;
   }).join('');
 }
@@ -802,6 +868,134 @@ async function chargerChantiersMobile() {
 }
 
 /* ── Chargement / actualisation Henrri (facultatif) ── */
+/* ═══════════════════════════════════════════════════════════════
+   PARC D'ÉQUIPEMENTS (module Bons d'intervention)
+   Chaque client peut avoir ses équipements (PAC, chaudière…). La date de
+   dernière intervention est calculée par le serveur à partir des bons
+   d'intervention rattachés à l'équipement. Visible seulement si les bons
+   d'intervention sont activés (page Entreprise).
+   ═══════════════════════════════════════════════════════════════ */
+let _equipements = [];          // tous les équipements du compte
+let _eqClient = null;           // client dont la fenêtre est ouverte
+let _eqEdition = null;          // id de l'équipement modifié, ou null (ajout)
+
+function _bonsActifs() {
+  try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').bonsInterventionActifs; } catch (_) { return false; }
+}
+/* Dernière intervention affichée : planning, ou bon d'intervention sur un équipement si plus récent. */
+function _derniereClient(c) {
+  let d = c.derniere || '';
+  if (_equipements.length) _equipementsDe(c).forEach(e => { if ((e.derniereIntervention || '') > d) d = e.derniereIntervention; });
+  return d;
+}
+function _equipementsDe(c) { const k = _cle(c.nom); return _equipements.filter(e => e.clientCle === k); }
+
+async function chargerEquipements() {
+  if (!_bonsActifs()) { _equipements = []; return; }
+  try {
+    const r = await fetch('/api/equipements', { headers: { 'Authorization': 'Bearer ' + _clToken() } });
+    const d = await r.json();
+    _equipements = d.ok ? (d.equipements || []) : [];
+  } catch (_) { _equipements = []; }
+  filtrerClients();
+}
+
+function ouvrirEquipements(i) {
+  const c = _clients[i]; if (!c) return;
+  _eqClient = c;
+  document.getElementById('eq-client').textContent = c.nom;
+  annulerEquipement();
+  rendreEquipements();
+  document.getElementById('eq-overlay').classList.add('on');
+}
+function fermerEquipements() { document.getElementById('eq-overlay').classList.remove('on'); _eqClient = null; }
+
+function rendreEquipements() {
+  const liste = _eqClient ? _equipementsDe(_eqClient) : [];
+  const zone = document.getElementById('eq-liste');
+  if (!liste.length) { zone.innerHTML = '<div class="eq-vide">Aucun équipement enregistré pour ce client.</div>'; return; }
+  zone.innerHTML = liste.map(e => {
+    const titre = [e.type, e.marque].filter(Boolean).join(' · ') || 'Équipement';
+    const det = [
+      e.modele ? 'Modèle : ' + _clEsc(e.modele) : '',
+      e.numeroSerie ? 'N° de série : ' + _clEsc(e.numeroSerie) : '',
+      e.emplacement ? 'Emplacement : ' + _clEsc(e.emplacement) : '',
+      e.miseEnService ? 'Mise en service : ' + _isoFr(e.miseEnService) : '',
+      e.fluide ? 'Fluide : ' + _clEsc(e.fluide) + (e.chargeKg != null ? ' — ' + String(e.chargeKg).replace('.', ',') + ' kg' : '') : '',
+      e.notes ? '📝 ' + _clEsc(e.notes) : ''
+    ].filter(Boolean).join('<br>');
+    const lien = 'bons-intervention.html?equipement=' + encodeURIComponent(e._id);
+    const der = e.derniereIntervention
+      ? `<div class="eq-der">🕓 Dernière intervention : ${_isoFr(e.derniereIntervention)} · <a href="${lien}">${e.nbBons} bon${e.nbBons > 1 ? 's' : ''} d'intervention</a></div>`
+      : '<div class="eq-der vide">Aucune intervention enregistrée sur cet équipement</div>';
+    return `<div class="eq-carte">
+      <div class="eq-act">
+        <button type="button" class="btn-mini" onclick="editerEquipement(${_jsArg(e._id)})" title="Modifier">✏️</button>
+        <button type="button" class="btn-mini" onclick="supprimerEquipement(${_jsArg(e._id)})" title="Supprimer">🗑</button>
+      </div>
+      <div class="eq-titre">${_clEsc(titre)}</div>
+      ${det ? `<div class="eq-det">${det}</div>` : ''}${der}
+    </div>`;
+  }).join('');
+}
+
+const _EQ_CHAMPS = { type: 'eq-type', marque: 'eq-marque', modele: 'eq-modele', numeroSerie: 'eq-serie',
+  emplacement: 'eq-emplacement', miseEnService: 'eq-mes', fluide: 'eq-fluide', chargeKg: 'eq-charge', notes: 'eq-notes' };
+
+function editerEquipement(id) {
+  const e = id ? _equipements.find(x => x._id === id) : null;
+  _eqEdition = e ? e._id : null;
+  Object.keys(_EQ_CHAMPS).forEach(k => {
+    let v = e ? e[k] : '';
+    if (k === 'chargeKg') v = (e && e.chargeKg != null) ? String(e.chargeKg).replace('.', ',') : '';
+    document.getElementById(_EQ_CHAMPS[k]).value = v == null ? '' : v;
+  });
+  document.getElementById('eq-form').style.display = '';
+  document.getElementById('eq-btn-ajout').style.display = 'none';
+  document.getElementById('eq-type').focus();
+}
+function annulerEquipement() {
+  _eqEdition = null;
+  document.getElementById('eq-form').style.display = 'none';
+  document.getElementById('eq-btn-ajout').style.display = '';
+}
+
+async function enregistrerEquipement() {
+  if (!_eqClient) return;
+  const corps = { clientNom: _eqClient.nom };
+  Object.keys(_EQ_CHAMPS).forEach(k => { corps[k] = document.getElementById(_EQ_CHAMPS[k]).value.trim(); });
+  if (!corps.type && !corps.marque && !corps.modele && !corps.numeroSerie) {
+    alert('Renseignez au moins le type, la marque, le modèle ou le n° de série.'); return;
+  }
+  const btn = document.getElementById('eq-btn-ok'); btn.disabled = true;
+  try {
+    const r = await fetch('/api/equipements' + (_eqEdition ? '/' + _eqEdition : ''), {
+      method: _eqEdition ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _clToken() },
+      body: JSON.stringify(corps)
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Enregistrement impossible'); return; }
+    const i = _equipements.findIndex(x => x._id === d.equipement._id);
+    if (i >= 0) _equipements[i] = d.equipement; else _equipements.push(d.equipement);
+    annulerEquipement(); rendreEquipements(); filtrerClients();
+  } catch (_) { alert('Erreur réseau : équipement non enregistré.'); }
+  finally { btn.disabled = false; }
+}
+
+async function supprimerEquipement(id) {
+  const e = _equipements.find(x => x._id === id); if (!e) return;
+  const nom = [e.type, e.marque, e.modele].filter(Boolean).join(' ');
+  if (!confirm('Supprimer l\'équipement « ' + nom + ' » ?\nLes bons d\'intervention déjà établis restent intacts.')) return;
+  try {
+    const r = await fetch('/api/equipements/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + _clToken() } });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Suppression impossible'); return; }
+    _equipements = _equipements.filter(x => x._id !== id);
+    rendreEquipements(); filtrerClients();
+  } catch (_) { alert('Erreur réseau.'); }
+}
+
 async function chargerClients() {
   const token = _clToken();
   if (token) {
@@ -825,6 +1019,7 @@ async function chargerClients() {
   construireBase();
   filtrerClients();
   chargerChantiersMobile();   // en tâche de fond : la liste se complète à l'arrivée
+  chargerEquipements();       // parc d'équipements (si les bons d'intervention sont activés)
 }
 
 async function synchroniserClientsHenrri() {
@@ -1202,6 +1397,7 @@ function validerPlanifier() {
   location.href = 'planning.html?planifier=' + encodeURIComponent(nom) + '&date=' + date;
 }
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('eq-overlay').classList.contains('on')) { fermerEquipements(); return; }
   if (e.key === 'Escape' && document.getElementById('dbl-overlay').classList.contains('on')) { fermerDoublons(); return; }
   if (e.key === 'Escape' && document.getElementById('imp-overlay').classList.contains('on')) { fermerImport(); return; }
   if (!document.getElementById('plan-overlay').classList.contains('on')) return;

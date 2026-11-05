@@ -104,6 +104,8 @@
     <button type="button" class="btn" id="btn-exemple" onclick="creerExemple()" title="Crée un masque et un bon d'exemple pour découvrir le module">＋ Bon d'exemple</button>
   </div>
 
+  <div id="bi-filtre-equip" style="display:none;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.88rem;"></div>
+
   <table id="table-bons">
     <thead>
       <tr><th>N°</th><th>Date</th><th>Chantier</th><th>Type de bon</th><th>Technicien</th><th>Envoi au client</th><th></th></tr>
@@ -161,6 +163,8 @@
   var _bons = [];          // liste légère (sans photos ni signatures)
   var _bonOuvert = null;   // { bon, champs, coord } du bon affiché
   var _bonEnvoi = null;    // bon (ligne de liste) en cours d'envoi
+  // Filtre « équipement » venu de la page Clients (bons-intervention.html?equipement=…)
+  var _filtreEquip = new URLSearchParams(location.search).get('equipement') || '';
 
   function _token() {
     return (typeof SYNC !== 'undefined' && SYNC.getToken) ? SYNC.getToken() : localStorage.getItem('syncToken');
@@ -240,6 +244,7 @@
     var au = document.getElementById('f-au').value;
     var envoi = document.getElementById('f-envoi').value;
     return _bons.filter(function (b) {
+      if (_filtreEquip && String(b.equipementId || '') !== _filtreEquip) return false;
       if (t && ((b.chantier || '') + ' ' + (b.numero || '') + ' ' + (b.masqueNom || '')).toUpperCase().indexOf(t) < 0) return false;
       if (tech && b.salarieNom !== tech) return false;
       if (masque && b.masqueNom !== masque) return false;
@@ -254,6 +259,13 @@
   }
 
   function rendreListe() {
+    var bandeau = document.getElementById('bi-filtre-equip');
+    if (_filtreEquip) {
+      var b0 = _bons.find(function (b) { return String(b.equipementId || '') === _filtreEquip; });
+      bandeau.style.display = '';
+      bandeau.innerHTML = '🔧 Bons de l\'équipement' + (b0 && b0.equipement ? ' <strong>' + esc(b0.equipement.libelle) + '</strong> (' + esc(b0.chantier) + ')' : '') +
+        ' <button type="button" class="btn" style="margin-left:8px;" onclick="_filtreEquip=\'\';history.replaceState(null,\'\',\'bons-intervention.html\');rendreListe()">✕ Voir tous les bons</button>';
+    } else bandeau.style.display = 'none';
     var corps = document.getElementById('liste-bons');
     var liste = bonsFiltres();
     document.getElementById('bi-compte').textContent = liste.length + ' bon' + (liste.length > 1 ? 's' : '') +
@@ -275,7 +287,7 @@
       return '<tr>' +
         '<td class="bi-num">' + esc(b.numero || '') + '</td>' +
         '<td>' + esc(fmtDate(dateBon(b))) + '</td>' +
-        '<td>' + esc(b.chantier) + '</td>' +
+        '<td>' + esc(b.chantier) + (b.equipement && b.equipement.libelle ? '<div style="font-size:0.75rem;color:#047857;">🔧 ' + esc(b.equipement.libelle) + '</div>' : '') + '</td>' +
         '<td>' + esc(b.masqueNom) + '</td>' +
         '<td>' + esc(b.salarieNom) + '</td>' +
         '<td>' + badge + '</td>' +
@@ -328,6 +340,7 @@
         (tel ? '<br>Tél. ' + esc(tel) : '') + '</div>' +
       '<div class="bi-cartouche"><div class="t">Intervention</div><strong>Date : ' + esc(fmtDate(b.dateIntervention) || '—') + '</strong>' +
         '<br>Technicien : ' + esc(b.salarieNom || '—') +
+        (b.equipement && b.equipement.libelle ? '<br>🔧 ' + esc(b.equipement.libelle) : '') +
         '<br><span style="color:#64748b;font-size:0.82rem;">Bon établi le ' + esc(fmtDateHeure(b.creeLe)) + '</span></div>' +
     '</div>';
 

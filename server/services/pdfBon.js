@@ -92,6 +92,7 @@ export function genererPdfBon({ bon, champs, entreprise, coord }) {
     const yD = cadre(M + demi + 14, "Intervention", [
       [`Date : ${fmtDate(bon.dateIntervention) || "—"}`, true],
       [`Technicien : ${bon.salarieNom || "—"}`, false],
+      [bon.equipement?.libelle ? `Équipement : ${bon.equipement.libelle}` : "", false],
       [creeLe ? `Bon établi le ${creeLe.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à ${creeLe.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" })}` : "", false]
     ]);
     const hBloc = Math.max(yG, yD) - yBloc + 8;

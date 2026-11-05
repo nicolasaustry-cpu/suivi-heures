@@ -27,6 +27,7 @@ import Donnees from "../models/donnees.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
+import Equipement, { cleClient, libelleEquipement } from "../models/equipement.js";
 import { genererPdfBon } from "../services/pdfBon.js";
 import { NOM_MASQUE_EXEMPLE, CHAMPS_EXEMPLE, BON_EXEMPLE } from "../data/exempleBonOrganilog.js";
 
@@ -36,7 +37,7 @@ const U = s => String(s == null ? "" : s).trim().toUpperCase();
 
 /* Résout le contexte mobile (codeEmploye + salarieId). Renvoie
    { clientId, entreprise, salarieId, salarieNom } ou { err: [code, message] }. */
-async function resoudreContexteMobile(req) {
+export async function resoudreContexteMobile(req) {
   const codeEmp = U(req.body.codeEmploye);
   if (!codeEmp) return { err: [400, "Code employé manquant"] };
 
@@ -104,9 +105,22 @@ router.post("/", async (req, res) => {
       if (vide) return res.status(400).json({ ok: false, message: `Le champ "${champ.libelle}" est obligatoire` });
     }
 
+    // Équipement du parc client (facultatif) : doit appartenir au client du chantier
+    let equipementId = null, equipement = null;
+    if (req.body.equipementId) {
+      let e = null;
+      try { e = await Equipement.findById(req.body.equipementId).lean(); } catch (_) { e = null; }
+      if (!e || U(e.clientId) !== ctx.clientId || e.clientCle !== cleClient(chantier))
+        return res.status(404).json({ ok: false, message: "Équipement introuvable pour ce client" });
+      equipementId = e._id;
+      equipement = copieEquipement(e);
+    }
+
     const bon = await BonIntervention.create({
       clientId: ctx.clientId,
       numero: await prochainNumeroBon(ctx.clientId),
+      equipementId,
+      equipement,
       chantier,
       masqueId: masque._id,
       masqueNom: masque.nom,
@@ -169,6 +183,15 @@ async function numeroterAnciens(clientId) {
   }
 }
 
+/* Copie figée d'un équipement, conservée dans le bon. */
+function copieEquipement(e) {
+  return {
+    type: e.type || "", marque: e.marque || "", modele: e.modele || "", numeroSerie: e.numeroSerie || "",
+    emplacement: e.emplacement || "", fluide: e.fluide || "", chargeKg: e.chargeKg ?? null,
+    libelle: libelleEquipement(e)
+  };
+}
+
 const nomFichier = bon => `Bon-intervention-${bon.numero || bon._id}.pdf`;
 
 async function pdfDuBon(bon, doc) {
@@ -187,7 +210,7 @@ router.get("/pc", verifyToken, async (req, res) => {
     const ctx = await contextePC(req, res); if (!ctx) return;
     await numeroterAnciens(ctx.clientId);
     const bons = await BonIntervention
-      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieNom dateIntervention envois creeLe")
+      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieNom dateIntervention envois creeLe equipementId equipement.libelle")
       .sort({ creeLe: -1 })
       .limit(2000)
       .lean();
@@ -212,8 +235,20 @@ router.post("/pc/exemple", verifyToken, async (req, res) => {
       });
     }
 
-    const existant = await BonIntervention.findOne({ clientId, masqueId: masque._id, chantier: BON_EXEMPLE.chantier }, "_id numero");
-    if (existant) return res.json({ ok: true, id: existant._id, numero: existant.numero, dejaPresent: true });
+    // Équipement d'exemple dans le parc du client (créé une seule fois)
+    const clientCle = cleClient(BON_EXEMPLE.chantier);
+    let equip = await Equipement.findOne({ clientId, clientCle, marque: BON_EXEMPLE.equipement.marque, modele: BON_EXEMPLE.equipement.modele });
+    if (!equip) equip = await Equipement.create({ clientId, clientCle, clientNom: BON_EXEMPLE.chantier, ...BON_EXEMPLE.equipement, creePar: "bureau" });
+
+    const existant = await BonIntervention.findOne({ clientId, masqueId: masque._id, chantier: BON_EXEMPLE.chantier }, "_id numero equipementId");
+    if (existant) {
+      // Bon d'exemple créé avant le parc d'équipements : on le rattache à l'équipement
+      if (!existant.equipementId) {
+        await BonIntervention.updateOne({ _id: existant._id },
+          { $set: { equipementId: equip._id, equipement: copieEquipement(equip.toObject()) } });
+      }
+      return res.json({ ok: true, id: existant._id, numero: existant.numero, dejaPresent: true });
+    }
 
     // Coordonnées du chantier d'exemple, seulement si la fiche n'existe pas déjà
     const coords = ctx.doc.coordonneesChantiers || {};
@@ -229,6 +264,8 @@ router.post("/pc/exemple", verifyToken, async (req, res) => {
       masqueId: masque._id,
       masqueNom: masque.nom,
       masqueChamps: masque.toObject().champs,
+      equipementId: equip._id,
+      equipement: copieEquipement(equip.toObject()),
       salarieId: "",
       salarieNom: BON_EXEMPLE.salarieNom,
       dateIntervention: BON_EXEMPLE.dateIntervention,

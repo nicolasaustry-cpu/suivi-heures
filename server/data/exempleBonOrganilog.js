@@ -48,6 +48,15 @@ export const BON_EXEMPLE = {
   chantier: "MARY GERARD",
   coord: { adresse: "1 Impasse de la Baptisterie", ville: "61170 Le Ménil-Guyon", mobile: "", fixe: "" },
   salarieNom: "François-Xavier MILLE",
+  // Installation n°1136 d'Organilog, reprise dans le parc d'équipements du client
+  equipement: {
+    type: "Pompe à Chaleur Air Eau",
+    marque: "Hitachi",
+    modele: "Ui : RWD-5.0NWE-200S / Ue : RAS-5WHNPE",
+    numeroSerie: "371876/7E483008",
+    emplacement: "",
+    notes: "N° de série de l'unité extérieure effacé."
+  },
   dateIntervention: "2026-10-13",
   reponses: {
     ex_date: "2026-10-13",

@@ -12,6 +12,10 @@ const bonInterventionSchema = new mongoose.Schema({
   // Copie des champs du masque au moment du remplissage : le bon reste lisible
   // et imprimable à l'identique même si le client modifie ou supprime le masque.
   masqueChamps:    { type: Array, default: [] },
+  // Équipement du parc client concerné (facultatif) + copie figée de ses
+  // caractéristiques au moment du bon (type, marque, modèle, n° de série…).
+  equipementId:    { type: mongoose.Schema.Types.ObjectId, default: null, ref: "Equipement" },
+  equipement:      { type: Object, default: null },
   salarieId:       { type: String, default: "" },
   salarieNom:      { type: String, default: "" },
   dateIntervention: { type: String, default: "" },  // AAAA-MM-JJ
@@ -27,6 +31,7 @@ const bonInterventionSchema = new mongoose.Schema({
 
 bonInterventionSchema.index({ clientId: 1, chantier: 1 });
 bonInterventionSchema.index({ clientId: 1, creeLe: -1 });
+bonInterventionSchema.index({ clientId: 1, equipementId: 1 });
 
 // Compteur de numérotation (un document par client et par année).
 // findOneAndUpdate + $inc est atomique : deux bons envoyés en même temps
