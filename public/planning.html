@@ -1394,7 +1394,7 @@ function genererPlanning(calerSemaine){
     const numSem=pl2NumSemaine(jours[0]);
     let thead='<th class="tcorner">Salarié</th>';
     jours.forEach(d=>{ const auj=ds(d)===aujStr; const hors=d.getMonth()!==moIdx;
-      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}${d.getDay()===6?' sam-col':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}${auj?' <button type="button" class="pl-carte-btn no-print" onclick="plCarteOuvrir()" title="Carte des chantiers du jour">'+plCartePinSvg(['#EA4335'],16,true)+'</button>':''}</div></th>`; });
+      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}${d.getDay()===6?' sam-col':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}<button type="button" class="pl-carte-btn no-print" onclick="plCarteOuvrir('${ds(d)}')" title="Carte des chantiers du ${f2(d)}">${plCartePinSvg(['#EA4335'],16,true)}</button></div></th>`; });
     thead+='<th class="ttot">Total<br>sem.</th>';
 
     let body='';
@@ -3794,8 +3794,9 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- ══ CARTE DES CHANTIERS DU JOUR (épingle 📍 à côté de la date du jour) ══ -->
 <style>
-  /* Épingle calée sur le bord droit de la colonne du jour (et non collée à la date) */
-  table.tgrid thead th.auj { position:relative; }
+  /* Épingle calée sur le bord droit de chaque colonne de jour (et non collée à la date) */
+  table.tgrid thead th:not(.tcorner):not(.ttot) { position:relative; }
+  #pl-float table.tgrid thead th:not(.tcorner):not(.ttot) { position:relative; }
   .pl-carte-btn { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; justify-content:center;
     width:24px; height:24px; padding:0; border:none; border-radius:50%; background:#fff; cursor:pointer;
     box-shadow:0 1px 3px rgba(0,0,0,.3); }
