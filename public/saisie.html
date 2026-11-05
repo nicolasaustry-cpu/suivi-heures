@@ -1551,9 +1551,10 @@
     <!-- Équipement du parc client (facultatif) -->
     <div id="bon-etape-equip" style="display:none;margin-top:12px;">
       <label class="bon-lbl" style="display:block;font-size:0.85rem;font-weight:700;color:#0f172a;margin-bottom:6px;">🔧 Équipement</label>
-      <select id="bon-select-equip" onchange="choisirEquipement(this.value)"></select>
+      <select id="bon-select-equip" onchange="choisirEquipement(this.value)" style="width:100%;max-width:100%;box-sizing:border-box;"></select>
       <div id="bon-equip-info" style="font-size:0.78rem;color:#047857;margin-top:5px;"></div>
-      <div id="bon-equip-form" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-top:8px;">
+      <style>#bon-equip-form input{width:100%;box-sizing:border-box;}</style>
+      <div id="bon-equip-form" style="display:none;box-sizing:border-box;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-top:8px;">
         <input id="bon-eq-type" list="bon-eq-types" placeholder="Type (ex : Pompe à Chaleur Air Eau)" style="margin-bottom:6px;">
         <datalist id="bon-eq-types">
           <option value="Pompe à Chaleur Air Eau"><option value="Pompe à Chaleur Air Air"><option value="Climatisation">
@@ -5203,8 +5204,16 @@ function _bonChargerEquipements(nomChantier) {
   }).then(function (r) { return r.json(); }).then(function (d) {
     if (!d.ok) return;                       // module non activé : on n'affiche rien
     _bonEquipements = d.equipements || [];
-    _bonRendreSelectEquipement('');
     zone.style.display = '';
+    // Un seul équipement connu chez ce client : il est choisi d'office (modifiable)
+    if (_bonEquipements.length === 1) {
+      _bonRendreSelectEquipement(_bonEquipements[0]._id);
+      choisirEquipement(_bonEquipements[0]._id);
+    } else {
+      _bonRendreSelectEquipement('');
+      if (_bonEquipements.length > 1)
+        document.getElementById('bon-equip-info').textContent = _bonEquipements.length + ' équipements connus chez ce client : choisissez celui concerné.';
+    }
   }).catch(function () { /* hors connexion : bon sans équipement */ });
 }
 
