@@ -107,9 +107,12 @@ router.post("/import", verifyToken, async (req, res) => {
     const clientId = await contextePC(req, res); if (!clientId) return;
     const liste = Array.isArray(req.body.equipements) ? req.body.equipements : [];
     if (liste.length > 5000) return res.status(400).json({ ok: false, message: "5 000 équipements maximum par import" });
-    const existants = await Equipement.find({ clientId }, "clientCle marque modele numeroSerie").lean();
+    const existants = await Equipement.find({ clientId }, "clientCle marque modele numeroSerie refExterne").lean();
     const n = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "");
-    const signature = e => e.numeroSerie ? e.clientCle + "|S|" + n(e.numeroSerie) : e.clientCle + "|M|" + n(e.marque) + "|" + n(e.modele);
+    // Doublon : même identifiant d'origine (n° d'installation Organilog), sinon même n° de série,
+    // sinon même marque + modèle chez le même client
+    const signature = e => e.refExterne ? "R|" + e.refExterne
+      : e.numeroSerie ? e.clientCle + "|S|" + n(e.numeroSerie) : e.clientCle + "|M|" + n(e.marque) + "|" + n(e.modele);
     const vus = new Set(existants.map(signature));
     const rapport = { crees: 0, ignores: 0, invalides: 0 };
     const aCreer = [];
@@ -118,7 +121,8 @@ router.post("/import", verifyToken, async (req, res) => {
       const clientCle = cleClient(clientNom);
       const champs = assainir(b || {});
       if (!clientCle || vide(champs)) { rapport.invalides++; continue; }
-      const e = { clientId, clientCle, clientNom, ...champs, creePar: "import Organilog" };
+      const refExterne = String(b?.refExterne || "").trim().slice(0, 80);
+      const e = { clientId, clientCle, clientNom, ...champs, refExterne, creePar: "import Organilog" };
       const sig = signature(e);
       if (vus.has(sig)) { rapport.ignores++; continue; }
       vus.add(sig); aCreer.push(e);

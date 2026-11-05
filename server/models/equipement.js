@@ -18,6 +18,7 @@ const equipementSchema = new mongoose.Schema({
   fluide:       { type: String, default: "", trim: true },       // ex. « R32 » (préparation Cerfa 15497)
   chargeKg:     { type: Number, default: null },
   notes:        { type: String, default: "" },
+  refExterne:   { type: String, default: "" },                   // ex. « organilog:1234 » (import), évite les doublons
   creePar:      { type: String, default: "" },                   // « bureau » ou nom du salarié (mobile)
   creeLe:       { type: Date, default: Date.now },
   modifieLe:    { type: Date, default: Date.now }

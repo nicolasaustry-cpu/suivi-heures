@@ -1063,46 +1063,55 @@ async function _ogLire(f) {
   } catch (e) { _ogDepot(e.message || String(e)); }
 }
 
-/* Colonne par titre : priorité aux titres exacts, puis aux titres qui commencent / contiennent. */
-function _ogColonnes(entetes) {
+/* Colonne par titre (titres comparés sans accents ni ponctuation). Quand plusieurs
+   colonnes portent le même titre (ex. « Marque » vide et « Marque : » remplie),
+   on garde celle qui contient le plus de valeurs. */
+function _ogColonnes(entetes, lignes) {
   const n = entetes.map(e => _norm(e));
+  const remplies = i => lignes.reduce((k, r) => k + (String(r[i] || '').trim() ? 1 : 0), 0);
   const col = (...noms) => {
-    for (const m of noms) { const i = n.indexOf(_norm(m)); if (i >= 0) return i; }
+    for (const m of noms) {
+      const cand = n.map((t, i) => (t === _norm(m) ? i : -1)).filter(i => i >= 0);
+      if (cand.length) return cand.sort((a, b) => remplies(b) - remplies(a))[0];
+    }
     return -1;
   };
+  const installations = col('Marque', 'Marque :') >= 0 && col('Nom du client') >= 0;
   return {
-    // Client (exports tickets / interventions / installations : colonnes « (Client) … »)
-    cliId:   col('(Client) N°', 'N° client', 'Client N°'),
-    cliNom:  col('(Client) Libellé principal', 'Libellé principal', 'Client', 'Nom du client'),
+    installations,
+    cliId:   col('(Client) N°', 'N° Client', 'N° client', 'Client N°'),
+    // Export « Installations » : « Libellé principal » est le nom de l'installation, le client est « Nom du client »
+    cliNom:  installations ? col('Nom du client', '(Client) Libellé principal') : col('(Client) Libellé principal', 'Libellé principal', 'Nom du client', 'Client'),
     cliSoc:  col('(Client) Nom de la société', 'Nom de la société', 'Société'),
     cliPre:  col('(Client) Prénom du contact', 'Prénom du contact', 'Prénom'),
-    cliNomC: col('(Client) Nom du contact', 'Nom du contact', 'Nom'),
+    cliNomC: col('(Client) Nom du contact', 'Nom du contact'),
     email:   col('(Client) Email', 'Email', 'E-mail', '(Adresse) Email', 'Email du demandeur'),
     fixe:    col('(Client) Téléphone fixe', 'Téléphone fixe'),
     mobile:  col('(Client) Téléphone mobile', 'Téléphone mobile', 'Portable'),
     pro:     col('(Client) Téléphone pro', 'Téléphone pro', 'Téléphone', 'Téléphone du demandeur'),
-    siret:   col('(Client) SIRET', 'SIRET'),
-    rue:     col('(Adresse) Rue', 'Rue', 'Adresse'),
+    rue:     col('(Adresse) Rue', 'Rue'),
     cp:      col('(Adresse) Code postal', 'Code postal', 'CP'),
     ville:   col('(Adresse) Ville', 'Ville'),
     adrCompl:col('Adresse'),                          // « rue, CP, ville » en une colonne (tickets)
     actif:   col('(Client) Actif', 'Actif'),
     // Installation / équipement
-    eqType:  col('Type d\'équipement', 'Type d\'Equipement', '(Installation) Type', 'Type d\'installation', 'Catégorie d\'installation'),
-    eqMarque:col('Marque', '(Installation) Marque'),
-    eqModele:col('Modèle', 'Modele', 'Référence', 'Reference', '(Installation) Modèle', '(Installation) Référence'),
-    eqSerie: col('N° de série', 'Numéro de série', 'N° série', 'Num série', '(Installation) N° de série'),
-    eqLib:   col('(Installation) Libellé', 'Libellé de l\'installation', 'Installation', 'Libellé'),
-    eqFluide:col('Fluide', 'Fluide frigorigène', 'Type de fluide', '(Installation) Fluide'),
-    eqCharge:col('Charge', 'Charge (kg)', 'Charge en fluide', '(Installation) Charge'),
-    eqMes:   col('Date de mise en service', 'Mise en service', '(Installation) Date de mise en service'),
-    eqEmpl:  col('Emplacement', 'Localisation', '(Installation) Emplacement'),
+    eqId:    installations ? col('N°') : -1,
+    eqLib:   installations ? col('Libellé principal') : -1,
+    eqType:  col('Catégorie', 'Type d\'équipement', 'Type d\'installation'),
+    eqMarque:col('Marque', 'Marque :'),
+    eqModele:col('Référence', 'Référence :', 'Modèle', 'Identification commerciale'),
+    eqSerie: col('N° de série', 'Numéro de série', 'N° série'),
+    eqFluide:col('Nature du fluide R-', 'Nature du fluide', 'Fluide'),
+    eqCharge:col('Charge totale (kg)', 'Charge totale', 'Charge (kg)', 'Charge'),
+    eqMes:   col('Date d\'installation', 'Date de mise en service', 'Mise en service'),
+    eqEmpl:  col('Localisation', 'Emplacement'),
+    eqDetect:col('Présence d\'un système de détection des fuites'),
     titre:   col('Titre'), statut: col('Statut')
   };
 }
 
 function _ogType(c, nom) {
-  if (c.eqMarque >= 0 || c.eqSerie >= 0 || /install|equip|équip/i.test(nom)) return 'installations';
+  if (c.installations) return 'installations';
   if (c.titre >= 0 && c.statut >= 0) return /interv/i.test(nom) ? 'interventions' : 'tickets';
   return 'clients';
 }
@@ -1114,17 +1123,42 @@ function _ogDate(v) {
   return '';
 }
 
+/* Type d'équipement déduit du libellé Organilog (« RICHARD - Pac Atlantic »). */
+function _ogTypeEquip(texte) {
+  const t = _norm(texte);
+  const a = re => re.test(t);
+  if (a(/\bPISCINE\b/)) return 'Pompe à chaleur piscine';
+  if (a(/\bCET\b|CHAUFFE ?EAU|BALLON|THERMODYNAMIQUE|\bTHERMO\b/)) return 'Ballon thermodynamique';
+  if (a(/\bPAC\b|POMPE A CHALEUR/)) return 'Pompe à chaleur';
+  if (a(/GAINABLE/)) return 'Climatisation gainable';
+  if (a(/ROOF ?TOP/)) return 'Rooftop';
+  if (a(/\bCTA\b/)) return 'Centrale de traitement d\'air';
+  if (a(/CHAMBRE FROIDE|FROID|VITRINE|MEUBLE FRIGO/)) return 'Froid commercial';
+  if (a(/\bVMC\b/)) return 'VMC';
+  if (a(/CHAUDIERE/)) return 'Chaudière';
+  if (a(/CLIM|SPLIT|MULTI ?SPLIT|CASSETTE|CONSOLE/)) return 'Climatisation';
+  return '';
+}
+
+/* Fluide et charge écrits dans la référence : « … (R410A 3.4kg / 7.09TCo2) ». */
+function _ogFluideRef(ref) {
+  const m = /\(\s*(R-?\s?[0-9]{2,4}[A-Za-z]{0,2})\s*([\d]+(?:[.,]\d+)?)?\s*(?:kg)?[^)]*\)/i.exec(ref || '');
+  if (!m) return null;
+  return { fluide: m[1].toUpperCase().replace(/^R-?\s?/, 'R'), charge: m[2] ? m[2].replace(',', '.') : '', bloc: m[0] };
+}
+
 function _ogAnalyser(t, nomFichier) {
-  // Ligne de titres : la première qui contient « Libellé principal », « Nom » ou « Client »
-  let iT = t.findIndex(r => r.some(v => /libell[ée] principal|^\(client\)|^nom$|^client$/i.test(v)));
+  // Ligne de titres : la première qui contient « Libellé principal », « Nom du client » ou une colonne « (Client) »
+  let iT = t.findIndex(r => r.some(v => /libell[ée] principal|^\(client\)|^nom du client$|^client$/i.test(v)));
   if (iT < 0) iT = 0;
-  const c = _ogColonnes(t[iT]);
+  const lignes = t.slice(iT + 1);
+  const c = _ogColonnes(t[iT], lignes);
   if (c.cliNom < 0 && c.cliSoc < 0 && c.cliNomC < 0) throw new Error('Colonnes client introuvables : ce fichier ne ressemble pas à un export Organilog.');
   const type = _ogType(c, nomFichier);
   const v = (r, i) => (i >= 0 ? String(r[i] || '').trim() : '');
-  const clients = new Map(), equipements = [], vusEq = new Set();
+  const clients = new Map(), equipements = [];
   let sansClient = 0;
-  t.slice(iT + 1).forEach(r => {
+  lignes.forEach(r => {
     const pre = v(r, c.cliPre), nc = v(r, c.cliNomC);
     let nom = v(r, c.cliNom) || v(r, c.cliSoc) || [pre, nc].filter(Boolean).join(' ');
     nom = nom.replace(/\s+/g, ' ').trim();
@@ -1148,22 +1182,34 @@ function _ogAnalyser(t, nomFichier) {
     else Object.keys(coord).forEach(k => { if (!ex.coordonnees[k] && coord[k]) ex.coordonnees[k] = coord[k]; });
 
     if (type === 'installations') {
-      // « Hitachi : RAS-5WHNPE (SN effacé) » → marque / modèle si les colonnes dédiées manquent
-      let marque = v(r, c.eqMarque), modele = v(r, c.eqModele);
       const lib = v(r, c.eqLib);
-      if (!marque && !modele && lib) { const p = lib.split(':').map(x => x.trim()); if (p.length >= 2) { marque = p[0]; modele = p.slice(1).join(' : '); } else modele = lib; }
+      let marque = v(r, c.eqMarque), modele = v(r, c.eqModele);
+      // Ancien format « Hitachi : RAS-5WHNPE (SN) » quand marque / référence sont vides
+      if (!marque && !modele && lib.includes(':')) { const p = lib.split(':').map(x => x.trim()); marque = p[0]; modele = p.slice(1).join(' : '); }
+      // Fluide et charge : colonnes dédiées, sinon lus dans la référence
+      let fluide = v(r, c.eqFluide), charge = v(r, c.eqCharge).replace(',', '.');
+      if (charge === '0') charge = '';
+      const fr = _ogFluideRef(modele);
+      if (fr) {
+        if (!fluide) fluide = fr.fluide;
+        if (!charge && fr.charge) charge = fr.charge;
+        modele = modele.replace(fr.bloc, '').replace(/\s+/g, ' ').trim();   // la référence garde modèle et n° de série
+      }
+      if (fluide && !/^R/i.test(fluide)) fluide = 'R' + fluide;
       const e = {
-        clientNom: nom, type: v(r, c.eqType), marque, modele, numeroSerie: v(r, c.eqSerie),
+        clientNom: nom,
+        type: v(r, c.eqType) || _ogTypeEquip(lib + ' ' + modele),
+        marque, modele, numeroSerie: v(r, c.eqSerie),
         emplacement: v(r, c.eqEmpl), miseEnService: _ogDate(v(r, c.eqMes)),
-        fluide: v(r, c.eqFluide), chargeKg: v(r, c.eqCharge).replace(',', '.')
+        fluide, chargeKg: charge,
+        notes: lib ? 'Organilog : ' + lib : '',
+        refExterne: v(r, c.eqId) ? 'organilog:' + v(r, c.eqId) : ''
       };
       if (!e.type && !e.marque && !e.modele && !e.numeroSerie) return;
-      const k = cle + '|' + _norm(e.marque + ' ' + e.modele + ' ' + e.numeroSerie);
-      if (vusEq.has(k)) return; vusEq.add(k);
       equipements.push(e);
     }
   });
-  return { type, clients: [...clients.values()], equipements, lignes: t.length - iT - 1, sansClient, ecraser: false };
+  return { type, clients: [...clients.values()], equipements, lignes: lignes.length, sansClient };
 }
 
 function _ogApercu() {
