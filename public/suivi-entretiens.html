@@ -25,8 +25,61 @@
     .se-inactif a:hover { text-decoration:underline; }
     .se-filtres { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem; }
     .se-filtres label { font-size:0.85rem; font-weight:600; display:block; margin-bottom:3px; }
-    .se-filtres input[type=month] { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
+    .se-filtres input[type=month], .se-filtres select { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; background:#fff; }
     .btn-se-reset { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; border-radius:6px; padding:7px 12px; font-size:0.85rem; cursor:pointer; }
+    .btn-se-plan { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:5px 11px; font-size:0.8rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .btn-se-plan:hover { background:#0b2c6b; }
+    .se-planifie { display:block; font-size:0.74rem; color:#15803d; font-weight:600; margin-top:3px; white-space:nowrap; }
+    #se-modal { position:fixed; inset:0; z-index:9500; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; overflow:auto; }
+    #se-modal.ouvert { display:flex; }
+    .se-m { width:100%; max-width:480px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 12px 40px rgba(15,23,42,.28); }
+    .se-m-h { background:#0f3a8a; color:#fff; padding:13px 18px; border-bottom:3px solid #f59e0b; display:flex; justify-content:space-between; align-items:center; }
+    .se-m-h h3 { margin:0; font-size:1rem; }
+    .se-m-h button { background:rgba(255,255,255,.15); border:none; color:#fff; width:30px; height:30px; border-radius:6px; cursor:pointer; }
+    .se-m-b { padding:16px 18px 6px; }
+    .se-m-b .champ { margin-bottom:12px; }
+    .se-m-b label { display:block; font-size:0.82rem; font-weight:600; color:#334155; margin-bottom:4px; }
+    .se-m-b input, .se-m-b select { width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; }
+    .se-m-b .ligne2 { display:flex; gap:12px; } .se-m-b .ligne2 .champ { flex:1; }
+    .se-m-chantier { font-weight:700; color:#0f3a8a; font-size:1rem; }
+    .se-m-coord { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; font-size:0.82rem; color:#475569; margin:6px 0 12px; }
+    .se-m-coord.vide { color:#b45309; background:#fffbeb; border-color:#fcd34d; }
+    .se-m-msg { font-size:0.82rem; min-height:1.2em; margin:2px 0 6px; }
+    .se-m-f { display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    .se-m-f button { border:none; border-radius:7px; padding:8px 14px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+    .se-m-annuler { background:#e2e8f0; color:#334155; } .se-m-valider { background:#16a34a; color:#fff; }
+    #rg-modal { position:fixed; inset:0; z-index:8500; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:32px 12px; overflow:auto; }
+    #rg-modal.ouvert { display:flex; }
+    #se-regroup { width:100%; max-width:1100px; background:#f8fafc; border-radius:12px; padding:16px 18px 18px; box-shadow:0 12px 40px rgba(15,23,42,.28); }
+    .rg-fermer { margin-left:auto; background:#e2e8f0; border:none; border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:0.95rem; }
+    .rg-btn-tournee { margin-top:8px; background:#16a34a; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:0.8rem; font-weight:700; cursor:pointer; }
+    .rg-btn-tournee:hover { background:#15803d; }
+    #tr-modal { position:fixed; inset:0; z-index:9600; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:40px 12px; overflow:auto; }
+    #tr-modal.ouvert { display:flex; }
+    #tr-modal .se-m { max-width:560px; }
+    .tr-apercu { width:100%; border-collapse:collapse; font-size:0.84rem; margin:4px 0 8px; }
+    .tr-apercu th { text-align:left; font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; padding:4px 6px; border-bottom:1px solid #e2e8f0; }
+    .tr-apercu td { padding:5px 6px; border-bottom:1px solid #f1f5f9; }
+    .tr-apercu td.h { font-weight:700; color:#0f3a8a; white-space:nowrap; }
+    .tr-apercu td.t { color:#94a3b8; font-size:0.76rem; white-space:nowrap; }
+    .tr-note { font-size:0.75rem; color:#64748b; margin-bottom:6px; }
+    .btn-se-rg { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; }
+    .btn-se-rg:disabled { background:#cbd5e1; cursor:not-allowed; }
+    .rg-tete { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:0.6rem; }
+    .rg-tete h3 { margin:0; font-size:1rem; color:#0f3a8a; }
+    .rg-tete label { font-size:0.82rem; color:#475569; }
+    .rg-tete select { padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:0.85rem; }
+    .rg-info { font-size:0.8rem; color:#64748b; }
+    .rg-grille { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
+    .rg-carte { background:#fff; border:1px solid #e2e8f0; border-left:4px solid #0f3a8a; border-radius:10px; padding:10px 12px; }
+    .rg-carte.solo { border-left-color:#94a3b8; }
+    .rg-carte.sans { border-left-color:#f59e0b; background:#fffbeb; }
+    .rg-carte h4 { margin:0 0 4px; font-size:0.9rem; color:#0f172a; }
+    .rg-carte .rg-sous { font-size:0.75rem; color:#64748b; margin-bottom:6px; }
+    .rg-carte ol, .rg-carte ul { margin:0; padding-left:20px; font-size:0.85rem; }
+    .rg-carte li { margin:3px 0; }
+    .rg-carte li .rg-km { color:#94a3b8; font-size:0.75rem; }
+    .rg-carte li button { margin-left:6px; background:none; border:1px solid #cbd5e1; border-radius:5px; font-size:0.72rem; padding:1px 6px; cursor:pointer; color:#0f3a8a; }
     .btn-se-xlsx { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-weight:700; font-size:0.85rem; cursor:pointer; margin-left:auto; }
   </style>
 </head>
@@ -64,10 +117,21 @@
 <section id="se-actif" style="display:none;">
   <div class="se-filtres">
     <div>
-      <label for="se-filtre-mois">Échéance (mois)</label>
-      <input type="month" id="se-filtre-mois" onchange="appliquerFiltreMois()">
+      <label for="se-filtre-annee">Échéance — année</label>
+      <select id="se-filtre-annee" onchange="appliquerFiltreMois()"><option value="">Toutes</option></select>
     </div>
-    <button type="button" class="btn-se-reset" onclick="effacerFiltreMois()">Tous les mois</button>
+    <div>
+      <label for="se-filtre-m">Mois</label>
+      <select id="se-filtre-m" onchange="appliquerFiltreMois()">
+        <option value="">Tous</option><option value="01">Janvier</option><option value="02">Février</option><option value="03">Mars</option>
+        <option value="04">Avril</option><option value="05">Mai</option><option value="06">Juin</option><option value="07">Juillet</option>
+        <option value="08">Août</option><option value="09">Septembre</option><option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+      </select>
+    </div>
+    <!-- valeur combinée 'aaaa-mm' (vide si l'année ou le mois manque), lue par le regroupement et la planification -->
+    <input type="hidden" id="se-filtre-mois" value="">
+    <button type="button" class="btn-se-reset" onclick="effacerFiltreMois()">Toutes les échéances</button>
+    <button type="button" class="btn-se-rg" id="btn-se-rg" onclick="ouvrirRegroupement()" disabled title="Choisissez une année et un mois d'échéance">🗺 Regrouper par proximité</button>
     <button type="button" class="btn-se-xlsx" onclick="exporterXlsx()">📊 Export Excel</button>
   </div>
   <div class="se-count" id="se-count"></div>
@@ -80,6 +144,7 @@
         <th>Prochaine échéance</th>
         <th>Statut</th>
         <th>Commentaire</th>
+        <th></th>
       </tr>
     </thead>
     <tbody id="tbody-se"></tbody>
@@ -87,9 +152,80 @@
   <div class="se-vide" id="se-vide" style="display:none;">
     Aucun chantier n'a encore de note taguée « Entretien annuel ». Cochez la case lors de la création d'une note dans <a href="planning.html">Planning</a>.
   </div>
+
+  <!-- Proposition de regroupement : apparaît quand un mois d'échéance est sélectionné -->
+  <div id="rg-modal" onclick="if(event.target===this) fermerRegroupement()">
+  <div id="se-regroup">
+    <div class="rg-tete">
+      <h3>🗺 Proposition de regroupement par proximité</h3>
+      <label for="rg-rayon">Chantiers distants de moins de</label>
+      <select id="rg-rayon" onchange="proposerRegroupement()">
+        <option value="3">3 km</option><option value="5">5 km</option><option value="10" selected>10 km</option>
+        <option value="15">15 km</option><option value="20">20 km</option><option value="30">30 km</option>
+      </select>
+      <span class="rg-info" id="rg-info"></span>
+      <button type="button" class="rg-fermer" onclick="fermerRegroupement()" title="Fermer">✕</button>
+    </div>
+    <div class="rg-grille" id="rg-grille"></div>
+  </div>
+  </div>
 </section>
 
+<!-- Planifier un entretien : crée le créneau dans le Planning sous le MÊME nom de chantier,
+     ce qui conserve automatiquement les coordonnées du client (rattachées au nom). -->
+<div id="se-modal" role="dialog" aria-modal="true" onclick="if(event.target===this) fermerPlanif()">
+  <div class="se-m">
+    <div class="se-m-h"><h3>Planifier l'entretien</h3><button type="button" onclick="fermerPlanif()" title="Fermer">✕</button></div>
+    <div class="se-m-b">
+      <div class="se-m-chantier" id="se-m-chantier"></div>
+      <div class="se-m-coord" id="se-m-coord"></div>
+      <div class="ligne2">
+        <div class="champ"><label for="se-m-date">Date</label><input type="date" id="se-m-date"></div>
+        <div class="champ"><label for="se-m-rdv">Heure de RDV (facultatif)</label><input type="time" id="se-m-rdv"></div>
+      </div>
+      <div class="ligne2">
+        <div class="champ"><label for="se-m-sal">Technicien</label><select id="se-m-sal"></select></div>
+        <div class="champ"><label for="se-m-h">Heures prévues</label><input type="number" id="se-m-h" min="0.25" max="24" step="0.25" value="2"></div>
+      </div>
+      <div class="se-m-msg" id="se-m-msg"></div>
+    </div>
+    <div class="se-m-f">
+      <button type="button" class="se-m-annuler" onclick="fermerPlanif()">Annuler</button>
+      <button type="button" class="se-m-valider" id="se-m-ok" onclick="validerPlanif()">📅 Planifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- Planifier une tournée entière : même jour, même technicien, RDV échelonnés -->
+<div id="tr-modal" role="dialog" aria-modal="true" onclick="if(event.target===this) fermerTournee()">
+  <div class="se-m">
+    <div class="se-m-h"><h3 id="tr-titre">Planifier la tournée</h3><button type="button" onclick="fermerTournee()" title="Fermer">✕</button></div>
+    <div class="se-m-b">
+      <div class="ligne2">
+        <div class="champ"><label for="tr-date">Date</label><input type="date" id="tr-date" oninput="majApercuTournee()"></div>
+        <div class="champ"><label for="tr-sal">Technicien</label><select id="tr-sal"></select></div>
+      </div>
+      <div class="ligne2">
+        <div class="champ"><label for="tr-debut">1er RDV</label><input type="time" id="tr-debut" value="08:30" oninput="majApercuTournee()"></div>
+        <div class="champ"><label for="tr-duree">Durée par chantier (h)</label><input type="number" id="tr-duree" min="0.25" max="12" step="0.25" value="1.5" oninput="majApercuTournee()"></div>
+      </div>
+      <div class="ligne2">
+        <div class="champ"><label for="tr-marge">Marge par trajet (min)</label><input type="number" id="tr-marge" min="0" max="120" step="5" value="10" oninput="majApercuTournee()"></div>
+        <div class="champ"></div>
+      </div>
+      <table class="tr-apercu"><thead><tr><th>Heure</th><th>Étape</th><th>Trajet</th></tr></thead><tbody id="tr-corps"></tbody></table>
+      <div class="tr-note">Temps de trajet calculé par la route (service d'itinéraire de l'IGN), arrondi aux 5 min supérieures, plus la marge (chargement, stationnement…). « estimé » : service indisponible, calcul approché à partir de la distance à vol d'oiseau. Les heures restent modifiables ensuite dans le Planning.</div>
+      <div class="se-m-msg" id="tr-msg"></div>
+    </div>
+    <div class="se-m-f">
+      <button type="button" class="se-m-annuler" onclick="fermerTournee()">Annuler</button>
+      <button type="button" class="se-m-valider" id="tr-ok" onclick="validerTournee()">📅 Planifier la tournée</button>
+    </div>
+  </div>
+</div>
+
 <script src="assets/sync.js"></script>
+<script src="assets/coordonnees.js"></script>
 <script src="assets/aide.js"></script>
 <script>
 function frVersIso(fr) {
@@ -98,19 +234,32 @@ function frVersIso(fr) {
 }
 function parseLigneMeta(ligne) {
   const m = ligne.match(/^\[([^\]]+)\]\s*(?:\[I:([^\]]*)\])?\s(.*)$/);
-  if (!m) return { entretien: false, interv: '', periode: 1, ecrit: null };
+  if (!m) return { entretien: false, interv: '', periode: 12, ecrit: null };
   const entete = m[1] || '';
   const metaRaw = m[2] || '';
-  const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
+  // Rythme en MOIS : E1 = 12, E2 = 24, EM<n> = n mois (rythme libre saisi dans la note de chantier).
+  const em = metaRaw.match(/(^|;)E(?:M(\d{1,3})|([12]))?(;|$)/);
   const entretien = !!em;
-  // Notes existantes sans chiffre (ancien format [I:date;E]) = 1 an, comportement historique.
-  const periode = (em && em[2]) ? parseInt(em[2], 10) : 1;
+  // Notes existantes sans chiffre (ancien format [I:date;E]) = 12 mois, comportement historique.
+  const periode = !em ? 12 : (em[2] ? parseInt(em[2], 10) : (em[3] ? parseInt(em[3], 10) * 12 : 12));
   const dm = metaRaw.match(/^(\d{2}\/\d{2}\/\d{4})/);
   // Horodatage d'écriture de la ligne (heure/minute), tiré de l'en-tête [JJ/MM/AAAA HH:MM – Auteur] :
   // sert à départager deux entretiens tagués la MÊME date d'intervention (voir calculerSuivi).
   const em2 = entete.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
   const ecrit = em2 ? new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]) : null;
   return { entretien, interv: dm ? dm[1] : '', periode, ecrit, commentaire: m[3] || '' };
+}
+/* Ajoute n mois à une date ; fin de mois ramenée au dernier jour (31/01 + 1 mois = 28 ou 29/02) */
+function _ajouterMois(d, n) {
+  const r = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const dernier = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
+  r.setDate(Math.min(d.getDate(), dernier));
+  return r;
+}
+/* Libellé du rythme : 12 → « 1 an », 24 → « 2 ans », 18 → « 18 mois » */
+function libellePeriode(mois) {
+  if (mois % 12 === 0) { const a = mois / 12; return a + ' an' + (a > 1 ? 's' : ''); }
+  return mois + ' mois';
 }
 function echap(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -127,7 +276,7 @@ function calculerSuivi(notesChantiers) {
   Object.keys(notesChantiers || {}).forEach(nom => {
     const brut = notesChantiers[nom] || '';
     const lignes = brut.split('\n').filter(l => l.trim());
-    let derniere = null, periodeRetenue = 1, ecritRetenu = null, commentaireRetenu = '';
+    let derniere = null, periodeRetenue = 12, ecritRetenu = null, commentaireRetenu = '';
     lignes.forEach(l => {
       const meta = parseLigneMeta(l);
       if (!meta.entretien || !meta.interv) return;
@@ -143,8 +292,7 @@ function calculerSuivi(notesChantiers) {
     });
     let echeance = null, enRetard = false;
     if (derniere) {
-      echeance = new Date(derniere);
-      echeance.setFullYear(echeance.getFullYear() + periodeRetenue);
+      echeance = _ajouterMois(derniere, periodeRetenue);
       const auj = new Date(); auj.setHours(0,0,0,0);
       enRetard = echeance < auj;
     }
@@ -175,28 +323,65 @@ function rendre(liste) {
     <tr${r.enRetard ? ' class="se-retard-row"' : ''}>
       <td>${echap(r.nom)}</td>
       <td>${fmtDateFr(r.derniere)}</td>
-      <td>${r.periode} an${r.periode > 1 ? 's' : ''}</td>
+      <td>${libellePeriode(r.periode)}</td>
       <td>${fmtDateFr(r.echeance)}</td>
       <td><span class="se-badge ${r.enRetard ? 'se-retard' : 'se-ok'}">${r.enRetard ? 'En retard' : 'À jour'}</span></td>
       <td>${echap(r.commentaire || '')}</td>
+      <td>${_seCelluleAction(r.nom)}</td>
     </tr>`).join('');
 }
 
 /* Filtre par mois d'ÉCHÉANCE (pas la date de dernière intervention) : sert à
    planifier ce qu'il faut faire tel mois, pas à consulter l'historique. */
+/* Année et mois se choisissent séparément : année seule = toute l'année ; mois seul = ce mois
+   quelle que soit l'année ; les deux = un mois précis (condition du regroupement par proximité). */
+function _seSyncFiltre() {
+  const a = document.getElementById('se-filtre-annee').value, m = document.getElementById('se-filtre-m').value;
+  document.getElementById('se-filtre-mois').value = (a && m) ? a + '-' + m : '';
+}
+function remplirAnnees() {
+  const sel = document.getElementById('se-filtre-annee');
+  const courant = sel.value;
+  const ans = new Set([new Date().getFullYear(), new Date().getFullYear() + 1]);
+  _listeComplete.forEach(r => { if (r.echeance) ans.add(r.echeance.getFullYear()); });
+  sel.innerHTML = '<option value="">Toutes</option>' + [...ans].sort((x, y) => x - y).map(a => '<option value="' + a + '">' + a + '</option>').join('');
+  if ([...ans].some(a => String(a) === courant)) sel.value = courant;
+  _seSyncFiltre();
+}
 function listeFiltree() {
-  const mois = document.getElementById('se-filtre-mois').value;   // 'aaaa-mm' ou ''
-  if (!mois) return _listeComplete;
+  const a = document.getElementById('se-filtre-annee').value, m = document.getElementById('se-filtre-m').value;
+  if (!a && !m) return _listeComplete;
   return _listeComplete.filter(r => {
-    const ym = r.echeance.getFullYear() + '-' + String(r.echeance.getMonth() + 1).padStart(2, '0');
-    return ym === mois;
+    if (!r.echeance) return false;
+    if (a && String(r.echeance.getFullYear()) !== a) return false;
+    if (m && String(r.echeance.getMonth() + 1).padStart(2, '0') !== m) return false;
+    return true;
   });
 }
-function appliquerFiltreMois() { rendre(listeFiltree()); }
-function effacerFiltreMois() {
-  document.getElementById('se-filtre-mois').value = '';
-  rendre(listeFiltree());
+function majBoutonRegroupement() {
+  const b = document.getElementById('btn-se-rg');
+  if (!b) return;
+  const mois = document.getElementById('se-filtre-mois').value;
+  const n = mois ? listeFiltree().length : 0;
+  b.disabled = !(mois && n >= 2);
+  b.title = !mois ? 'Choisissez une année et un mois d\'échéance' : (n < 2 ? 'Il faut au moins 2 chantiers ce mois-ci' : 'Proposer des tournées de chantiers proches');
 }
+function appliquerFiltreMois() { _seSyncFiltre(); rendre(listeFiltree()); majBoutonRegroupement(); }
+function effacerFiltreMois() {
+  document.getElementById('se-filtre-annee').value = '';
+  document.getElementById('se-filtre-m').value = '';
+  _seSyncFiltre();
+  rendre(listeFiltree());
+  majBoutonRegroupement();
+}
+function ouvrirRegroupement() {
+  document.getElementById('rg-modal').classList.add('ouvert');
+  proposerRegroupement();
+}
+function fermerRegroupement() { document.getElementById('rg-modal').classList.remove('ouvert'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('rg-modal').classList.contains('ouvert') && !document.getElementById('se-modal').classList.contains('ouvert')) fermerRegroupement();
+});
 
 function exporterXlsx() {
   if (typeof XLSX === 'undefined') { alert('Module Excel non chargé, réessayez dans un instant.'); return; }
@@ -204,13 +389,13 @@ function exporterXlsx() {
   if (!liste.length) { alert('Aucun chantier à exporter pour cette sélection.'); return; }
   const rows = [['Chantier', 'Dernière intervention', 'Périodicité', 'Prochaine échéance', 'Statut', 'Commentaire']];
   liste.forEach(r => rows.push([
-    r.nom, fmtDateFr(r.derniere), r.periode + ' an' + (r.periode > 1 ? 's' : ''), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour', r.commentaire || ''
+    r.nom, fmtDateFr(r.derniere), libellePeriode(r.periode), fmtDateFr(r.echeance), r.enRetard ? 'En retard' : 'À jour', r.commentaire || ''
   ]));
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch:28 }, { wch:20 }, { wch:12 }, { wch:20 }, { wch:12 }, { wch:40 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Suivi entretiens');
-  const mois = document.getElementById('se-filtre-mois').value || 'tous';
+  const mois = [document.getElementById('se-filtre-annee').value, document.getElementById('se-filtre-m').value].filter(Boolean).join('-') || 'tous';
   XLSX.writeFile(wb, `Suivi_entretiens_${mois}.xlsx`);
 }
 
@@ -222,7 +407,9 @@ async function charger() {
     const d = await r.json();
     const notesChantiers = (d.ok && d.data && d.data.notesChantiers) ? d.data.notesChantiers : {};
     _listeComplete = calculerSuivi(notesChantiers);
+    remplirAnnees();
     rendre(listeFiltree());
+    majBoutonRegroupement();
   } catch (e) {
     _listeComplete = [];
     rendre([]);
@@ -236,6 +423,358 @@ function verifierActivation() {
   document.getElementById('se-inactif').style.display = actif ? 'none' : 'block';
   document.getElementById('se-actif').style.display    = actif ? 'block' : 'none';
   return actif;
+}
+
+
+/* ════════ Planifier un entretien depuis cette page ════════
+   Écrit un créneau dans le Planning (heuresdata, clé <salarieId><AAAA_MM_JJ>ch1..ch5, même format
+   que planning.html) sous le nom EXACT du chantier : les coordonnées du client, indexées par
+   nom, suivent donc automatiquement (planning, mobile, bouton Itinéraire, indemnités de trajet). */
+function _seHeures() { try { return JSON.parse(localStorage.getItem('heuresdata') || '{}') || {}; } catch (e) { return {}; } }
+function _seSalaries() {
+  try { return (JSON.parse(localStorage.getItem('salariesdata') || '[]') || []).filter(s => !s.administratif); } catch (e) { return []; }
+}
+function _seIso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _seCle(n) { return String(n || '').trim().toUpperCase(); }
+
+/* Prochain passage déjà planifié (aujourd'hui ou après) pour ce chantier, tous techniciens confondus */
+function _seProchainPlanifie(nom) {
+  const h = _seHeures(), cible = _seCle(nom), auj = _seIso(new Date());
+  let best = null;
+  Object.keys(h).forEach(k => {
+    const e = h[k];
+    if (!e || _seCle(e.chantier) !== cible) return;
+    const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    if (!m) return;
+    const iso = m[2] + '-' + m[3] + '-' + m[4];
+    if (iso >= auj && (!best || iso < best)) best = iso;
+  });
+  return best;
+}
+function _seCelluleAction(nom) {
+  const p = _seProchainPlanifie(nom);
+  const info = p ? '<span class="se-planifie">✔ planifié le ' + p.split('-').reverse().join('/') + '</span>' : '';
+  return '<button type="button" class="btn-se-plan" data-nom="' + echap(nom).replace(/"/g, '&quot;') + '" onclick="ouvrirPlanif(this.dataset.nom)">📅 Planifier</button>' + info;
+}
+
+let _seNom = null;
+function ouvrirPlanif(nom) {
+  _seNom = nom;
+  document.getElementById('se-m-chantier').textContent = nom;
+  const coord = document.getElementById('se-m-coord');
+  const html = (window.Coord && typeof Coord.html === 'function') ? Coord.html(nom) : '';
+  if (html) { coord.className = 'se-m-coord'; coord.innerHTML = html; }
+  else { coord.className = 'se-m-coord vide'; coord.textContent = '⚠ Aucune coordonnée enregistrée pour ce chantier : pensez à la compléter depuis le Planning.'; }
+  // Date par défaut : l'échéance si elle est à venir, sinon demain
+  const r = _listeComplete.find(x => x.nom === nom);
+  const dem = new Date(); dem.setDate(dem.getDate() + 1);
+  document.getElementById('se-m-date').value = _seIso(r && r.echeance && r.echeance > new Date() ? r.echeance : dem);
+  document.getElementById('se-m-rdv').value = '';
+  document.getElementById('se-m-h').value = '2';
+  const sel = document.getElementById('se-m-sal');
+  const sals = _seSalaries();
+  sel.innerHTML = sals.map(s => '<option value="' + s.id + '">' + echap(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</option>').join('');
+  const msg = document.getElementById('se-m-msg'); msg.textContent = ''; msg.style.color = '';
+  if (!sals.length) { msg.style.color = '#dc2626'; msg.textContent = 'Aucun salarié : créez-en un dans la page Salariés.'; }
+  document.getElementById('se-modal').classList.add('ouvert');
+}
+function fermerPlanif() { document.getElementById('se-modal').classList.remove('ouvert'); _seNom = null; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('se-modal').classList.contains('ouvert')) fermerPlanif(); });
+
+async function validerPlanif() {
+  const msg = document.getElementById('se-m-msg');
+  const err = t => { msg.style.color = '#dc2626'; msg.textContent = t; };
+  const nom = _seNom;
+  const date = document.getElementById('se-m-date').value;
+  const salId = document.getElementById('se-m-sal').value;
+  const heures = parseFloat(document.getElementById('se-m-h').value);
+  const rdv = document.getElementById('se-m-rdv').value;
+  if (!nom) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Choisissez une date.');
+  if (!salId) return err('Choisissez un technicien.');
+  if (!(heures > 0)) return err('Indiquez les heures prévues.');
+
+  const h = _seHeures();
+  const prefixe = String(salId) + date.replace(/-/g, '_') + 'ch';
+  let cle = null;
+  for (let i = 1; i <= 5; i++) { const e = h[prefixe + i]; if (e && _seCle(e.chantier) === _seCle(nom)) { cle = prefixe + i; break; } }
+  if (!cle) for (let i = 1; i <= 5; i++) { const e = h[prefixe + i]; if (!e || !String(e.chantier || '').trim()) { cle = prefixe + i; break; } }
+  if (!cle) return err('Ce technicien a déjà 5 chantiers ce jour-là : choisissez une autre date.');
+
+  const entry = h[cle] && String(h[cle].chantier || '').trim() ? h[cle] : {};
+  entry.chantier = nom;          // nom EXACT : conserve les coordonnées du client
+  entry.heures = heures;
+  if (rdv) { entry.rdv = rdv; entry.rdvAuteur = 'gerant'; delete entry.rdvNotifie; }
+  h[cle] = entry;
+  localStorage.setItem('heuresdata', JSON.stringify(h));
+
+  const btn = document.getElementById('se-m-ok');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    fermerPlanif();
+    rendre(listeFiltree());
+    if (window.SYNC && typeof SYNC.afficherNotif === 'function')
+      SYNC.afficherNotif('✔ Entretien planifié le ' + date.split('-').reverse().join('/'));
+  } catch (e) {
+    err('Enregistrement impossible : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = '📅 Planifier';
+  }
+}
+
+
+/* ════════ Proposition de regroupement par proximité (mois d'échéance sélectionné) ════════
+   Chaque chantier est localisé à partir de son adresse (Coord.localiser, même service que
+   les indemnités de trajet ; résultats mémorisés sur le poste). Deux chantiers sont dans le
+   même groupe s'ils sont à moins du rayon choisi l'un de l'autre, de proche en proche.
+   Dans un groupe, l'ordre de visite part du chantier le plus proche du point de départ de
+   l'entreprise (page Entreprise), puis va toujours au plus proche suivant. Distances à vol d'oiseau. */
+let _rgJeton = 0;
+let _rgTournees = [];   // tournées affichées : [{ num, etapes:[{ nom, saut (km depuis l'étape précédente) }] }]
+function _rgDepart() {
+  try { const z = (JSON.parse(localStorage.getItem('entreprisedata') || '{}').zonesTrajet) || {}; return (z.depart && z.depart.lat != null) ? z.depart : null; } catch (e) { return null; }
+}
+async function proposerRegroupement() {
+  const bloc = document.getElementById('se-regroup');
+  const grille = document.getElementById('rg-grille');
+  const info = document.getElementById('rg-info');
+  const mois = document.getElementById('se-filtre-mois').value;
+  const liste = listeFiltree();
+  if (!mois || liste.length < 2 || !window.Coord || typeof Coord.localiser !== 'function') {
+    grille.innerHTML = ''; info.textContent = 'Choisissez un mois comptant au moins 2 chantiers.'; return;
+  }
+  const jeton = ++_rgJeton;
+  info.textContent = 'Localisation des adresses…';
+  grille.innerHTML = '';
+
+  const pos = {};
+  await Promise.all(liste.map(r => Coord.localiser(r.nom).then(x => { pos[r.nom] = x; }).catch(() => { pos[r.nom] = { statut: 'erreur' }; })));
+  if (jeton !== _rgJeton) return;                                  // mois changé entre-temps
+
+  const rayon = parseFloat(document.getElementById('rg-rayon').value) || 10;
+  const loc = liste.filter(r => pos[r.nom] && pos[r.nom].statut === 'ok');
+  const sans = liste.filter(r => !(pos[r.nom] && pos[r.nom].statut === 'ok'));
+  const dist = (a, b) => Coord.distanceKm(pos[a.nom], pos[b.nom]);
+
+  // Groupes : liaison de proche en proche sous le rayon
+  const vus = new Set(), groupes = [];
+  loc.forEach(r => {
+    if (vus.has(r.nom)) return;
+    const g = [r]; vus.add(r.nom);
+    for (let i = 0; i < g.length; i++) loc.forEach(o => { if (!vus.has(o.nom) && dist(g[i], o) <= rayon) { vus.add(o.nom); g.push(o); } });
+    groupes.push(g);
+  });
+
+  // Ordre de visite : départ entreprise (si connu) → plus proche → plus proche suivant…
+  const depart = _rgDepart();
+  const ordonner = g => {
+    const reste = g.slice(), out = [];
+    let cur = depart ? { lat: depart.lat, lon: depart.lon } : pos[reste[0].nom];
+    while (reste.length) {
+      let bi = 0, bd = Infinity;
+      reste.forEach((x, i) => { const d = Coord.distanceKm(cur, pos[x.nom]); if (d < bd) { bd = d; bi = i; } });
+      const x = reste.splice(bi, 1)[0];
+      out.push({ r: x, saut: out.length ? bd : (depart ? bd : null) });
+      cur = pos[x.nom];
+    }
+    return out;
+  };
+  const ord = groupes.map(ordonner).sort((a, b) => b.length - a.length);
+  _rgTournees = [];
+  const nbGroupes = ord.filter(g => g.length > 1).length;
+  const km = v => (v == null ? '' : (Math.round(v * 10) / 10).toString().replace('.', ',') + ' km');
+  const btn = n => '<button type="button" data-nom="' + echap(n).replace(/"/g, '&quot;') + '" onclick="ouvrirPlanif(this.dataset.nom)">📅</button>';
+
+  let html = '';
+  let num = 0;
+  ord.forEach(g => {
+    if (g.length > 1) {
+      num++;
+      const total = g.reduce((t, x, i) => t + (i ? x.saut : 0), 0);
+      html += '<div class="rg-carte"><h4>Tournée ' + num + ' — ' + g.length + ' chantiers</h4>'
+        + '<div class="rg-sous">≈ ' + km(total) + ' de parcours d\'un chantier à l\'autre' + (depart ? ' · ' + km(g[0].saut) + ' depuis le dépôt' : '') + '</div><ol>'
+        + g.map((x, i) => '<li>' + echap(x.r.nom) + (i ? ' <span class="rg-km">+' + km(x.saut) + '</span>' : '') + btn(x.r.nom) + '</li>').join('')
+        + '</ol><button type="button" class="rg-btn-tournee" onclick="ouvrirTournee(' + _rgTournees.length + ')">📅 Planifier la tournée</button></div>';
+      _rgTournees.push({ num: num, depart: depart ? { lat: depart.lat, lon: depart.lon } : null, etapes: g.map(x => ({ nom: x.r.nom, saut: x.saut, lat: pos[x.r.nom].lat, lon: pos[x.r.nom].lon })) });
+    }
+  });
+  const isoles = ord.filter(g => g.length === 1).map(g => g[0]);
+  if (isoles.length) {
+    html += '<div class="rg-carte solo"><h4>Chantiers isolés — ' + isoles.length + '</h4><div class="rg-sous">Aucun autre entretien du mois à moins de ' + rayon + ' km.</div><ul>'
+      + isoles.map(x => '<li>' + echap(x.r.nom) + (depart ? ' <span class="rg-km">' + km(x.saut) + ' du dépôt</span>' : '') + btn(x.r.nom) + '</li>').join('') + '</ul></div>';
+  }
+  if (sans.length) {
+    html += '<div class="rg-carte sans"><h4>⚠ Sans adresse exploitable — ' + sans.length + '</h4><div class="rg-sous">À compléter dans la fiche du chantier (Planning) pour les inclure au regroupement.</div><ul>'
+      + sans.map(r => '<li>' + echap(r.nom) + btn(r.nom) + '</li>').join('') + '</ul></div>';
+  }
+  grille.innerHTML = html;
+  info.textContent = nbGroupes ? nbGroupes + ' regroupement' + (nbGroupes > 1 ? 's' : '') + ' possible' + (nbGroupes > 1 ? 's' : '') + ' (distances à vol d\'oiseau).' : 'Aucun regroupement possible à ce rayon.';
+}
+
+
+/* ════════ Planifier une tournée entière ════════
+   Tous les chantiers d'une tournée, même jour, même technicien, dans l'ordre de visite proposé.
+   RDV échelonnés : 1er RDV, puis + durée du chantier + trajet estimé vers le suivant. */
+let _trIdx = null;
+let _trLegs = null;      // trajets de la tournée ouverte : [dépôt→1, 1→2, …, dernier→dépôt] = { min, km, source }
+let _trJeton = 0;
+
+/* Temps de trajet par la route entre deux points (service d'itinéraire IGN, gratuit, sans clé).
+   Résultat mémorisé sur le poste (une paire d'adresses n'est calculée qu'une fois).
+   Repli sur une estimation (vol d'oiseau × 1,3 à 50 km/h) si le service ne répond pas. */
+function _trEstime(a, b) {
+  const km = (window.Coord && Coord.distanceKm) ? Coord.distanceKm(a, b) : null;
+  return { min: km == null ? 10 : Math.max(5, (km * 1.3) / 50 * 60), km: km == null ? null : km * 1.3, source: 'estime' };
+}
+function _trCacheLire() { try { return JSON.parse(localStorage.getItem('routeCache') || '{}') || {}; } catch (e) { return {}; } }
+async function _trRoute(a, b) {
+  if (!a || !b || a.lat == null || b.lat == null) return { min: 0, km: 0, source: 'aucun' };
+  const f = x => Number(x).toFixed(4);
+  const cle = f(a.lat) + ',' + f(a.lon) + '>' + f(b.lat) + ',' + f(b.lon);
+  const cache = _trCacheLire();
+  if (cache[cle]) return Object.assign({ source: 'route' }, cache[cle]);
+  try {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+    const url = 'https://data.geopf.fr/navigation/itineraire?resource=bdtopo-osrm&profile=car&optimization=fastest'
+      + '&start=' + b2(a) + '&end=' + b2(b) + '&getSteps=false&getBbox=false&timeUnit=minute&distanceUnit=kilometer';
+    function b2(p) { return p.lon + ',' + p.lat; }
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) throw new Error('http ' + r.status);
+    const d = await r.json();
+    const min = Number(d && d.duration), km = Number(d && d.distance);
+    if (!isFinite(min)) throw new Error('reponse');
+    const res = { min: min, km: isFinite(km) ? km : null };
+    const c2 = _trCacheLire(); c2[cle] = res;
+    try { localStorage.setItem('routeCache', JSON.stringify(c2)); } catch (e) {}
+    return Object.assign({ source: 'route' }, res);
+  } catch (e) {
+    return _trEstime(a, b);
+  }
+}
+function _trHeure(min) { min = Math.round(min); min = ((min % 1440) + 1440) % 1440; return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function _trMinutes(leg) {                                   // trajet retenu : arrondi aux 5 min supérieures + marge
+  const marge = Math.max(0, parseFloat(document.getElementById('tr-marge').value) || 0);
+  return Math.ceil((leg ? leg.min : 0) / 5) * 5 + (leg && leg.source !== 'aucun' ? marge : 0);
+}
+/* Plan horaire de la tournée à partir des trajets calculés */
+function _trPlan() {
+  const t = _rgTournees[_trIdx]; if (!t || !_trLegs) return [];
+  const deb = (document.getElementById('tr-debut').value || '08:30').split(':').map(Number);
+  const duree = parseFloat(document.getElementById('tr-duree').value) || 0;
+  let cur = deb[0] * 60 + deb[1];
+  return t.etapes.map((e, i) => {
+    let traj = null;
+    if (i) { traj = _trMinutes(_trLegs[i]); cur += traj; }
+    const p = { nom: e.nom, rdv: _trHeure(cur), rdvMin: cur, trajet: traj, leg: i ? _trLegs[i] : null };
+    cur += duree * 60;
+    return p;
+  });
+}
+async function _trCalculerTrajets() {
+  const t = _rgTournees[_trIdx]; if (!t) return;
+  const jeton = ++_trJeton;
+  _trLegs = null;
+  document.getElementById('tr-ok').disabled = true;
+  document.getElementById('tr-corps').innerHTML = '<tr><td colspan="3" style="color:#64748b;">Calcul des temps de trajet par la route…</td></tr>';
+  const pts = t.etapes.map(e => ({ lat: e.lat, lon: e.lon }));
+  const paires = [[t.depart, pts[0]]];
+  for (let i = 1; i < pts.length; i++) paires.push([pts[i - 1], pts[i]]);
+  paires.push([pts[pts.length - 1], t.depart]);
+  const legs = await Promise.all(paires.map(p => (p[0] && p[1]) ? _trRoute(p[0], p[1]) : Promise.resolve({ min: 0, km: 0, source: 'aucun' })));
+  if (jeton !== _trJeton) return;
+  _trLegs = legs;
+  document.getElementById('tr-ok').disabled = false;
+  majApercuTournee();
+}
+function majApercuTournee() {
+  if (!_trLegs) return;
+  const plan = _trPlan();
+  const t = _rgTournees[_trIdx];
+  const duree = parseFloat(document.getElementById('tr-duree').value) || 0;
+  const lbl = leg => leg && leg.source !== 'aucun'
+    ? Math.round(leg.min) + ' min' + (leg.km != null ? ' · ' + (Math.round(leg.km * 10) / 10).toString().replace('.', ',') + ' km' : '') + (leg.source === 'estime' ? ' <b style="color:#b45309">estimé</b>' : '')
+    : '—';
+  let html = '';
+  const aller = _trLegs[0], retour = _trLegs[_trLegs.length - 1];
+  const avecDepot = t.depart && aller && aller.source !== 'aucun';
+  if (avecDepot) html += '<tr><td class="h">' + _trHeure(plan[0].rdvMin - _trMinutes(aller)) + '</td><td>🏠 Départ du dépôt</td><td class="t">' + lbl(aller) + '</td></tr>';
+  html += plan.map(p => '<tr><td class="h">' + p.rdv + '</td><td>' + echap(p.nom) + '</td><td class="t">' + (p.leg ? lbl(p.leg) + (p.trajet ? ' → ' + p.trajet + ' min retenues' : '') : '—') + '</td></tr>').join('');
+  const finMin = plan.length ? plan[plan.length - 1].rdvMin + duree * 60 : 0;
+  const retourMin = avecDepot ? finMin + _trMinutes(retour) : null;
+  if (avecDepot) html += '<tr><td class="h">' + _trHeure(retourMin) + '</td><td>🏠 Retour au dépôt</td><td class="t">' + lbl(retour) + '</td></tr>';
+  document.getElementById('tr-corps').innerHTML = html;
+  const msg = document.getElementById('tr-msg');
+  const ref = retourMin != null ? retourMin : finMin;
+  msg.style.color = ref > 18 * 60 ? '#b45309' : '#64748b';
+  msg.textContent = 'Fin du dernier chantier : ' + _trHeure(finMin) + (retourMin != null ? ' · retour au dépôt : ' + _trHeure(retourMin) : '')
+    + (ref > 18 * 60 ? ' — journée chargée, pensez à répartir sur deux jours.' : '')
+    + (!t.depart ? ' (point de départ non renseigné dans la page Entreprise : trajets dépôt non calculés)' : '');
+}
+function ouvrirTournee(idx) {
+  _trIdx = idx;
+  const t = _rgTournees[idx]; if (!t) return;
+  document.getElementById('tr-titre').textContent = 'Planifier la tournée ' + t.num + ' — ' + t.etapes.length + ' chantiers';
+  const dem = new Date(); dem.setDate(dem.getDate() + 1);
+  const mois = document.getElementById('se-filtre-mois').value;
+  let d = dem;
+  if (mois) { const p = mois.split('-').map(Number); const d1 = new Date(p[0], p[1] - 1, 1); if (d1 > dem) d = d1; }
+  document.getElementById('tr-date').value = _seIso(d);
+  const sel = document.getElementById('tr-sal');
+  sel.innerHTML = _seSalaries().map(s => '<option value="' + s.id + '">' + echap(((s.prenom || '') + ' ' + (s.nom || '')).trim()) + '</option>').join('');
+  document.getElementById('tr-modal').classList.add('ouvert');
+  _trCalculerTrajets();
+}
+function fermerTournee() { document.getElementById('tr-modal').classList.remove('ouvert'); _trIdx = null; _trLegs = null; _trJeton++; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('tr-modal').classList.contains('ouvert')) { e.stopImmediatePropagation(); fermerTournee(); } }, true);
+
+async function validerTournee() {
+  const msg = document.getElementById('tr-msg');
+  const err = t => { msg.style.color = '#dc2626'; msg.textContent = t; };
+  const date = document.getElementById('tr-date').value;
+  const salId = document.getElementById('tr-sal').value;
+  const duree = parseFloat(document.getElementById('tr-duree').value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Choisissez une date.');
+  if (!salId) return err('Choisissez un technicien.');
+  if (!(duree > 0)) return err('Indiquez la durée par chantier.');
+  if (!_trLegs) return err('Calcul des trajets en cours, patientez un instant.');
+  const plan = _trPlan();
+  const h = _seHeures();
+  const prefixe = String(salId) + date.replace(/-/g, '_') + 'ch';
+
+  // Attribution des créneaux (5 par jour) : chantier déjà présent ce jour = mis à jour, sinon 1er créneau libre
+  const pris = {}, cles = [];
+  for (const p of plan) {
+    let cle = null;
+    for (let i = 1; i <= 5; i++) { const e = h[prefixe + i]; if (e && _seCle(e.chantier) === _seCle(p.nom)) { cle = prefixe + i; break; } }
+    if (!cle) for (let i = 1; i <= 5; i++) { const k = prefixe + i; const e = h[k]; if (!pris[k] && (!e || !String(e.chantier || '').trim())) { cle = k; break; } }
+    if (!cle) return err('Pas assez de créneaux libres ce jour-là pour ce technicien (5 chantiers maximum par jour). Choisissez une autre date ou un autre technicien.');
+    pris[cle] = true; cles.push(cle);
+  }
+  plan.forEach((p, i) => {
+    const k = cles[i];
+    const entry = h[k] && String(h[k].chantier || '').trim() ? h[k] : {};
+    entry.chantier = p.nom;          // nom EXACT : coordonnées du client conservées
+    entry.heures = duree;
+    entry.rdv = p.rdv; entry.rdvAuteur = 'gerant'; delete entry.rdvNotifie;
+    h[k] = entry;
+  });
+  localStorage.setItem('heuresdata', JSON.stringify(h));
+
+  const btn = document.getElementById('tr-ok');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    fermerTournee();
+    rendre(listeFiltree());
+    if (window.SYNC && typeof SYNC.afficherNotif === 'function')
+      SYNC.afficherNotif('✔ Tournée planifiée le ' + date.split('-').reverse().join('/') + ' (' + plan.length + ' chantiers)');
+  } catch (e) {
+    err('Enregistrement impossible : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = '📅 Planifier la tournée';
+  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -5,6 +5,7 @@ const prescripteurSchema = new mongoose.Schema({
   identifiant:  { type: String, required: true, unique: true, uppercase: true, trim: true },
   motDePasse:   { type: String, required: true },
   nom:          { type: String, default: "" },     // nom du prescripteur (affichage)
+  email:        { type: String, default: "", trim: true },   // destinataire des communications (admin)
   actif:        { type: Boolean, default: true },
   dateCreation: { type: Date, default: Date.now }
 });

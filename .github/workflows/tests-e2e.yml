@@ -1,0 +1,70 @@
+name: Veille anti-bug (Playwright)
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    # GitHub ne connaît que l'heure UTC : deux créneaux sont déclarés,
+    # le job "horaire" ne garde que celui qui tombe à 5 h 30 à Paris.
+    - cron: '30 3 * * *'   # 5 h 30 à Paris en heure d'été (UTC+2)
+    - cron: '30 4 * * *'   # 5 h 30 à Paris en heure d'hiver (UTC+1)
+  workflow_dispatch:         # bouton « Run workflow » pour lancer à la main
+
+jobs:
+  horaire:
+    runs-on: ubuntu-latest
+    outputs:
+      lancer: ${{ steps.choix.outputs.lancer }}
+    steps:
+      - id: choix
+        name: Garder uniquement le créneau de 5 h 30 heure de Paris
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "lancer=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          DECALAGE=$(TZ=Europe/Paris date +%z)
+          CRON="${{ github.event.schedule }}"
+          if { [ "$DECALAGE" = "+0200" ] && [ "$CRON" = "30 3 * * *" ]; } || \
+             { [ "$DECALAGE" = "+0100" ] && [ "$CRON" = "30 4 * * *" ]; }; then
+            echo "lancer=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Créneau ignoré ($CRON, Paris $DECALAGE)"
+            echo "lancer=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  tests:
+    needs: horaire
+    if: needs.horaire.outputs.lancer == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tests-e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Attendre la fin du déploiement Railway
+        if: github.event_name == 'push'
+        run: sleep 240
+
+      - name: Installer Playwright
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Lancer les tests
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ vars.BASE_URL }}
+
+      - name: Garder le rapport en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-playwright
+          path: tests-e2e/playwright-report
+          retention-days: 14

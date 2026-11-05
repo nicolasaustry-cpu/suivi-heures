@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <title>Import des devis Henrri – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+    .ih-page { max-width: 1100px; margin: 0 auto; }
+    .ih-intro { font-size: .88rem; color: #475569; margin: .8rem 0; line-height: 1.5; }
+    .ih-carte { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.1rem 1.3rem; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .ih-carte h2 { font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #0f3a8a; margin: 0 0 .9rem; border: none; padding: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .ih-etape { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #0f3a8a; color: #fff; font-size: 12px; }
+    .ih-depot { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 38px 20px; text-align: center; background: #f8fafc; cursor: pointer; transition: border-color .15s, background .15s; }
+    .ih-depot:hover, .ih-depot.survol { border-color: #0f3a8a; background: #eff6ff; }
+    .ih-depot b { display: block; font-size: 1rem; color: #0f172a; margin-bottom: 4px; }
+    .ih-depot span { font-size: .82rem; color: #64748b; }
+    .ih-mapping { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px 16px; }
+    .ih-mapping label { display: block; font-size: .8rem; font-weight: 600; color: #334155; margin-bottom: 3px; }
+    .ih-mapping select { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }
+    .ih-mapping .ih-groupe { grid-column: 1 / -1; font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-top: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+    .ih-badge { display: inline-block; font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; background: #e0f2fe; color: #075985; text-transform: none; letter-spacing: 0; }
+    .ih-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
+    .ih-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: .88rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; }
+    .ih-btn:disabled { opacity: .6; cursor: default; }
+    .ih-btn-principal { background: #0f3a8a; color: #fff; }
+    .ih-btn-accent { background: #f59e0b; color: #412402; }
+    .ih-btn-secondaire { background: #eef2f7; color: #334155; }
+    .ih-compteurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .ih-compteur { border: 1px solid #e2e8f0; border-left: 4px solid #94a3b8; border-radius: 8px; padding: 9px 12px; background: #fff; }
+    .ih-compteur.nouveau { border-left-color: #f59e0b; }
+    .ih-compteur.maj { border-left-color: #0f3a8a; }
+    .ih-compteur.absent { border-left-color: #dc2626; }
+    .ih-compteur-val { font-family: 'Barlow Condensed', 'Segoe UI', sans-serif; font-size: 24px; font-weight: 700; color: #0f3a8a; line-height: 1.1; }
+    .ih-compteur-lib { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #64748b; font-weight: 600; }
+    details.ih-bloc { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px; background: #fff; }
+    details.ih-bloc summary { padding: 9px 14px; cursor: pointer; font-weight: 600; color: #0f3a8a; font-size: .85rem; user-select: none; }
+    details.ih-bloc summary:hover { background: #eff6ff; }
+    .ih-tab-scroll { max-height: 320px; overflow-y: auto; }
+    table.ih-tab { border-collapse: collapse; width: 100%; font-size: .8rem; }
+    table.ih-tab th { background: #e8edf3; text-align: left; padding: 5px 8px; position: sticky; top: 0; }
+    table.ih-tab td { padding: 5px 8px; border-top: 1px solid #f1f5f9; vertical-align: top; }
+    table.ih-tab td.nb { text-align: right; white-space: nowrap; }
+    .ih-chg { font-size: .74rem; color: #64748b; }
+    .ih-chg strong { color: #c2410c; }
+    .ih-src-a { font-size: .7rem; color: #16a34a; }
+    .ih-src-d { font-size: .7rem; color: #b45309; }
+    .ih-statut { font-size: .7rem; font-weight: 700; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+    .ih-st-attente { background: #fef3c7; color: #92400e; }
+    .ih-st-affecte { background: #dcfce7; color: #166534; }
+    .ih-st-ecarte { background: #f1f5f9; color: #64748b; }
+    .ih-deux { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+    .ih-zone h3 { font-size: .9rem; color: #0f172a; margin: 0 0 4px; }
+    .ih-zone p.ih-aide { font-size: .78rem; color: #64748b; margin: 0 0 8px; line-height: 1.4; }
+    .ih-depot.charge { border-style: solid; border-color: #16a34a; background: #f0fdf4; }
+    .ih-sous { font-size: .8rem; font-weight: 700; color: #0f3a8a; margin: 1rem 0 .5rem; text-transform: uppercase; letter-spacing: .04em; }
+    .ih-sous:first-child { margin-top: 0; }
+    .ih-coord-ok { font-size: .7rem; color: #16a34a; white-space: nowrap; }
+    .ih-coord-ko { font-size: .7rem; color: #dc2626; white-space: nowrap; }
+    .ih-msg { padding: .65rem 1rem; border-radius: 8px; margin: .6rem 0; font-size: .86rem; }
+    .ih-msg-erreur { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+    .ih-msg-info { background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; }
+    .ih-msg-succes { background: #dcfce7; border: 1px solid #86efac; color: #166534; }
+  </style>
+</head>
+<body>
+
+<header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, simplement</span>
+    </div>
+  </div>
+  <h1 class="page-title">Import des devis Henrri</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html" class="active">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="clients.html">Clients</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<section class="ih-page">
+  <a href="chantiers.html?henrri=1" style="display:inline-block;margin-top:.8rem;font-size:.85rem;font-weight:700;color:#0f3a8a;text-decoration:none;">← Retour au Prévisionnel (Devis Henrri)</a>
+  <p class="ih-intro">
+    L'export des devis validés Henrri ne contient pas les coordonnées des clients : l'import se fait donc avec <strong>deux fichiers</strong>.
+    <strong>① La liste des clients Henrri</strong> (coordonnées), puis <strong>② les devis validés</strong>
+    (n° de devis, nom prénom, nombre d'heures et nombre d'heures analysées).
+    Suiv'Heures rattache ensuite chaque devis à ses coordonnées : en priorité celles <strong>déjà présentes</strong>
+    dans vos fiches chantier, sinon celles de la liste clients importée.
+    Les devis sont ensuite proposés dans le bouton <strong>« Devis Henrri »</strong> du Prévisionnel, pour être affectés à un mois.
+  </p>
+
+  <div id="ih-message"></div>
+
+  <!-- Étape 1 : dépôt des deux fichiers -->
+  <div class="ih-carte" id="etape-depot">
+    <h2><span class="ih-etape">1</span> Fichiers Henrri</h2>
+    <div class="ih-deux">
+      <div class="ih-zone">
+        <h3>① Liste des clients Henrri</h3>
+        <p class="ih-aide">Export de votre base clients depuis Henrri : nom, adresse, code postal, ville, téléphones, e-mail.</p>
+        <div class="ih-depot" id="depot-clients">
+          <b>Déposez le fichier clients</b>
+          <span>ou cliquez pour le choisir — Excel ou CSV</span>
+          <input type="file" id="fichier-clients" accept=".xlsx,.xls,.csv,.txt" hidden>
+        </div>
+        <label id="ih-sans-clients-lbl" style="display:none;margin-top:8px;font-size:.8rem;color:#475569;cursor:pointer;">
+          <input type="checkbox" id="ih-sans-clients" onchange="majBoutonSuivant()">
+          Pas de nouvelle liste : utiliser la base clients déjà importée (<span id="ih-nb-base">0</span> clients)
+        </label>
+      </div>
+      <div class="ih-zone">
+        <h3>② Devis validés</h3>
+        <p class="ih-aide">Export des devis validés depuis Henrri : n° de devis, nom prénom, nombre d'heures, nombre d'heures analysées.</p>
+        <div class="ih-depot" id="depot-devis">
+          <b>Déposez le fichier des devis</b>
+          <span>ou cliquez pour le choisir — Excel ou CSV</span>
+          <input type="file" id="fichier-devis" accept=".xlsx,.xls,.csv,.txt" hidden>
+        </div>
+      </div>
+    </div>
+    <div class="ih-actions">
+      <button type="button" class="ih-btn ih-btn-principal" id="btn-suivant" onclick="afficherMapping()" disabled>Continuer</button>
+    </div>
+  </div>
+
+  <!-- Étape 2 : correspondance des colonnes -->
+  <div class="ih-carte" id="etape-mapping" style="display:none;">
+    <h2><span class="ih-etape">2</span> Correspondance des colonnes</h2>
+    <p style="font-size:.84rem;color:#64748b;margin:0 0 .9rem;">
+      Les colonnes ont été reconnues automatiquement. Corrigez-les si nécessaire. * = obligatoire.
+      Le <strong>code client</strong>, s'il figure dans les deux fichiers, rend le rattachement plus sûr qu'avec le seul nom.
+    </p>
+    <div id="bloc-map-clients">
+      <div class="ih-sous">① Liste des clients <span class="ih-badge" id="nom-fichier-clients"></span></div>
+      <div class="ih-mapping" id="mapping-clients"></div>
+    </div>
+    <div class="ih-sous">② Devis validés <span class="ih-badge" id="nom-fichier-devis"></span></div>
+    <div class="ih-mapping" id="mapping-devis"></div>
+    <div class="ih-actions">
+      <button type="button" class="ih-btn ih-btn-principal" id="btn-analyser" onclick="analyser()">Analyser les fichiers</button>
+      <button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Changer de fichiers</button>
+    </div>
+  </div>
+
+  <!-- Étape 3 : rapport -->
+  <div class="ih-carte" id="etape-rapport" style="display:none;">
+    <h2><span class="ih-etape">3</span> Rapport avant import</h2>
+    <p style="font-size:.84rem;color:#64748b;margin:0 0 .9rem;">
+      Rien n'est encore enregistré. Un import ne supprime jamais rien, un devis déjà affecté au Prévisionnel n'est jamais modifié,
+      et une fiche chantier déjà renseignée n'est jamais écrasée.
+    </p>
+    <div id="ih-rapport-clients"></div>
+    <div class="ih-sous">② Devis validés</div>
+    <div class="ih-compteurs" id="ih-compteurs"></div>
+    <div id="ih-details"></div>
+    <div class="ih-actions">
+      <button type="button" class="ih-btn ih-btn-accent" id="btn-confirmer" onclick="confirmer()">Appliquer l'import</button>
+      <button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Annuler</button>
+    </div>
+  </div>
+
+  <!-- Étape 4 : résultat -->
+  <div class="ih-carte" id="etape-fin" style="display:none;">
+    <h2><span class="ih-etape">4</span> Import appliqué</h2>
+    <div id="ih-resultat"></div>
+  </div>
+</section>
+
+<script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   IMPORT HENRRI EN DEUX FICHIERS (lancé depuis « Devis Henrri » du Prévisionnel)
+   ① liste des clients Henrri (coordonnées) → base clients (clientsCache),
+     envoyée par lots : /api/henrri/import/clients/apercu|confirmer
+   ② devis validés → /api/henrri/import/apercu|confirmer
+   Le rattachement devis ↔ coordonnées se fait côté serveur à l'affichage de
+   la modale « Devis Henrri » : fiche chantier déjà présente d'abord, sinon
+   base clients (par code client, puis par nom).
+═══════════════════════════════════════════════════════════════════════ */
+const LOT = 400; // lignes clients par requête (limite de taille des envois)
+
+/* Champs attendus par fichier. motifs : testés dans l'ordre ; exclure : écarte une colonne. */
+const CHAMPS_CODE = { cle: 'codeClient', libelle: 'Code client', requis: false,
+  motifs: [/code.*client|client.*code|n° client|num.*client|ref.*client/, /^code$/] };
+const CHAMPS_NOM = { cle: 'nom', libelle: 'Nom (ou Nom prénom / Raison sociale)', requis: true,
+  motifs: [/nom.*prenom|prenom.*nom/, /raison sociale|raison/, /^nom\b/, /\bnom\b/, /^client$/, /client|destinataire/],
+  exclure: /^prenom|n°|numero|code|ville|commune|contact.*prenom/ };
+const CHAMPS_PRENOM = { cle: 'prenom', libelle: 'Prénom (si colonne séparée)', requis: false,
+  motifs: [/^prenom/], exclure: /nom.*prenom|prenom.*nom/ };
+
+const FICHIERS = {
+  clients: {
+    libelle: 'liste des clients',
+    champs: [
+      CHAMPS_CODE,
+      // Henrri : « Raison Sociale » est VIDE pour les particuliers, le nom est alors
+      // dans la colonne « Nom ». Nom retenu = raison sociale, sinon nom (+ prénom).
+      { cle: 'raisonSociale', libelle: 'Raison sociale', requis: false, motifs: [/raison/] },
+      { cle: 'nom', libelle: 'Nom (particulier ou contact)', requis: false,
+        motifs: [/^nom$/, /nom.*prenom|prenom.*nom/, /^nom\b/, /\bnom\b/, /^client$/],
+        exclure: /raison|^prenom|n°|numero|code|ville|commune|contact.*prenom/ },
+      CHAMPS_PRENOM,
+      { cle: 'adresse',    libelle: 'Adresse', motifs: [/^adresse$/, /adresse( 1| ligne 1)?$/, /adresse/, /\brue\b|voie/], exclure: /mail|courriel|electronique|complement|2$|ligne 2/ },
+      { cle: 'adresse2',   libelle: "Complément d'adresse", motifs: [/complement|adresse 2|adresse ligne 2/], exclure: /mail/ },
+      { cle: 'codePostal', libelle: 'Code postal', motifs: [/code postal|postal/, /^cp$/] },
+      { cle: 'ville',      libelle: 'Ville', motifs: [/ville/, /commune|localite/] },
+      { cle: 'telephone',  libelle: 'Téléphone', motifs: [/tel|phone/, /fixe/], exclure: /mobile|portable|gsm|fax/ },
+      { cle: 'mobile',     libelle: 'Mobile', motifs: [/mobile|portable|gsm/] },
+      { cle: 'email',      libelle: 'E-mail', motifs: [/e-?mail|courriel|mail/] }
+    ],
+    ordre: ['codeClient', 'raisonSociale', 'nom', 'prenom', 'mobile', 'telephone', 'email', 'codePostal', 'ville', 'adresse2', 'adresse'],
+    entetes: [], lignes: [], nom: ''
+  },
+  devis: {
+    libelle: 'devis validés',
+    champs: [
+      { cle: 'numero', libelle: 'N° de devis', requis: true,
+        motifs: [/n°.*devis|num.*devis|devis.*n°|devis.*num/, /^n°$|^no$|^num(ero)?$/, /numero|n°|reference|\bref\b/],
+        exclure: /tel|phone|portable|mobile|client|siret|tva|postal/ },
+      CHAMPS_CODE, CHAMPS_NOM, CHAMPS_PRENOM,
+      { cle: 'heures', libelle: "Nombre d'heures", motifs: [/^nombre d.?heures$/, /nombre.*heure|nb.*heure|heure/], exclure: /analys|restant|facturer/ },
+      { cle: 'heuresAnalysees', libelle: "Nombre d'heures analysées", motifs: [/heure.*analys|analys/] }
+    ],
+    ordre: ['heuresAnalysees', 'heures', 'codeClient', 'numero', 'nom', 'prenom'],
+    entetes: [], lignes: [], nom: ''
+  }
+};
+
+let _baseClientsNb = 0;
+let _envoi = null; // { clients:[...], devis:[...] } préparé à l'analyse
+
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function _norm(t) {
+  return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function _token() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+}
+function _fmtH(v) {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '' || !isFinite(n)) return '—';
+  return (Math.round(n * 100) / 100).toString().replace('.', ',') + ' h';
+}
+function _pluriel(n, mot) { return n + ' ' + mot + (n > 1 ? 's' : ''); }
+function afficherMessage(texte, type) {
+  document.getElementById('ih-message').innerHTML = texte
+    ? '<div class="ih-msg ih-msg-' + (type || 'info') + '">' + texte + '</div>' : '';
+}
+async function _post(url, corps) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token() },
+    body: JSON.stringify(corps)
+  });
+  let d = null;
+  try { d = await r.json(); } catch (_) {}
+  if (!r.ok || !d || !d.ok) {
+    if (r.status === 413) throw new Error('Envoi trop volumineux : découpez l\'export Henrri (par exemple par période).');
+    throw new Error((d && d.message) || ('Erreur serveur (HTTP ' + r.status + ')'));
+  }
+  return d;
+}
+
+/* ── Contrôle d'accès : Henrri pilotage + mode import ── */
+async function verifierMode() {
+  const token = _token();
+  if (!token) { afficherMessage("Activez d'abord votre licence (page <a href=\"index.html\">Entreprise</a>).", 'erreur'); _bloquer(); return; }
+  try {
+    const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    if (!d.pilotage || d.mode !== 'import') {
+      afficherMessage('L\'import des devis validés n\'est pas activé. Dans la page <a href="index.html">Entreprise</a>, indiquez « Henrri version pilotage : Oui » puis choisissez « Import des devis validés » ; l\'import se lance ensuite depuis le bouton « Devis Henrri » du Prévisionnel.', 'erreur');
+      _bloquer();
+      return;
+    }
+    // Base clients déjà importée : la liste clients devient facultative
+    const rc = await fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } });
+    const dc = await rc.json();
+    _baseClientsNb = (dc && dc.ok && Array.isArray(dc.clients)) ? dc.clients.length : 0;
+    if (_baseClientsNb > 0) {
+      document.getElementById('ih-nb-base').textContent = _baseClientsNb;
+      document.getElementById('ih-sans-clients-lbl').style.display = 'block';
+    }
+  } catch (e) {
+    afficherMessage('Impossible de vérifier la configuration Henrri : ' + _esc(e.message || e), 'erreur');
+  }
+}
+function _bloquer() {
+  ['depot-clients', 'depot-devis'].forEach(id => {
+    const d = document.getElementById(id); d.style.opacity = '.5'; d.style.pointerEvents = 'none';
+  });
+}
+
+/* ── Étape 1 : lecture des fichiers ── */
+function brancherDepot(type) {
+  const depot = document.getElementById('depot-' + type);
+  const champ = document.getElementById('fichier-' + type);
+  depot.addEventListener('click', () => champ.click());
+  champ.addEventListener('change', e => { if (e.target.files[0]) lire(type, e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(ev => depot.addEventListener(ev, e => { e.preventDefault(); depot.classList.add('survol'); }));
+  ['dragleave', 'drop'].forEach(ev => depot.addEventListener(ev, e => { e.preventDefault(); depot.classList.remove('survol'); }));
+  depot.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) lire(type, f); });
+}
+
+let _sheetJs = null;
+function _chargerSheetJs() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_sheetJs) return _sheetJs;
+  _sheetJs = new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => window.XLSX ? ok(window.XLSX) : ko(new Error('Lecteur Excel indisponible.'));
+    sc.onerror = () => { _sheetJs = null; ko(new Error('Impossible de charger le lecteur Excel (connexion ?).')); };
+    document.head.appendChild(sc);
+  });
+  return _sheetJs;
+}
+
+function _reconnu(ch, e) {
+  return e && ch.motifs.some(m => m.test(e)) && !(ch.exclure && ch.exclure.test(e));
+}
+
+async function lire(type, fichier) {
+  afficherMessage('');
+  const F = FICHIERS[type];
+  try {
+    const XLSX = await _chargerSheetJs();
+    const buf = await fichier.arrayBuffer();
+    const classeur = XLSX.read(new Uint8Array(buf), { type: 'array' });
+    const feuille = classeur.Sheets['Export'] || classeur.Sheets[classeur.SheetNames[0]];
+    if (!feuille) throw new Error('aucune feuille lisible dans ce fichier.');
+    // raw:false → valeurs telles qu'affichées dans Excel (garde le 0 des téléphones, « 12,5 »…)
+    const grille = XLSX.utils.sheet_to_json(feuille, { header: 1, raw: false, defval: '', blankrows: false });
+    if (grille.length < 2) throw new Error('le fichier ne contient aucune donnée.');
+    // Ligne de titres : la 1re (parmi les 10 premières) qui contient au moins 2 titres reconnus
+    let iTitre = 0;
+    for (let i = 0; i < Math.min(10, grille.length); i++) {
+      const ent = grille[i].map(c => _norm(c));
+      if (F.champs.filter(ch => ent.some(e => _reconnu(ch, e))).length >= 2) { iTitre = i; break; }
+    }
+    F.entetes = grille[iTitre].map(e => String(e || '').trim());
+    F.lignes = grille.slice(iTitre + 1).filter(l => l.some(c => String(c).trim() !== ''));
+    if (!F.lignes.length) throw new Error('le fichier ne contient aucune ligne.');
+    F.nom = fichier.name;
+    // Garde-fou : fichier déposé dans la mauvaise zone
+    const entN = F.entetes.map(_norm);
+    if (type === 'devis' && !entN.some(e => /devis|heure/.test(e)) &&
+        !confirm('Ce fichier ne semble pas contenir de n° de devis ni d\'heures. S\'agit-il bien de l\'export des devis validés ?')) { F.lignes = []; return; }
+    if (type === 'clients' && entN.some(e => /heure/.test(e)) &&
+        !confirm('Ce fichier contient des heures : ne serait-ce pas l\'export des devis ? Le garder comme liste des clients ?')) { F.lignes = []; return; }
+    const depot = document.getElementById('depot-' + type);
+    depot.classList.add('charge');
+    depot.querySelector('b').textContent = '✔ ' + fichier.name;
+    depot.querySelector('span').textContent = _pluriel(F.lignes.length, 'ligne') + ' — cliquez pour changer de fichier';
+    majBoutonSuivant();
+  } catch (e) {
+    afficherMessage('Lecture impossible (' + _esc(F.libelle) + ') : ' + _esc(e.message || e), 'erreur');
+  }
+}
+
+function _sansClients() {
+  const cb = document.getElementById('ih-sans-clients');
+  return !!(cb && cb.checked && _baseClientsNb > 0);
+}
+function majBoutonSuivant() {
+  const okClients = FICHIERS.clients.lignes.length > 0 || _sansClients();
+  document.getElementById('btn-suivant').disabled = !(okClients && FICHIERS.devis.lignes.length > 0);
+}
+
+/* ── Étape 2 : correspondance des colonnes ── */
+function _reconnaitreTout(F) {
+  const ent = F.entetes.map(_norm);
+  const pris = new Set();
+  const res = {};
+  F.ordre.forEach(cle => {
+    const ch = F.champs.find(c => c.cle === cle);
+    res[cle] = -1;
+    for (const m of ch.motifs) {
+      const i = ent.findIndex((e, k) => e && !pris.has(k) && m.test(e) && !(ch.exclure && ch.exclure.test(e)));
+      if (i >= 0) { res[cle] = i; pris.add(i); break; }
+    }
+  });
+  return res;
+}
+
+function _rendreMapping(type) {
+  const F = FICHIERS[type];
+  document.getElementById('nom-fichier-' + type).textContent = F.nom + ' — ' + _pluriel(F.lignes.length, 'ligne');
+  const options = F.entetes.map((e, i) => '<option value="' + i + '">' + _esc(e || ('Colonne ' + (i + 1))) + '</option>').join('');
+  document.getElementById('mapping-' + type).innerHTML = F.champs.map(ch =>
+    '<div><label for="map-' + type + '-' + ch.cle + '">' + _esc(ch.libelle) + (ch.requis ? ' *' : '') + '</label>'
+    + '<select id="map-' + type + '-' + ch.cle + '"><option value="-1">— non utilisé —</option>' + options + '</select></div>'
+  ).join('');
+  const reco = _reconnaitreTout(F);
+  F.champs.forEach(ch => { document.getElementById('map-' + type + '-' + ch.cle).value = String(reco[ch.cle]); });
+}
+
+function afficherMapping() {
+  const avecClients = FICHIERS.clients.lignes.length > 0;
+  document.getElementById('bloc-map-clients').style.display = avecClients ? '' : 'none';
+  if (avecClients) _rendreMapping('clients');
+  _rendreMapping('devis');
+  document.getElementById('etape-depot').style.display = 'none';
+  document.getElementById('etape-mapping').style.display = 'block';
+}
+
+function _construire(type) {
+  const F = FICHIERS[type];
+  const corr = {};
+  F.champs.forEach(ch => { corr[ch.cle] = parseInt(document.getElementById('map-' + type + '-' + ch.cle).value, 10); });
+  return { corr, lignes: F.lignes.map(l => {
+    const o = {};
+    Object.entries(corr).forEach(([cle, i]) => { if (i >= 0) o[cle] = String(l[i] == null ? '' : l[i]).trim(); });
+    return o;
+  }) };
+}
+
+function construireEnvoi() {
+  // ① clients (facultatif si base déjà importée)
+  let clients = [];
+  if (FICHIERS.clients.lignes.length) {
+    const c = _construire('clients');
+    if (c.corr.nom < 0 && c.corr.raisonSociale < 0) throw new Error('Liste des clients : associez la colonne « Raison sociale » et/ou « Nom ».');
+    // Nom du client = raison sociale si renseignée, sinon nom (+ prénom) — comme dans l'export des devis
+    c.lignes.forEach(o => {
+      const rs = (o.raisonSociale || '').trim();
+      if (rs) { o.nom = rs; o.prenom = ''; }
+      delete o.raisonSociale;
+    });
+    const coordCols = ['adresse', 'codePostal', 'ville', 'telephone', 'mobile', 'email'].filter(k => c.corr[k] >= 0);
+    if (!coordCols.length) throw new Error('Liste des clients : associez au moins une colonne de coordonnées (adresse, ville, téléphone…).');
+    // Dédoublonnage dans le fichier (code client, sinon nom + prénom)
+    const vus = new Set();
+    clients = c.lignes.filter(o => {
+      const nom = ((o.nom || '') + ' ' + (o.prenom || '')).trim();
+      if (!nom) return false;
+      const k = o.codeClient ? '#' + o.codeClient.toUpperCase() : _norm(nom).split(' ').sort().join(' ');
+      if (vus.has(k)) return false;
+      vus.add(k); return true;
+    });
+  }
+  // ② devis
+  const d = _construire('devis');
+  if (d.corr.numero < 0) throw new Error('Devis : la colonne « N° de devis » est indispensable (clé de rapprochement entre deux imports).');
+  if (d.corr.nom < 0) throw new Error('Devis : la colonne « Nom » est indispensable (rattachement aux coordonnées).');
+  if (d.corr.heures < 0 && d.corr.heuresAnalysees < 0 &&
+      !confirm('Aucune colonne d\'heures n\'est associée : les heures devront être saisies à la main dans le Prévisionnel. Continuer ?')) {
+    throw new Error('Associez la colonne « Nombre d\'heures » et/ou « Nombre d\'heures analysées ».');
+  }
+  const devis = d.lignes.filter(o => (o.numero || '') !== '' || (o.nom || '') !== '');
+  return { clients, devis };
+}
+
+/* ── Étape 3 : rapport (aucune écriture) ── */
+async function analyser() {
+  const btn = document.getElementById('btn-analyser');
+  try { _envoi = construireEnvoi(); }
+  catch (e) { afficherMessage(_esc(e.message || e), 'erreur'); return; }
+  btn.disabled = true; btn.textContent = 'Analyse…';
+  afficherMessage('');
+  try {
+    // ① aperçu clients, par lots
+    let rc = null;
+    if (_envoi.clients.length) {
+      rc = { nouveaux: 0, misAJour: 0, inchanges: 0, rejets: 0 };
+      for (let i = 0; i < _envoi.clients.length; i += LOT) {
+        const d = await _post('/api/henrri/import/clients/apercu', { clients: _envoi.clients.slice(i, i + LOT) });
+        Object.keys(rc).forEach(k => { rc[k] += d.rapport[k] || 0; });
+      }
+    }
+    // ② aperçu devis + rattachement prévu aux coordonnées
+    const clesClients = {
+      codes: _envoi.clients.map(c => c.codeClient || ''),   // aligné sur noms (même index)
+      noms: _envoi.clients.map(c => ((c.nom || '') + ' ' + (c.prenom || '')).trim())
+    };
+    const dd = await _post('/api/henrri/import/apercu', { lignes: _envoi.devis, clesClients });
+    document.getElementById('etape-mapping').style.display = 'none';
+    document.getElementById('etape-rapport').style.display = 'block';
+    afficherRapport(rc, dd.rapport);
+  } catch (e) {
+    afficherMessage(_esc(e.message || e), 'erreur');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Analyser les fichiers';
+  }
+}
+
+function _compteur(classe, val, lib) {
+  return '<div class="ih-compteur ' + classe + '"><div class="ih-compteur-val">' + val + '</div><div class="ih-compteur-lib">' + lib + '</div></div>';
+}
+function _bloc(titre, lignes, rendu, colonnes, ouvert) {
+  return '<details class="ih-bloc"' + (ouvert ? ' open' : '') + '><summary>' + titre + ' (' + lignes.length + ')</summary>'
+    + '<div class="ih-tab-scroll"><table class="ih-tab"><thead><tr>' + colonnes.map(c => '<th>' + c + '</th>').join('') + '</tr></thead>'
+    + '<tbody>' + lignes.map(l => '<tr>' + rendu(l) + '</tr>').join('') + '</tbody></table></div></details>';
+}
+function _celHeures(d) {
+  const src = d.heuresRefSource === 'analysees' ? '<div class="ih-src-a">analysées</div>'
+            : (d.heuresRefSource === 'devis' ? '<div class="ih-src-d">h. devis (analysées = 0)</div>' : '');
+  return '<td class="nb">' + _fmtH(d.heures) + '</td><td class="nb">' + _fmtH(d.heuresAnalysees) + '</td>'
+       + '<td class="nb"><strong>' + _fmtH(d.heuresRef) + '</strong>' + src + '</td>';
+}
+function _celCoord(d) {
+  const ap = d.coordApprox ? ' <span style="color:#b45309;" title="Rapproché sur le nom de famille seul (la liste clients ne contient pas le prénom) : à vérifier à l\'affectation">≈ nom seul</span>' : '';
+  if (d.coord === 'fiche') return '<td><span class="ih-coord-ok">✔ fiche existante</span>' + ap + '</td>';
+  if (d.coord === 'henrri') return '<td><span class="ih-coord-ok">✔ base clients</span>' + ap + '</td>';
+  if (d.coord === 'fichier') return '<td><span class="ih-coord-ok">✔ liste importée</span>' + ap + '</td>';
+  return '<td><span class="ih-coord-ko">✖ client introuvable</span></td>';
+}
+function _statut(s) {
+  if (s === 'affecte') return '<span class="ih-statut ih-st-affecte">déjà affecté</span>';
+  if (s === 'ecarte') return '<span class="ih-statut ih-st-ecarte">écarté</span>';
+  return '<span class="ih-statut ih-st-attente">à affecter</span>';
+}
+
+function afficherRapport(rc, r) {
+  // ① clients
+  document.getElementById('ih-rapport-clients').innerHTML = rc
+    ? '<div class="ih-sous">① Liste des clients</div><div class="ih-compteurs">'
+      + _compteur('nouveau', rc.nouveaux, 'Nouveaux clients')
+      + _compteur('maj', rc.misAJour, 'Coordonnées mises à jour')
+      + _compteur('', rc.inchanges, 'Inchangés')
+      + (rc.rejets ? _compteur('absent', rc.rejets, 'Rejetés (sans nom)') : '')
+      + '</div>'
+    : '<div class="ih-msg ih-msg-info">① Pas de nouvelle liste clients : la base déjà importée (' + _pluriel(_baseClientsNb, 'client') + ') est utilisée.</div>';
+
+  // ② devis
+  const t = r.totaux;
+  document.getElementById('ih-compteurs').innerHTML =
+      _compteur('nouveau', t.nouveaux, 'Nouveaux devis')
+    + _compteur('maj', t.misAJour, 'Mis à jour')
+    + _compteur('', t.inchanges, 'Inchangés')
+    + (t.coordTrouvees != null ? _compteur('', t.coordTrouvees, 'À affecter avec coordonnées') : '')
+    + (t.coordManquantes ? _compteur('absent', t.coordManquantes, 'À affecter sans coordonnées') : '')
+    + (t.absents ? _compteur('absent', t.absents, 'Absents du fichier') : '')
+    + (t.doublons ? _compteur('absent', t.doublons, 'Doublons') : '')
+    + (t.rejets ? _compteur('absent', t.rejets, 'Rejetés') : '');
+
+  const cols = ['N° devis', 'Nom', 'Nb heures', 'H. analysées', 'Heures retenues', 'Coordonnées'];
+  const det = [];
+  if (r.nouveaux.length) det.push(_bloc('Nouveaux devis — ils seront proposés dans « Devis Henrri » du Prévisionnel', r.nouveaux,
+    d => '<td><strong>' + _esc(d.numero) + '</strong></td><td>' + _esc(d.client) + '</td>' + _celHeures(d) + _celCoord(d), cols, true));
+  if (r.misAJour.length) det.push(_bloc('Mis à jour', r.misAJour,
+    d => '<td><strong>' + _esc(d.numero) + '</strong></td><td>' + _esc(d.client) + '<div>' + _statut(d.statut) + '</div></td>'
+       + '<td>' + d.changements.map(c => '<div class="ih-chg">' + _esc(c.champ) + ' : ' + _esc(c.avant === '' ? '—' : c.avant) + ' → <strong>' + _esc(c.apres === '' ? '—' : c.apres) + '</strong></div>').join('') + '</td>'
+       + '<td class="nb"><strong>' + _fmtH(d.heuresRef) + '</strong></td>' + _celCoord(d),
+    ['N° devis', 'Nom', 'Modifications', 'Heures retenues', 'Coordonnées'], true));
+  if (r.inchanges.length) det.push(_bloc('Inchangés', r.inchanges,
+    d => '<td>' + _esc(d.numero) + '</td><td>' + _esc(d.client) + '</td><td>' + _statut(d.statut) + '</td>' + _celCoord(d), ['N° devis', 'Nom', 'État', 'Coordonnées']));
+  if (r.absents.length) det.push(_bloc('Absents du fichier — ils restent proposés tant qu\'ils ne sont ni affectés ni écartés', r.absents,
+    d => '<td>' + _esc(d.numero) + '</td><td>' + _esc(d.client) + '</td>', ['N° devis', 'Nom']));
+  if (r.doublons.length) det.push(_bloc('Doublons dans le fichier — seule la 1re ligne est retenue', r.doublons,
+    d => '<td>' + _esc(d.numero) + '</td><td>' + _esc(d.client) + '</td>', ['N° devis', 'Nom'], true));
+  if (r.rejets.length) det.push(_bloc('Lignes rejetées', r.rejets,
+    d => '<td>' + _esc(d.raison) + '</td><td>' + _esc(d.numero || '') + '</td><td>' + _esc(d.client || '') + '</td>', ['Motif', 'N° devis', 'Nom'], true));
+  document.getElementById('ih-details').innerHTML = det.join('');
+  document.getElementById('btn-confirmer').disabled = !(t.nouveaux + t.misAJour + t.inchanges);
+}
+
+/* ── Étape 4 : application (clients d'abord, puis devis) ── */
+async function confirmer() {
+  const btn = document.getElementById('btn-confirmer');
+  btn.disabled = true;
+  try {
+    let rc = null, totalBase = _baseClientsNb;
+    if (_envoi.clients.length) {
+      rc = { nouveaux: 0, misAJour: 0, inchanges: 0 };
+      for (let i = 0; i < _envoi.clients.length; i += LOT) {
+        btn.textContent = 'Clients ' + Math.min(i + LOT, _envoi.clients.length) + ' / ' + _envoi.clients.length + '…';
+        const d = await _post('/api/henrri/import/clients/confirmer', { clients: _envoi.clients.slice(i, i + LOT) });
+        Object.keys(rc).forEach(k => { rc[k] += d.rapport[k] || 0; });
+        totalBase = d.total;
+      }
+    }
+    btn.textContent = 'Devis…';
+    const d = await _post('/api/henrri/import/confirmer', { lignes: _envoi.devis });
+    const t = d.rapport.totaux;
+    document.getElementById('etape-rapport').style.display = 'none';
+    document.getElementById('etape-fin').style.display = 'block';
+    document.getElementById('ih-resultat').innerHTML =
+        '<div class="ih-msg ih-msg-succes"><strong>Import appliqué.</strong><br>'
+      + (rc ? '① Clients : ' + rc.nouveaux + ' nouveau' + (rc.nouveaux > 1 ? 'x' : '') + ', ' + rc.misAJour + ' mis à jour — ' + _pluriel(totalBase, 'client') + ' dans la base.<br>' : '')
+      + '② Devis : ' + t.nouveaux + ' nouveau' + (t.nouveaux > 1 ? 'x' : '') + ', ' + t.misAJour + ' mis à jour, ' + _pluriel(t.inchanges, 'inchangé') + '.</div>'
+      + '<p style="font-size:.88rem;color:#334155;"><strong>' + (d.enAttente || 0) + '</strong> devis en attente d\'affectation dans le Prévisionnel. '
+      + 'À l\'affectation, les coordonnées du client sont reportées dans la fiche du chantier (case cochée par défaut).</p>'
+      + '<div class="ih-actions">'
+      + '<a class="ih-btn ih-btn-principal" href="chantiers.html?henrri=1">📄 Affecter les devis au Prévisionnel</a>'
+      + '<button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Importer d\'autres fichiers</button>'
+      + '</div>';
+    afficherMessage('');
+  } catch (e) {
+    afficherMessage(_esc(e.message || e), 'erreur');
+    btn.disabled = false; btn.textContent = 'Appliquer l\'import';
+  }
+}
+
+function recommencer() {
+  ['clients', 'devis'].forEach(type => {
+    const F = FICHIERS[type];
+    F.entetes = []; F.lignes = []; F.nom = '';
+    document.getElementById('fichier-' + type).value = '';
+    const depot = document.getElementById('depot-' + type);
+    depot.classList.remove('charge');
+    depot.querySelector('b').textContent = type === 'clients' ? 'Déposez le fichier clients' : 'Déposez le fichier des devis';
+    depot.querySelector('span').textContent = 'ou cliquez pour le choisir — Excel ou CSV';
+  });
+  _envoi = null;
+  ['etape-mapping', 'etape-rapport', 'etape-fin'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('etape-depot').style.display = 'block';
+  majBoutonSuivant();
+  afficherMessage('');
+}
+
+window.addEventListener('DOMContentLoaded', () => { brancherDepot('clients'); brancherDepot('devis'); verifierMode(); });
+</script>
+
+</body>
+</html>

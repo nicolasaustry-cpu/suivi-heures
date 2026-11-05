@@ -14,7 +14,7 @@
 const SYNC = (() => {
 
   // Version visible (pour savoir ce qui tourne réellement en ligne)
-  const VERSION = 'v2026.08.18-sync9';
+  const VERSION = 'v2026.10.05-sync10';
 
   const API = '';
   let _token    = null;
@@ -230,6 +230,7 @@ const SYNC = (() => {
       const changementClient = ancienClient !== d.clientId;
       if (changementClient) {
         CLES.forEach(k => localStorage.removeItem(k));
+        localStorage.removeItem('syncBase');
         localStorage.removeItem('syncNomClient');
         localStorage.removeItem('syncMarquePartenaire');
         localStorage.removeItem('syncLogoPartenaire');
@@ -282,8 +283,13 @@ const SYNC = (() => {
           localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
         else
           localStorage.removeItem('syncLogoPartenaire');
+        // Henrri : mémorise si la connexion est active, pour gater le lien
+        // « Clients » du menu (tous les éléments Henrri restent masqués tant
+        // que l'API n'est pas liée). Le menu est reconstruit juste après.
+        localStorage.setItem('syncHenrriActif', d.henrriActif ? '1' : '0');
       } catch (e) {}
       if (typeof majMarqueBlanche === 'function') majMarqueBlanche();
+      construireMenuLateral();
 
       const serveur = d.data || {};
 
@@ -322,12 +328,22 @@ const SYNC = (() => {
       if (!_modeAdmin && localStorage.getItem('syncDirty') === '1'
           && aDesDonneesLocales && localClientId === _clientId) {
         _pendingSave = true;
-        await sauvegarderTout();
+        const envoye = await sauvegarderTout();
+        // Envoi confirmé (fusionné côté serveur) → on relit le serveur, qui contient
+        // désormais à la fois cette saisie ET ce qui a été fait ailleurs entre-temps.
+        if (envoye && !_pendingSave) return chargerDonnees();
         window.dispatchEvent(new Event('donnees-chargees'));
         return;
       }
 
       // Cas 3 (par défaut) : le SERVEUR fait référence → on remplace le local.
+      // La base de fusion = l'état serveur BRUT (avant l'ajout éventuel du nom ci-dessous,
+      // pour que ce nom reparte bien au serveur à la prochaine sauvegarde).
+      memoriserBase(JSON.parse(JSON.stringify({
+        entreprise: serveur.entreprise || {}, salaries: serveur.salaries || [],
+        heures: serveur.heures || {}, chantiers: serveur.chantiers || [],
+        previsionnel: serveur.previsionnel || {}
+      })));
       const entServeur = serveur.entreprise || {};
       if (!entServeur.nom) {
         const nomClient = localStorage.getItem('syncNomClient');
@@ -379,8 +395,119 @@ const SYNC = (() => {
         && !autreClientActif();               // barrière dure : un autre client est l'onglet actif
   }
 
-  function construirePayload() {
+  /* ─────────────────────────────────────────────────────────────
+     FUSION MULTI-POSTES (anti-écrasement entre sessions ouvertes)
+     Avant : chaque sauvegarde renvoyait TOUT le planning, que le serveur
+     prenait tel quel. Un PC resté ouvert avec un planning ancien effaçait
+     donc, à sa première modification, tout ce qui avait été fait ailleurs
+     (autre PC, téléphone).
+     Désormais on mémorise la « base » : l'état du serveur sur lequel repose
+     le local (au chargement, puis après chaque sauvegarde réussie). À chaque
+     envoi, on joint la liste des SEULES cases modifiées localement depuis
+     cette base (fusion). Le serveur n'applique que ces cases et conserve
+     tout le reste tel qu'il est en base.
+     Repli : sans base valide (première ouverture après mise à jour, stockage
+     plein…), l'envoi se fait à l'ancienne (remplacement complet).
+     ───────────────────────────────────────────────────────────── */
+  const CLE_BASE = 'syncBase';
+  const CHAMPS = [
+    ['entreprise',   'entreprisedata',    '{}'],
+    ['salaries',     'salariesdata',      '[]'],
+    ['heures',       'heuresdata',        '{}'],
+    ['chantiers',    'chantiersdata',     '[]'],
+    ['previsionnel', 'previsionnel_data', '{}'],
+  ];
+
+  function memoriserBase(donnees) {
+    try {
+      const d = {};
+      CHAMPS.forEach(([ch, , vide]) => { d[ch] = donnees[ch] != null ? donnees[ch] : JSON.parse(vide); });
+      _setItemOriginal(CLE_BASE, JSON.stringify({ clientId: _clientId, d }));
+    } catch (e) {
+      try { localStorage.removeItem(CLE_BASE); } catch (_) {}   // pas de base fausse : repli sur l'envoi complet
+    }
+  }
+  function lireBase() {
+    try {
+      const b = JSON.parse(localStorage.getItem(CLE_BASE) || 'null');
+      if (b && b.d && b.clientId && b.clientId === _clientId) return b.d;
+    } catch (e) {}
+    return null;
+  }
+
+  const _estObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  // Sérialisation à clés triées : deux objets égaux donnent la même chaîne quel que soit l'ordre des clés.
+  function _stable(v) {
+    if (Array.isArray(v)) return '[' + v.map(_stable).join(',') + ']';
+    if (_estObj(v)) return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + _stable(v[k])).join(',') + '}';
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function _cleOk(k) {
+    if (typeof k !== 'string' || !k || k.indexOf('.') !== -1 || k.charAt(0) === '$') throw new Error('clé non fusionnable');
+    return k;
+  }
+  // Différence objet base → local, en chemins pointés, jusqu'à « profondeur » niveaux.
+  function diffObjet(base, local, profondeur, prefixe, out) {
+    base  = _estObj(base)  ? base  : {};
+    local = _estObj(local) ? local : {};
+    Object.keys(local).forEach(k => {
+      _cleOk(k);
+      const b = base[k], l = local[k];
+      if (!Object.prototype.hasOwnProperty.call(base, k)) out.set[prefixe + k] = l;
+      else if (_stable(b) === _stable(l)) return;
+      else if (profondeur > 1 && _estObj(b) && _estObj(l)) diffObjet(b, l, profondeur - 1, prefixe + k + '.', out);
+      else out.set[prefixe + k] = l;
+    });
+    Object.keys(base).forEach(k => {
+      if (!Object.prototype.hasOwnProperty.call(local, k)) out.unset.push(prefixe + _cleOk(k));
+    });
+    return out;
+  }
+  // Salariés : par identifiant (ajout / modification / suppression) + ordre local.
+  function diffSalaries(base, local) {
+    const idx = arr => {
+      const m = new Map();
+      (Array.isArray(arr) ? arr : []).forEach(s => {
+        if (!s || s.id == null) throw new Error('salarié sans id');
+        m.set(String(s.id), s);
+      });
+      return m;
+    };
+    const mb = idx(base), ml = idx(local);
+    const out = { set: {}, unset: [], ordre: [...ml.keys()] };
+    ml.forEach((s, id) => { if (!mb.has(id) || _stable(mb.get(id)) !== _stable(s)) out.set[id] = s; });
+    mb.forEach((s, id) => { if (!ml.has(id)) out.unset.push(id); });
+    return out;
+  }
+  // Liste des chantiers : ajouts / retraits + ordre local.
+  function diffListe(base, local) {
+    const sb = new Set((Array.isArray(base) ? base : []).map(_stable));
+    const sl = new Set((Array.isArray(local) ? local : []).map(_stable));
     return {
+      add:    (local || []).filter(x => !sb.has(_stable(x))),
+      remove: (base  || []).filter(x => !sl.has(_stable(x))),
+      ordre:  local || []
+    };
+  }
+  function construireFusion(donnees) {
+    const base = lireBase();
+    if (!base) return null;
+    try {
+      return {
+        entreprise:   diffObjet(base.entreprise,   donnees.entreprise,   1, '', { set: {}, unset: [] }),
+        heures:       diffObjet(base.heures,       donnees.heures,       1, '', { set: {}, unset: [] }),
+        previsionnel: diffObjet(base.previsionnel, donnees.previsionnel, 2, '', { set: {}, unset: [] }),
+        salaries:     diffSalaries(base.salaries, donnees.salaries),
+        chantiers:    diffListe(base.chantiers, donnees.chantiers)
+      };
+    } catch (e) {
+      console.warn('Fusion impossible, envoi complet :', e.message);
+      return null;
+    }
+  }
+
+  function construirePayload() {
+    const p = {
       // Client auquel APPARTIENNENT ces données (revérifié côté serveur).
       clientIdAttendu: localStorage.getItem('syncClientId') || _clientId || '',
       entreprise:   JSON.parse(localStorage.getItem('entreprisedata')    || '{}'),
@@ -389,27 +516,40 @@ const SYNC = (() => {
       chantiers:    JSON.parse(localStorage.getItem('chantiersdata')     || '[]'),
       previsionnel: JSON.parse(localStorage.getItem('previsionnel_data') || '{}'),
     };
+    const fusion = construireFusion(p);
+    if (fusion) p.fusion = fusion;
+    return p;
   }
 
+  /* Renvoie true si le serveur a confirmé l'enregistrement. */
   async function sauvegarderTout() {
-    if (_modeAdmin) return;          // admin = lecture seule
-    if (!_token) return;
+    if (_modeAdmin) return false;          // admin = lecture seule
+    if (!_token) return false;
     if (!identiteCoherente()) {      // anti-mélange : client changé dans un autre onglet
       console.warn('Sauvegarde annulée : le client actif a changé dans un autre onglet.');
-      return;
+      return false;
     }
     clearTimeout(_syncTimer);
     _syncTimer = null;
     try {
+      const payload = construirePayload();
       const res = await fetch(API + '/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
-        body: JSON.stringify(construirePayload())
+        body: JSON.stringify(payload)
       });
-      if (res.ok) { _pendingSave = false; try { localStorage.removeItem('syncDirty'); } catch (e) {} }
+      if (res.ok) {
+        // Ce qui vient d'être envoyé devient la nouvelle base : le prochain envoi
+        // ne contiendra que les modifications faites APRÈS celui-ci.
+        memoriserBase(payload);
+        // Une modification faite pendant l'envoi garde son drapeau (elle repartira).
+        if (!_syncTimer) { _pendingSave = false; try { localStorage.removeItem('syncDirty'); } catch (e) {} }
+        return true;
+      }
     } catch {
       console.warn('Sauvegarde échouée (sera retentée)');
     }
+    return false;
   }
 
   /* Envoi de sécurité avant de quitter/masquer la page : garantit qu'une saisie
@@ -719,7 +859,10 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['tableau-de-bord.html', 'index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'planning-synthese.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'masques-intervention.html', 'bons-intervention.html'];
+    'planning-equipe.html', 'planning-synthese.html', 'frise-chantiers.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'clients.html', 'masques-intervention.html', 'bons-intervention.html'];
+
+  // Sous-pages sans entrée propre dans le menu : on surligne la rubrique parente.
+  var MENU_PARENT = { 'planning-synthese.html': 'planning.html', 'frise-chantiers.html': 'planning.html' };
 
   // Structure canonique du menu (indépendante de la licence).
   // Le premier groupe n'a pas d'intitulé : le tableau de bord est la page
@@ -732,6 +875,7 @@ const SYNC = (() => {
       { href: 'index.html',     label: 'Entreprise' },
       { href: 'salaries.html',  label: 'Salariés' },
       { href: 'chantiers.html', label: 'Prévisionnel' },
+      { href: 'clients.html',   label: 'Clients' },  // toujours visible : base alimentée aussi par le planning (Henrri facultatif)
       { href: 'masques-intervention.html', label: 'Masques de bons', requiert: 'bonsInterventionActifs' }
     ] },
     { label: 'Planning', items: [
@@ -846,6 +990,14 @@ const SYNC = (() => {
     catch (e) { return false; }
   }
 
+  // Un item de menu masqué tant que l'API Henrri n'est pas connectée (statut
+  // serveur, mis en cache par chargerDonnees() → localStorage 'syncHenrriActif').
+  function _entreeMasquee(it) {
+    if (it.requiert && !_featureActive(it.requiert)) return true;
+    if (it.requiertHenrri && localStorage.getItem('syncHenrriActif') !== '1') return true;
+    return false;
+  }
+
   function construireMenuLateral() {
     const page = pageActuelle();
     if (!MENU_PAGES.includes(page)) return;
@@ -867,11 +1019,11 @@ const SYNC = (() => {
         rail.appendChild(gl);
       }
       g.items.forEach(it => {
-        if (it.requiert && !_featureActive(it.requiert)) return;
+        if (_entreeMasquee(it)) return;
         const verrou = !!it.plus && !estPlus;   // Standard + page Plus → teasing
         const a = document.createElement('a');
         a.href = verrou ? '#' : it.href;
-        a.className = 'sh-i' + (page === it.href ? ' active' : '') + (verrou ? ' sh-lock' : '');
+        a.className = 'sh-i' + ((page === it.href || MENU_PARENT[page] === it.href) ? ' active' : '') + (verrou ? ' sh-lock' : '');
         a.textContent = it.label;
         if (it.plus) {
           const b = document.createElement('span');
@@ -964,11 +1116,11 @@ const SYNC = (() => {
     dd.id = 'sh-dropdown';
     dd.className = 'sh-dropdown';
     g.items.forEach(it => {
-      if (it.requiert && !_featureActive(it.requiert)) return;
+      if (_entreeMasquee(it)) return;
       const verrou = !!it.plus && !estPlus;
       const a = document.createElement('a');
       a.href = verrou ? '#' : it.href;
-      a.className = 'sh-dd-i' + (page === it.href ? ' active' : '') + (verrou ? ' sh-lock' : '');
+      a.className = 'sh-dd-i' + ((page === it.href || MENU_PARENT[page] === it.href) ? ' active' : '') + (verrou ? ' sh-lock' : '');
       a.textContent = it.label;
       if (it.plus) {
         const b = document.createElement('span');
@@ -1209,6 +1361,7 @@ const SYNC = (() => {
     ouvrirModalConnexion, fermerModalConnexion, validerModalConnexion,
     rafraichirMenu: () => { construireMenuLateral(); },
     estConnecte: () => !!_token,
+    aSauvegardeEnAttente: () => !!_pendingSave,
     estAdmin:    () => _modeAdmin,
     getClientId: () => _clientId,
     getType:     () => _type,
@@ -1313,3 +1466,159 @@ function SYNC_quitterConsultation(ev) {
   // on revient à l'admin dans CE même onglet plutôt que d'en créer un nouveau.
   setTimeout(() => { location.replace('/admin.html'); }, 150);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MISE À JOUR DISPONIBLE — redémarrage maintenant ou à l'heure choisie
+   Un poste qui ne ferme jamais Suiv'Heures garde l'ancienne version. Toutes les
+   5 minutes (et au retour sur l'onglet), on compare la version en ligne
+   (/api/version = identifiant du déploiement) à celle chargée par la page.
+   Si elle a changé : alerte avec « Redémarrer maintenant » ou « Plus tard à… ».
+   Plusieurs mises en ligne par jour : l'alerte n'est proposée qu'à partir de
+   17 h 00 (HEURE_ALERTE), une seule fois pour toutes les versions de la journée.
+   Le redémarrage programmé est partagé par tous les onglets du poste ; à l'heure
+   dite, il attend qu'aucune saisie ne soit en cours (champ actif, fenêtre ouverte,
+   enregistrement en attente), puis enregistre et recharge tous les fichiers.
+═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  const CLE_PROG = 'shMajProgrammee';      // { version, a: horodatage du redémarrage }
+  const CLE_MASQ = 'shMajMasquee';         // { version, jusqua: horodatage }
+  const HEURE_ALERTE = 17;                 // l'alerte n'apparaît qu'à partir de 17 h 00
+  let versionChargee = null, versionEnLigne = null;
+
+  const lire = c => { try { return JSON.parse(localStorage.getItem(c) || 'null'); } catch (_) { return null; } };
+  const ecrire = (c, v) => { try { if (v == null) localStorage.removeItem(c); else localStorage.setItem(c, JSON.stringify(v)); } catch (_) {} };
+  const hhmm = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+
+  async function lireVersion() {
+    try {
+      const r = await fetch('/api/version', { cache: 'no-store' });
+      const d = await r.json();
+      return (d && d.ok && d.version) ? String(d.version) : null;
+    } catch (_) { return null; }
+  }
+
+  async function verifier() {
+    const v = await lireVersion();
+    if (!v) return;
+    if (!versionChargee) { versionChargee = v; return; }   // 1re lecture : version de cette page
+    if (v === versionChargee) return;
+    versionEnLigne = v;
+    if (new Date().getHours() < HEURE_ALERTE && !lire(CLE_PROG)) return;   // proposée à partir de 17 h
+    afficher();
+  }
+
+  /* Une saisie est-elle en cours ? (ne jamais recharger sous les doigts de l'utilisateur) */
+  function saisieEnCours() {
+    if (typeof SYNC !== 'undefined' && SYNC.aSauvegardeEnAttente && SYNC.aSauvegardeEnAttente()) return true;
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('#sh-maj')) return true;
+    // Fenêtre (modale) ouverte : élément fixe visible couvrant une grande partie de l'écran
+    return [...document.querySelectorAll('body *')].some(el => {
+      if (el.closest('#sh-maj')) return false;
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = el.getBoundingClientRect();
+      return r.width >= innerWidth * 0.6 && r.height >= innerHeight * 0.6;
+    });
+  }
+
+  async function redemarrer() {
+    ecrire(CLE_PROG, null);
+    try { if (typeof SYNC !== 'undefined' && SYNC.aSauvegardeEnAttente && SYNC.aSauvegardeEnAttente()) await SYNC.sauvegarderTout(); } catch (_) {}
+    // Recharge depuis le serveur la page ET ses scripts / styles (équivalent Ctrl + F5)
+    const urls = [location.href].concat(
+      [...document.querySelectorAll('script[src], link[rel="stylesheet"][href]')].map(e => e.src || e.href)
+    ).filter(u => u && u.indexOf(location.origin) === 0);
+    await Promise.all(urls.map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+    location.reload();
+  }
+
+  function retirer() { const e = document.getElementById('sh-maj'); if (e) e.remove(); }
+
+  function afficher() {
+    const prog = lire(CLE_PROG);
+    if (prog) { afficherProgramme(prog); return; }           // redémarrage déjà programmé (vaut pour toute version)
+    const masq = lire(CLE_MASQ);
+    if (masq && Date.now() < masq.jusqua) return;
+    retirer();
+    const d = new Date();
+    const options = [];
+    const ajouter = (h, m, lib) => {
+      const t = new Date(d); t.setHours(h, m, 0, 0);
+      if (t > d) options.push({ ts: t.getTime(), lib: lib || hhmm(t.getTime()) });
+    };
+    options.push({ ts: Date.now() + 3600000, lib: 'dans 1 heure' });
+    ajouter(12, 30); ajouter(18, 0); ajouter(20, 0);
+    const demain = new Date(d); demain.setDate(d.getDate() + 1); demain.setHours(7, 30, 0, 0);
+    options.push({ ts: demain.getTime(), lib: 'demain 07:30' });
+
+    const box = document.createElement('div');
+    box.id = 'sh-maj';
+    box.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:13000;width:330px;max-width:calc(100vw - 36px);background:#fff;'
+      + 'border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);font-family:inherit;overflow:hidden;border-top:4px solid #2563eb;';
+    box.innerHTML = '<div style="padding:12px 14px 6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">'
+      + '<div><b style="font-size:.95rem;color:#0f3a8a;">🔄 Mise à jour disponible</b>'
+      + '<div style="font-size:.8rem;color:#475569;margin-top:3px;line-height:1.4;">Une nouvelle version de Suiv\'Heures est en ligne. Redémarrez pour en profiter : vos données sont enregistrées avant.</div></div>'
+      + '<button type="button" data-a="x" title="Me le rappeler plus tard" style="border:none;background:none;font-size:1.1rem;color:#94a3b8;cursor:pointer;line-height:1;">✕</button></div>'
+      + '<div style="padding:6px 14px 12px;display:flex;flex-direction:column;gap:7px;">'
+      + '<button type="button" data-a="maintenant" style="border:none;border-radius:8px;padding:9px;font-weight:700;font-size:.86rem;cursor:pointer;background:#2563eb;color:#fff;">Redémarrer maintenant</button>'
+      + '<div style="display:flex;gap:6px;align-items:center;">'
+      + '<span style="font-size:.8rem;color:#334155;white-space:nowrap;">Plus tard :</span>'
+      + '<select data-heure style="flex:1;padding:6px;border:1px solid #cbd5e1;border-radius:7px;font-size:.82rem;">'
+      + options.map(o => '<option value="' + o.ts + '">' + o.lib + '</option>').join('') + '</select>'
+      + '<button type="button" data-a="plustard" style="border:1px solid #2563eb;border-radius:7px;padding:6px 10px;font-weight:700;font-size:.8rem;cursor:pointer;background:#fff;color:#2563eb;">OK</button>'
+      + '</div></div>';
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button[data-a]'); if (!b) return;
+      if (b.dataset.a === 'maintenant') { redemarrer(); return; }
+      if (b.dataset.a === 'x') { ecrire(CLE_MASQ, { version: versionEnLigne, jusqua: Date.now() + 3600000 }); retirer(); return; }
+      const ts = parseInt(box.querySelector('[data-heure]').value, 10);
+      const p = { version: versionEnLigne, a: ts };
+      ecrire(CLE_PROG, p);
+      afficherProgramme(p);
+    });
+    (document.body || document.documentElement).appendChild(box);
+  }
+
+  /* Rappel discret une fois l'heure choisie */
+  function afficherProgramme(p) {
+    retirer();
+    const box = document.createElement('div');
+    box.id = 'sh-maj';
+    box.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:13000;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;'
+      + 'border-radius:999px;padding:6px 12px;font-size:.78rem;box-shadow:0 4px 14px rgba(0,0,0,.12);font-family:inherit;';
+    box.innerHTML = '🔄 Redémarrage prévu à <b>' + hhmm(p.a) + '</b> · '
+      + '<a href="#" data-a="maintenant" style="color:#1d4ed8;font-weight:700;">maintenant</a> · '
+      + '<a href="#" data-a="changer" style="color:#1d4ed8;">changer</a>';
+    box.addEventListener('click', e => {
+      const a = e.target.closest('[data-a]'); if (!a) return;
+      e.preventDefault();
+      if (a.dataset.a === 'maintenant') redemarrer();
+      else { ecrire(CLE_PROG, null); afficher(); }
+    });
+    (document.body || document.documentElement).appendChild(box);
+  }
+
+  /* Redémarrage programmé : vérifié toutes les 30 s, reporté tant qu'une saisie est en cours */
+  setInterval(() => {
+    const p = lire(CLE_PROG);
+    if (!p || Date.now() < p.a) return;
+    if (saisieEnCours()) return;
+    redemarrer();
+  }, 30000);
+
+  // Un autre onglet a programmé / annulé : mise à jour de l'affichage ici
+  window.addEventListener('storage', e => {
+    if (e.key !== CLE_PROG || !versionEnLigne) return;
+    const p = lire(CLE_PROG);
+    if (p) afficherProgramme(p); else afficher();
+  });
+
+  function demarrer() {
+    verifier();
+    setInterval(verifier, 5 * 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) verifier(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer); else demarrer();
+})();

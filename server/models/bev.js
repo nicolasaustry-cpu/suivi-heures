@@ -12,6 +12,7 @@ const bevSchema = new mongoose.Schema({
   evenements:{ type: Object, default: {} },
   indemnites:{ type: Object, default: {} },     // { trajet:bool, transport:bool, repas:bool }
   tranches:  { type: Object, default: {} },     // { "YYYY-MM-DD": "IA"|"IB"|... }
+  tranchesMeta: { type: Object, default: {} },  // { "YYYY-MM-DD": "auto"|"efface" } — absent = saisie manuelle
   valide:    { type: Boolean, default: false },
   updatedAt: { type: Date,   default: Date.now }
 });

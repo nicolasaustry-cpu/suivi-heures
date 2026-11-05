@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Agenda – Suiv'Heures</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Suiv'Heures">
+  <meta name="theme-color" content="#0f3a8a">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <!--
+    AGENDA DU DIRIGEANT (mobile)
+    Ouvert depuis la saisie mobile (bouton « Agenda » du gérant), quand l'option
+    « Agenda du dirigeant » est cochée sur la page Entreprise.
+    Données : routes /api/saisies/agenda/* (code employé + gerantId).
+    Chaque rendez-vous part au planning des personnes choisies ; un RDV client
+    y est marqué « RDV client » (payé, hors heures productives).
+    Aucune police distante : la page s'appuie sur les polices du système.
+  -->
+  <style>
+    :root { --navy:#0f3a8a; --navy-f:#0a2a66; --ambre:#f59e0b; --ambre-c:#fff3dc; --ambre-b:#f3c770; --ambre-t:#6b3d00;
+            --fond:#f4f6fb; --bord:#dde3ef; --texte:#1b2440; --gris:#5b6478; --gris-c:#e3e8f4; --rouge:#b42318; --vert:#1d6b3a; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; }
+    body { background:var(--fond); color:var(--texte); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+           -webkit-tap-highlight-color:transparent; }
+    button, input, textarea, select { font-family:inherit; font-size:inherit; }
+    button { cursor:pointer; }
+    .app { display:flex; flex-direction:column; min-height:100%; max-width:640px; margin:0 auto; position:relative; }
+
+    /* En-tête */
+    .hd { background:var(--navy); color:#fff; padding:10px 12px; position:sticky; top:0; z-index:20; }
+    .hd-sem { flex:1; min-width:0; text-align:center; font-size:14px; font-weight:700; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hd-sem small { display:block; font-size:11px; font-weight:500; color:#c9d6f2; }
+    .hd-l1 { display:flex; align-items:center; gap:6px; }
+    .hd h1 { margin:0; flex:1; font-size:22px; font-weight:800; letter-spacing:.01em; }
+    .hd-sur { display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#c9d6f2; font-weight:600; }
+    .btn-hd { min-height:40px; display:inline-flex; align-items:center; gap:5px; padding:0 10px; border-radius:12px;
+              background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#fff; font-size:13px; font-weight:600; text-decoration:none; }
+    .btn-ico { width:40px; padding:0; justify-content:center; }
+
+    /* Bande semaine */
+    .semaine-nav { display:flex; align-items:center; gap:6px; margin-top:12px; }
+    .semaine-nav .lbl { flex:1; text-align:center; font-size:13px; color:#c9d6f2; }
+    .jours { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin-top:6px; }
+    .jour { border:0; background:transparent; color:#c9d6f2; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; border-radius:12px; }
+    .jour b { font-size:17px; color:#fff; }
+    .jour i { width:5px; height:5px; border-radius:50%; background:transparent; }
+    .jour.rdv i { background:var(--ambre); }
+    .jour.we b { color:#9fb2dd; }
+    .jour.sel { background:var(--ambre); color:var(--navy); }
+    .jour.sel b { color:var(--navy); }
+    .jour.sel i { background:var(--navy); }
+    .jour.auj:not(.sel) b { text-decoration:underline; text-underline-offset:3px; }
+
+    /* Titre du jour */
+    .titre-jour { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:14px 16px 6px; }
+    .titre-jour h2 { margin:0; font-size:19px; color:var(--navy); }
+    .titre-jour h2::first-letter { text-transform:uppercase; }
+    .titre-jour span { font-size:12px; color:var(--gris); }
+
+    /* Bandeau « au planning ce jour » */
+    .plan-jour { margin:4px 12px 8px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+    .plan-jour .lbl { font-size:11px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.05em; width:100%; }
+    button.puce-plan, button.pj { border:0; font-family:inherit; text-align:left; cursor:pointer; display:block; width:100%; }
+    button.puce-plan { display:inline-block; width:auto; }
+    button.evt.plan { cursor:pointer; }
+    .puce-plan { border-radius:8px; padding:5px 9px; font-size:12px; font-weight:700; }
+    .puce-plan small { font-weight:400; margin-left:4px; }
+    /* Vue semaine : chantiers du planning sans heure de RDV, au-dessus de la grille */
+    .sem-plan { display:flex; padding:0 8px 6px 0; }
+    .sem-plan .vide { width:34px; flex:0 0 auto; font-size:9px; color:var(--gris); text-align:right; padding-right:4px; padding-top:3px; }
+    .sem-plan .cols { flex:1; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .pj { font-size:9.5px; font-weight:700; border-radius:5px; padding:3px; margin-bottom:2px;
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pj small { display:block; font-weight:400; }
+
+    /* Grille horaire */
+    .grille-zone { position:relative; padding:6px 10px 110px 0; }
+    .grille { position:relative; }
+    .ligne-h { position:absolute; left:0; right:0; display:flex; align-items:flex-start; gap:8px; }
+    .ligne-h span { width:46px; text-align:right; font-size:11px; color:#6b7389; transform:translateY(-7px); flex:0 0 auto; }
+    .ligne-h hr { flex:1; border:0; height:1px; background:var(--bord); margin:0; }
+    .evt { position:absolute; border-radius:10px; padding:5px 8px; overflow:hidden; display:flex; flex-direction:column; gap:1px;
+           text-align:left; border:1px solid; font-size:11px; font-family:inherit; cursor:pointer; }
+    .evt b { font-size:12px; font-weight:700; line-height:1.15; white-space:normal; overflow-wrap:anywhere; word-break:break-word; overflow:hidden; }
+    .evt .tag { align-self:flex-start; font-size:9px; font-weight:800; background:#fff; border:1px solid currentColor; border-radius:5px; padding:0 5px; margin-top:2px; }
+    /* 4 jeux de couleurs = motifs du planning : RDV client, SAV, Fournisseur, Autre */
+    /* Couleurs pleines et lisibles, façon Google Agenda (contraste du texte ≥ 4,5:1) */
+    .c-client { background:#f6bf26; border-color:#e0a800; color:#2b1f00; }
+    .c-sav { background:#d93025; border-color:#b3261e; color:#ffffff; }
+    .c-fournisseur { background:#8e24aa; border-color:#741d8b; color:#ffffff; }
+    .c-autre { background:#0b8043; border-color:#086836; color:#ffffff; }
+    .c-client b, .c-sav b, .c-fournisseur b, .c-autre b, .c-client small, .c-sav small, .c-fournisseur small, .c-autre small { color:inherit; }
+    .puce-plan[class*="c-"], .pj[class*="c-"] { border:1px solid; }
+    /* Changement de semaine / jour au balayage : glissement du contenu */
+    @keyframes swG { from { transform:translateX(40px); opacity:.3; } to { transform:none; opacity:1; } }
+    @keyframes swD { from { transform:translateX(-40px); opacity:.3; } to { transform:none; opacity:1; } }
+    body.anim-g .sem-grille, body.anim-g .sem-plan, body.anim-g .grille-zone, body.anim-g .plan-jour, body.anim-g .titre-jour { animation:swG .25s ease-out; }
+    body.anim-d .sem-grille, body.anim-d .sem-plan, body.anim-d .grille-zone, body.anim-d .plan-jour, body.anim-d .titre-jour { animation:swD .25s ease-out; }
+    /* Chantier sans heure de RDV, placé à titre indicatif (enchaîné à partir de 8 h 30) */
+    .evt.est { opacity:.88; background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.12) 0 6px, transparent 6px 12px); }
+    .evt.est span { font-style:italic; }
+    /* Glisser-déposer (appui long) */
+    [data-drag] { -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+    body.drag-on { -webkit-user-select:none; user-select:none; }
+    .dr-fantome { position:fixed; z-index:100; pointer-events:none; opacity:.92; box-shadow:0 10px 26px rgba(15,58,138,.35); transform:scale(1.04); }
+    .dr-lbl { position:fixed; z-index:101; pointer-events:none; background:var(--navy); color:#fff; font-size:12px; font-weight:700;
+              padding:5px 9px; border-radius:8px; white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,.25); }
+    .dr-source { opacity:.3 !important; }
+    .dr-cible { outline:2px dashed var(--ambre); outline-offset:-2px; }
+    .sem-plan .pcol { min-height:24px; border-radius:5px; }
+    /* Chantier ajouté sur la saisie mobile (réalisé, hors planning) : bordure pointillée */
+    .aj { border-style:dashed !important; border-width:2px !important; border-color:rgba(255,255,255,.85) !important; outline:1px solid rgba(0,0,0,.25); outline-offset:-1px; }
+    .maintenant { position:absolute; left:50px; right:0; height:2px; background:#d9480f; z-index:5; }
+    .maintenant::before { content:""; position:absolute; left:-4px; top:-4px; width:10px; height:10px; border-radius:50%; background:#d9480f; }
+
+    /* Vue semaine : en-tête, légende et ligne des jours toujours visibles en haut */
+    .tete-fixe { position:sticky; top:0; z-index:20; background:var(--fond); }
+    .tete-fixe .hd { position:static; }
+    .tete-fixe .sem-entete { background:var(--fond); border-bottom:1px solid var(--bord); }
+    .legende { display:flex; justify-content:center; flex-wrap:wrap; gap:6px 14px; padding:9px 12px; background:#fff; border-bottom:1px solid var(--bord); font-size:12px; color:#2d3550; }
+    .legende span { display:flex; align-items:center; gap:6px; }
+    .legende i { width:12px; height:12px; border-radius:3px; display:inline-block; }
+    .sem-entete { display:flex; padding:8px 8px 6px 0; }
+    .sem-entete .vide { width:34px; flex:0 0 auto; }
+    .sem-cols { flex:1; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .sem-j { border:0; background:transparent; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0; border-radius:10px; color:var(--gris); font-size:11px; }
+    .sem-j b { font-size:15px; color:var(--texte); }
+    .sem-j.auj { background:var(--ambre); color:var(--navy); }
+    .sem-j.auj b { color:var(--navy); }
+    .sem-grille { position:relative; display:flex; padding:6px 8px 110px 0; }
+    .sem-grille .lignes { position:absolute; left:0; right:8px; top:6px; }
+    .sem-grille .ligne-h span { width:30px; font-size:10px; }
+    .sem-corps { margin-left:34px; flex:1; position:relative; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+    .sem-col { position:relative; border-radius:6px; cursor:pointer; box-shadow:-1px 0 0 #c3cbdc; }   /* séparation des jours */
+    .sem-plan .cols > div { box-shadow:-1px 0 0 #c3cbdc; padding-left:1px; }
+    .grille { cursor:pointer; }
+    .sem-col.we { background:#e9edf5; }
+    .sem-col.auj { background:rgba(245,158,11,.08); }
+    /* Vue semaine : intitulé seul, sur plusieurs lignes, comme Google Agenda */
+    .sem-col .evt { left:1px; right:1px; border-radius:5px; padding:3px 3px 2px; box-shadow:0 0 0 1px #f4f6fb; }
+    .sem-col .evt b { font-size:9.5px; line-height:1.15; }
+    .sem-col .evt span, .sem-col .evt .tag { display:none; }
+
+    /* Bouton + */
+    .fab { position:fixed; right:max(20px, calc(50% - 300px)); bottom:24px; width:58px; height:58px; border-radius:18px; border:0;
+           background:var(--ambre); color:var(--navy); display:flex; align-items:center; justify-content:center;
+           box-shadow:0 8px 20px rgba(15,58,138,.28); z-index:30; }
+
+    /* Formulaire et détail */
+    .page { padding:16px; display:flex; flex-direction:column; gap:14px; padding-bottom:120px; }
+    .champ { display:flex; flex-direction:column; gap:6px; }
+    .champ > label, .champ > .lbl { font-size:12px; font-weight:700; color:#46506a; text-transform:uppercase; letter-spacing:.04em; }
+    .champ input, .champ textarea { border:1px solid #cfd7e8; border-radius:12px; padding:0 14px; min-height:46px; font-size:16px; color:var(--texte); background:#fff; width:100%; }
+    .champ textarea { padding:10px 14px; line-height:1.4; resize:vertical; }
+    .champ input:focus, .champ textarea:focus { outline:2px solid var(--navy); outline-offset:0; border-color:var(--navy); }
+    .aide { font-size:12px; color:var(--vert); display:flex; align-items:center; gap:6px; }
+    .seg { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+    .seg button { min-height:44px; border-radius:10px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:14px; }
+    .seg button.on { background:var(--ambre); border-color:var(--ambre); color:var(--navy); font-weight:700; }
+    .heures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .duree { min-height:46px; display:flex; align-items:center; padding:0 12px; font-size:16px; font-weight:700; color:var(--navy); background:var(--gris-c); border-radius:12px; }
+    .puces { display:flex; flex-wrap:wrap; gap:6px; }
+    .puces button { min-height:38px; border-radius:999px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:14px; padding:0 14px; }
+    .puces button.on { background:var(--navy); border-color:var(--navy); color:#fff; font-weight:600; }
+    .info-plan { display:flex; align-items:center; gap:10px; background:var(--gris-c); border-radius:12px; padding:10px 12px; font-size:13px; color:var(--navy); font-weight:600; }
+    .info-plan small { display:block; font-weight:600; color:var(--ambre-t); font-size:12px; margin-top:1px; }
+    .btn-princ { min-height:52px; border-radius:14px; border:0; background:var(--ambre); color:var(--navy); font-size:18px; font-weight:800; letter-spacing:.02em; width:100%; }
+    .btn-princ:disabled { opacity:.6; }
+    .btn-sec { min-height:52px; border-radius:14px; border:0; background:var(--navy); color:#fff; font-size:17px; font-weight:700; width:100%; }
+    .btn-suppr { min-height:44px; border:0; background:transparent; color:var(--rouge); font-size:14px; font-weight:600; }
+    .pied { position:fixed; left:0; right:0; bottom:0; padding:12px 16px 18px; background:var(--fond); border-top:1px solid var(--bord); z-index:25; }
+    .pied > div { max-width:608px; margin:0 auto; }
+
+    .bloc { background:#fff; border:1px solid var(--bord); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .bloc .lbl { font-size:12px; font-weight:700; color:#46506a; text-transform:uppercase; letter-spacing:.04em; }
+    .det-hd { background:var(--navy); color:#fff; padding:6px 16px 20px; display:flex; flex-direction:column; gap:10px; }
+    .badge-type { align-self:flex-start; font-size:11px; font-weight:800; background:var(--ambre); color:var(--navy); border-radius:6px; padding:3px 8px; letter-spacing:.04em; }
+    .det-hd h2 { margin:0; font-size:26px; line-height:1.1; }
+    .det-hd .quand { font-size:14px; color:#e6ecfa; }
+
+    .message { margin:12px 16px 0; padding:10px 12px; border-radius:10px; font-size:14px; }
+    .message.err { background:#fde8e6; color:var(--rouge); border:1px solid #f6c3bd; }
+    .message.ok { background:#e7f6ec; color:var(--vert); border:1px solid #b9e2c6; }
+    .vide-etat { margin:30px 20px; text-align:center; color:var(--gris); font-size:15px; line-height:1.5; }
+    .charge { text-align:center; color:var(--gris); font-size:13px; padding:8px; }
+  </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
+   ÉTAT
+   ═══════════════════════════════════════════════════════════════ */
+const H_MIN = 6, H_MAX = 21;          // amplitude de la vue jour
+const PX_H  = 56;                     // hauteur d'une heure (vue jour)
+const S_MIN = 7, S_MAX = 20, S_PX = 40; // vue semaine
+/* Types = motifs d'exclusion du planning + « Autre » (visite / chantier : anciennes valeurs). */
+const TYPES = { client: 'RDV client', sav: 'SAV', fournisseur: 'Fournisseur', autre: 'Autre' };
+const MENTIONS = { client: 'RDV client : payé, hors heures productives', sav: 'SAV : payé, hors heures productives',
+                   fournisseur: 'Fournisseur : payé, hors heures productives', autre: 'Compté comme du temps de chantier' };
+function typeNormal(t) { return TYPES[t] ? t : ((t === 'visite' || t === 'chantier') ? 'autre' : 'client'); }
+/* Catégorie (couleur) d'une case du planning selon son motif d'exclusion. */
+function catPlan(p) {
+  const x = String((p && p.motif) || '').trim().toLowerCase();
+  if (x === 'rdv client' || x === 'visite client') return 'client';
+  if (x === 'sav') return 'sav';
+  if (x === 'fournisseur') return 'fournisseur';
+  return 'autre';
+}
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const JOURS_C = ['L','M','M','J','V','S','D'];
+
+const S = {
+  code: '', ger: null, salaries: [],
+  vue: 'semaine', vueListe: 'semaine', date: '', semaineChargee: '',
+  rdvs: [], planning: [], chargement: false,
+  message: null, form: null, detailId: null, cache: {}, enCours: {}
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   OUTILS
+   ═══════════════════════════════════════════════════════════════ */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dateDe(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function ajoutJours(s, n) { const d = dateDe(s); d.setDate(d.getDate() + n); return iso(d); }
+function lundiDe(s) { const d = dateDe(s); const j = (d.getDay() + 6) % 7; d.setDate(d.getDate() - j); return iso(d); }
+function aujourdhui() { return iso(new Date()); }
+function minutes(hhmm) { const m = String(hhmm || '').match(/^(\d{1,2})[:hH](\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+function hhmm(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
+function fmtDuree(min) { if (min <= 0) return '—'; const h = Math.floor(min / 60), m = min % 60; return h ? (h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : '')) : (m + ' min'); }
+function dateLongue(s) { const d = dateDe(s); return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+function lsJSON(cle, defaut) { try { const v = JSON.parse(localStorage.getItem(cle) || 'null'); return v == null ? defaut : v; } catch (_) { return defaut; } }
+function nomSal(id) {
+  if (S.ger && String(id) === String(S.ger.id)) return 'Moi';
+  const s = S.salaries.find(x => String(x.id) === String(id));
+  return s ? ((s.prenom || '') + ' ' + (s.nom || '')).trim() : 'Salarié ' + id;
+}
+function coordsDe(titre) { const c = lsJSON('coordonneesChantiersdata', {}); return c[String(titre || '').trim().toUpperCase()] || null; }
+function lieuDepuisCoords(c) { if (!c) return ''; return [c.adresse, c.ville].map(x => String(x || '').trim()).filter(Boolean).join('\n'); }
+
+const ICO = {
+  retour: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>',
+  suiv:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>',
+  plus:   '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>',
+  frise:  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M4 12h14M4 18h7"></path><path d="M16 6h4M14 18h6" stroke-opacity=".55"></path></svg>',
+  plan:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18M9 3v18"></path></svg>',
+  ok:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>'
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   SERVEUR
+   ═══════════════════════════════════════════════════════════════ */
+async function api(route, corps) {
+  const r = await fetch('/api/saisies/agenda/' + route, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ codeEmploye: S.code, gerantId: S.ger.id }, corps || {}))
+  });
+  let d = null;
+  try { d = await r.json(); } catch (_) {}
+  if (!r.ok || !d || !d.ok) throw new Error((d && d.message) || 'Erreur serveur (' + r.status + ')');
+  return d;
+}
+
+/* Chantiers AJOUTÉS par le gérant sur sa saisie mobile (hors planning), pour la semaine :
+   ceux déjà envoyés (serveur) complétés par la copie locale de la saisie (clé
+   saisie_jour_<code>_<salarié>_<date>), qui contient aussi ceux pas encore envoyés.
+   Ils sont rangés avec les chantiers du planning (ajout:true) : placés à leur heure
+   d'arrivée, ou dans la ligne des chantiers sans heure tant qu'elle n'est pas saisie. */
+function ajoutsDeLaSemaine(lundi, serveur) {
+  const parCle = new Map();
+  const cleDe = (date, nom, occ) => date + '|' + String(nom).trim().toUpperCase() + '|' + (parseInt(occ, 10) || 1);
+  serveur.forEach(a => parCle.set(cleDe(a.date, a.nom, a.occ), { ...a }));
+  for (let i = 0; i < 7; i++) {
+    const date = ajoutJours(lundi, i);
+    const loc = lsJSON('saisie_jour_' + S.code + '_' + S.ger.id + '_' + date, null);
+    ((loc && loc.ajout) || []).forEach(x => {
+      if (!x || !String(x.nom || '').trim()) return;
+      const k = cleDe(date, x.nom, x.occ), ex = parCle.get(k) || { date, nom: String(x.nom).trim(), occ: parseInt(x.occ, 10) || 1, dureeMin: 0, note: '' };
+      ex.arrivee = x.arrivee || ex.arrivee || '';
+      ex.depart = x.depart || ex.depart || '';
+      if (x.note) ex.note = x.note;
+      parCle.set(k, ex);
+    });
+  }
+  return [...parCle.entries()].map(([k, a]) => {
+    const deb = minutes(a.arrivee), fin = minutes(a.depart);
+    const duree = (deb != null && fin != null && fin > deb) ? fin - deb : (a.dureeMin || 0);
+    return { cle: 'aj:' + k, ajout: true, date: a.date, chantier: String(a.nom).toUpperCase(), rdv: deb != null ? hhmm(deb) : '',
+             depart: fin != null ? hhmm(fin) : '', heures: duree ? Math.round(duree / 60 * 100) / 100 : (deb != null ? 1 : 0),
+             motif: '', note: a.note || '' };
+  });
+}
+
+/* Cache par semaine (mémoire + téléphone) : une semaine déjà vue s'affiche aussitôt,
+   puis se rafraîchit en arrière-plan ; les semaines voisines sont préchargées pour
+   que le passage à la semaine suivante / précédente soit instantané.
+   Toute modification (enregistrement, déplacement, suppression) vide le cache. */
+const CACHE_TTL = 30000;
+function cleCache() { return 'agendaCache_' + S.code + '_' + (S.ger && S.ger.id); }
+function sauverCache() {
+  try {
+    const cles = Object.keys(S.cache).sort((a, b) => S.cache[b].t - S.cache[a].t).slice(0, 8);
+    const garde = {}; cles.forEach(k => { garde[k] = S.cache[k]; });
+    S.cache = garde;
+    localStorage.setItem(cleCache(), JSON.stringify(garde));
+  } catch (_) {}
+}
+function appliquerSemaine(lundi, c) {
+  S.rdvs = c.rdvs || [];
+  S.planning = (c.planning || []).concat(ajoutsDeLaSemaine(lundi, c.ajouts || []));
+  S.semaineChargee = lundi;
+}
+async function chercherSemaine(lundi) {
+  const d = await api('liste', { du: lundi, au: ajoutJours(lundi, 6) });
+  S.cache[lundi] = { rdvs: d.rdvs || [], planning: d.planning || [], ajouts: d.ajouts || [], t: Date.now() };
+  if (d.coordonneesChantiers) { try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonneesChantiers)); } catch (_) {} }
+  sauverCache();
+  return S.cache[lundi];
+}
+/* Ne redessine que les vues agenda (jamais un formulaire en cours de saisie ni pendant un glisser). */
+function rendreSiListe() { if ((S.vue === 'semaine' || S.vue === 'jour') && !DR.actif) rendre(); }
+function prechargerVoisines(lundi) {
+  [7, -7].forEach(n => {
+    const l = ajoutJours(lundi, n);
+    if (S.cache[l] || S.enCours[l]) return;
+    S.enCours[l] = true;
+    chercherSemaine(l).catch(() => {}).then(() => { delete S.enCours[l]; });
+  });
+}
+/* Charge la semaine (lundi → dimanche) qui contient S.date. */
+async function chargerSemaine(force) {
+  const lundi = lundiDe(S.date);
+  if (force) S.cache = {};
+  const c = S.cache[lundi];
+  if (c && S.semaineChargee !== lundi) { appliquerSemaine(lundi, c); rendreSiListe(); }
+  if (c && Date.now() - c.t < CACHE_TTL) { prechargerVoisines(lundi); return; }
+  if (!c) { S.chargement = true; rendreSiListe(); }
+  try {
+    const frais = await chercherSemaine(lundi);
+    if (lundiDe(S.date) === lundi) appliquerSemaine(lundi, frais);
+  } catch (e) {
+    if (!c) S.message = { err: true, txt: navigator.onLine === false ? 'Pas de connexion : l\'agenda a besoin du réseau.' : e.message };
+  }
+  S.chargement = false;
+  if (lundiDe(S.date) === lundi) rendreSiListe();
+  prechargerVoisines(lundi);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════════ */
+function allerJour(date) { S.vue = S.vueListe = 'jour'; if (date) S.date = date; S.message = null; chargerSemaine(); rendre(); }
+function allerSemaine(date) { S.vue = S.vueListe = 'semaine'; if (date) S.date = date; S.message = null; chargerSemaine(); rendre(); window.scrollTo(0, 0); }
+/* Retour depuis une fiche ou un formulaire : vers la vue d'où l'on venait (semaine par défaut). */
+function retourListe(date) { if (S.vueListe === 'jour') allerJour(date); else allerSemaine(date); }
+function decalerSemaine(n) { S.date = ajoutJours(S.date, 7 * n); chargerSemaine(); rendre(); }
+/* Frise mobile : mois de la semaine affichée ; elle revient ensuite sur cette semaine. */
+function ouvrirFrise() {
+  const d = dateDe(S.date);
+  location.href = 'frise-mobile.html?mois=' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '&retour=' + S.date;
+}
+function retourSaisie() { location.href = 'saisie.html'; }
+function ouvrirCase(cle) { S.caseCle = cle; S.vue = 'case'; S.message = null; rendre(); window.scrollTo(0, 0); }
+function ouvrirDetail(id) { S.detailId = id; S.vue = 'detail'; S.message = null; rendre(); window.scrollTo(0, 0); }
+
+/* Nouveau RDV : par le bouton + (date affichée, prochaine demi-heure si aujourd'hui)
+   ou par un toucher sur un créneau vide de la grille (date et heure du créneau). */
+function nouveauRdv(date, debutMin) {
+  const auj = aujourdhui();
+  if (date) S.date = date;
+  let deb = 9 * 60;
+  if (debutMin != null) deb = Math.max(0, Math.min(23 * 60, debutMin));
+  else if (S.date === auj) { const n = new Date(); deb = Math.min(20 * 60, Math.ceil((n.getHours() * 60 + n.getMinutes() + 1) / 30) * 30); }
+  S.form = { id: '', titre: '', type: 'client', date: S.date, debut: hhmm(deb), fin: hhmm(Math.min(23 * 60 + 30, deb + 60)),
+             lieu: '', tel: '', salaries: [String(S.ger.id)], note: '', lieuAuto: false, telAuto: false };
+  S.vue = 'form'; S.message = null; rendre(); window.scrollTo(0, 0);
+  setTimeout(() => { const t = document.getElementById('f-titre'); if (t) t.focus(); }, 50);
+}
+function modifierRdv(id) {
+  const r = S.rdvs.find(x => x.id === id); if (!r) return;
+  S.form = { id: r.id, titre: r.titre, type: typeNormal(r.type), date: r.date, debut: r.debut, fin: r.fin, lieu: r.lieu, tel: r.tel || '',
+             salaries: (r.salaries || []).map(String), note: r.note, lieuAuto: false, telAuto: false };
+  S.vue = 'form'; S.message = null; rendre(); window.scrollTo(0, 0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDU
+   ═══════════════════════════════════════════════════════════════ */
+function rendre() {
+  const app = document.getElementById('app');
+  if (S.vue === 'bloque') { app.innerHTML = vueBloquee(); return; }
+  if (S.vue === 'form') { app.innerHTML = vueForm(); brancherForm(); return; }
+  if (S.vue === 'detail') { app.innerHTML = vueDetail(); return; }
+  if (S.vue === 'case') { app.innerHTML = vueCase(); return; }
+  if (S.vue === 'formcase') { app.innerHTML = vueFormCase(); return; }
+  app.innerHTML = (S.vue === 'semaine' ? vueSemaine() : vueJour());
+  if (S.vue === 'jour') positionnerDefilement();
+  brancherCreneaux();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLISSER-DÉPOSER (appui long, comme Google Agenda)
+   Rendez-vous de l'agenda : nouvelle date / heure (même durée) via /agenda/enregistrer,
+   qui déplace aussi ses cases au planning. Chantier du planning du gérant : nouveau
+   jour et/ou heure de RDV via /agenda/case-deplacer ; déposé sur la ligne des
+   chantiers sans heure, il perd son heure. Ne se déplacent pas : chantiers ajoutés
+   (réalisé, à modifier sur la saisie) et RDV Reservio.
+   ═══════════════════════════════════════════════════════════════ */
+function dragAttr(kind, id, date, deb, dur) {
+  return `data-drag="${kind}" data-id="${esc(id)}" data-date="${esc(date)}" data-deb="${deb == null ? '' : deb}" data-dur="${Math.max(15, dur || 60)}"`;
+}
+function dragCase(p, deb, dur) { return (p.ajout || p.reservio) ? '' : dragAttr('case', p.cle, p.date, deb, dur); }
+
+const DR = { timer: null, actif: false, el: null, src: null, x0: 0, y0: 0, offX: 0, offY: 0, w: 0, h: 0,
+             fantome: null, lbl: null, cible: null, colCible: null, y: 0, raf: null, bloqueClic: false };
+const JC_COURT = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+
+function drDebut(el, x, y) {
+  drAnnuler();
+  DR.bloqueClic = false;   // un nouvel appui annule le blocage du clic laissé par un dépôt précédent
+  DR.el = el; DR.x0 = x; DR.y0 = y;
+  DR.src = { kind: el.dataset.drag, id: el.dataset.id, date: el.dataset.date,
+             deb: el.dataset.deb === '' ? null : +el.dataset.deb, dur: +el.dataset.dur || 60 };
+  DR.timer = setTimeout(() => drCommencer(x, y), 420);
+}
+function drAnnuler() { if (DR.timer) clearTimeout(DR.timer); DR.timer = null; }
+function drCommencer(x, y) {
+  DR.timer = null;
+  if (!DR.el || !document.body.contains(DR.el)) return;
+  DR.actif = true;
+  try { if (navigator.vibrate) navigator.vibrate(25); } catch (_) {}
+  const r = DR.el.getBoundingClientRect();
+  DR.offX = x - r.left; DR.offY = y - r.top; DR.w = r.width; DR.h = r.height;
+  const f = DR.el.cloneNode(true);
+  f.className += ' dr-fantome';
+  f.removeAttribute('onclick'); f.removeAttribute('data-drag');
+  Object.assign(f.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', right: 'auto' });
+  document.body.appendChild(f);
+  DR.fantome = f;
+  DR.lbl = document.createElement('div'); DR.lbl.className = 'dr-lbl'; document.body.appendChild(DR.lbl);
+  DR.el.classList.add('dr-source');
+  document.body.classList.add('drag-on');
+  drPlacer(x, y);
+  const boucle = () => {           // défilement automatique près des bords
+    if (!DR.actif) return;
+    if (DR.y < 150) window.scrollBy(0, -10); else if (DR.y > window.innerHeight - 70) window.scrollBy(0, 10);
+    DR.raf = requestAnimationFrame(boucle);
+  };
+  DR.raf = requestAnimationFrame(boucle);
+}
+function drPlacer(x, y) {
+  DR.y = y;
+  DR.fantome.style.left = (x - DR.offX) + 'px';
+  DR.fantome.style.top = (y - DR.offY) + 'px';
+  const sous = document.elementFromPoint(x, y);
+  const col = sous && sous.closest ? sous.closest('.sem-col[data-date], .grille, .pcol[data-date]') : null;
+  let cible = null;
+  if (col) {
+    const rc = col.getBoundingClientRect();
+    if (col.classList.contains('pcol')) {
+      if (DR.src.kind === 'case') cible = { date: col.dataset.date, deb: null };   // un RDV de l'agenda garde toujours une heure
+    } else {
+      const grille = col.classList.contains('grille');
+      const hMin = grille ? H_MIN : S_MIN, px = grille ? PX_H : S_PX;
+      let m = Math.round((hMin * 60 + (y - DR.offY - rc.top) / px * 60) / 15) * 15;
+      m = Math.max(0, Math.min(24 * 60 - DR.src.dur, m));
+      cible = { date: grille ? S.date : col.dataset.date, deb: m };
+    }
+  }
+  if (DR.colCible && DR.colCible !== col) DR.colCible.classList.remove('dr-cible');
+  if (col && cible) { col.classList.add('dr-cible'); DR.colCible = col; } else DR.colCible = null;
+  DR.cible = cible;
+  DR.lbl.textContent = cible ? (JC_COURT[dateDe(cible.date).getDay()] + ' ' + dateDe(cible.date).getDate() + ' · ' + (cible.deb == null ? 'sans heure' : hhmm(cible.deb))) : 'Déposer sur un jour';
+  DR.lbl.style.left = Math.max(6, Math.min(window.innerWidth - 150, x - 50)) + 'px';
+  DR.lbl.style.top = Math.max(6, y - DR.offY - 34) + 'px';
+}
+function drNettoyer() {
+  if (DR.raf) cancelAnimationFrame(DR.raf);
+  if (DR.fantome) DR.fantome.remove();
+  if (DR.lbl) DR.lbl.remove();
+  if (DR.colCible) DR.colCible.classList.remove('dr-cible');
+  if (DR.el) DR.el.classList.remove('dr-source');
+  document.body.classList.remove('drag-on');
+  Object.assign(DR, { actif: false, fantome: null, lbl: null, colCible: null, raf: null });
+}
+async function drDeposer() {
+  const src = DR.src, cible = DR.cible;
+  drNettoyer();
+  DR.bloqueClic = true; setTimeout(() => { DR.bloqueClic = false; }, 450);   // le « clic » qui suit le relâcher n'ouvre rien
+  if (!cible || (cible.date === src.date && cible.deb === src.deb)) return;
+  const quand = JC_COURT[dateDe(cible.date).getDay()] + ' ' + dateDe(cible.date).getDate() + (cible.deb == null ? ' (sans heure)' : ' à ' + hhmm(cible.deb));
+  S.message = { err: false, txt: 'Déplacement en cours…' }; rendre();
+  try {
+    if (src.kind === 'rdv') {
+      const r = S.rdvs.find(x => x.id === src.id);
+      if (!r) throw new Error('Rendez-vous introuvable');
+      const dur = Math.max(5, (minutes(r.fin) || 0) - (minutes(r.debut) || 0));
+      await api('enregistrer', { rdv: { id: r.id, titre: r.titre, type: r.type, lieu: r.lieu, tel: r.tel, salaries: r.salaries, note: r.note,
+                                        date: cible.date, debut: hhmm(cible.deb), fin: hhmm(Math.min(23 * 60 + 55, cible.deb + dur)) } });
+    } else {
+      await api('case-deplacer', { cle: src.id, date: cible.date, rdv: cible.deb == null ? '' : hhmm(cible.deb) });
+    }
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Déplacé au ' + quand + ' — planning mis à jour.' };
+  } catch (e) {
+    await chargerSemaine(true);
+    S.message = { err: true, txt: e.message };
+  }
+  rendre();
+}
+
+function drBrancher() {
+  const cibleDe = e => (e.target && e.target.closest) ? e.target.closest('[data-drag]') : null;
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { drAnnuler(); return; }
+    const el = cibleDe(e); if (!el) return;
+    drDebut(el, e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    const t = e.touches[0]; if (!t) return;
+    if (DR.actif) { e.preventDefault(); drPlacer(t.clientX, t.clientY); return; }
+    if (DR.timer && Math.hypot(t.clientX - DR.x0, t.clientY - DR.y0) > 8) drAnnuler();   // c'est un défilement
+  }, { passive: false });
+  document.addEventListener('touchend', () => { drAnnuler(); if (DR.actif) drDeposer(); });
+  document.addEventListener('touchcancel', () => { drAnnuler(); if (DR.actif) drNettoyer(); });
+  // Souris (PC) : même geste, appui long puis glisser
+  document.addEventListener('mousedown', e => { if (e.button !== 0) return; DR.bloqueClic = false; const el = cibleDe(e); if (el) drDebut(el, e.clientX, e.clientY); });
+  document.addEventListener('mousemove', e => {
+    if (DR.actif) { e.preventDefault(); drPlacer(e.clientX, e.clientY); return; }
+    if (DR.timer && Math.hypot(e.clientX - DR.x0, e.clientY - DR.y0) > 8) drAnnuler();
+  });
+  document.addEventListener('mouseup', () => { drAnnuler(); if (DR.actif) drDeposer(); });
+  document.addEventListener('click', e => { if (DR.bloqueClic) { e.stopPropagation(); e.preventDefault(); DR.bloqueClic = false; } }, true);
+  document.addEventListener('contextmenu', e => { if (cibleDe(e)) e.preventDefault(); });
+}
+drBrancher();
+
+/* ── Balayage horizontal du doigt (les flèches de l'en-tête restent actives) ──
+   Vue Semaine : semaine précédente / suivante. Vue Jour : jour précédent / suivant.
+   Geste reconnu : déplacement surtout horizontal (> 60 px, rapide), hors glisser-déposer. */
+const SW = { x: 0, y: 0, t: 0, ok: false };
+document.addEventListener('touchstart', e => {
+  SW.ok = e.touches.length === 1 && (S.vue === 'semaine' || S.vue === 'jour') && !e.target.closest('.hd, .voile');
+  if (!SW.ok) return;
+  SW.x = e.touches[0].clientX; SW.y = e.touches[0].clientY; SW.t = Date.now();
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (!SW.ok || DR.actif || DR.bloqueClic) return;
+  SW.ok = false;
+  const t = e.changedTouches && e.changedTouches[0]; if (!t) return;
+  const dx = t.clientX - SW.x, dy = t.clientY - SW.y;
+  if (Math.abs(dx) < 60 || Math.abs(dx) < 1.6 * Math.abs(dy) || Date.now() - SW.t > 700) return;
+  const sens = dx < 0 ? 1 : -1;          // doigt vers la gauche = suivant
+  if (S.vue === 'semaine') decalerSemaine(sens);
+  else { S.date = ajoutJours(S.date, sens); chargerSemaine(); rendre(); }
+  document.body.classList.remove('anim-g', 'anim-d');
+  void document.body.offsetWidth;          // relance l'animation
+  document.body.classList.add(sens > 0 ? 'anim-g' : 'anim-d');
+  setTimeout(() => document.body.classList.remove('anim-g', 'anim-d'), 300);
+});
+
+/* Toucher un créneau vide (hors rendez-vous et chantiers) = nouveau RDV à ce jour et
+   cette heure, arrondie à la demi-heure inférieure. */
+function brancherCreneaux() {
+  const minDe = (el, e, hMin, pxH) => {
+    const y = e.clientY - el.getBoundingClientRect().top;
+    return Math.floor((hMin * 60 + y / pxH * 60) / 30) * 30;
+  };
+  const g = document.querySelector('.grille');
+  if (g) g.addEventListener('click', e => {
+    if (e.target.closest('.evt')) return;
+    if (e.clientX - g.getBoundingClientRect().left < 50) return;   // colonne des heures
+    nouveauRdv(S.date, minDe(g, e, H_MIN, PX_H));
+  });
+  document.querySelectorAll('.sem-col[data-date]').forEach(c => c.addEventListener('click', e => {
+    if (e.target.closest('.evt')) return;
+    nouveauRdv(c.dataset.date, minDe(c, e, S_MIN, S_PX));
+  }));
+}
+
+function msgHTML() { return S.message ? `<div class="message ${S.message.err ? 'err' : 'ok'}" role="status">${esc(S.message.txt)}</div>` : ''; }
+
+/* En-tête compact sur une ligne : Retour + navigation de semaine (+ compteur).
+   « Retour » ramène de la vue Jour à la Semaine, et de la Semaine à la saisie. */
+function enTete(suite) {
+  const lundi = lundiDe(S.date);
+  return `<header class="hd">
+    <div class="hd-l1">
+      <button type="button" class="btn-hd" onclick="${S.vue === 'jour' ? 'allerSemaine()' : 'retourSaisie()'}">${ICO.retour} Retour</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Semaine précédente" onclick="decalerSemaine(-1)">${ICO.retour}</button>
+      <span class="hd-sem">${esc(libelleSemaine(lundi))}<small>${esc(compteurSemaine(lundi))}</small></span>
+      <button type="button" class="btn-hd btn-ico" aria-label="Semaine suivante" onclick="decalerSemaine(1)">${ICO.suiv}</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Frise des chantiers" title="Frise des chantiers" onclick="ouvrirFrise()">${ICO.frise}</button>
+    </div>
+    ${suite || ''}
+  </header>`;
+}
+
+/* Compteur de la semaine affichée : rendez-vous = RDV de l'agenda + chantiers du planning
+   ayant une heure de RDV ; chantiers = chantiers du planning sans heure. */
+function compteurSemaine(lundi) {
+  if (S.semaineChargee !== lundi) return S.chargement ? 'Chargement…' : '';
+  const nbRdv = S.rdvs.length + S.planning.filter(p => p.rdv && !p.ajout).length;
+  const nbCh = S.planning.filter(p => !p.rdv || p.ajout).length;
+  return nbRdv + ' RDV · ' + nbCh + ' chantier' + (nbCh > 1 ? 's' : '');
+}
+
+function libelleSemaine(lundi) {
+  const a = dateDe(lundi), b = dateDe(ajoutJours(lundi, 6));
+  const ga = a.getDate() === 1 ? '1er' : a.getDate();
+  // Sans l'année (affichée sur la ligne du compteur) pour tenir dans l'en-tête
+  const MC = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  return a.getMonth() === b.getMonth()
+    ? `${ga} – ${b.getDate()} ${MC[b.getMonth()]}`
+    : `${ga} ${MC[a.getMonth()]} – ${b.getDate()} ${MC[b.getMonth()]}`;
+}
+
+/* Place des événements qui se chevauchent côte à côte (colonnes). */
+function colonnes(evts) {
+  evts.sort((a, b) => a.deb - b.deb || b.fin - a.fin);
+  let groupe = [], finGroupe = -1;
+  const fermer = () => { const n = Math.max(...groupe.map(e => e.col)) + 1; groupe.forEach(e => { e.nb = n; }); groupe = []; };
+  for (const e of evts) {
+    if (groupe.length && e.deb >= finGroupe) { fermer(); finGroupe = -1; }
+    const prises = new Set(groupe.filter(g => g.fin > e.deb).map(g => g.col));
+    let c = 0; while (prises.has(c)) c++;
+    e.col = c; groupe.push(e); finGroupe = Math.max(finGroupe, e.fin);
+  }
+  if (groupe.length) fermer();
+  return evts;
+}
+
+/* Événements d'un jour : rendez-vous + chantiers du planning ayant une heure. */
+function evenementsDu(date) {
+  const ev = [];
+  S.rdvs.filter(r => r.date === date).forEach(r => {
+    const deb = minutes(r.debut), fin = minutes(r.fin);
+    if (deb == null || fin == null) return;
+    ev.push({ deb, fin: Math.max(fin, deb + 15), rdv: r });
+  });
+  S.planning.filter(p => p.date === date && p.rdv).forEach(p => {
+    const deb = minutes(p.rdv); if (deb == null) return;
+    ev.push({ deb, fin: deb + Math.max(30, Math.round((p.heures || 1) * 60)), plan: p });
+  });
+  // Chantiers sans heure de RDV : enchaînés dans la journée à partir de 8 h 30, dans l'ordre
+  // du planning (puis les chantiers ajoutés sur la saisie), chacun selon son temps prévu,
+  // en se décalant après les rendez-vous à heure fixe qu'ils chevaucheraient.
+  // Horaire indicatif (« ≈ ») : un appui long + glisser lui donne une vraie heure de RDV.
+  let h = 8 * 60 + 30;
+  const fixes = ev.slice();
+  S.planning.filter(p => p.date === date && !p.rdv)
+    .sort((a, b) => (a.ajout ? 1 : 0) - (b.ajout ? 1 : 0) || (a.rang || 999) - (b.rang || 999))
+    .forEach(p => {
+      const dur = Math.max(15, Math.round((p.heures || 1) * 60));
+      // décalé après les rendez-vous à heure fixe qu'il chevaucherait
+      let bouge = true;
+      while (bouge) { bouge = false; for (const x of fixes) if (h < x.fin && h + dur > x.deb) { h = x.fin; bouge = true; } }
+      const deb = Math.min(h, 24 * 60 - dur);
+      ev.push({ deb, fin: deb + dur, plan: p, estime: true });
+      h = deb + dur;
+    });
+  return colonnes(ev);
+}
+
+function vueJour() {
+  const lundi = lundiDe(S.date), auj = aujourdhui();
+  let jours = '';
+  for (let i = 0; i < 7; i++) {
+    const d = ajoutJours(lundi, i), dd = dateDe(d);
+    const cls = ['jour', d === S.date ? 'sel' : '', d === auj ? 'auj' : '', i >= 5 ? 'we' : '',
+                 (S.rdvs.some(r => r.date === d) || S.planning.some(p => p.date === d)) ? 'rdv' : ''].filter(Boolean).join(' ');
+    jours += `<button type="button" class="${cls}" aria-label="${esc(dateLongue(d))}" onclick="allerJour('${d}')"><span>${JOURS_C[i]}</span><b>${dd.getDate()}</b><i></i></button>`;
+  }
+  const rdvJour = S.rdvs.filter(r => r.date === S.date);
+  const planSansHeure = S.planning.filter(p => p.date === S.date && !p.rdv);
+  const planAvecHeure = S.planning.filter(p => p.date === S.date && p.rdv);
+  const nbRdvJ = rdvJour.length + planAvecHeure.filter(p => !p.ajout).length;
+  const nbChJ = planSansHeure.length + planAvecHeure.filter(p => p.ajout).length;
+  const resume = nbRdvJ + ' RDV · ' + nbChJ + ' chantier' + (nbChJ > 1 ? 's' : '');
+
+  const bande = '';   // les chantiers sans heure sont placés dans la grille, à partir de 8 h 30
+
+  // Grille
+  const haut = (H_MAX - H_MIN) * PX_H;
+  let lignes = '';
+  for (let h = H_MIN; h <= H_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - H_MIN) * PX_H}px"><span>${h}:00</span><hr></div>`;
+  const G = 58;   // marge des heures
+  const evts = evenementsDu(S.date).map(e => {
+    const top = Math.max(0, (e.deb - H_MIN * 60) / 60 * PX_H) + 1;
+    const bas = Math.min(haut, (e.fin - H_MIN * 60) / 60 * PX_H) - 1;
+    const h = Math.max(24, bas - top);
+    const larg = `calc((100% - ${G}px) / ${e.nb})`;
+    const style = `top:${top}px;height:${h}px;left:calc(${G}px + (100% - ${G}px) / ${e.nb} * ${e.col});width:calc(${larg} - 3px)`;
+    if (e.rdv) {
+      const r = e.rdv;
+      return `<button type="button" class="evt c-${typeNormal(r.type)}" style="${style}" ${dragAttr('rdv', r.id, r.date, e.deb, e.fin - e.deb)} onclick="ouvrirDetail('${esc(r.id)}')">
+        <b>${esc(r.titre)}</b><span>${esc(r.debut)} – ${esc(r.fin)} · ${esc(TYPES[typeNormal(r.type)])}</span></button>`;
+    }
+    const p = e.plan;
+    return `<button type="button" class="evt c-${catPlan(p)}${p.ajout ? ' aj' : ''}${e.estime ? ' est' : ''}" style="${style}" ${dragCase(p, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(p.cle)}')"><b>${esc(p.chantier)}</b><span>${e.estime ? '≈ ' + hhmm(e.deb) + ' · ' + esc(String(p.heures || 1).replace('.', ',')) + ' h · sans heure de RDV' : (p.ajout ? esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : 'RDV ' + esc(p.rdv) + ' · ' + esc(String(p.heures).replace('.', ',')) + ' h')}</span><span class="tag">${p.ajout ? 'AJOUTÉ' : 'PLANNING'}</span></button>`;
+  }).join('');
+  let ligneMaint = '';
+  if (S.date === auj) {
+    const n = new Date(), m = n.getHours() * 60 + n.getMinutes();
+    if (m >= H_MIN * 60 && m <= H_MAX * 60) ligneMaint = `<div class="maintenant" style="top:${(m - H_MIN * 60) / 60 * PX_H}px"></div>`;
+  }
+  return enTete(`<div class="jours">${jours}</div>`)
+    + msgHTML()
+    + `<div class="titre-jour"><h2>${esc(dateLongue(S.date))}</h2><span>${esc(resume)}</span></div>`
+    + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
+    + bande
+    + `<div class="grille-zone" id="grille-zone"><div class="grille" style="height:${haut}px">${lignes}${ligneMaint}${evts}</div></div>`
+    + `<button type="button" class="fab" aria-label="Nouveau rendez-vous" onclick="nouveauRdv()">${ICO.plus}</button>`;
+}
+
+/* Fait défiler la vue jour vers le premier rendez-vous, ou l'heure actuelle. */
+function positionnerDefilement() {
+  const zone = document.getElementById('grille-zone'); if (!zone) return;
+  const evts = evenementsDu(S.date);
+  let cible = 7.5 * 60;
+  if (S.date === aujourdhui()) { const n = new Date(); cible = n.getHours() * 60 + n.getMinutes() - 60; }
+  else if (evts.length) cible = Math.min(...evts.map(e => e.deb)) - 30;
+  const y = zone.getBoundingClientRect().top + window.scrollY + Math.max(0, (cible - H_MIN * 60) / 60 * PX_H) - 180;
+  window.scrollTo(0, Math.max(0, y));
+}
+
+function vueSemaine() {
+  const lundi = lundiDe(S.date), auj = aujourdhui();
+  let entetes = '', cols = '';
+  const haut = (S_MAX - S_MIN) * S_PX;
+  for (let i = 0; i < 7; i++) {
+    const d = ajoutJours(lundi, i), dd = dateDe(d);
+    entetes += `<button type="button" class="sem-j${d === auj ? ' auj' : ''}" aria-label="${esc(dateLongue(d))}" onclick="allerJour('${d}')"><span>${JOURS_C[i]}</span><b>${dd.getDate()}</b></button>`;
+    const evts = evenementsDu(d).map(e => {
+      const top = Math.max(0, (e.deb - S_MIN * 60) / 60 * S_PX) + 1;
+      const bas = Math.min(haut, (e.fin - S_MIN * 60) / 60 * S_PX) - 1;
+      if (bas <= 0 || top >= haut) return '';
+      const h = Math.max(18, bas - top);
+      // Chevauchement en cascade (comme Google Agenda) : chaque événement suivant est décalé
+      // et passe au-dessus, mais garde l'essentiel de la largeur pour rester lisible.
+      const dec = e.nb > 1 ? Math.min(40, 70 / (e.nb - 1)) * e.col : 0;
+      const style = `top:${top}px;height:${h}px;left:calc(${dec}% + 1px);width:calc(${100 - dec}% - 2px);right:auto;z-index:${2 + e.col}`;
+      if (e.rdv) return `<button type="button" class="evt c-${typeNormal(e.rdv.type)}" style="${style}" ${dragAttr('rdv', e.rdv.id, e.rdv.date, e.deb, e.fin - e.deb)} onclick="ouvrirDetail('${esc(e.rdv.id)}')"><b>${esc(e.rdv.titre)}</b><span>${esc(e.rdv.debut)}</span></button>`;
+      return `<button type="button" class="evt c-${catPlan(e.plan)}${e.plan.ajout ? ' aj' : ''}${e.estime ? ' est' : ''}" style="${style}" ${dragCase(e.plan, e.deb, e.fin - e.deb)} onclick="ouvrirCase('${esc(e.plan.cle)}')"><b>${esc(e.plan.chantier)}</b><span>${e.estime ? '≈ ' + hhmm(e.deb) : esc(e.plan.rdv)}</span></button>`;
+    }).join('');
+    cols += `<div class="sem-col${i >= 5 ? ' we' : ''}${d === auj ? ' auj' : ''}" data-date="${d}" style="height:${haut}px">${evts}</div>`;
+  }
+  let lignes = '';
+  for (let h = S_MIN; h <= S_MAX; h++) lignes += `<div class="ligne-h" style="top:${(h - S_MIN) * S_PX}px"><span>${h}h</span><hr></div>`;
+  const bandePlan = '';   // chantiers sans heure : placés dans la grille à partir de 8 h 30 (evenementsDu)
+  return `<div class="tete-fixe">`
+    + enTete()
+    + `<div class="legende">${Object.keys(TYPES).map(t => `<span><i class="c-${t}" style="border:1px solid"></i>${TYPES[t]}</span>`).join('')}</div>`
+    + `<div class="sem-entete"><span class="vide"></span><div class="sem-cols">${entetes}</div></div>`
+    + `</div>`
+    + msgHTML()
+    + (S.chargement ? '<div class="charge">Chargement…</div>' : '')
+    + bandePlan
+    + `<div class="sem-grille"><div class="lignes">${lignes}</div><div class="sem-corps">${cols}</div></div>`
+    + `<button type="button" class="fab" aria-label="Nouveau rendez-vous" onclick="nouveauRdv()">${ICO.plus}</button>`;
+}
+
+/* ── Formulaire ── */
+function nomsChantiers() {
+  const noms = new Set();
+  Object.keys(lsJSON('coordonneesChantiersdata', {})).forEach(n => n && noms.add(n));
+  const prev = lsJSON('previsionnel_data', {});
+  for (const a in prev) for (const m in (prev[a] || {})) ((prev[a][m] && prev[a][m].chantiers) || []).forEach(c => { if (c && c.client) noms.add(String(c.client).trim().toUpperCase()); });
+  S.rdvs.forEach(r => noms.add(r.titre));
+  S.planning.forEach(p => noms.add(p.chantier.toUpperCase()));
+  noms.delete('TEMPS NON AFFECTE');
+  return [...noms].filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+function salariesProposes(date) {
+  return S.salaries.filter(s => {
+    if (String(s.id) === String(S.ger.id)) return false;
+    if (s.dateEntree && date < s.dateEntree) return false;
+    if (s.dateSortie && date > s.dateSortie) return false;
+    return true;
+  });
+}
+
+function vueForm() {
+  const f = S.form;
+  const coords = coordsDe(f.titre);
+  const aide = coords && (f.lieuAuto || f.telAuto) ? `<div class="aide">${ICO.ok} Chantier existant : coordonnées reprises de la fiche</div>`
+             : (coords ? `<div class="aide">${ICO.ok} Chantier existant</div>` : '');
+  const dm = (minutes(f.fin) || 0) - (minutes(f.debut) || 0);
+  const autres = salariesProposes(f.date);
+  const puces = [`<button type="button" class="${f.salaries.includes(String(S.ger.id)) ? 'on' : ''}" data-sal="${esc(S.ger.id)}">Moi</button>`]
+    .concat(autres.map(s => `<button type="button" class="${f.salaries.includes(String(s.id)) ? 'on' : ''}" data-sal="${esc(s.id)}">${esc(((s.prenom || '') + ' ' + (s.nom || '')).trim())}</button>`)).join('');
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="${f.id ? `ouvrirDetail('${esc(f.id)}')` : 'retourListe()'}">${ICO.retour}</button>
+      <h1>${f.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</h1></div></header>`
+    + msgHTML()
+    + `<form class="page" id="form-rdv" onsubmit="enregistrer(event)" autocomplete="off">
+      <div class="champ">
+        <label for="f-titre">Titre = nom du chantier</label>
+        <input id="f-titre" list="liste-chantiers" value="${esc(f.titre)}" placeholder="Ex : DUPONT — Salle de bain" required maxlength="120" autocapitalize="characters">
+        <datalist id="liste-chantiers">${nomsChantiers().map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+        <div id="f-aide">${aide}</div>
+      </div>
+      <div class="champ">
+        <span class="lbl">Type</span>
+        <div class="seg" role="group" aria-label="Type de rendez-vous">
+          ${Object.keys(TYPES).map(t => `<button type="button" data-type="${t}" class="${f.type === t ? 'on' : ''}">${TYPES[t]}</button>`).join('')}
+        </div>
+      </div>
+      <div class="champ">
+        <label for="f-date">Date</label>
+        <input id="f-date" type="date" value="${esc(f.date)}" required>
+      </div>
+      <div class="heures">
+        <div class="champ"><label for="f-debut">Début</label><input id="f-debut" type="time" step="300" value="${esc(f.debut)}" required></div>
+        <div class="champ"><label for="f-fin">Fin</label><input id="f-fin" type="time" step="300" value="${esc(f.fin)}" required></div>
+        <div class="champ"><span class="lbl">Durée</span><span class="duree" id="f-duree">${esc(fmtDuree(dm))}</span></div>
+      </div>
+      <div class="champ">
+        <label for="f-lieu">Lieu</label>
+        <textarea id="f-lieu" rows="2" placeholder="Adresse&#10;Code postal Ville">${esc(f.lieu)}</textarea>
+      </div>
+      <div class="champ">
+        <label for="f-tel">Téléphone</label>
+        <input id="f-tel" type="tel" inputmode="tel" value="${esc(f.tel)}" placeholder="06 12 34 56 78" maxlength="40" autocomplete="off">
+      </div>
+      <div class="champ">
+        <span class="lbl">Avec</span>
+        <div class="puces" id="f-avec">${puces}</div>
+      </div>
+      <div class="champ">
+        <label for="f-note">Note</label>
+        <textarea id="f-note" rows="2" placeholder="Ex : apporter le catalogue faïence">${esc(f.note)}</textarea>
+      </div>
+      <div class="info-plan">${ICO.plan}<span>Envoyé au planning (PC et mobile)<small id="f-mention">${MENTIONS[f.type]}</small></span></div>
+      <div class="pied"><div><button type="submit" class="btn-princ" id="f-ok">${f.id ? 'Enregistrer les modifications' : 'Enregistrer le rendez-vous'}</button></div></div>
+    </form>`;
+}
+
+function lireForm() {
+  const f = S.form;
+  f.titre = document.getElementById('f-titre').value.replace(/\s+/g, ' ').trim().toUpperCase();
+  f.date = document.getElementById('f-date').value;
+  f.debut = document.getElementById('f-debut').value;
+  f.fin = document.getElementById('f-fin').value;
+  f.lieu = document.getElementById('f-lieu').value.trim();
+  f.tel = document.getElementById('f-tel').value.trim();
+  f.note = document.getElementById('f-note').value.trim();
+}
+
+function brancherForm() {
+  const f = S.form;
+  const titre = document.getElementById('f-titre');
+  const lieu = document.getElementById('f-lieu');
+  const tel = document.getElementById('f-tel');
+  const majAide = () => {
+    const c = coordsDe(titre.value.replace(/\s+/g, ' ').trim());
+    // Lieu et téléphone repris de la fiche chantier tant que l'utilisateur ne les a pas écrits lui-même
+    if (c && (!lieu.value.trim() || f.lieuAuto)) { const l = lieuDepuisCoords(c); if (l) { lieu.value = l; f.lieuAuto = true; } }
+    else if (!c && f.lieuAuto) { lieu.value = ''; f.lieuAuto = false; }
+    if (c && (!tel.value.trim() || f.telAuto)) { const t = String(c.mobile || c.fixe || '').trim(); if (t) { tel.value = t; f.telAuto = true; } }
+    else if (!c && f.telAuto) { tel.value = ''; f.telAuto = false; }
+    document.getElementById('f-aide').innerHTML = c
+      ? `<div class="aide">${ICO.ok} Chantier existant${(f.lieuAuto || f.telAuto) ? ' : coordonnées reprises de la fiche' : ''}</div>` : '';
+  };
+  titre.addEventListener('input', majAide);
+  titre.addEventListener('change', majAide);
+  lieu.addEventListener('input', () => { f.lieuAuto = false; });
+  tel.addEventListener('input', () => { f.telAuto = false; });
+  const majDuree = () => {
+    const dm = (minutes(document.getElementById('f-fin').value) || 0) - (minutes(document.getElementById('f-debut').value) || 0);
+    document.getElementById('f-duree').textContent = fmtDuree(dm);
+  };
+  const debut = document.getElementById('f-debut');
+  let ancienDebut = minutes(debut.value);
+  debut.addEventListener('change', () => {
+    // Décaler la fin pour garder la durée
+    const nd = minutes(debut.value), fi = document.getElementById('f-fin'), nf = minutes(fi.value);
+    if (nd != null && ancienDebut != null && nf != null) fi.value = hhmm(Math.min(23 * 60 + 55, Math.max(nd + 5, nf + (nd - ancienDebut))));
+    ancienDebut = nd; majDuree();
+  });
+  document.getElementById('f-fin').addEventListener('change', majDuree);
+  document.getElementById('f-fin').addEventListener('input', majDuree);
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+    f.type = b.dataset.type;
+    document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById('f-mention').textContent = MENTIONS[f.type];
+  }));
+  document.getElementById('f-avec').addEventListener('click', e => {
+    const b = e.target.closest('button[data-sal]'); if (!b) return;
+    const id = String(b.dataset.sal), i = f.salaries.indexOf(id);
+    if (i >= 0) f.salaries.splice(i, 1); else f.salaries.push(id);
+    b.classList.toggle('on', i < 0);
+  });
+  document.getElementById('f-date').addEventListener('change', () => { lireForm(); rendre(); });
+  if (!f.id && titre.value) majAide();
+}
+
+async function enregistrer(ev) {
+  ev.preventDefault();
+  lireForm();
+  const f = S.form;
+  const err = (txt) => { S.message = { err: true, txt }; rendre(); window.scrollTo(0, 0); };
+  if (!f.titre) return err('Indiquez le nom du chantier.');
+  if (!f.date) return err('Indiquez la date.');
+  if (minutes(f.debut) == null || minutes(f.fin) == null) return err('Indiquez les heures de début et de fin.');
+  if (minutes(f.fin) <= minutes(f.debut)) return err('L\'heure de fin doit suivre l\'heure de début.');
+  // Participants présents à la date (un salarié sorti n'est plus proposé)
+  const valides = new Set([String(S.ger.id)].concat(salariesProposes(f.date).map(s => String(s.id))));
+  f.salaries = f.salaries.filter(id => valides.has(id));
+  if (!f.salaries.length) return err('Choisissez au moins une personne.');
+
+  const btn = document.getElementById('f-ok'); if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
+  try {
+    const d = await api('enregistrer', { rdv: { id: f.id, date: f.date, debut: f.debut, fin: f.fin, titre: f.titre, type: f.type, lieu: f.lieu, tel: f.tel, salaries: f.salaries, note: f.note } });
+    S.date = d.rdv.date;
+    S.form = null;
+    S.vue = S.vueListe;
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Rendez-vous enregistré et envoyé au planning.' };
+    rendre();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = f.id ? 'Enregistrer les modifications' : 'Enregistrer le rendez-vous'; }
+    err(e.message);
+  }
+}
+
+/* ── Détail ── */
+function vueDetail() {
+  const r = S.rdvs.find(x => x.id === S.detailId);
+  if (!r) return enTete('') + msgHTML() + `<div class="vide-etat">Ce rendez-vous n'existe plus.</div>`;
+  // L'agenda sert à organiser : pas d'itinéraire ni d'appel ici, le salarié les
+  // retrouve sur la carte du chantier de sa saisie mobile.
+  const c = coordsDe(r.titre);
+  const lieu = r.lieu || lieuDepuisCoords(c);
+  const tel = r.tel || (c && (c.mobile || c.fixe)) || '';
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(r.date)}')">${ICO.retour}</button>
+      <h1 style="font-size:17px">Rendez-vous</h1></div></header>
+    <div class="det-hd">
+      <span class="badge-type c-${typeNormal(r.type)}" style="border:1px solid">${esc(TYPES[typeNormal(r.type)].toUpperCase())}</span>
+      <h2>${esc(r.titre)}</h2>
+      <div class="quand">${esc(dateLongue(r.date))} · ${esc(r.debut)} – ${esc(r.fin)}</div>
+    </div>`
+    + msgHTML()
+    + `<div class="page">
+      ${lieu ? `<section class="bloc"><span class="lbl">Lieu</span>
+        <div style="font-size:15px;line-height:1.4;white-space:pre-line">${esc(lieu)}</div>
+      </section>` : ''}
+      ${tel ? `<section class="bloc"><span class="lbl">Téléphone</span><div style="font-size:15px">${esc(tel)}</div></section>` : ''}
+      ${r.note ? `<section class="bloc"><span class="lbl">Note</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(r.note)}</div></section>` : ''}
+      <section class="bloc"><span class="lbl">Avec</span><div style="font-size:14px">${esc((r.salaries || []).map(nomSal).join(', '))}</div></section>
+      <div class="info-plan">${ICO.plan}<span>Au planning du ${esc(dateLongue(r.date))}<small>${MENTIONS[typeNormal(r.type)]}</small></span></div>
+      <button type="button" class="btn-sec" onclick="modifierRdv('${esc(r.id)}')">Modifier le rendez-vous</button>
+      <button type="button" class="btn-suppr" onclick="supprimer('${esc(r.id)}')">Supprimer le rendez-vous</button>
+    </div>`;
+}
+
+/* ── Chantier du planning (case de la ligne du gérant, hors rendez-vous de l'agenda) ── */
+function caseCourante() { return S.planning.find(p => p.cle === S.caseCle) || null; }
+
+function vueCase() {
+  const p = caseCourante();
+  if (!p) return enTete('') + msgHTML() + `<div class="vide-etat">Ce chantier n'est plus dans votre planning.</div>`;
+  if (p.ajout) return vueAjout(p);
+  const c = coordsDe(p.chantier);
+  const lieu = lieuDepuisCoords(c), tel = (c && (c.mobile || c.fixe)) || '';
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(p.date)}')">${ICO.retour}</button>
+      <h1 style="font-size:17px">Chantier au planning</h1></div></header>
+    <div class="det-hd">
+      <span class="badge-type c-${catPlan(p)}" style="border:1px solid">${p.reservio ? 'RESERVIO' : 'PLANNING'}${p.motif ? ' · ' + esc(p.motif.toUpperCase()) : ''}</span>
+      <h2>${esc(p.chantier)}</h2>
+      <div class="quand">${esc(dateLongue(p.date))}${p.rdv ? ' · RDV ' + esc(p.rdv) : ''} · ${esc(String(p.heures).replace('.', ','))} h prévues</div>
+    </div>`
+    + msgHTML()
+    + `<div class="page">
+      ${lieu ? `<section class="bloc"><span class="lbl">Lieu</span><div style="font-size:15px;line-height:1.4;white-space:pre-line">${esc(lieu)}</div></section>` : ''}
+      ${tel ? `<section class="bloc"><span class="lbl">Téléphone</span><div style="font-size:15px">${esc(tel)}</div></section>` : ''}
+      ${p.note ? `<section class="bloc"><span class="lbl">Note du jour</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(p.note)}</div></section>` : ''}
+      ${p.reservio
+        ? `<div class="info-plan">${ICO.plan}<span>RDV importé de Reservio<small>Il se modifie dans Reservio</small></span></div>`
+        : `<button type="button" class="btn-sec" onclick="modifierCase()">Modifier</button>`}
+    </div>`;
+}
+
+/* Chantier ajouté sur la saisie mobile : consultation ; il se modifie dans la saisie. */
+function vueAjout(p) {
+  const c = coordsDe(p.chantier);
+  const lieu = lieuDepuisCoords(c), tel = (c && (c.mobile || c.fixe)) || '';
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="retourListe('${esc(p.date)}')">${ICO.retour}</button>
+      <h1 style="font-size:17px">Chantier ajouté</h1></div></header>
+    <div class="det-hd">
+      <span class="badge-type c-autre aj" style="border:1px solid">AJOUTÉ SUR MA SAISIE</span>
+      <h2>${esc(p.chantier)}</h2>
+      <div class="quand">${esc(dateLongue(p.date))}${p.rdv ? ' · ' + esc(p.rdv) + (p.depart ? ' – ' + esc(p.depart) : ' · en cours') : ' · heure d\'arrivée non saisie'}</div>
+    </div>`
+    + `<div class="page">
+      ${p.rdv && p.depart ? `<section class="bloc"><span class="lbl">Temps passé</span><div style="font-size:18px;font-weight:800;color:var(--navy)">${esc(fmtDuree(minutes(p.depart) - minutes(p.rdv)))}</div></section>` : ''}
+      ${lieu ? `<section class="bloc"><span class="lbl">Lieu</span><div style="font-size:15px;line-height:1.4;white-space:pre-line">${esc(lieu)}</div></section>` : ''}
+      ${tel ? `<section class="bloc"><span class="lbl">Téléphone</span><div style="font-size:15px">${esc(tel)}</div></section>` : ''}
+      ${p.note ? `<section class="bloc"><span class="lbl">Note</span><div style="font-size:14px;line-height:1.45;white-space:pre-line">${esc(p.note)}</div></section>` : ''}
+      <div class="info-plan">${ICO.plan}<span>Chantier ajouté hors planning<small>Les heures se modifient sur votre saisie mobile</small></span></div>
+      <button type="button" class="btn-sec" onclick="retourSaisie()">Ouvrir ma saisie</button>
+    </div>`;
+}
+
+function modifierCase() { S.vue = 'formcase'; S.message = null; rendre(); window.scrollTo(0, 0); }
+
+function vueFormCase() {
+  const p = caseCourante();
+  if (!p) return vueCase();
+  const c = coordsDe(p.chantier);
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour" onclick="ouvrirCase('${esc(p.cle)}')">${ICO.retour}</button>
+      <h1 style="font-size:19px">${esc(p.chantier)}</h1></div></header>`
+    + msgHTML()
+    + `<form class="page" onsubmit="enregistrerCase(event)" autocomplete="off">
+      <div class="info-plan">${ICO.plan}<span>${esc(dateLongue(p.date))}<small>Le nom du chantier se change dans le planning</small></span></div>
+      <div class="heures">
+        <div class="champ"><label for="c-rdv">Heure de RDV</label><input id="c-rdv" type="time" step="300" value="${esc(p.rdv)}"></div>
+        <div class="champ"><label for="c-h">Durée (h)</label><input id="c-h" type="number" min="0" max="10" step="0.25" inputmode="decimal" value="${esc(p.heures)}"></div>
+        <div class="champ"><span class="lbl">&nbsp;</span><button type="button" style="min-height:46px;border-radius:12px;border:1px solid #cfd7e8;background:#fff;color:#2d3550;font-size:13px" onclick="document.getElementById('c-rdv').value=''">Sans heure</button></div>
+      </div>
+      <div class="champ"><label for="c-lieu">Lieu</label><textarea id="c-lieu" rows="2" placeholder="Adresse&#10;Code postal Ville">${esc(lieuDepuisCoords(c))}</textarea></div>
+      <div class="champ"><label for="c-tel">Téléphone</label><input id="c-tel" type="tel" inputmode="tel" maxlength="40" value="${esc((c && (c.mobile || c.fixe)) || '')}" placeholder="06 12 34 56 78"></div>
+      <div class="champ"><label for="c-note">Note du jour</label><textarea id="c-note" rows="3">${esc(p.note)}</textarea></div>
+      <div class="pied"><div><button type="submit" class="btn-princ" id="c-ok">Enregistrer</button></div></div>
+    </form>`;
+}
+
+async function enregistrerCase(ev) {
+  ev.preventDefault();
+  const p = caseCourante(); if (!p) return;
+  const v = id => document.getElementById(id).value;
+  const h = parseFloat(String(v('c-h')).replace(',', '.'));
+  if (isNaN(h) || h < 0 || h > 10) { S.message = { err: true, txt: 'Temps prévu entre 0 et 10 h.' }; rendre(); return; }
+  const c = coordsDe(p.chantier);
+  const lieu = v('c-lieu').trim(), tel = v('c-tel').trim();
+  const btn = document.getElementById('c-ok'); btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    await api('case', { cle: p.cle, rdv: v('c-rdv'), heures: h, note: v('c-note').trim(),
+      // n'envoie la fiche que si elle a changé (évite de réécrire les coordonnées pour rien)
+      lieu: lieu !== lieuDepuisCoords(c) ? lieu : '', tel: tel !== String((c && (c.mobile || c.fixe)) || '') ? tel : '' });
+    S.vue = 'case';
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Modifications enregistrées au planning.' };
+    rendre();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    S.message = { err: true, txt: e.message }; rendre(); window.scrollTo(0, 0);
+  }
+}
+
+async function supprimer(id) {
+  const r = S.rdvs.find(x => x.id === id); if (!r) return;
+  if (!confirm('Supprimer le rendez-vous « ' + r.titre + ' » ?\nIl sera aussi retiré du planning.')) return;
+  try {
+    await api('supprimer', { id });
+    S.date = r.date;
+    S.vue = S.vueListe;
+    await chargerSemaine(true);
+    S.message = { err: false, txt: 'Rendez-vous supprimé.' };
+    rendre();
+  } catch (e) { S.message = { err: true, txt: e.message }; rendre(); }
+}
+
+function vueBloquee() {
+  return `<header class="hd"><div class="hd-l1">
+      <button type="button" class="btn-hd" onclick="retourSaisie()">${ICO.retour} Ma saisie</button>
+      <h1><span class="hd-sur">Suiv'Heures</span>Agenda</h1></div></header>
+    <div class="vide-etat">${esc(S.message ? S.message.txt : '')}</div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DÉMARRAGE
+   ═══════════════════════════════════════════════════════════════ */
+(function init() {
+  S.code = (localStorage.getItem('saisie_codeEmploye') || '').toUpperCase();
+  S.ger = lsJSON('saisie_salarie', null);
+  S.salaries = lsJSON('salariesdata', []);
+  const moi = S.ger ? S.salaries.find(s => String(s.id) === String(S.ger.id)) : null;
+  const params = new URLSearchParams(location.search);
+  const pDate = params.get('date');
+  S.date = (pDate && /^\d{4}-\d{2}-\d{2}$/.test(pDate)) ? pDate : aujourdhui();
+
+  if (!S.code || !S.ger) { S.vue = 'bloque'; S.message = { txt: 'Connectez-vous d\'abord depuis la saisie mobile.' }; return rendre(); }
+  if (!moi || !moi.gerant) { S.vue = 'bloque'; S.message = { txt: 'L\'agenda est réservé au dirigeant.' }; return rendre(); }
+  if (localStorage.getItem('agendaDirigeant') !== '1') { S.vue = 'bloque'; S.message = { txt: 'L\'agenda du dirigeant n\'est pas activé (page Entreprise).' }; return rendre(); }
+
+  const pRdv = params.get('rdv');
+  history.replaceState({}, '', location.pathname);
+  rendre();
+  S.cache = lsJSON(cleCache(), {}) || {};
+  Object.keys(S.cache).forEach(k => { S.cache[k].t = 0; });   // affiché tout de suite, mais toujours relu
+  chargerSemaine().then(() => { if (pRdv && S.rdvs.some(r => r.id === pRdv)) ouvrirDetail(pRdv); });
+})();
+</script>
+</body>
+</html>

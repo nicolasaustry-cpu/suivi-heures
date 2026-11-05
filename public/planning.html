@@ -214,6 +214,26 @@
   #rdv-pop .rdv-pop-clear:hover { background:#e2e8f0; }
   #rdv-pop .rdv-pop-cancel { background:#fee2e2;color:#b91c1c; }
   #rdv-pop .rdv-pop-cancel:hover { background:#fecaca; }
+  /* Marqueur RDV importé depuis Reservio (🔗 auto-synchronisé, 🔒 verrouillé après modif manuelle) */
+  .badge-reservio { font-size:0.78rem;margin-right:3px;vertical-align:middle;cursor:default; }
+  /* Étiquette « Reservio » en haut de la vignette d'un RDV importé */
+  .tag-reservio { display:inline-flex;align-items:center;gap:3px;margin:0 0 3px;padding:1px 7px;border-radius:999px;
+    font-size:0.66rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;line-height:1.5;
+    background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;cursor:default; }
+  .tag-reservio.verrou { background:#fef3c7;color:#92400e;border-color:#fcd34d; }
+  .tag-reservio.annule { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
+  @media print { .tag-reservio { border:1px solid #999 !important;background:#fff !important;color:#333 !important; } }
+  /* Le 🔗 (auto-synchronisé) est teinté en doré pour rester dans le même ton que le 🔒 (verrouillé) */
+  /* Étiquette d'un RDV posé depuis l'agenda du dirigeant (mobile) */
+  .tag-agenda { display:inline-flex;align-items:center;gap:3px;margin:0 0 3px;padding:1px 7px;border-radius:999px;
+    font-size:0.68rem;font-weight:700;background:#fff3dc;color:#6b3d00;border:1px solid #f3c770; }
+  @media print { .tag-agenda { border:1px solid #999 !important;background:#fff !important;color:#333 !important; } }
+  .badge-reservio.badge-reservio-lien { filter: sepia(1) saturate(6) hue-rotate(-15deg) brightness(0.95); }
+  /* Alerte : RDV verrouillé annulé côté Reservio, en attente d'une décision du gérant */
+  .btn-alerte-reservio { display:block;width:100%;box-sizing:border-box;margin-top:4px;border:none;
+    background:#fee2e2;color:#b91c1c;border-radius:6px;padding:4px 8px;font-size:0.74rem;font-weight:700;
+    cursor:pointer;text-align:center; }
+  .btn-alerte-reservio:hover { background:#fecaca; }
   /* Panneau de choix du motif d'exclusion (ouvert à côté du bouton rond) */
   #excl-pop { position:fixed;z-index:2000;display:none;background:#fff;border:1px solid #cbd5e1;
     border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.18);padding:10px;min-width:190px; }
@@ -287,6 +307,9 @@
   .grille .chip { border:1px solid #cbd5e1; border-left:6px solid var(--col,#94a3b8); border-radius:9px; padding:7px 8px; margin-bottom:7px; background:#fff; display:flex; flex-direction:column; gap:6px; }
   .grille .chip.vide { display:none; }
   .grille .chip .ligne1 { display:flex; align-items:center; gap:5px; }
+  .chantier-sugg-box { position:absolute; z-index:9999; display:none; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 8px 22px rgba(15,23,42,.18); max-height:220px; overflow-y:auto; font-family:'Segoe UI',system-ui,Arial,sans-serif; }
+  .chantier-sugg-item { padding:7px 10px; font-size:0.82rem; font-weight:600; color:#0f3a8a; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chantier-sugg-item:hover { background:#eef4fd; }
   .grille .chip input.nm { flex:1 1 auto; min-width:0; width:auto; border:1px solid #cbd5e1; background:#f8fafc; color:#0f3a8a; border-radius:6px; padding:5px 7px; font-size:0.8rem; font-weight:700; text-transform:uppercase; }
   .grille .chip input.nm:focus { outline:none; border-color:#93c5fd; background:#fff; }
   .grille .chip .vider { flex:0 0 auto; width:26px; height:28px; border:1px solid #e5e7eb; background:#fff; color:#dc2626; border-radius:6px; cursor:pointer; font-weight:700; line-height:1; padding:0; }
@@ -430,7 +453,9 @@
   table.tgrid thead th.thhors .dn, table.tgrid thead th.thhors .dd{opacity:.45;}
   #planning-wrapper.masquer-samedi .sam-col { display:none !important; }
   .pl2-toolbtn.actif { background:#0f3a8a; color:#fff; border-color:#0f3a8a; }
-  </style>
+    /* Motif d'exclusion affiché sur le pavé du planning */
+  .chip .exclu-motif { margin-top:4px; display:inline-block; font-size:0.74rem; font-weight:700; color:#991b1b; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:1px 7px; }
+</style>
   <link rel="stylesheet" href="assets/theme-volitis.css">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -459,6 +484,7 @@
     <a href="salaries.html">Salariés</a>
 <a href="chantiers.html">Prévisionnel</a>
   <a href="planning.html" class="active">Planning</a>
+  <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
   <a href="rapports.html">Rapports</a>
   </div>
 
@@ -474,10 +500,10 @@
       <div class="pl2-spacer"></div>
       <button type="button" class="pl2-toolbtn" id="btn-chantier-long" onclick="clOuvrir()" title="Affecter un chantier sur une période à plusieurs salariés">🏗️ Chantier long</button>
       <button type="button" class="pl2-toolbtn" id="btn-absence-longue" onclick="alOuvrir()" title="Poser une absence sur une période à plusieurs salariés">🚫 Absence longue</button>
-      <button type="button" class="pl2-toolbtn" id="btn-graphiques-prevu" onclick="location.href='graphiques-prevu.html'" title="Graphique contrat vs planifié">📊 Graphiques</button>
-      <button type="button" class="pl2-toolbtn" id="btn-planning-synthese" onclick="location.href='planning-synthese.html'" title="Vue synthèse : heures planifiées / restant à planifier par jour">🗓️ Synthèse</button>
+      <button type="button" class="pl2-toolbtn" id="btn-graphiques-prevu" onclick="gxOuvrirFenetre()" title="Graphique, synthèse et frise des chantiers">📊 Graphiques et synthèse</button>
       <button type="button" class="pl2-toolbtn" id="btn-filtre-salaries" onclick="ouvrirFiltreSalaries(this)">🔽 Filtrer salariés</button>
       <button type="button" class="pl2-toolbtn" id="btn-samedi" onclick="pl3ToggleSamedi()">👁 Afficher le samedi</button>
+      <button type="button" class="pl2-toolbtn" onclick="location.reload()" title="Recharger les données du serveur">↻ Rafraîchir</button>
       <div class="pl2-jaugebox">
         <svg viewBox="0 0 100 65" width="116" height="76" style="flex-shrink:0;">
           <path d="M 10 60 A 40 40 0 0 1 90 60" fill="none" stroke="#e5e7eb" stroke-width="9" stroke-linecap="round"/>
@@ -485,9 +511,9 @@
           <path id="arc-orange" d="" fill="none" stroke="#f59e0b" stroke-width="9" stroke-linecap="round"/>
           <path id="arc-vert"   d="" fill="none" stroke="#16a34a" stroke-width="9" stroke-linecap="round"/>
           <text id="pourcentage" x="50" y="52" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">0%</text>
-          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">d'avancement</text>
+          <text x="50" y="62" text-anchor="middle" font-size="5" fill="#64748b">des h. vendables</text>
         </svg>
-        <div class="pl2-obj"><span class="pl2-obj-lbl">Objectif mois</span><b id="pl2-obj">—</b></div>
+        <div class="pl2-obj"><span class="pl2-obj-lbl">Planifié / vendables</span><b id="pl2-obj">—</b></div>
       </div>
       <div class="pl2-tnabox" title="Total des heures non affectées sur le mois affiché">
         <span class="pl2-obj-lbl">Temps non affecté</span><b id="pl2-tna">—</b>
@@ -664,17 +690,18 @@ function genOptionsHeures(v) {
   return opt;
 }
 
-/* Récupère les noms de chantiers du prévisionnel pour le mois en cours
-   et les 3 mois suivants (gère le passage d'année). Retourne une liste
-   de noms uniques, triés. */
+/* Récupère les noms de chantiers du prévisionnel pour le mois précédent,
+   le mois en cours et les 3 mois suivants (gère le passage d'année dans
+   les deux sens). Retourne une liste de noms uniques, triés. */
 function getChantiersPrevisionnel() {
   const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
   const noms = new Set();
   const now  = new Date();
   let an  = now.getFullYear();
-  let moi = now.getMonth(); // 0-11
+  let moi = now.getMonth() - 1;          // démarre au mois précédent (M-1)
+  if (moi < 0) { moi = 11; an--; }       // passage à l'année précédente
 
-  for (let i = 0; i < 4; i++) {           // mois en cours + 3 suivants
+  for (let i = 0; i < 5; i++) {           // M-1, mois en cours, +3 suivants
     const moisData = prev?.[an]?.[moi];
     if (moisData && Array.isArray(moisData.chantiers)) {
       moisData.chantiers.forEach(c => {
@@ -687,6 +714,42 @@ function getChantiersPrevisionnel() {
   return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
+/* Chantiers proposés dans la liste déroulante du planning :
+   - mois en cours et mois suivant (M, M+1) : tous les chantiers du prévisionnel ;
+   - mois précédent (M-1) : seulement ceux qui ne sont pas encore planifiés
+     (absents du planning à toute date à partir du 1er jour de M-1).
+   La vérification « chantier hors prévisionnel » garde, elle, la fenêtre large
+   de getChantiersPrevisionnel() (M-1 à M+3), pour ne pas multiplier les confirmations. */
+function getChantiersSuggestion() {
+  const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+  const now  = new Date();
+  const mois = [-1, 0, 1].map(dec => {
+    const d = new Date(now.getFullYear(), now.getMonth() + dec, 1);
+    return { an: d.getFullYear(), mi: d.getMonth(), dec };
+  });
+  const nomsDu = (m) => {
+    const md = prev?.[m.an]?.[m.mi];
+    return (md && Array.isArray(md.chantiers))
+      ? md.chantiers.map(c => (c.client || '').trim()).filter(Boolean) : [];
+  };
+  // Chantiers déjà planifiés à partir du 1er jour de M-1 (clé heures : <id salarié>AAAA_MM_JJ…)
+  const debut = mois[0].an + '_' + String(mois[0].mi + 1).padStart(2, '0') + '_01';
+  const planifies = new Set();
+  Object.keys(heures || {}).forEach(k => {
+    const e = heures[k];
+    if (!e || !e.chantier || /abs$/.test(k)) return;
+    const m = k.match(/(\d{4}_\d{2}_\d{2})/);
+    if (m && m[1] >= debut) planifies.add(e.chantier.trim().toUpperCase());
+  });
+  const noms = new Map();   // clé majuscules → nom affiché (sans doublon)
+  mois.forEach(m => nomsDu(m).forEach(n => {
+    const u = n.toUpperCase();
+    if (m.dec === -1 && planifies.has(u)) return;   // M-1 déjà planifié : on ne le propose plus
+    if (!noms.has(u)) noms.set(u, n);
+  }));
+  return [...noms.values()].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
 /* Construit le HTML d'un <datalist> à partir des chantiers du prévisionnel. */
 function genDatalistChantiers() {
   const options = getChantiersPrevisionnel()
@@ -694,6 +757,68 @@ function genDatalistChantiers() {
     .join('');
   return `<datalist id="liste-chantiers-prev">${options}</datalist>`;
 }
+
+/* ─── Suggestions de chantier filtrées à la frappe (remplace la <datalist> native
+   pour le champ "Chantier" du planning prévu — filtrage garanti sur tous les
+   navigateurs/WebView, contrairement au comportement natif d'une datalist). ─── */
+const CHANTIER_SUGG_MAX = 300;   // la liste défile : on montre tous les chantiers du prévisionnel
+let _chSuggK = null;   // clé du slot dont la liste est actuellement ouverte
+
+function _chSuggNorm(s) {
+  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+function _chSuggBox() {
+  let box = document.getElementById('chantier-suggest-box');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'chantier-suggest-box';
+    box.className = 'chantier-sugg-box';
+    // Clic sur la liste (barre de défilement comprise) : on garde le focus dans le champ,
+    // sinon le blur du champ refermait la liste avant de pouvoir la faire défiler.
+    box.addEventListener('mousedown', e => e.preventDefault());
+    document.body.appendChild(box);
+  }
+  return box;
+}
+function chantierSuggFiltrer(k) {
+  const inp = document.getElementById(k + 'chantier');
+  if (!inp) return;
+  const q = _chSuggNorm(inp.value.trim());
+  const tous = getChantiersSuggestion();
+  const filtres = (q ? tous.filter(n => _chSuggNorm(n).startsWith(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
+  if (!filtres.length) { chantierSuggFermer(); return; }
+  const box = _chSuggBox();
+  box.innerHTML = filtres.map(n =>
+    `<div class="chantier-sugg-item" data-nom="${escapeHtml(n)}" onmousedown="event.preventDefault();chantierSuggChoisir('${k}',this.dataset.nom)">${escapeHtml(n)}</div>`
+  ).join('');
+  const r = inp.getBoundingClientRect();
+  box.style.left = (r.left + window.scrollX) + 'px';
+  box.style.top = (r.bottom + window.scrollY) + 'px';
+  box.style.width = r.width + 'px';
+  box.style.display = 'block';
+  _chSuggK = k;
+}
+function chantierSuggFermer() {
+  const box = document.getElementById('chantier-suggest-box');
+  if (box) box.style.display = 'none';
+  _chSuggK = null;
+}
+function chantierSuggChoisir(k, nom) {
+  const inp = document.getElementById(k + 'chantier');
+  if (!inp) return;
+  inp.value = nom;
+  chantierSuggFermer();
+  onChantierCommit(k);   // validation directe (ne dépend plus du bon déclenchement de l'événement blur, fiabilise le clic/tactile)
+  if (document.activeElement === inp) inp.blur();   // retire le focus visuel si le champ existe toujours
+}
+// Fermer la liste quand la PAGE défile — mais pas quand on fait défiler la liste elle-même
+// (l'écouteur en phase de capture recevait aussi le défilement interne de la liste et la refermait).
+document.addEventListener('scroll', (e) => {
+  if (!_chSuggK) return;
+  const box = document.getElementById('chantier-suggest-box');
+  if (box && (e.target === box || box.contains(e.target))) return;
+  chantierSuggFermer();
+}, true);
 
 /* ─── ALTERNANCE SEMAINE A / B ───────────────────────────────
    Un salarié "alternant" possède :
@@ -784,6 +909,9 @@ function pl2AjouterChantier(btn){
   if(inp) inp.focus();
 }
 function pl2ViderPave(btn, k){
+  // « TEMPS NON AFFECTE » n'est jamais supprimable à la main : il disparaît seul quand
+  // les chantiers du jour couvrent le contrat (recalcul automatique).
+  if (((heures[k] && heures[k].chantier) || '').trim().toUpperCase() === TNA) return;
   viderChantier(k);
   const chip = btn.closest('.chip');
   const e = heures[k];
@@ -930,24 +1058,100 @@ function pl2ChipHTML(sl){
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
   const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner / déplacer">⠿</span>':'';
   const _mv=(sl.rempli && !estTNA)?'1':'';
+  // Marqueur RDV importé depuis Reservio : 🔗 tant que Reservio garde la main sur ce
+  // créneau, 🔒 dès qu'il a été modifié à la main (et n'est plus retouché par le sync).
+  const badgeReservio = data.reservioUid
+    ? `<span class="badge-reservio${data.reservioLocked?'':' badge-reservio-lien'} no-print" title="${data.reservioLocked?'RDV Reservio modifié manuellement — verrouillé, ne sera plus mis à jour automatiquement':'RDV importé automatiquement depuis Reservio'}">${data.reservioLocked?'🔒':'🔗'}</span>`
+    : '';
+  // Étiquette visible « Reservio » (lié / verrouillé / annulé), imprimée aussi
+  const tagReservio = data.reservioUid
+    ? (data.reservioAnnule
+        ? `<div class="tag-reservio annule" title="RDV annulé dans Reservio">⚠️ Reservio · annulé</div>`
+        : data.reservioLocked
+          ? `<div class="tag-reservio verrou" title="RDV Reservio modifié dans le planning : verrouillé, plus mis à jour par Reservio">🔒 Reservio · modifié</div>`
+          : `<div class="tag-reservio" title="RDV importé automatiquement depuis Reservio">🔗 Reservio</div>`)
+    : '';
+  // Étiquette « Agenda » : RDV posé par le dirigeant depuis son agenda mobile
+  const AG_TYPES = { client: 'RDV client', sav: 'SAV', fournisseur: 'Fournisseur', autre: 'Autre', visite: 'Autre', chantier: 'Autre' };
+  const tagAgenda = data.agendaId
+    ? `<div class="tag-agenda" title="Rendez-vous posé depuis l'agenda du dirigeant (mobile)">📅 Agenda${AG_TYPES[data.agendaType] ? ' · ' + AG_TYPES[data.agendaType] : ''}</div>`
+    : '';
+  const alerteReservio = data.reservioAnnule
+    ? `<button type="button" class="btn-alerte-reservio no-print" title="Ce RDV a été annulé dans Reservio — cliquer pour décider" onclick="pl2TraiterAlerteReservio('${sl.k}')">⚠️ Annulé Reservio</button>`
+    : '';
   return `<div class="${cls}" data-k="${sl.k}" data-move="${_mv}">
+    ${tagReservio}${tagAgenda}
     <div class="ligne1">
-      ${grip}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" list="liste-chantiers-prev" autocomplete="off"
-        onfocus="onChantierFocus('${sl.k}')"
-        oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value)"
-        onblur="onChantierCommit('${sl.k}')">
+      ${grip}${badgeReservio}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
+        onfocus="onChantierFocus('${sl.k}');chantierSuggFiltrer('${sl.k}')"
+        oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value);chantierSuggFiltrer('${sl.k}')"
+        onblur="onChantierCommit('${sl.k}');chantierSuggFermer()">
     </div>
     <div class="ligne2">
       ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
       <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
-      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(data.motifExclu||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
-      <button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>
+      ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
+      ${estTNA?'':`<button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>`}
     </div>
+    ${alerteReservio}
+    <div id="${sl.k}exclu-motif" class="exclu-motif"${(data.exclu && !estTNA)?'':' style="display:none"'}>${escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')}</div>
     <div id="${sl.k}note-print" class="note-print">${noteImp?'📝 '+escapeHtml(noteImp):''}</div>
     ${(typeof Coord!=='undefined' && nom) ? Coord.html(nom) : ''}
   </div>`;
+}
+
+/* Un RDV Reservio verrouillé (modifié à la main) dont le rendez-vous a été annulé
+   côté Reservio reste dans le planning avec une alerte plutôt que d'être effacé
+   automatiquement (le gérant a pris ce créneau en main). Ce clic tranche : le
+   conserver tel quel (créneau désormais autonome de Reservio) ou le supprimer. */
+function pl2TraiterAlerteReservio(k){
+  const d = heures[k];
+  if(!d) return;
+  const annules = Object.keys(heures).filter(x => heures[x] && heures[x].reservioUid && heures[x].reservioAnnule);
+  const ancien = document.getElementById('rsv-alerte'); if (ancien) ancien.remove();
+  const o = document.createElement('div');
+  o.id = 'rsv-alerte';
+  o.style.cssText = 'position:fixed;inset:0;z-index:12000;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:16px;';
+  const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+  const sal = m ? salaries.find(x => String(x.id) === m[1]) : null;
+  const qui = sal ? ((sal.prenom || '') + ' ' + (sal.nom || '')).trim() : '';
+  const quand = m ? m[4] + '/' + m[3] + '/' + m[2] : '';
+  const btn = 'flex:1;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:.86rem;cursor:pointer;';
+  o.innerHTML = '<div style="background:#fff;border-radius:14px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 14px 48px rgba(0,0,0,.35);font-family:inherit;">'
+    + '<div style="background:#991b1b;color:#fff;padding:12px 16px;"><b>⚠️ RDV annulé dans Reservio</b></div>'
+    + '<div style="padding:14px 16px;font-size:.88rem;color:#334155;line-height:1.5;">'
+    +   '<b>' + escapeHtml(d.chantier || '') + '</b><br>' + escapeHtml([qui, quand, d.rdv ? 'à ' + d.rdv : ''].filter(Boolean).join(' · '))
+    +   '<p style="margin:10px 0 0;">Ce rendez-vous a été annulé dans Reservio. Il avait été modifié dans le planning, il n\'a donc pas été retiré automatiquement.</p>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;padding:0 16px 12px;">'
+    +   '<button type="button" data-a="suppr" style="' + btn + 'background:#dc2626;color:#fff;">🗑 Supprimer du planning</button>'
+    +   '<button type="button" data-a="garder" style="' + btn + 'background:#e2e8f0;color:#334155;">Conserver</button>'
+    + '</div>'
+    + (annules.length > 1 ? '<div style="padding:0 16px 12px;"><button type="button" data-a="tous" style="' + btn + 'width:100%;background:#fff;color:#991b1b;border:1px solid #fca5a5;">🗑 Supprimer les ' + annules.length + ' RDV annulés par Reservio</button></div>' : '')
+    + '<div style="padding:8px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:.75rem;color:#64748b;">« Conserver » garde le créneau comme un créneau ordinaire, détaché de Reservio.</div>'
+    + '</div>';
+  const fin = () => {
+    localStorage.setItem('heuresdata', JSON.stringify(heures));   // sans cette écriture, rien n'était enregistré
+    if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+    o.remove();
+    genererPlanning();
+  };
+  o.addEventListener('click', e => {
+    if (e.target === o) { o.remove(); return; }
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const a = b.dataset.a;
+    if (a === 'garder') { _rsvDetacher(d); fin(); return; }
+    const cibles = a === 'tous' ? annules : [k];
+    if (a === 'tous' && !confirm('Supprimer du planning les ' + cibles.length + ' RDV annulés par Reservio ?')) return;
+    cibles.forEach(x => { delete heures[x]; });
+    fin();
+    cibles.forEach(x => { const mm = x.match(/^(\d+)(\d{4}_\d{2}_\d{2})ch/); if (mm) { try { appliquerTempsNonAffecte(mm[1], mm[2].replace(/_/g, '-')); } catch (_) {} } });
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+    genererPlanning();
+  });
+  document.body.appendChild(o);
 }
 
 /* ── Réordonnancement des pavés dans le planning prévu (glisser-déposer, poignée ⠿) ── */
@@ -1057,6 +1261,9 @@ function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
   onLigneRecalc(salIdS+safeS+'ch1');   // recalcule le TNA de la case source
   onLigneRecalc(cibleK);               // recalcule le TNA de la case cible
   genererPlanning();
+  if (copie.reservioUid) {
+    pl2RappelLibererReservio(nom.split(' — ')[0].trim());
+  }
 }
 function pl2DragStartTouch(e){
   const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
@@ -1178,7 +1385,7 @@ function genererPlanning(calerSemaine){
   }
 
   const datesFill=new Map();
-  let html=genDatalistChantiers();
+  let html='';   // (l'ancienne <datalist> native a été remplacée par la suggestion filtrée JS, cf. chantierSuggFiltrer)
   let optsSem='';
 
   semaines.forEach((jours,wi)=>{
@@ -1276,6 +1483,7 @@ function genererPlanning(calerSemaine){
   majCouleursChantiers();
   pl3MajSamedi();
   pl2InitDragReorder();
+  if (typeof plnDecorer === 'function') plnDecorer();   // mode « Planifier depuis Clients » : boutons 📌 Affecter
   if (calerSemaine) defilerVersAujourdhui(moisInput.value);
 }
 
@@ -1284,7 +1492,10 @@ function genererPlanning(calerSemaine){
 function defilerVersAujourdhui(moisSel) {
   const cont = document.getElementById('planning-wrapper');
   if (!cont) return;
-  const aujCol = cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
+  // Mode « Planifier depuis Clients » : on se cale sur la semaine de la date souhaitée.
+  const _dCible = (typeof plnDateCible === 'function') ? plnDateCible() : '';
+  const _cCible = _dCible ? cont.querySelector('.tgrid td[data-date="' + _dCible + '"]') : null;
+  const aujCol = _cCible || cont.querySelector('.tgrid th.auj') || cont.querySelector('.tgrid td.auj');
   const bloc = aujCol ? aujCol.closest('.wblock') : null;
 
   requestAnimationFrame(() => {
@@ -1345,8 +1556,13 @@ function majCouleursChantiers() {
 }
 
 /* ====== SAUVEGARDE TEMPS RÉEL ====== */
+var _RSV_CHAMPS = ['reservioUid', 'reservioSnapshot', 'reservioLocked', 'reservioAnnule', 'reservioCle'];
+/* Détache un créneau de Reservio : il devient un créneau ordinaire, que la synchro ne
+   touche plus (elle ne recrée pas non plus un RDV qu'elle avait déjà importé). */
+function _rsvDetacher(e) { if (e) _RSV_CHAMPS.forEach(c => { delete e[c]; }); }
 /* Vide le nom du chantier d'une case (les heures sont conservées). */
 function viderChantier(k) {
+  if (((heures[k] && heures[k].chantier) || '').trim().toUpperCase() === TNA) return;   // TNA : jamais vidé à la main
   const input = document.getElementById(k + 'chantier');
   if (!input) return;
   input.value = '';
@@ -1354,6 +1570,10 @@ function viderChantier(k) {
   if (hSel) hSel.value = '0';            // remet les heures saisies à 0 (affichage)
   if (heures[k]) delete heures[k].note;  // on retire aussi la note de la cellule
   saveHeure(k, '', 0);                   // enregistre : chantier vidé ET 0 heure saisie
+  if (heures[k] && heures[k].reservioUid) {  // RDV Reservio supprimé à la main : détaché (pas recréé par la synchro)
+    _rsvDetacher(heures[k]);
+    localStorage.setItem('heuresdata', JSON.stringify(heures));
+  }
   majBoutonNote(k);                      // met à jour l'indicateur + la note imprimable
   onLigneRecalc(k);                      // recalcule « TEMPS NON AFFECTE » si nécessaire
   input.focus();
@@ -1368,10 +1588,21 @@ function saveHeure(k, ch, h) {
   const motifAv = (heures[k] && heures[k].motif) ? heures[k].motif : '';
   const excluAv = !!(heures[k] && heures[k].exclu);
   const motifExcluAv = (heures[k] && heures[k].motifExclu) ? heures[k].motifExclu : '';
+  // Lien avec l'agenda du dirigeant : conservé quand on modifie le nom ou les heures,
+  // pour que l'agenda retrouve (et mette à jour / retire) sa case au planning.
+  const agendaIdAv = (heures[k] && heures[k].agendaId) ? heures[k].agendaId : '';
+  const agendaTypeAv = (heures[k] && heures[k].agendaType) ? heures[k].agendaType : '';
+  // Lien Reservio : conservé quand on modifie le nom ou les heures (avant, il était effacé →
+  // la synchro recréait un doublon, et une annulation Reservio n'était plus jamais signalée).
+  // C'est la synchro qui détecte la modification et verrouille le RDV.
+  const reservioAv = {};
+  if (heures[k] && heures[k].reservioUid) _RSV_CHAMPS.forEach(c => { if (heures[k][c] !== undefined) reservioAv[c] = heures[k][c]; });
   heures[k] = { chantier: ch, heures: parseFloat(h) || 0 };
+  Object.assign(heures[k], reservioAv);
   if (motifAv) heures[k].motif = motifAv;
   if (excluAv) heures[k].exclu = true;   // le marquage « exclu du calcul » survit aux modifs de nom/heures
   if (motifExcluAv) heures[k].motifExclu = motifExcluAv;
+  if (agendaIdAv && ch) { heures[k].agendaId = agendaIdAv; if (agendaTypeAv) heures[k].agendaType = agendaTypeAv; }
   if (noteAv) heures[k].note = noteAv;
   if (rdvAv)  heures[k].rdv  = rdvAv;          // l'heure de RDV suit le chantier
   if (rdvAutAv) heures[k].rdvAuteur = rdvAutAv;
@@ -1391,7 +1622,13 @@ function saveHeure(k, ch, h) {
    nommé (pas TNA, pas pavé vide). Le temps reste affiché et compté dans le total
    du jour du planning (le salarié a bien travaillé), mais sera exclu du
    prévisionnel, de la jauge réalisé, et son motif est repérable dans les rapports. */
-const MOTIFS_EXCLU = ['SAV', 'Fournisseur', 'Visite client'];
+const MOTIFS_EXCLU = ['SAV', 'Fournisseur', 'RDV client'];
+/* « Visite client » a été renommé « RDV client » (08/10/2026) : les créneaux déjà
+   exclus avec l'ancien libellé sont affichés et repris sous le nouveau. */
+function motifExcluAffiche(m) {
+  const v = String(m || '').trim();
+  return v.toLowerCase() === 'visite client' ? 'RDV client' : v;
+}
 let _exclPopK = null;
 function ouvrirExclu(k) {
   const btn = document.getElementById(k + 'exclu-btn');
@@ -1422,7 +1659,7 @@ function ouvrirExclu(k) {
   const sel   = document.getElementById('excl-pop-motif');
   const autre = document.getElementById('excl-pop-autre');
   const actif = !!heures[k].exclu;
-  const motifActuel = actif ? (heures[k].motifExclu || 'SAV') : '';
+  const motifActuel = actif ? (motifExcluAffiche(heures[k].motifExclu) || 'SAV') : '';
   if (!motifActuel || MOTIFS_EXCLU.includes(motifActuel)) {
     sel.value = motifActuel || 'SAV';
     autre.style.display = 'none';
@@ -1502,15 +1739,35 @@ function appliquerExclu(k, actif, motif) {
   if (btn) {
     btn.classList.toggle('actif', !!heures[k].exclu);
     btn.title = heures[k].exclu
-      ? 'Temps EXCLU du calcul (' + heures[k].motifExclu + ') — cliquer pour modifier'
+      ? 'Temps EXCLU du calcul (' + motifExcluAffiche(heures[k].motifExclu) + ') — cliquer pour modifier'
       : 'Exclure ce temps du calcul';
+  }
+  // Motif visible sur le pavé (pas seulement dans l'info-bulle du bouton)
+  const lm = document.getElementById(k + 'exclu-motif');
+  if (lm) {
+    lm.textContent = heures[k].exclu ? (motifExcluAffiche(heures[k].motifExclu) || 'SAV') : '';
+    lm.style.display = heures[k].exclu ? '' : 'none';
   }
   if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
 }
 
 /* ── Heure de RDV par chantier (préparation alerte mobile du salarié) ── */
+// Rappel : le lien Reservio → Suiv'Heures est en lecture seule (pas d'écriture possible
+// en retour, cf. plan Reservio du client). Donc si on change ici la date ou l'heure d'un
+// RDV importé de Reservio, le créneau reste réservé là-bas tant qu'on ne va pas le
+// libérer/déplacer manuellement sur reservio.com — on le rappelle à chaque fois.
+function pl2RappelLibererReservio(nomClient) {
+  alert('⚠️ Ce RDV vient de Reservio.\n\n' +
+    'Suiv\'Heures ne peut pas modifier automatiquement Reservio (lien en lecture seule). ' +
+    'Pensez à aller libérer ou déplacer ce créneau manuellement sur reservio.com' +
+    (nomClient ? (' pour « ' + nomClient + ' »') : '') +
+    ', sinon le client garde son ancien horaire réservé là-bas.');
+}
 function saveRdv(k, val, delai) {
   if (!heures[k]) heures[k] = { chantier: '', heures: 0 };
+  const _rdvAvant = (heures[k].rdv || '').trim();
+  const _venaitDeReservio = !!heures[k].reservioUid;
+  const _nomAvant = (heures[k].chantier || '').split(' — ')[0].trim();
   if (val) {
     heures[k].rdv = val;
     heures[k].rdvAuteur = 'gerant';   // planning desktop = autorité gérant
@@ -1531,6 +1788,9 @@ function saveRdv(k, val, delai) {
   localStorage.setItem('heuresdata', JSON.stringify(heures));
   majRdvVisuel(k);
   genererPlanning();   // redessine la case : les pavés à RDV se reclassent aussitôt par heure
+  if (_venaitDeReservio && _rdvAvant !== (val || '').trim()) {
+    pl2RappelLibererReservio(_nomAvant);
+  }
 }
 function majRdvVisuel(k) {
   const btn = document.getElementById(k + 'rdv-btn');
@@ -1652,10 +1912,22 @@ function _eligibleTNA(s, dateStr) {
   return !!(s && !s.sav && !estDatePassee(dateStr));
 }
 
+/* Vrai si la ligne (salarié × jour) porte déjà un « TEMPS NON AFFECTE ».
+   Sur un jour passé, on ne crée jamais de TNA, mais un TNA existant doit pouvoir
+   diminuer / disparaître quand les heures de chantier du jour le permettent. */
+function _ligneATNA(salarieId, dateStr) {
+  const safeDate = dateStr.replace(/-/g, '_');
+  for (let i = 1; i <= NB_SLOTS; i++) {
+    const e = heures[`${salarieId}${safeDate}ch${i}`];
+    if (e && (e.chantier || '').trim().toUpperCase() === TNA) return true;
+  }
+  return false;
+}
+
 /* Recalcule et place/retire « TEMPS NON AFFECTE » sur une ligne (salarié × jour). */
 function appliquerTempsNonAffecte(salarieId, dateStr) {
   const s = salaries.find(x => String(x.id) === String(salarieId));
-  if (!_eligibleTNA(s, dateStr)) return;
+  if (!_eligibleTNA(s, dateStr) && !(s && !s.sav && _ligneATNA(salarieId, dateStr))) return;
   const safeDate = dateStr.replace(/-/g, '_');
   const abs   = parseFloat(heures[`${salarieId}${safeDate}abs`]?.heures) || 0;
   const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
@@ -1718,7 +1990,7 @@ function rafraichirLigne(salarieId, dateStr) {
       const nomOk = (e.chantier || '').trim() !== '' && (e.chantier || '').toUpperCase() !== TNA;
       bex.classList.toggle('masque', !nomOk);          // apparaît dès qu'un chantier est nommé
       bex.classList.toggle('actif', !!e.exclu);
-      bex.title = e.exclu ? 'Temps EXCLU du calcul (' + (e.motifExclu || 'SAV') + ') — cliquer pour modifier' : 'Exclure ce temps du calcul';
+      bex.title = e.exclu ? 'Temps EXCLU du calcul (' + (motifExcluAffiche(e.motifExclu) || 'SAV') + ') — cliquer pour modifier' : 'Exclure ce temps du calcul';
     }
   }
   majTotalLigne(salarieId, dateStr);
@@ -1740,6 +2012,10 @@ function onChantierCommit(k) {
   const salarieId = mm[1], safe = mm[2], dateStr = safe.replace(/_/g, '-');
   const s = salaries.find(x => String(x.id) === String(salarieId));
   if (!s) return;
+
+  // Capturé AVANT la resynchronisation : distingue une création (pavé vide) d'une simple
+  // modification de nom sur un chantier déjà existant — seule la création ouvre la fenêtre groupée.
+  const etaitVide = !((heures[k] && heures[k].chantier || '').trim());
 
   // Resynchroniser heures[k] depuis la saisie en cours (fiabilise la sélection via le menu déroulant)
   const inpEl = document.getElementById(k + 'chantier');
@@ -1774,12 +2050,22 @@ function onChantierCommit(k) {
       if (nbReels === 1) {
         const abs = parseFloat(heures[`${salarieId}${safe}abs`]?.heures) || 0;
         const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
-        if (cible > 0) { heures[k] = { chantier: nom, heures: cible }; localStorage.setItem('heuresdata', JSON.stringify(heures)); }
+        if (cible > 0) { heures[k] = Object.assign({}, e, { chantier: nom, heures: cible }); localStorage.setItem('heuresdata', JSON.stringify(heures)); }
       }
     }
     appliquerTempsNonAffecte(salarieId, dateStr);
+  } else if (!s.sav && _ligneATNA(salarieId, dateStr)) {
+    appliquerTempsNonAffecte(salarieId, dateStr);   // jour passé : un TNA existant suit les heures de chantier
   }
   rafraichirLigne(salarieId, dateStr);   // affichage + jauge : TOUJOURS
+
+  // Nouveau chantier (pavé auparavant vide) : proposer d'un coup heures/note/horaire/exclusion
+  // dans une seule fenêtre, plutôt que 3 icônes à ouvrir une à une (icônes conservées pour
+  // les modifications ciblées ultérieures).
+  const nomFinal = (heures[k] && heures[k].chantier || '').trim();
+  if (etaitVide && nomFinal && nomFinal.toUpperCase() !== TNA) {
+    ouvrirNoteChantier(k, true);   // true = mode création : la fiche 🗒 s'enrichit des champs heures/RDV/exclusion
+  }
 }
 
 /* Changement d'heures (chantier réel) ou d'absence : recalcul TNA. */
@@ -1789,7 +2075,8 @@ function onLigneRecalc(k) {
   const salarieId = mm[1], dateStr = mm[2].replace(/_/g, '-');
   const s = salaries.find(x => String(x.id) === String(salarieId));
   if (!s) return;
-  if (_eligibleTNA(s, dateStr)) appliquerTempsNonAffecte(salarieId, dateStr);   // TNA recalculé seulement pour les jours à venir
+  // TNA recalculé pour les jours à venir, et sur un jour passé uniquement s'il en porte déjà un
+  if (_eligibleTNA(s, dateStr) || (!s.sav && _ligneATNA(salarieId, dateStr))) appliquerTempsNonAffecte(salarieId, dateStr);
   rafraichirLigne(salarieId, dateStr);   // affichage de la ligne + jauge : TOUJOURS (y compris dates passées)
 }
 
@@ -1849,7 +2136,8 @@ function _derniereEntretienInfo(nom) {
     const entete = m[1] || '';
     const metaRaw = m[2] || '';
     const texte = m[3] || '';
-    const em = metaRaw.match(/(^|;)E([12])?(;|$)/);
+    // Rythme : E1 = 12 mois, E2 = 24 mois, EM<n> = n mois (rythme libre), E seul = 12 mois (ancien format)
+    const em = metaRaw.match(/(^|;)E(?:M(\d{1,3})|([12]))?(;|$)/);
     if (!em) return;
     // Horodatage d'écriture (heure/minute) pour départager deux entretiens tagués
     // la même date d'intervention — même logique que suivi-entretiens.html.
@@ -1857,9 +2145,9 @@ function _derniereEntretienInfo(nom) {
     if (!em2) return;
     const ecrit = new Date(+em2[3], +em2[2] - 1, +em2[1], +em2[4], +em2[5]);
     if (isNaN(ecrit)) return;
-    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : 1; commentaire = texte; }
+    if (!ecritRetenu || ecrit >= ecritRetenu) { ecritRetenu = ecrit; periode = em[2] ? parseInt(em[2], 10) : (em[3] ? parseInt(em[3], 10) * 12 : 12); commentaire = texte; }
   });
-  return { periode, commentaire };
+  return { periode, commentaire };   // periode en MOIS (12, 24, ou rythme libre)
 }
 /* Note nettoyée pour l'impression : retire le préfixe "[JJ/MM/AAAA HH:MM – Auteur]"
    en tête de chaque ligne pour ne garder que le texte (sans date ni éditeur). */
@@ -1896,40 +2184,96 @@ function rafraichirNotesAffichage() {
 function clToggleEntretienPeriode(qui) {
   const c1an = document.getElementById('note-modal-entretien-1an');
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (qui === '1an' && c1an.checked) c2ans.checked = false;
-  if (qui === '2ans' && c2ans.checked) c1an.checked = false;
+  const cAutre = document.getElementById('note-modal-entretien-autre');
+  const nb = document.getElementById('note-modal-entretien-mois');
+  if (qui === '1an' && c1an.checked) { c2ans.checked = false; cAutre.checked = false; }
+  if (qui === '2ans' && c2ans.checked) { c1an.checked = false; cAutre.checked = false; }
+  if (qui === 'autre' && cAutre.checked) { c1an.checked = false; c2ans.checked = false; if (!nb.value) nb.value = '6'; setTimeout(() => { nb.focus(); nb.select(); }, 0); }
+  if (qui === 'mois') { if (nb.value) { cAutre.checked = true; c1an.checked = false; c2ans.checked = false; } }
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
-  if (comBloc) comBloc.style.display = (c1an.checked || c2ans.checked) ? 'block' : 'none';
+  if (comBloc) comBloc.style.display = _entretienCoche() ? 'block' : 'none';
+}
+/* Une option de rythme est-elle choisie ? */
+function _entretienCoche() {
+  const ids = ['note-modal-entretien-1an', 'note-modal-entretien-2ans', 'note-modal-entretien-autre'];
+  return ids.some(id => { const c = document.getElementById(id); return c && c.checked; });
+}
+/* Rythme choisi en mois (12, 24 ou libre), null si aucun ou saisie invalide */
+function _entretienMoisChoisi() {
+  if (document.getElementById('note-modal-entretien-1an').checked) return 12;
+  if (document.getElementById('note-modal-entretien-2ans').checked) return 24;
+  if (document.getElementById('note-modal-entretien-autre').checked) {
+    const n = parseInt(document.getElementById('note-modal-entretien-mois').value, 10);
+    return (n >= 1 && n <= 120) ? n : null;
+  }
+  return null;
 }
 
-function ouvrirNoteChantier(k) {
+let _noteModalCreation = false;
+function ouvrirNoteChantier(k, modeCreation) {
   _noteCleCourante = k;
+  _noteModalCreation = !!modeCreation;
+  const titre = document.getElementById('note-modal-titre');
+  if (titre) titre.textContent = _noteModalCreation ? '🆕 Nouveau chantier' : '🗒 Note de chantier';
+  const champsCreation = document.getElementById('note-modal-creation-champs');
+  if (champsCreation) champsCreation.style.display = _noteModalCreation ? 'block' : 'none';
+  if (_noteModalCreation) {
+    const hSel = document.getElementById('note-modal-heures');
+    if (hSel) hSel.innerHTML = genOptionsHeures(heures[k] ? heures[k].heures : 0);
+    const rdvInp = document.getElementById('note-modal-rdv');
+    if (rdvInp) rdvInp.value = '';
+    const chkExclu = document.getElementById('note-modal-exclu');
+    if (chkExclu) chkExclu.checked = false;
+    const selMotif = document.getElementById('note-modal-exclu-motif');
+    if (selMotif) selMotif.innerHTML = MOTIFS_EXCLU.map(m => `<option value="${m}">${m}</option>`).join('') + '<option value="Autres">Autres…</option>';
+    const autre = document.getElementById('note-modal-exclu-autre');
+    if (autre) { autre.style.display = 'none'; autre.value = ''; }
+    const blocMotif = document.getElementById('note-modal-exclu-bloc');
+    if (blocMotif) blocMotif.style.display = 'none';
+  }
   const chk = document.getElementById('note-modal-jour');
-  if (chk) chk.checked = false;
+  // Pré-coche « pour cette journée » si une note du jour existe déjà sur ce pavé (notamment
+  // celle saisie via la fenêtre de création) : sans ça, la vue par défaut (note générale,
+  // vide) donnait l'impression que la note saisie à la création avait disparu.
+  const aNoteJour = !!(heures[k] && (heures[k].note || '').trim());
+  if (chk) chk.checked = aNoteJour;
   const nom = _nomChantierCell(k);
   const suiviActif = _suiviEntretienActif();
   const infoEntretien = (suiviActif && nom) ? _derniereEntretienInfo(nom) : { periode: null, commentaire: '' };
   const c1an = document.getElementById('note-modal-entretien-1an');
-  if (c1an) c1an.checked = (infoEntretien.periode === 1);
+  if (c1an) c1an.checked = (infoEntretien.periode === 12);
   const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (c2ans) c2ans.checked = (infoEntretien.periode === 2);
+  if (c2ans) c2ans.checked = (infoEntretien.periode === 24);
+  const cAutre = document.getElementById('note-modal-entretien-autre');
+  const nbMois = document.getElementById('note-modal-entretien-mois');
+  const libre = !!infoEntretien.periode && infoEntretien.periode !== 12 && infoEntretien.periode !== 24;
+  if (cAutre) cAutre.checked = libre;
+  if (nbMois) nbMois.value = libre ? String(infoEntretien.periode) : '';
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
   const comTxt = document.getElementById('note-modal-entr-com');
   if (comTxt) comTxt.value = infoEntretien.commentaire || '';
   if (comBloc) comBloc.style.display = infoEntretien.periode ? 'block' : 'none';
   const entrLbl = document.getElementById('note-modal-entr-lbl');
-  if (entrLbl) entrLbl.style.display = suiviActif ? 'flex' : 'none';
+  if (entrLbl) entrLbl.style.display = (suiviActif && !aNoteJour) ? 'flex' : 'none';
   document.getElementById('note-modal-sub').textContent =
     nom ? ('Chantier : ' + nom) : 'Renseignez d’abord un chantier dans la cellule';
+  // Motif d'exclusion du créneau (hors mode création, qui a ses propres champs)
+  const exInfo = document.getElementById('note-modal-exclu-info');
+  if (exInfo) {
+    const ex = !_noteModalCreation && heures[k] && heures[k].exclu;
+    exInfo.style.display = ex ? 'flex' : 'none';
+    if (ex) document.getElementById('note-modal-exclu-motif-txt').textContent = motifExcluAffiche(heures[k].motifExclu) || 'SAV';
+  }
   rendreHistNoteChantier(nom);
   const txt = document.getElementById('note-modal-txt');
   txt.value = '';
   const btnAjout = document.getElementById('note-modal-ajouter');
-  if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = 'Ajouter'; }
+  if (btnAjout) { btnAjout.disabled = !nom; btnAjout.textContent = _noteModalCreation ? 'Créer' : 'Ajouter'; }
   const btnSup = document.getElementById('note-modal-suppr');
-  if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = noteDuChantier(nom) ? '' : 'none'; }
+  if (btnSup) { btnSup.disabled = false; btnSup.textContent = '🗑 Supprimer'; btnSup.style.display = (!_noteModalCreation && noteDuChantier(nom)) ? '' : 'none'; }
   if (window.DocsChantier) { const _dc = document.getElementById('note-modal-docs'); if (_dc) { if (nom) DocsChantier.monter(nom, _dc); else DocsChantier.vider(_dc); } }
   document.getElementById('note-modal-overlay').style.display = 'flex';
+  if (aNoteJour) clToggleNoteJour();   // affiche tout de suite la note du jour (texte + bouton "Enregistrer") au lieu de l'historique général
   setTimeout(() => txt.focus(), 30);
 }
 
@@ -1946,9 +2290,7 @@ function clToggleNoteJour() {
   const suiviActif = _suiviEntretienActif();
   if (entrLbl) entrLbl.style.display = (jour || !suiviActif) ? 'none' : 'flex';
   const comBloc = document.getElementById('note-modal-entr-com-bloc');
-  const c1an = document.getElementById('note-modal-entretien-1an');
-  const c2ans = document.getElementById('note-modal-entretien-2ans');
-  if (comBloc) comBloc.style.display = (!jour && suiviActif && c1an && c2ans && (c1an.checked || c2ans.checked)) ? 'block' : 'none';
+  if (comBloc) comBloc.style.display = (!jour && suiviActif && _entretienCoche()) ? 'block' : 'none';
   if (jour) {
     const dn = (heures[k] && heures[k].note) ? String(heures[k].note) : '';
     if (hist) hist.textContent = dn || '(aucune note pour cette journée)';
@@ -2016,12 +2358,48 @@ function fermerNoteChantier() {
   const o = document.getElementById('note-modal-overlay');
   if (o) o.style.display = 'none';
   _noteCleCourante = null;
+  _noteModalCreation = false;
+}
+
+function toggleNoteModalExclu() {
+  const chk = document.getElementById('note-modal-exclu');
+  const bloc = document.getElementById('note-modal-exclu-bloc');
+  if (bloc) bloc.style.display = (chk && chk.checked) ? 'block' : 'none';
+}
+function majNoteModalMotifAutre() {
+  const sel = document.getElementById('note-modal-exclu-motif');
+  const autre = document.getElementById('note-modal-exclu-autre');
+  if (!sel || !autre) return;
+  autre.style.display = sel.value === 'Autres' ? 'block' : 'none';
+}
+/* Applique les champs propres au mode création (heures / RDV / exclusion) sur le pavé k.
+   Appelée en tout premier dans enregistrerNoteChantier, avant toute logique de note,
+   pour qu'ils soient bien enregistrés même si l'utilisateur ne saisit aucune note. */
+function _appliquerChampsCreation(k, nom) {
+  const hSel = document.getElementById('note-modal-heures');
+  if (hSel) {
+    saveHeure(k, nom, hSel.value);
+    const hInline = document.getElementById(k + 'h');
+    if (hInline) hInline.value = hSel.value;
+    onLigneRecalc(k);   // le TNA suit les heures choisies dans la fenêtre
+  }
+  const rdvInp = document.getElementById('note-modal-rdv');
+  saveRdv(k, rdvInp ? rdvInp.value : '');
+  const chkExclu = document.getElementById('note-modal-exclu');
+  if (chkExclu && chkExclu.checked) {
+    const selMotif = document.getElementById('note-modal-exclu-motif');
+    const autre = document.getElementById('note-modal-exclu-autre');
+    let motif = selMotif ? selMotif.value : 'SAV';
+    if (motif === 'Autres') motif = (autre && autre.value || '').trim() || 'SAV';
+    appliquerExclu(k, true, motif);
+  }
 }
 
 async function enregistrerNoteChantier() {
   if (!_noteCleCourante) return;
   const nom   = _nomChantierCell(_noteCleCourante);
   if (!nom)   { alert('Renseignez d’abord un chantier dans cette cellule.'); return; }
+  if (_noteModalCreation) _appliquerChampsCreation(_noteCleCourante, nom);
   const texte = document.getElementById('note-modal-txt').value.trim();
   const chk = document.getElementById('note-modal-jour');
   const pourJour = chk && chk.checked;
@@ -2037,13 +2415,16 @@ async function enregistrerNoteChantier() {
     fermerNoteChantier();
     return;
   }
-  const c1an = document.getElementById('note-modal-entretien-1an');
-  const c2ans = document.getElementById('note-modal-entretien-2ans');
-  const entretienCoche = _suiviEntretienActif() && !!((c1an && c1an.checked) || (c2ans && c2ans.checked));
+  const entretienCoche = _suiviEntretienActif() && _entretienCoche();
+  const moisEntretien = entretienCoche ? _entretienMoisChoisi() : null;
   const comEl = document.getElementById('note-modal-entr-com');
   const commentaireEntretien = comEl ? comEl.value.trim() : '';
+  if (entretienCoche && !moisEntretien) {
+    alert('Indiquez un rythme d’entretien valide : un nombre de mois entre 1 et 120.');
+    return;
+  }
   if (entretienCoche && !commentaireEntretien) {
-    alert('Ajoutez un commentaire d’entretien, ou décochez 1 an / 2 ans.');
+    alert('Ajoutez un commentaire d’entretien, ou décochez le rythme d’entretien.');
     return;
   }
   if (!texte && !(entretienCoche && commentaireEntretien)) { fermerNoteChantier(); return; }
@@ -2065,12 +2446,13 @@ async function enregistrerNoteChantier() {
       if (!dernier.ok) throw new Error(dernier.message || 'Échec de l’enregistrement de la note.');
     }
     if (entretienCoche && commentaireEntretien) {
-      const periode = (c2ans && c2ans.checked) ? '2' : '1';
+      // 12 et 24 mois gardent l'ancien format (E1 / E2) ; tout autre rythme s'écrit EM<nb de mois>.
+      const tag = moisEntretien === 12 ? 'E1' : moisEntretien === 24 ? 'E2' : 'EM' + moisEntretien;
       const d = new Date(), p = n => String(n).padStart(2, '0');
       const dateInterv = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
-      // Repris tel quel par notes.html / suivi-entretiens.html (format [I:date;E1] ou [I:date;E2]),
+      // Repris par notes.html / suivi-entretiens.html (format [I:date;E1], [I:date;E2] ou [I:date;EM6]),
       // la date d'intervention pourra être ajustée depuis Notes si besoin.
-      const texteEntretien = `[I:${dateInterv};E${periode}] ${commentaireEntretien}`;
+      const texteEntretien = `[I:${dateInterv};${tag}] ${commentaireEntretien}`;
       dernier = await envoyerLigne(texteEntretien);
       if (!dernier.ok) throw new Error(dernier.message || 'Échec de l’enregistrement de l’entretien.');
     }
@@ -2078,7 +2460,7 @@ async function enregistrerNoteChantier() {
     fermerNoteChantier();
   } catch (e) {
     alert(e.message || 'Erreur réseau lors de l’enregistrement de la note.');
-    if (btn) { btn.disabled = false; btn.textContent = 'Ajouter'; }
+    if (btn) { btn.disabled = false; btn.textContent = _noteModalCreation ? 'Créer' : 'Ajouter'; }
   }
 }
 
@@ -2227,14 +2609,38 @@ function majTotalLigne(salarieId, dateStr) {
   majTotauxGlobaux();
 }
 
+/* ── Heures vendables (jauge) : contrat effectif × taux de performance du salarié ──
+   Taux saisi dans la fiche salarié ; à défaut, seuil orange (ancien taux global). */
+function _seuilOrangeVend() {
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {};
+    if (ent.jauge && ent.jauge.orange != null) return parseFloat(ent.jauge.orange) || 0;
+    if (ent.orange != null) return parseFloat(ent.orange) || 0;
+  } catch (_) {}
+  return parseInt(localStorage.getItem('jaugeOrange')) || 0;
+}
+function tauxPerfSalarie(sal) {
+  const t = parseFloat(sal && sal.tauxPerformance);
+  return (isFinite(t) && t >= 0) ? t : _seuilOrangeVend();
+}
+
 function majTotauxGlobaux() {
   let totT = 0, totA = 0, totP = 0, totTNA = 0;
+  let totVend = 0, totEquiv = 0;   // heures vendables ; équivalent Férié/Even. Familial (compté mais non vendu)
   document.querySelectorAll('[data-salarie][data-date]:not(.hors-mois)').forEach(tr => {
     totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
     totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
-    totP += parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
+    const prevuCase = parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
+    totP += prevuCase;
     const sid = tr.getAttribute('data-salarie');
     const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
+    const salV = salaries.find(x => String(x.id) === String(sid));
+    totVend += prevuCase * tauxPerfSalarie(salV) / 100;
+    const absE = heures[`${sid}${dsafe}abs`];
+    if (salV && absE && (parseFloat(absE.heures) || 0) > 0 && (absE.motif === 'Férié' || absE.motif === 'Even. Familial')) {
+      const pv = contratDuJour(salV, tr.getAttribute('data-date'));
+      totEquiv += pv >= 7 ? 7 : pv;
+    }
     for (let i = 1; i <= NB_SLOTS; i++) {
       const c = heures[`${sid}${dsafe}ch${i}`];
       if (c && (c.chantier || '').trim().toUpperCase() === TNA) totTNA += parseFloat(c.heures) || 0;
@@ -2255,10 +2661,16 @@ function majTotauxGlobaux() {
     ligneEcart.style.background = '#f0fdf4';
   }
 
-  const pct = totP > 0 ? (totT / totP) * 100 : 0;
+  // Jauge = part des heures VENDABLES effectivement planifiées sur chantier
+  // (TNA déjà exclu du total ; l'équivalent Férié / Even. Familial n'est pas une heure vendue).
+  const vendu = Math.max(0, totT - totEquiv);
+  const pct = totVend > 0 ? (vendu / totVend) * 100 : 0;
   dessinerJauge(pct);
   const objEl = document.getElementById('pl2-obj');
-  if (objEl) objEl.textContent = totT.toFixed(1).replace('.',',') + ' h / ' + totP.toFixed(1).replace('.',',') + ' h';
+  if (objEl) {
+    objEl.textContent = vendu.toFixed(1).replace('.',',') + ' h / ' + totVend.toFixed(1).replace('.',',') + ' h';
+    objEl.title = 'Heures planifiées sur chantier / heures vendables du mois (contrat − absences, × taux de performance de chaque salarié)';
+  }
   const tnaEl = document.getElementById('pl2-tna');
   if (tnaEl) tnaEl.textContent = totTNA.toFixed(1).replace('.',',') + ' h';
   if (typeof pl3MajSemaine === 'function') pl3MajSemaine();
@@ -2440,7 +2852,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initRailRetractable();
   const mois = document.getElementById('moisPlanning');
   const now  = new Date();
-  mois.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const _dCibleInit = (typeof plnDateCible === 'function') ? plnDateCible() : '';
+  mois.value = _dCibleInit ? _dCibleInit.slice(0, 7)   // arrivée depuis Clients → mois de la date souhaitée
+                           : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   chargerSemaines();
   chargerJauge();
@@ -2694,8 +3108,25 @@ document.addEventListener('DOMContentLoaded', () => {
 <div id="note-modal-overlay" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;align-items:center;justify-content:center;padding:16px;"
   onclick="if(event.target===this)fermerNoteChantier()">
   <div style="background:#fff;border-radius:12px;padding:18px 18px 16px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,0.28);">
-    <h3 style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
+    <h3 id="note-modal-titre" style="margin:0 0 2px;font-size:1.05rem;color:#1e3a8a;">🗒 Note de chantier</h3>
     <div id="note-modal-sub" style="font-size:0.8rem;color:#6b7280;margin-bottom:10px;"></div>
+    <div id="note-modal-exclu-info" style="display:none;align-items:center;gap:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:0.84rem;">
+      <span style="flex:1;min-width:0;">⛔ Temps exclu du calcul — motif : <b id="note-modal-exclu-motif-txt"></b></span>
+      <button type="button" onclick="{ const _k=_noteCleCourante; fermerNoteChantier(); if(_k) ouvrirExclu(_k); }" style="flex:0 0 auto;border:1px solid #fca5a5;background:#fff;color:#991b1b;border-radius:6px;padding:4px 9px;font-size:0.78rem;font-weight:700;cursor:pointer;">Modifier</button>
+    </div>
+    <div id="note-modal-creation-champs" style="display:none;margin-bottom:12px;">
+      <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Heures prévues</label>
+      <select id="note-modal-heures" class="h" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:10px;"></select>
+      <label style="display:block;font-size:0.78rem;color:#6b7280;font-weight:600;margin-bottom:4px;">Horaire de RDV (optionnel)</label>
+      <input type="time" id="note-modal-rdv" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:#374151;margin-bottom:6px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="note-modal-exclu" onchange="toggleNoteModalExclu()" style="width:16px;height:16px;"> Exclure ce temps du calcul
+      </label>
+      <div id="note-modal-exclu-bloc" style="display:none;">
+        <select id="note-modal-exclu-motif" onchange="majNoteModalMotifAutre()" style="width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;margin-bottom:8px;"></select>
+        <input type="text" id="note-modal-exclu-autre" placeholder="Préciser le motif" style="display:none;width:100%;box-sizing:border-box;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font:inherit;">
+      </div>
+    </div>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) Coord.ouvrir(_n, function(){ if(typeof genererPlanning==='function') genererPlanning(); }); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">📍 Coordonnées du chantier (adresse &amp; téléphones)</button>
     <button type="button" onclick="{ const _n=_nomChantierCell(_noteCleCourante); if(_n) RenommerChantier.ouvrir(_n); else alert('Renseignez d\'abord un chantier dans la cellule.'); }" style="width:100%;box-sizing:border-box;padding:9px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font-size:0.86rem;background:#eef2f7;color:#475569;cursor:pointer;text-align:left;">✏️ Renommer le chantier (partout)</button>
     <div id="note-modal-docs" style="margin-bottom:12px;"></div>
@@ -2706,6 +3137,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </label>
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
         <input type="checkbox" id="note-modal-entretien-2ans" onchange="clToggleEntretienPeriode('2ans')" style="width:16px;height:16px;"> 2 ans
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="note-modal-entretien-autre" onchange="clToggleEntretienPeriode('autre')" style="width:16px;height:16px;"> Autre :
+        <input type="number" id="note-modal-entretien-mois" min="1" max="120" step="1" placeholder="6" oninput="clToggleEntretienPeriode('mois')"
+          style="width:54px;box-sizing:border-box;padding:2px 5px;border:1px solid #fcd34d;border-radius:5px;font:inherit;color:#78350f;"> mois
       </label>
     </div>
     <div id="note-modal-entr-com-bloc" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;margin-bottom:12px;">
@@ -2780,6 +3216,16 @@ document.addEventListener('DOMContentLoaded', () => {
 (function () {
   var _clAnalyse = null;
 
+  /* Clients autorisés à démarrer un chantier long à une date passée (fonctionnalité en test).
+     Pour l'ouvrir à tous : faire renvoyer true à clDatePasseeAutorisee(). */
+  var CLIENTS_DATE_PASSEE = ['TEST1-26', 'TEST2-26'];
+  function clDatePasseeAutorisee() {
+    var code = '';
+    try { code = localStorage.getItem('licenceCode') || ''; } catch (e) {}
+    code = String(code).replace(/\s+/g, '').toUpperCase();
+    return !!code && CLIENTS_DATE_PASSEE.indexOf(code) !== -1;
+  }
+
   function clAujISO() { var d = new Date(); return clISO(d); }
   function clISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function clFrDate(iso) {
@@ -2831,8 +3277,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cl-datalist-holder').innerHTML = genDatalistChantiers().replace('id="liste-chantiers-prev"', 'id="cl-liste-chantiers"');
     var auj = clAujISO();
     var du = document.getElementById('cl-du'), au = document.getElementById('cl-au');
-    du.min = auj; au.min = auj;
-    if (!du.value || du.value < auj) du.value = auj;
+    var passeOk = clDatePasseeAutorisee();
+    du.min = passeOk ? '' : auj; au.min = passeOk ? '' : auj;
+    if (!du.value || (!passeOk && du.value < auj)) du.value = auj;
     var cont = document.getElementById('cl-salaries');
     cont.innerHTML = salaries.map(function (s) {
       return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
@@ -2862,7 +3309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
 
     var auj = clAujISO();
-    var debut = du < auj ? auj : du;
+    var debut = (du < auj && !clDatePasseeAutorisee()) ? auj : du;
     var aRemplir = [], conflits = [], ignores = 0;
 
     salIds.forEach(function (sid) {
@@ -3089,8 +3536,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('al-motif').innerHTML = pl2MotifOptions('');
     var auj = alAujISO();
     var du = document.getElementById('al-du'), au = document.getElementById('al-au');
-    du.min = auj; au.min = auj;
-    if (!du.value || du.value < auj) du.value = auj;
+    if (!du.value) du.value = auj;
     var cont = document.getElementById('al-salaries');
     cont.innerHTML = salaries.map(function (s) {
       return '<label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;padding:3px 0;">' +
@@ -3119,8 +3565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (au < du) { alert('La date de fin doit être postérieure à la date de début.'); return; }
     if (!salIds.length) { alert('Sélectionne au moins un salarié.'); return; }
 
-    var auj = alAujISO();
-    var debut = du < auj ? auj : du;
+    var debut = du;
     var aPoser = [], conflits = [], ignores = 0;
 
     salIds.forEach(function (sid) {
@@ -3249,9 +3694,442 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 })();
 </script>
+<!-- ===== En-tête flottant : bandeau Semaine + jours restent visibles au défilement des salariés ===== -->
+<style>
+  #pl-float { position:fixed; z-index:999; display:none; pointer-events:none; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,.18); border-radius:0 0 10px 10px; }
+  #pl-float .wtitle { margin:0 !important; border-radius:0 !important; }
+  #pl-float .plf-x { overflow:hidden; }
+  #pl-float table.tgrid thead th { position:static; }
+  #pl-float table.tgrid thead th.tcorner { position:sticky; left:0; z-index:8; }
+  #pl-float.masquer-samedi .sam-col { display:none !important; }
+  @media print { #pl-float { display:none !important; } }
+</style>
+<script>
+(function(){
+  let flot=null, blocActif=null, theadSrc=null, rafEnCours=false;
+
+  function creerFlot(){
+    if (flot) return flot;
+    flot=document.createElement('div');
+    flot.id='pl-float'; flot.className='no-print';
+    document.body.appendChild(flot);
+    return flot;
+  }
+
+  // Bas des barres collées en haut de l'écran (barre fixe .top-bar avec outils + jauge, en-tête bleu, barre de menu)
+  function hautDispo(){
+    let h=0;
+    document.querySelectorAll('.top-bar, .main-header, .sh-topbar').forEach(el=>{
+      const cs=getComputedStyle(el);
+      if (cs.display==='none' || (cs.position!=='sticky' && cs.position!=='fixed')) return;
+      const r=el.getBoundingClientRect();
+      if (r.top<=1 && r.bottom>h) h=r.bottom;
+    });
+    return Math.round(h);
+  }
+
+  function construire(bloc){
+    const f=creerFlot();
+    const titre=bloc.querySelector('.wtitle');
+    const thead=bloc.querySelector('table.tgrid thead');
+    if (!thead) return false;
+    f.innerHTML='';
+    if (titre) f.appendChild(titre.cloneNode(true));
+    const x=document.createElement('div'); x.className='plf-x';
+    const t=document.createElement('table'); t.className='tgrid';
+    t.appendChild(thead.cloneNode(true));
+    x.appendChild(t); f.appendChild(x);
+    blocActif=bloc; theadSrc=thead;
+    return true;
+  }
+
+  function masquer(){ if (flot) flot.style.display='none'; }
+
+  function maj(){
+    rafEnCours=false;
+    const cont=document.getElementById('planning-wrapper');
+    if (!cont || cont.offsetParent===null) return masquer();
+    const top=hautDispo();
+    let cible=null;
+    for (const b of cont.querySelectorAll('.wblock')){
+      if (b.offsetParent===null) continue;           // semaine masquée (filtre)
+      const th=b.querySelector('table.tgrid thead');
+      if (!th) continue;
+      const rTh=th.getBoundingClientRect(), rB=b.getBoundingClientRect();
+      // l'en-tête d'origine est passé sous la barre du haut, et la semaine est encore à l'écran
+      if (rTh.top < top && rB.bottom > top + 110) { cible=b; }
+    }
+    if (!cible) return masquer();
+    const f=creerFlot();
+    if (cible!==blocActif || !theadSrc || !theadSrc.isConnected) { if(!construire(cible)) return masquer(); }
+    f.classList.toggle('masquer-samedi', cont.classList.contains('masquer-samedi'));
+    const wrap=cible.querySelector('.twrap');
+    const rW=(wrap||cible).getBoundingClientRect();
+    f.style.left=rW.left+'px';
+    f.style.width=rW.width+'px';
+    f.style.top=top+'px';
+    f.style.display='block';
+    const x=f.querySelector('.plf-x');
+    if (x && wrap) x.scrollLeft=wrap.scrollLeft;
+  }
+
+  function demander(){ if (!rafEnCours){ rafEnCours=true; requestAnimationFrame(maj); } }
+
+  window.addEventListener('scroll', demander, {passive:true});
+  window.addEventListener('resize', demander);
+  // défilement horizontal des semaines (capture : l'événement scroll ne remonte pas)
+  document.addEventListener('scroll', e=>{ if (e.target && e.target.classList && e.target.classList.contains('twrap')) demander(); }, true);
+  document.addEventListener('transitionend', demander);   // ouverture/fermeture du menu latéral
+  function observer(){
+    const cont=document.getElementById('planning-wrapper');
+    if (!cont) return;
+    new MutationObserver(()=>{ blocActif=null; demander(); }).observe(cont,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+    demander();
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', observer); else observer();
+  window.addEventListener('beforeprint', masquer);
+})();
+</script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/renommer-chantier.js"></script>
 <script src="assets/documents-chantier.js"></script>
+<style>
+  /* ── Mode « Planifier depuis Clients » ── */
+  #pln-bandeau{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9000;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    max-width:min(760px,94vw);background:#0f3a8a;color:#fff;border-bottom:3px solid #f59e0b;border-radius:12px;padding:10px 14px;
+    box-shadow:0 10px 32px rgba(0,0,0,.3);font-size:.86rem;line-height:1.35;}
+  #pln-bandeau b{color:#fcd34d;}
+  #pln-bandeau .pln-txt{flex:1 1 300px;min-width:0;}
+  #pln-bandeau button{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:.8rem;white-space:nowrap;}
+  #pln-bandeau button:hover{background:rgba(255,255,255,.25);}
+  table.tgrid tbody td.pln-cible{background:#fffbeb !important;box-shadow:inset 0 0 0 2px #f59e0b !important;}
+  table.tgrid thead th.pln-cible{background:#f59e0b !important;color:#fff !important;}
+  table.tgrid tbody td.pln-indispo .cellinner{opacity:.45;}
+  .tgrid .pln-affecter{display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #16a34a;background:#dcfce7;color:#166534;
+    border-radius:8px;font-size:.7rem;font-weight:800;padding:6px 4px;cursor:pointer;line-height:1.2;}
+  .tgrid .pln-affecter:hover{background:#16a34a;color:#fff;}
+  .tgrid .pln-affecter.complet{border-color:#f59e0b;background:#fef3c7;color:#92400e;}
+  .tgrid .pln-affecter.complet:hover{background:#f59e0b;color:#fff;}
+  @media print{ #pln-bandeau, .pln-affecter{display:none !important;} }
+</style>
+<script>
+/* ══════ PLANIFIER UNE INTERVENTION DEPUIS LA PAGE CLIENTS ══════
+   Arrivée par planning.html?planifier=<NOM CLIENT>&date=AAAA-MM-JJ
+   (bouton « 📅 Planifier » de clients.html, qui dépose aussi la fiche du client
+   Henrri dans sessionStorage 'planifierClient' pour les coordonnées).
+   1) le planning s'ouvre sur le mois et se cale sur la semaine de la date souhaitée
+      (colonne surlignée en ambre) ;
+   2) chaque case salarié × jour travaillable reçoit un bouton « 📌 Affecter »
+      (vert = temps libre ce jour-là, ambre = journée déjà pleine) ;
+   3) le clic crée le pavé du client dans cette case, reporte les coordonnées du
+      client dans la fiche du chantier si elle est vide, puis ouvre la fenêtre
+      « Nouveau chantier » (heures, RDV, note…) pour compléter.
+   Rien n'est enregistré tant qu'on n'a pas cliqué sur un bouton Affecter. */
+let _plnMode = null;   // { nom, date, client }
+
+(function plnLireDemande() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const nom = (p.get('planifier') || '').trim().toUpperCase();
+    const date = (p.get('date') || '').trim();
+    if (!nom || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    let client = null;
+    try {
+      const c = JSON.parse(sessionStorage.getItem('planifierClient') || 'null');
+      if (c && (c.nom || '').trim().toUpperCase() === nom) client = c;
+    } catch (_) {}
+    _plnMode = { nom, date, client };
+  } catch (_) { _plnMode = null; }
+})();
+
+function plnDateCible() { return _plnMode ? _plnMode.date : ''; }
+
+function _plnFmtDate(iso) {
+  const [a, m, j] = iso.split('-').map(Number);
+  const t = new Date(a, m - 1, j).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/* Temps encore libre pour un salarié un jour donné (contrat − absence − chantiers réels). */
+function _plnDispo(s, dateStr) {
+  const safe = dateStr.replace(/-/g, '_');
+  const contrat = contratDuJour(s, dateStr);
+  const abs = parseFloat((heures[s.id + safe + 'abs'] || {}).heures) || 0;
+  let occupe = 0, dejaLa = false;
+  for (let i = 1; i <= NB_SLOTS; i++) {
+    const e = heures[`${s.id}${safe}ch${i}`];
+    const n = (e && e.chantier || '').trim().toUpperCase();
+    if (!n || n === TNA) continue;
+    occupe += parseFloat(e.heures) || 0;
+    if (_plnMode && n === _plnMode.nom) dejaLa = true;
+  }
+  const travaille = contrat > 0 && abs < contrat;
+  const libre = Math.max(0, Math.round((contrat - abs - occupe) * 100) / 100);
+  return { travaille, libre, dejaLa };
+}
+
+function _plnBandeau() {
+  let b = document.getElementById('pln-bandeau');
+  if (!_plnMode) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'pln-bandeau';
+    b.className = 'no-print';
+    document.body.appendChild(b);
+  }
+  b.innerHTML = `<div class="pln-txt">📅 Planifier <b>${escapeHtml(_plnMode.nom)}</b> — date souhaitée : <b>${_plnFmtDate(_plnMode.date)}</b><br>`
+    + `Choisissez le jour et le technicien : bouton <b>📌 Affecter</b> dans la case voulue.</div>`
+    + `<button type="button" onclick="plnAllerCible()">↧ Revoir la semaine</button>`
+    + `<button type="button" onclick="plnAnnuler()">✕ Annuler</button>`;
+}
+
+/* Appelée à la fin de chaque genererPlanning(). */
+function plnDecorer() {
+  _plnBandeau();
+  if (!_plnMode) return;
+  const cont = document.getElementById('planning-wrapper');
+  if (!cont) return;
+  // Colonne de la date souhaitée surlignée
+  cont.querySelectorAll('td[data-date="' + _plnMode.date + '"]').forEach(td => {
+    td.classList.add('pln-cible');
+    const tr = td.parentElement, tbl = td.closest('table');
+    if (tr && tbl) {
+      const th = tbl.querySelectorAll('thead th')[Array.prototype.indexOf.call(tr.children, td)];
+      if (th) th.classList.add('pln-cible');
+    }
+  });
+  cont.querySelectorAll('td[data-salarie][data-date]').forEach(td => {
+    const dateStr = td.dataset.date;
+    if (estDatePassee(dateStr)) return;                 // jamais dans le passé
+    const s = salaries.find(x => String(x.id) === String(td.dataset.salarie));
+    if (!s) return;
+    const d = _plnDispo(s, dateStr);
+    if (!d.travaille) { td.classList.add('pln-indispo'); return; }   // repos, férié, école, absent
+    const inner = td.querySelector('.cellinner');
+    if (!inner) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pln-affecter no-print' + (d.libre > 0 ? '' : ' complet');
+    btn.textContent = d.libre > 0 ? '📌 Affecter · ' + pl2Fmt(d.libre) + ' libres' : '📌 Affecter · complet';
+    btn.title = (s.prenom || '') + ' ' + (s.nom || '') + ' — ' + _plnFmtDate(dateStr);
+    btn.onclick = () => plnAffecter(s.id, dateStr);
+    const foot = inner.querySelector('.cell-foot');
+    inner.insertBefore(btn, foot || null);
+  });
+}
+
+function plnAllerCible() {
+  const moisEl = document.getElementById('moisPlanning');
+  if (_plnMode && moisEl && moisEl.value !== _plnMode.date.slice(0, 7)) {
+    moisEl.value = _plnMode.date.slice(0, 7);
+    chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
+  } else if (moisEl) {
+    defilerVersAujourdhui(moisEl.value);
+  }
+}
+
+function _plnQuitter() {
+  _plnMode = null;
+  try { sessionStorage.removeItem('planifierClient'); } catch (_) {}
+  try { history.replaceState(null, '', location.pathname); } catch (_) {}   // un rechargement ne relance pas la planification
+  _plnBandeau();
+}
+
+function plnAnnuler() {
+  _plnQuitter();
+  genererPlanning(false);
+}
+
+async function plnAffecter(salarieId, dateStr) {
+  if (!_plnMode) return;
+  const nom = _plnMode.nom, client = _plnMode.client;
+  const s = salaries.find(x => String(x.id) === String(salarieId));
+  if (!s) { alert('Salarié introuvable.'); return; }
+  const safe = dateStr.replace(/-/g, '_');
+  const d = _plnDispo(s, dateStr);
+  const qui = ((s.prenom || '') + ' ' + (s.nom || '')).trim();
+
+  const avert = [];
+  if (d.dejaLa) avert.push('ℹ️ ' + nom + ' est déjà planifié pour ' + qui + ' ce jour-là.');
+  if (d.libre <= 0) avert.push('⚠️ La journée de ' + qui + ' est déjà pleine.');
+  const msg = (avert.length ? avert.join('\n') + '\n\n' : '')
+    + 'Affecter ' + nom + ' à ' + qui + '\nle ' + _plnFmtDate(dateStr) + ' ?';
+  if (!confirm(msg)) return;
+
+  // 1er créneau libre (vide ou « temps non affecté », recalculé juste après)
+  let k = null;
+  for (let i = 1; i <= NB_SLOTS; i++) {
+    const kk = `${salarieId}${safe}ch${i}`;
+    const n = String(heures[kk] && heures[kk].chantier || '').trim().toUpperCase();
+    if (!n || n === TNA) { k = kk; break; }
+  }
+  if (!k) { alert('⛔ La journée de ' + qui + ' est pleine (' + NB_SLOTS + ' chantiers). Libérez un créneau.'); return; }
+
+  heures[k] = { chantier: nom, heures: d.libre > 0 ? d.libre : 0 };   // par défaut : tout le temps encore libre
+  localStorage.setItem('heuresdata', JSON.stringify(heures));
+  _hpConfirmes.add(nom);   // intervention client : pas de question « hors prévisionnel »
+  if (_eligibleTNA(s, dateStr)) appliquerTempsNonAffecte(salarieId, dateStr);
+  if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde();
+
+  // Coordonnées du client reportées dans la fiche du chantier (si elle est encore vide)
+  let coordPromise = null;
+  if (typeof Coord !== 'undefined' && typeof Coord.definirDepuisHenrri === 'function') {
+    coordPromise = Coord.definirDepuisHenrri(nom, client);
+  }
+
+  _plnQuitter();
+  genererPlanning(false);
+
+  // Cale la vue sur la case affectée puis ouvre la fenêtre « Nouveau chantier »
+  const td = document.querySelector('#planning-wrapper td[data-salarie="' + salarieId + '"][data-date="' + dateStr + '"]');
+  if (td) {
+    const topBar = document.querySelector('.top-bar');
+    const y = td.getBoundingClientRect().top + window.pageYOffset - ((topBar ? topBar.offsetHeight : 0) + 10);
+    window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+  }
+  ouvrirNoteChantier(k, true);
+
+  if (coordPromise) {
+    const r = await coordPromise;
+    if (r && r.statut === 'erreur-serveur') {
+      alert('⚠️ Les coordonnées du client ont été reportées sur ce poste, mais pas encore enregistrées sur le serveur (connexion ?).\n'
+          + 'Ouvrez « 📍 Coordonnées du chantier » et cliquez sur Enregistrer pour les sauvegarder.');
+    }
+  }
+}
+</script>
+<script>
+/* Le lien « Clients » du menu (base clients Henrri) ne s'affiche que si la
+   connexion Henrri est active — cohérent avec chantiers.html / index.html. */
+(function () {
+  function henrriToken() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken') || '';
+  }
+  async function majNavClients() {
+    const nav = document.getElementById('nav-link-clients');
+    if (!nav) return;
+    const token = henrriToken();
+    if (!token) { nav.style.display = 'none'; return; }
+    try {
+      const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      nav.style.display = (d.ok && d.actif) ? '' : 'none';
+    } catch (_) { nav.style.display = 'none'; }
+  }
+  window.addEventListener('DOMContentLoaded', majNavClients);
+  window.addEventListener('donnees-chargees', majNavClients);
+})();
+</script>
+
+
+<!-- ══ FENÊTRE « GRAPHIQUES ET SYNTHÈSE » : vignettes cliquables (Graphique, Synthèse, Frise) ══ -->
+<style>
+  #gx-overlay { position:fixed; inset:0; z-index:3000; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px; }
+  #gx-overlay.on { display:flex; }
+  #gx-overlay .gx-box { background:#fff; border-radius:14px; width:100%; max-width:1020px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  #gx-overlay .gx-h { background:#0f3a8a; color:#fff; padding:12px 18px; border-bottom:3px solid #f59e0b; display:flex; align-items:center; gap:10px; }
+  #gx-overlay .gx-h b { font-size:1rem; }
+  #gx-overlay .gx-h small { opacity:.8; font-size:.82rem; }
+  #gx-overlay .gx-x { margin-left:auto; background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer; opacity:.85; line-height:1; }
+  #gx-overlay .gx-x:hover { opacity:1; }
+  #gx-overlay .gx-b { padding:18px; display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+  #gx-overlay .gx-v { border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; cursor:pointer; background:#fff; text-align:left; padding:0; font:inherit; transition:border-color .15s, box-shadow .15s, transform .15s; }
+  #gx-overlay .gx-v:hover, #gx-overlay .gx-v:focus-visible { border-color:#f59e0b; box-shadow:0 6px 20px rgba(245,158,11,.25); transform:translateY(-2px); outline:none; }
+  #gx-overlay .gx-ap { height:160px; background:#f8fafc; border-bottom:1px solid #e2e8f0; position:relative; display:flex; align-items:center; justify-content:center; }
+  #gx-overlay .gx-ap svg { width:92%; height:88%; }
+  #gx-overlay .gx-loupe { position:absolute; right:8px; bottom:8px; background:#0f3a8a; color:#fff; font-size:.72rem; font-weight:700; padding:4px 8px; border-radius:6px; }
+  #gx-overlay .gx-t { padding:10px 12px 12px; }
+  #gx-overlay .gx-t b { font-size:.9rem; color:#0f3a8a; display:block; }
+  #gx-overlay .gx-t small { font-size:.78rem; color:#64748b; line-height:1.4; display:block; margin-top:3px; }
+  #gx-overlay .gx-new { display:inline-block; font-size:.66rem; font-weight:700; border-radius:999px; padding:1px 8px; margin-left:6px; vertical-align:2px; background:#fef3c7; color:#92400e; }
+  #gx-overlay .gx-f { padding:10px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; font-size:.78rem; color:#64748b; }
+  @media print { #gx-overlay { display:none !important; } }
+</style>
+<div id="gx-overlay" class="no-print" onclick="if(event.target===this)gxFermer()">
+  <div class="gx-box" role="dialog" aria-modal="true" aria-label="Graphiques et synthèse">
+    <div class="gx-h"><b>📊 Graphiques et synthèse</b><small id="gx-mois"></small>
+      <button type="button" class="gx-x" onclick="gxFermer()" aria-label="Fermer">✕</button></div>
+    <div class="gx-b">
+      <button type="button" class="gx-v" onclick="gxOuvrir('graphique')">
+        <div class="gx-ap">
+          <svg viewBox="0 0 260 130" aria-hidden="true">
+            <g fill="#334155"><rect x="14" y="30" width="9" height="88"/><rect x="40" y="48" width="9" height="70"/><rect x="66" y="34" width="9" height="84"/><rect x="92" y="34" width="9" height="84"/><rect x="118" y="80" width="9" height="38"/><rect x="144" y="28" width="9" height="90"/><rect x="170" y="30" width="9" height="88"/><rect x="196" y="48" width="9" height="70"/><rect x="222" y="32" width="9" height="86"/></g>
+            <g fill="#2563eb"><rect x="24" y="98" width="9" height="20"/><rect x="50" y="98" width="9" height="20"/><rect x="76" y="98" width="9" height="20"/><rect x="102" y="98" width="9" height="20"/><rect x="128" y="108" width="9" height="10"/><rect x="154" y="98" width="9" height="20"/><rect x="180" y="98" width="9" height="20"/><rect x="206" y="98" width="9" height="20"/><rect x="232" y="98" width="9" height="20"/></g>
+            <polyline points="14,112 60,96 110,78 160,58 210,40 246,26" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="5 4"/>
+            <polyline points="14,116 80,110 150,104 246,96" fill="none" stroke="#2563eb" stroke-width="2"/>
+            <line x1="8" y1="119" x2="252" y2="119" stroke="#94a3b8"/>
+          </svg>
+          <span class="gx-loupe">🔍 Agrandir</span>
+        </div>
+        <div class="gx-t"><b>Graphique</b><small>Heures contrat / planifiées par jour et cumuls du mois, avec écart et taux de planification.</small></div>
+      </button>
+      <button type="button" class="gx-v" onclick="gxOuvrir('synthese')">
+        <div class="gx-ap">
+          <svg viewBox="0 0 260 130" aria-hidden="true">
+            <text x="8" y="14" font-size="9" font-weight="700" fill="#0f3a8a">Semaine</text>
+            <line x1="56" y1="17" x2="252" y2="17" stroke="#0f3a8a" stroke-width="1.5"/>
+            <g font-size="8" fill="#334155"><text x="8" y="36">Salarié 1</text><text x="8" y="60">Salarié 2</text><text x="8" y="84">Salarié 3</text><text x="8" y="108">Salarié 4</text></g>
+            <g fill="#d9dde3"><rect x="58" y="26" width="34" height="14" rx="2"/><rect x="96" y="26" width="34" height="14" rx="2"/><rect x="134" y="26" width="34" height="14" rx="2"/><rect x="172" y="26" width="34" height="14" rx="2"/><rect x="210" y="26" width="34" height="14" rx="2"/></g>
+            <g fill="#E24B4A"><rect x="58" y="50" width="34" height="14" rx="2"/><rect x="96" y="50" width="34" height="14" rx="2"/><rect x="58" y="74" width="34" height="14" rx="2"/><rect x="96" y="74" width="34" height="14" rx="2"/><rect x="134" y="74" width="34" height="14" rx="2"/><rect x="172" y="98" width="34" height="14" rx="2"/><rect x="210" y="98" width="34" height="14" rx="2"/></g>
+            <g fill="#1D9E75"><rect x="134" y="50" width="34" height="14" rx="2"/><rect x="172" y="50" width="34" height="14" rx="2"/><rect x="210" y="50" width="34" height="14" rx="2"/><rect x="172" y="74" width="34" height="14" rx="2"/><rect x="210" y="74" width="34" height="14" rx="2"/><rect x="58" y="98" width="34" height="14" rx="2"/><rect x="96" y="98" width="34" height="14" rx="2"/><rect x="134" y="98" width="34" height="14" rx="2"/></g>
+          </svg>
+          <span class="gx-loupe">🔍 Agrandir</span>
+        </div>
+        <div class="gx-t"><b>Synthèse</b><small>État de planification de chaque salarié, jour par jour, et heures restant à planifier.</small></div>
+      </button>
+      <button type="button" class="gx-v" onclick="gxOuvrir('frise')">
+        <div class="gx-ap">
+          <svg viewBox="0 0 260 130" aria-hidden="true">
+            <rect x="56" y="8" width="196" height="9" fill="#0f3a8a"/>
+            <g font-size="8" fill="#0f3a8a" font-weight="700"><text x="6" y="36">Salarié 1</text><text x="6" y="64">Salarié 2</text><text x="6" y="92">Salarié 3</text><text x="6" y="120">Salarié 4</text></g>
+            <rect x="56" y="26" width="30" height="14" fill="#9333ea"/><rect x="86" y="26" width="70" height="14" fill="#c2410c"/><rect x="156" y="26" width="46" height="14" fill="#fde68a"/><rect x="202" y="26" width="24" height="14" fill="#db2777"/><rect x="226" y="26" width="26" height="14" fill="#0891b2"/>
+            <rect x="56" y="54" width="104" height="14" fill="#a21caf"/><rect x="160" y="54" width="10" height="14" fill="#fff" stroke="#94a3b8" stroke-dasharray="2 2"/><rect x="170" y="54" width="82" height="14" fill="#4f46e5"/>
+            <rect x="56" y="82" width="150" height="14" fill="#c2410c"/><rect x="206" y="82" width="22" height="14" fill="#0891b2"/><rect x="228" y="82" width="24" height="14" fill="#ca8a04"/>
+            <rect x="56" y="110" width="20" height="14" fill="#0f766e"/><rect x="76" y="110" width="16" height="14" fill="#fff" stroke="#94a3b8" stroke-dasharray="2 2"/><rect x="92" y="110" width="58" height="14" fill="#0f766e"/><rect x="150" y="110" width="14" height="14" fill="#e2e8f0"/><rect x="164" y="110" width="88" height="14" fill="#0f766e"/>
+          </svg>
+          <span class="gx-loupe">🔍 Agrandir</span>
+        </div>
+        <div class="gx-t"><b>Frise des chantiers <span class="gx-new">nouveau</span></b><small>Succession des chantiers de chaque salarié, jour après jour, en continu. Détail au survol.</small></div>
+      </button>
+    </div>
+    <div class="gx-f">Cliquez sur une vignette pour l'ouvrir en grand. La frise s'ouvre sur le mois affiché dans le planning.</div>
+  </div>
+</div>
+<script>
+/* Fenêtre « Graphiques et synthèse » : remplace les deux boutons séparés
+   « Graphiques » et « Synthèse » du planning prévu. Chaque vignette ouvre
+   la vue correspondante en grand (pages existantes inchangées ; la frise
+   reçoit le mois affiché via ?mois=AAAA-MM). */
+function gxMoisAffiche() {
+  const el = document.getElementById('moisPlanning');
+  const v = el && el.value ? el.value : '';
+  return /^\d{4}-\d{2}$/.test(v) ? v : '';
+}
+function gxOuvrirFenetre() {
+  const m = gxMoisAffiche();
+  const lib = document.getElementById('gx-mois');
+  if (lib) {
+    if (m) {
+      const [a, mo] = m.split('-').map(Number);
+      const t = new Date(a, mo - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      lib.textContent = '— ' + t.charAt(0).toUpperCase() + t.slice(1);
+    } else lib.textContent = '';
+  }
+  document.getElementById('gx-overlay').classList.add('on');
+}
+function gxFermer() { document.getElementById('gx-overlay').classList.remove('on'); }
+function gxOuvrir(vue) {
+  const m = gxMoisAffiche();
+  if (vue === 'graphique') location.href = 'graphiques-prevu.html';
+  else if (vue === 'synthese') location.href = 'planning-synthese.html';
+  else location.href = 'frise-chantiers.html' + (m ? '?mois=' + m : '');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { const o = document.getElementById('gx-overlay'); if (o && o.classList.contains('on')) gxFermer(); }
+});
+</script>
+
 </body>
 </html>

@@ -505,6 +505,13 @@
     color: #3a2603 !important;
     font-weight: 700;
   }
+  /* Agenda du dirigeant : prend l'accent ambre de « Mon planning », masqué chez le gérant */
+  #ecran-saisie header #btn-agenda {
+    background: #f59e0b !important;
+    border-color: rgba(255,255,255,0.3) !important;
+    color: #3a2603 !important;
+    font-weight: 700;
+  }
   #ecran-saisie header #btn-vue-equipe {
     background: rgba(22,163,74,0.92) !important;
     border-color: rgba(255,255,255,0.28) !important;
@@ -607,6 +614,11 @@
     gap: 6px;
   }
   .chantier-nom.libre { color: #1e4fa8 !important; }
+  /* Cartes prévues : nom seul sur la 1re ligne, étiquettes regroupées sur une seule 2e ligne */
+  .chantier-nom.nom-seul { flex: 1 1 100%; }
+  .ligne-etiquettes { flex: 1 1 100%; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .ligne-etiquettes::-webkit-scrollbar { display: none; }
+  .ligne-etiquettes > * { flex: 0 0 auto; margin: 0 !important; }
 
   /* ── Étiquettes de la ligne de titre ──
      Ces classes remplacent les styles en ligne posés par le JS. */
@@ -630,6 +642,8 @@
     letter-spacing: 0;
   }
   .chip-etat.chip-note-planning { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+  /* Note du planning = consigne « À faire » : étiquette rouge, distincte du bouton Note du salarié */
+  .chip-etat.chip-note-planning.chip-afaire { background: #dc2626; color: #fff; border-color: #b91c1c; }
   .chip-etat.chip-rdv           { background: #dbeafe; color: #1e3a8a; }
   .chip-etat.chip-rdv-vide      { background: #eef2f7; color: #64748b; }
   .chip-etat.chip-rdv-lock      { background: #e5e7eb; color: #6b7280; cursor: default; }
@@ -681,6 +695,19 @@
     color: #475569 !important;
   }
   .chantier-card .chip-coord a { color: #0f3a8a !important; font-weight: 700 !important; }
+
+  /* ── Chantier ajouté sans adresse : proposition par la position GPS du téléphone ── */
+  .adr-gps { margin: 0 0 0.55rem; }
+  .adr-gps .btn-gps { width: 100%; border: 1px dashed #0f3a8a; background: #eef4fd; color: #0f3a8a; border-radius: 9px;
+    padding: 8px 10px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+  .adr-gps .gps-box { border: 1px solid #c7d7f5; background: #f8fbff; border-radius: 9px; padding: 8px 10px; font-size: 0.8rem; color: #334155; line-height: 1.45; }
+  .adr-gps .gps-adr { font-weight: 700; color: #0f172a; }
+  .adr-gps .gps-prec { font-size: 0.72rem; color: #64748b; }
+  .adr-gps .gps-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .adr-gps .gps-actions a, .adr-gps .gps-actions button { flex: 1 1 auto; text-align: center; text-decoration: none; border-radius: 8px;
+    padding: 7px 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #c7d7f5; background: #fff; color: #0f3a8a; }
+  .adr-gps .gps-actions .gps-ok { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .adr-gps .gps-err { color: #b45309; }
 
   /* ── Déplacement depuis le chantier précédent ── */
   .depl-row {
@@ -1333,6 +1360,10 @@
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;white-space:nowrap;">
           📅 Mon planning
         </button>
+        <button id="btn-agenda" onclick="window.location.href='agenda.html'"
+          style="border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;white-space:nowrap;">
+          📅 Agenda
+        </button>
         <button id="btn-vue-equipe" onclick="window.location.href='planning-equipe.html'"
           style="background:#16a34a;border:1px solid rgba(255,255,255,0.5);color:#fff;
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;display:none;white-space:nowrap;">
@@ -1343,7 +1374,7 @@
                  border-radius:6px;padding:4px 9px;font-size:0.9rem;cursor:pointer;line-height:1;">
           🔔
         </button>
-        <button onclick="seDeconnecter()"
+        <button id="btn-deconnexion" onclick="seDeconnecter()"
           style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;
                  border-radius:6px;padding:4px 10px;font-size:0.78rem;cursor:pointer;">
           ⏻ Déconnexion
@@ -1533,11 +1564,82 @@
 ═══════════════════════════ */
 let _salarie    = null; // { id, nom, pin }
 let _chantiersP = [];   // chantiers prévisionnels
-let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) }
+let _notesPlanning = {}; // { nomChantier: note saisie dans le planning (lecture seule) — jour + générale }
+let _notesJourPlanning = {}; // { nomChantier: note « pour cette journée » seule (heures[k].note) }
+/* Assemble la note du jour et la note générale du chantier : les deux sont affichées,
+   la note du jour en premier (consigne propre à l'intervention). */
+function _composerNote(jour, generale) {
+  const j = String(jour || '').trim();
+  const g = String(generale || '').trim();
+  if (j && g) return '📅 Pour cette journée :\n' + j + '\n\n📋 Note du chantier :\n' + g;
+  return j || g;
+}
+let _docsPlanning = {};  // { nomChantier: nombre de documents (PDF) joints au chantier }
 let _rdvPlanning = {};   // { nomChantier: { rdv:"HH:MM", auteur:"gerant"|"admin" } }
 let _rdvMobileNom = null;
 let _chantiersA = [];   // chantiers ajoutés
 let _saisiesPrev= {};   // { nomChantier: { arrivee, depart } }
+
+/* ════════════ PERSISTANCE LOCALE DE LA JOURNÉE EN COURS ════════════
+   CORRECTIF « données perdues après coupure réseau » : l'état de la journée
+   (_saisiesPrev / _chantiersA : arrivée, départ, déplacement, pause, note)
+   ne vivait QU'EN MÉMOIRE. Hors réseau, seule l'arrivée partait dans la file
+   d'attente ; le départ, le déplacement et la note n'existaient que dans la
+   page. Dès que le téléphone fermait l'appli en arrière-plan (veille, appel,
+   changement d'appli) ou qu'elle était rouverte, tout était perdu — alors que
+   le bandeau annonçait les saisies « enregistrées sur le téléphone ».
+   Désormais l'état est recopié dans localStorage à chaque modification
+   (clé par code employé + salarié + date) et relu à l'ouverture.
+   _jourRestaure empêche d'écraser la copie d'une date avant qu'elle ait été
+   relue (changement de date, connexion en cours). */
+let _jourRestaure = null;
+function _cleJourLocal(date) {
+  return 'saisie_jour_' + (localStorage.getItem('saisie_codeEmploye') || '') + '_'
+       + (_salarie && _salarie.id) + '_' + date;
+}
+function sauverJourLocal() {
+  if (!_salarie || typeof document === 'undefined' || !document) return;
+  const el = document.getElementById('date-saisie');
+  const date = el ? el.value : '';
+  if (!date || _jourRestaure !== date) return;
+  const cle = _cleJourLocal(date);
+  const etat = { v: 1, t: Date.now(), prev: _saisiesPrev, ajout: _chantiersA };
+  try { localStorage.setItem(cle, JSON.stringify(etat)); return; } catch (_) {}
+  // Quota dépassé (photos volumineuses) : on garde au moins les heures, sans les photos.
+  try {
+    const sansPhotos = o => { const c = { ...o }; delete c.photos; return c; };
+    const prev = {}; Object.keys(_saisiesPrev).forEach(k => { prev[k] = sansPhotos(_saisiesPrev[k] || {}); });
+    localStorage.setItem(cle, JSON.stringify({ v: 1, t: Date.now(), prev, ajout: _chantiersA.map(sansPhotos), sansPhotos: true }));
+  } catch (_) {}
+}
+function lireJourLocal(date) {
+  try { return JSON.parse(localStorage.getItem(_cleJourLocal(date)) || 'null'); } catch (_) { return null; }
+}
+/* Purge des copies de plus de 10 jours (évite d'encombrer le stockage). */
+function purgerJoursLocaux() {
+  try {
+    const limite = Date.now() - 10 * 86400000;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf('saisie_jour_') !== 0) continue;
+      let t = 0; try { t = (JSON.parse(localStorage.getItem(k)) || {}).t || 0; } catch (_) {}
+      if (t < limite) localStorage.removeItem(k);
+    }
+  } catch (_) {}
+}
+function _aDesDonnees(o) {
+  return !!(o && (o.arrivee || o.depart || (o.depl || 0) > 0 || (o.pause || 0) > 0 || o.note || (o.photos && o.photos.length)));
+}
+/* fetch avec délai maximum : sur un réseau « fantôme » (barres affichées mais rien
+   ne passe), un fetch peut rester pendu de longues secondes et bloquer l'écran. */
+function _fetchDelai(url, opts, ms) {
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const t = ctrl ? setTimeout(() => ctrl.abort(), ms || 8000) : null;
+  return fetch(url, { ...(opts || {}), ...(ctrl ? { signal: ctrl.signal } : {}) })
+    .finally(() => { if (t) clearTimeout(t); });
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sauverJourLocal(); });
+window.addEventListener('pagehide', sauverJourLocal);
 let _pauseJour  = 0;    // pause déjeuner hors chantier, en minutes (0 = aucune)
 let _deplJournee = 0;  // Déplacement global de la journée
 let _selModal   = null; // chantier sélectionné dans la modal
@@ -1554,6 +1656,8 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('date-saisie').addEventListener('change', async function() {
     majDateAffichee(this.value);
     // Réinitialiser les saisies du chantier précédent : on change de jour
+    // (la journée quittée est déjà sauvegardée localement à chaque modification)
+    _jourRestaure = null;
     _saisiesPrev = {};
     _chantiersA  = [];
     await rafraichirDonneesServeur();
@@ -1579,7 +1683,7 @@ window.addEventListener('DOMContentLoaded', () => {
       // sur sa session (les salariés sont fusionnés, les autres clés conservées).
       ['saisie_salarie', 'saisie_clientId', 'salariesdata', 'notesChantiersdata',
        'previsionnel_data', 'heuresdata', 'ordreMobiledata',
-       'syncMarquePartenaire', 'syncLogoPartenaire'].forEach(k => localStorage.removeItem(k));
+       'syncMarquePartenaire', 'syncLogoPartenaire', 'agendaDirigeant'].forEach(k => localStorage.removeItem(k));
     }
     localStorage.setItem('saisie_codeEmploye', codeU);
     // Nettoyer l'URL pour ne pas laisser le code visible dans l'historique navigateur
@@ -1646,6 +1750,7 @@ async function reconnecterAuto(codeEmploye) {
       if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
       if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+      localStorage.setItem('agendaDirigeant', d.agendaDirigeant ? '1' : '0');
       localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
       if (d.logoPartenaire) localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
       else localStorage.removeItem('syncLogoPartenaire');
@@ -1736,6 +1841,7 @@ async function validerCodeEntreprise() {
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+    localStorage.setItem('agendaDirigeant', d.agendaDirigeant ? '1' : '0');
     localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
     if (d.logoPartenaire) localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
     else localStorage.removeItem('syncLogoPartenaire');
@@ -1813,6 +1919,7 @@ async function rafraichirDonneesServeur() {
     if (d.previsionnel) localStorage.setItem('previsionnel_data', JSON.stringify(d.previsionnel));
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
+    localStorage.setItem('agendaDirigeant', d.agendaDirigeant ? '1' : '0');
   } catch (_) {
     // Hors ligne : on garde les données locales, pas grave
   }
@@ -1926,6 +2033,21 @@ function majAccesGerant() {
   const btnMon = document.getElementById('btn-mon-planning');
   if (btnMon) btnMon.style.display = estGerant ? 'none' : '';
   if (window.chargerDelaiNotif) window.chargerDelaiNotif(estGerant);
+  majAgendaGerant(estGerant);
+}
+
+/* ── Agenda du dirigeant : bouton « Agenda » dans le bandeau.
+   Visible seulement pour le gérant ET si l'option est cochée sur la page
+   Entreprise (drapeau renvoyé par /connect). Le bandeau gagne de la place :
+   « Vue équipe » devient « Équipe » et Déconnexion se réduit à son icône. ── */
+function majAgendaGerant(estGerant) {
+  const actif = !!estGerant && localStorage.getItem('agendaDirigeant') === '1';
+  const btn = document.getElementById('btn-agenda');
+  if (btn) btn.style.display = actif ? '' : 'none';
+  const eq = document.getElementById('btn-vue-equipe');
+  if (eq) eq.textContent = actif ? '👁 Équipe' : '👁 Vue équipe';
+  const deco = document.getElementById('btn-deconnexion');
+  if (deco) { deco.textContent = actif ? '⏻' : '⏻ Déconnexion'; deco.title = 'Déconnexion'; deco.setAttribute('aria-label', 'Déconnexion'); }
 }
 
 /* Classe les chantiers porteurs d'une heure de RDV du plus tôt au plus tard,
@@ -1948,6 +2070,8 @@ async function chargerChantiersPrev() {
   majAccesGerant();
   const date = document.getElementById('date-saisie').value;
   if (!date) return;
+  _jourRestaure = null;   // pas de sauvegarde tant que la journée n'est pas relue
+  purgerJoursLocaux();
 
   // Chercher les chantiers du salarié ce jour dans le planning (heuresdata)
   // Format des clés (cf. planning.html) : `${salarieId}${YYYY_MM_DD}ch${1..5}`
@@ -1957,50 +2081,116 @@ async function chargerChantiersPrev() {
 
   _chantiersP = [];
   _notesPlanning = {};
+  _notesJourPlanning = {};
   _rdvPlanning = {};
   // On RÉINITIALISE pas _saisiesPrev / _chantiersA ici : ils sont remis à zéro
   // au changement de date / déconnexion. Au premier appel après login, ils sont vides.
 
   // On ne retient QUE les chantiers planifiés pour CE salarié à CETTE date.
-  const chantiersTrouves = new Map();
+  // Parcours ORDONNÉ des créneaux ch1..ch60 (même ordre que planning.html, NB_SLOTS = 60) :
+  // c'est ce parcours dans l'ordre du planning — et non l'itération sur les clés de
+  // l'objet « heures », dont l'ordre n'est pas garanti — qui permet de repérer
+  // correctement plusieurs passages sur un même chantier dans la journée (ex : chantier A
+  // le matin, chantier B, puis chantier A à nouveau l'après-midi) et de les numéroter
+  // (occurrence 1, 2…) au lieu de les fusionner en une seule entrée.
+  const NB_SLOTS_SAISIE = 60; // miroir de NB_SLOTS (planning.html)
   const prefixe = String(salarieId) + dateKey;
-  for (const k in heures) {
-    if (!k.startsWith(prefixe)) continue;
-    if (k.endsWith('abs')) continue;
+  const chantiersTrouves = [];   // liste ordonnée { nom, hPrevues, occ, cle }
+  const _occCompteur = {};       // nom -> nombre de passages déjà vus ce jour
+  for (let _i = 1; _i <= NB_SLOTS_SAISIE; _i++) {
+    const k = prefixe + 'ch' + _i;
+    if (!(k in heures)) continue;
     const entry = heures[k];
     const nomChantier = (entry?.chantier || '').trim();
     if (!nomChantier || nomChantier.toLowerCase() === 'absence') continue;
     if (nomChantier.toUpperCase() === 'TEMPS NON AFFECTE' && !_estGerantOuAdmin()) continue;
-    if (!chantiersTrouves.has(nomChantier)) {
-      const h = parseFloat(entry?.heures) || 0;
-      chantiersTrouves.set(nomChantier, h);
-    }
-    // Note saisie dans le planning (première non vide rencontrée pour ce chantier)
+    const occ = (_occCompteur[nomChantier] = (_occCompteur[nomChantier] || 0) + 1);
+    // Clé interne unique par passage : le nom seul pour le 1er passage (comportement
+    // inchangé dans l'immense majorité des cas), suffixée sinon pour ne jamais écraser
+    // le passage précédent du même chantier.
+    const cle = occ === 1 ? nomChantier : (nomChantier + '__occ' + occ);
+    const h = parseFloat(entry?.heures) || 0;
+    chantiersTrouves.push({ nom: nomChantier, hPrevues: h, occ, cle });
+    // Note saisie dans le planning (première non vide rencontrée pour ce chantier, tous passages confondus)
+    // Note « pour cette journée » : toutes les notes distinctes des passages du jour, cumulées.
     const noteP = (entry?.note || '').trim();
-    if (noteP && !_notesPlanning[nomChantier]) _notesPlanning[nomChantier] = noteP;
+    if (noteP) {
+      const _deja = (_notesJourPlanning[nomChantier] || '');
+      if (!_deja.split('\n').includes(noteP)) _notesJourPlanning[nomChantier] = _deja ? (_deja + '\n' + noteP) : noteP;
+    }
     // Heure de RDV saisie dans le planning (première non vide rencontrée)
     const rdvP = (entry?.rdv || '').trim();
     if (rdvP && !_rdvPlanning[nomChantier]) _rdvPlanning[nomChantier] = { rdv: rdvP, auteur: entry?.rdvAuteur || 'gerant', delai: (entry?.rdvDelai != null ? entry.rdvDelai : undefined) };
   }
-  // Note générale du chantier (unifiée) — prioritaire, lue depuis le journal
-  try {
-    const _ng = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}');
-    for (const nom of chantiersTrouves.keys()) {
-      const g = _ng[nom.toUpperCase()];
-      if (g) _notesPlanning[nom] = g;
+  // Note affichée = note du JOUR + note GÉNÉRALE du chantier, les deux (comme sur le
+  // planning PC). Avant : la note générale remplaçait la note du jour, qui disparaissait.
+  {
+    let _ng = {};
+    try { _ng = JSON.parse(localStorage.getItem('notesChantiersdata') || '{}') || {}; } catch (_) {}
+    const _nomsVus = new Set(chantiersTrouves.map(c => c.nom));
+    for (const nom of _nomsVus) {
+      const t = _composerNote(_notesJourPlanning[nom], _ng[nom.toUpperCase()]);
+      if (t) _notesPlanning[nom] = t;
     }
-  } catch (_) {}
+  }
 
-  _chantiersP = [...chantiersTrouves.entries()].map(([nom, h]) => ({ nom, hPrevues: h }));
+  _chantiersP = chantiersTrouves.map(c => ({ nom: c.nom, hPrevues: c.hPrevues, occ: c.occ, cle: c.cle }));
 
   // Proposer l'heure actuelle comme heure d'arrivée, SANS la valider :
   // le salarié doit activer lui-même la bascule (process voulu).
   const now = new Date();
   const heureNow = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   _chantiersP.forEach(ch => {
-    if (!_saisiesPrev[ch.nom]) {
-      _saisiesPrev[ch.nom] = { arrivee: '', arriveePropose: heureNow, depart: '', depl: 0 };
+    if (!_saisiesPrev[ch.cle]) {
+      _saisiesPrev[ch.cle] = { nom: ch.nom, occurrence: ch.occ, arrivee: '', arriveePropose: heureNow, depart: '', depl: 0 };
+    } else {
+      // Entrée déjà existante (retour sur l'écran) : on complète nom/occurrence si absents.
+      if (_saisiesPrev[ch.cle].nom == null) _saisiesPrev[ch.cle].nom = ch.nom;
+      if (_saisiesPrev[ch.cle].occurrence == null) _saisiesPrev[ch.cle].occurrence = ch.occ;
     }
+  });
+
+  // ── RESTAURATION DE LA COPIE LOCALE (saisies faites sur ce téléphone) ──
+  // Relue AVANT le serveur : c'est elle qui détient ce qui n'a pas encore pu partir
+  // (hors réseau) ou ce qui ne part qu'à « Envoyer ce chantier » (départ, déplacement…).
+  const _snap = lireJourLocal(date);
+  if (_snap) {
+    const sp = _snap.prev || {};
+    Object.keys(sp).forEach(cle => {
+      const loc = sp[cle];
+      if (!_aDesDonnees(loc)) return;
+      const cur = _saisiesPrev[cle];
+      if (_chantiersP.some(p => p.cle === cle)) {
+        if (!_aDesDonnees(cur)) _saisiesPrev[cle] = { ...(cur || {}), ...loc };
+      } else {
+        // Chantier retiré du planning entre-temps : on ne perd pas la saisie,
+        // elle réapparaît parmi les chantiers ajoutés.
+        const nom = loc.nom || cle.replace(/__occ\d+$/, '');
+        const occ = loc.occurrence || 1;
+        if (!_chantiersA.some(a => a.nom === nom && (a.occ || 1) === occ))
+          _chantiersA.push({ ...loc, nom, occ });
+      }
+    });
+    if (!_chantiersA.some(_aDesDonnees) && Array.isArray(_snap.ajout)) {
+      _snap.ajout.forEach(a => {
+        if (a && a.nom && !_chantiersA.some(x => x.nom === a.nom && (x.occ || 1) === (a.occ || 1))) _chantiersA.push(a);
+      });
+    }
+  }
+  // Envois encore en file d'attente pour ce jour → le serveur est forcément en retard.
+  const _fileEnAttente = (typeof window.outboxPourJour === 'function') && window.outboxPourJour(date, salarieId) > 0;
+  // Règle de fusion : tant qu'un chantier n'a pas été finalisé (« Envoyer ce chantier »)
+  // ou qu'un envoi est en attente, la saisie du téléphone PRIME champ par champ ;
+  // une fois finalisé, le serveur fait foi (corrections éventuelles du gérant).
+  const _localPrime = loc => !!loc && _aDesDonnees(loc) && (_fileEnAttente || !(loc.envoye || loc.dejaEnvoye));
+  const _fusion = (loc, c) => ({
+    arrivee: loc.arrivee || c.heureArrivee || '',
+    depart:  loc.depart  || c.heureDepart  || '',
+    depl:    (loc.depl || 0) > 0 ? loc.depl : (c.deplacement || 0),
+    pause:   (loc.pauseValidee || (loc.pause || 0) > 0) ? (loc.pause || 0) : (c.pause || 0),
+    pauseValidee: !!loc.pauseValidee || (c.pause || 0) > 0,
+    note:    loc.note || c.note || '',
+    photos:  (loc.photos && loc.photos.length) ? loc.photos : (Array.isArray(c.photos) ? c.photos : [])
   });
 
   // ── RESTAURATION DES SAISIES DÉJÀ ENVOYÉES POUR CE JOUR ──
@@ -2009,7 +2199,7 @@ async function chargerChantiersPrev() {
   try {
     const codeEmploye = localStorage.getItem('saisie_codeEmploye');
     if (codeEmploye && salarieId) {
-      const r = await fetch('/api/saisies/mobile-day', {
+      const r = await _fetchDelai('/api/saisies/mobile-day', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codeEmploye, salarieId, date })
@@ -2020,11 +2210,21 @@ async function chargerChantiersPrev() {
         d.saisie.chantiers.forEach(c => {
           const nom = (c.nom || '').trim();
           if (!nom) return;
-          // Trouver si ce chantier est dans le planning ou pas
-          const estPlanifie = _chantiersP.some(p => p.nom === nom);
-          if (estPlanifie) {
+          // Numéro de passage renvoyé par le serveur (1 par défaut, pour les saisies
+          // antérieures à l'ajout du suivi d'occurrence).
+          const occ = parseInt(c.occurrence, 10) || 1;
+          const cle = occ === 1 ? nom : (nom + '__occ' + occ);
+          // Trouver si CE passage précis (nom + occurrence) est dans le planning ou pas
+          const estPlanifie = _chantiersP.some(p => p.cle === cle);
+          const _locP = estPlanifie ? _saisiesPrev[cle] : null;
+          if (estPlanifie && _localPrime(_locP)) {
+            // Saisie du téléphone plus récente : on la garde, complétée par le serveur.
+            _saisiesPrev[cle] = { ..._locP, nom, occurrence: occ, ..._fusion(_locP, c), synchronise: true,
+                                  dejaEnvoye: !!(c.heureDepart) && !!_locP.dejaEnvoye };
+          } else if (estPlanifie) {
             // Préremplir la saisie prévue
-            _saisiesPrev[nom] = {
+            _saisiesPrev[cle] = {
+              nom, occurrence: occ,
               arrivee: c.heureArrivee || '',
               depart:  c.heureDepart  || '',
               depl:    c.deplacement  || 0,
@@ -2036,10 +2236,23 @@ async function chargerChantiersPrev() {
               dejaEnvoye: !!(c.heureDepart)
             };
           } else {
-            // Chantier ajouté librement précédemment : on l'ajoute aux chantiers libres
-            if (!_chantiersA.some(a => a.nom === nom)) {
+            // Chantier ajouté librement précédemment (ou passage non retrouvé dans le
+            // planning actuel) : on l'ajoute aux chantiers libres, avec son occurrence.
+            const _iA = _chantiersA.findIndex(a => a.nom === nom && (a.occ || 1) === occ);
+            if (_iA >= 0) {
+              const _locA = _chantiersA[_iA];
+              if (_localPrime(_locA)) {
+                _chantiersA[_iA] = { ..._locA, ..._fusion(_locA, c), synchronise: true };
+              } else {
+                _chantiersA[_iA] = { ..._locA,
+                  arrivee: c.heureArrivee || '', depart: c.heureDepart || '',
+                  depl: c.deplacement || 0, pause: c.pause || 0, pauseValidee: (c.pause || 0) > 0,
+                  note: c.note || '', photos: Array.isArray(c.photos) ? c.photos : [],
+                  synchronise: true, dejaEnvoye: !!(c.heureDepart) };
+              }
+            } else {
               _chantiersA.push({
-                nom,
+                nom, occ,
                 arrivee: c.heureArrivee || '',
                 depart:  c.heureDepart  || '',
                 depl:    c.deplacement  || 0,
@@ -2059,11 +2272,19 @@ async function chargerChantiersPrev() {
     // Hors ligne : on garde l'état local existant
   }
 
-  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne prévus ET ajoutés
+  // Ordre mobile fixé par le gérant (s'il existe) : on réordonne prévus ET ajoutés.
+  // L'ordre mémorisé est désormais une liste de clés (nom + numéro de passage, cf.
+  // chargement plus haut), pour distinguer deux passages du même chantier dans la
+  // journée au lieu de les confondre sur un seul rang.
   const _ord = _ordreMobilePour(salarieId, date);
   if (_ord) {
     const rang = {}; _ord.forEach((n, i) => { rang[n] = i; });
-    const parRang = (a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999));
+    const _cleDe = (nom, occ) => (((occ || 1) === 1) ? nom : (nom + '__occ' + (occ || 1)));
+    const parRang = (a, b) => {
+      const clA = a.cle != null ? a.cle : _cleDe(a.nom, a.occ);
+      const clB = b.cle != null ? b.cle : _cleDe(b.nom, b.occ);
+      return (rang[clA] != null ? rang[clA] : 999) - (rang[clB] != null ? rang[clB] : 999);
+    };
     _chantiersP.sort(parRang);
     _chantiersA.sort(parRang);
   }
@@ -2071,8 +2292,12 @@ async function chargerChantiersPrev() {
   // Chantiers porteurs d'un RDV : classés par heure croissante (les autres gardent leur place)
   trierChantiersParRdv(_chantiersP);
 
+  // Journée relue (copie locale + serveur) : les sauvegardes locales peuvent reprendre.
+  if (document.getElementById('date-saisie').value === date) _jourRestaure = date;
+
   document.getElementById('nb-prev').textContent = _chantiersP.length;
   chargerPauseJour();   // relit la pause déjeuner mémorisée pour ce jour
+  await chargerDocsPlanning();
   rendrePrev();
   rendreAjout();
   majTotal();
@@ -2088,7 +2313,7 @@ function afficherNotePopup(titre, texte) {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:18px;';
     ov.innerHTML =
         '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.3);">'
-      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 Note du planning</div>'
+      + '<div style="background:#0f3a8a;color:#fff;padding:12px 16px;border-radius:14px 14px 0 0;font-weight:700;">📋 À faire</div>'
       + '<div id="note-planning-nom" style="padding:10px 16px 0;color:#6b7280;font-size:0.85rem;font-weight:600;"></div>'
       + '<div id="note-planning-txt" style="padding:8px 16px 12px;white-space:pre-wrap;word-break:break-word;color:#111827;font-size:0.95rem;line-height:1.45;"></div>'
       + '<div id="note-planning-docs" style="padding:0 16px 12px;"></div>'
@@ -2112,10 +2337,33 @@ function afficherNotePopup(titre, texte) {
   }
   ov.style.display = 'flex';
 }
-function ouvrirNotePlanning(nom) {
+/* noteJour : note « pour cette journée » à afficher (Mon planning, autre date) ;
+   absente → celle du jour sélectionné sur l'écran de saisie. */
+function ouvrirNotePlanning(nom, noteJour) {
   let g = '';
   try { g = (JSON.parse(localStorage.getItem('notesChantiersdata') || '{}'))[nom.toUpperCase()] || ''; } catch (_) {}
-  afficherNotePopup(nom, g || _notesPlanning[nom] || '');
+  const j = (noteJour != null) ? noteJour : (_notesJourPlanning[nom] || '');
+  afficherNotePopup(nom, _composerNote(j, g));
+}
+
+/* Interroge, pour chaque chantier prévu du jour, le nombre de PDF joints (sans les
+   télécharger) — permet d'afficher un badge « 📎 Document » même en l'absence de
+   note texte, ce que le seul _notesPlanning ne permettait pas de détecter. */
+async function chargerDocsPlanning() {
+  _docsPlanning = {};
+  const ce  = localStorage.getItem('saisie_codeEmploye');
+  const sid = _salarie && _salarie.id;
+  if (!ce || !sid) return;
+  const noms = [...new Set(_chantiersP.map(c => c.nom))];
+  await Promise.all(noms.map(nom =>
+    _fetchDelai('/api/documents/liste', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: ce, salarieId: sid, chantier: nom })
+    }, 5000).then(r => r.json()).then(r => {
+      if (r && r.ok && Array.isArray(r.documents)) _docsPlanning[nom] = r.documents.length;
+    }).catch(() => {})
+  ));
 }
 
 /* ═══════════════════════════
@@ -2300,7 +2548,7 @@ function chipsJourMonPlanning(dateStr) {
   const safeDate = dateStr.replace(/-/g, '_');
   const salId = _salarie?.id;
   const planifies = [];
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 60; i++) {   // miroir de NB_SLOTS (planning.html) — auparavant limité à 5
     const dd = heures[`${salId}${safeDate}ch${i}`];
     if (!dd || !dd.chantier || !String(dd.chantier).trim()) continue;
     const _nomP = String(dd.chantier).trim();
@@ -2314,7 +2562,8 @@ function chipsJourMonPlanning(dateStr) {
     let etat = 'plan', hReal = 0, noteR = '';
     const idx = rs.findIndex((c, j) => !pris[j] && _mpNorm(c.nom) === _mpNorm(p.nom));
     if (idx >= 0) { pris[idx] = true; etat = _mpEtat(rs[idx]); hReal = (rs[idx].dureeMin || 0) / 60; noteR = (rs[idx].note || '').trim(); }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: _noteGen(p.nom) || p.note || noteR });
+    // Note du jour ET note générale (avant : la générale masquait la note du jour)
+    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, noteJour: p.note, note: _composerNote(p.note, _noteGen(p.nom)) || noteR });
   });
   rs.forEach((c, j) => {
     if (pris[j]) return;
@@ -2340,17 +2589,23 @@ function _mpHtmlChip(c) {
     ? `<div class="chip-notetxt">📝 ${_mpEsc(_noteAff)}</div>`
     : '';
   const coord = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
+  const nbDocs = _mpDocs[(c.nom || '').trim().toUpperCase()] || 0;
+  const docs = nbDocs > 0
+    ? `<button type="button" class="chip-etat chip-note-planning mp-docs" data-nom="${_mpEsc(c.nom)}" data-notejour="${_mpEsc(c.noteJour || '')}"style="align-self:flex-start;margin-top:6px;">📎 ${nbDocs} document${nbDocs > 1 ? 's' : ''}</button>`
+    : '';
   return `<div class="chip s-${c.etat}"><div class="cn">${icone}<span class="nm">${_mpEsc(c.nom)}</span>${tag}</div>`
-       + note + coord
+       + note + docs + coord
        + `<div class="chip-hrs"><span class="hp">h plan. : ${_mpFmtHM(c.hPlan)}</span><span class="hr${depasse}">h réal : ${_mpFmtHM(c.hReal)}</span></div></div>`;
 }
 
 async function ouvrirMonPlanning() {
   const base = document.getElementById('date-saisie').value || _ymd(new Date());
   _monPlanningLundi = _lundiDe(base);
+  _mpDocs = {};                        // documents relus à chaque ouverture (ajouts récents)
   rendreMonPlanning();                 // affichage immédiat (planifié)
   document.getElementById('mon-planning-overlay').style.display = 'flex';
   await chargerRealiseMonPlanning();    // puis enrichissement avec le réalisé
+  await chargerDocsMonPlanning();       // puis nombre de PDF joints par chantier
   rendreMonPlanning();
 }
 async function naviguerMonPlanning(deltaSemaines) {
@@ -2358,7 +2613,32 @@ async function naviguerMonPlanning(deltaSemaines) {
   _monPlanningLundi.setDate(_monPlanningLundi.getDate() + deltaSemaines * 7);
   rendreMonPlanning();
   await chargerRealiseMonPlanning();
+  await chargerDocsMonPlanning();
   rendreMonPlanning();
+}
+/* Documents joints (PDF) dans Mon planning : nombre de PDF par chantier de la
+   semaine affichée (métadonnées seulement, via /api/documents/liste). Cache par
+   nom de chantier en MAJUSCULES, vidé à chaque ouverture de Mon planning. */
+let _mpDocs = {};
+async function chargerDocsMonPlanning() {
+  const ce  = localStorage.getItem('saisie_codeEmploye');
+  const sid = _salarie && _salarie.id;
+  if (!ce || !sid || !_monPlanningLundi) return;
+  const noms = new Set();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(_monPlanningLundi); d.setDate(_monPlanningLundi.getDate() + i);
+    chipsJourMonPlanning(_ymd(d)).forEach(c => { const n = (c.nom || '').trim(); if (n) noms.add(n); });
+  }
+  const aCharger = [...noms].filter(n => !(n.toUpperCase() in _mpDocs));
+  await Promise.all(aCharger.map(nom =>
+    _fetchDelai('/api/documents/liste', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: ce, salarieId: sid, chantier: nom })
+    }, 5000).then(r => r.json()).then(r => {
+      if (r && r.ok && Array.isArray(r.documents)) _mpDocs[nom.toUpperCase()] = r.documents.length;
+    }).catch(() => {})
+  ));
 }
 function rendreMonPlanning() {
   let ov = document.getElementById('mon-planning-overlay');
@@ -2389,6 +2669,11 @@ function rendreMonPlanning() {
     ov.querySelector('#mon-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
     ov.querySelector('#mon-planning-prec').addEventListener('click', function () { naviguerMonPlanning(-1); });
     ov.querySelector('#mon-planning-suiv').addEventListener('click', function () { naviguerMonPlanning(1); });
+    // Bouton « 📎 N document(s) » d'un chantier → même fenêtre que sur l'écran de saisie
+    ov.querySelector('#mon-planning-corps').addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.mp-docs');
+      if (b) ouvrirNotePlanning(b.getAttribute('data-nom') || '', b.getAttribute('data-notejour') || '');
+    });
     // Swipe horizontal pour changer de semaine (mobile)
     (function () {
       var x0 = 0, y0 = 0, actif = false;
@@ -2409,7 +2694,7 @@ function rendreMonPlanning() {
   const lundi = _monPlanningLundi;
   const samedi = new Date(lundi); samedi.setDate(lundi.getDate() + 5);
   const ddmm = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
-  ov.querySelector('#mon-planning-semaine').textContent = 'Semaine du ' + ddmm(lundi) + ' au ' + ddmm(samedi);
+  ov.querySelector('#mon-planning-semaine').textContent = ddmm(lundi) + ' – ' + ddmm(samedi);
 
   const corps = ov.querySelector('#mon-planning-corps');
   corps.innerHTML = '';
@@ -2447,7 +2732,7 @@ function rendrePrev() {
     return;
   }
   const items = _chantiersP.map((ch, i) => {
-    const s     = _saisiesPrev[ch.nom] || { arrivee: '', depart: '', depl: 0 };
+    const s     = _saisiesPrev[ch.cle] || { nom: ch.nom, occurrence: ch.occ, arrivee: '', depart: '', depl: 0 };
     const nomId = 'prev_' + i;
     const duree = calcDuree(s.arrivee, s.depart, s.pause);
     const div   = document.createElement('div');
@@ -2460,16 +2745,23 @@ function rendrePrev() {
     const header = document.createElement('div');
     header.className = 'chantier-header';
     const nomEl = document.createElement('div');
-    nomEl.className = 'chantier-nom';
+    nomEl.className = 'chantier-nom nom-seul';
+    // Ligne 2 : toutes les étiquettes (À faire, RDV, Prévu, temps prévu) sur une seule ligne
+    const etiq = document.createElement('div');
+    etiq.className = 'ligne-etiquettes';
     nomEl.textContent = ch.nom;
-    if ((_notesPlanning[ch.nom] || '').trim()) {
+    const _texteNote = (_notesPlanning[ch.nom] || '').trim();
+    const _nbDocs    = _docsPlanning[ch.nom] || 0;
+    if (_texteNote || _nbDocs > 0) {
       const btnNP = document.createElement('button');
       btnNP.type = 'button';
-      btnNP.textContent = '📋 Note';
-      btnNP.title = 'Voir la note du planning';
-      btnNP.className = 'chip-etat chip-note-planning';
+      btnNP.textContent = _texteNote
+        ? ('📋 À faire' + (_nbDocs > 0 ? ' · 📎 ' + _nbDocs : ''))
+        : '📎 Document' + (_nbDocs > 1 ? 's' : '');
+      btnNP.title = _texteNote ? 'Voir ce qui est à faire sur ce chantier' : 'Voir les documents joints';
+      btnNP.className = 'chip-etat chip-note-planning' + (_texteNote ? ' chip-afaire' : '');
       btnNP.onclick = function () { ouvrirNotePlanning(ch.nom); };
-      nomEl.appendChild(btnNP);
+      etiq.appendChild(btnNP);
     }
     // Heure de RDV : lecture seule pour le salarié ; modifiable pour gérant/admin
     // (avec verrou 🔒 côté admin sur un RDV posé par le gérant).
@@ -2483,7 +2775,7 @@ function rendrePrev() {
         rdvEl.textContent = '🕐 ' + rdvVal;
         rdvEl.title = 'Heure de RDV';
         rdvEl.className = 'chip-etat chip-rdv-lecture';
-        nomEl.appendChild(rdvEl);
+        etiq.appendChild(rdvEl);
       }
     } else {
       const verrou = (role === 'admin' && rdvVal && rdvAut === 'gerant');
@@ -2506,7 +2798,7 @@ function rendrePrev() {
         el.className = 'chip-etat chip-rdv-vide';
         el.onclick = function () { ouvrirRdvMobile(ch.nom, ''); };
       }
-      nomEl.appendChild(el);
+      etiq.appendChild(el);
     }
     header.appendChild(nomEl);
     // Temps prévu, à droite du nom (1re ligne)
@@ -2523,8 +2815,9 @@ function rendrePrev() {
       badge.className = 'tag-prev';
       badge.textContent = 'Prévu';
     }
-    header.appendChild(badge);
-    header.appendChild(hPrevEl);   // temps prévu, à droite de l'étiquette « Prévu »
+    etiq.appendChild(badge);
+    etiq.appendChild(hPrevEl);     // temps prévu, à droite de l'étiquette « Prévu »
+    header.appendChild(etiq);
     div.appendChild(header);
     { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); } }
 
@@ -2533,9 +2826,9 @@ function rendrePrev() {
     deplRow.className = 'depl-row';
     deplRow.innerHTML = '<label>🚚 Déplacement depuis chantier précédent</label>'
       + '<div class="stepper">'
-      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="-5" onclick="majDeplData(this)">−</div>'
+      + '<div class="step-btn" data-type="prev" data-cle="' + ch.cle + '" data-delta="-5" onclick="majDeplData(this)">−</div>'
       + '<span class="step-val" id="depl-' + nomId + '">' + (s.depl || 0) + '</span>'
-      + '<div class="step-btn" data-type="prev" data-nom="' + ch.nom + '" data-delta="5" onclick="majDeplData(this)">+</div>'
+      + '<div class="step-btn" data-type="prev" data-cle="' + ch.cle + '" data-delta="5" onclick="majDeplData(this)">+</div>'
       + '<span class="step-unite">min</span>'
       + '</div>';
     div.appendChild(deplRow);
@@ -2555,7 +2848,7 @@ function rendrePrev() {
     const arrBtn = document.createElement('button');
     arrBtn.className = 'btn-valider-heure' + (s.arrivee ? ' valide' : '');
     arrBtn.textContent = '✔ OK';
-    arrBtn.dataset.nom = ch.nom;
+    arrBtn.dataset.cle = ch.cle;
     arrBtn.dataset.champ = 'arrivee';
     arrBtn.dataset.inputId = 'arr-' + nomId;
     arrBtn.onclick = function() { validerHeurePrevData(this); };
@@ -2576,8 +2869,8 @@ function rendrePrev() {
     }
     pauseRow.innerHTML =
         '<span class="heure-label pause-label">🍽️ Pause</span>'
-      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-nom="' + ch.nom + '"' + (s.pauseValidee ? ' disabled' : '') + '>' + optsP + '</select>'
-      + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-nom="' + ch.nom + '" onclick="validerPause(this)">✔ OK</button>';
+      + '<select class="heure-input pause-select" id="pause-' + nomId + '" onchange="majPauseSelect(this)" data-type="pause-prev" data-cle="' + ch.cle + '"' + (s.pauseValidee ? ' disabled' : '') + '>' + optsP + '</select>'
+      + '<button class="btn-valider-heure btn-valider-pause' + (s.pauseValidee ? ' valide' : '') + '" data-type="pause-prev" data-cle="' + ch.cle + '" onclick="validerPause(this)">✔ OK</button>';
     div.appendChild(pauseRow);
 
     // Ligne 4 : départ + OK
@@ -2604,7 +2897,7 @@ function rendrePrev() {
     const depBtn = document.createElement('button');
     depBtn.className = 'btn-valider-heure' + (s.depart ? ' valide' : '');
     depBtn.textContent = '✔ OK';
-    depBtn.dataset.nom = ch.nom;
+    depBtn.dataset.cle = ch.cle;
     depBtn.dataset.champ = 'depart';
     depBtn.dataset.inputId = 'dep-' + nomId;
     depBtn.onclick = function() { validerHeurePrevData(this); };
@@ -2633,12 +2926,12 @@ function rendrePrev() {
       const aNote = !!((s.note && s.note.trim()) || (s.photos && s.photos.length));
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
-      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.cle, this); };
       const bonBtn = document.createElement('button');
       bonBtn.className = 'btn-note';
       bonBtn.textContent = '📋 Bon';
       bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
-      bonBtn.onclick = function() { ouvrirBon('prev', ch.nom); };
+      bonBtn.onclick = function() { ouvrirBon('prev', ch.cle); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Enregistré';
@@ -2663,12 +2956,12 @@ function rendrePrev() {
       const aNote = !!((s.note && s.note.trim()) || (s.photos && s.photos.length));
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
-      noteBtn.onclick = function() { ouvrirNote('prev', ch.nom, this); };
+      noteBtn.onclick = function() { ouvrirNote('prev', ch.cle, this); };
       const bonBtn = document.createElement('button');
       bonBtn.className = 'btn-note';
       bonBtn.textContent = '📋 Bon';
       bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
-      bonBtn.onclick = function() { ouvrirBon('prev', ch.nom); };
+      bonBtn.onclick = function() { ouvrirBon('prev', ch.cle); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
       lignePN.appendChild(bonBtn);
@@ -2676,8 +2969,8 @@ function rendrePrev() {
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
       envBtn.textContent = '✉ Envoyer ce chantier';
-      envBtn.dataset.nom = ch.nom;
-      envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.nom); };
+      envBtn.dataset.cle = ch.cle;
+      envBtn.onclick = function() { envoyerUnChantierPrev(this.dataset.cle); };
 
       barre.appendChild(lignePN);
       barre.appendChild(envBtn);
@@ -2698,6 +2991,79 @@ function majSaisiePrev(nom, champ, val) {
   const duree = calcDuree(_saisiesPrev[nom].arrivee, _saisiesPrev[nom].depart, _saisiesPrev[nom].pause);
   rendrePrev();
   majTotal();
+}
+
+/* ═══════════════════════════
+   ADRESSE PROPOSÉE PAR GPS (chantier ajouté sans adresse)
+   Le salarié est sur place : la position du téléphone est convertie en adresse
+   (géocodage inverse public de l'IGN, gratuit, sans clé — même service que le
+   calcul des zones de trajet). Il vérifie sur Google Maps, puis « Utiliser »
+   ouvre la fiche du chantier pré-remplie : rien n'est enregistré sans son
+   clic sur Enregistrer. Un lien cherche aussi le nom du chantier sur Google Maps.
+═══════════════════════════ */
+function _escGps(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _blocAdresseGps(nom) {
+  const box = document.createElement('div');
+  box.className = 'adr-gps';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn-gps';
+  btn.textContent = '📍 Pas d’adresse — proposer celle où je suis';
+  btn.onclick = function () { _proposerAdresseGps(nom, box); };
+  box.appendChild(btn);
+  return box;
+}
+function _proposerAdresseGps(nom, box) {
+  const lienNom = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nom);
+  const erreur = function (msg) {
+    box.innerHTML = '<div class="gps-box"><span class="gps-err">⚠ ' + _escGps(msg) + '</span>'
+      + '<div class="gps-actions"><button type="button" class="gps-retry">↻ Réessayer</button>'
+      + '<a href="' + lienNom + '" target="_blank" rel="noopener">🔎 Chercher sur Google Maps</a></div></div>';
+    box.querySelector('.gps-retry').onclick = function () { _proposerAdresseGps(nom, box); };
+  };
+  if (!navigator.geolocation) { erreur('Localisation non disponible sur ce téléphone.'); return; }
+  box.innerHTML = '<div class="gps-box">📡 Localisation en cours…</div>';
+  navigator.geolocation.getCurrentPosition(async function (pos) {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude, prec = Math.round(pos.coords.accuracy || 0);
+    const lienPos = 'https://www.google.com/maps/search/?api=1&query=' + lat.toFixed(6) + ',' + lon.toFixed(6);
+    let adresse = '', ville = '', label = '';
+    try {
+      const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const t = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
+      const r = await fetch('https://data.geopf.fr/geocodage/reverse?limit=1&lon=' + lon + '&lat=' + lat, ctrl ? { signal: ctrl.signal } : undefined);
+      if (t) clearTimeout(t);
+      const d = await r.json();
+      const pr = (d && d.features && d.features[0] && d.features[0].properties) || {};
+      adresse = pr.name || [pr.housenumber, pr.street].filter(Boolean).join(' ');
+      ville = [pr.postcode, pr.city].filter(Boolean).join(' ');
+      label = pr.label || [adresse, ville].filter(Boolean).join(', ');
+    } catch (e) { /* hors réseau ou service indisponible : on garde la position seule */ }
+    if (!label) {
+      box.innerHTML = '<div class="gps-box"><span class="gps-err">⚠ Adresse non trouvée pour cette position.</span>'
+        + '<div class="gps-prec">Position : ' + lat.toFixed(5) + ', ' + lon.toFixed(5) + (prec ? ' (± ' + prec + ' m)' : '') + '</div>'
+        + '<div class="gps-actions"><a href="' + lienPos + '" target="_blank" rel="noopener">🗺 Voir ma position</a>'
+        + '<a href="' + lienNom + '" target="_blank" rel="noopener">🔎 Chercher sur Google Maps</a></div></div>';
+      return;
+    }
+    box.innerHTML = '<div class="gps-box">Adresse proposée (votre position) :<br><span class="gps-adr">📍 ' + _escGps(label) + '</span>'
+      + (prec ? '<div class="gps-prec">Précision ± ' + prec + ' m' + (prec > 100 ? ' — à vérifier' : '') + '</div>' : '')
+      + '<div class="gps-actions"><a href="' + lienPos + '" target="_blank" rel="noopener">🗺 Vérifier sur Google Maps</a>'
+      + '<button type="button" class="gps-ok">✔ Utiliser</button></div>'
+      + '<div class="gps-actions"><a href="' + lienNom + '" target="_blank" rel="noopener">🔎 Chercher « ' + _escGps(nom) + ' » sur Google Maps</a></div></div>';
+    box.querySelector('.gps-ok').onclick = function () {
+      if (typeof Coord === 'undefined') { alert('Fiche du chantier indisponible : rechargez la page puis réessayez.'); return; }
+      Coord.ouvrir(nom, function () { rendreAjout(); });
+      const ia = document.getElementById('coord-adresse'), iv = document.getElementById('coord-ville');
+      if (ia && !ia.value.trim()) ia.value = adresse;
+      if (iv && !iv.value.trim()) iv.value = ville;
+      const sub = document.getElementById('coord-sub');
+      if (sub) sub.textContent = nom + ' — adresse proposée par la position GPS (à vérifier puis Enregistrer)';
+    };
+  }, function (err) {
+    erreur(err && err.code === 1
+      ? 'Localisation refusée : autorisez la position pour cette application dans les réglages du téléphone.'
+      : 'Position introuvable (signal GPS faible ?).');
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
 }
 
 /* ═══════════════════════════
@@ -2777,7 +3143,8 @@ function rendreAjout() {
     suppr.onclick = function() { supprimerAjout(parseInt(this.dataset.idx)); };
     header.appendChild(suppr);
     div.appendChild(header);
-    { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); } }
+    { const _ch = (typeof Coord !== 'undefined') ? Coord.html(ch.nom) : ''; if (_ch) { const _cd = document.createElement('div'); _cd.innerHTML = _ch; div.appendChild(_cd.firstChild); }
+      else div.appendChild(_blocAdresseGps(ch.nom)); }   // pas d'adresse : proposition GPS (affichée même si coordonnees.js n'est pas encore chargé)
 
     // Ligne 2 : déplacement
     const deplRow = document.createElement('div');
@@ -2976,10 +3343,11 @@ function calcMinutes(arrivee, depart, pause) {
 }
 
 function majTotal() {
+  sauverJourLocal();   // toute modification affichée est aussi gardée sur le téléphone
   // Réalisé = temps TRAVAILLÉ uniquement. La pause déjeuner (_pauseJour) n'y entre JAMAIS.
   let total = 0;
   _chantiersP.forEach(c => {
-    const s = _saisiesPrev[c.nom] || {};
+    const s = _saisiesPrev[c.cle] || {};
     total += calcMinutes(s.arrivee, s.depart, s.pause) + (s.depl || 0);
   });
   _chantiersA.forEach(c => {
@@ -3241,14 +3609,25 @@ async function envoyerPauseJour(min) {
     date,
     pauseJournee: min
   };
+  const URL_PAUSE = '/api/saisies/pause';
+  if (!navigator.onLine && window.outboxAdd) {
+    window._reseauReel = false;
+    outboxAdd(payload, URL_PAUSE);
+    if (window.majIndicateurReseau) majIndicateurReseau();
+    return;
+  }
   try {
-    await fetch('/api/saisies/pause', {
+    await fetch(URL_PAUSE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+    window._reseauReel = true;
   } catch (_) {
-    // hors-ligne : la pause reste en local, réenvoyée au prochain passage si besoin
+    // Hors-ligne : la pause part dans la file d'attente, renvoyée au retour du réseau
+    // (avant : elle restait seulement en local et n'atteignait jamais le serveur).
+    window._reseauReel = false;
+    if (window.outboxAdd) { outboxAdd(payload, URL_PAUSE); if (window.majIndicateurReseau) majIndicateurReseau(); }
   }
 }
 
@@ -3288,7 +3667,11 @@ function validerAjout() {
   const mmA  = String(nowA.getMinutes()).padStart(2,'0');
   // Heure proposée (heure courante) pré-remplie dans le champ, mais NON validée :
   // le curseur reste gris, l'employé confirme (ou ajuste) lui-même puis valide.
-  _chantiersA.push({ nom, arrivee: '', arriveePropose: hhA + ':' + mmA, depart: '', depl: 0 });
+  // Rang du passage sur ce chantier CE JOUR-LÀ (prévu + déjà ajoutés confondus), pour
+  // que le serveur distingue bien ce nouveau passage d'un précédent homonyme.
+  const occExistantes = _chantiersP.filter(c => c.nom === nom).length
+                      + _chantiersA.filter(c => c.nom === nom).length;
+  _chantiersA.push({ nom, occ: occExistantes + 1, arrivee: '', arriveePropose: hhA + ':' + mmA, depart: '', depl: 0 });
   rendreAjout();
   majTotal();
   fermerModal();
@@ -3518,6 +3901,8 @@ function changerEntreprise(ev) {
 function seDeconnecter() {
   // Effacer le salarié mémorisé
   localStorage.removeItem('saisie_salarie');
+  sauverJourLocal();
+  _jourRestaure = null;
   _salarie = null;
   _saisiesPrev = {};
   _chantiersA  = [];
@@ -3546,12 +3931,12 @@ function devaliderHeure(btn) {
 async function validerHeurePrevData(btn) {
   // Bascule OFF : si déjà validé, on rouvre la saisie
   if (btn.classList.contains('valide')) { devaliderHeure(btn); return; }
-  const nom   = btn.dataset.nom;
+  const cle   = btn.dataset.cle;
   const champ = btn.dataset.champ;
   const val   = document.getElementById(btn.dataset.inputId)?.value;
   if (!val) return;
-  if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
-  _saisiesPrev[nom][champ] = val;
+  if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0 };
+  _saisiesPrev[cle][champ] = val;
   // Passer la bascule en vert et verrouiller le champ
   btn.classList.add('valide');
   const inpLock = document.getElementById(btn.dataset.inputId);
@@ -3565,7 +3950,7 @@ async function validerHeurePrevData(btn) {
     }
   }
   // Mettre à jour durée sans rerender complet
-  const s = _saisiesPrev[nom];
+  const s = _saisiesPrev[cle];
   const duree = calcDuree(s.arrivee, s.depart, s.pause);
   const card = btn.closest('.chantier-card');
   if (card) {
@@ -3584,7 +3969,8 @@ async function validerHeurePrevData(btn) {
   btn.textContent = '⏳';
   btn.disabled = true;
   const chantier = {
-    nom,
+    nom: s.nom,
+    occurrence: s.occurrence || 1,
     heureArrivee: s.arrivee || '',
     heureDepart:  '',
     dureeMin:     0,
@@ -3598,7 +3984,7 @@ async function validerHeurePrevData(btn) {
   btn.disabled = false;
   if (ok) {
     btn.textContent = '✔ OK';
-    _saisiesPrev[nom].synchronise = true;
+    _saisiesPrev[cle].synchronise = true;
   } else {
     btn.textContent = '⚠ Réessayer';
     btn.classList.remove('valide');
@@ -3652,6 +4038,7 @@ async function validerHeureAjoutData(btn) {
   btn.disabled = true;
   const chantier = {
     nom:           ch.nom,
+    occurrence:    ch.occ || 1,
     heureArrivee:  ch.arrivee || '',
     heureDepart:   '',
     dureeMin:      0,
@@ -3682,9 +4069,9 @@ function majDeplData(btn) {
   const delta = parseInt(btn.dataset.delta);
   const type  = btn.dataset.type;
   if (type === 'prev') {
-    const nom = btn.dataset.nom;
-    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0 };
-    _saisiesPrev[nom].depl = Math.max(0, (_saisiesPrev[nom].depl || 0) + delta);
+    const cle = btn.dataset.cle;
+    if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0 };
+    _saisiesPrev[cle].depl = Math.max(0, (_saisiesPrev[cle].depl || 0) + delta);
     rendrePrev();
   } else {
     const i = parseInt(btn.dataset.idx);
@@ -3713,11 +4100,11 @@ function majPauseSelect(sel) {
 
   let s;
   if (type === 'pause-prev') {
-    const nom = sel.dataset.nom;
-    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
-    _saisiesPrev[nom].pause = mins;
-    _saisiesPrev[nom].pauseValidee = false;
-    s = _saisiesPrev[nom];
+    const cle = sel.dataset.cle;
+    if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0, pause: 0 };
+    _saisiesPrev[cle].pause = mins;
+    _saisiesPrev[cle].pauseValidee = false;
+    s = _saisiesPrev[cle];
   } else {
     const i = parseInt(sel.dataset.idx);
     _chantiersA[i].pause = mins;
@@ -3748,7 +4135,7 @@ async function validerPause(btn) {
     const selP  = card0 && card0.querySelector('.pause-select');
     if (selP) selP.disabled = false;
     if (btn.dataset.type === 'pause-prev') {
-      if (_saisiesPrev[btn.dataset.nom]) _saisiesPrev[btn.dataset.nom].pauseValidee = false;
+      if (_saisiesPrev[btn.dataset.cle]) _saisiesPrev[btn.dataset.cle].pauseValidee = false;
     } else {
       const ii = parseInt(btn.dataset.idx);
       if (_chantiersA[ii]) _chantiersA[ii].pauseValidee = false;
@@ -3757,15 +4144,18 @@ async function validerPause(btn) {
   }
   const type = btn.dataset.type;
   const card = btn.closest('.chantier-card');
-  let s, nom;
+  let s, nom, occurrence = 1;
   if (type === 'pause-prev') {
-    nom = btn.dataset.nom;
-    if (!_saisiesPrev[nom]) _saisiesPrev[nom] = { arrivee: '', depart: '', depl: 0, pause: 0 };
-    s = _saisiesPrev[nom];
+    const cle = btn.dataset.cle;
+    if (!_saisiesPrev[cle]) _saisiesPrev[cle] = { arrivee: '', depart: '', depl: 0, pause: 0 };
+    s = _saisiesPrev[cle];
+    nom = s.nom;
+    occurrence = s.occurrence || 1;
   } else {
     const i = parseInt(btn.dataset.idx);
     s = _chantiersA[i];
     nom = s.nom;
+    occurrence = s.occ || 1;
   }
 
   // Il faut au moins l'arrivée pour pouvoir enregistrer
@@ -3794,6 +4184,7 @@ async function validerPause(btn) {
   btn.disabled = true;
   const chantier = {
     nom,
+    occurrence,
     heureArrivee: s.arrivee || '',
     heureDepart:  '',
     dureeMin:     0,
@@ -3830,7 +4221,9 @@ function ouvrirNote(type, ref, btn) {
   let nom = '', noteActuelle = '';
   if (type === 'prev') {
     if (!_saisiesPrev[ref]) _saisiesPrev[ref] = { arrivee: '', depart: '', depl: 0 };
-    nom = ref;
+    // ref est la clé interne (cle) ; le nom réel du chantier (affiché) est celui
+    // mémorisé dans l'entrée, pour ne pas montrer une clé suffixée « __occ2 ».
+    nom = _saisiesPrev[ref].nom || ref;
     noteActuelle = _saisiesPrev[ref].note || '';
     _notePhotos  = (_saisiesPrev[ref].photos || []).slice();
   } else {
@@ -3872,12 +4265,13 @@ function validerNote() {
   if (cible.type === 'prev') {
     if (!_saisiesPrev[cible.ref]) _saisiesPrev[cible.ref] = { arrivee: '', depart: '', depl: 0 };
     s = _saisiesPrev[cible.ref];
-    nom = cible.ref;
+    nom = s.nom || cible.ref;
   } else if (_chantiersA[cible.ref]) {
     s = _chantiersA[cible.ref];
     nom = s.nom || '';
   }
   if (s) { s.note = val; s.photos = fotos; }
+  sauverJourLocal();   // la note est gardée sur le téléphone même sans réseau
   fermerNote();
   // Note mise à jour sur un chantier déjà ENVOYÉ : on dé-finalise pour redemander
   // l'envoi explicite (cohérent avec la pause). « Envoyer ce chantier » réapparaît.
@@ -3898,7 +4292,8 @@ function validerNote() {
   if (s && nom && s.synchronise) {
     const dateEl = document.getElementById('date-saisie');
     const date = dateEl ? dateEl.value : '';
-    if (date) _envoyerChantier({ nom, note: s.note, photos: s.photos, isPrevisionnel: (cible.type === 'prev') }, date);
+    const occurrence = (cible.type === 'prev') ? (s.occurrence || 1) : (s.occ || 1);
+    if (date) _envoyerChantier({ nom, occurrence, note: s.note, photos: s.photos, isPrevisionnel: (cible.type === 'prev') }, date);
   }
 }
 
@@ -4012,13 +4407,14 @@ function compresserPhoto(fichier, cb) {
   img.src = url;
 }
 
-async function envoyerUnChantierPrev(nom) {
+async function envoyerUnChantierPrev(cle) {
   const date = document.getElementById('date-saisie').value;
   if (!date) { alert('Choisissez une date'); return; }
-  const s = _saisiesPrev[nom] || {};
+  const s = _saisiesPrev[cle] || {};
   if (!s.arrivee || !s.depart) { alert('Saisissez l\'heure d\'arrivée et de départ'); return; }
   const chantier = {
-    nom,
+    nom: s.nom,
+    occurrence: s.occurrence || 1,
     heureArrivee:  s.arrivee,
     heureDepart:   s.depart,
     dureeMin:      calcMinutes(s.arrivee, s.depart, s.pause),
@@ -4030,7 +4426,7 @@ async function envoyerUnChantierPrev(nom) {
   };
   await _envoyerChantier(chantier, date);
   // Marquer comme envoyé
-  _saisiesPrev[nom] = { ...s, envoye: true };
+  _saisiesPrev[cle] = { ...s, envoye: true };
   rendrePrev();
   majTotal();
 }
@@ -4044,6 +4440,7 @@ async function envoyerUnChantierAjout(i) {
   if (!ch.arrivee || !ch.depart) { alert('Saisissez l\'heure d\'arrivée et de départ'); return; }
   const chantier = {
     nom:           ch.nom,
+    occurrence:    ch.occ || 1,
     heureArrivee:  ch.arrivee,
     heureDepart:   ch.depart,
     dureeMin:      calcMinutes(ch.arrivee, ch.depart, ch.pause),
@@ -4531,12 +4928,22 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
   }
   function fileEcrire(arr) { try { localStorage.setItem(CLE, JSON.stringify(arr)); } catch (e) {} }
 
-  window.outboxAdd = function (payload) {
+  /* url optionnelle : /api/saisies/envoyer par défaut (compatibilité avec les
+     éléments déjà en file sur les téléphones), /api/saisies/pause pour la pause du jour. */
+  window.outboxAdd = function (payload, url) {
     var arr = fileLire();
-    arr.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), payload: payload });
+    var item = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), payload: payload };
+    if (url) item.url = url;
+    arr.push(item);
     fileEcrire(arr);
   };
   window.outboxCount = function () { return fileLire().length; };
+  /* Nombre d'envois en attente pour un salarié et une date (sert à la fusion au rechargement). */
+  window.outboxPourJour = function (date, salarieId) {
+    return fileLire().filter(function (it) {
+      var p = it && it.payload; return p && p.date === date && String(p.salarieId) === String(salarieId);
+    }).length;
+  };
 
   var _enCours = false;
   window.outboxFlush = async function () {
@@ -4546,18 +4953,25 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     _enCours = true; majIndicateurReseau();
     try {
       while (arr.length) {
-        var ok = false;
+        var ok = false, rejete = false;
         try {
-          var r = await fetch('/api/saisies/envoyer', {
+          var r = await fetch(arr[0].url || '/api/saisies/envoyer', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(arr[0].payload)
           });
-          window._reseauReel = true;          // serveur joint
-          var d = await r.json();
+          var d = null;
+          try { d = await r.json(); } catch (e2) { d = null; }
+          if (d) window._reseauReel = true;   // vraie réponse du serveur (pas une page de secours)
           ok = !!(d && d.ok === true);
+          // Refus définitif du serveur (données invalides, 4xx) : on écarte l'élément
+          // au lieu de bloquer indéfiniment toute la file derrière lui.
+          if (!ok && d && r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429) {
+            rejete = true;
+            console.warn('[file hors-ligne] envoi refusé par le serveur, écarté :', r.status, d.message, arr[0]);
+          }
         } catch (e) { ok = false; window._reseauReel = false; }
-        if (!ok) break;                 // réseau de nouveau coupé : on s'arrête, on réessaiera
+        if (!ok && !rejete) break;      // réseau de nouveau coupé : on s'arrête, on réessaiera
         arr.shift(); fileEcrire(arr);   // envoyé : on retire de la file
         majIndicateurReseau();
       }
@@ -4606,6 +5020,10 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
     majIndicateurReseau();
     outboxFlush();
     window.addEventListener('online',  outboxFlush);
+    // Retour sur l'appli (sortie de veille, retour d'une autre appli) : on retente l'envoi.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && outboxCount() > 0) outboxFlush();
+    });
     window.addEventListener('offline', function () { window._reseauReel = false; majIndicateurReseau(); });
     setInterval(function () { if (outboxCount() > 0) outboxFlush(); }, 20000);
     var ecran = document.getElementById('ecran-saisie');
@@ -4681,16 +5099,27 @@ function _bonSaisieCourante() {
   return _chantiersA[_bonCible.ref] || {};
 }
 
+/* Nom réel du chantier visé par le bon. Pour un chantier planifié, la référence
+   est la clé interne (cle, éventuellement suffixée « __occ2 » quand le même
+   chantier apparaît deux fois dans la journée) : le nom est celui mémorisé
+   dans la saisie, comme pour la note. */
+function _bonNomChantier() {
+  if (!_bonCible) return '';
+  if (_bonCible.type === 'prev') {
+    const s = _saisiesPrev[_bonCible.ref];
+    if (s && s.nom) return s.nom;
+    const ch = (_chantiersP || []).find(function (c) { return c.cle === _bonCible.ref; });
+    return ch ? ch.nom : String(_bonCible.ref || '').replace(/__occ\d+$/, '');
+  }
+  const ch = _chantiersA[_bonCible.ref];
+  return ch ? ch.nom : '';
+}
+
 function ouvrirBon(type, ref) {
   _bonCible = { type: type, ref: ref };
   let nom = '';
-  if (type === 'prev') {
-    nom = ref;
-  } else {
-    const ch = _chantiersA[ref];
-    if (!ch) return;
-    nom = ch.nom;
-  }
+  nom = _bonNomChantier();
+  if (!nom) return;
   document.getElementById('bon-chantier-nom').textContent = nom;
 
   _bonMasqueActuel = null; _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {};
@@ -5082,14 +5511,8 @@ async function validerBon() {
     const vide = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
     if (vide) { alert('Le champ "' + c.libelle + '" est obligatoire'); return; }
   }
-  let nom = '';
-  if (_bonCible.type === 'prev') {
-    nom = _bonCible.ref;
-  } else {
-    const ch = _chantiersA[_bonCible.ref];
-    if (!ch) return;
-    nom = ch.nom;
-  }
+  const nom = _bonNomChantier();
+  if (!nom) return;
 
   const dateEl = document.getElementById('date-saisie');
   const dateGlobale = dateEl ? dateEl.value : '';

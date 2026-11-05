@@ -108,6 +108,7 @@
   }
   .tdb-lien { flex:0 0 auto; font-size:15px; color:#0f3a8a; text-decoration:none; font-weight:500; white-space:nowrap; }
   .tdb-lien:hover { text-decoration:underline; }
+  .tdb-mois-mini { flex:0 0 auto; border:1px solid #d7dce3; border-radius:6px; padding:3px 6px; font:inherit; font-size:12px; color:#334155; background:#fff; }
 
   /* ── Chiffres ── */
   .tdb-chiffres { display:flex; gap:30px; flex-wrap:wrap; }
@@ -137,6 +138,20 @@
   .tdb-liste.puces div { justify-content:flex-start; align-items:flex-start; gap:9px; line-height:1.55; padding:3px 0; }
   .tdb-liste.puces .tdb-pastille { margin-top:6px; }
   .tdb-liste.puces b { color:inherit; }
+
+  /* Tableau « Chantiers à 100 % » : chantier, devis, réalisé, % du devis.
+     Pas de bordure verticale : un filet horizontal léger entre les lignes. */
+  .tdb-tab { width:100%; border-collapse:collapse; font-size:15px; color:#374151; margin-top:14px; table-layout:fixed; }
+  .tdb-tab th { font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#6b7684;
+                text-align:right; padding:0 0 8px 8px; border-bottom:1px solid #edeff3; white-space:nowrap; }
+  .tdb-tab th:first-child, .tdb-tab td:first-child { text-align:left; padding-left:0; }
+  .tdb-tab td { text-align:right; padding:7px 0 7px 8px; border-bottom:1px solid #f1f3f6; white-space:nowrap; }
+  .tdb-tab td:first-child { overflow:hidden; text-overflow:ellipsis; }
+  .tdb-tab col.c-nom { width:auto; } .tdb-tab col.c-h { width:62px; } .tdb-tab col.c-pct { width:84px; }
+  .tdb-tab td.pct { font-weight:500; }
+  .tdb-tab .tag-m1 { display:inline-block; margin-left:6px; font-size:12px; color:#5f6b7a; background:#f1f3f6;
+                     border-radius:4px; padding:1px 5px; vertical-align:1px; }
+  .tdb-vide { font-size:15px; color:#5f6b7a; margin-top:14px; }
 
   .tdb-barre { height:3px; background:#f1f3f6; margin:14px 0 10px; }
   .tdb-barre i { display:block; height:100%; }
@@ -342,11 +357,12 @@
     <div class="tdb-tete">
       <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
       <span class="tdb-titre">Chantiers à 100 %</span>
+      <input type="month" id="ch100-mois" class="tdb-mois-mini" title="Mois de référence" onchange="tdbCh100Changer(this.value)">
       <a class="tdb-lien" href="chantiers.html">Prévisionnel →</a>
     </div>
     <div class="tdb-val" id="ch100-nb">4</div>
-    <div class="tdb-lbl">atteints ou dépassés ce mois</div>
-    <div class="tdb-liste" id="ch100-liste" style="margin-top:14px"></div>
+    <div class="tdb-lbl" id="ch100-lbl">atteints ou dépassés ce mois</div>
+    <div id="ch100-liste"></div>
   </section>
 
   <!-- ────── Notes en cours (licence Plus uniquement : nécessite la saisie mobile) ────── -->
@@ -711,15 +727,35 @@ function tdbVignetteCompteur(d) {
   tdbSpark('cpt-spark', d.cumul, '#0f3a8a', '#c7d2e6', d.labels);
 }
 
+/* Heures : entier si rond (26 h), sinon une décimale (20,5 h). */
+function tdbHeures(h) {
+  const r = Math.round((h || 0) * 10) / 10;
+  return tdbNb(r, r % 1 === 0 ? 0 : 1) + ' h';
+}
+
 /* ── 5 · Chantiers à 100 % ── */
 function tdbVignetteChantiers100(d) {
   tdbTexte('ch100-nb', d.liste.length);
   const zone = document.getElementById('ch100-liste');
   if (!zone) return;
-  zone.innerHTML = d.liste.map(function (c) {
-    const coul = c.pct > 110 ? '#d1495b' : (c.pct > 100 ? '#b45309' : '#4b5563');
-    return '<div><span>' + tdbEsc(c.nom) + '</span><b style="color:' + coul + '">' + c.pct + ' %</b></div>';
-  }).join('');
+  if (!d.liste.length) { zone.innerHTML = '<div class="tdb-vide">Aucun chantier au-delà de son devis.</div>'; return; }
+  /* Une ligne par chantier : heures du devis (prévisionnel), heures
+     réalisées, et % du devis consommé = réalisé ÷ devis. Le repère « M-1 »
+     signale un chantier du mois précédent encore replanifié sur M ou M+1. */
+  zone.innerHTML = '<table class="tdb-tab">'
+    + '<colgroup><col class="c-nom"><col class="c-h"><col class="c-h"><col class="c-pct"></colgroup>'
+    + '<thead><tr><th>Chantier</th><th title="Heures prévues au prévisionnel, tous mois confondus">Devis</th>'
+    + '<th title="Heures pointées sur le chantier, cumulées jusqu\'au mois choisi">Réalisé</th><th>% du devis</th></tr></thead><tbody>'
+    + d.liste.map(function (c) {
+        const coul = c.pct > 110 ? '#d1495b' : (c.pct > 100 ? '#b45309' : '#111827');
+        return '<tr>'
+          + '<td title="' + tdbEsc(c.nom) + '">' + tdbEsc(c.nom) + (c.m1 ? '<span class="tag-m1">M-1</span>' : '') + '</td>'
+          + '<td>' + tdbHeures(c.devis) + '</td>'
+          + '<td>' + tdbHeures(c.real) + '</td>'
+          + '<td class="pct" style="color:' + coul + '">' + c.pct + ' %</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>';
 }
 
 /* ── 8 · Heures non vendables ── */
@@ -1507,6 +1543,118 @@ function tdbPrevisionnelMois(annee, mois) {
   return out;
 }
 
+/* ── Cumuls par chantier, toutes périodes confondues ──────────────────
+   Un chantier est souvent réparti sur plusieurs mois au prévisionnel
+   (ex. 98 h étalées sur juillet à octobre). Comparer la tranche d'un seul
+   mois au réalisé de ce mois donnait des pourcentages absurdes (8 h de
+   tranche contre 20,5 h réalisées = 256 %). On compare donc :
+     · devis   = somme des hPrevues du chantier sur TOUS les mois du prévisionnel ;
+     · réalisé = somme des heures pointées sur le chantier, tous mois
+                 jusqu'à la fin du mois de référence inclus.
+   C'est la même lecture que la page Rapports (« Heures prévues dans le devis »). */
+async function tdbCumulsChantiers(refDate) {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}'); } catch (e) {}
+  const devis = {};
+  const annees = {};
+  Object.keys(data || {}).forEach(function (an) {
+    if (!/^\d{4}$/.test(an)) return;
+    annees[an] = true;
+    const moisObj = data[an] || {};
+    Object.keys(moisObj).forEach(function (m) {
+      const dm = moisObj[m];
+      if (!dm || !Array.isArray(dm.chantiers)) return;
+      dm.chantiers.forEach(function (ch) {
+        const nom = String(ch.client || '').trim().toUpperCase();
+        if (!nom) return;
+        devis[nom] = (devis[nom] || 0) + (parseFloat(ch.hPrevues) || 0);
+      });
+    });
+  });
+
+  const anRef = refDate.getFullYear();
+  annees[String(anRef)] = true;
+  annees[String(anRef - 1)] = true;
+  const ymRef = anRef + '-' + String(refDate.getMonth() + 1).padStart(2, '0');
+  const liste = Object.keys(annees).filter(function (an) { return +an <= anRef; });
+  const lots = await Promise.all(liste.map(function (an) { return tdbAgregeAnnee(an); }));
+
+  const real = {};
+  lots.forEach(function (mois) {
+    Object.keys(mois || {}).forEach(function (ym) {
+      if (ym > ymRef) return;                       // rien après le mois de référence
+      const pc = (mois[ym] && mois[ym].parChantier) || {};
+      Object.keys(pc).forEach(function (nom) {
+        const n = String(nom).trim().toUpperCase();
+        real[n] = (real[n] || 0) + (parseFloat(pc[nom]) || 0);
+      });
+    });
+  });
+  return { devis: devis, real: real };
+}
+
+/* ── 3 · Chantiers à 100 % — mois de référence sélectionnable ──
+   null = mois en cours (comportement par défaut, recalculé à chaque
+   rafraîchissement) ; un Date figé = mois choisi par Nicolas via le
+   sélecteur, qui doit survivre aux rafraîchissements automatiques
+   (tdbRafraichir) tant qu'il n'est pas changé ou remis à vide. */
+let _tdbCh100Ref = null;
+function tdbCh100RefDate() { return _tdbCh100Ref || new Date(); }
+function tdbCh100Changer(v) {
+  _tdbCh100Ref = v ? (function () { const p = v.split('-'); return new Date(+p[0], +p[1] - 1, 1); })() : null;
+  tdbChargerChantiers100(tdbCh100RefDate());
+}
+
+/* Règle de Nicolas : ceux du mois choisi qui atteignent ou dépassent 100 %,
+   plus ceux du mois précédent qui les ont atteints ET sur lesquels des
+   heures sont de nouveau planifiées sur M ou M+1 — ceux-là continuent de
+   consommer alors qu'ils sont déjà soldés. */
+async function tdbChargerChantiers100(refDate) {
+  const ymM  = refDate.getFullYear() + '-' + String(refDate.getMonth() + 1).padStart(2, '0');
+  const prec = new Date(refDate.getFullYear(), refDate.getMonth() - 1, 1);
+  const ymP  = prec.getFullYear() + '-' + String(prec.getMonth() + 1).padStart(2, '0');
+  const cumuls = await tdbCumulsChantiers(refDate);
+
+  /* Heures replanifiées sur M ou M+1, par chantier. */
+  const replanifie = {};
+  const debutM = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+  const finM1  = new Date(refDate.getFullYear(), refDate.getMonth() + 2, 0);
+  tdbParcourirPlanning(function (e, c) {
+    if (c.abs || c.iso < tdbIso(debutM) || c.iso > tdbIso(finM1)) return;
+    const nom = ((e && e.chantier) || '').trim().toUpperCase();
+    if (!nom || nom === TDB_TNA) return;
+    replanifie[nom] = (replanifie[nom] || 0) + (parseFloat(e && e.heures) || 0);
+  });
+
+  const liste = [];
+  /* Chantiers retenus (règle inchangée) : présents au prévisionnel de M,
+     ou présents en M-1 et replanifiés sur M ou M+1. Le pourcentage, lui,
+     porte désormais sur le devis TOTAL et le réalisé CUMULÉ du chantier. */
+  function ajouter(nom, m1) {
+    if (liste.some(function (x) { return x.nom === nom; })) return;
+    const dv = cumuls.devis[nom] || 0;
+    if (dv <= 0) return;
+    const real = cumuls.real[nom] || 0;
+    const pct = Math.round((real / dv) * 100);
+    if (pct >= 100) liste.push({ nom: nom, devis: dv, real: real, pct: pct, m1: m1 });
+  }
+  const devisM = tdbPrevisionnelMois(refDate.getFullYear(), refDate.getMonth());
+  Object.keys(devisM).forEach(function (nom) { ajouter(nom, false); });
+  const devisP = tdbPrevisionnelMois(prec.getFullYear(), prec.getMonth());
+  Object.keys(devisP).forEach(function (nom) {
+    if (!(replanifie[nom] > 0)) return;                    // plus rien de planifié : on l'oublie
+    ajouter(nom, true);
+  });
+  liste.sort(function (a, b) { return b.pct - a.pct; });
+
+  const MOIS_LONGS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const auj = new Date();
+  const estMoisCourant = refDate.getFullYear() === auj.getFullYear() && refDate.getMonth() === auj.getMonth();
+  tdbTexte('ch100-lbl', 'atteints ou dépassés ' + (estMoisCourant ? 'ce mois' : ('en ' + MOIS_LONGS[refDate.getMonth()] + ' ' + refDate.getFullYear())));
+
+  tdbVignetteChantiers100({ liste: liste });
+}
+
 async function tdbChargerPrevisionnel() {
   const now = new Date();
   const auj = tdbIso(now);
@@ -1559,45 +1707,8 @@ async function tdbChargerPrevisionnel() {
     });
   }
 
-  /* ── 3 · Chantiers à 100 % ──
-     Règle de Nicolas : ceux du mois en cours qui atteignent ou dépassent
-     100 %, plus ceux du mois précédent qui les ont atteints ET sur lesquels
-     des heures sont de nouveau planifiées sur M ou M+1 — ceux-là continuent
-     de consommer alors qu'ils sont déjà soldés. */
-  const ymM  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  const prec = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const ymP  = prec.getFullYear() + '-' + String(prec.getMonth() + 1).padStart(2, '0');
-  const [agM, agP] = await Promise.all([tdbAgregeMois(ymM), tdbAgregeMois(ymP)]);
-  const rM = agM.parChantier || {}, rP = agP.parChantier || {};
-
-  /* Heures replanifiées sur M ou M+1, par chantier. */
-  const replanifie = {};
-  const debutM = new Date(now.getFullYear(), now.getMonth(), 1);
-  const finM1  = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-  tdbParcourirPlanning(function (e, c) {
-    if (c.abs || c.iso < tdbIso(debutM) || c.iso > tdbIso(finM1)) return;
-    const nom = ((e && e.chantier) || '').trim().toUpperCase();
-    if (!nom || nom === TDB_TNA) return;
-    replanifie[nom] = (replanifie[nom] || 0) + (parseFloat(e && e.heures) || 0);
-  });
-
-  const liste = [];
-  const devisM = tdbPrevisionnelMois(now.getFullYear(), now.getMonth());
-  Object.keys(devisM).forEach(function (nom) {
-    if (devisM[nom] <= 0) return;
-    const pct = Math.round(((rM[nom] || 0) / devisM[nom]) * 100);
-    if (pct >= 100) liste.push({ nom: nom, pct: pct });
-  });
-  const devisP = tdbPrevisionnelMois(prec.getFullYear(), prec.getMonth());
-  Object.keys(devisP).forEach(function (nom) {
-    if (devisP[nom] <= 0) return;
-    if (!(replanifie[nom] > 0)) return;                    // plus rien de planifié : on l'oublie
-    if (liste.some(function (x) { return x.nom === nom; })) return;
-    const pct = Math.round(((rP[nom] || 0) / devisP[nom]) * 100);
-    if (pct >= 100) liste.push({ nom: nom, pct: pct });
-  });
-  liste.sort(function (a, b) { return b.pct - a.pct; });
-  tdbVignetteChantiers100({ liste: liste });
+  /* ── 3 · Chantiers à 100 % ── */
+  await tdbChargerChantiers100(tdbCh100RefDate());
 
   /* ── Déplacements (licence Plus uniquement) ──
      Dénominateur choisi par Nicolas : l'INTERVENTION (une ligne de chantier
@@ -1655,8 +1766,8 @@ function tdbDonneesExemple() {
     types:[{nom:'Congé',jours:40},{nom:'Récup.',jours:7},{nom:'RTT',jours:7},{nom:'Autres',jours:5}] });
   tdbVignetteCompteur({ annee:64.5, mois:11, cumul:[12,19,27,31,42,53,64.5] });
   tdbVignetteChantiers100({ liste:[
-    { nom:'Client 12', pct:134 }, { nom:'Terrassement nord', pct:118 },
-    { nom:'Client 27', pct:104 }, { nom:'Dépannage Leclerc', pct:100 } ]});
+    { nom:'Client 12', devis:40, real:53.6, pct:134, m1:false }, { nom:'Terrassement nord', devis:120, real:141.6, pct:118, m1:true },
+    { nom:'Client 27', devis:25, real:26, pct:104, m1:false }, { nom:'Dépannage Leclerc', devis:8, real:8, pct:100, m1:false } ]});
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
   tdbGraphVenteQualite({ mois: [
     { cle:'janv.', vend:800, vendu:740, exclu:60, motifsMois:{ 'SAV':40, 'Temps non affecté':20 } },
@@ -1706,6 +1817,8 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbAdapterTextesLicence();
   tdbCharger();
   tdbDonneesExemple();      // valeurs d'attente, remplacées dès que les données sont là
+  const elCh100Mois = document.getElementById('ch100-mois');
+  if (elCh100Mois) { const n = new Date(); elCh100Mois.value = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); }
   tdbChargerCompteur();
   tdbChargerPlanning();
   tdbChargerPrevisionnel();

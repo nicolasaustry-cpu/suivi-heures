@@ -51,6 +51,7 @@
     <a href="salaries.html" class="active">Salariés</a>
     <a href="chantiers.html">Prévisionnel</a>
     <a href="planning.html">Planning</a>
+    <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
     <a href="rapports.html">Rapports</a>
   </div>
 
@@ -64,6 +65,10 @@
         <div><label style="font-size:0.85rem;font-weight:600;">Prénom :</label><br><input id="prenomEl" placeholder="Jean"></div>
         <div><label style="font-size:0.85rem;font-weight:600;">Nom :</label><br><input id="nomEl" placeholder="Dupont"></div>
         <div><label style="font-size:0.85rem;font-weight:600;">Date d'entrée :</label><br><input type="date" id="dateEntreeEl"></div>
+        <div id="bloc-taux-perf" title="Part des heures contractuelles que ce salarié peut vendre (facturer). Heures vendables = heures contrat (hors absences) × ce taux.">
+          <label style="font-size:0.85rem;font-weight:600;">Taux de performance :</label><br>
+          <input type="number" id="tauxPerfEl" min="0" max="100" step="1" placeholder="ex. 90" style="width:80px;"> %
+        </div>
       </div>
 
       <!-- Poste administratif (sans horaires) -->
@@ -199,6 +204,7 @@
         <th style="min-width:90px;">Prénom</th>
         <th style="min-width:90px;">Nom</th>
         <th style="width:60px;text-align:center;" title="Donne accès à la page Planning équipe (mobile et PC)">Gérant</th>
+        <th style="width:120px;text-align:center;" title="Part des heures contractuelles vendables. Heures vendables = heures contrat (hors absences) × ce taux">Taux de performance</th>
         <th style="width:110px;">Entrée</th>
         <th style="width:140px;">Sortie</th>
         <th style="width:38px;text-align:center;">Lun</th>
@@ -207,6 +213,7 @@
         <th style="width:38px;text-align:center;">Jeu</th>
         <th style="width:38px;text-align:center;">Ven</th>
         <th style="width:38px;text-align:center;">Sam</th>
+        <th style="width:62px;text-align:center;background:#dcfce7;" title="Total des heures contractuelles de la semaine (semaine A / semaine B pour un salarié en alternance)">Total sem.</th>
         <th style="width:80px;text-align:center;">PIN</th>
         <th style="width:70px;text-align:center;">Actions</th>
       </tr>
@@ -486,6 +493,30 @@ window.resetApprentiAjout = function () {
   var bloc = document.getElementById('bloc-apprenti'); if (bloc) bloc.style.display = 'none';
   majCompteurEcoleAjout();
 };
+</script>
+
+<script>
+/* Le lien « Clients » du menu (base clients Henrri) ne s'affiche que si la
+   connexion Henrri est active — cohérent avec chantiers.html / index.html. */
+(function () {
+  function henrriToken() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken') || '';
+  }
+  async function majNavClients() {
+    const nav = document.getElementById('nav-link-clients');
+    if (!nav) return;
+    const token = henrriToken();
+    if (!token) { nav.style.display = 'none'; return; }
+    try {
+      const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      nav.style.display = (d.ok && d.actif) ? '' : 'none';
+    } catch (_) { nav.style.display = 'none'; }
+  }
+  window.addEventListener('DOMContentLoaded', majNavClients);
+  window.addEventListener('donnees-chargees', majNavClients);
+})();
 </script>
 
 </body>

@@ -4,6 +4,8 @@ import Donnees from "../models/donnees.js";
 import Licence from "../models/licence.js";
 import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
+import Henrri from "../models/henrri.js";
+import { synchroniserClientReservio } from "../jobs/syncReservio.js";
 
 const router = express.Router();
 
@@ -27,6 +29,114 @@ function appliquerVerrouPins(entrants, existants) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   FUSION MULTI-POSTES — anti-écrasement entre sessions ouvertes
+   ═══════════════════════════════════════════════════════════════
+   Problème corrigé : POST / remplaçait TOUT le planning par celui du poste
+   qui sauvegardait. Avec plusieurs PC ouverts pour le même client, un poste
+   resté sur un planning ancien effaçait, à sa première modification, ce qui
+   avait été fait ailleurs entre-temps (autre PC, téléphone).
+   sync.js envoie désormais, en plus des données complètes, un objet
+   « fusion » ne décrivant QUE ses propres modifications :
+     heures / entreprise : { set:{ "clé": valeur }, unset:["clé"] }      (1 niveau)
+     previsionnel        : { set:{ "a" | "a.b": valeur }, unset:[…] }     (2 niveaux)
+     salaries            : { set:{ id: salarié }, unset:[id], ordre:[id] }
+     chantiers           : { add:[…], remove:[…], ordre:[…] }
+   heures / entreprise / previsionnel sont écrits case par case ($set/$unset
+   en chemin pointé, atomique côté MongoDB) ; salariés et liste des chantiers
+   sont recombinés à partir de l'état ACTUEL de la base.
+   Un client ancien (sans « fusion ») garde le comportement historique. */
+const _seg = k => typeof k === "string" && k !== "" && !k.includes(".") && k[0] !== "$";
+const _estObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
+
+function fusionValide(f) {
+  if (!_estObj(f)) return false;
+  const ops = x => _estObj(x) && _estObj(x.set) && Array.isArray(x.unset);
+  return ops(f.heures) && ops(f.entreprise) && ops(f.previsionnel)
+      && _estObj(f.salaries) && _estObj(f.salaries.set) && Array.isArray(f.salaries.unset)
+      && _estObj(f.chantiers) && Array.isArray(f.chantiers.add) && Array.isArray(f.chantiers.remove);
+}
+
+/* Traduit un bloc { set, unset } en opérations MongoDB sur « champ.chemin ».
+   Renvoie false si un chemin est invalide (repli sur l'enregistrement complet). */
+function operationsChemins(champ, bloc, profondeurMax, actuel, $set, $unset) {
+  const valide = p => {
+    if (typeof p !== "string") return null;
+    const segs = p.split(".");
+    return (segs.length <= profondeurMax && segs.every(_seg)) ? segs : null;
+  };
+  for (const [p, v] of Object.entries(bloc.set)) {
+    const segs = valide(p);
+    if (!segs) return false;
+    // Parent absent ou non-objet en base : on écrit le parent complet (sinon MongoDB refuse).
+    if (segs.length === 2 && actuel && actuel[segs[0]] != null && !_estObj(actuel[segs[0]])) return false;
+    $set[champ + "." + p] = v;
+  }
+  for (const p of bloc.unset) {
+    if (!valide(p)) return false;
+    $unset[champ + "." + p] = "";
+  }
+  return true;
+}
+
+function _plain(v) { return v && typeof v.toObject === "function" ? v.toObject() : v; }
+
+async function appliquerFusion(existant, body, clientId) {
+  const f = body.fusion;
+  const brut = _plain(existant) || {};
+  const $set = {}, $unset = {};
+
+  if (!operationsChemins("heures",       f.heures,       1, brut.heures,       $set, $unset)) return { ok: false, raison: "chemin heures invalide" };
+  if (!operationsChemins("entreprise",   f.entreprise,   1, brut.entreprise,   $set, $unset)) return { ok: false, raison: "chemin entreprise invalide" };
+  if (!operationsChemins("previsionnel", f.previsionnel, 2, brut.previsionnel, $set, $unset)) return { ok: false, raison: "chemin prévisionnel invalide" };
+
+  // Chemins pointés impossibles si le champ racine n'est pas un objet en base.
+  for (const ch of ["heures", "entreprise", "previsionnel"]) {
+    if (brut[ch] != null && !_estObj(brut[ch])) return { ok: false, raison: `${ch} non objet en base` };
+  }
+
+  // Salariés : état actuel de la base + modifications de ce poste uniquement.
+  const fs = f.salaries;
+  if (Object.keys(fs.set).length || fs.unset.length) {
+    const actuels = (brut.salaries || []).map(_plain);
+    const retires = new Set(fs.unset.map(String));
+    const parId = new Map();
+    actuels.forEach(s => { if (s && s.id != null && !retires.has(String(s.id))) parId.set(String(s.id), s); });
+    Object.entries(fs.set).forEach(([id, s]) => { if (s && String(s.id) === String(id)) parId.set(String(id), s); });
+    const ordre = (Array.isArray(fs.ordre) ? fs.ordre : []).map(String);
+    const rang = id => { const i = ordre.indexOf(id); return i === -1 ? Infinity : i; };
+    const ids = [...parId.keys()];
+    const posBase = new Map(ids.map((id, i) => [id, i]));
+    const fusion = ids
+      .sort((a, b) => {
+        const ra = rang(a), rb = rang(b);
+        if (ra !== rb) return ra === Infinity ? 1 : rb === Infinity ? -1 : ra - rb;
+        return posBase.get(a) - posBase.get(b);
+      })
+      .map(id => parId.get(id));
+    $set.salaries = appliquerVerrouPins(fusion, existant.salaries || []);
+  }
+
+  // Liste des chantiers : ajouts / retraits de ce poste, le reste vient de la base.
+  const fc = f.chantiers;
+  if (fc.add.length || fc.remove.length) {
+    const cle = x => JSON.stringify(x);
+    const retires = new Set(fc.remove.map(cle));
+    const liste = (brut.chantiers || []).map(_plain).filter(x => !retires.has(cle(x)));
+    const deja = new Set(liste.map(cle));
+    fc.add.forEach(x => { if (!deja.has(cle(x))) { liste.push(x); deja.add(cle(x)); } });
+    $set.chantiers = liste;
+  }
+
+  $set.clientId  = clientId;
+  $set.updatedAt = new Date();
+  const maj = { $set };
+  if (Object.keys($unset).length) maj.$unset = $unset;
+  // Collection native : écriture exacte des chemins, sans remodelage par le schéma.
+  await Donnees.collection.updateOne({ _id: existant._id }, maj);
+  return { ok: true };
+}
+
 // ── Charger toutes les données du client ──
 router.get("/", verifyToken, async (req, res) => {
   try {
@@ -40,11 +150,15 @@ router.get("/", verifyToken, async (req, res) => {
     if (!doc) doc = { entreprise: {}, salaries: [], heures: {}, chantiers: [], previsionnel: {} };
     // Marque blanche : flag + logo du prescripteur, livrés à chaque chargement
     const licence = await Licence.findOne({ codeClient: clientId });
+    // Henrri : indique si la connexion est active, pour que le menu (sync.js)
+    // puisse afficher ou masquer le lien « Clients » sans appel séparé.
+    const henrri = await Henrri.findOne({ clientId });
     res.json({
       ok: true,
       data: doc,
       marquePartenaire: licence ? !!licence.marquePartenaire : false,
-      logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
+      logoPartenaire:   licence ? (licence.logoPartenaire || "") : "",
+      henrriActif: henrri ? !!henrri.actif : false
     });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
@@ -151,13 +265,100 @@ router.post("/coordonnees-chantier", verifyToken, async (req, res) => {
       adresse: String(c.adresse || "").slice(0, 500),
       ville:   String(c.ville   || "").slice(0, 200),
       mobile:  String(c.mobile  || "").slice(0, 40),
-      fixe:    String(c.fixe    || "").slice(0, 40)
+      fixe:    String(c.fixe    || "").slice(0, 40),
+      email:   String(c.email   || "").trim().slice(0, 120)
     };
-    const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe;
+    const vide = !clean.adresse && !clean.ville && !clean.mobile && !clean.fixe && !clean.email;
     if (vide) delete coords[chantier]; else coords[chantier] = clean;
 
     await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
     res.json({ ok: true, chantier, coordonnees: coords[chantier] || null });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Import en masse de fiches clients (page Clients, fichier Excel / CSV) ──
+   Chaque client devient une fiche « coordonnées » indexée par son NOM en
+   majuscules — le même stockage que les coordonnées de chantier : la fiche
+   alimente ainsi la page Clients ET l'adresse affichée au planning dès qu'un
+   chantier porte ce nom. Écriture ciblée et unique ($set coordonneesChantiers).
+   body : { lignes:[{ nom, coordonnees:{adresse,ville,mobile,fixe,email} }], ecraser:bool }
+   ecraser=false (défaut) : une fiche déjà renseignée n'est JAMAIS modifiée. */
+router.post("/coordonnees-chantiers-import", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const lignes = Array.isArray(req.body.lignes) ? req.body.lignes : null;
+    const ecraser = req.body.ecraser === true;
+    if (!lignes || !lignes.length) return res.status(400).json({ ok: false, message: "Aucune ligne à importer" });
+    if (lignes.length > 5000) return res.status(400).json({ ok: false, message: "Fichier trop volumineux (5 000 clients maximum par import)" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const coords = doc.coordonneesChantiers || {};
+    const vide = c => !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email);
+    const rapport = { crees: 0, misAJour: 0, ignores: 0, invalides: 0 };
+    const vus = new Set();
+    for (const l of lignes) {
+      const nom = String((l && l.nom) || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 150);
+      const c = (l && l.coordonnees) || {};
+      const clean = {
+        adresse: String(c.adresse || "").slice(0, 500),
+        ville:   String(c.ville   || "").slice(0, 200),
+        mobile:  String(c.mobile  || "").slice(0, 40),
+        fixe:    String(c.fixe    || "").slice(0, 40),
+        email:   String(c.email   || "").trim().slice(0, 120)
+      };
+      if (!nom || nom.startsWith("$") || vide(clean) || vus.has(nom)) { rapport.invalides++; continue; }
+      vus.add(nom);
+      const existe = !vide(coords[nom]);
+      if (existe && !ecraser) { rapport.ignores++; continue; }
+      coords[nom] = { ...clean, origine: "import" };
+      if (existe) rapport.misAJour++; else rapport.crees++;
+    }
+
+    if (rapport.crees || rapport.misAJour) {
+      await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    }
+    res.json({ ok: true, rapport, coordonnees: coords });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Suppression en masse de fiches clients (page Clients) ──
+   N'efface QUE des entrées de coordonneesChantiers (fiches « client sans chantier »,
+   ex. clients importés) ; planning, prévisionnel, notes et heures ne sont jamais touchés.
+   body : { noms:[...] } */
+router.post("/coordonnees-chantiers-supprimer", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const noms = Array.isArray(req.body.noms) ? req.body.noms : null;
+    if (!noms || !noms.length) return res.status(400).json({ ok: false, message: "Aucun client à supprimer" });
+    if (noms.length > 10000) return res.status(400).json({ ok: false, message: "Trop de clients en une fois" });
+
+    let doc = await Donnees.findOne({ clientId });
+    if (!doc) {
+      const tous = await Donnees.find({});
+      doc = tous.find(d => (d.clientId || "").toUpperCase() === clientId) || null;
+    }
+    if (!doc) return res.status(404).json({ ok: false, message: "Données introuvables" });
+
+    const coords = doc.coordonneesChantiers || {};
+    let supprimes = 0;
+    for (const n of noms) {
+      const cle = String(n || "").trim().toUpperCase();
+      if (cle && Object.prototype.hasOwnProperty.call(coords, cle)) { delete coords[cle]; supprimes++; }
+    }
+    if (supprimes) {
+      await Donnees.updateOne({ _id: doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    }
+    res.json({ ok: true, supprimes, coordonnees: coords });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -276,6 +477,18 @@ router.post("/renommer-chantier", verifyToken, async (req, res) => {
 });
 
 // ── Sauvegarder toutes les données du client ──
+// ── Reservio : mise à jour forcée immédiate (bouton page Entreprise) ──
+// body: { reimporter: bool } — reimporter=true recrée aussi les RDV à venir absents du planning.
+router.post("/reservio-resync", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const r = await synchroniserClientReservio(clientId, { reimporter: req.body?.reimporter === true });
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 router.post("/", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
@@ -312,6 +525,15 @@ router.post("/", verifyToken, async (req, res) => {
     // Nettoyer d'éventuels doublons de casse (on n'en garde qu'un seul)
     for (let i = 1; i < memeCle.length; i++) {
       await Donnees.deleteOne({ _id: memeCle[i]._id });
+    }
+
+    // ── Mode FUSION (sync.js ≥ sync10) : on n'applique QUE les cases modifiées
+    //    par ce poste depuis sa dernière lecture ; tout le reste est conservé tel
+    //    qu'il est en base (modifs faites entre-temps sur un autre PC / mobile).
+    if (existant && fusionValide(req.body.fusion)) {
+      const r = await appliquerFusion(existant, req.body, clientId);
+      if (r.ok) return res.json({ ok: true, mode: "fusion" });
+      console.warn(`[FUSION] ${clientId} : ${r.raison} → enregistrement complet`);
     }
 
     if (existant) {

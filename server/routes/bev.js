@@ -43,7 +43,7 @@ router.get("/:mois/:salarieId", verifyToken, async (req, res) => {
     const tous = await Bev.find({ mois, salarieId: String(salarieId) });
     const doc  = tous.find(d => (d.clientId || "").toUpperCase() === clientId);
     if (!doc) return res.json({ ok: true, retenues: {}, valide: false, reporte: 0 });
-    res.json({ ok: true, retenues: doc.retenues || {}, valide: !!doc.valide, reporte: doc.reporte || 0, evenements: doc.evenements || {}, indemnites: doc.indemnites || {}, tranches: doc.tranches || {} });
+    res.json({ ok: true, retenues: doc.retenues || {}, valide: !!doc.valide, reporte: doc.reporte || 0, evenements: doc.evenements || {}, indemnites: doc.indemnites || {}, tranches: doc.tranches || {}, tranchesMeta: doc.tranchesMeta || {} });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -70,6 +70,14 @@ router.post("/", verifyToken, async (req, res) => {
     const trbrut = (req.body.tranches && typeof req.body.tranches === 'object') ? req.body.tranches : {};
     const tranches = {};
     for (const k of Object.keys(trbrut)) { if (TRANCHES.includes(trbrut[k])) tranches[k] = trbrut[k]; }
+    // Origine des tranches (proposition automatique depuis l'adresse du chantier) :
+    //   'auto'   → tranche proposée par Suiv'Heures, recalculable tant qu'on n'y touche pas
+    //   'efface' → case vidée volontairement, à ne plus jamais reproposer
+    //   absent   → saisie manuelle, jamais retouchée
+    const META = ['auto','efface'];
+    const mtbrut = (req.body.tranchesMeta && typeof req.body.tranchesMeta === 'object') ? req.body.tranchesMeta : {};
+    const tranchesMeta = {};
+    for (const k of Object.keys(mtbrut)) { if (META.includes(mtbrut[k])) tranchesMeta[k] = mtbrut[k]; }
     const retenues = {};
     for (const k of Object.keys(brut)) {
       const v = Number(brut[k]);
@@ -88,11 +96,13 @@ router.post("/", verifyToken, async (req, res) => {
       doc.markModified('indemnites');
       doc.tranches = tranches;
       doc.markModified('tranches');
+      doc.tranchesMeta = tranchesMeta;
+      doc.markModified('tranchesMeta');
       doc.updatedAt = new Date();
       doc.markModified("retenues");
       await doc.save();
     } else {
-      await Bev.create({ clientId, salarieId: String(salarieId), mois, retenues, valide, reporte, evenements, indemnites, tranches });
+      await Bev.create({ clientId, salarieId: String(salarieId), mois, retenues, valide, reporte, evenements, indemnites, tranches, tranchesMeta });
     }
     res.json({ ok: true });
   } catch (err) {

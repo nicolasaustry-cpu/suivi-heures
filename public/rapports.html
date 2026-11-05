@@ -206,6 +206,24 @@
     color: #64748b;
     line-height: 1.2;
   }
+  /* ══ SYNTHÈSE PAR CHANTIER ══ */
+  .sc-table { width:auto; margin:0 auto; border-collapse:collapse; font-size:0.82rem; }
+  .sc-table th { background:#4f46e5; color:#fff; padding:6px 12px; font-weight:700; text-align:right; white-space:nowrap; position:sticky; top:0; z-index:1; }
+  .sc-table th.sc-ch, .sc-table td.sc-ch { text-align:left; min-width:220px; }
+  .sc-table td { padding:5px 12px; border-bottom:1px solid #eef2f7; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .sc-table tbody tr.sc-ligne td { font-weight:600; }
+  .sc-table tbody tr.sc-ligne:nth-of-type(odd) td { background:#fafbff; }
+  .sc-table tfoot tr.sc-titre-exclu td { background:#fff; color:#dc2626; font-weight:700; font-size:0.76rem; border-top:none; padding-top:12px; text-transform:uppercase; letter-spacing:0.03em; }
+  .sc-table tfoot tr.sc-exclu td { background:#fef2f2; color:#6b7280; font-weight:600; font-size:0.8rem; border-top:none; border-bottom:1px solid #fde2e2; }
+  .sc-table tfoot tr.sc-exclu td.sc-ch { padding-left:20px; }
+  .sc-table td.sc-ecart { font-weight:700; border-radius:0; }
+  .sc-table tfoot td { font-weight:800; background:#e0e7ff; color:#3730a3; border-top:2px solid #4f46e5; }
+  .sc-table tfoot tr.sc-tot-exclu td { font-weight:500; font-size:0.76rem; font-style:italic; background:#f8fafc; color:#64748b; border-top:1px dashed #cbd5e1; }
+  .sc-badge-exclu { font-size:0.68rem; font-weight:700; color:#dc2626; background:#fee2e2; border-radius:999px; padding:1px 7px; font-style:normal; }
+  .sc-legende { display:flex; flex-wrap:wrap; gap:1rem; justify-content:center; font-size:0.74rem; padding:0.6rem 0 0.2rem; }
+  .sc-legende i { display:inline-block; width:12px; height:12px; border:1px solid; border-radius:3px; vertical-align:-2px; margin-right:4px; }
+  @media print { .sc-table th { position:static; } }
+
   @media (max-width: 600px) {
     .synth-realise-flex { flex-direction: column; }
     .synth-prevu-encart { flex: 0 0 auto; }
@@ -239,6 +257,7 @@
     <a href="salaries.html">Salariés</a>
 <a href="chantiers.html">Prévisionnel</a>
   <a href="planning.html">Planning</a>
+  <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
   <a href="rapports.html" class="active">Rapports</a>
   </div>
 
@@ -265,6 +284,10 @@
       <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Situation par chantier : heures planifiées et réalisées regroupées par chantier">Situation par chantier</div>
     </div>
     <div class="filtre-item">
+      <label>&nbsp;</label>
+      <div class="filtre-btn" id="btn-synth-ch" onclick="toggleSynthChantiers()" title="Tableau de synthèse par chantier : devis, planifié, réalisé et écart sur les mois sélectionnés">📋 Synthèse chantiers</div>
+    </div>
+    <div class="filtre-item">
       <label>Exclure (mot-clé)</label>
       <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
         style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
@@ -272,6 +295,8 @@
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
       <div style="display:flex;gap:0.4rem;">
+        <button onclick="location.reload()" title="Recharger les données du serveur"
+          style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">↻ Rafraîchir</button>
         <button onclick="exporterExcel()" title="Exporter au format Excel"
           style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:0.85rem;">📊 Excel</button>
         <button onclick="exporterPDF()" title="Exporter au format PDF"
@@ -442,6 +467,37 @@
     </div>
   </div>
 
+  <!-- LIGNE 2ter : Synthèse par chantier (devis / planifié / réalisé / écart) -->
+  <div id="bloc-synth-ch" style="display:none;margin-bottom:0.8rem;">
+    <div class="rapport-card">
+      <div class="rapport-card-header" style="background:#eef2ff;">
+        <h3 style="color:#3730a3;">Synthèse par chantier <span id="synth-ch-periode" style="font-weight:500;font-size:0.78rem;color:#64748b;"></span></h3>
+        <span class="badge-nb" id="badge-synth-ch" style="background:#e0e7ff;color:#3730a3;">0 chantier</span>
+      </div>
+      <div style="overflow-x:auto;padding:0.4rem;">
+        <table class="sc-table">
+          <thead><tr>
+            <th class="sc-ch">Chantier</th>
+            <th>Heures devis</th>
+            <th>Temps planifié</th>
+            <th>Temps réalisé</th>
+            <th>Écart / devis</th>
+            <th>% réalisé / devis</th>
+          </tr></thead>
+          <tbody id="tbody-synth-ch"></tbody>
+          <tfoot id="tfoot-synth-ch"></tfoot>
+        </table>
+        <p class="msg-vide" id="vide-synth-ch" style="display:none;">Aucun chantier sur la période</p>
+        <div class="sc-legende">
+          <span><i style="background:#dcfce7;border-color:#15803d;"></i>&lt; 90 % du devis</span>
+          <span><i style="background:#ffedd5;border-color:#c2410c;"></i>90 à 100 %</span>
+          <span><i style="background:#fee2e2;border-color:#dc2626;"></i>&gt; 100 %</span>
+          <span style="color:#64748b;">Temps exclus : une ligne par motif, non comptés dans le réalisé ni dans l'écart</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -539,7 +595,22 @@ async function getMoisAvecDonnees() {
   // Toujours inclure le mois en cours pour permettre de saisir
   const now = new Date();
   mois.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
-  return [...mois].sort();   // ordre chronologique
+  // Liste CONTINUE, sans trou : du premier mois ayant des données jusqu'au plus
+  // tardif entre le dernier mois ayant des données et le mois en cours + 2.
+  // (Avant : seuls les mois ayant des données apparaissaient → un mois encore
+  // vide, ex. novembre entre octobre et un décembre déjà planifié, manquait.)
+  const fin = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+  mois.add(`${fin.getFullYear()}-${String(fin.getMonth()+1).padStart(2,'0')}`);
+  const tries = [...mois].filter(m => /^\d{4}-\d{2}$/.test(m)).sort();
+  const continus = [];
+  let [a, mm] = tries[0].split('-').map(Number);
+  const [aFin, mFin] = tries[tries.length - 1].split('-').map(Number);
+  while (a < aFin || (a === aFin && mm <= mFin)) {
+    continus.push(`${a}-${String(mm).padStart(2,'0')}`);
+    if (++mm > 12) { mm = 1; a++; }
+    if (continus.length > 240) break;   // garde-fou (20 ans)
+  }
+  return continus;   // ordre chronologique
 }
 
 function majLibelleMois() {
@@ -686,6 +757,7 @@ function appliquerEtAfficher() {
   afficherDetail('prev', prevVisible);
   afficherDetail('real', realVisible);
   if (_vueChantier) rafraichirRegroupe();
+  if (_synthCh) afficherSynthChantiers();
   majEncartPrevus();
   majBoutons();
   setTimeout(ajusterHauteur, 50);
@@ -871,8 +943,8 @@ function toggleVueChantier() {
 function majVueChantier() {
   const det = document.getElementById('grille-details');
   const reg = document.getElementById('grille-regroupe');
-  if (det) det.style.display = _vueChantier ? 'none' : '';
-  if (reg) reg.style.display = _vueChantier ? '' : 'none';
+  if (det) det.style.display = (_vueChantier || _synthCh) ? 'none' : '';
+  if (reg) reg.style.display = (_vueChantier && !_synthCh) ? '' : 'none';
   if (_vueChantier) rafraichirRegroupe();
 }
 
@@ -902,6 +974,184 @@ function afficherRegroupeChantier(type, lignes) {
 function rafraichirRegroupe() {
   afficherRegroupeChantier('prev', prevVisible);
   afficherRegroupeChantier('real', realVisible);
+}
+
+/* ═══════════════════════════
+   SYNTHÈSE PAR CHANTIER (devis / planifié / réalisé / écart)
+   - Mois : ceux sélectionnés dans le filtre Mois.
+   - Heures devis : page Prévisionnel (previsionnel_data, hPrevues) des mois sélectionnés.
+   - Planifié / réalisé : lignes visibles (filtres Salarié, Chantier, Motif, mot-clé appliqués).
+   - Temps exclus (SAV, visite client, temps non affecté…) : une sous-ligne par motif sous le
+     chantier, NON comptée dans le réalisé ni dans l'écart.
+   - Code couleur de l'écart = celui de l'encart « Heures prévues dans le devis » :
+     < 90 % vert, 90–100 % orange, > 100 % rouge.
+═══════════════════════════ */
+let _synthCh = false;
+
+function toggleSynthChantiers() {
+  _synthCh = !_synthCh;
+  const btn = document.getElementById('btn-synth-ch');
+  if (btn) btn.classList.toggle('actif', _synthCh);
+  const bloc = document.getElementById('bloc-synth-ch');
+  if (bloc) bloc.style.display = _synthCh ? '' : 'none';
+  if (_synthCh) {
+    afficherSynthChantiers();
+  }
+  majVueChantier();   // masque Détails / Situation par chantier tant que la synthèse est affichée
+  setTimeout(ajusterHauteur, 50);
+}
+
+function _clefSynthCh(s) { return (s || '').toString().trim().replace(/\s+/g, ' ').toUpperCase(); }
+
+function _fmtHSynthCh(h) {
+  if (!h) return '—';
+  const neg = h < 0, a = Math.abs(h);
+  let hh = Math.floor(a), mm = Math.round((a - hh) * 60);
+  if (mm === 60) { hh++; mm = 0; }
+  return (neg ? '-' : '') + hh + 'h' + String(mm).padStart(2, '0');
+}
+
+function _fmtEcartSynthCh(h) {
+  if (Math.abs(h) < 1 / 120) return '0h00';
+  return (h > 0 ? '+' : '') + _fmtHSynthCh(h);
+}
+
+function _couleurSynthCh(real, devis) {
+  if (!(devis > 0)) return { bg: '', fg: '#9ca3af' };
+  const ratio = (real / devis) * 100;
+  if (ratio < 90)   return { bg: '#dcfce7', fg: '#15803d' };
+  if (ratio <= 100) return { bg: '#ffedd5', fg: '#c2410c' };
+  return { bg: '#fee2e2', fg: '#dc2626' };
+}
+
+function calculerSynthChantiers() {
+  const fCh   = filtresActifs.chantier;
+  const fNorm = (fCh && fCh.size) ? new Set([...fCh].map(_clefSynthCh)) : null;
+  const motCle = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
+
+  const map = {};      // clef -> { nom, devis, prev, real }
+  const exclus = {};   // motif -> { prev, real } (tous chantiers confondus)
+  const get = nom => {
+    const k = _clefSynthCh(nom) || '(SANS CHANTIER)';
+    if (!map[k]) map[k] = { nom: (nom || '').trim() || '(sans chantier)', devis: 0, prev: 0, real: 0 };
+    return map[k];
+  };
+
+  // Heures devis (Prévisionnel) sur les mois sélectionnés
+  try {
+    const data = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
+    for (const annee in data) {
+      for (const mi in (data[annee] || {})) {
+        const moisStr = `${annee}-${String(parseInt(mi) + 1).padStart(2, '0')}`;
+        if (_moisSelection.size > 0 && !_moisSelection.has(moisStr)) continue;
+        const liste = data[annee][mi]?.chantiers;
+        if (!Array.isArray(liste)) continue;
+        liste.forEach(c => {
+          const nom = (c && c.client || '').trim();
+          if (!nom) return;
+          if (fNorm && !fNorm.has(_clefSynthCh(nom))) return;
+          if (motCle && nom.toLowerCase().includes(motCle)) return;
+          const h = parseFloat(c.hPrevues) || 0;
+          if (h > 0) get(nom).devis += h;
+        });
+      }
+    }
+  } catch (_) {}
+
+  // Planifié / réalisé (lignes déjà filtrées à l'écran)
+  const cumuler = (lignes, champ) => (lignes || []).forEach(l => {
+    const h = parseFloat(l.heures) || 0;
+    if (l.motif) {
+      if (!exclus[l.motif]) exclus[l.motif] = { prev: 0, real: 0 };
+      exclus[l.motif][champ] += h;
+    } else {
+      get(l.chantier)[champ] += h;
+    }
+  });
+  cumuler(prevVisible, 'prev');
+  cumuler(realVisible, 'real');
+
+  const chantiers = Object.values(map)
+    .filter(e => e.devis || e.prev || e.real)
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+  const lignesExclus = Object.keys(exclus)
+    .filter(m => exclus[m].prev || exclus[m].real)
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
+    .map(m => ({ motif: m, prev: exclus[m].prev, real: exclus[m].real }));
+  return { chantiers, exclus: lignesExclus };
+}
+
+function afficherSynthChantiers() {
+  const tbody = document.getElementById('tbody-synth-ch');
+  const tfoot = document.getElementById('tfoot-synth-ch');
+  const vide  = document.getElementById('vide-synth-ch');
+  const badge = document.getElementById('badge-synth-ch');
+  const per   = document.getElementById('synth-ch-periode');
+  if (!tbody) return;
+
+  if (per) per.textContent = _moisSelection.size
+    ? '— ' + [..._moisSelection].sort().map(libelleMoisCourt).join(', ')
+    : '— toutes périodes';
+
+  const res = calculerSynthChantiers();
+  const lignes = res.chantiers;
+  badge.textContent = lignes.length + ' chantier' + (lignes.length > 1 ? 's' : '');
+  if (!lignes.length && !res.exclus.length) {
+    tbody.innerHTML = ''; tfoot.innerHTML = '';
+    vide.style.display = '';
+    return;
+  }
+  vide.style.display = 'none';
+
+  let totDevis = 0, totPrev = 0, totReal = 0, totExPrev = 0, totExReal = 0;
+  let html = '';
+  lignes.forEach(e => {
+    totDevis += e.devis; totPrev += e.prev; totReal += e.real;
+    const coul  = _couleurSynthCh(e.real, e.devis);
+    const ecart = e.devis > 0 ? _fmtEcartSynthCh(e.real - e.devis) : '—';
+    const pct   = e.devis > 0 ? Math.round((e.real / e.devis) * 100) + ' %' : '—';
+    const style = `background:${coul.bg};color:${coul.fg};`;
+    html += `<tr class="sc-ligne">
+      <td class="sc-ch">${escapeHtmlRapport(e.nom)}</td>
+      <td>${_fmtHSynthCh(e.devis)}</td>
+      <td style="color:#1d4ed8;">${_fmtHSynthCh(e.prev)}</td>
+      <td style="color:#15803d;">${_fmtHSynthCh(e.real)}</td>
+      <td class="sc-ecart" style="${style}">${ecart}</td>
+      <td class="sc-ecart" style="${style}">${pct}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+
+  const coulT  = _couleurSynthCh(totReal, totDevis);
+  const ecartT = totDevis > 0 ? _fmtEcartSynthCh(totReal - totDevis) : '—';
+  const pctT   = totDevis > 0 ? Math.round((totReal / totDevis) * 100) + ' %' : '—';
+  const styleT = coulT.bg ? `background:${coulT.bg};color:${coulT.fg};` : '';
+  tfoot.innerHTML = `<tr>
+      <td class="sc-ch">Total</td>
+      <td>${_fmtHSynthCh(totDevis)}</td>
+      <td>${_fmtHSynthCh(totPrev)}</td>
+      <td>${_fmtHSynthCh(totReal)}</td>
+      <td style="${styleT}">${ecartT}</td>
+      <td style="${styleT}">${pctT}</td>
+    </tr>`
+    + (res.exclus.length ? `<tr class="sc-titre-exclu"><td class="sc-ch" colspan="6">Temps exclus du calcul (hors total)</td></tr>`
+      + res.exclus.map(x => {
+          totExPrev += x.prev; totExReal += x.real;
+          return `<tr class="sc-exclu">
+            <td class="sc-ch"><span class="sc-badge-exclu">${escapeHtmlRapport(x.motif)}</span></td>
+            <td></td>
+            <td>${_fmtHSynthCh(x.prev)}</td>
+            <td>${_fmtHSynthCh(x.real)}</td>
+            <td></td><td></td>
+          </tr>`;
+        }).join('')
+      + (res.exclus.length > 1 ? `<tr class="sc-tot-exclu">
+          <td class="sc-ch">Total temps exclus</td>
+          <td></td>
+          <td>${_fmtHSynthCh(totExPrev)}</td>
+          <td>${_fmtHSynthCh(totExReal)}</td>
+          <td></td><td></td>
+        </tr>` : '') : '');
 }
 
 /* ═══════════════════════════
@@ -1421,5 +1671,29 @@ function exporterPDF() {
 <script src="assets/coordonnees.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
+<script>
+/* Le lien « Clients » du menu (base clients Henrri) ne s'affiche que si la
+   connexion Henrri est active — cohérent avec chantiers.html / index.html. */
+(function () {
+  function henrriToken() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+        || localStorage.getItem('syncToken') || '';
+  }
+  async function majNavClients() {
+    const nav = document.getElementById('nav-link-clients');
+    if (!nav) return;
+    const token = henrriToken();
+    if (!token) { nav.style.display = 'none'; return; }
+    try {
+      const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      nav.style.display = (d.ok && d.actif) ? '' : 'none';
+    } catch (_) { nav.style.display = 'none'; }
+  }
+  window.addEventListener('DOMContentLoaded', majNavClients);
+  window.addEventListener('donnees-chargees', majNavClients);
+})();
+</script>
+
 </body>
 </html>

@@ -79,11 +79,80 @@ function toggleFiltrePresents() {
   afficherSalaries();
 }
 
+/* ── Taux de performance individuel (heures vendables = contrat effectif × taux) ──
+   Remplace l'ancien taux global (seuil orange de la jauge, page Entreprise). */
+function seuilOrangeEntreprise() {
+  try {
+    const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {};
+    if (ent.jauge && ent.jauge.orange != null) return parseFloat(ent.jauge.orange) || 0;
+    if (ent.orange != null) return parseFloat(ent.orange) || 0;
+  } catch (_) {}
+  return parseInt(localStorage.getItem('jaugeOrange')) || 0;
+}
+function tauxPerfValide(v) { const t = parseFloat(v); return (isFinite(t) && t >= 0 && t <= 100) ? t : null; }
+function fmtTauxPerf(t) { return String(Math.round(t * 100) / 100).replace('.', ','); }
+/* Valeur affichée dans le tableau : le taux du salarié, sinon le seuil orange de la jauge
+   (licences en cours). C'est exactement le taux utilisé par les calculs tant qu'aucun taux
+   propre n'est saisi, donc l'affichage ne ment jamais — y compris en consultation admin,
+   où rien n'est enregistré. */
+function tauxPerfAffiche(s) {
+  const t = tauxPerfValide(s && s.tauxPerformance);
+  if (t !== null) return t;
+  const d = seuilOrangeEntreprise();
+  return d > 0 ? d : '';
+}
+
+/* Comptes existants : chaque salarié (avec horaires) sans taux reçoit le seuil orange actuel,
+   ENREGISTRÉ dans sa fiche. Il ne bouge plus ensuite, même si la jauge est modifiée.
+   Lancé uniquement après réception des données serveur, jamais en consultation admin. */
+function initialiserTauxPerformance() {
+  if (!document.querySelector('#table-salaries')) return;
+  if (typeof SYNC !== 'undefined' && SYNC.estAdmin && SYNC.estAdmin()) return;
+  const defaut = seuilOrangeEntreprise();
+  if (!(defaut > 0)) return;
+  let change = false;
+  salaries.forEach(s => {
+    if (s.administratif) return;
+    if (tauxPerfValide(s.tauxPerformance) === null) { s.tauxPerformance = defaut; change = true; }
+  });
+  if (change) localStorage.setItem('salariesdata', JSON.stringify(salaries));
+}
+function majTauxPerf(id, valeur) {
+  const sal = salaries.find(s => s.id === id);
+  if (!sal) return;
+  const t = tauxPerfValide(String(valeur).replace(',', '.'));
+  if (t === null) { alert('Le taux de performance doit être compris entre 0 et 100 %.'); afficherSalaries(); return; }
+  sal.tauxPerformance = t;
+  localStorage.setItem('salariesdata', JSON.stringify(salaries));
+}
+/* Pré-remplit le champ du formulaire d'ajout avec le seuil orange (valeur de départ, modifiable). */
+function preremplirTauxPerfAjout() {
+  const el = document.getElementById('tauxPerfEl');
+  if (!el || el.value !== '' ) return;
+  const d = seuilOrangeEntreprise();
+  if (d > 0) el.value = d;
+}
+
 /* Affiche une date stockée en ISO (AAAA-MM-JJ) au format français JJ/MM/AAAA. */
 function fmtDateFr(iso) {
   if (!iso) return '';
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/* Total hebdomadaire des heures contractuelles d'une grille { lun..sam } */
+function salTotalSemaine(g) {
+  const t = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam'].reduce((s, j) => s + (parseFloat(g && g[j]) || 0), 0);
+  return Math.round(t * 100) / 100;
+}
+const _salFmtH = v => String(v).replace('.', ',');
+/* Cellule « Total sem. » : somme des heures journalières AFFICHÉES sur la ligne (Lun → Sam).
+   Alternance A/B : la ligne affiche la semaine A, le total est donc celui de la semaine A
+   (semaine B indiquée au survol). */
+function salCelluleTotalSemaine(s, h) {
+  const tot = _salFmtH(salTotalSemaine(h));
+  if (s.alternance) return `<span title="Semaine A : ${tot} h — Semaine B : ${_salFmtH(salTotalSemaine(s.heuresParJourB))} h">${tot}</span>`;
+  return tot;
 }
 
 function afficherSalaries() {
@@ -138,6 +207,11 @@ function afficherSalaries() {
             <span class="slider"></span>
           </label>
         </td>
+        <td style="text-align:center;white-space:nowrap;">${s.administratif
+          ? '<span style="color:#9ca3af;" title="Poste administratif : sans horaires, donc sans heures vendables">—</span>'
+          : `<input type="number" min="0" max="100" step="1" value="${tauxPerfAffiche(s)}" placeholder="—" ${estAdmin ? 'disabled' : ''}
+                   onchange="majTauxPerf(${s.id}, this.value)" style="width:58px;text-align:center;"
+                   title="Taux de performance : part des heures contractuelles vendables"> %`}</td>
         <td>${fmtDateFr(s.dateEntree)}</td>
         <td>
           <input type="date" value="${s.dateSortie || ""}"
@@ -150,6 +224,7 @@ function afficherSalaries() {
         <td id="h-jeu-${s.id}" style="text-align:center;">${h.jeu ?? 0}</td>
         <td id="h-ven-${s.id}" style="text-align:center;">${h.ven ?? 0}</td>
         <td id="h-sam-${s.id}" style="text-align:center;">${h.sam ?? 0}</td>
+        <td id="h-tot-${s.id}" style="text-align:center;font-weight:700;color:#15803d;background:#f0fdf4;">${salCelluleTotalSemaine(s, h)}</td>
         <td style="white-space:nowrap;">${pinCell}</td>
         <td style="white-space:nowrap;">
           <button class="btn" title="Monter" style="padding:3px 7px;font-size:0.8rem;background:#eef2ff;color:#3730a3;" onclick="deplacerSalarie(${idx}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
@@ -676,6 +751,8 @@ function togglePosteAdmin() {
   const blocHeures  = document.getElementById("bloc-heures");
   if (blocOptions) blocOptions.style.display = admin ? "none" : "";
   if (blocHeures)  blocHeures.style.display  = admin ? "none" : "";
+  const blocTaux = document.getElementById("bloc-taux-perf");
+  if (blocTaux) blocTaux.style.display = admin ? "none" : "";
   // Option « planning prévu » : visible uniquement pour un administratif
   const blocAdminPlanning = document.getElementById("bloc-admin-planning");
   if (blocAdminPlanning) blocAdminPlanning.style.display = admin ? "" : "none";
@@ -704,6 +781,17 @@ function ajouterSalarie() {
   const alternance = document.getElementById("altCheck")?.checked || false;
   const administratif = document.getElementById("adminCheck")?.checked || false;
 
+  // Taux de performance : obligatoire pour un salarié avec horaires (sert au calcul des heures vendables)
+  let tauxPerf = null;
+  if (!administratif) {
+    const brut = (document.getElementById("tauxPerfEl")?.value || "").replace(',', '.');
+    tauxPerf = tauxPerfValide(brut);
+    if (brut === "" || tauxPerf === null) {
+      alert("Veuillez saisir le taux de performance du salarié (entre 0 et 100 %).\nIl sert au calcul de ses heures vendables : heures contrat × taux.");
+      return;
+    }
+  }
+
   const nouveau = {
     id: Date.now(),
     prenom,
@@ -712,6 +800,7 @@ function ajouterSalarie() {
     dateSortie: "",
     heuresParJour: lireGrille(""),   // toujours renseigné (= semaine A si alternance)
   };
+  if (tauxPerf !== null) nouveau.tauxPerformance = tauxPerf;
 
   if (administratif) {
     nouveau.administratif = true;   // poste administratif : sans horaires, accès Vue équipe
@@ -749,6 +838,8 @@ function ajouterSalarie() {
     if (el) el.value = "0";
   });
   if (typeof window.resetApprentiAjout === "function") window.resetApprentiAjout();
+  const tpEl = document.getElementById("tauxPerfEl");
+  if (tpEl) { tpEl.value = ""; preremplirTauxPerfAjout(); }
 
   localStorage.setItem("majPlanning", Date.now().toString());
   alert("Salarié ajouté !");
@@ -797,6 +888,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Salariés
   afficherSalaries();
+  preremplirTauxPerfAjout();
 });
 
 /* ===========================================
@@ -819,7 +911,9 @@ window.addEventListener("donnees-chargees", () => {
   entreprise   = JSON.parse(localStorage.getItem("entreprisedata")   || "{}");
   salaries     = JSON.parse(localStorage.getItem("salariesdata")     || "[]");
   if (typeof afficherSalaries === "function" && document.querySelector("#table-salaries")) {
+    initialiserTauxPerformance();   // comptes existants : taux = seuil orange, enregistré une fois
     afficherSalaries();
+    preremplirTauxPerfAjout();
   }
   if (typeof initEntreprise === "function" && document.getElementById("nom-entreprise")) {
     // Recharger nom + code employé sans réécrire les inputs si l'utilisateur tape

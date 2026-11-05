@@ -18,8 +18,10 @@ import auditRoutes from "./routes/audit.js";
 import masqueInterventionRoutes from "./routes/masqueIntervention.js";
 import bonInterventionRoutes from "./routes/bonIntervention.js";
 import signatureSalarieRoutes from "./routes/signatureSalarie.js";
+import henrriRoutes from "./routes/henrri.js";
 import { planifierSauvegardeQuotidienne } from "./jobs/backupQuotidien.js";
 import { planifierRappelsRdv } from "./jobs/rappelsRdv.js";
+import { planifierSynchroReservio } from "./jobs/syncReservio.js";
 
 dotenv.config();
 
@@ -45,6 +47,7 @@ app.use("/api/audit", auditRoutes);
 app.use("/api/masques-intervention", masqueInterventionRoutes);
 app.use("/api/bons-intervention", bonInterventionRoutes);
 app.use("/api/signature-salarie", signatureSalarieRoutes);
+app.use("/api/henrri", henrriRoutes);
 
 // Endpoint de santé : vérifie l'état du serveur et de la base.
 // Utile pour le monitoring (UptimeRobot…) et le diagnostic de panne.
@@ -56,6 +59,16 @@ app.get("/api/health", (req, res) => {
     mongo: etatMongo === 1 ? "connecté" : "déconnecté",
     timestamp: new Date().toISOString()
   });
+});
+
+// Version en ligne : identifiant du déploiement Railway (change à chaque mise en ligne).
+// Lue régulièrement par les pages (sync.js) pour proposer « Mise à jour disponible ».
+// Repli hors Railway : heure de démarrage du serveur (change à chaque redémarrage).
+const VERSION_EN_LIGNE = process.env.RAILWAY_DEPLOYMENT_ID || process.env.RAILWAY_GIT_COMMIT_SHA
+  || ("demarrage-" + Date.now());
+app.get("/api/version", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ ok: true, version: VERSION_EN_LIGNE });
 });
 
 // URL courte et partageable pour l'auto-inscription à l'essai
@@ -111,6 +124,9 @@ planifierSauvegardeQuotidienne();
 
 // Rappels de RDV par notification push (chaque minute, Europe/Paris)
 planifierRappelsRdv();
+
+// Synchronisation Reservio → planning (clients ayant activé la connexion, toutes les 15 min)
+planifierSynchroReservio();
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Serveur lancé sur le port ${PORT}`));

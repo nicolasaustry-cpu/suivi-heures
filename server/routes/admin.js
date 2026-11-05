@@ -4,6 +4,8 @@ import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
 import Licence from "../models/licence.js";
 import Donnees from "../models/donnees.js";
 import Prescripteur from "../models/prescripteur.js";
+import Communication from "../models/communication.js";
+import { construireMailCommunication, envoyerMailsCommunication } from "../services/mail.js";
 
 const router = express.Router();
 
@@ -180,6 +182,174 @@ router.get("/export/:code", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// ════════════════ COMMUNICATION CLIENTS (mails groupés) ════════════════
+
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IMAGE_OK = /^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/=]+$/;
+
+// Lit et contrôle le contenu du mail envoyé par la console
+function lireContenu(body) {
+  const sujet       = String(body?.sujet || "").trim();
+  const message     = String(body?.message || "").trim();
+  const boutonTexte = String(body?.boutonTexte || "").trim().slice(0, 60);
+  const boutonUrl   = String(body?.boutonUrl || "").trim().slice(0, 500);
+  const image       = String(body?.image || "");
+  if (!sujet)   return { erreur: "Objet du mail manquant" };
+  if (!message) return { erreur: "Message vide" };
+  if (image && !IMAGE_OK.test(image)) return { erreur: "Image invalide" };
+  if (boutonUrl && !/^https?:\/\//i.test(boutonUrl)) return { erreur: "Le lien du bouton doit commencer par https://" };
+  return { sujet: sujet.slice(0, 200), message: message.slice(0, 20000), boutonTexte, boutonUrl, image };
+}
+
+function urlImage(id) {
+  const appUrl = (process.env.APP_URL || "https://suivi-heures.volitis.net").replace(/\/+$/, "");
+  return `${appUrl}/api/admin/communication/${id}/image`;
+}
+
+// ── Image d'une communication (PUBLIQUE : chargée par la messagerie du destinataire) ──
+router.get("/communication/:id/image", async (req, res) => {
+  try {
+    if (!/^[a-f0-9]{24}$/i.test(req.params.id)) return res.status(404).end();
+    const c = await Communication.findById(req.params.id, { image: 1 });
+    const m = c && c.image && c.image.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+    if (!m) return res.status(404).end();
+    res.set("Content-Type", m[1]);
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    res.send(Buffer.from(m[2], "base64"));
+  } catch {
+    res.status(404).end();
+  }
+});
+
+// ── Aperçu du mail (rien n'est envoyé ni enregistré) ──
+router.post("/communication/apercu", verifyToken, verifyAdmin, (req, res) => {
+  const c = lireContenu(req.body);
+  if (c.erreur) return res.status(400).json({ ok: false, message: c.erreur });
+  const mail = construireMailCommunication({
+    ...c, nomClient: String(req.body?.nomExemple || "Entreprise Exemple"), imageUrl: c.image || ""
+  });
+  res.json({ ok: true, sujet: mail.sujet, html: mail.html });
+});
+
+// ── Envoi d'un mail de test à une seule adresse ──
+router.post("/communication/test", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const c = lireContenu(req.body);
+    if (c.erreur) return res.status(400).json({ ok: false, message: c.erreur });
+    const email = String(req.body?.emailTest || "").trim();
+    if (!EMAIL_OK.test(email)) return res.status(400).json({ ok: false, message: "Adresse de test invalide" });
+
+    const doc = await Communication.create({ ...c, test: true, cible: { test: email } });
+    const mail = construireMailCommunication({ ...c, nomClient: "Entreprise Exemple", imageUrl: c.image ? urlImage(doc._id) : "" });
+    const [r] = await envoyerMailsCommunication([{ email, ...mail }]);
+    doc.destinataires = [{ code: "TEST", nom: "Test", email, ok: r.ok, erreur: r.erreur || "" }];
+    doc.nbEnvoyes = r.ok ? 1 : 0; doc.nbEchecs = r.ok ? 0 : 1;
+    await doc.save();
+    if (!r.ok) return res.status(502).json({ ok: false, message: r.erreur });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Envoi réel aux licences cochées ──
+// La console envoie la liste des CODES clients retenus ; les adresses sont
+// relues ici en base (on ne fait jamais confiance à des e-mails venus du navigateur).
+router.post("/communication/envoyer", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const c = lireContenu(req.body);
+    if (c.erreur) return res.status(400).json({ ok: false, message: c.erreur });
+    const codes = Array.isArray(req.body?.codes)
+      ? [...new Set(req.body.codes.map(x => String(x || "").trim().toUpperCase()).filter(Boolean))]
+      : [];
+    const idsPresc = Array.isArray(req.body?.prescripteurs)
+      ? [...new Set(req.body.prescripteurs.map(x => String(x || "").trim().toUpperCase()).filter(Boolean))]
+      : [];
+    if (!codes.length && !idsPresc.length) return res.status(400).json({ ok: false, message: "Aucun destinataire" });
+    if (codes.length + idsPresc.length > 1000) return res.status(400).json({ ok: false, message: "Trop de destinataires en un seul envoi (1000 max)" });
+
+    const licences = codes.length
+      ? await Licence.find({ codeClient: { $in: codes } }, { codeClient: 1, nomClient: 1, email: 1 })
+      : [];
+    // Les prescripteurs sont traités comme des licences : code « P:IDENTIFIANT »,
+    // nom = nom d'affichage du prescripteur (remplace {entreprise}).
+    const prescs = idsPresc.length
+      ? await Prescripteur.find({ identifiant: { $in: idsPresc } }, { identifiant: 1, nom: 1, email: 1 })
+      : [];
+    prescs.forEach(p => licences.push({ codeClient: "P:" + p.identifiant, nomClient: p.nom || p.identifiant, email: p.email }));
+
+    // Une seule fois par adresse (un même e-mail peut porter plusieurs licences)
+    const vus = new Set();
+    const cibles = [];
+    const ignores = [];
+    licences.forEach(l => {
+      const email = String(l.email || "").trim();
+      if (!EMAIL_OK.test(email)) { ignores.push({ code: l.codeClient, nom: l.nomClient, email, ok: false, erreur: "Adresse absente ou invalide" }); return; }
+      const cle = email.toLowerCase();
+      if (vus.has(cle)) return;
+      vus.add(cle);
+      cibles.push({ code: l.codeClient, nom: l.nomClient || "", email });
+    });
+    if (!cibles.length) return res.status(400).json({ ok: false, message: "Aucune adresse e-mail valide parmi les destinataires" });
+
+    const doc = await Communication.create({ ...c, test: false, cible: req.body?.cible || {} });
+    const imageUrl = c.image ? urlImage(doc._id) : "";
+    const mails = cibles.map(t => ({ email: t.email, ...construireMailCommunication({ ...c, nomClient: t.nom, imageUrl }) }));
+    const resultats = await envoyerMailsCommunication(mails);
+
+    doc.destinataires = [
+      ...cibles.map((t, i) => ({ ...t, ok: !!resultats[i]?.ok, erreur: resultats[i]?.erreur || "" })),
+      ...ignores
+    ];
+    doc.nbEnvoyes = resultats.filter(r => r.ok).length;
+    doc.nbEchecs  = doc.destinataires.length - doc.nbEnvoyes;
+    await doc.save();
+
+    // Copie de contrôle : UN seul mail à l'administrateur (pas une copie par
+    // client), identique à ce qu'a reçu le premier destinataire, précédé d'un
+    // bandeau rappelant la liste des clients touchés.
+    let copie = null;
+    const copieA = String(req.body?.copieA || "").trim();
+    if (EMAIL_OK.test(copieA)) {
+      const recus = doc.destinataires.filter(d => d.ok);
+      const quand = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris", dateStyle: "short", timeStyle: "short" });
+      const liste = recus.map(d => `${d.nom || d.code} (${d.email})`);
+      const m = construireMailCommunication({ ...c, nomClient: cibles[0].nom, imageUrl });
+      const esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const bandeau = `<div style="max-width:600px;margin:0 auto 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;color:#78350f;">
+        <b>Copie de contrôle</b> — envoyé le ${quand} à <b>${recus.length}</b> client${recus.length > 1 ? "s" : ""}${doc.nbEchecs ? ` (${doc.nbEchecs} échec${doc.nbEchecs > 1 ? "s" : ""})` : ""}.<br>
+        <span style="color:#92400e;">${liste.map(esc).join(" · ")}</span></div>`;
+      const html = m.html.replace(/(<td align="center">)/, `$1${bandeau}`);
+      const text = `[Copie de contrôle — envoyé le ${quand} à ${recus.length} client(s)]\n${liste.join("\n")}\n\n----------\n\n${m.text}`;
+      const [r] = await envoyerMailsCommunication([{ email: copieA, sujet: "[Copie] " + m.sujet, html, text }]);
+      copie = { email: copieA, ok: r.ok, erreur: r.erreur || "" };
+      doc.cible = { ...(doc.cible || {}), copieA };
+      doc.markModified("cible");
+      await doc.save();
+    }
+
+    res.json({
+      ok: true,
+      envoyes: doc.nbEnvoyes,
+      echecs: doc.destinataires.filter(d => !d.ok),
+      copie
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Historique des envois réels (sans l'image, trop lourde pour la liste) ──
+router.get("/communication/historique", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const liste = await Communication.find({ test: false }, { image: 0, message: 0 })
+      .sort({ date: -1 }).limit(50);
+    res.json({ ok: true, envois: liste });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ════════════════ GESTION DES PRESCRIPTEURS ════════════════
 
 // ── Lister les prescripteurs (sans le mot de passe) ──
@@ -195,10 +365,10 @@ router.get("/prescripteurs", verifyToken, verifyAdmin, async (req, res) => {
 // ── Créer un prescripteur ──
 router.post("/prescripteurs", verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const { identifiant, motDePasse, nom } = req.body;
+    const { identifiant, motDePasse, nom, email } = req.body;
     if (!identifiant || !motDePasse)
       return res.status(400).json({ ok: false, message: "Identifiant et mot de passe requis" });
-    const presc = new Prescripteur({ identifiant: identifiant.toUpperCase().trim(), motDePasse, nom: nom || "" });
+    const presc = new Prescripteur({ identifiant: identifiant.toUpperCase().trim(), motDePasse, nom: nom || "", email: String(email || "").trim() });
     await presc.save();
     res.status(201).json({ ok: true, prescripteur: { identifiant: presc.identifiant, nom: presc.nom, actif: presc.actif } });
   } catch (err) {
@@ -213,8 +383,9 @@ router.put("/prescripteurs/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const presc = await Prescripteur.findOne({ identifiant: req.params.id.toUpperCase() });
     if (!presc) return res.status(404).json({ ok: false, message: "Prescripteur introuvable" });
-    const { nom, motDePasse } = req.body;
+    const { nom, motDePasse, email } = req.body;
     if (nom !== undefined) presc.nom = nom;
+    if (email !== undefined) presc.email = String(email || "").trim();
     if (motDePasse)        presc.motDePasse = motDePasse;   // re-haché par le hook pre-save
     await presc.save();
     res.json({ ok: true });

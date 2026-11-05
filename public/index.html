@@ -50,6 +50,7 @@
   <a href="salaries.html">Salariés</a>
   <a href="chantiers.html">Prévisionnel</a>
   <a href="planning.html">Planning</a>
+  <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
   <a href="rapports.html">Rapports</a>
 </div>
 
@@ -69,6 +70,19 @@
   font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
   margin:0 0 12px; border:none; padding:0;
 }
+/* Volets repliables : réglages et explications détaillées masqués par défaut */
+.volet { margin:0 0 0.9rem; border:1px solid rgba(15,23,42,.10); border-radius:8px; background:rgba(255,255,255,.65); }
+.volet > summary {
+  cursor:pointer; list-style:none; padding:7px 12px; font-size:0.84rem; font-weight:700; color:#334155;
+  display:flex; align-items:center; gap:8px; user-select:none;
+}
+.volet > summary::-webkit-details-marker { display:none; }
+.volet > summary::after { content:"▸"; margin-left:auto; color:#94a3b8; transition:transform .15s; }
+.volet[open] > summary::after { transform:rotate(90deg); }
+.volet > summary:hover { background:rgba(15,23,42,.04); border-radius:8px; }
+.volet-corps { padding:4px 12px 12px; }
+.volet-resume { font-weight:500; color:#64748b; font-size:0.8rem; }
+@media print { .volet > summary::after { display:none; } }
 @media (max-width:1000px) {
   .ent-grille { columns:2 280px; }
 }
@@ -89,7 +103,8 @@
     </div>
     <div>
       <label>Code accès mobile :</label><br>
-      <input id="code-employe" placeholder="Ex : VOLITIS-SAL" style="width:100%;max-width:240px;box-sizing:border-box;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <span style="display:block;font-size:0.8rem;color:#6b7280;white-space:nowrap;margin-bottom:3px;">(5 caractères : chiffres, lettres et caractères spéciaux)</span>
+      <input id="code-employe" style="width:100%;max-width:240px;box-sizing:border-box;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
     </div>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
@@ -105,7 +120,8 @@
     </div>
     <button class="btn btn-primary" onclick="activerLicence()" style="display:none;">Activer la licence</button>
     <button type="button" class="btn" onclick="ouvrirGuide()" style="background:#f59e0b;color:#0f172a;font-weight:700;">📘 Démarrer avec Suiv'Heures</button>
-    <a href="assets/videos/presentation-equipes.mp4" target="_blank" rel="noopener" class="btn" style="background:#fff;color:#b45309;border:1.5px solid #f59e0b;font-weight:700;text-decoration:none;display:inline-block;">🎬 Voir la vidéo de présentation</a>
+    <a href="assets/videos/presentation-equipes.mp4" target="_blank" rel="noopener" class="btn" style="background:#fff;color:#b45309;border:1.5px solid #f59e0b;font-weight:700;text-decoration:none;display:inline-block;">🎬 Vidéo de présentation de Suiv'Heures aux équipes</a>
+    <button type="button" class="btn" onclick="ouvrirTutosVideo()" style="background:#fff;color:#b45309;border:1.5px solid #f59e0b;font-weight:700;">▶️ Tutos vidéo</button>
   </div>
   <div id="msg-licence" style="margin-top:0.5rem;"></div>
 </section>
@@ -113,8 +129,18 @@
 <!-- Paramétrage des jauges (utilisé par Planning et Planning Réalisé) -->
 <section class="ent-tuile" style="background:#f0fdfa;border-left-color:#0d9488;">
   <h2 style="color:#0d9488;">Paramétrage des jauges</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
-    Ces seuils s'appliquent aux jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong>. Ils déterminent à partir de quel pourcentage d'avancement l'indicateur passe au rouge, à l'orange ou au vert.
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    <strong>Objectif de % de vente des heures vendables pour atteindre votre objectif de résultat.</strong>
+  </p>
+  <details class="volet" data-volet="jauges"><summary>⚙ Régler les seuils <span class="volet-resume" id="resume-jauges"></span></summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.6rem;">
+    Ces seuils colorent les jauges des pages <strong>Planning</strong> et <strong>Planning Réalisé</strong> :
+    rouge tant que vous êtes sous le premier seuil, orange en approche de l'objectif, vert une fois l'objectif atteint.
+    Si vous ne connaissez pas votre objectif, nous conseillons <strong>85 %</strong> (rouge) et <strong>90 %</strong> (orange).
+  </p>
+  <p style="font-size:0.8rem;color:#64748b;margin:0 0 1rem;">
+    Les <strong>heures vendables</strong> ne dépendent plus de ces seuils : elles se calculent salarié par salarié,
+    à partir du <strong>taux de performance</strong> saisi dans sa fiche (page <a href="salaries.html">Salariés</a>).
   </p>
 
   <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;">
@@ -162,6 +188,7 @@
       </div>
     </div>
   </div>
+  </div></details>
 </section>
 
 <!-- Notifications de RDV : délai de rappel par défaut (réglage entreprise) -->
@@ -181,13 +208,132 @@
   </div>
 </section>
 
+<!-- Connexion Reservio : import automatique des RDV pris en ligne dans le planning -->
+<section class="ent-tuile" style="background:#eff6ff;border-left-color:#2563eb;">
+  <h2 style="color:#1d4ed8;">Connexion Reservio</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    Importe automatiquement dans le planning les rendez-vous pris en ligne sur Reservio (toutes les 15 minutes).
+  </p>
+  <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.8rem;">
+    <input type="checkbox" id="reservioActif" onchange="toggleReservioBloc()">
+    <label for="reservioActif" style="font-size:0.9rem;">Connecté à Reservio</label>
+  </div>
+  <details class="volet" data-volet="reservio"><summary>⚙ Agendas Reservio des salariés <span class="volet-resume" id="resume-reservio"></span></summary><div class="volet-corps">
+  <p style="font-size:0.82rem;color:#475569;margin:0 0 1rem;">
+    Un RDV importé que vous modifiez à la main dans le planning (technicien, heures, type d'entretien…) n'est ensuite plus jamais écrasé par Reservio.
+    Si Reservio propose <strong>plusieurs URL</strong> pour un même salarié (plusieurs fiches), collez-les <strong>toutes</strong>, une par ligne.
+  </p>
+  <div id="reservio-bloc-salaries" style="display:none;flex-direction:column;gap:0.8rem;margin-bottom:1rem;"></div>
+  <button type="button" id="btn-valider-reservio" class="btn btn-success" onclick="validerReservio()">💾 Enregistrer</button>
+  </div></details>
+  <span id="reservio-msg" style="display:block;font-size:0.85rem;color:#16a34a;"></span>
+  <div id="reservio-resync" style="margin-top:0.2rem;">
+    <button type="button" id="btn-resync-reservio" class="btn" onclick="resynchroniserReservio()">🔄 Mettre à jour depuis Reservio</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;margin-top:8px;"><input type="checkbox" id="reservioReimporter"> Réimporter aussi les RDV absents du planning</label>
+    <div id="reservio-resync-msg" style="font-size:0.85rem;margin-top:6px;white-space:pre-line;"></div>
+  </div>
+</section>
+
+<!-- Henrri (logiciel de facturation, version pilotage) : liaison par API OU par import des devis validés -->
+<section class="ent-tuile" style="background:#f0f9ff;border-left-color:#0284c7;">
+  <h2 style="color:#0369a1;">Henrri — logiciel de facturation</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    Utilisez-vous <strong>Henrri</strong>, version <strong>pilotage</strong> ?
+  </p>
+  <div style="display:flex;align-items:center;gap:1.2rem;margin-bottom:1rem;">
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="henrriPilotage" id="henrriPilotageOui" value="oui" onchange="toggleHenrriBloc()"> Oui
+    </label>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="henrriPilotage" id="henrriPilotageNon" value="non" onchange="toggleHenrriBloc()"> Non
+    </label>
+  </div>
+
+  <!-- Choix du mode de liaison (visible si Oui) -->
+  <div id="henrri-bloc-mode" style="display:none;margin-bottom:1rem;">
+    <div style="font-size:0.85rem;font-weight:600;color:#0f172a;margin-bottom:6px;">Comment relier Henrri à Suiv'Heures ?</div>
+    <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.88rem;cursor:pointer;margin-bottom:6px;">
+      <input type="radio" name="henrriMode" id="henrriModeImport" value="import" onchange="toggleHenrriBloc()" style="margin-top:3px;">
+      <span><strong>Import des devis validés</strong><br>
+        <span style="font-size:0.8rem;color:#64748b;">Vous exportez vos devis validés depuis Henrri (fichier Excel) et vous l'importez dans Suiv'Heures.</span></span>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.88rem;cursor:pointer;">
+      <input type="radio" name="henrriMode" id="henrriModeApi" value="api" onchange="toggleHenrriBloc()" style="margin-top:3px;">
+      <span><strong>Lien par API</strong><br>
+        <span style="font-size:0.8rem;color:#64748b;">Connexion directe avec vos clés Henrri (Client ID / Client Secret).</span></span>
+    </label>
+  </div>
+
+  <!-- Mode import -->
+  <div id="henrri-bloc-import" style="display:none;margin-bottom:1rem;">
+    <details class="volet" data-volet="henrri-import"><summary>📘 Démarche d'import des devis validés</summary><div class="volet-corps">
+    <div style="font-size:0.82rem;color:#475569;line-height:1.45;">
+      <ol style="margin:0 0 6px;padding-left:1.2rem;">
+        <li>Dans <strong>Henrri</strong>, exportez en Excel :
+          <strong>① la liste des clients</strong> (raison sociale, nom, adresse, code postal, ville, téléphone, e-mail)
+          et <strong>② le suivi des devis validés</strong> (n°, raison sociale, nombre d'heures, nombre d'heures analysées).</li>
+        <li>Dans Suiv'Heures, page <strong>Prévisionnel</strong> : bouton <strong>« 📄 Devis Henrri »</strong>, puis
+          <strong>« 📥 Importer clients + devis validés »</strong>.</li>
+        <li>Déposez le fichier clients en zone ① et le fichier devis en zone ②, vérifiez la correspondance des colonnes,
+          puis <strong>Analyser</strong> et <strong>Appliquer l'import</strong>.</li>
+        <li>Revenez dans <strong>« Devis Henrri »</strong> : choisissez le mois de démarrage de chaque devis
+          (ou « même mois pour tous »), puis <strong>Affecter</strong> ligne par ligne ou <strong>« ✔ Tout affecter »</strong>.</li>
+      </ol>
+      <div style="font-size:0.78rem;color:#64748b;">
+        • <strong>Heures</strong> : les heures analysées sont proposées ; si elles valent 0, le nombre d'heures du devis. Valeur modifiable avant affectation.<br>
+        • <strong>Coordonnées</strong> : reprises en priorité des fiches chantier déjà présentes, sinon de la liste clients importée
+          (raison sociale, ou nom pour les particuliers ; rapprochement sur le nom de famille seul signalé « à vérifier »).
+          Une fiche déjà remplie n'est jamais écrasée.<br>
+        • <strong>Mise à jour</strong> : réimportez les deux fichiers quand vous voulez ; rien n'est supprimé et un devis déjà affecté ou écarté n'est pas reproposé.
+          La liste clients peut être sautée si elle n'a pas changé.
+      </div>
+    </div>
+    </div></details>
+    <div id="henrri-import-info" style="font-size:0.78rem;color:#94a3b8;margin-top:6px;"></div>
+  </div>
+
+  <!-- Mode API (fonctionnement existant) -->
+  <div id="henrri-bloc" style="display:none;flex-direction:column;margin-bottom:1rem;max-width:360px;">
+    <details class="volet" data-volet="henrri-cles"><summary>🔑 Clés API Henrri <span class="volet-resume" id="resume-henrri"></span></summary><div class="volet-corps">
+    <div style="display:flex;flex-direction:column;gap:0.8rem;">
+    <a href="tuto-henrri-cles-production.html" target="_blank" rel="noopener"
+       style="align-self:flex-start;padding:6px 12px;border:1px solid #7dd3fc;border-radius:8px;background:#fff;color:#0369a1;font-size:0.85rem;font-weight:700;text-decoration:none;">📘 Comment obtenir mes clés Henrri ?</a>
+    <div>
+      <label for="henrriEnvironnement" style="font-size:0.85rem;font-weight:600;">Type de clé :</label><br>
+      <select id="henrriEnvironnement" style="width:100%;box-sizing:border-box;">
+        <option value="sandbox">Bac à sable / test (api-sandbox.henrri.io)</option>
+        <option value="production">Production (api.henrri.io)</option>
+      </select>
+      <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">
+        La clé de test renvoie toujours des données fictives, même avec un vrai compte Henrri.
+        Pour vos vraies données, utilisez une clé de production (à demander auprès de Henrri).
+      </div>
+    </div>
+    <div>
+      <label for="henrriClientId" style="font-size:0.85rem;font-weight:600;">Client ID :</label><br>
+      <input id="henrriClientId" placeholder="Ex : e0148ac0-623a-4c0f-b168-a01d7c5240be" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div>
+      <label for="henrriClientSecret" style="font-size:0.85rem;font-weight:600;">Client Secret :</label><br>
+      <input id="henrriClientSecret" type="password" placeholder="" style="width:100%;box-sizing:border-box;">
+      <div id="henrri-secret-info" style="font-size:0.78rem;color:#94a3b8;margin-top:2px;"></div>
+    </div>
+    </div>
+    </div></details>
+  </div>
+  <button type="button" id="btn-valider-henrri" class="btn btn-success" onclick="validerHenrri()">💾 Enregistrer</button>
+  <span id="henrri-msg" style="font-size:0.85rem;margin-left:8px;"></span>
+</section>
+
 <!-- Suivi des entretiens : activation de la page de suivi des contrats d'entretien annuel -->
 <section class="ent-tuile" style="background:#f8fafc;border-left-color:#64748b;">
   <h2 style="color:#475569;">Suivi des entretiens</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+  <details class="volet" data-volet="entretiens"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
     Liste les chantiers marqués « Contrat entretien annuel » (case à cocher dans <strong>Notes</strong>) avec la date de leur
     dernière intervention taguée « Entretien » et l'échéance à venir (+ 1 an), signalée en rouge en cas de dépassement.
   </p>
+  </div></details>
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:0.5rem;">
       <input type="checkbox" id="suiviEntretienActif">
@@ -197,12 +343,34 @@
   </div>
 </section>
 
+<!-- Agenda du dirigeant : rendez-vous saisis sur le mobile du gérant (agenda.html),
+     envoyés automatiquement au planning. Lu côté mobile via /api/saisies/connect. -->
+<section class="ent-tuile" style="background:#fffbeb;border-left-color:#0f3a8a;">
+  <h2 style="color:#0f3a8a;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">Agenda du dirigeant
+    <span style="font-size:0.68rem;font-weight:700;background:#0f3a8a;color:#fff;border-radius:999px;padding:3px 10px;letter-spacing:0.03em;">RÉSERVÉ AU DIRIGEANT</span>
+  </h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    L'alternative à Google Agenda, intégrée à Suiv'Heures : un seul outil pour vos rendez-vous.
+    Vos rendez-vous se mettent à jour automatiquement dans le planning.
+  </p>
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <input type="checkbox" id="agendaDirigeantActif">
+      <label for="agendaDirigeantActif" style="font-size:0.9rem;">Activer l'agenda du dirigeant</label>
+    </div>
+    <button type="button" id="btn-valider-agenda-dirigeant" class="btn btn-success" onclick="validerAgendaDirigeant()">💾 Valider</button>
+    <span id="agenda-dirigeant-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+</section>
+
 <!-- Congés payés — régime CIBTP (jours ouvrables) -->
 <section class="ent-tuile" style="background:#eef2ff;border-left-color:#6366f1;">
   <h2 style="color:#4338ca;">Congés payés — Régime CIBTP</h2>
-  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+  <details class="volet" data-volet="cibtp"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
     Pour les entreprises concernées par la <strong>CIBTP</strong>, le décompte des congés se fait en <strong>jours ouvrables</strong> (et non en jours ouvrés) : <strong>2,5 jours acquis par mois</strong>, soit <strong>30 jours par an</strong> (hors ancienneté). Concrètement, dans le suivi des congés, <strong>1 journée posée sur une semaine de 5 jours vaut 1,2 jour</strong>.
   </p>
+  </div></details>
   <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:1.2rem;">
       <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
@@ -215,6 +383,60 @@
     <button type="button" id="btn-valider-cibtp" class="btn btn-success" onclick="validerCIBTP()">💾 Valider</button>
     <span id="cibtp-msg" style="font-size:0.85rem;color:#16a34a;"></span>
   </div>
+</section>
+
+<!-- Gestion du compteur d'heures : majoration de 25 % des heures complémentaires reportées -->
+<section class="ent-tuile" style="background:#f5f3ff;border-left-color:#7c3aed;">
+  <h2 style="color:#6d28d9;">Gestion du compteur d'heures</h2>
+  <details class="volet" data-volet="compteur"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
+    Dans <strong>Éléments Pointage Paie</strong>, les heures complémentaires reportées au compteur peuvent y entrer
+    <strong>majorées de 25 %</strong> (1 h reportée = 1,25 h au compteur). Si votre entreprise n'applique pas cette majoration,
+    choisissez <strong>Non</strong> : les heures reportées entrent alors au compteur pour leur valeur réelle (1 h = 1 h)
+    et la notion de majoration disparaît des décomptes et des compteurs.
+  </p>
+  </div></details>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+    <span style="font-size:0.9rem;font-weight:600;">Application des 25 % liés aux heures complémentaires :</span>
+    <div style="display:flex;align-items:center;gap:1.2rem;">
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="majCompteur" id="majCompteurOui" value="oui"> Oui
+      </label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="majCompteur" id="majCompteurNon" value="non"> Non
+      </label>
+    </div>
+    <button type="button" id="btn-valider-maj-compteur" class="btn btn-success" onclick="validerMajCompteur()">💾 Valider</button>
+    <span id="maj-compteur-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+</section>
+
+<!-- Zones d'indemnités de trajet : point de départ + bornes kilométriques (vol d'oiseau) -->
+<section class="ent-tuile" style="background:#fff7ed;border-left-color:#ea580c;">
+  <h2 style="color:#c2410c;">Zones d'indemnités de trajet</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+    Sert à <strong>proposer automatiquement la tranche</strong> dans Éléments Pointage Paie, à partir de l'adresse du chantier.
+    La distance est mesurée <strong>à vol d'oiseau</strong> entre le point de départ ci-dessous et le chantier.
+  </p>
+  <details class="volet" data-volet="trajet"><summary>⚙ Point de départ et barème <span class="volet-resume" id="resume-trajet"></span></summary><div class="volet-corps">
+  <div style="margin-bottom:0.9rem;">
+    <label for="zt-adresse" style="font-size:0.85rem;font-weight:600;">Point de départ (siège, agence ou dépôt) :</label><br>
+    <input id="zt-adresse" placeholder="Ex : 12 rue de la Gare, 72190 Sargé-lès-le-Mans" style="width:100%;max-width:420px;box-sizing:border-box;">
+    <div id="zt-localise" style="font-size:0.78rem;color:#94a3b8;margin-top:3px;"></div>
+  </div>
+  <table id="zt-table" style="border-collapse:collapse;font-size:0.85rem;margin-bottom:0.9rem;">
+    <thead>
+      <tr style="color:#64748b;text-align:left;">
+        <th style="padding:3px 10px 3px 0;">Tranche</th>
+        <th style="padding:3px 10px 3px 0;">De</th>
+        <th style="padding:3px 0;">Jusqu'à</th>
+      </tr>
+    </thead>
+    <tbody id="zt-corps"></tbody>
+  </table>
+  <button type="button" id="btn-valider-zt" class="btn btn-success" onclick="validerZonesTrajet()">💾 Enregistrer</button>
+  </div></details>
+  <span id="zt-msg" style="font-size:0.85rem;margin-left:8px;"></span>
 </section>
 
 <!-- Bons d'intervention : activation de la création et de l'utilisation des masques d'intervention -->
@@ -274,6 +496,178 @@ async function validerSuiviEntretien() {
 }
 window.addEventListener('DOMContentLoaded', chargerSuiviEntretien);
 window.addEventListener('donnees-chargees', chargerSuiviEntretien);
+
+/* Agenda du dirigeant : même principe que le suivi des entretiens (case + bouton
+   Valider, envoi immédiat au serveur). Pas de rechargement : l'option ne change
+   pas le menu du PC, elle n'agit que sur la saisie mobile du gérant, qui la lit
+   à sa prochaine connexion ou au changement de date. */
+function chargerAgendaDirigeant() {
+  const cb = document.getElementById('agendaDirigeantActif');
+  if (cb) cb.checked = !!_entLire().agendaDirigeant;
+}
+async function validerAgendaDirigeant() {
+  const actif = document.getElementById('agendaDirigeantActif').checked;
+  const ent = _entLire();
+  ent.agendaDirigeant = actif;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-agenda-dirigeant');
+  const msg = document.getElementById('agenda-dirigeant-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    if (msg) { msg.style.color = '#16a34a'; msg.textContent = actif ? '✅ Agenda activé' : '✅ Agenda désactivé'; }
+  } catch (e) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'Erreur d\'enregistrement, réessayez'; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
+}
+window.addEventListener('DOMContentLoaded', chargerAgendaDirigeant);
+window.addEventListener('donnees-chargees', chargerAgendaDirigeant);
+</script>
+
+<script>
+/* ── Connexion Reservio : import auto des RDV dans le planning ──
+   Un salarié = une URL de flux ICS Reservio (page Reservio :
+   Paramètres → Synchroniser les rendez-vous → URL nommée par salarié).
+   Enregistré dans entreprisedata.reservio = { actif, salaries: [{salarieId, urlIcs}] } */
+function _salariesListeReservio() {
+  try { return JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) { return []; }
+}
+
+function toggleReservioBloc() {
+  const actif = document.getElementById('reservioActif').checked;
+  const bloc = document.getElementById('reservio-bloc-salaries');
+  bloc.style.display = actif ? 'flex' : 'none';
+  if (actif) rendreBlocReservioSalaries();
+}
+
+function rendreBlocReservioSalaries() {
+  const cont = document.getElementById('reservio-bloc-salaries');
+  if (!cont) return;
+  const salaries = _salariesListeReservio();
+  const ent = _entLire();
+  const cfg = (ent.reservio && Array.isArray(ent.reservio.salaries)) ? ent.reservio.salaries : [];
+  const urlsParId = {};
+  cfg.forEach(s => { urlsParId[String(s.salarieId)] = Array.isArray(s.urlsIcs) ? s.urlsIcs : []; });
+
+  if (!salaries.length) {
+    cont.innerHTML = '<p style="font-size:0.85rem;color:#94a3b8;margin:0;">Ajoutez d\'abord des salariés dans la page « Salariés ».</p>';
+    return;
+  }
+
+  cont.innerHTML = salaries.map(s => {
+    const nom = ((s.prenom || '') + ' ' + (s.nom || '')).trim() || '(sans nom)';
+    const val = (urlsParId[String(s.id)] || []).join('\n').replace(/</g, '&lt;');
+    return '<div>'
+      + '<label style="font-size:0.85rem;font-weight:600;">URL(s) ICS Reservio — ' + nom
+      + ' <span style="font-weight:400;color:#94a3b8;">(une par ligne s\'il y en a plusieurs)</span> :</label><br>'
+      + '<textarea class="reservio-url-salarie" data-salarie-id="' + s.id + '" rows="2" '
+      + 'placeholder="https://app.reservio.com/sync/calendar/..." style="width:100%;max-width:480px;box-sizing:border-box;font-family:inherit;font-size:0.85rem;">' + val + '</textarea>'
+      + '</div>';
+  }).join('');
+}
+
+function chargerReservio() {
+  const ent = _entLire();
+  const actif = !!(ent.reservio && ent.reservio.actif);
+  const cb = document.getElementById('reservioActif');
+  if (cb) cb.checked = actif;
+  const bloc = document.getElementById('reservio-bloc-salaries');
+  if (bloc) bloc.style.display = actif ? 'flex' : 'none';
+  rendreBlocReservioSalaries();
+}
+
+async function validerReservio() {
+  const actif = document.getElementById('reservioActif').checked;
+  const salaries = [];
+  document.querySelectorAll('.reservio-url-salarie').forEach(inp => {
+    const urls = (inp.value || '').split('\n').map(u => u.trim()).filter(Boolean);
+    if (urls.length) salaries.push({ salarieId: inp.getAttribute('data-salarie-id'), urlsIcs: urls });
+  });
+  if (actif && !salaries.length) {
+    alert("Renseignez au moins une URL ICS avant d'activer la connexion Reservio.");
+    return;
+  }
+  const ent = _entLire();
+  ent.reservio = { actif, salaries };
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-reservio');
+  const msg = document.getElementById('reservio-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+  if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+/* Mise à jour forcée depuis Reservio (sans attendre le quart d'heure). Les RDV verrouillés
+   🔒 ne sont jamais touchés. « Réimporter » recrée aussi les RDV à venir qui ne sont plus
+   dans le planning, y compris ceux supprimés volontairement. */
+async function resynchroniserReservio() {
+  const token = localStorage.getItem('syncToken');
+  const msg = document.getElementById('reservio-resync-msg');
+  const btn = document.getElementById('btn-resync-reservio');
+  const reimporter = !!document.getElementById('reservioReimporter')?.checked;
+  if (!token) { msg.style.color = '#dc2626'; msg.textContent = 'Session expirée : reconnectez-vous.'; return; }
+  if (reimporter && !confirm("Les rendez-vous Reservio à venir absents du planning vont être recréés, y compris ceux que vous aviez supprimés volontairement. Continuer ?")) return;
+  btn.disabled = true; btn.textContent = '⏳ Mise à jour…';
+  msg.style.color = '#374151'; msg.textContent = '';
+  try {
+    // Les modifications en attente partent d'abord, pour ne rien écraser au rechargement.
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    const r = await fetch('/api/data/reservio-resync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ reimporter })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.message || ('Erreur ' + r.status));
+    const lignes = ['✔ Mise à jour terminée : ' + j.aVenir + ' RDV à venir dans Reservio, ' + j.nouveaux + ' ajouté(s) au planning.'];
+    if (j.supprimesALaMain) lignes.push(j.supprimesALaMain + ' RDV supprimé(s) du planning non recréé(s) (cochez « Réimporter » pour les récupérer).');
+    if (j.planningPlein) lignes.push('⚠ ' + j.planningPlein + ' RDV non placé(s) : planning du jour plein.');
+    (j.fluxEnErreur || []).forEach(f => lignes.push('⚠ Une URL Reservio est illisible (' + f.erreur + ') : vérifiez-la.'));
+    lignes.push('Rechargement de la page…');
+    msg.style.color = (j.fluxEnErreur || []).length ? '#b45309' : '#16a34a';
+    msg.textContent = lignes.join('\n');
+    // Recharge pour relire les données serveur (planning, coordonnées) à jour.
+    setTimeout(() => location.reload(), 3500);
+  } catch (e) {
+    msg.style.color = '#dc2626'; msg.textContent = '✖ ' + e.message;
+    btn.disabled = false; btn.textContent = '🔄 Mettre à jour depuis Reservio';
+  }
+}
+/* ── Volets repliables : état mémorisé par poste, résumé affiché volet fermé ── */
+function _voletsInit() {
+  document.querySelectorAll('details.volet[data-volet]').forEach(d => {
+    const cle = 'volet_ent_' + d.dataset.volet;
+    try { if (localStorage.getItem(cle) === '1') d.open = true; } catch (_) {}
+    d.addEventListener('toggle', () => {
+      try { localStorage.setItem(cle, d.open ? '1' : '0'); } catch (_) {}
+    });
+  });
+  majResumesVolets();
+  document.addEventListener('change', majResumesVolets);
+  document.addEventListener('input', majResumesVolets);
+}
+function majResumesVolets() {
+  const set = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt ? '— ' + txt : ''; };
+  const v = id => (document.getElementById(id) || {}).value || '';
+  // Jauges
+  if (v('seuilRouge') || v('seuilOrange')) set('resume-jauges', 'rouge ' + v('seuilRouge') + ' % · orange ' + v('seuilOrange') + ' %');
+  // Reservio : nombre de salariés ayant au moins une URL
+  const nbR = [...document.querySelectorAll('.reservio-url-salarie')].filter(t => t.value.trim()).length;
+  set('resume-reservio', document.getElementById('reservioActif')?.checked ? nbR + ' salarié(s) relié(s)' : '');
+  // Henrri : clé renseignée ?
+  set('resume-henrri', v('henrriClientId') ? 'renseignées' : 'à renseigner');
+  // Trajet : point de départ
+  const adr = v('zt-adresse').trim();
+  set('resume-trajet', adr ? (adr.length > 34 ? adr.slice(0, 32) + '…' : adr) : 'à renseigner');
+}
+window.addEventListener('DOMContentLoaded', _voletsInit);
+window.addEventListener('donnees-chargees', () => setTimeout(majResumesVolets, 50));
+window.addEventListener('load', () => setTimeout(majResumesVolets, 300));
+window.addEventListener('DOMContentLoaded', chargerReservio);
+window.addEventListener('donnees-chargees', chargerReservio);
 </script>
 
 <script>
@@ -300,6 +694,163 @@ async function validerCIBTP() {
 }
 window.addEventListener('DOMContentLoaded', chargerCIBTP);
 window.addEventListener('donnees-chargees', chargerCIBTP);
+
+/* Gestion du compteur d'heures — entreprisedata.majorationCompteur (booléen).
+   Absent = Oui : les clients existants gardent la majoration de 25 % sans rien faire. */
+function chargerMajCompteur() {
+  const ent = _entLire();
+  const actif = ent.majorationCompteur !== false;
+  const oui = document.getElementById('majCompteurOui');
+  const non = document.getElementById('majCompteurNon');
+  if (oui && non) { oui.checked = actif; non.checked = !actif; }
+}
+async function validerMajCompteur() {
+  const oui = document.getElementById('majCompteurOui');
+  const non = document.getElementById('majCompteurNon');
+  if (!oui.checked && !non.checked) { alert('Choisissez Oui ou Non.'); return; }
+  const ent = _entLire();
+  ent.majorationCompteur = !!oui.checked;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-maj-compteur');
+  const msg = document.getElementById('maj-compteur-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
+  if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+window.addEventListener('DOMContentLoaded', chargerMajCompteur);
+window.addEventListener('donnees-chargees', chargerMajCompteur);
+</script>
+
+<script>
+/* ── Zones d'indemnités de trajet ──
+   Enregistré dans entreprisedata.zonesTrajet = {
+     depart: { adresse, lat, lon, label },   // point de départ géolocalisé
+     bornes: [5,10,20,30,40,50,65]           // limite HAUTE (km) de IA…VI ; VII = au-delà de la dernière
+   }
+   Géolocalisation via le service public de géocodage de l'IGN (Géoplateforme),
+   gratuit et sans clé. Lu ensuite par bev.html pour proposer la tranche. */
+const ZT_CODES = ['IA','IB','II','III','IV','V','VI','VII'];
+const ZT_BORNES_DEFAUT = [5, 10, 20, 30, 40, 50, 65];
+
+function _ztConfig() {
+  const ent = _entLire();
+  const zt = ent.zonesTrajet || {};
+  const bornes = (Array.isArray(zt.bornes) && zt.bornes.length === 7) ? zt.bornes : ZT_BORNES_DEFAUT;
+  return { depart: zt.depart || null, bornes: bornes.slice() };
+}
+
+function rendreTableZonesTrajet(bornes) {
+  const corps = document.getElementById('zt-corps');
+  if (!corps) return;
+  corps.innerHTML = ZT_CODES.map(function (code, i) {
+    const de = i === 0 ? 0 : bornes[i - 1];
+    const jusqua = i < 7
+      ? '<input type="number" class="zt-borne" data-i="' + i + '" min="0" step="1" value="' + bornes[i] + '" style="width:64px;" oninput="majDebutsZonesTrajet()"> km'
+      : '<span style="color:#64748b;">et plus</span>';
+    return '<tr>'
+      + '<td style="padding:3px 10px 3px 0;font-weight:700;color:#c2410c;">' + code + '</td>'
+      + '<td style="padding:3px 10px 3px 0;color:#64748b;"><span class="zt-de" data-i="' + i + '">' + de + '</span> km</td>'
+      + '<td style="padding:3px 0;">' + jusqua + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+/* Met à jour la colonne « De » en direct quand on modifie une borne */
+function majDebutsZonesTrajet() {
+  const vals = Array.from(document.querySelectorAll('.zt-borne')).map(function (inp) { return inp.value; });
+  document.querySelectorAll('.zt-de').forEach(function (sp) {
+    const i = parseInt(sp.getAttribute('data-i'), 10);
+    sp.textContent = i === 0 ? 0 : (vals[i - 1] || '?');
+  });
+}
+
+function _ztAfficherLocalise(depart) {
+  const el = document.getElementById('zt-localise');
+  if (!el) return;
+  if (depart && depart.lat != null && depart.lon != null) {
+    el.style.color = '#16a34a';
+    el.textContent = '✔ Localisé : ' + (depart.label || depart.adresse);
+  } else {
+    el.style.color = '#94a3b8';
+    el.textContent = 'Pas encore localisé : saisissez l\'adresse puis Enregistrer.';
+  }
+}
+
+function chargerZonesTrajet() {
+  const cfg = _ztConfig();
+  const inp = document.getElementById('zt-adresse');
+  if (inp) inp.value = cfg.depart ? (cfg.depart.adresse || '') : '';
+  rendreTableZonesTrajet(cfg.bornes);
+  _ztAfficherLocalise(cfg.depart);
+}
+
+/* Géocode une adresse via l'API Géoplateforme de l'IGN. Renvoie {lat, lon, label, score} ou null. */
+async function _ztGeocoder(adresse) {
+  const url = 'https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(adresse);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('service de localisation indisponible (' + r.status + ')');
+  const d = await r.json();
+  const f = d && d.features && d.features[0];
+  if (!f || !f.geometry || !Array.isArray(f.geometry.coordinates)) return null;
+  return {
+    lon: f.geometry.coordinates[0],
+    lat: f.geometry.coordinates[1],
+    label: (f.properties && f.properties.label) || adresse,
+    score: (f.properties && f.properties.score) || 0
+  };
+}
+
+async function validerZonesTrajet() {
+  const msg = document.getElementById('zt-msg');
+  const btn = document.getElementById('btn-valider-zt');
+  const setMsg = function (txt, ok) { if (msg) { msg.style.color = ok ? '#16a34a' : '#dc2626'; msg.textContent = txt; } };
+
+  // 1. Bornes : nombres entiers, strictement croissantes
+  const bornes = Array.from(document.querySelectorAll('.zt-borne')).map(function (inp) { return parseFloat(inp.value); });
+  for (let i = 0; i < bornes.length; i++) {
+    if (isNaN(bornes[i]) || bornes[i] <= 0) { setMsg('✖ Borne ' + ZT_CODES[i] + ' invalide.', false); return; }
+    if (i > 0 && bornes[i] <= bornes[i - 1]) {
+      setMsg('✖ La borne ' + ZT_CODES[i] + ' doit être supérieure à celle de ' + ZT_CODES[i - 1] + '.', false); return;
+    }
+  }
+
+  // 2. Point de départ : on ne relance la localisation que si l'adresse a changé
+  const adresse = (document.getElementById('zt-adresse').value || '').trim().replace(/\s+/g, ' ');
+  const ancien = _ztConfig().depart;
+  let depart = null;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  setMsg('', true);
+  try {
+    if (adresse) {
+      if (ancien && ancien.adresse === adresse && ancien.lat != null) {
+        depart = ancien;
+      } else {
+        const g = await _ztGeocoder(adresse);
+        if (!g) throw new Error('adresse introuvable, vérifiez-la (numéro, rue, code postal, ville).');
+        depart = { adresse: adresse, lat: g.lat, lon: g.lon, label: g.label };
+      }
+    }
+    // 3. Enregistrement
+    const ent = _entLire();
+    ent.zonesTrajet = { depart: depart, bornes: bornes };
+    localStorage.setItem('entreprisedata', JSON.stringify(ent));
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+      await SYNC.sauvegarderTout();
+    }
+    _ztAfficherLocalise(depart);
+    setMsg(adresse ? '✔ Enregistré' : '✔ Enregistré (sans point de départ, aucune tranche ne sera proposée)', true);
+    setTimeout(function () { if (msg) msg.textContent = ''; }, 4000);
+  } catch (e) {
+    setMsg('✖ ' + (e && e.message ? e.message : e), false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+  }
+}
+window.addEventListener('DOMContentLoaded', chargerZonesTrajet);
+window.addEventListener('donnees-chargees', chargerZonesTrajet);
 </script>
 
 <script>
@@ -363,6 +914,21 @@ function sauverSeuilsJauge() {
   const f = document.getElementById('seuilFige').checked;
   document.getElementById('seuilRouge').disabled  = f;
   document.getElementById('seuilOrange').disabled = f;
+  // Avant de changer le seuil orange : les salariés qui n'ont pas encore de taux de performance
+  // reçoivent l'ANCIEN seuil (qui servait jusqu'ici à leurs heures vendables). Leurs heures
+  // vendables ne bougent donc pas quand on règle la jauge, qui a désormais un autre rôle.
+  try {
+    const ancien = (_getEntreprise().jauge || {}).orange;
+    if (ancien != null && Number(ancien) > 0 && Number(ancien) !== o) {
+      const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+      let change = false;
+      if (Array.isArray(sals)) sals.forEach(function (x) {
+        const t = parseFloat(x.tauxPerformance);
+        if (!x.administratif && !(isFinite(t) && t >= 0 && t <= 100)) { x.tauxPerformance = Number(ancien); change = true; }
+      });
+      if (change) localStorage.setItem('salariesdata', JSON.stringify(sals));
+    }
+  } catch (_) {}
   // Stocker dans entreprisedata pour que la sync auto les pousse au serveur
   _setEntrepriseField({ rouge: r, orange: o, fige: f });
   // Garder aussi les anciennes clés (autres pages les lisent encore peut-être)
@@ -487,6 +1053,109 @@ window.sauverDelaiDefaut = async function (btn) {
 };
 window.addEventListener('DOMContentLoaded', chargerDelaiDefaut);
 window.addEventListener('donnees-chargees', chargerDelaiDefaut);
+</script>
+
+<script>
+/* ── Henrri version pilotage : Oui/Non, puis liaison par API ou par import ──
+   Les identifiants (client_id/secret) sont stockés dans une collection
+   serveur dédiée (jamais dans entreprisedata/localStorage) : lecture et
+   écriture passent par des appels directs à /api/henrri/config, avec le
+   même schéma d'authentification que /api/push/delai ci-dessus. */
+function _henrriChoix() {
+  const oui = document.getElementById('henrriPilotageOui').checked;
+  const non = document.getElementById('henrriPilotageNon').checked;
+  const mode = document.getElementById('henrriModeApi').checked ? 'api'
+             : (document.getElementById('henrriModeImport').checked ? 'import' : '');
+  return { pilotage: oui ? true : (non ? false : null), mode };
+}
+
+function toggleHenrriBloc() {
+  const c = _henrriChoix();
+  document.getElementById('henrri-bloc-mode').style.display   = c.pilotage ? '' : 'none';
+  document.getElementById('henrri-bloc-import').style.display = (c.pilotage && c.mode === 'import') ? '' : 'none';
+  document.getElementById('henrri-bloc').style.display        = (c.pilotage && c.mode === 'api') ? 'flex' : 'none';
+}
+
+async function chargerHenrri() {
+  const section = document.getElementById('henrriPilotageOui')?.closest('section');
+  const token = localStorage.getItem('syncToken');
+  if (!token) { if (section) section.style.display = 'none'; return; }
+  const navClients = document.getElementById('nav-link-clients');
+  try {
+    const r = await fetch('/api/henrri/config', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) { if (section) section.style.display = 'none'; if (navClients) navClients.style.display = 'none'; return; }
+    if (section) section.style.display = '';
+    // Compatibilité : ancien serveur sans champ « pilotage » → déduit de la connexion API
+    const pilotage = typeof d.pilotage === 'boolean' ? d.pilotage : !!d.actif;
+    const mode = d.mode === 'import' ? 'import' : 'api';
+    document.getElementById('henrriPilotageOui').checked = pilotage;
+    document.getElementById('henrriPilotageNon').checked = !pilotage;
+    document.getElementById('henrriModeImport').checked = pilotage && mode === 'import';
+    document.getElementById('henrriModeApi').checked    = pilotage && mode === 'api';
+    document.getElementById('henrriClientId').value = d.henrriClientId || '';
+    document.getElementById('henrriEnvironnement').value = d.henrriEnvironnement || 'sandbox';
+    document.getElementById('henrri-secret-info').textContent = d.henrriClientSecretDefini
+      ? 'Secret déjà enregistré — laissez vide pour le conserver.'
+      : 'Aucun secret enregistré pour le moment.';
+    const info = document.getElementById('henrri-import-info');
+    if (info) {
+      if (d.devisFichierLe) {
+        const dt = new Date(d.devisFichierLe);
+        info.textContent = 'Dernier import le ' + dt.toLocaleDateString('fr-FR') + ' — ' + (d.nbDevisFichier || 0) + ' devis connus.';
+      } else info.textContent = mode === 'import' && pilotage ? 'Aucun import réalisé pour le moment.' : '';
+    }
+    toggleHenrriBloc();
+    // Le lien « Clients » du menu n'apparaît que si Henrri est actif (API connectée ou mode import)
+    const henrriActif = typeof d.henrriActif === 'boolean' ? d.henrriActif : !!d.actif;
+    if (navClients) navClients.style.display = henrriActif ? '' : 'none';
+  } catch (_) {
+    if (section) section.style.display = 'none';
+    if (navClients) navClients.style.display = 'none';
+  }
+}
+
+async function validerHenrri() {
+  const token = localStorage.getItem('syncToken');
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const c = _henrriChoix();
+  if (c.pilotage === null) { alert('Indiquez si vous utilisez Henrri version pilotage (Oui / Non).'); return; }
+  if (c.pilotage && !c.mode) { alert('Choisissez le mode de liaison : import des devis validés ou lien par API.'); return; }
+  const henrriClientId = document.getElementById('henrriClientId').value.trim();
+  const henrriClientSecret = document.getElementById('henrriClientSecret').value.trim();
+  const henrriEnvironnement = document.getElementById('henrriEnvironnement').value;
+  if (c.pilotage && c.mode === 'api' && !henrriClientId) { alert('Renseignez le Client ID Henrri.'); return; }
+
+  const btn = document.getElementById('btn-valider-henrri');
+  const msg = document.getElementById('henrri-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (msg) { msg.style.color = '#16a34a'; msg.textContent = ''; }
+  try {
+    const r = await fetch('/api/henrri/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        pilotage: !!c.pilotage,
+        mode: c.mode || 'api',
+        actif: !!(c.pilotage && c.mode === 'api'),
+        henrriClientId, henrriClientSecret, henrriEnvironnement
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    document.getElementById('henrriClientSecret').value = '';
+    if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+    chargerHenrri();
+  } catch (e) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = '✖ ' + (e && e.message ? e.message : e); }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Enregistrer'; }
+  }
+}
+window.addEventListener('DOMContentLoaded', chargerHenrri);
+window.addEventListener('donnees-chargees', chargerHenrri);
 </script>
 
 <!-- Guide de prise en main : ouverture dans une fenêtre séparée qui reste affichée pendant la navigation -->
@@ -679,6 +1348,115 @@ if ('serviceWorker' in navigator) {
   function _pwaInit() { setTimeout(_pwaAfficher, 700); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _pwaInit);
   else _pwaInit();
+})();
+</script>
+
+<!-- ══ Tutos vidéo YouTube : modale listant les épisodes ══
+     Pour publier un nouvel épisode : coller son lien YouTube dans "url" sur la ligne correspondante.
+     Un épisode sans lien s'affiche grisé « Bientôt disponible ». -->
+<script>
+var TUTOS_VIDEO = [
+  { num: 1, titre: "Démarrer en 3 étapes",                  desc: "Paramétrage de l'entreprise, saisie des salariés et du prévisionnel", url: "https://youtu.be/LbfqwIQAz5o" },
+  { num: 2, titre: "Création d'un planning",                desc: "Création du chantier et affectation des équipes",                    url: "https://youtu.be/x8kt2JLWDFY" },
+  { num: 3, titre: "Installation de Suiv'Heures sur mobiles et tablettes", desc: "Mise en place sur les téléphones et tablettes des salariés et du responsable",   url: "https://youtu.be/D7X1Lt6klvs" },
+  { num: 4, titre: "Utiliser l'appli sur mobile",           desc: "Le pointage des heures au quotidien par le salarié",                 url: "" },
+  { num: 5, titre: "Les rapports d'activité",               desc: "Exploiter les heures remontées du terrain",                          url: "" },
+  { num: 6, titre: "L'aide à la saisie de la paie",         desc: "Préparer les éléments de paie en quelques clics",                    url: "" }
+];
+</script>
+<style>
+#tutos-modal{display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);align-items:center;justify-content:center;padding:16px;}
+#tutos-modal .tv-boite{background:#fff;border-radius:16px;max-width:760px;width:100%;max-height:92vh;overflow:auto;padding:24px 22px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:Arial,Helvetica,sans-serif;}
+#tutos-modal .tv-boite.tv-large{max-width:min(1600px,96vw,calc((92vh - 150px) * 16 / 9 + 44px));}
+#tutos-modal .tv-astuce{font-size:12px;color:#64748b;}
+#tutos-modal .tv-fermer{position:absolute;top:10px;right:14px;background:none;border:none;font-size:26px;color:#94a3b8;cursor:pointer;line-height:1;}
+#tutos-modal h3{margin:0 0 4px;font-size:19px;color:#0f3a8a;}
+#tutos-modal .tv-sous{font-size:13px;color:#64748b;margin-bottom:16px;}
+#tutos-modal .tv-lecteur{display:none;margin-bottom:16px;}
+#tutos-modal .tv-cadre{position:relative;width:100%;padding-top:56.25%;background:#0f172a;border-radius:10px;overflow:hidden;}
+#tutos-modal .tv-cadre iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+#tutos-modal .tv-lecteur-pied{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:13px;}
+#tutos-modal .tv-lecteur-pied a{color:#b45309;font-weight:700;text-decoration:none;}
+#tutos-modal .tv-liste{display:flex;flex-direction:column;gap:8px;}
+#tutos-modal .tv-ep{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit;color:#0f172a;}
+#tutos-modal .tv-ep:hover{border-color:#f59e0b;}
+#tutos-modal .tv-ep.actif{border-color:#0f3a8a;background:#eef4fd;}
+#tutos-modal .tv-ep.avenir{background:#f8fafc;border-color:#e2e8f0;color:#94a3b8;cursor:default;}
+#tutos-modal .tv-num{flex:0 0 34px;height:34px;border-radius:50%;background:#f59e0b;color:#412402;font-weight:700;display:flex;align-items:center;justify-content:center;}
+#tutos-modal .tv-ep.avenir .tv-num{background:#e2e8f0;color:#94a3b8;}
+#tutos-modal .tv-txt{flex:1 1 auto;min-width:0;}
+#tutos-modal .tv-titre{font-weight:700;font-size:14.5px;}
+#tutos-modal .tv-desc{font-size:12.5px;color:#64748b;margin-top:2px;}
+#tutos-modal .tv-ep.avenir .tv-desc{color:#94a3b8;}
+#tutos-modal .tv-etat{flex:0 0 auto;font-size:12px;font-weight:700;white-space:nowrap;}
+</style>
+<div id="tutos-modal" onclick="if(event.target===this)fermerTutosVideo()">
+  <div class="tv-boite">
+    <button class="tv-fermer" onclick="fermerTutosVideo()" aria-label="Fermer">&times;</button>
+    <h3>▶️ Tutos vidéo Suiv'Heures</h3>
+    <div class="tv-sous">Prise en main de Suiv'Heures, épisode par épisode.</div>
+    <div class="tv-lecteur" id="tv-lecteur">
+      <div class="tv-cadre" id="tv-cadre"></div>
+      <div class="tv-lecteur-pied">
+        <span id="tv-lecteur-titre" style="font-weight:700;color:#0f172a;"></span>
+        <span class="tv-astuce">Plein écran ⛶ pour la meilleure qualité</span>
+        <a id="tv-lien-yt" href="#" target="_blank" rel="noopener">Ouvrir sur YouTube ↗</a>
+      </div>
+    </div>
+    <div class="tv-liste" id="tv-liste"></div>
+  </div>
+</div>
+<script>
+(function () {
+  function idYoutube(url) {
+    var m = String(url || '').match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : '';
+  }
+  function echap(t) {
+    return String(t).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+  }
+  function rendreListe(actif) {
+    var html = TUTOS_VIDEO.map(function (t, i) {
+      var dispo = !!idYoutube(t.url);
+      return '<button type="button" class="tv-ep' + (dispo ? '' : ' avenir') + (i === actif ? ' actif' : '') + '"' +
+        (dispo ? ' onclick="lireTutoVideo(' + i + ')"' : ' disabled') + '>' +
+        '<span class="tv-num">' + t.num + '</span>' +
+        '<span class="tv-txt"><div class="tv-titre">Épisode ' + t.num + ' — ' + echap(t.titre) + '</div>' +
+        '<div class="tv-desc">' + echap(t.desc) + '</div></span>' +
+        '<span class="tv-etat" style="color:' + (dispo ? '#b45309' : '#94a3b8') + ';">' + (dispo ? (i === actif ? '● En lecture' : '▶ Regarder') : 'Bientôt disponible') + '</span>' +
+        '</button>';
+    }).join('');
+    document.getElementById('tv-liste').innerHTML = html;
+  }
+  window.lireTutoVideo = function (i) {
+    var t = TUTOS_VIDEO[i], id = idYoutube(t && t.url);
+    if (!id) return;
+    var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.add('tv-large');
+    document.getElementById('tv-lecteur').style.display = 'block';
+    document.getElementById('tv-cadre').innerHTML =
+      '<iframe src="https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1" title="' + echap(t.titre) + '" ' +
+      'allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
+    document.getElementById('tv-lecteur-titre').textContent = 'Épisode ' + t.num + ' — ' + t.titre;
+    document.getElementById('tv-lien-yt').href = 'https://youtu.be/' + id;
+    document.getElementById('tv-lecteur').style.display = 'block';
+    rendreListe(i);
+    var b = document.querySelector('#tutos-modal .tv-boite'); if (b) b.scrollTop = 0;
+  };
+  window.ouvrirTutosVideo = function () {
+    rendreListe(-1);
+    var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.remove('tv-large');
+    document.getElementById('tv-lecteur').style.display = 'none';
+    document.getElementById('tv-cadre').innerHTML = '';
+    document.getElementById('tutos-modal').style.display = 'flex';
+  };
+  window.fermerTutosVideo = function () {
+    document.getElementById('tutos-modal').style.display = 'none';
+    var bx = document.querySelector('#tutos-modal .tv-boite'); if (bx) bx.classList.remove('tv-large');
+    document.getElementById('tv-cadre').innerHTML = ''; // coupe le son de la vidéo
+  };
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { var m = document.getElementById('tutos-modal'); if (m && m.style.display === 'flex') fermerTutosVideo(); }
+  });
 })();
 </script>
 

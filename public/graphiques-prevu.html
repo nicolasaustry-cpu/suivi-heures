@@ -12,8 +12,9 @@
   .barre { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
   .titre { font-size: 1.15rem; font-weight: 700; margin: 0; color: #0f2747; }
   .sous { font-size: 0.82rem; color: #64748b; }
-  .lien-retour { color: #2563eb; text-decoration: none; font-size: 0.88rem; }
-  .lien-retour:hover { text-decoration: underline; }
+  /* Bouton de retour au planning : même aspect que sur la Synthèse et la Frise */
+  .lien-retour { display: inline-block; border: 1px solid #cbd5e1; background: #fff; color: #0f3a8a; border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 0.95rem; text-decoration: none; line-height: 1.2; }
+  .lien-retour:hover { border-color: #0f3a8a; background: #eff4ff; }
 
   .filtres { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; margin-bottom: 18px; }
   .filtres label.lbl { font-size: 0.82rem; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
@@ -74,7 +75,7 @@
 <div class="wrap">
 
   <div class="barre no-print">
-    <a class="lien-retour" href="planning.html">← Planning prévu</a>
+    <a class="lien-retour" href="planning.html" title="Revenir au planning prévu">← Planning</a>
     <div>
       <h1 class="titre">Heures contrat vs planifié</h1>
       <div class="sous" id="ent-nom"></div>

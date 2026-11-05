@@ -1,15 +1,61 @@
 /* coordonnees.js — encart de saisie + affichage des coordonnées d'un chantier.
-   Stockage : localStorage 'coordonneesChantiersdata' = { "NOM MAJ": {adresse,ville,mobile,fixe} }
+   Stockage : localStorage 'coordonneesChantiersdata' = { "NOM MAJ": {adresse,ville,mobile,fixe,email} }
    Persistance serveur : /api/data/coordonnees-chantier (token PC) ou
    /api/saisies/coordonnees-chantier (codeEmploye mobile, gérant/admin).
-   API publique : window.Coord.{ ouvrir, fermer, enregistrer, get, html, aDesCoordonnees } */
+   API publique : window.Coord.{ ouvrir, fermer, enregistrer, get, html, aDesCoordonnees,
+   localiser, distanceKm, definirDepuisHenrri } */
 (function () {
   'use strict';
 
   function _lire()  { try { return JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) { return {}; } }
   function _ecrire(o){ try { localStorage.setItem('coordonneesChantiersdata', JSON.stringify(o)); } catch (_) {} }
-  function get(nom) { return _lire()[(nom || '').toUpperCase()] || null; }
-  function aDesCoordonnees(nom) { const c = get(nom); return !!(c && (c.adresse || c.ville || c.mobile || c.fixe)); }
+  /* Comparaison souple des noms : sans accents, majuscules, ponctuation et espaces
+     multiples ramenés à un espace (« Émilie » = « EMILIE », « DUPONT-MARTIN » = « DUPONT MARTIN »).
+     Même règle que la page Clients, pour que planning, mobile et Clients
+     retrouvent toujours la même fiche. */
+  function _norm(s) {
+    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  /* Fiche d'un chantier : clé exacte d'abord (cas le plus courant, inchangé),
+     puis comparaison souple sur toutes les fiches existantes. Lecture seule. */
+  function get(nom) {
+    var o = _lire();
+    var exact = o[String(nom || '').toUpperCase()];
+    if (exact) return exact;
+    var n = _norm(nom);
+    if (!n) return null;
+    var ks = Object.keys(o), repli = null;
+    for (var i = 0; i < ks.length; i++) {
+      if (_norm(ks[i]) !== n) continue;
+      if (!_coordVide(o[ks[i]])) return o[ks[i]];   // fiche renseignée prioritaire
+      if (!repli) repli = o[ks[i]];
+    }
+    return repli;
+  }
+  function _coordVide(c) { return !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email); }
+
+  /* Chantiers créés par l'import d'un devis Henrri : nommés « NOM CLIENT 26-09-1 ».
+     _sansRef retire ce n° de devis final pour retrouver le nom du client. */
+  var RE_REF_DEVIS = /\s+\d{2}-\d{2}-\d+\s*$/;
+  function _sansRef(nom) { return String(nom || '').trim().replace(RE_REF_DEVIS, '').trim(); }
+
+  /* Coordonnées à AFFICHER pour un chantier : sa propre fiche ; à défaut, pour un
+     chantier issu d'un devis, la fiche du client (« NOM ») ou le client Henrri.
+     Lecture seule : rien n'est écrit ici. */
+  function getAffichage(nom) {
+    var c = get(nom);
+    if (!_coordVide(c)) return c;
+    var base = _sansRef(nom);
+    if (!base || base.toUpperCase() === String(nom || '').trim().toUpperCase()) return c;
+    var cb = get(base);
+    if (!_coordVide(cb)) return cb;
+    var hc = _henrriMatch(base);
+    if (hc) { var ch = _henrriVersCoord(hc); if (!_coordVide(ch)) return ch; }
+    return c;
+  }
+  function aDesCoordonnees(nom) { const c = get(nom); return !!(c && (c.adresse || c.ville || c.mobile || c.fixe || c.email)); }
+  const RE_EMAIL = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
   function _esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function _tel(n) { return String(n || '').replace(/[^0-9+]/g, ''); }
 
@@ -35,6 +81,7 @@
       '.chip-coord .coord-haut{display:flex;align-items:center;gap:10px;}' +
       '.chip-coord .coord-adr{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;}' +
       '.chip-coord .coord-tels{margin-top:3px;}' +
+      '.chip-coord .coord-mail{margin-top:3px;overflow-wrap:anywhere;}' +
       '.chip-coord .coord-itin{flex:0 0 auto;display:inline-block;margin:0;padding:6px 12px;' +
       'border:1px solid #c7d7f5;border-radius:8px;background:#eef4fd;color:#0f3a8a;' +
       'text-decoration:none;font-weight:700;font-size:.78rem;line-height:1.25;white-space:nowrap;}' +
@@ -48,8 +95,8 @@
      L'adresse et le bouton Itinéraire tiennent sur une même rangée,
      les téléphones sur la ligne du dessous. */
   function html(nom) {
-    const c = get(nom);
-    if (!c || (!c.adresse && !c.ville && !c.mobile && !c.fixe)) return '';
+    const c = getAffichage(nom);
+    if (!c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email)) return '';
     let l = '';
     if (c.adresse || c.ville) {
       let adr = '';
@@ -64,7 +111,192 @@
     if (c.mobile) tels.push('📱 <a href="tel:' + _tel(c.mobile) + '">' + _esc(c.mobile) + '</a>');
     if (c.fixe)   tels.push('☎ <a href="tel:' + _tel(c.fixe) + '">' + _esc(c.fixe) + '</a>');
     if (tels.length) l += '<div class="coord-tels">' + (l ? '' : '📍 ') + tels.join(' · ') + '</div>';
+    // E-mail cliquable (ouvre la messagerie du téléphone ou du PC)
+    if (c.email) l += '<div class="coord-mail">✉ ' + (RE_EMAIL.test(c.email)
+      ? '<a href="mailto:' + _esc(c.email) + '">' + _esc(c.email) + '</a>' : _esc(c.email)) + '</div>';
     return '<div class="chip-coord">' + l + '</div>';
+  }
+
+  /* ─ Géolocalisation silencieuse (zones d'indemnités de trajet) ─
+     Les coordonnées GPS ne sont JAMAIS affichées ni écrites dans la fiche
+     du chantier : elles vivent dans un cache séparé, 'coordGeoCache',
+     indexé par le TEXTE de l'adresse (adresse + ville normalisées).
+       → aucune fiche existante n'est modifiée ;
+       → corriger une adresse change la clé, donc relocalise automatiquement.
+     Service : géocodage public de l'IGN (Géoplateforme), gratuit, sans clé.
+     Entrée du cache : {lat, lon, label, score, type, t} ou {introuvable:true, t}. */
+  var GEO_CLE_STOCKAGE = 'coordGeoCache';
+  var GEO_RETENTE_INTROUVABLE_MS = 7 * 24 * 3600 * 1000;  // une adresse introuvable est retentée au bout de 7 jours
+  var _geoEnCours = {};                                    // évite 2 appels simultanés pour la même adresse
+
+  function _geoLire()   { try { return JSON.parse(localStorage.getItem(GEO_CLE_STOCKAGE) || '{}') || {}; } catch (_) { return {}; } }
+  function _geoEcrire(o){ try { localStorage.setItem(GEO_CLE_STOCKAGE, JSON.stringify(o)); } catch (_) {} }
+  function _geoTexte(c) {
+    return [c.adresse, c.ville].filter(Boolean).join(', ')
+      .replace(/[\r\n]+/g, ', ').replace(/\s{2,}/g, ' ').replace(/(,\s*)+/g, ', ').trim();
+  }
+
+  /* Renvoie une promesse de :
+       {statut:'ok', lat, lon, label, score, type}  (type : housenumber, street, municipality…)
+       {statut:'sans-adresse'}   la fiche n'a ni adresse ni ville
+       {statut:'introuvable'}    le service ne reconnaît pas l'adresse
+       {statut:'erreur'}         réseau indisponible (rien n'est mis en cache, on retentera) */
+  function localiser(nom) {
+    var c = getAffichage(nom);
+    var texte = c ? _geoTexte(c) : '';
+    if (!texte) return Promise.resolve({ statut: 'sans-adresse' });
+    var cle = texte.toLowerCase();
+    var cache = _geoLire()[cle];
+    if (cache) {
+      if (!cache.introuvable) return Promise.resolve({ statut: 'ok', lat: cache.lat, lon: cache.lon, label: cache.label, score: cache.score, type: cache.type });
+      if (Date.now() - (cache.t || 0) < GEO_RETENTE_INTROUVABLE_MS) return Promise.resolve({ statut: 'introuvable' });
+    }
+    if (_geoEnCours[cle]) return _geoEnCours[cle];
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var minuteur = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
+    var p = fetch('https://data.geopf.fr/geocodage/search?limit=1&q=' + encodeURIComponent(texte), ctrl ? { signal: ctrl.signal } : undefined)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) {
+        var f = d && d.features && d.features[0];
+        var o = _geoLire();
+        if (!f || !f.geometry || !Array.isArray(f.geometry.coordinates)) {
+          o[cle] = { introuvable: true, t: Date.now() };
+          _geoEcrire(o);
+          return { statut: 'introuvable' };
+        }
+        var pr = f.properties || {};
+        var e = { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], label: pr.label || texte, score: pr.score || 0, type: pr.type || '', t: Date.now() };
+        o[cle] = e;
+        _geoEcrire(o);
+        return { statut: 'ok', lat: e.lat, lon: e.lon, label: e.label, score: e.score, type: e.type };
+      })
+      .catch(function () { return { statut: 'erreur' }; })
+      .then(function (res) { if (minuteur) clearTimeout(minuteur); delete _geoEnCours[cle]; return res; });
+    _geoEnCours[cle] = p;
+    return p;
+  }
+
+  /* Distance à vol d'oiseau en km entre deux points {lat, lon} (formule de haversine). */
+  function distanceKm(a, b) {
+    if (!a || !b || a.lat == null || b.lat == null) return null;
+    var R = 6371, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+          + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  /* ─ Préremplissage depuis la base clients Henrri ─
+     Chargée une fois en tâche de fond (best-effort, jamais bloquant) : si le
+     nom du chantier correspond exactement à un client Henrri ET qu'aucune
+     coordonnée locale n'existe déjà, le modal d'édition est préouvert avec
+     les valeurs Henrri — l'utilisateur les valide (ou les corrige) en
+     cliquant Enregistrer, ce qui les fait entrer dans le stockage habituel. */
+  var _henrriClients = [];
+  function _henrriToken() {
+    return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+  }
+  function _chargerClientsHenrri() {
+    var token = _henrriToken();
+    if (!token) return;
+    fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok && d.actif && Array.isArray(d.clients)) { _henrriClients = d.clients; _rattraperDevis(); }
+      })
+      .catch(function () {});
+  }
+
+  /* Rattrapage des chantiers DÉJÀ importés depuis un devis Henrri sans fiche
+     coordonnées (avant le correctif serveur) : on leur écrit la fiche du client
+     Henrri, sur le serveur, pour que les téléphones des équipes la reçoivent
+     aussi. Uniquement les chantiers « NOM 26-09-1 » à fiche VIDE dont le NOM
+     correspond exactement à un client Henrri — jamais d'écrasement.
+     Une seule passe par chargement de page. */
+  var _rattrapageFait = false;
+  function _rattraperDevis() {
+    if (_rattrapageFait || !_henrriClients.length) return;
+    _rattrapageFait = true;
+    var noms = {};
+    function noter(n) { n = String(n || '').trim(); if (n && RE_REF_DEVIS.test(n)) noms[n.toUpperCase()] = n; }
+    try {
+      var prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}') || {};
+      Object.keys(prev).forEach(function (a) {
+        var an = prev[a] || {};
+        Object.keys(an).forEach(function (m) {
+          var mo = an[m];
+          (mo && Array.isArray(mo.chantiers) ? mo.chantiers : []).forEach(function (c) { if (c) noter(c.client); });
+        });
+      });
+    } catch (_) {}
+    try {
+      var h = JSON.parse(localStorage.getItem('heuresdata') || '{}') || {};
+      Object.keys(h).forEach(function (k) { if (h[k]) noter(h[k].chantier); });
+    } catch (_) {}
+    Object.keys(noms).forEach(function (k) {
+      var nom = noms[k];
+      if (!_coordVide(get(nom))) return;
+      var hc = _henrriMatch(_sansRef(nom));
+      if (hc) definirDepuisHenrri(nom, hc).catch(function () {});
+    });
+  }
+  _chargerClientsHenrri();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _chargerClientsHenrri);
+  window.addEventListener('donnees-chargees', _chargerClientsHenrri);
+
+  function _henrriMatch(nom) {
+    var cle = _norm(nom);
+    if (!cle || !_henrriClients.length) return null;
+    return _henrriClients.find(function (c) { return _norm(c.nom) === cle; }) || null;
+  }
+  function _henrriVersCoord(c) {
+    var tel = String(c.telephone || '');
+    var estMobile = /^0[67]/.test(tel.replace(/[.\s-]/g, ''));
+    return {
+      adresse: c.adresse || '',
+      // Le cache serveur fournit déjà « 72190 Sargé » dans ville : on n'ajoute le
+      // code postal que s'il n'y figure pas (sinon « 72190 72190 Sargé »).
+      ville: (function () {
+        var v = String(c.ville || '').trim(), cp = String(c.codePostal || '').trim();
+        return (cp && v.indexOf(cp) === -1) ? (cp + ' ' + v).trim() : v;
+      })(),
+      mobile: estMobile ? tel : '',
+      fixe: estMobile ? '' : tel,
+      email: String(c.email || '').trim()
+    };
+  }
+
+  /* Report direct (sans passer par le modal) des coordonnées d'un client Henrri
+     dans la fiche d'un chantier — utilisé par « Planifier » (clients.html → planning).
+     Ne touche JAMAIS une fiche qui contient déjà des coordonnées.
+     client : fiche Henrri transmise par la page Clients ; à défaut, recherche par
+     nom exact dans la base clients Henrri chargée en tâche de fond.
+     Écriture locale immédiate (l'affichage suit aussitôt), puis envoi serveur.
+     Promesse : {statut:'existant'|'aucun'|'ok'|'erreur-serveur'}. */
+  function definirDepuisHenrri(nom, client) {
+    nom = (nom || '').trim();
+    if (!nom) return Promise.resolve({ statut: 'aucun' });
+    if (aDesCoordonnees(nom)) return Promise.resolve({ statut: 'existant' });
+    var hc = client || _henrriMatch(nom);
+    if (!hc) return Promise.resolve({ statut: 'aucun' });
+    var coord = _henrriVersCoord(hc);
+    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe && !coord.email) return Promise.resolve({ statut: 'aucun' });
+    var nomU = nom.toUpperCase();
+    var o = _lire(); o[nomU] = coord; _ecrire(o);
+    var token = _henrriToken();
+    if (!token) return Promise.resolve({ statut: 'erreur-serveur' });
+    return fetch('/api/data/coordonnees-chantier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ chantier: nomU, coordonnees: coord })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!(d && d.ok)) return { statut: 'erreur-serveur' };
+        try { localiser(nom); } catch (_) {}
+        return { statut: 'ok' };
+      })
+      .catch(function () { return { statut: 'erreur-serveur' }; });
   }
 
   /* ─ Modal d'édition ─ */
@@ -101,6 +333,7 @@
       '<div class="cm-ch"><label>Ville</label><input id="coord-ville" placeholder="Code postal et ville"></div>' +
       '<div class="cm-2"><div class="cm-ch"><label>Tél. mobile</label><input id="coord-mobile" type="tel"></div>' +
       '<div class="cm-ch"><label>Tél. fixe</label><input id="coord-fixe" type="tel"></div></div>' +
+      '<div class="cm-ch"><label>E-mail</label><input id="coord-email" type="email" inputmode="email" autocomplete="email" placeholder="client@exemple.fr"></div>' +
       '</div><div class="cm-f"><button type="button" class="cm-an" onclick="Coord.fermer()">Annuler</button>' +
       '<button type="button" class="cm-ok" onclick="Coord.enregistrer()">Enregistrer</button></div></div>';
     m.addEventListener('click', function (e) { if (e.target === m) fermer(); });
@@ -113,11 +346,21 @@
     _construireModal();
     _nom = nom; _onDone = (typeof onDone === 'function') ? onDone : null;
     var c = get(nom) || {};
-    document.getElementById('coord-sub').textContent = nom;
+    var sousTitre = nom;
+    if (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email) {
+      var hc = _henrriMatch(nom) || _henrriMatch(_sansRef(nom));
+      if (hc) { c = _henrriVersCoord(hc); sousTitre = nom + ' — pré-rempli depuis Henrri'; }
+      else {
+        var cb = get(_sansRef(nom));
+        if (!_coordVide(cb)) { c = cb; sousTitre = nom + ' — pré-rempli depuis la fiche client'; }
+      }
+    }
+    document.getElementById('coord-sub').textContent = sousTitre;
     document.getElementById('coord-adresse').value = c.adresse || '';
     document.getElementById('coord-ville').value   = c.ville   || '';
     document.getElementById('coord-mobile').value  = c.mobile  || '';
     document.getElementById('coord-fixe').value    = c.fixe    || '';
+    document.getElementById('coord-email').value   = c.email   || '';
     document.getElementById('coord-modal').classList.add('on');
   }
 
@@ -128,12 +371,20 @@
       adresse: (document.getElementById('coord-adresse').value || '').trim(),
       ville:   (document.getElementById('coord-ville').value   || '').trim(),
       mobile:  (document.getElementById('coord-mobile').value  || '').trim(),
-      fixe:    (document.getElementById('coord-fixe').value    || '').trim()
+      fixe:    (document.getElementById('coord-fixe').value    || '').trim(),
+      email:   (document.getElementById('coord-email').value   || '').trim()
     };
+    if (coord.email && !RE_EMAIL.test(coord.email)) {
+      alert('Adresse e-mail incorrecte : vérifiez-la (exemple : client@exemple.fr).');
+      document.getElementById('coord-email').focus();
+      return;   // modal laissé ouvert, rien n'est perdu
+    }
     var nomU = _nom.toUpperCase();
     var o = _lire();
-    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe) delete o[nomU]; else o[nomU] = coord;
+    var avant = Object.prototype.hasOwnProperty.call(o, nomU) ? o[nomU] : undefined;
+    if (!coord.adresse && !coord.ville && !coord.mobile && !coord.fixe && !coord.email) delete o[nomU]; else o[nomU] = coord;
     _ecrire(o);
+    var restaurer = function () { var o2 = _lire(); if (avant === undefined) delete o2[nomU]; else o2[nomU] = avant; _ecrire(o2); };
 
     // Choix du canal : TOKEN en priorité (PC / gérant licence), code employé seulement à défaut (vrai mobile).
     var token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken');
@@ -153,13 +404,20 @@
       return; // on garde le modal ouvert, rien n'est perdu
     }
 
-    var okServeur = false;
+    var okServeur = false, refus = '';
     try {
       var r = await fetch(url, opts);
       var d = await r.json();
       okServeur = !!(d && d.ok);
+      if (!okServeur && r.status === 403 && d && d.message) refus = d.message;   // refus de droits (pas un problème de connexion)
     } catch (_) { okServeur = false; }
 
+    if (!okServeur && refus) {
+      // Refus du serveur : la fiche locale est remise dans son état d'avant (rien n'a été enregistré).
+      restaurer();
+      alert('⚠️ ' + refus);
+      return;
+    }
     if (!okServeur) {
       // Échec serveur : on NE ferme PAS, on prévient — évite toute perte silencieuse à la synchro suivante.
       alert('⚠️ Les coordonnées n\'ont PAS pu être enregistrées sur le serveur (connexion ?).\n\nElles restent affichées à l\'écran. Recliquez sur « Enregistrer » une fois la connexion rétablie pour les sauvegarder définitivement.');
@@ -167,8 +425,12 @@
     }
 
     fermer();
+    // Localisation en tâche de fond (sans attente, sans effet visible) : prépare
+    // le calcul des zones de trajet. Un échec ici n'a aucune conséquence.
+    try { localiser(_nom); } catch (_) {}
     if (_onDone) _onDone();
   }
 
-  window.Coord = { ouvrir: ouvrir, fermer: fermer, enregistrer: enregistrer, get: get, html: html, aDesCoordonnees: aDesCoordonnees };
+  window.Coord = { ouvrir: ouvrir, fermer: fermer, enregistrer: enregistrer, get: get, html: html, aDesCoordonnees: aDesCoordonnees,
+                   localiser: localiser, distanceKm: distanceKm, definirDepuisHenrri: definirDepuisHenrri };
 })();

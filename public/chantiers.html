@@ -76,6 +76,12 @@
     white-space: nowrap;
   }
   .bloc-mois-header.hors-annee { background: #64748b; }
+  /* Alerte : heures devis du mois > heures vendables */
+  .alerte-depass { display:inline-flex; vertical-align:middle; margin-left:5px; cursor:help; line-height:0; }
+  .alerte-depass svg { width:15px; height:14px; filter: drop-shadow(0 0 1px rgba(255,255,255,.9)); }
+  .th-mois .alerte-depass { margin-left:3px; }
+  .th-mois .alerte-depass svg { width:13px; height:12px; }
+  @media print { .alerte-depass svg { filter:none; } }
 
   .tr-chantier-header th {
     position: sticky;
@@ -198,6 +204,33 @@
   /* Ligne d'un chantier planifié mais ABSENT du devis (remonté automatiquement) */
   .tr-chantier.depuis-planning td { background: #fef9c3; }
   .tr-chantier.depuis-planning:hover td { background: #fde68a; }
+  /* Ligne jaune PÉRIMÉE : remontée du planning, mais le chantier n'y figure plus ce mois-ci
+     (retiré, renommé, déplacé). Hachures grises, nom barré. */
+  .tr-chantier.perime td { background: repeating-linear-gradient(135deg, #f1f5f9 0 6px, #e2e8f0 6px 12px); color:#64748b; }
+  .tr-chantier.perime:hover td { background: repeating-linear-gradient(135deg, #e2e8f0 0 6px, #cbd5e1 6px 12px); }
+  .tr-chantier.perime input[data-champ="client"] { text-decoration: line-through; color:#64748b; }
+  .coche-perime { display:inline-block; margin-right:4px; font-size:0.85rem; line-height:1; cursor:help; vertical-align:middle; }
+  .btn-nettoyer { width:100%; margin:0 0 4px; padding:4px 0; font-size:0.8rem; font-weight:600; cursor:pointer;
+    border:1px dashed #94a3b8; border-radius:6px; background:#f8fafc; color:#475569; }
+  .btn-nettoyer:hover { background:#e2e8f0; color:#0f172a; }
+  /* Ligne d'un chantier AJOUTÉ SUR MOBILE par un salarié, absent du devis et du planning (remonté automatiquement) */
+  .tr-chantier.depuis-mobile td { background: #dbeafe; }
+  .tr-chantier.depuis-mobile:hover td { background: #bfdbfe; }
+  .coche-mobile { display:inline-block; margin-right:4px; font-size:0.85rem; line-height:1; cursor:help; vertical-align:middle; }
+  /* Chantier dont les heures planifiées (tous mois) dépassent les heures du devis :
+     fond qui pulse doucement du rose au rouge clair. Placé AVANT .chantier-surligne
+     pour que la recherche garde la priorité. */
+  @keyframes pulseDepasse { 0%,100% { background:#fee2e2; } 50% { background:#fca5a5; } }
+  .tr-chantier.depasse td,
+  .tr-chantier.depasse:hover td { background:#fee2e2; animation:pulseDepasse 2.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .tr-chantier.depasse td { animation:none; background:#fecaca; } }
+  @media print { .tr-chantier.depasse td { animation:none; background:#fecaca !important; } }
+  .depasse-info { display:none; flex-shrink:0; margin-left:3px; padding:0 5px; border-radius:999px;
+    background:#dc2626; color:#fff; font-size:0.68rem; font-weight:700; line-height:1.5; white-space:nowrap; }
+  .tr-chantier.depasse .depasse-info { display:inline-block; }
+  .tr-chantier.depasse .coche-planifie { display:none; }
+  .tr-chantier.chantier-surligne td,
+  .tr-chantier.chantier-surligne:hover td { background: #fecaca !important; }
   .coche-planning {
     color: #b45309;
     font-weight: 900;
@@ -419,6 +452,7 @@
   <a href="salaries.html">Salariés</a>
   <a href="chantiers.html" class="active">Prévisionnel</a>
   <a href="planning.html">Planning</a>
+  <a href="clients.html" id="nav-link-clients" style="display:none;">Clients</a>
   <a href="rapports.html">Rapports</a>
 </div>
   <section style="margin-bottom:0;padding-bottom:0.5rem;">
@@ -439,6 +473,17 @@
         <select id="selectAnnee" onchange="chargerAnnee()"></select>
         <button onclick="ajouterAnnee()">+ Nouvelle année</button>
         <button onclick="location.href='gantt-previsionnel.html'" title="Diagramme de Gantt (prévu / planifié / réalisé)" style="margin-left:8px;">📊 Gantt</button>
+        <button onclick="location.reload()" title="Recharger les données du serveur" style="margin-left:8px;">↻ Rafraîchir</button>
+        <button id="btn-devis-henrri" onclick="ouvrirModaleHenrri()" title="Récupérer les devis validés depuis Henrri" style="margin-left:8px;background:#0284c7;display:none;">📄 Devis Henrri</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:10px;">
+        <input type="text" id="recherche-chantier" placeholder="🔍 Rechercher un chantier…" oninput="rechercherChantierPrev()"
+          onkeydown="if(event.key==='Enter')ouvrirResumeChantierRecherche()"
+          style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem;width:180px;">
+        <button type="button" onclick="document.getElementById('recherche-chantier').value='';rechercherChantierPrev();"
+          title="Effacer la recherche" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">✕</button>
+        <button type="button" onclick="ouvrirResumeChantierRecherche()"
+          title="Résumé des heures prévues par mois pour ce chantier" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">📋 Résumé</button>
       </div>
     </div>
 
@@ -493,6 +538,32 @@
   </div>
 </div>
 
+<!-- ══ MODALE DEVIS HENRRI ══ -->
+<div class="modale-overlay" id="modale-henrri">
+  <div class="modale-box" style="width:760px;max-width:96vw;">
+    <div class="modale-header">
+      <span>Devis validés Henrri à affecter</span>
+      <button onclick="fermerModaleHenrri()">✕</button>
+    </div>
+    <div class="modale-body">
+      <p id="henrri-modale-aide" style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+        Choisissez le mois de démarrage de chantier pour chaque devis, puis cliquez sur « Affecter ».
+        Une ligne est créée dans le Prévisionnel de ce mois (client + heures à saisir).
+      </p>
+      <div id="henrri-modale-import" style="display:none;margin:0 0 1rem;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.82rem;color:#075985;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="henrri-modale-import-info" style="flex:1;"></span>
+        <a href="import-henrri.html" style="padding:5px 12px;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap;">📥 Importer clients + devis validés</a>
+      </div>
+      <div id="henrri-devis-corps"><p style="color:#94a3b8;">Chargement…</p></div>
+    </div>
+    <div class="modale-footer">
+      <button class="btn-modale-annuler" onclick="fermerModaleHenrri()">Fermer</button>
+      <button class="btn-modale-copier" id="btn-henrri-tout" onclick="affecterTousDevisHenrri()" style="display:none;"
+        title="Affecte en une fois tous les devis cochés, chacun au mois choisi sur sa ligne">✔ Tout affecter</button>
+    </div>
+  </div>
+</div>
+
 <script src="assets/script.js"></script>
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
@@ -513,6 +584,8 @@ let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrev
 let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fois (à l'ouverture)
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
 let planningParMois = {};            // { "YYYY_MM": { "NOM CHANTIER": heuresCumulées } }
+let planningTotal = {};              // { "NOM CHANTIER": heures planifiées cumulées, TOUS mois }
+let planningCharge = false;          // le planning contient des données (sinon aucune ligne n'est dite périmée)
 
 /* ═══════════════════════════════
    CHANTIERS PLANNIFIÉS (depuis heuresdata)
@@ -522,8 +595,10 @@ function chargerChantiersPlannifies() {
   // uniquement s'il apparaît dans le planning à une date de ce mois.
   chantiersPlannifies = new Set();
   planningParMois = {};
+  planningTotal = {};
   try {
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+    planningCharge = Object.keys(heures).length > 0;
     Object.keys(heures).forEach(k => {
       const entry = heures[k];
       if (!entry || !entry.chantier || !entry.chantier.trim()) return;
@@ -539,6 +614,7 @@ function chargerChantiersPlannifies() {
       const nomU = nom.toUpperCase();
       if (!planningParMois[ym]) planningParMois[ym] = {};
       planningParMois[ym][nomU] = (planningParMois[ym][nomU] || 0) + (parseFloat(entry.heures) || 0);
+      planningTotal[nomU] = (planningTotal[nomU] || 0) + (parseFloat(entry.heures) || 0);
     });
   } catch (e) {
     console.warn('Impossible de lire heuresdata', e);
@@ -553,11 +629,211 @@ function injecterPlanifiesManquants(annee, mi) {
   if (!planning) return;
   const dm = getDataMois(annee, mi);
   if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
+  // Une ligne « ajout mobile » (bleue) dont le chantier est désormais planifié ce mois-ci
+  // devient une ligne « depuis le planning » (jaune), avec les heures planifiées.
+  dm.chantiers.forEach(c => {
+    const n = (c.client || '').trim().toUpperCase();
+    if (c._depuisMobile && planning[n] != null) {
+      delete c._depuisMobile; delete c._mobileInfo;
+      c._depuisPlanning = true; c.hPrevues = planning[n] || '';
+      _mobileModifie = true;
+    }
+  });
   const existantes = new Set(dm.chantiers.map(c => (c.client || '').trim().toUpperCase()));
   Object.keys(planning).forEach(nomU => {
     if (!nomU || nomU === 'TEMPS NON AFFECTE' || existantes.has(nomU)) return;   // TNA exclu ; ou déjà dans le devis
     dm.chantiers.push({ client: nomU, hPrevues: planning[nomU] || '', _depuisPlanning: true });
     existantes.add(nomU);
+  });
+}
+
+/* ═══════════════════════════════
+   CHANTIERS AJOUTÉS SUR MOBILE (réalisé, hors devis et hors planning)
+   Un salarié peut ajouter librement un chantier sur le mobile (saisie marquée
+   isPrevisionnel === false). S'il n'est ni dans le devis ni dans le planning du
+   mois, il remonte ici en ligne BLEUE, avec les heures réalisées du mois.
+   - heures tenues à jour tant que la ligne n'a pas été modifiée à la main ;
+   - ligne modifiée (nom, heures, report) → adoptée dans le devis (fin du bleu) ;
+   - ligne supprimée → mémorisée dans le mois (mobileIgnores), plus reproposée ;
+   - chantier renommé/supprimé côté Réalisé → la ligne bleue disparaît ;
+   - chantier planifié ensuite → la ligne devient jaune (depuis le planning).
+   Les créneaux « exclu du calcul » (SAV…) restent hors prévisionnel.
+═══════════════════════════════ */
+let mobileParMois  = {};     // { 'YYYY_MM': { NOM: { h, sal:[noms], jours:[dates] } } } — mois chargés uniquement
+let _mobileCharge  = 0;      // horodatage du dernier chargement réussi
+let _mobileEnCours = null;   // chargement en cours (promesse)
+let _mobileAnnee   = null;   // année active du dernier chargement
+let _mobileModifie = false;  // données du prévisionnel modifiées pendant un rendu → à sauvegarder
+
+function _tokenMobile() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+}
+/* Créneaux marqués « exclu du calcul » au Planning : salarié|date|NOM */
+function _exclusMobile() {
+  const ex = {};
+  try {
+    const h = JSON.parse(localStorage.getItem('heuresdata') || '{}') || {};
+    Object.keys(h).forEach(k => {
+      const e = h[k];
+      if (!e || !e.exclu || !e.chantier) return;
+      const m = k.match(/^(\d+)(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+      if (m) ex[m[1] + '|' + m[2] + '-' + m[3] + '-' + m[4] + '|' + String(e.chantier).trim().toUpperCase()] = 1;
+    });
+  } catch (e) {}
+  return ex;
+}
+
+async function chargerChantiersMobile(forcer) {
+  if (_mobileEnCours) return _mobileEnCours;
+  if (!forcer && _mobileAnnee === anneeActive && Date.now() - _mobileCharge < 120000) return;
+  const token = _tokenMobile();
+  if (!token) return;
+  _mobileEnCours = (async () => {
+    try {
+      const rl = await fetch('/api/saisies/mois-list', { headers: { Authorization: 'Bearer ' + token } });
+      const dl = await rl.json();
+      if (!dl || !dl.ok) return;
+      const avecSaisies = new Set(dl.mois || []);
+      const affiches = getMoisAffichage().map(x => x.annee + '-' + String(x.mois + 1).padStart(2, '0'));
+      const exclus = _exclusMobile();
+      const nouveau = {};
+      // Mois affichés sans aucune saisie : chargés « à vide » (une ligne bleue périmée y sera retirée)
+      affiches.forEach(ym => { if (!avecSaisies.has(ym)) nouveau[ym.replace('-', '_')] = {}; });
+      await Promise.all(affiches.filter(ym => avecSaisies.has(ym)).map(async ym => {
+        const r = await fetch('/api/saisies/' + ym + '?sansPhotos=1', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        if (!d || !d.ok || !Array.isArray(d.saisies)) return;     // échec : mois non chargé, rien n'est retiré
+        const parCh = {};
+        d.saisies.forEach(sx => (sx.chantiers || []).forEach(c => {
+          if (c.isPrevisionnel !== false) return;                 // seuls les chantiers ajoutés sur le mobile
+          const nom = String(c.nom || '').trim().toUpperCase();
+          if (!nom || nom === 'TEMPS NON AFFECTE' || nom === 'ABSENCE') return;
+          if (exclus[sx.salarieId + '|' + sx.date + '|' + nom]) return;
+          const e = parCh[nom] || (parCh[nom] = { min: 0, sal: [], jours: [] });
+          e.min += parseFloat(c.dureeMin) || 0;
+          const sn = String(sx.salarieNom || '').trim();
+          if (sn && e.sal.indexOf(sn) === -1) e.sal.push(sn);
+          if (sx.date && e.jours.indexOf(sx.date) === -1) e.jours.push(sx.date);
+        }));
+        const out = {};
+        Object.keys(parCh).forEach(n => {
+          out[n] = { h: Math.round(parCh[n].min / 60 * 100) / 100, sal: parCh[n].sal, jours: parCh[n].jours.sort() };
+        });
+        nouveau[ym.replace('-', '_')] = out;
+      }).map(p => p.catch(() => {})));
+      mobileParMois = nouveau;
+      _mobileCharge = Date.now();
+      _mobileAnnee  = anneeActive;
+      if (typeof rendreChantiers === 'function') rendreChantiers();
+    } catch (e) {
+      console.warn('Chantiers ajoutés sur mobile : chargement impossible', e);
+    } finally {
+      _mobileEnCours = null;
+    }
+  })();
+  return _mobileEnCours;
+}
+
+function _texteInfoMobile(info) {
+  const h = info.h || 0;
+  const hTxt = (Number.isInteger(h) ? h : h.toFixed(2).replace(/0$/, '').replace('.', ',')) + ' h';
+  const jours = (info.jours || []).map(d => d.slice(8, 10) + '/' + d.slice(5, 7));
+  return 'Ajouté sur mobile par ' + ((info.sal && info.sal.length) ? info.sal.join(', ') : 'un salarié')
+    + ' — chantier absent du devis et du planning.\nHeures = réalisé pointé ce mois : ' + hTxt
+    + (jours.length ? ' (' + jours.join(', ') + ')' : '')
+    + '.\nModifiez la ligne pour l\'intégrer au prévisionnel.';
+}
+
+/* Injecte / met à jour / retire les lignes bleues d'un mois (si le mois a été chargé) */
+function injecterMobileManquants(annee, mi) {
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  const mob = mobileParMois[ym];
+  if (!mob) return;                                       // mois pas (encore) chargé : on ne touche à rien
+  const dm = getDataMois(annee, mi);
+  if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
+  const ignores = new Set((dm.mobileIgnores || []).map(n => String(n).toUpperCase()));
+  const planning = planningParMois[ym] || {};
+  // Lignes bleues existantes : retirées si le chantier n'est plus pointé, sinon heures à jour
+  for (let i = dm.chantiers.length - 1; i >= 0; i--) {
+    const c = dm.chantiers[i];
+    if (!c._depuisMobile) continue;
+    const n = (c.client || '').trim().toUpperCase();
+    const info = mob[n];
+    if (!info || ignores.has(n)) { dm.chantiers.splice(i, 1); _mobileModifie = true; continue; }
+    if ((parseFloat(c.hPrevues) || 0) !== info.h) { c.hPrevues = info.h; _mobileModifie = true; }
+    c._mobileInfo = _texteInfoMobile(info);
+  }
+  const existantes = new Set(dm.chantiers.map(c => (c.client || '').trim().toUpperCase()));
+  Object.keys(mob).forEach(n => {
+    if (existantes.has(n) || ignores.has(n) || planning[n] != null) return;   // déjà au devis / ignoré / planifié (ligne jaune)
+    dm.chantiers.push({ client: n, hPrevues: mob[n].h, _depuisMobile: true, _mobileInfo: _texteInfoMobile(mob[n]) });
+    existantes.add(n);
+    _mobileModifie = true;
+  });
+}
+
+/* ═══════════════════════════════
+   LIGNES JAUNES PÉRIMÉES
+   Une ligne remontée du planning (_depuisPlanning) reste enregistrée dans le
+   prévisionnel. Si le chantier n'apparaît plus au planning CE MOIS-CI (retiré,
+   renommé, déplacé, marqué « exclu du calcul »), la ligne est dite périmée :
+   hachures grises + ⌛, et bouton « Nettoyer » au pied du mois.
+   Jamais de retrait automatique : le planning peut être incomplet au moment
+   du calcul (chargement en cours, autre poste). Rien n'est marqué tant que le
+   planning est vide.
+═══════════════════════════════ */
+function estLignePerimee(ch, annee, mi) {
+  if (!ch || !ch._depuisPlanning || !planningCharge) return false;
+  const nomU = (ch.client || '').trim().toUpperCase();
+  if (!nomU) return false;
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  return !(planningParMois[ym] && planningParMois[ym][nomU] != null);
+}
+function nettoyerLignesPerimees(annee, mi) {
+  const dm = getDataMois(annee, mi);
+  const perimees = (dm.chantiers || []).filter(ch => estLignePerimee(ch, annee, mi));
+  if (!perimees.length) return;
+  const noms = perimees.map(ch => '• ' + (ch.client || '(sans nom)') + (parseFloat(ch.hPrevues) ? ' (' + ch.hPrevues + ' h)' : '')).join('\n');
+  if (!confirm('Retirer ' + perimees.length + ' ligne(s) périmée(s) de ' + MOIS_FULL[mi] + ' ' + annee + ' ?\n\n'
+    + 'Ces chantiers ne figurent plus au Planning ce mois-ci :\n' + noms)) return;
+  dm.chantiers = dm.chantiers.filter(ch => !estLignePerimee(ch, annee, mi));
+  sauverData();
+  rendreChantiers();
+  majLigne(annee + '_' + mi);
+}
+
+/* ── Dépassement du devis ──
+   Prévu total d'un chantier = somme de ses heures prévues sur TOUS les mois du
+   prévisionnel, lignes jaunes comprises — même base que la colonne « Total »
+   de l'infobulle, pour que le badge et l'infobulle se recoupent.
+   Planifié = toutes les heures posées au planning, passées et à venir (planningTotal).
+   Toutes les lignes « devis » du chantier pulsent en rouge si planifié > prévu total. */
+function _devisTotaux() {
+  const tot = {};
+  Object.keys(data || {}).forEach(an => Object.keys(data[an] || {}).forEach(mi => {
+    const dm = data[an][mi];
+    (dm && Array.isArray(dm.chantiers) ? dm.chantiers : []).forEach(ch => {
+      if (!ch) return;
+      const nomU = String(ch.client || '').trim().toUpperCase();
+      if (nomU) tot[nomU] = (tot[nomU] || 0) + (parseFloat(ch.hPrevues) || 0);
+    });
+  }));
+  return tot;
+}
+function _fmtH1(h) { return (Math.round(h * 100) / 100).toLocaleString('fr-FR') + ' h'; }
+function majDepassementsDevis() {
+  const devis = _devisTotaux();
+  document.querySelectorAll('tr.tr-chantier[data-ci]').forEach(tr => {
+    const ch = (getDataMois(parseInt(tr.dataset.annee), parseInt(tr.dataset.mi)).chantiers || [])[parseInt(tr.dataset.ci)];
+    const nomU = ch ? String(ch.client || '').trim().toUpperCase() : '';
+    const prevu = devis[nomU] || 0, planif = planningTotal[nomU] || 0;
+    const depasse = !!(ch && !ch._depuisPlanning && nomU && prevu > 0 && planif > prevu + 0.01);
+    tr.classList.toggle('depasse', depasse);
+    const info = tr.querySelector('.depasse-info');
+    if (info) {
+      info.textContent = depasse ? '+' + _fmtH1(planif - prevu) : '';
+      info.title = depasse ? 'Devis dépassé au planning : planifié ' + _fmtH1(planif) + ' pour ' + _fmtH1(prevu) + ' prévues (tous mois confondus)' : '';
+    }
   });
 }
 
@@ -589,21 +865,43 @@ window.addEventListener('DOMContentLoaded', () => {
   chargerChantiersPlannifies();
   remplirSelectAnnee();
   chargerAnnee();
+  chargerChantiersMobile(true);
 });
 
 // Au retour sur la page (navigation arrière ou restauration depuis le cache
 // navigateur/PWA), DOMContentLoaded ne se redéclenche pas toujours. On replace
 // alors le mois en cours au centre de l'écran.
-window.addEventListener('pageshow', () => {
+window.addEventListener('pageshow', (e) => {
+  // Page restaurée depuis le cache du navigateur (bouton Retour) : la copie en mémoire du
+  // Prévisionnel peut être ancienne → relecture avant toute nouvelle modification.
+  if (e && e.persisted) { chargerData(); chargerChantiersPlannifies(); if (typeof rendreChantiers === 'function') rendreChantiers(); }
   setTimeout(centrerMoisCourant, 120);
+});
+
+/* ── Copie en mémoire toujours à jour ──
+   Le Prévisionnel est gardé en mémoire (variable « data ») et réécrit EN ENTIER à chaque
+   modification. Si un autre onglet (autre page Prévisionnel, Planning, import Henrri…) a
+   modifié le Prévisionnel entre-temps, la première modification faite ici réécrivait
+   l'ancienne copie : les lignes supprimées ailleurs revenaient (localement puis sur le
+   serveur). On relit donc le stockage dès qu'un autre onglet le modifie. */
+window.addEventListener('storage', (e) => {
+  if (e.key === CLE_DATA || e.key === null) {
+    chargerData();
+    if (typeof rendreChantiers === 'function') rendreChantiers();
+  } else if (e.key === 'heuresdata') {
+    chargerChantiersPlannifies();
+    if (typeof rendreChantiers === 'function') rendreChantiers();
+  }
 });
 
 // Rafraîchir la coloration quand l'utilisateur revient sur l'onglet
 // (cas : il modifie le planning dans un autre onglet et revient ici)
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
+    chargerData();                     // relire le Prévisionnel (modifié peut-être dans un autre onglet)
     chargerChantiersPlannifies();
     if (typeof rendreChantiers === 'function') rendreChantiers();
+    chargerChantiersMobile(false);     // nouveaux ajouts mobile (au plus toutes les 2 min)
   }
 });
 
@@ -621,6 +919,7 @@ window.addEventListener('donnees-chargees', () => {
   chargerChantiersPlannifies();
   if (typeof rendreChantiers === 'function') rendreChantiers();
   if (typeof chargerAnnee === 'function') chargerAnnee();
+  chargerChantiersMobile(true);
 });
 
 /* ═══════════════════════════════
@@ -678,15 +977,21 @@ function _cvFeries(y){ if(_cvCacheF[y])return _cvCacheF[y]; var f={},isod=functi
 function _cvEstFerie(d){ var iso=d.getFullYear()+'-'+_cvPad2(d.getMonth()+1)+'-'+_cvPad2(d.getDate()); return !!_cvFeries(d.getFullYear())[iso]; }
 function _cvDansPeriode(s,d){ if(s.dateEntree){var de=new Date(s.dateEntree+'T00:00:00'); if(d<de)return false;} if(s.dateSortie){var ds=new Date(s.dateSortie+'T00:00:00'); if(d>ds)return false;} return true; }
 var _cvCacheCE={};
-function contratEffectifMois(annee, mois){
-  var key=annee+'-'+mois;
+/* Taux de performance individuel (fiche Salariés, en %). Salarié sans taux renseigné :
+   repli sur le seuil orange de la jauge (ancien calcul global, comptes existants). */
+function _cvTauxSal(s, defaut){ var t=parseFloat(s&&s.tauxPerformance); return (isFinite(t)&&t>=0)?t:defaut; }
+/* ponderer=true : chaque salarié compte pour contrat effectif × son taux / 100 (= H. vendables) */
+function contratEffectifMois(annee, mois, ponderer){
+  var key=annee+'-'+mois+(ponderer?'-v':'');
   if(_cvCacheCE[key]!=null) return _cvCacheCE[key];
+  var tauxDefaut=ponderer?_cvSeuilOrange():100;
   var salaries=[], heures={};
   try{ salaries=JSON.parse(localStorage.getItem('salariesdata')||'[]'); }catch(e){}
   try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
   if(!Array.isArray(salaries)) salaries=[];
   var nbJours=new Date(annee,mois+1,0).getDate(), total=0;
   salaries.forEach(function(s){
+    var coef=ponderer?_cvTauxSal(s,tauxDefaut)/100:1, totS=0;
     for(var j=1;j<=nbJours;j++){
       var d=new Date(annee,mois,j), iso=annee+'-'+_cvPad2(mois+1)+'-'+_cvPad2(j);
       if(!_cvDansPeriode(s,d)) continue;
@@ -696,8 +1001,9 @@ function contratEffectifMois(annee, mois){
       var absence;
       if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;
       else { var e=heures[String(s.id)+iso.replace(/-/g,'_')+'abs']; absence=(e&&parseFloat(e.heures))||0; }
-      total+=Math.max(0,contrat-absence);
+      totS+=Math.max(0,contrat-absence);
     }
+    total+=totS*coef;
   });
   _cvCacheCE[key]=total; return total;
 }
@@ -714,8 +1020,9 @@ function _cvSeuilOrange(){
   // Dernier repli : clé locale non synchronisée (peut disparaître à la fermeture)
   return parseInt(localStorage.getItem('jaugeOrange'))||0;
 }
+/* H. vendables = Σ par salarié de (heures contrat − absences) × taux de performance du salarié */
 function hVendablesMois(annee, mois){
-  return contratEffectifMois(annee, mois) * _cvSeuilOrange() / 100;
+  return contratEffectifMois(annee, mois, true);
 }
 
 function getDataMois(annee, mois) {
@@ -744,6 +1051,7 @@ function remplirSelectAnnee() {
 function chargerAnnee() {
   anneeActive = parseInt(document.getElementById('selectAnnee').value);
   rendrePage();
+  if (_mobileAnnee !== null && _mobileAnnee !== anneeActive) chargerChantiersMobile(true);   // autre année : autres mois affichés
 }
 
 function ajouterAnnee() {
@@ -763,9 +1071,14 @@ function ajouterAnnee() {
 function majTauxVendables() {
   var el = document.getElementById('taux-vendables');
   if (!el) return;
-  var s = _cvSeuilOrange();
-  if (s > 0) { el.textContent = s + ' %'; el.style.color = '#2563eb'; }
-  else { el.textContent = 'seuil non réglé'; el.style.color = '#dc2626'; }
+  // Taux désormais individuel : on signale les salariés (avec horaires) sans taux ni repli possible.
+  var sals = []; try { sals = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (e) {}
+  if (!Array.isArray(sals)) sals = [];
+  var defaut = _cvSeuilOrange();
+  var manquants = sals.filter(function (x) { return !x.administratif && !(_cvTauxSal(x, defaut) > 0); }).length;
+  el.title = 'Chaque salarié a son propre taux de performance (page Salariés)';
+  if (manquants) { el.textContent = 'taux de performance de chaque salarié — ' + manquants + ' sans taux'; el.style.color = '#dc2626'; }
+  else { el.textContent = 'taux de performance de chaque salarié'; el.style.color = '#2563eb'; }
 }
 
 function rendrePage() {
@@ -791,6 +1104,30 @@ function getMoisAffichage() {
   return liste;
 }
 
+/* ── ALERTE DÉPASSEMENT : H. devis du mois > H. vendables ──
+   Triangle orange affiché à côté du nom du mois (tableau de synthèse + en-tête du bloc mois). */
+function _hDevisMois(annee, mois) {
+  const dm = getDataMois(annee, mois);
+  return (dm.chantiers||[]).reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
+}
+function alerteDepassementHTML(annee, mois) {
+  const hDevis = _hDevisMois(annee, mois);
+  const hVb    = hVendablesMois(annee, mois);
+  if (!(hVb > 0) || !(hDevis > hVb + 0.001)) return '';
+  const titre = 'Heures devis (' + hDevis.toFixed(1) + ' h) supérieures aux heures vendables ('
+              + hVb.toFixed(1) + ' h) : dépassement de ' + (hDevis - hVb).toFixed(1) + ' h';
+  return '<span class="alerte-depass" title="' + titre + '">'
+       + '<svg viewBox="0 0 24 22" aria-label="Alerte dépassement"><path d="M12 1.5 23 20.5H1z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/>'
+       + '<rect x="10.9" y="7.5" width="2.2" height="7" rx="1" fill="#fff"/><circle cx="12" cy="17.4" r="1.3" fill="#fff"/></svg></span>';
+}
+function majAlerteDepassement(annee, mois) {
+  const html = alerteDepassementHTML(annee, mois);
+  ['alerte-th-', 'alerte-bloc-'].forEach(function (pref) {
+    const el = document.getElementById(pref + annee + '_' + mois);
+    if (el && el.innerHTML !== html) el.innerHTML = html;
+  });
+}
+
 /* ── TABLEAU SYNTHÈSE (16 mois) ── */
 function rendreSynthese() {
   const thead = document.getElementById('thead-mois');
@@ -803,7 +1140,7 @@ function rendreSynthese() {
     const bg = m.isHors ? '#64748b' : '#2563eb';
     const labels = m.label.split('\n');
     thMois += `<th class="th-mois" style="background:${bg};font-size:0.78rem;white-space:nowrap;">`;
-    thMois += labels[0];
+    thMois += labels[0] + `<span id="alerte-th-${m.annee}_${m.mois}">${alerteDepassementHTML(m.annee, m.mois)}</span>`;
     if (labels[1]) thMois += `<br><span style="font-size:0.68rem;opacity:0.85;">${labels[1]}</span>`;
     thMois += '</th>';
   });
@@ -845,7 +1182,7 @@ function rendreSynthese() {
       } else if (l.type === 'vendables') {
         // H. vendables = contrat effectif du mois (hors événements) × seuil orange
         const vend = hVendablesMois(annee, mois);
-        html += `<td class="td-calc" id="hvend-${uid}" style="${bgHors}" title="Somme des heures contrat du mois (hors fériés, congés, école, absences) × seuil orange">${vend > 0 ? vend.toFixed(1) + ' h' : '—'}</td>`;
+        html += `<td class="td-calc" id="hvend-${uid}" style="${bgHors}" title="Somme, par salarié, des heures contrat du mois (hors fériés, congés, école, absences) × son taux de performance">${vend > 0 ? vend.toFixed(1) + ' h' : '—'}</td>`;
 
       } else if (l.type === 'calc') {
         // H. devis = somme hPrevues des chantiers du mois
@@ -891,7 +1228,11 @@ function rendreChantiers() {
   let html = '';
 
   // Faire remonter dans le devis les chantiers planifiés absents (surlignés en jaune)
+  _mobileModifie = false;
   liste.forEach(({ annee, mois: mi }) => injecterPlanifiesManquants(annee, mi));
+  // Puis les chantiers ajoutés sur mobile, ni au devis ni au planning (surlignés en bleu)
+  liste.forEach(({ annee, mois: mi }) => injecterMobileManquants(annee, mi));
+  if (_mobileModifie) { _mobileModifie = false; sauverData(); }
 
   // Calcul du nombre max de chantiers sur l'ensemble des mois affichés
   let maxChantiers = 0;
@@ -917,7 +1258,7 @@ function rendreChantiers() {
     const classHorsAnnee = isHors ? ' hors-annee' : '';
 
     html += `<div data-mois-bloc="${annee}-${mi}" data-hors="${isHors ? 1 : 0}" style="background:${_bgBloc};border-right:2px solid #94a3b8;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;flex:0 0 352px;width:352px;overflow:clip;">`;
-    html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}</div>`;
+    html += `<div class="bloc-mois-header${classHorsAnnee}">${MOIS_FULL[mi]}${labelAnnee}<span id="alerte-bloc-${annee}_${mi}">${alerteDepassementHTML(annee, mi)}</span></div>`;
     html += `<table style="width:352px;border-collapse:collapse;font-size:0.88rem;table-layout:fixed;">`;
     html += `<colgroup>
       <col style="width:196px;">
@@ -931,27 +1272,37 @@ function rendreChantiers() {
     </tr></thead><tbody id="tbody-ch-${annee}_${mi}">`;
 
     // Lignes saisies
+    let nbPerimes = 0;
     chantiers.forEach((ch, ci) => {
       const depuisPlan = !!ch._depuisPlanning;
+      const depuisMob  = !!ch._depuisMobile;
+      const perimee    = estLignePerimee(ch, annee, mi);
+      if (perimee) nbPerimes++;
       const isPlanifie = estPlannifie(ch.client, annee, mi);
       let classes = 'tr-chantier';
       let coche = '';        // ✓ vert, à côté du nom (chantier du devis déjà planifié)
       let alertePlan = '';   // ⚠ jaune, dans la colonne action (chantier planifié absent du devis)
-      if (depuisPlan) {
+      if (depuisMob) {
+        classes += ' depuis-mobile';
+        alertePlan = '<span class="coche-mobile" title="' + _henrriEscAttr(ch._mobileInfo || 'Ajouté sur mobile par un salarié — absent du devis et du planning') + '">📱</span>';
+      } else if (perimee) {
+        classes += ' perime';
+        alertePlan = '<span class="coche-perime" title="Ligne périmée : remontée du planning, mais ce chantier ne figure plus au Planning en ' + MOIS_FULL[mi] + ' ' + annee + ' (retiré, renommé ou déplacé). Modifiez-la pour la garder, ou utilisez « Nettoyer » en bas du mois.">⌛</span>';
+      } else if (depuisPlan) {
         classes += ' depuis-planning';
         alertePlan = '<span class="coche-planning" title="Planifié mais absent du prévisionnel - heures cumulées du planning">⚠</span>';
       } else if (isPlanifie) {
         classes += ' planifie';
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
       }
-      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}">
+      html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}"${depuisMob ? ' data-mobile="' + _henrriEscAttr(ch._mobileInfo || '') + '"' : ''}${perimee ? ' data-perime="1"' : ''}>
         <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
-            <input value="${ch.client||''}" placeholder=""
+            <input value="${ch.client||''}" placeholder="" title="${_henrriEscAttr(ch.client||'')}"
               style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
               data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="client" data-nav="client"
               onchange="majChantierInput(this)" oninput="majChantierInput(this)" onkeydown="navEnTree(event,this)">
-            ${coche}
+            ${coche}<span class="depasse-info"></span>
           </div>
         </td>
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
@@ -1000,17 +1351,119 @@ function rendreChantiers() {
 
     html += `</tbody></table>`;
     html += `<div style="padding:5px 6px;border-top:1px solid #e5e7eb;">
+      ${nbPerimes ? `<button class="btn-nettoyer" onclick="nettoyerLignesPerimees(${annee},${mi})" title="Retirer les lignes remontées du planning dont le chantier n'y figure plus ce mois-ci">🧹 Nettoyer les lignes périmées (${nbPerimes})</button>` : ''}
       <button class="btn-add-row" onclick="ajouterChantier(${annee},${mi})" style="width:100%;font-size:0.88rem;padding:4px 0;">+ Chantier</button>
     </div></div>`;
   });
 
   cont.innerHTML = html;
+  majDepassementsDevis();     // lignes dont le devis est dépassé au planning (fond rouge pulsé)
+  rechercherChantierPrev();   // ré-applique la surbrillance de recherche après reconstruction du DOM
   // Centrage uniquement à la première ouverture de la page : ensuite, on laisse
   // l'utilisateur sur le mois où il saisit (pas de recentrage après chaque saisie).
   if (!_dejaCentre) {
     _dejaCentre = true;
     centrerMoisCourant();
   }
+}
+
+/* Recherche de chantier : surligne en rouge, sur tous les mois affichés, les lignes
+   dont le nom du client contient le terme saisi (insensible à la casse). Champ vide
+   = aucune surbrillance. Ré-appelée après chaque reconstruction de #section-chantiers
+   (rendreChantiers), puisque les lignes sont alors recréées et perdent la classe. */
+function rechercherChantierPrev() {
+  const inp = document.getElementById('recherche-chantier');
+  const terme = (inp ? inp.value : '').trim().toUpperCase();
+  document.querySelectorAll('#section-chantiers tr.tr-chantier').forEach(tr => {
+    const champ = tr.querySelector('input[data-champ="client"]');
+    const val = champ ? champ.value.trim().toUpperCase() : '';
+    const match = terme.length > 0 && val.includes(terme);
+    tr.classList.toggle('chantier-surligne', match);
+  });
+}
+
+/* Fenêtre récapitulative : reprend le terme du champ de recherche et parcourt TOUTES
+   les années/mois connus de `data` (pas seulement ceux affichés à l'écran) pour lister,
+   par chantier correspondant, les heures prévues mois par mois, avec le total. */
+function _fmtHeuresResume(h) {
+  if (!h) return '—';
+  return (Number.isInteger(h) ? h : h.toFixed(1).replace('.0', '')) + ' h';
+}
+function ouvrirResumeChantierRecherche() {
+  const inp = document.getElementById('recherche-chantier');
+  const terme = (inp ? inp.value : '').trim();
+  if (!terme) { alert('Saisissez d’abord un nom de chantier à rechercher.'); return; }
+  const termeU = terme.toUpperCase();
+
+  const lignes = [];
+  Object.keys(data).map(Number).sort((a, b) => a - b).forEach(annee => {
+    for (let mi = 0; mi < 12; mi++) {
+      const dm = data[annee] && data[annee][mi];
+      if (!dm || !Array.isArray(dm.chantiers)) continue;
+      dm.chantiers.forEach(ch => {
+        const nom = (ch.client || '').trim();
+        if (!nom || !nom.toUpperCase().includes(termeU)) return;
+        lignes.push({ annee, mi, nom, heures: parseFloat(ch.hPrevues) || 0 });
+      });
+    }
+  });
+
+  let ov = document.getElementById('resume-chantier-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'resume-chantier-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML =
+        '<div style="background:#fff;border-radius:12px;padding:18px 20px;width:min(420px,94vw);max-height:80vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,0.28);">'
+      + '<h3 id="resume-ch-titre" style="margin:0 0 12px;font-size:1.05rem;color:#1e3a8a;"></h3>'
+      + '<div id="resume-ch-corps"></div>'
+      + '<div style="text-align:right;margin-top:14px;"><button type="button" onclick="fermerResumeChantier()" style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Fermer</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) fermerResumeChantier(); });
+  }
+
+  document.getElementById('resume-ch-titre').textContent = 'Résumé — « ' + terme + ' »';
+  const corps = document.getElementById('resume-ch-corps');
+
+  if (!lignes.length) {
+    corps.innerHTML = '<p style="color:#9ca3af;font-style:italic;">Aucun chantier ne correspond à cette recherche.</p>';
+  } else {
+    // Un seul tableau, une ligne par mois : les chantiers correspondants d'un même mois
+    // (ex. différences d'espace dans le nom) sont cumulés sur cette même ligne.
+    const parMois = {};
+    lignes.forEach(l => {
+      const cle = l.annee + '_' + l.mi;
+      parMois[cle] = (parMois[cle] || 0) + l.heures;
+    });
+    const cles = Object.keys(parMois).sort((a, b) => {
+      const [aa, am] = a.split('_').map(Number), [ba, bm] = b.split('_').map(Number);
+      return aa - ba || am - bm;
+    });
+    let total = 0;
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.88rem;">';
+    html += '<thead><tr><th style="text-align:left;padding:3px 5px;border-bottom:1px solid #e5e7eb;">Mois</th><th style="text-align:right;padding:3px 5px;border-bottom:1px solid #e5e7eb;">Heures prévues</th></tr></thead><tbody>';
+    cles.forEach(cle => {
+      const [annee, mi] = cle.split('_').map(Number);
+      const h = parMois[cle];
+      total += h;
+      html += '<tr><td style="padding:3px 5px;border-bottom:1px solid #f1f5f9;">' + MOIS_FULL[mi] + ' ' + annee + '</td>'
+            + '<td style="padding:3px 5px;border-bottom:1px solid #f1f5f9;text-align:right;">' + _fmtHeuresResume(h) + '</td></tr>';
+    });
+    html += '<tr style="font-weight:700;"><td style="padding:4px 5px;">Total</td><td style="padding:4px 5px;text-align:right;">' + _fmtHeuresResume(total) + '</td></tr>';
+    html += '</tbody></table>';
+    corps.innerHTML = html;
+  }
+
+  ov.style.display = 'flex';
+}
+
+function fermerResumeChantier() {
+  const ov = document.getElementById('resume-chantier-overlay');
+  if (ov) ov.style.display = 'none';
+  const inp = document.getElementById('recherche-chantier');
+  if (inp) inp.value = '';
+  rechercherChantierPrev();   // retire la surbrillance en même temps que la recherche est vidée
 }
 
 /* Centre horizontalement la colonne du mois en cours dans la zone scrollable.
@@ -1101,6 +1554,7 @@ function majLigne(uid) {
 
   const hvEl = document.getElementById(`hv-${uid}`);
   if (hvEl) hvEl.textContent = hDevis > 0 ? hDevis.toFixed(1) + ' h' : '—';
+  majAlerteDepassement(annee, mi);
 
   // Écart absolu en heures
   const ecAbsEl = document.getElementById(`ecartAbs-${uid}`);
@@ -1131,9 +1585,19 @@ function ajouterChantier(annee, mi) {
   rendreChantiers();
 }
 
+/* Ligne bleue supprimée (ou entièrement reportée) : plus jamais reproposée pour ce mois */
+function _memoriserIgnoreMobile(dm, ch) {
+  if (!ch || !ch._depuisMobile) return;
+  const n = (ch.client || '').trim().toUpperCase();
+  if (!n) return;
+  if (!Array.isArray(dm.mobileIgnores)) dm.mobileIgnores = [];
+  if (dm.mobileIgnores.indexOf(n) === -1) dm.mobileIgnores.push(n);
+}
+
 function supprimerChantier(annee, mi, ci) {
   if (!confirm('Supprimer ce chantier ?')) return;
   const dm = getDataMois(annee, mi);
+  _memoriserIgnoreMobile(dm, dm.chantiers[ci]);
   dm.chantiers.splice(ci, 1);
   sauverData();
   rendreChantiers();
@@ -1143,8 +1607,13 @@ function supprimerChantier(annee, mi, ci) {
 function majChantier(annee, mi, ci, champ, val) {
   const dm = getDataMois(annee, mi);
   dm.chantiers[ci][champ] = (champ === 'client' && typeof val === 'string') ? val.toUpperCase() : val;
-  if (dm.chantiers[ci]) delete dm.chantiers[ci]._depuisPlanning;   // édité → adopté dans le devis (fin du surlignage jaune)
+  if (dm.chantiers[ci]) {                                            // édité → adopté dans le devis (fin du surlignage jaune / bleu)
+    delete dm.chantiers[ci]._depuisPlanning;
+    delete dm.chantiers[ci]._depuisMobile;
+    delete dm.chantiers[ci]._mobileInfo;
+  }
   sauverData();
+  majDepassementsDevis();   // la modification des heures prévues ou du nom peut créer / lever un dépassement
   majLigne(`${annee}_${mi}`);
   const totH = dm.chantiers.reduce((s,ch) => s + (parseFloat(ch.hPrevues)||0), 0);
   const tbody = document.getElementById(`tbody-ch-${annee}_${mi}`);
@@ -1324,9 +1793,12 @@ function executerCopie() {
   if (dmSrc.chantiers && dmSrc.chantiers[srcCi]) {
     if (resteSource <= 0) {
       // Tout est reporté → on supprime le chantier source
+      _memoriserIgnoreMobile(dmSrc, dmSrc.chantiers[srcCi]);
       dmSrc.chantiers.splice(srcCi, 1);
     } else {
       dmSrc.chantiers[srcCi].hPrevues = resteSource;
+      delete dmSrc.chantiers[srcCi]._depuisMobile;     // reporté à la main → adopté dans le devis
+      delete dmSrc.chantiers[srcCi]._mobileInfo;
     }
   }
 
@@ -1653,6 +2125,13 @@ function navEnTree(event, input) {
 
   function htmlDeux(c) {
     var dot = 'rgba(255,255,255,.4)';
+    var bandeau = c.mobile
+      ? '<div style="background:#2563eb;border-radius:6px;padding:6px 8px;margin:0 0 9px;font-size:0.74rem;line-height:1.4;">' +
+          '<b>📱 Ajout mobile</b><br>' + String(c.mobile).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>'
+      : (c.perime
+        ? '<div style="background:#475569;border-radius:6px;padding:6px 8px;margin:0 0 9px;font-size:0.74rem;line-height:1.4;">' +
+            '<b>⌛ Ligne périmée</b><br>Remontée du planning, mais ce chantier n\'y figure plus ce mois-ci. Modifiez-la pour la garder, sinon « Nettoyer » en bas du mois.</div>'
+        : '');
     if (typeof c.realM === 'number' && c.realM > 0 && c.prevuM > 0) dot = coulRatio(c.realM / c.prevuM);
     else if (c.planifM > 0 && c.prevuM > 0) dot = coulRatio(c.planifM / c.prevuM);
     return '<div style="display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:10px;">' +
@@ -1663,7 +2142,7 @@ function navEnTree(event, input) {
         colonne('Ce mois', c.prevuM, c.planifM, c.realM) +
         '<div style="width:1px;background:rgba(255,255,255,.14);flex:none;"></div>' +
         colonne('Total', c.prevuT, c.planifT, c.realT) +
-      '</div>';
+      '</div>' + bandeau;
   }
 
   function rendreCourant() {
@@ -1702,6 +2181,8 @@ function navEnTree(event, input) {
     const cachedM = realDuCache(mois, nomUp);
     _cur = {
       cle, nom: nomUp,
+      mobile:  tr.classList.contains('depuis-mobile') ? (tr.dataset.mobile || 'Ajouté sur mobile par un salarié') : '',
+      perime:  tr.dataset.perime === '1',
       prevuM:  prevuMois(devInp),
       planifM: planifieMois(nom, annee, mi),
       realM:   (cachedM !== null ? cachedM : (_cacheReal[mois] && _cacheReal[mois].status === 'error' ? 'nd' : 'load')),
@@ -1753,5 +2234,640 @@ function navEnTree(event, input) {
   });
 })();
 </script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   MODALE « DEVIS HENRRI » — récupère les devis validés Henrri et les
+   affecte au Prévisionnel (création d'une ligne chantier dans le mois
+   choisi : client + hPrevues vide, à saisir ensuite manuellement).
+   Réutilise MOIS_FULL et getMoisAffichage() du script principal ci-dessus.
+═══════════════════════════════════════════════════════════════════════ */
+function _henrriToken() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+      || localStorage.getItem('syncToken') || '';
+}
+
+/* Affiche le lien « Clients » du menu et le bouton « Devis Henrri » uniquement
+   si la connexion Henrri est active (tous les éléments liés à Henrri restent
+   masqués tant que l'API n'est pas liée dans la page Entreprise). */
+let _henrriMode = 'api';        // 'api' | 'import' (choix de la page Entreprise)
+let _henrriAutoOuvert = false;
+/* Dernier état connu de la connexion Henrri (session de l'onglet) : évite que le bouton
+   « Devis Henrri » disparaisse après un rechargement si la licence ou la configuration
+   n'a pas encore répondu (le bouton reste alors utilisable pour rappeler la modale). */
+function _henrriEtatMemo() { try { return sessionStorage.getItem('henrriActif') === '1'; } catch (_) { return false; } }
+function _henrriMemoriser(actif) { try { sessionStorage.setItem('henrriActif', actif ? '1' : '0'); } catch (_) {} }
+function _henrriAfficherBoutons(actif) {
+  const navClients = document.getElementById('nav-link-clients');
+  const btnDevis   = document.getElementById('btn-devis-henrri');
+  if (navClients) navClients.style.display = actif ? '' : 'none';
+  if (btnDevis)   btnDevis.style.display   = actif ? 'inline-block' : 'none';
+}
+async function _henrriMajVisibilite() {
+  const navClients = document.getElementById('nav-link-clients');
+  const btnDevis    = document.getElementById('btn-devis-henrri');
+  const token = _henrriToken();
+  if (!token) { _henrriAfficherBoutons(_henrriEtatMemo()); return; }   // licence pas encore prête : dernier état connu
+  try {
+    const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    // henrriActif = Henrri version pilotage ET (API connectée OU mode import)
+    const actif = !!(d.ok && (typeof d.henrriActif === 'boolean' ? d.henrriActif : d.actif));
+    _henrriMode = (d.ok && d.mode === 'import') ? 'import' : 'api';
+    if (d.ok) _henrriMemoriser(actif);
+    if (navClients) navClients.style.display = actif ? '' : 'none';
+    if (btnDevis) {
+      btnDevis.style.display = actif ? 'inline-block' : 'none';
+      btnDevis.title = _henrriMode === 'import'
+        ? 'Devis validés importés depuis Henrri (fichier Excel)'
+        : 'Récupérer les devis validés depuis Henrri';
+    }
+    // Retour depuis la page d'import : ouverture directe de la modale
+    if (actif && !_henrriAutoOuvert && /[?&]henrri=1(&|$)/.test(location.search)) {
+      _henrriAutoOuvert = true;
+      history.replaceState(null, '', location.pathname);
+      ouvrirModaleHenrri();
+    }
+  } catch (_) {
+    _henrriAfficherBoutons(_henrriEtatMemo());   // erreur réseau passagère : on ne masque pas le bouton
+  }
+}
+window.addEventListener('DOMContentLoaded', _henrriMajVisibilite);
+window.addEventListener('donnees-chargees', _henrriMajVisibilite);
+
+function _henrriEscAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _henrriOptionsMois() {
+  const liste = getMoisAffichage();
+  const now = new Date();
+  return liste.map(m => {
+    const selected = (m.annee === now.getFullYear() && m.mois === now.getMonth()) ? ' selected' : '';
+    return `<option value="${m.annee}|${m.mois}"${selected}>${MOIS_FULL[m.mois]} ${m.annee}</option>`;
+  }).join('');
+}
+
+function _henrriFmtH(v) {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '' || !isFinite(n)) return '—';
+  return (Math.round(n * 100) / 100).toString().replace('.', ',') + ' h';
+}
+
+/* Mode import : l'export Henrri ne contient pas les coordonnées. Si le client
+   existe déjà dans la base clients (fiche chantier ou base Henrri), le serveur
+   renvoie ses coordonnées (dv.coordBase) : on PROPOSE de les reporter sur la
+   fiche du chantier créé (case cochée par défaut, décochable). */
+function _henrriCelluleCoord(dv) {
+  const b = dv.coordBase;
+  const cands = (b && Array.isArray(b.candidats)) ? b.candidats : [];
+  let etat;
+  if (b && b.choisi) etat = b.aucun ? 'aucun' : 'choisi';
+  else if (b && b.approx) etat = cands.length ? 'choix' : 'absent';
+  else etat = (b && b.coord) ? 'connu' : 'absent';
+  const donnees = { etat, client: dv.client || '', base: b || null, cands, suggere: (b && b.suggere != null) ? b.suggere : -1 };
+  return '<div class="henrri-coord" data-info="' + _henrriEscAttr(JSON.stringify(donnees)) + '">' + _henrriHtmlCoord(donnees) + '</div>';
+}
+
+/* Libellé d'un client candidat : adresse, ville, téléphone, e-mail + origine */
+function _henrriLibCand(c) {
+  const k = c.coord || {};
+  const lieu = [k.adresse, k.ville].filter(Boolean).join(', ');
+  const tels = [k.mobile, k.fixe].filter(Boolean).join(' / ');
+  return [lieu || '(sans adresse)', tels, k.email].filter(Boolean).join(' · ')
+    + (c.source === 'fiche' ? ' — fiche « ' + (c.nomTrouve || '') + ' »' : ' — base Henrri');
+}
+
+/* Contenu de la cellule selon l'état : connu (correspondance exacte), choix (homonymes ou
+   rapprochement sur le nom de famille : liste, rien de pré-sélectionné), choisi / aucun
+   (choix mémorisé pour ce nom de client), absent. */
+function _henrriHtmlCoord(x) {
+  const cadre = 'display:flex;gap:6px;align-items:flex-start;margin-top:4px;font-size:0.72rem;border-radius:6px;padding:4px 6px;';
+  const lienChanger = x.cands.length
+    ? ' <a href="#" onclick="_henrriChangerClient(this);return false;" style="color:#0369a1;white-space:nowrap;">changer</a>' : '';
+  if (x.etat === 'absent') {
+    return '<div style="font-size:0.72rem;color:#94a3b8;">Client absent de la base — coordonnées à saisir dans la fiche chantier</div>';
+  }
+  if (x.etat === 'aucun') {
+    return '<div style="font-size:0.72rem;color:#64748b;margin-top:4px;">Aucune coordonnée reprise (choix mémorisé) — à saisir dans la fiche chantier' + lienChanger + '</div>';
+  }
+  if (x.etat === 'choix') {
+    const n = x.cands.length;
+    const opts = '<option value="">— Choisir le client (' + n + ' proposition' + (n > 1 ? 's' : '') + ') —</option>'
+      + x.cands.map((c, i) => '<option value="' + i + '">' + _henrriEscAttr(_henrriLibCand(c)) + (i === x.suggere ? ' ★ e-mail' : '') + '</option>').join('')
+      + '<option value="aucun">Aucun de ces clients — coordonnées à saisir</option>';
+    return '<div style="' + cadre + 'flex-direction:column;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;">'
+      + '<span><strong>⚠ ' + (x.base && x.base.ambigu ? 'Plusieurs clients portent ce nom' : 'Client trouvé sur le nom de famille seulement') + '</strong> — choisissez le bon :</span>'
+      + '<select class="henrri-coord-choix" onchange="_henrriChoisirClient(this)" style="width:100%;max-width:340px;font-size:0.72rem;padding:2px;">' + opts + '</select>'
+      + '<span style="color:#78350f;">Sans choix, aucune coordonnée n\'est reprise. Le choix est mémorisé pour les prochains devis de ce client.</span></div>';
+  }
+  // connu (correspondance exacte) ou choisi (mémorisé)
+  const c = (x.etat === 'choisi') ? { coord: x.base.coord, source: x.base.source, nomTrouve: x.base.nomTrouve } : x.base;
+  const k = c.coord || {};
+  const detail = [[k.adresse, k.ville].filter(Boolean).join(', '), [k.mobile, k.fixe].filter(Boolean).join(' / '), k.email].filter(Boolean).join(' · ');
+  const origine = c.source === 'henrri' ? 'base clients Henrri' : (c.source === 'fiche' ? 'fiche « ' + (c.nomTrouve || '') + ' »' : 'votre choix');
+  return '<label style="' + cadre + 'color:#075985;background:#f0f9ff;border:1px solid #bae6fd;cursor:pointer;" '
+       + 'title="Coordonnées trouvées dans : ' + _henrriEscAttr(origine) + '">'
+       + '<input type="checkbox" class="henrri-coord-cb" checked style="margin-top:1px;">'
+       + '<span><strong>' + (x.etat === 'choisi' ? 'Client choisi' : 'Client connu') + '</strong> — reprendre ses coordonnées dans la fiche chantier<br>'
+       + '<span style="color:#475569;">📍 ' + _henrriEscAttr(detail) + '</span></span></label>' + lienChanger;
+}
+
+function _henrriInfoCoord(el) {
+  const box = el.closest('.henrri-coord');
+  let x = null; try { x = JSON.parse(box.getAttribute('data-info') || 'null'); } catch (_) {}
+  return { box, x };
+}
+function _henrriMajCoord(box, x) {
+  box.setAttribute('data-info', JSON.stringify(x));
+  box.innerHTML = _henrriHtmlCoord(x);
+  // Coordonnées envoyées à l'affectation (bouton « Affecter » de la ligne)
+  const tr = box.closest('tr');
+  const btn = tr && tr.querySelector('button[data-devis-id][data-devis-client]');
+  if (btn) btn.setAttribute('data-devis-coord', JSON.stringify((x.etat === 'choisi' || x.etat === 'connu') && x.base && x.base.coord ? x.base.coord : {}));
+}
+
+/* Choix dans la liste : appliqué à la ligne, puis mémorisé côté serveur pour ce nom de client */
+async function _henrriChoisirClient(sel) {
+  const { box, x } = _henrriInfoCoord(sel);
+  if (!x || sel.value === '') return;
+  const corps = { client: x.client };
+  if (sel.value === 'aucun') {
+    x.etat = 'aucun'; corps.aucun = true;
+  } else {
+    const c = x.cands[parseInt(sel.value, 10)];
+    if (!c) return;
+    x.etat = 'choisi';
+    x.base = Object.assign({}, x.base || {}, { coord: c.coord, source: c.source, nomTrouve: c.nomTrouve, choisi: true, aucun: false });
+    corps.coord = c.coord; corps.source = c.source; corps.nomTrouve = c.nomTrouve;
+  }
+  _henrriMajCoord(box, x);
+  try {
+    const r = await fetch('/api/henrri/clients/choix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _henrriToken() },
+      body: JSON.stringify(corps)
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+  } catch (e) {
+    // Le choix reste appliqué à cette affectation ; seule la mémorisation a échoué
+    console.warn('Choix du client non mémorisé :', e && e.message ? e.message : e);
+  }
+}
+/* « changer » : réaffiche la liste des clients possibles */
+function _henrriChangerClient(lien) {
+  const { box, x } = _henrriInfoCoord(lien);
+  if (!x) return;
+  x.etat = 'choix';
+  _henrriMajCoord(box, x);
+}
+
+async function ouvrirModaleHenrri() {
+  const token = _henrriToken();
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const ov = document.getElementById('modale-henrri');
+  const corps = document.getElementById('henrri-devis-corps');
+  const blocImport = document.getElementById('henrri-modale-import');
+  const aide = document.getElementById('henrri-modale-aide');
+  corps.innerHTML = '<p style="color:#94a3b8;">Chargement…</p>';
+  const btnTout = document.getElementById('btn-henrri-tout');
+  if (btnTout) btnTout.style.display = 'none';
+  ov.classList.add('open');
+  try {
+    const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json();
+    const modeImport = d.mode === 'import' || (!d.mode && _henrriMode === 'import');
+    // Bandeau d'import (mode import uniquement)
+    if (blocImport) {
+      blocImport.style.display = modeImport ? 'flex' : 'none';
+      const info = document.getElementById('henrri-modale-import-info');
+      if (info && modeImport) {
+        info.textContent = d.importeLe
+          ? 'Liste issue de votre dernier import Henrri (' + new Date(d.importeLe).toLocaleDateString('fr-FR') + '). Importez de nouveaux exports (clients + devis validés) pour la mettre à jour.'
+          : "Aucun import pour l'instant : exportez depuis Henrri la liste de vos clients et vos devis validés, puis importez les deux fichiers.";
+      }
+    }
+    if (aide) {
+      aide.innerHTML = modeImport
+        ? 'Choisissez le mois de démarrage de chantier pour chaque devis, vérifiez les heures puis cliquez sur « Affecter ». '
+          + 'Les heures proposées sont les <strong>heures analysées</strong> ; si elles valent 0, le <strong>nombre d\'heures du devis</strong> est proposé.'
+        : 'Choisissez le mois de démarrage de chantier pour chaque devis, puis cliquez sur « Affecter ». '
+          + 'Une ligne est créée dans le Prévisionnel de ce mois (client + heures à saisir).';
+    }
+    if (!d.ok) { corps.innerHTML = '<p style="color:#dc2626;">' + _henrriEscAttr(d.message || 'Erreur') + '</p>'; return; }
+    if (!d.devis || !d.devis.length) {
+      corps.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
+      return;
+    }
+    const th = 'padding:6px 8px;border:1px solid #e2e8f0;';
+    const td = 'padding:5px 8px;border:1px solid #e2e8f0;';
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
+    html += '<thead><tr style="background:#e8edf3;">'
+          + '<th style="' + th + 'width:26px;text-align:center;"><input type="checkbox" id="henrri-sel-tous" checked onclick="_henrriCocherTous(this.checked)" title="Tout cocher / décocher"></th>'
+          + '<th style="' + th + 'text-align:left;">Client</th>'
+          + '<th style="' + th + 'text-align:left;">N° devis</th>'
+          + (modeImport ? '<th style="' + th + 'text-align:right;" title="Heures analysées si renseignées, sinon nombre d\'heures du devis">Heures</th>' : '')
+          + '<th style="' + th + '">Mois de démarrage'
+          + '<div><select id="henrri-mois-tous" onchange="_henrriMoisPourTous(this)" style="margin-top:4px;font-size:0.75rem;font-weight:400;max-width:150px;">'
+          + '<option value="">— même mois pour tous —</option>' + _henrriOptionsMois().replace(/ selected/g, '') + '</select></div></th>'
+          + '<th style="' + th + '"></th></tr></thead><tbody>';
+    d.devis.forEach(dv => {
+      let celH = '';
+      if (modeImport) {
+        const ref = (dv.heuresRef != null && dv.heuresRef !== '') ? dv.heuresRef : '';
+        const src = dv.heuresRefSource === 'analysees'
+          ? '<div style="font-size:0.7rem;color:#16a34a;white-space:nowrap;">analysées</div>'
+          : (dv.heuresRefSource === 'devis'
+              ? '<div style="font-size:0.7rem;color:#b45309;white-space:nowrap;" title="Heures analysées = 0 : nombre d\'heures du devis proposé">h. devis</div>'
+              : '<div style="font-size:0.7rem;color:#94a3b8;">à saisir</div>');
+        const bulle = 'Nombre d\'heures : ' + _henrriFmtH(dv.heures) + ' — Heures analysées : ' + _henrriFmtH(dv.heuresAnalysees);
+        celH = '<td style="' + td + 'text-align:right;" title="' + _henrriEscAttr(bulle) + '">'
+             + '<input type="number" class="henrri-heures-input" min="0" step="0.5" value="' + _henrriEscAttr(ref) + '" style="width:70px;text-align:right;">'
+             + src + '</td>';
+      }
+      html += '<tr>'
+        + '<td style="' + td + 'text-align:center;"><input type="checkbox" class="henrri-sel" checked onchange="_henrriMajTout()"></td>'
+        + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
+        + (modeImport ? _henrriCelluleCoord(dv) : '')
+        + '</td>'
+        + '<td style="' + td + '">' + _henrriEscAttr(dv.reference || '—')
+        + (dv.signe ? ' <span title="Accepté par le client via la validation électronique Henrri" style="background:#dcfce7;color:#166534;border-radius:999px;padding:1px 8px;font-size:0.72rem;font-weight:700;white-space:nowrap;">✔ signé</span>' : '')
+        + '</td>'
+        + celH
+        + '<td style="' + td + '"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
+        + '<td style="' + td + 'text-align:center;white-space:nowrap;">'
+        + '<button class="btn-modale-copier" style="padding:4px 12px;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
+        + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
+        + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
+        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && !dv.coordBase.approx && !dv.coordBase.aucun && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
+        + 'data-mode-import="' + (modeImport ? '1' : '') + '" '
+        + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
+        + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
+        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕</button></td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    corps.innerHTML = html;
+    _henrriMajTout();
+  } catch (e) {
+    corps.innerHTML = '<p style="color:#dc2626;">Erreur réseau : ' + _henrriEscAttr(e && e.message ? e.message : e) + '</p>';
+  }
+}
+
+/* Envoie l'affectation d'UNE ligne de la modale (sans recharger la page).
+   Renvoie { annee, mois } ; lève une erreur en cas d'échec. */
+async function _henrriEnvoyerAffectation(tr) {
+  const btn = tr.querySelector('button[data-devis-id][data-devis-client]');
+  const sel = tr.querySelector('.henrri-mois-select');
+  const [anneeStr, moisStr] = sel.value.split('|');
+  const annee = parseInt(anneeStr, 10);
+  const mois  = parseInt(moisStr, 10);
+  const devisId = btn.getAttribute('data-devis-id');
+  const clientNom = btn.getAttribute('data-devis-client');
+  const reference = btn.getAttribute('data-devis-reference');
+  const customerId = btn.getAttribute('data-devis-customer') || '';
+  let coordonnees = null;
+  try { coordonnees = JSON.parse(btn.getAttribute('data-devis-coord') || 'null'); } catch (_) {}
+  // Mode import : coordonnées de la base clients reportées seulement si la case est cochée
+  let sansCoordonnees = false;
+  if (btn.getAttribute('data-mode-import') === '1') {
+    const cb = tr.querySelector('.henrri-coord-cb');
+    if (!cb || !cb.checked) { coordonnees = null; sansCoordonnees = true; }
+  }
+  // Heures proposées (mode import) : valeur éventuellement corrigée dans la modale
+  const inpH = tr.querySelector('.henrri-heures-input');
+  const hPrevues = inpH ? String(inpH.value || '').trim() : '';
+  const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/affecter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _henrriToken() },
+    body: JSON.stringify({ annee, mois, client: clientNom, reference, customerId, coordonnees, sansCoordonnees, hPrevues })
+  });
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.message || 'échec');
+  return { annee, mois };
+}
+
+/* Recharge la page pour afficher les nouvelles lignes du Prévisionnel ; s'il reste des devis
+   à affecter, la modale « Devis Henrri » se rouvre automatiquement après le rechargement. */
+function _henrriRecharger() {
+  const reste = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+  _henrriMemoriser(true);
+  location.replace(location.pathname + (reste ? '?henrri=1' : ''));
+}
+
+async function affecterDevisHenrri(btn) {
+  const tr = btn.closest('tr');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { annee, mois } = await _henrriEnvoyerAffectation(tr);
+    tr.remove();
+    const reste = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+    alert('Devis affecté à ' + MOIS_FULL[mois] + ' ' + annee + '.\nLa page va se recharger pour afficher la nouvelle ligne'
+      + (reste ? ', puis la liste des ' + reste + ' devis restant(s) se rouvrira.' : '.'));
+    _henrriRecharger();
+  } catch (e) {
+    alert('Erreur : ' + (e && e.message ? e.message : e));
+    btn.disabled = false; btn.textContent = 'Affecter';
+  }
+}
+
+/* ── Affectation groupée : tous les devis cochés, chacun au mois choisi sur sa ligne ── */
+function _henrriLignesCochees() {
+  return Array.from(document.querySelectorAll('#henrri-devis-corps tbody tr'))
+    .filter(tr => { const cb = tr.querySelector('.henrri-sel'); return cb && cb.checked; });
+}
+function _henrriMajTout() {
+  const btn = document.getElementById('btn-henrri-tout');
+  const total = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+  const n = _henrriLignesCochees().length;
+  if (btn) {
+    btn.style.display = total ? '' : 'none';
+    btn.disabled = n === 0;
+    btn.textContent = '✔ Tout affecter (' + n + ')';
+  }
+  const tous = document.getElementById('henrri-sel-tous');
+  if (tous) { tous.checked = total > 0 && n === total; tous.indeterminate = n > 0 && n < total; }
+}
+function _henrriCocherTous(etat) {
+  document.querySelectorAll('#henrri-devis-corps .henrri-sel').forEach(cb => { cb.checked = etat; });
+  _henrriMajTout();
+}
+// « Même mois pour tous » : applique le mois choisi aux lignes cochées
+function _henrriMoisPourTous(sel) {
+  if (!sel.value) return;
+  _henrriLignesCochees().forEach(tr => { const s2 = tr.querySelector('.henrri-mois-select'); if (s2) s2.value = sel.value; });
+}
+
+async function affecterTousDevisHenrri() {
+  const lignes = _henrriLignesCochees();
+  if (!lignes.length) return;
+  // Récapitulatif par mois avant confirmation
+  const parMois = {};
+  lignes.forEach(tr => {
+    const [a, m] = tr.querySelector('.henrri-mois-select').value.split('|');
+    const lib = MOIS_FULL[parseInt(m, 10)] + ' ' + a;
+    parMois[lib] = (parMois[lib] || 0) + 1;
+  });
+  const recap = Object.entries(parMois).map(([lib, n]) => '• ' + lib + ' : ' + n + ' devis').join('\n');
+  if (!confirm('Affecter ' + lignes.length + ' devis au Prévisionnel ?\n\n' + recap)) return;
+
+  const btn = document.getElementById('btn-henrri-tout');
+  btn.disabled = true;
+  let ok = 0;
+  const erreurs = [];
+  // Envoi l'un après l'autre : chaque affectation met à jour le même Prévisionnel côté serveur
+  for (let i = 0; i < lignes.length; i++) {
+    const tr = lignes[i];
+    btn.textContent = 'Affectation ' + (i + 1) + ' / ' + lignes.length + '…';
+    try {
+      await _henrriEnvoyerAffectation(tr);
+      tr.remove();
+      ok++;
+    } catch (e) {
+      const b = tr.querySelector('button[data-devis-client]');
+      erreurs.push(((b && b.getAttribute('data-devis-client')) || 'devis') + ' : ' + (e && e.message ? e.message : e));
+      tr.style.background = '#fee2e2';
+    }
+  }
+  if (erreurs.length) {
+    alert(ok + ' devis affecté(s).\n' + erreurs.length + ' erreur(s) :\n\n' + erreurs.join('\n')
+      + (ok ? '\n\nLa page va se recharger ; les devis en erreur restent proposés dans « Devis Henrri ».' : ''));
+    if (ok) _henrriRecharger(); else _henrriMajTout();
+    return;
+  }
+  alert(ok + ' devis affecté(s) au Prévisionnel.\nLa page va se recharger pour afficher les nouvelles lignes.');
+  _henrriRecharger();
+}
+
+async function supprimerDevisHenrri(btn) {
+  if (!confirm('Écarter ce devis ? Il ne sera plus proposé dans cette liste (il reste inchangé dans Henrri).')) return;
+  const tr = btn.closest('tr');
+  const devisId = btn.getAttribute('data-devis-id');
+  const token = _henrriToken();
+
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/henrri/devis/' + encodeURIComponent(devisId) + '/ignorer', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    tr.remove();
+    _henrriMajTout();
+  } catch (e) {
+    alert('Erreur : ' + (e && e.message ? e.message : e));
+    btn.disabled = false;
+  }
+}
+
+function fermerModaleHenrri() {
+  const ov = document.getElementById('modale-henrri');
+  if (ov) ov.classList.remove('open');
+}
+
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ADRESSE PROPOSÉE À LA SAISIE D'UN NOUVEAU CHANTIER
+   Quand un nom de chantier est saisi (ou modifié) à la main — « DUPONT » ou
+   « DUPONT 26-09-1 » —, s'il n'a pas encore d'adresse, on cherche le client
+   dans la base Clients : fiches coordonnées existantes + clients Henrri.
+   Le n° de devis en fin de nom est ignoré pour la recherche.
+   - correspondance exacte du nom (ordre des mots indifférent) en priorité ;
+   - à défaut, nom inclus dans l'autre (« MEUNIER » ↔ « MEUNIER SUZANNE ») ;
+   - homonymes : toutes les adresses distinctes sont proposées.
+   Un clic ouvre la fiche du chantier pré-remplie : rien n'est enregistré
+   avant « Enregistrer ». « Plus tard » : plus reproposé pour ce nom (session).
+═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const MOTS_NEUTRES = new Set(['SARL','SAS','SASU','EURL','SCI','SA','SNC','EI','EIRL','SCEA','GAEC','EARL',
+    'M','MR','MME','MLLE','MONSIEUR','MADAME','ET','LE','LA','LES','L','DE','DU','DES','D','DEVIS']);
+  let _henrri = null;            // base clients Henrri (cache de la page)
+  const _ignores = new Set();    // noms pour lesquels l'utilisateur a répondu « Plus tard »
+
+  function norm(t) {
+    return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+  }
+  /* Nom du client sans le n° de devis final : mots finaux contenant un chiffre retirés
+     (« DUPONT 26-09-1 », « DUPONT I-26-09-1 », « DUPONT D2026-045 » → « DUPONT »). */
+  function sansDevis(nom) {
+    const mots = String(nom || '').trim().split(/\s+/);
+    while (mots.length > 1 && /\d/.test(mots[mots.length - 1])) mots.pop();
+    return mots.join(' ');
+  }
+  function mots(t) { return norm(t).split(' ').filter(m => m && !MOTS_NEUTRES.has(m)); }
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const vide = c => !c || (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email);
+
+  async function chargerHenrri() {
+    if (_henrri) return _henrri;
+    _henrri = [];
+    const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+    if (!token) return _henrri;
+    try {
+      const r = await fetch('/api/henrri/clients', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d && d.ok && d.actif && Array.isArray(d.clients)) _henrri = d.clients;
+    } catch (_) {}
+    return _henrri;
+  }
+
+  function versCoord(f) {
+    const tel = String(f.telephone || '');
+    const estMob = /^0[67]/.test(tel.replace(/[.\s-]/g, ''));
+    let ville = String(f.ville || '').trim();
+    const cp = String(f.codePostal || '').trim();
+    if (cp && ville.indexOf(cp) === -1) ville = (cp + ' ' + ville).trim();
+    return { adresse: f.adresse || '', ville, mobile: f.mobile || (estMob ? tel : ''), fixe: f.fixe || (estMob ? '' : tel), email: String(f.email || '').trim() };
+  }
+
+  /* Clients supprimés dans la page Clients (masqués) : jamais proposés.
+     Clés identiques à clients.html : « P:<nom sans n° de devis> » pour une fiche,
+     « H:<id> » pour un client Henrri. */
+  function masques() {
+    try {
+      const ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}') || {};
+      const m = ent.clientsDoublons && Array.isArray(ent.clientsDoublons.masques) ? ent.clientsDoublons.masques : [];
+      return new Set(m.map(String));
+    } catch (_) { return new Set(); }
+  }
+  const cleClientPage = nom => 'P:' + norm(String(nom || '').trim().replace(/\s+\d{2}-\d{2}-\d+\s*$/, '').trim());
+  function estMasque(nom, msq) { return (msq || masques()).has(cleClientPage(nom)); }
+
+  async function candidats(nomChantier) {
+    const base = mots(sansDevis(nomChantier));
+    if (!base.length) return [];
+    const msq = masques();
+    const cleBase = [...base].sort().join(' ');
+    const liste = [];
+    let fiches = {}; try { fiches = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {}; } catch (_) {}
+    Object.keys(fiches).forEach(k => {
+      if (norm(k) === norm(nomChantier) || vide(fiches[k]) || msq.has(cleClientPage(k))) return;   // client supprimé : ignoré
+      const c = fiches[k];
+      liste.push({ nom: k, source: 'fiche', coord: { adresse: c.adresse || '', ville: c.ville || '', mobile: c.mobile || '', fixe: c.fixe || '', email: c.email || '' } });
+    });
+    (await chargerHenrri()).forEach(f => {
+      if (!f || !String(f.nom || '').trim() || msq.has('H:' + String(f.id))) return;
+      const c = versCoord(f);
+      if (!vide(c)) liste.push({ nom: f.nom, source: 'henrri', coord: c });
+    });
+    const evalue = liste.map(x => {
+      const m = mots(sansDevis(x.nom));
+      if (!m.length) return null;
+      if ([...m].sort().join(' ') === cleBase) return Object.assign(x, { score: 2 });          // même nom
+      const [petit, grand] = m.length <= base.length ? [m, base] : [base, m];
+      if (petit.some(t => t.length >= 3) && petit.every(t => grand.includes(t)))
+        return Object.assign(x, { score: 1, plusComplet: m.length > base.length });   // nom inclus (le candidat est-il plus complet ?)
+      return null;
+    }).filter(Boolean);
+    const max = evalue.reduce((a, x) => Math.max(a, x.score), 0);
+    const vus = new Set();
+    return evalue.filter(x => x.score === max)
+      .sort((a, b) => (a.source === 'fiche' ? 0 : 1) - (b.source === 'fiche' ? 0 : 1))
+      .filter(x => { const k = norm(x.coord.adresse) + '|' + norm(x.coord.ville) + '|' + norm(x.coord.email); if (vus.has(k)) return false; vus.add(k); return true; })
+      .slice(0, 8)
+      .map(x => Object.assign(x, { approx: max === 1 }));
+  }
+
+  function fermer() { const o = document.getElementById('prop-adr'); if (o) o.remove(); }
+
+  /* Nom final du chantier si l'on choisit ce candidat : quand le nom tapé n'est qu'une partie
+     du nom du client (« TEST » → « TEST LOCALISATION »), la ligne prend le nom complet du client,
+     en gardant le n° de devis tapé. Sinon le nom tapé est conservé (« MEUNIER SUZANNE » reste tel quel). */
+  function nomFinal(nomChantier, c) {
+    if (!c.plusComplet) return nomChantier;
+    const base = sansDevis(nomChantier).trim();
+    const suffixe = nomChantier.trim().slice(base.length).trim();
+    return (sansDevis(c.nom).trim().toUpperCase() + (suffixe ? ' ' + suffixe : '')).trim();
+  }
+
+  function afficher(nomChantier, cands, ctx) {
+    fermer();
+    const o = document.createElement('div');
+    o.id = 'prop-adr';
+    o.style.cssText = 'position:fixed;inset:0;z-index:11000;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;padding:16px;';
+    const homonymes = cands.length > 1;
+    o.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(460px,96vw);max-height:80vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,.3);font-size:0.86rem;">'
+      + '<div style="background:#0f3a8a;color:#fff;padding:10px 14px;border-bottom:3px solid #f59e0b;"><b>📍 Adresse du chantier « ' + esc(nomChantier) + ' »</b>'
+      + '<div style="font-size:0.75rem;color:#bfdbfe;margin-top:2px;">'
+      + (cands[0].approx ? 'Client trouvé sur une partie du nom — à vérifier' : (homonymes ? 'Plusieurs clients portent ce nom : choisissez le bon' : 'Client connu dans la base Clients'))
+      + '</div></div><div style="padding:10px 12px;">'
+      + cands.map((c, i) => {
+          const k = c.coord;
+          const lieu = [k.adresse, k.ville].filter(Boolean).join(', ') || '(sans adresse)';
+          const plus = [[k.mobile, k.fixe].filter(Boolean).join(' / '), k.email].filter(Boolean).join(' · ');
+          return '<button type="button" data-i="' + i + '" style="display:block;width:100%;text-align:left;border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:7px 10px;margin:0 0 6px;cursor:pointer;font-size:0.82rem;line-height:1.4;">'
+            + '📍 <b>' + esc(lieu) + '</b>' + (plus ? '<br><span style="color:#475569;">' + esc(plus) + '</span>' : '')
+            + '<br><span style="font-size:0.72rem;color:#64748b;">' + (c.source === 'henrri' ? 'Client Henrri' : 'Fiche') + ' « ' + esc(c.nom) + ' »</span>'
+            + (nomFinal(nomChantier, c) !== nomChantier ? '<br><span style="font-size:0.74rem;color:#0f3a8a;font-weight:700;">→ le chantier sera renommé « ' + esc(nomFinal(nomChantier, c)) + ' »</span>' : '')
+            + '</button>';
+        }).join('')
+      + '</div><div style="display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0;">'
+      + '<button type="button" data-plus-tard="1" style="border:none;background:#e2e8f0;color:#334155;border-radius:7px;padding:7px 14px;font-weight:700;cursor:pointer;">Plus tard</button></div></div>';
+    o.addEventListener('click', e => {
+      if (e.target === o || e.target.closest('[data-plus-tard]')) { _ignores.add(norm(nomChantier)); fermer(); return; }
+      const b = e.target.closest('button[data-i]');
+      if (!b) return;
+      const c = cands[parseInt(b.dataset.i, 10)];
+      fermer();
+      if (!c || !(window.Coord && Coord.ouvrir)) return;
+      const cible = nomFinal(nomChantier, c);
+      if (cible !== nomChantier && ctx) {
+        // Renommer la ligne saisie (dernière ligne du mois portant le nom tapé)
+        const dm = getDataMois(ctx.annee, ctx.mi);
+        const lignes = dm.chantiers || [];
+        for (let i = lignes.length - 1; i >= 0; i--) {
+          if (String(lignes[i].client || '').trim().toUpperCase() === nomChantier) {
+            lignes[i].client = cible;
+            delete lignes[i]._depuisPlanning; delete lignes[i]._depuisMobile; delete lignes[i]._mobileInfo;
+            break;
+          }
+        }
+        sauverData();
+        rendreChantiers();
+        majLigne(ctx.annee + '_' + ctx.mi);
+      }
+      if (Coord.aDesCoordonnees(cible)) return;              // le nom complet a déjà sa fiche : rien à saisir
+      nomChantier = cible;
+      Coord.ouvrir(nomChantier);
+      ['adresse', 'ville', 'mobile', 'fixe', 'email'].forEach(f => {
+        const inp = document.getElementById('coord-' + f);
+        if (inp && !String(inp.value || '').trim() && c.coord[f]) inp.value = c.coord[f];
+      });
+      const sub = document.getElementById('coord-sub');
+      if (sub) sub.textContent = nomChantier + ' — pré-rempli : ' + (c.source === 'henrri' ? 'client Henrri' : 'fiche') + ' « ' + c.nom + ' » (à vérifier puis Enregistrer)';
+    });
+    document.body.appendChild(o);
+  }
+
+  async function proposer(nomBrut, ctx) {
+    const nom = String(nomBrut || '').trim().toUpperCase();
+    if (!nom || nom.length < 2 || nom === 'TEMPS NON AFFECTE') return;
+    if (_ignores.has(norm(nom))) return;
+    if (!(window.Coord && Coord.ouvrir && Coord.aDesCoordonnees)) return;
+    if (Coord.aDesCoordonnees(nom) && !estMasque(nom)) return;   // le chantier a déjà sa fiche (sauf client supprimé)
+    const cands = await candidats(nom);
+    if (!cands.length) return;
+    if (document.getElementById('coord-modal') && document.getElementById('coord-modal').classList.contains('on')) return;
+    afficher(nom, cands, ctx);
+  }
+
+  /* Nom de chantier saisi ou modifié (ligne vierge ou ligne existante), validé par
+     sortie du champ ou Entrée — pas à chaque frappe. */
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (!t || !t.matches || !t.matches('input[data-champ="client"]')) return;
+    const v = t.value;
+    const ctx = { annee: parseInt(t.dataset.annee, 10), mi: parseInt(t.dataset.mi, 10) };
+    setTimeout(() => proposer(v, (isNaN(ctx.annee) || isNaN(ctx.mi)) ? null : ctx), 150);   // après l'enregistrement et le redessin de la ligne
+  });
+})();
+</script>
+<script src="assets/coordonnees.js"></script>
 </body>
 </html>

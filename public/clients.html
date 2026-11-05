@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>
+  <meta charset="UTF-8">
+  <title>Clients – Suivi des heures</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/theme-volitis.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <style>
+    .clients-toolbar {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+    .clients-toolbar input[type="text"] {
+      padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+      font-size: 0.9rem; width: 260px;
+    }
+    #btn-sync-clients {
+      background: #0284c7; color: #fff; border: none; border-radius: 6px;
+      padding: 7px 16px; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    }
+    #btn-sync-clients:hover { background: #0369a1; }
+    #btn-sync-clients:disabled { opacity: 0.6; cursor: default; }
+    #clients-info { font-size: 0.82rem; color: #64748b; }
+    table.clients-table {
+      border-collapse: collapse; width: 100%; font-size: 0.88rem; background: #fff;
+    }
+    table.clients-table th {
+      background: #1e40af; color: #fff; text-align: left; padding: 7px 10px;
+      position: sticky; top: 0; z-index: 5;
+    }
+    table.clients-table td {
+      padding: 6px 10px; border-bottom: 1px solid #e2e8f0;
+    }
+    table.clients-table tr:nth-child(even) td { background: #f8fafc; }
+    table.clients-table tr:hover td { background: #eff6ff; }
+    .clients-scroll { max-height: 68vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .clients-vide { color: #94a3b8; font-style: italic; padding: 1.5rem; text-align: center; }
+    .btn-planifier {
+      background: #f59e0b; color: #fff; border: none; border-radius: 6px;
+      padding: 5px 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .btn-planifier:hover { background: #d97706; }
+    #plan-overlay {
+      position: fixed; inset: 0; z-index: 10000; background: rgba(15,23,42,.5);
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #plan-overlay.on { display: flex; }
+    #plan-overlay .pm { background: #fff; border-radius: 14px; width: 100%; max-width: 380px; overflow: hidden; box-shadow: 0 14px 48px rgba(0,0,0,.35); }
+    #plan-overlay .pm-h { background: #0f3a8a; color: #fff; padding: 12px 16px; border-bottom: 3px solid #f59e0b; }
+    #plan-overlay .pm-h b { font-size: .95rem; }
+    #plan-overlay .pm-sub { font-size: .78rem; color: #bfdbfe; margin-top: 2px; }
+    #plan-overlay .pm-b { padding: 14px 16px; font-size: .85rem; color: #334155; }
+    #plan-overlay label { display: block; font-size: .78rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+    #plan-overlay input[type="date"] { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .95rem; font-family: inherit; }
+    #plan-overlay .pm-aide { font-size: .78rem; color: #64748b; margin-top: 10px; line-height: 1.4; }
+    #plan-overlay .pm-f { display: flex; gap: 8px; padding: 12px 16px; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+    #plan-overlay .pm-f button { flex: 1; border: none; border-radius: 8px; padding: 10px; font-weight: 700; font-size: .86rem; cursor: pointer; }
+    #plan-overlay .pm-ok { background: #f59e0b; color: #fff; }
+    #plan-overlay .pm-an { background: #e2e8f0; color: #334155; }
+    .badge-src { display:inline-block; font-size:.68rem; font-weight:700; border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:1px; white-space:nowrap; }
+    .b-henrri  { background:#e0f2fe; color:#075985; }
+    .b-planning{ background:#fef3c7; color:#92400e; }
+    .b-mixte   { background:#dcfce7; color:#166534; }
+    .b-incomplet{ background:#fee2e2; color:#991b1b; }
+    .b-doublon { background:#fde68a; color:#78350f; cursor:pointer; }
+    .cl-sous { font-size:.74rem; color:#64748b; margin-top:2px; }
+    .btn-mini { background:#eef2f7; color:#334155; border:none; border-radius:6px; padding:5px 9px; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; margin-left:4px; }
+    .btn-mini:hover { background:#e2e8f0; }
+    .lien-defaire { color:#94a3b8; cursor:pointer; margin-left:8px; font-size:.72rem; }
+    .lien-defaire:hover { color:#b91c1c; }
+    .clients-toolbar select { padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:.88rem; }
+    #clients-doublons { display:none; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; padding:.65rem 1rem; border-radius:8px; margin:.6rem 0; font-size:.88rem; }
+    #clients-doublons button { margin-left:10px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; }
+    .clients-info-douce { background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; padding:.6rem 1rem; border-radius:8px; margin:.6rem 0; font-size:.85rem; }
+    #dbl-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
+    #dbl-overlay.on { display:flex; }
+    #dbl-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:760px; max-height:86vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #dbl-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; }
+    #dbl-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #dbl-liste { overflow-y:auto; padding:10px 16px; }
+    .dbl-paire { display:grid; grid-template-columns:1fr 1fr; gap:10px; border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-bottom:10px; }
+    .dbl-fiche { font-size:.82rem; color:#334155; line-height:1.4; }
+    .dbl-fiche b { font-size:.9rem; }
+    .dbl-raisons { grid-column:1 / -1; font-size:.78rem; color:#78350f; }
+    .dbl-actions { grid-column:1 / -1; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .dbl-actions button { border:none; border-radius:7px; padding:7px 12px; font-weight:700; font-size:.8rem; cursor:pointer; }
+    .dbl-ok { background:#16a34a; color:#fff; } .dbl-non { background:#e2e8f0; color:#334155; }
+    #dbl-overlay .pm-f { padding:10px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:right; }
+    #dbl-overlay .pm-f button { border:none; border-radius:8px; padding:9px 16px; font-weight:700; background:#e2e8f0; cursor:pointer; }
+    @media (max-width:640px){ .dbl-paire{ grid-template-columns:1fr; } .clients-toolbar input[type="text"]{ width:100%; } }
+    #btn-import-clients { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 16px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+    #btn-import-clients:hover { background:#15803d; }
+    .b-import { background:#ede9fe; color:#5b21b6; }
+    .b-mobile { background:#dbeafe; color:#1e40af; cursor:help; }
+    #imp-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
+    #imp-overlay.on { display:flex; }
+    #imp-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:860px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #imp-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; }
+    #imp-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #imp-corps { overflow-y:auto; padding:14px 16px; font-size:.86rem; color:#334155; }
+    #imp-overlay .pm-f { display:flex; gap:8px; justify-content:flex-end; align-items:center; flex-wrap:wrap; padding:10px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; }
+    #imp-overlay .pm-f button { border:none; border-radius:8px; padding:9px 16px; font-weight:700; font-size:.86rem; cursor:pointer; }
+    .imp-ok { background:#16a34a; color:#fff; } .imp-ok:disabled { opacity:.5; cursor:default; }
+    .imp-an { background:#e2e8f0; color:#334155; }
+    .imp-lien { background:none !important; color:#0369a1 !important; padding:0 !important; text-decoration:underline; font-weight:600 !important; margin-right:auto; }
+    /* Écran de dépôt : div (et non label) pour échapper aux styles globaux des <label> */
+    #imp-corps .imp-zone { display:flex; flex-direction:column; align-items:center; gap:8px; border:2px dashed #93c5fd; background:#eff6ff; border-radius:12px; padding:26px 18px; text-align:center; color:#1e3a8a; cursor:pointer; text-transform:none; letter-spacing:normal; font-weight:400; }
+    #imp-corps .imp-zone.survol { background:#dbeafe; border-color:#2563eb; }
+    #imp-corps .imp-zone-ico { font-size:2rem; line-height:1; }
+    #imp-corps .imp-zone-titre { font-size:1rem; font-weight:700; color:#0f3a8a; }
+    #imp-corps .imp-zone-ou { font-size:.8rem; color:#64748b; }
+    #imp-corps .imp-btn-fichier { background:#0f3a8a; color:#fff; border:none; border-radius:8px; padding:9px 18px; font-weight:700; font-size:.88rem; cursor:pointer; }
+    #imp-corps .imp-btn-fichier:hover { background:#1e4fae; }
+    #imp-corps .imp-zone-formats { font-size:.78rem; color:#475569; }
+    #imp-corps .imp-aide { margin-top:16px; display:flex; flex-direction:column; gap:10px; }
+    #imp-corps .imp-etape { display:flex; gap:10px; align-items:flex-start; }
+    #imp-corps .imp-num { flex:0 0 22px; height:22px; border-radius:50%; background:#f59e0b; color:#412402; font-weight:700; font-size:.78rem; display:flex; align-items:center; justify-content:center; }
+    #imp-corps .imp-etape-txt { font-size:.84rem; color:#334155; line-height:1.45; }
+    #imp-corps .imp-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+    #imp-corps .imp-chip { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; padding:2px 9px; font-size:.75rem; color:#334155; }
+    #imp-corps .imp-chip.oblig { background:#fffbeb; border-color:#fcd34d; color:#92400e; font-weight:700; }
+    .imp-map { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px 12px; margin:10px 0 12px; }
+    .imp-map label { display:block; font-size:.74rem; font-weight:700; color:#475569; margin-bottom:3px; text-transform:none; letter-spacing:normal; }
+    #imp-corps label.imp-ecraser { display:flex; align-items:center; gap:7px; cursor:pointer; text-transform:none; letter-spacing:normal; font-size:.84rem; font-weight:400; color:#334155; }
+    .imp-map select { width:100%; padding:5px 6px; border:1px solid #cbd5e1; border-radius:6px; font-size:.82rem; }
+    .imp-apercu { border-collapse:collapse; width:100%; font-size:.78rem; }
+    .imp-apercu th { background:#e2e8f0; text-align:left; padding:5px 7px; }
+    .imp-apercu td { border-bottom:1px solid #e2e8f0; padding:4px 7px; vertical-align:top; }
+    .imp-apercu tr.imp-skip td { color:#94a3b8; }
+    .imp-resume { background:#f1f5f9; border-radius:8px; padding:8px 12px; margin:10px 0; }
+    .imp-err { color:#b91c1c; font-weight:600; }
+    .col-sel { width:30px; text-align:center; }
+    .col-sel input { width:16px; height:16px; cursor:pointer; vertical-align:middle; }
+    tr.cl-selection td { background:#fef9c3 !important; }
+    tr.cl-masque td { color:#94a3b8; }
+    .btn-suppr-cl { background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; padding:5px 8px; font-size:.8rem; font-weight:700; cursor:pointer; margin-left:4px; }
+    .btn-suppr-cl:hover { background:#fecaca; }
+    .btn-reafficher { background:#dcfce7; color:#166534; border:none; border-radius:6px; padding:5px 9px; font-size:.78rem; font-weight:700; cursor:pointer; margin-left:4px; white-space:nowrap; }
+    #barre-selection { display:none; align-items:center; gap:10px; flex-wrap:wrap; background:#fef9c3; border:1px solid #fde047; color:#713f12; padding:.5rem .9rem; border-radius:8px; margin:.4rem 0; font-size:.88rem; }
+    #barre-selection.on { display:flex; }
+    #barre-selection button { border:none; border-radius:6px; padding:6px 12px; font-weight:700; font-size:.82rem; cursor:pointer; }
+    .bs-suppr { background:#dc2626; color:#fff; } .bs-reaff { background:#16a34a; color:#fff; } .bs-annul { background:#fff; color:#713f12; border:1px solid #fde047 !important; }
+    .b-masque { background:#e2e8f0; color:#475569; }
+    .clients-alerte {
+      background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+      padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+
+<header class="main-header">
+  <div class="vol-identite">
+    <img class="vol-logo" src="assets/suivheures-logo.svg" alt="Suiv'Heures">
+    <div class="vol-titres">
+      <span class="vol-marque">VOLITIS</span>
+      <span class="vol-nom">Suiv'Heures</span>
+      <span class="vol-baseline">La gestion des heures, simplement</span>
+    </div>
+  </div>
+  <h1 class="page-title">Clients</h1>
+  <div class="vol-droite">
+    <div class="entreprise-nom" id="entreprise-nom"></div>
+    <div id="licence-status"></div>
+  </div>
+</header>
+
+<div class="nav">
+  <a href="index.html">Entreprise</a>
+  <a href="salaries.html">Salariés</a>
+  <a href="chantiers.html">Prévisionnel</a>
+  <a href="planning.html">Planning</a>
+  <a href="clients.html" class="active">Clients</a>
+  <a href="rapports.html">Rapports</a>
+</div>
+
+<section>
+  <p style="font-size:0.88rem;color:#475569;margin:0.6rem 0;">
+    Base clients construite automatiquement à partir de votre <strong>planning</strong>, de votre <strong>prévisionnel</strong> et des fiches coordonnées de chantier — enrichie par votre base <strong>Henrri</strong> lorsque la connexion est active (page <strong>Entreprise</strong>).
+  </p>
+
+  <div id="clients-non-connecte" class="clients-info-douce" style="display:none;">
+    ℹ Henrri n'est pas activé : la base ci-dessous provient uniquement de votre planning et de votre prévisionnel. Pour y ajouter vos clients Henrri, indiquez « Henrri version pilotage : Oui » dans la page <a href="index.html">Entreprise</a> (liaison par API ou par import des devis validés).
+  </div>
+
+  <div id="clients-doublons"></div>
+
+  <div class="clients-toolbar">
+    <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
+    <button type="button" id="btn-import-clients" onclick="ouvrirImport()" title="Importer une liste de clients depuis un fichier Excel ou CSV">📥 Importer un fichier</button>
+    <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
+    <select id="filtre-source" onchange="filtrerClients()">
+      <option value="">Tous les clients</option>
+      <option value="henrri">Présents dans Henrri</option>
+      <option value="planning">Planning uniquement</option>
+      <option value="mobile">Ajoutés sur mobile</option>
+      <option value="incomplet">Fiches à compléter</option>
+      <option value="doublon">Doublons probables</option>
+      <option value="masques">Clients supprimés (masqués)</option>
+    </select>
+    <span id="clients-info"></span>
+  </div>
+
+  <div id="barre-selection"></div>
+
+  <div class="clients-scroll">
+    <table class="clients-table" id="table-clients">
+      <thead>
+        <tr>
+          <th class="col-sel"><input type="checkbox" id="sel-tous" onclick="selectionnerTousVisibles(this.checked)" title="Sélectionner toutes les lignes affichées (selon la recherche et le filtre)"></th>
+          <th>Nom</th>
+          <th>Adresse</th>
+          <th>Ville</th>
+          <th>Téléphone</th>
+          <th>Email</th>
+          <th>Dernière intervention</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-clients"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Fenêtre « Planifier une intervention » -->
+<div id="plan-overlay" onclick="if(event.target===this)fermerPlanifier()">
+  <div class="pm">
+    <div class="pm-h"><b>📅 Planifier une intervention</b><div class="pm-sub" id="plan-client"></div></div>
+    <div class="pm-b">
+      <label for="plan-date">Date souhaitée</label>
+      <input type="date" id="plan-date">
+      <div class="pm-aide">Le planning s'ouvrira sur la semaine de cette date. Vous choisirez ensuite le jour définitif et le technicien disponible avec le bouton <b>📌 Affecter</b>.</div>
+    </div>
+    <div class="pm-f">
+      <button type="button" class="pm-an" onclick="fermerPlanifier()">Annuler</button>
+      <button type="button" class="pm-ok" onclick="validerPlanifier()">Voir le planning ➜</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre « Importer un fichier clients » -->
+<div id="imp-overlay" onclick="if(event.target===this)fermerImport()">
+  <div class="pm">
+    <div class="pm-h"><b>📥 Importer des clients (Excel ou CSV)</b>
+      <div class="pm-sub">Une ligne par client. Chaque client importé reçoit une fiche (adresse, téléphones, e-mail) reprise par le planning dès qu'un chantier porte son nom.</div></div>
+    <div id="imp-corps"></div>
+    <div class="pm-f">
+      <button type="button" class="imp-lien" onclick="telechargerModeleImport()">Télécharger un modèle CSV</button>
+      <button type="button" class="imp-an" onclick="fermerImport()">Fermer</button>
+      <button type="button" class="imp-ok" id="imp-valider" onclick="validerImport()" disabled>Importer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre « Doublons probables » -->
+<div id="dbl-overlay" onclick="if(event.target===this)fermerDoublons()">
+  <div class="pm">
+    <div class="pm-h"><b>🔎 Doublons probables entre planning et Henrri</b>
+      <div class="pm-sub">Un même client saisi différemment dans le planning et dans Henrri. « Fusionner » réunit les deux en une seule fiche (les coordonnées Henrri priment). Rien n'est renommé dans le planning.</div></div>
+    <div id="dbl-liste"></div>
+    <div class="pm-f"><button type="button" onclick="fermerDoublons()">Fermer</button></div>
+  </div>
+</div>
+
+<script src="assets/script.js"></script>
+<script src="assets/sync.js"></script>
+<script src="assets/aide.js"></script>
+<script src="assets/coordonnees.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   BASE CLIENTS = planning + prévisionnel + fiches coordonnées (+ Henrri)
+   ═══════════════════════════════════════════════════════════════
+   La page n'a plus besoin d'Henrri pour exister : tout chantier saisi dans
+   le planning ou le prévisionnel devient un client. Si Henrri est connecté,
+   sa base vient s'y ajouter et les deux sources sont rapprochées :
+   • AUTOMATIQUE : nom identique (casse, accents, ponctuation, espaces
+     ignorés), ou ligne créée par l'import d'un devis Henrri (« NOM 26-09-1 ») ;
+   • DOUBLON PROBABLE (à trancher par l'utilisateur) : mêmes mots dans un
+     ordre différent, nom inclus dans l'autre (SARL, M., Mme… ignorés), même
+     téléphone, même adresse, orthographe proche.
+   Les décisions (fusionner / distincts) sont enregistrées dans
+   entreprisedata.clientsDoublons → synchronisées sur tous les postes.
+   Rien n'est jamais renommé dans le planning (outil « Renommer » pour ça).
+   ═══════════════════════════════════════════════════════════════ */
+let _clientsHenrri = [];   // cache serveur Henrri (vide si non connecté)
+let _henrriActif   = false;
+let _henrriMode    = 'api';  // 'api' | 'import' (page Entreprise)
+let _clients       = [];   // liste fusionnée affichée
+let _doublons      = [];   // paires { plan, henrri, raisons, score }
+/* Chantiers AJOUTÉS SUR MOBILE par les salariés (pointages « non prévus ») : ils n'existent
+   que dans le réalisé, ni au planning ni au prévisionnel. Chargés depuis le serveur
+   (12 derniers mois) : { NOM: { derniere:'YYYY-MM-DD', sal:[noms] } } */
+let _chantiersMobile = {};
+
+function _clToken() {
+  return (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+      || localStorage.getItem('syncToken') || '';
+}
+function _clEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function _jsArg(v) { return _clEsc(JSON.stringify(String(v == null ? '' : v))); }   // argument sûr dans un onclick
+function _lire(cle, defaut) {
+  try { const v = JSON.parse(localStorage.getItem(cle) || 'null'); return v == null ? defaut : v; }
+  catch (_) { return defaut; }
+}
+
+/* ── Normalisations servant à comparer les noms ── */
+const RE_REF_DEVIS = /\s+\d{2}-\d{2}-\d+\s*$/;     // n° de devis ajouté par l'import Henrri (« 26-09-1 »)
+const MOTS_NEUTRES = new Set(['SARL','SAS','SASU','EURL','SCI','SA','SNC','EI','EIRL','SCEA','GAEC','EARL',
+  'M','MR','MME','MLLE','MRS','MONSIEUR','MADAME','MADEMOISELLE','ET','LE','LA','LES','L','DE','DU','DES','D']);
+const EXCLUS = new Set(['TEMPS NON AFFECTE']);
+
+function _norm(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+}
+function _sansRef(nom) { return String(nom || '').trim().replace(RE_REF_DEVIS, '').trim(); }
+function _cle(nom)     { return _norm(_sansRef(nom)); }
+function _mots(nom)    { return _cle(nom).split(' ').filter(t => t && !MOTS_NEUTRES.has(t)); }
+function _tel(s)       { const d = String(s || '').replace(/\D/g, ''); return d.length >= 9 ? d.slice(-9) : ''; }
+function _distance(a, b) {               // Levenshtein
+  if (a === b) return 0;
+  const m = a.length, n = b.length; if (!m || !n) return m || n;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++)
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function _cpDe(ville) { const m = String(ville || '').match(/\b\d{5}\b/); return m ? m[0] : ''; }
+function _isoFr(iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : ''; }
+
+/* ── Décisions enregistrées (synchronisées via entreprisedata) ── */
+function _decisions() {
+  const ent = _lire('entreprisedata', {});
+  const d = ent.clientsDoublons || {};
+  return { liens: d.liens || {}, distincts: Array.isArray(d.distincts) ? d.distincts : [],
+           masques: Array.isArray(d.masques) ? d.masques : [] };
+}
+function _enregistrerDecisions(d) {
+  const ent = _lire('entreprisedata', {});
+  ent.clientsDoublons = { liens: d.liens, distincts: d.distincts, masques: d.masques || [] };
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));     // sync.js pousse au serveur
+  try { if (window.SYNC && typeof SYNC.declencherSauvegarde === 'function') SYNC.declencherSauvegarde(); } catch (_) {}
+}
+
+/* ── 1. Clients issus du planning, du prévisionnel et des fiches coordonnées ── */
+function _clientsPlanning() {
+  const heures = _lire('heuresdata', {});
+  const prev   = _lire('previsionnel_data', {});
+  const coords = _lire('coordonneesChantiersdata', {});
+  const groupes = new Map();
+  const ajouter = (nomBrut, date, depuisFiche, depuisMobile) => {
+    const nom = String(nomBrut || '').trim();
+    const cle = _cle(nom);
+    if (!cle || EXCLUS.has(cle) || cle === 'ABSENCE') return null;
+    let g = groupes.get(cle);
+    if (!g) { g = { cle, nom: _sansRef(nom), chantiers: new Set(), derniere: '', sal: new Set() }; groupes.set(cle, g); }
+    g.chantiers.add(nom.toUpperCase());
+    if (!depuisFiche) g.horsFiche = true;      // vu au planning / prévisionnel / sur mobile
+    if (depuisMobile) g.mobile = true; else if (!depuisFiche) g.vuPlanning = true;
+    if (date && date > g.derniere) g.derniere = date;
+    return g;
+  };
+  Object.keys(heures).forEach(k => {
+    const e = heures[k];
+    if (!e || typeof e.chantier !== 'string' || !e.chantier.trim()) return;
+    const m = k.match(/(\d{4})_(\d{2})_(\d{2})ch\d+$/);
+    ajouter(e.chantier, m ? `${m[1]}-${m[2]}-${m[3]}` : '');
+  });
+  Object.values(prev || {}).forEach(an => Object.values(an || {}).forEach(mo => {
+    (mo && Array.isArray(mo.chantiers) ? mo.chantiers : []).forEach(c => c && ajouter(c.client, ''));
+  }));
+  Object.keys(coords || {}).forEach(nom => {
+    const g = ajouter(nom, '', true);
+    // Fiche créée sur le mobile par un salarié (adresse saisie ou proposée par le GPS)
+    const c = coords[nom];
+    if (g && c && c.origine === 'mobile') { g.ficheMobile = true; if (c.auteur) g.sal.add(c.auteur); }
+  });
+  // Chantiers ajoutés sur mobile (réalisé), absents du planning et du prévisionnel
+  Object.keys(_chantiersMobile || {}).forEach(nom => {
+    const m = _chantiersMobile[nom];
+    const g = ajouter(nom, m.derniere, false, true);
+    if (g) (m.sal || []).forEach(x => g.sal.add(x));
+  });
+
+  // Coordonnées : première fiche renseignée parmi les chantiers du groupe
+  const coordsNorm = new Map(Object.keys(coords || {}).map(k => [_norm(k), coords[k]]));
+  return [...groupes.values()].map(g => {
+    let co = null;
+    for (const ch of g.chantiers) {
+      const c = coords[ch] || coordsNorm.get(_norm(ch));
+      if (c && (c.adresse || c.ville || c.mobile || c.fixe || c.email)) { co = c; break; }
+    }
+    co = co || {};
+    return {
+      cle: g.cle, nom: g.nom, chantiers: [...g.chantiers], derniere: g.derniere,
+      adresse: co.adresse || '', ville: co.ville || '',
+      telephone: co.mobile || co.fixe || '', email: co.email || '',
+      importe: co.origine === 'import' && !g.horsFiche,  // client venu d'un fichier, sans chantier encore
+      ficheSeule: !g.horsFiche,                          // n'existe que par sa fiche coordonnées
+      // Ajouté sur mobile : pointé (ou fiche créée) sur le téléphone, jamais vu au planning ni au prévisionnel
+      mobile: !!((g.mobile || g.ficheMobile) && !g.vuPlanning),
+      mobileSal: [...g.sal]
+    };
+  });
+}
+
+/* ── 2. Rapprochement planning ↔ Henrri ── */
+function _raisonsDoublon(p, h) {
+  const r = [];
+  let score = 0;
+  const mp = _mots(p.nom), mh = _mots(h.nom);
+  const kp = mp.join(' '), kh = mh.join(' ');
+  if (kp && kh && kp !== kh && [...mp].sort().join(' ') === [...mh].sort().join(' ')) { r.push('mêmes mots, ordre différent'); score += 3; }
+  else if (kp && kh && kp === kh) { r.push('même nom (hors SARL, M., Mme…)'); score += 3; }
+  else if (mp.length && mh.length) {
+    const [petit, grand] = mp.length <= mh.length ? [mp, mh] : [mh, mp];
+    if (petit.some(t => t.length >= 3) && petit.every(t => grand.includes(t))) { r.push('nom inclus dans l’autre'); score += 2; }
+  }
+  const tp = _tel(p.telephone), th = _tel(h.telephone);
+  if (tp && th && tp === th) { r.push('même téléphone'); score += 3; }
+  const ep = String(p.email || '').trim().toLowerCase(), eh = String(h.email || '').trim().toLowerCase();
+  if (ep && eh && ep === eh) { r.push('même e-mail'); score += 3; }
+  const ap = _norm(p.adresse), ah = _norm(h.adresse);
+  if (ap.length >= 6 && ap === ah) { r.push('même adresse'); score += 2; }
+  const a = _cle(p.nom).replace(/ /g, ''), b = _cle(h.nom).replace(/ /g, '');
+  if (!r.length && Math.min(a.length, b.length) >= 5) {
+    const sim = 1 - _distance(a, b) / Math.max(a.length, b.length);
+    if (sim >= 0.85) { r.push('orthographe proche'); score += 1; }
+  }
+  return { raisons: r, score };
+}
+
+function construireBase() {
+  const dec = _decisions();
+  const distincts = new Set(dec.distincts);
+  const planning = _clientsPlanning();
+  const henrri = (_clientsHenrri || []).filter(h => h && String(h.nom || '').trim())
+    .map(h => ({ ...h, id: String(h.id), cle: _cle(h.nom) }));
+  const parId = new Map(henrri.map(h => [h.id, h]));
+  const parCle = new Map(); henrri.forEach(h => { if (h.cle && !parCle.has(h.cle)) parCle.set(h.cle, h); });
+
+  const rattache = new Map();   // henrriId → [clients planning]
+  const seuls = [];
+  planning.forEach(p => {
+    let h = null, mode = '';
+    const lien = dec.liens[p.cle];
+    if (lien && parId.has(String(lien))) { h = parId.get(String(lien)); mode = 'manuel'; }
+    else if (parCle.has(p.cle))          { h = parCle.get(p.cle);       mode = 'auto'; }
+    if (h) { if (!rattache.has(h.id)) rattache.set(h.id, []); rattache.get(h.id).push({ ...p, mode }); }
+    else seuls.push(p);
+  });
+
+  // Doublons probables : planning seul ↔ Henrri, hors paires déclarées distinctes
+  _doublons = [];
+  const _masquesDbl = new Set(dec.masques || []);
+  seuls.forEach(p => {
+    if (_masquesDbl.has('P:' + p.cle)) return;     // client supprimé (masqué) : plus de doublon signalé
+    let meilleur = null;
+    henrri.forEach(h => {
+      if (distincts.has(p.cle + '|' + h.id)) return;
+      const d = _raisonsDoublon(p, h);
+      if (d.raisons.length && (!meilleur || d.score > meilleur.score)) meilleur = { plan: p, henrri: h, ...d };
+    });
+    if (meilleur) _doublons.push(meilleur);
+  });
+  _doublons.sort((x, y) => y.score - x.score);
+  const enDoublon = new Set(_doublons.map(d => d.plan.cle));
+
+  const liste = [];
+  const _coordsTous = _lire('coordonneesChantiersdata', {});
+  henrri.forEach(h => {
+    const ps = rattache.get(h.id) || [];
+    // Une fiche créée avec « 📍 Fiche » sur la ligne Henrri n'est PAS un chantier :
+    // elle ne fait pas passer le client en « Henrri + planning ».
+    const psReels = ps.filter(p => !p.ficheSeule);
+    const chantiers = psReels.flatMap(p => p.chantiers);
+    const derniere = ps.reduce((m, p) => (p.derniere > m ? p.derniere : m), '');
+    const pc = ps.find(p => p.adresse || p.ville || p.telephone) || {};
+    // Fiche enregistrée sous le nom exact du client Henrri (corrigée dans Suiv'Heures) :
+    // prioritaire, champ par champ, sur les données Henrri ; Henrri prime sur le reste.
+    const fl = _coordsTous[String(h.nom || '').trim().toUpperCase()] || {};
+    const flTel = fl.mobile || fl.fixe || '';
+    liste.push({
+      source: psReels.length ? 'mixte' : 'henrri', id: h.id, nom: h.nom,
+      adresse: fl.adresse || h.adresse || pc.adresse || '', ville: fl.ville || h.ville || pc.ville || '',
+      codePostal: _cpDe(fl.ville) || h.codePostal || _cpDe(h.ville || pc.ville), telephone: flTel || h.telephone || pc.telephone || '',
+      email: fl.email || h.email || pc.email || '', chantiers, derniere,
+      ficheLocale: !!(fl.adresse || fl.ville || flTel || fl.email),
+      liensManuels: ps.filter(p => p.mode === 'manuel').map(p => p.cle)
+    });
+  });
+  seuls.forEach(p => liste.push({
+    source: 'planning', importe: !!p.importe, ficheSeule: !!p.ficheSeule, mobile: !!p.mobile, mobileSal: p.mobileSal || [], cle: p.cle, nom: p.nom, adresse: p.adresse, ville: p.ville,
+    codePostal: _cpDe(p.ville), telephone: p.telephone, email: p.email || '',
+    chantiers: p.chantiers, derniere: p.derniere, doublon: enDoublon.has(p.cle)
+  }));
+  liste.forEach(c => { c.incomplet = !c.adresse && !c.ville && !c.telephone && !c.email; });
+  liste.sort((a, b) => _norm(a.nom).localeCompare(_norm(b.nom), 'fr'));
+  const masques = new Set(dec.masques || []);
+  liste.forEach(c => { c.k = _cleClient(c); c.masque = masques.has(c.k); });
+  _clients = liste;
+  // La sélection ne garde que des clients encore présents
+  const presents = new Set(liste.map(c => c.k));
+  [..._selection].forEach(k => { if (!presents.has(k)) _selection.delete(k); });
+  _majBandeauDoublons();
+}
+
+/* ── Affichage ── */
+function rendreClients(liste) {
+  const tbody = document.getElementById('tbody-clients');
+  if (!liste.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="clients-vide">' + (_clients.length
+      ? 'Aucun client ne correspond à la recherche.'
+      : 'Aucun client pour l’instant. Ils apparaîtront ici dès qu’un chantier sera saisi dans le planning ou le prévisionnel' + (_henrriActif ? ', ou après « Actualiser depuis Henrri ».' : '.')) + '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = liste.map(c => {
+    const i = _clients.indexOf(c);
+    const badge = c.source === 'mixte' ? '<span class="badge-src b-mixte" title="Présent dans Henrri et dans le planning">Henrri + planning</span>'
+                : c.source === 'henrri' ? '<span class="badge-src b-henrri">Henrri</span>'
+                : c.importe ? '<span class="badge-src b-import" title="Client importé depuis un fichier">Fichier importé</span>'
+                : c.mobile ? `<span class="badge-src b-mobile" title="${_clEsc('Chantier ajouté sur le mobile' + (c.mobileSal.length ? ' par ' + c.mobileSal.join(', ') : '') + ' — absent du planning et du prévisionnel')}">📱 Ajouté sur mobile</span>`
+                : '<span class="badge-src b-planning">Planning</span>';
+    const dbl = c.doublon ? `<span class="badge-src b-doublon" onclick="ouvrirDoublons(${_jsArg(c.cle)})" title="Ressemble à un client Henrri">⚠ doublon probable</span>` : '';
+    const inc = c.incomplet ? '<span class="badge-src b-incomplet">fiche à compléter</span>' : '';
+    const nb = c.chantiers.length;
+    const defaire = (c.liensManuels || []).map(k => `<span class="lien-defaire" onclick="defaireFusion(${_jsArg(k)})" title="Annuler la fusion avec « ${_clEsc(k)} »">✕ défusionner ${_clEsc(k)}</span>`).join('');
+    const sous = (nb && !c.importe) ? `<div class="cl-sous" title="${_clEsc(c.chantiers.join(' · '))}">${nb} chantier${nb > 1 ? 's' : ''} ${c.mobile ? 'pointé' + (nb > 1 ? 's' : '') + ' sur mobile' : 'au planning/prévisionnel'}${defaire}</div>` : (defaire ? `<div class="cl-sous">${defaire}</div>` : '');
+    // Fiche ouvrable sur TOUS les clients (Henrri compris) : pour un client Henrri,
+    // la fenêtre est pré-remplie avec ses coordonnées Henrri.
+    const completer = (window.Coord && Coord.ouvrir && (nb || c.source !== 'planning'))
+      ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="${c.source === 'planning' ? "Renseigner l'adresse et les téléphones" : 'Voir / corriger la fiche (pré-remplie depuis Henrri)'}">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
+    const coche = _selection.has(c.k);
+    const msq = c.masque ? '<span class="badge-src b-masque">supprimé</span>' : '';
+    const actionFin = c.masque
+      ? `<button type="button" class="btn-reafficher" onclick="reafficherClients([${_jsArg(c.k)}])" title="Remettre ce client dans la liste">↺ Réafficher</button>`
+      : `<button type="button" class="btn-suppr-cl" onclick="supprimerClients([${_jsArg(c.k)}])" title="Supprimer ce client de la liste">🗑</button>`;
+    return `<tr class="${coche ? 'cl-selection' : ''}${c.masque ? ' cl-masque' : ''}">
+      <td class="col-sel"><input type="checkbox" ${coche ? 'checked' : ''} onclick="basculerSelection(${_jsArg(c.k)}, this.checked)"></td>
+      <td><b>${_clEsc(c.nom)}</b>${badge}${msq}${dbl}${inc}${sous}</td>
+      <td>${_clEsc(c.adresse).replace(/\n/g, '<br>')}</td>
+      <td>${_clEsc(c.ville)}</td>
+      <td>${_clEsc(c.telephone)}</td>
+      <td>${_clEsc(c.email)}</td>
+      <td>${_isoFr(c.derniere)}</td>
+      <td style="white-space:nowrap;">${c.masque ? '' : `<button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}`}${actionFin}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrerClients() {
+  const terme = _norm(document.getElementById('recherche-client').value || '');
+  const f = (document.getElementById('filtre-source') || {}).value || '';
+  _visibles = _clients.filter(c => {
+    if (f === 'masques') { if (!c.masque) return false; }
+    else if (c.masque) return false;                 // clients supprimés : seulement via le filtre dédié
+    if (f === 'henrri'    && c.source === 'planning') return false;
+    if (f === 'planning'  && c.source !== 'planning') return false;
+    if (f === 'mobile'    && !c.mobile) return false;
+    if (f === 'incomplet' && !c.incomplet) return false;
+    if (f === 'doublon'   && !c.doublon) return false;
+    if (!terme) return true;
+    return _norm(c.nom).includes(terme) || _norm(c.ville).includes(terme) || _norm(c.email).includes(terme)
+        || c.chantiers.some(ch => _norm(ch).includes(terme));
+  });
+  rendreClients(_visibles);
+  _majInfo();
+  _majBarreSelection();
+}
+
+let _actualiseLe = null;
+function _majInfo() {
+  const el = document.getElementById('clients-info');
+  if (!el) return;
+  const actifs = _clients.filter(c => !c.masque);
+  const nH = actifs.filter(c => c.source !== 'planning').length;
+  const nP = actifs.filter(c => c.source === 'planning').length;
+  const nM = _clients.length - actifs.length;
+  let t = `${actifs.length} client${actifs.length > 1 ? 's' : ''}`;
+  if (_henrriActif) {
+    t += ` (${nH} Henrri, ${nP} planning seul)`;
+    if (_actualiseLe) {
+      const d = new Date(_actualiseLe);
+      t += ' · Henrri actualisé le ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } else t += ' · Henrri jamais actualisé';
+  }
+  if (nM) t += ` · ${nM} supprimé${nM > 1 ? 's' : ''}`;
+  el.textContent = t;
+}
+
+function _majBandeauDoublons() {
+  const b = document.getElementById('clients-doublons');
+  if (!b) return;
+  const n = _doublons.length;
+  if (!n) { b.style.display = 'none'; b.innerHTML = ''; return; }
+  b.innerHTML = `⚠ <b>${n} doublon${n > 1 ? 's' : ''} probable${n > 1 ? 's' : ''}</b> entre les clients du planning et ceux d'Henrri.<button type="button" onclick="ouvrirDoublons()">Examiner</button>`;
+  b.style.display = 'block';
+}
+
+/* ═══ Suppression de clients (une ligne ou une sélection) ═══
+   Deux cas, selon ce qui fait exister le client :
+   • client qui n'existe QUE par sa fiche coordonnées (import de fichier,
+     fiche saisie sans chantier) → la fiche est SUPPRIMÉE définitivement ;
+   • client présent au planning / prévisionnel ou dans Henrri → il est
+     MASQUÉ de la liste (sinon il réapparaîtrait aussitôt). Planning,
+     prévisionnel, heures, notes et coordonnées restent intacts ; il se
+     retrouve via le filtre « Clients supprimés (masqués) » → ↺ Réafficher.
+   Les clients masqués sont enregistrés dans entreprisedata.clientsDoublons.masques
+   (synchronisé sur tous les postes). */
+let _selection = new Set();   // clés c.k des lignes cochées
+let _visibles  = [];          // lignes affichées (recherche + filtre)
+function _cleClient(c) { return c.source === 'planning' ? 'P:' + c.cle : 'H:' + c.id; }
+function basculerSelection(k, oui) {
+  if (oui) _selection.add(k); else _selection.delete(k);
+  filtrerClients();
+}
+function selectionnerTousVisibles(oui) {
+  _visibles.forEach(c => { if (oui) _selection.add(c.k); else _selection.delete(c.k); });
+  filtrerClients();
+}
+function _majBarreSelection() {
+  const b = document.getElementById('barre-selection');
+  const tous = document.getElementById('sel-tous');
+  const nVis = _visibles.filter(c => _selection.has(c.k)).length;
+  if (tous) { tous.checked = !!_visibles.length && nVis === _visibles.length; tous.indeterminate = nVis > 0 && nVis < _visibles.length; }
+  if (!b) return;
+  const sel = _clients.filter(c => _selection.has(c.k));
+  if (!sel.length) { b.classList.remove('on'); b.innerHTML = ''; return; }
+  const nMasq = sel.filter(c => c.masque).length, nAct = sel.length - nMasq;
+  const horsVue = sel.length - nVis;
+  b.innerHTML = `<b>${sel.length} client${sel.length > 1 ? 's' : ''} sélectionné${sel.length > 1 ? 's' : ''}</b>`
+    + (horsVue ? `<span>(dont ${horsVue} hors de l’affichage actuel)</span>` : '')
+    + (nAct ? `<button type="button" class="bs-suppr" onclick="supprimerClients()">🗑 Supprimer${nAct < sel.length ? ' (' + nAct + ')' : ''}</button>` : '')
+    + (nMasq ? `<button type="button" class="bs-reaff" onclick="reafficherClients()">↺ Réafficher${nMasq < sel.length ? ' (' + nMasq + ')' : ''}</button>` : '')
+    + `<button type="button" class="bs-annul" onclick="_selection.clear();filtrerClients()">Tout désélectionner</button>`;
+  b.classList.add('on');
+}
+
+async function supprimerClients(cles) {
+  const cibles = _clients.filter(c => !c.masque && (cles ? cles.includes(c.k) : _selection.has(c.k)));
+  if (!cibles.length) return;
+  const aEffacer = cibles.filter(c => c.source === 'planning' && c.ficheSeule);
+  const aMasquer = cibles.filter(c => !(c.source === 'planning' && c.ficheSeule));
+  let msg = cibles.length === 1 ? `Supprimer le client « ${cibles[0].nom} » ?` : `Supprimer ${cibles.length} clients ?`;
+  if (aEffacer.length) msg += `\n\n• ${aEffacer.length} fiche${aEffacer.length > 1 ? 's' : ''} client (adresse, téléphones, e-mail) ${aEffacer.length > 1 ? 'seront effacées' : 'sera effacée'} définitivement.`;
+  if (aMasquer.length) msg += `\n\n• ${aMasquer.length} client${aMasquer.length > 1 ? 's' : ''} présent${aMasquer.length > 1 ? 's' : ''} au planning, au prévisionnel ou dans Henrri ${aMasquer.length > 1 ? 'seront retirés' : 'sera retiré'} de la liste uniquement : planning, heures, notes et coordonnées sont conservés. Filtre « Clients supprimés » pour ${aMasquer.length > 1 ? 'les' : 'le'} réafficher.`;
+  if (!confirm(msg)) return;
+
+  if (aEffacer.length) {
+    const token = _clToken();
+    if (!token) { alert("Activez d'abord votre licence."); return; }
+    const noms = [...new Set(aEffacer.flatMap(c => c.chantiers))];
+    try {
+      const r = await fetch('/api/data/coordonnees-chantiers-supprimer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ noms })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'échec');
+      if (d.coordonnees) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonnees));
+    } catch (e) {
+      alert('Suppression des fiches impossible : ' + (e && e.message ? e.message : e) + '\nAucune fiche n’a été effacée.');
+      return;
+    }
+  }
+  if (aMasquer.length) {
+    const d = _decisions();
+    const m = new Set(d.masques);
+    aMasquer.forEach(c => m.add(c.k));
+    d.masques = [...m];
+    _enregistrerDecisions(d);
+  }
+  cibles.forEach(c => _selection.delete(c.k));
+  construireBase(); filtrerClients();
+}
+
+function reafficherClients(cles) {
+  const cibles = _clients.filter(c => c.masque && (cles ? cles.includes(c.k) : _selection.has(c.k)));
+  if (!cibles.length) return;
+  const d = _decisions();
+  const retirer = new Set(cibles.map(c => c.k));
+  d.masques = d.masques.filter(k => !retirer.has(k));
+  _enregistrerDecisions(d);
+  cibles.forEach(c => _selection.delete(c.k));
+  construireBase(); filtrerClients();
+}
+
+/* ── Examen des doublons ── */
+function _ficheHTML(titre, c, extra) {
+  return `<div class="dbl-fiche"><div style="font-size:.7rem;color:#64748b;font-weight:700;">${titre}</div>
+    <b>${_clEsc(c.nom)}</b><br>${_clEsc(c.adresse || '—')}<br>${_clEsc(c.ville || '')}${c.telephone ? '<br>☎ ' + _clEsc(c.telephone) : ''}${c.email ? '<br>✉ ' + _clEsc(c.email) : ''}${extra || ''}</div>`;
+}
+function ouvrirDoublons(cleCible) {
+  const liste = document.getElementById('dbl-liste');
+  const paires = cleCible ? _doublons.filter(d => d.plan.cle === cleCible) : _doublons;
+  if (!paires.length) { liste.innerHTML = '<div class="clients-vide">Aucun doublon probable restant.</div>'; }
+  else liste.innerHTML = paires.map(d => {
+    const nb = d.plan.chantiers.length;
+    return `<div class="dbl-paire">
+      ${_ficheHTML('PLANNING', d.plan, `<div class="cl-sous">${nb} chantier${nb > 1 ? 's' : ''} : ${_clEsc(d.plan.chantiers.slice(0, 4).join(', '))}${nb > 4 ? '…' : ''}</div>`)}
+      ${_ficheHTML('HENRRI', d.henrri)}
+      <div class="dbl-raisons">Indices : ${d.raisons.join(' · ')}</div>
+      <div class="dbl-actions">
+        <button type="button" class="dbl-non" onclick="declarerDistincts(${_jsArg(d.plan.cle)},${_jsArg(d.henrri.id)})">Clients différents</button>
+        <button type="button" class="dbl-ok" onclick="fusionnerClients(${_jsArg(d.plan.cle)},${_jsArg(d.henrri.id)})">✔ Même client : fusionner</button>
+      </div></div>`;
+  }).join('');
+  document.getElementById('dbl-overlay').classList.add('on');
+}
+function fermerDoublons() { document.getElementById('dbl-overlay').classList.remove('on'); }
+function _apresDecision() {
+  construireBase(); filtrerClients();
+  if (document.getElementById('dbl-overlay').classList.contains('on')) ouvrirDoublons();
+}
+function fusionnerClients(clePlan, henrriId) {
+  const d = _decisions();
+  d.liens[clePlan] = String(henrriId);
+  _enregistrerDecisions(d); _apresDecision();
+}
+function declarerDistincts(clePlan, henrriId) {
+  const d = _decisions();
+  const k = clePlan + '|' + henrriId;
+  if (!d.distincts.includes(k)) d.distincts.push(k);
+  _enregistrerDecisions(d); _apresDecision();
+}
+function defaireFusion(clePlan) {
+  if (!confirm('Annuler la fusion de « ' + clePlan + ' » avec la fiche Henrri ?')) return;
+  const d = _decisions();
+  delete d.liens[clePlan];
+  _enregistrerDecisions(d); _apresDecision();
+}
+
+/* ── Compléter une fiche (coordonnées du chantier, outil partagé coordonnees.js) ── */
+function completerFiche(i) {
+  const c = _clients[i];
+  if (!c || !(window.Coord && Coord.ouvrir)) return;
+  // Liste rafraîchie dès l'enregistrement de la fiche (sans attendre un retour sur la page)
+  const apres = () => { construireBase(); filtrerClients(); };
+  if (c.source === 'planning') { if (c.chantiers.length) Coord.ouvrir(c.chantiers[0], apres); return; }
+  // Client Henrri : fiche au nom exact du client — reprise par le planning pour les
+  // chantiers de ce nom et ceux créés depuis ses devis (« NOM 26-09-1 »).
+  Coord.ouvrir(String(c.nom || '').trim(), apres);
+}
+// Toute écriture des coordonnées (fiche enregistrée) rafraîchit la liste.
+(function () {
+  const _setPrec = localStorage.setItem;
+  try {
+    localStorage.setItem = function (cle, val) {
+      const r = _setPrec.apply(this, arguments);
+      if (cle === 'coordonneesChantiersdata') setTimeout(() => { construireBase(); filtrerClients(); }, 0);
+      return r;
+    };
+  } catch (_) {}
+})();
+window.addEventListener('focus', () => { construireBase(); filtrerClients(); });
+
+/* ── Chantiers ajoutés sur mobile (pointages non prévus, 12 derniers mois) ── */
+async function chargerChantiersMobile() {
+  const token = _clToken();
+  if (!token) return;
+  try {
+    const rl = await fetch('/api/saisies/mois-list', { headers: { Authorization: 'Bearer ' + token } });
+    const dl = await rl.json();
+    if (!dl || !dl.ok) return;
+    const d0 = new Date(); d0.setMonth(d0.getMonth() - 11);
+    const depuis = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0');
+    const mois = (dl.mois || []).filter(m => m >= depuis);
+    const res = {};
+    await Promise.all(mois.map(async m => {
+      try {
+        const r = await fetch('/api/saisies/' + m + '?sansPhotos=1', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        if (!d || !d.ok || !Array.isArray(d.saisies)) return;
+        d.saisies.forEach(sx => (sx.chantiers || []).forEach(c => {
+          if (c.isPrevisionnel !== false) return;          // seuls les chantiers ajoutés sur le mobile
+          const nom = String(c.nom || '').trim().toUpperCase();
+          if (!nom) return;
+          const e = res[nom] || (res[nom] = { derniere: '', sal: [] });
+          if (sx.date && sx.date > e.derniere) e.derniere = sx.date;
+          const sn = String(sx.salarieNom || '').trim();
+          if (sn && e.sal.indexOf(sn) === -1) e.sal.push(sn);
+        }));
+      } catch (_) {}
+    }));
+    _chantiersMobile = res;
+    construireBase();
+    filtrerClients();
+  } catch (e) {
+    console.warn('Chantiers ajoutés sur mobile : chargement impossible', e);
+  }
+}
+
+/* ── Chargement / actualisation Henrri (facultatif) ── */
+async function chargerClients() {
+  const token = _clToken();
+  if (token) {
+    try {
+      const r = await fetch('/api/henrri/clients', { headers: { 'Authorization': 'Bearer ' + token } });
+      const d = await r.json();
+      if (d.ok) {
+        _henrriActif = !!d.actif;
+        _henrriMode = d.mode === 'import' ? 'import' : 'api';
+        _clientsHenrri = d.actif ? (d.clients || []) : [];
+        _actualiseLe = d.actualiseLe || null;
+      }
+    } catch (e) {
+      console.warn('Chargement clients Henrri impossible', e);
+    }
+  }
+  document.getElementById('clients-non-connecte').style.display = _henrriActif ? 'none' : 'block';
+  // Mode API : bouton d'actualisation. Mode import : rien ici, l'import des devis
+  // validés se fait depuis le bouton « Devis Henrri » du Prévisionnel.
+  document.getElementById('btn-sync-clients').style.display = (_henrriActif && _henrriMode === 'api') ? '' : 'none';
+  construireBase();
+  filtrerClients();
+  chargerChantiersMobile();   // en tâche de fond : la liste se complète à l'arrivée
+}
+
+async function synchroniserClientsHenrri() {
+  const token = _clToken();
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const btn = document.getElementById('btn-sync-clients');
+  btn.disabled = true; btn.textContent = '⏳ Actualisation…';
+  try {
+    const r = await fetch('/api/henrri/clients/sync', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    _clientsHenrri = d.clients || [];
+    _actualiseLe = d.actualiseLe || null;
+    construireBase();
+    filtrerClients();
+  } catch (e) {
+    alert('Erreur lors de la récupération des clients Henrri : ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 Actualiser depuis Henrri';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IMPORT D'UN FICHIER CLIENTS (Excel .xlsx/.xls ou CSV)
+   ═══════════════════════════════════════════════════════════════
+   1. lecture du fichier dans le navigateur (CSV : séparateur ; , ou tabulation,
+      encodage UTF-8 ou Windows-1252 détecté ; Excel : bibliothèque SheetJS
+      chargée seulement au premier import) ;
+   2. repérage automatique des colonnes (Nom, Prénom, Adresse, CP, Ville,
+      Téléphone, Mobile, Fixe, E-mail), corrigeable à la main ;
+   3. aperçu, puis envoi en UNE fois au serveur (/api/data/coordonnees-chantiers-import).
+   Les fiches déjà renseignées ne sont pas modifiées, sauf case cochée. */
+const IMP_CHAMPS = [
+  { id: 'raison',   lib: 'Raison sociale',         mots: ['RAISON SOCIALE','SOCIETE','ENTREPRISE','DENOMINATION'] },
+  { id: 'nom',      lib: 'Nom',                    mots: ['NOM','CLIENT','NOM CLIENT','NOM COMPLET','NOM DU CLIENT','CONTACT','NOM DE FAMILLE'] },
+  { id: 'prenom',   lib: 'Prénom',                 mots: ['PRENOM'] },
+  { id: 'adresse',  lib: 'Adresse',                mots: ['ADRESSE','ADRESSE 1','ADRESSE1','RUE','VOIE','ADRESSE LIGNE 1','ADRESSE POSTALE','ADRESSE FACTURATION'] },
+  { id: 'adresse2', lib: 'Complément d’adresse',   mots: ['ADRESSE 2','ADRESSE2','COMPLEMENT','COMPLEMENT D ADRESSE','COMPLEMENT ADRESSE','ADRESSE LIGNE 2'] },
+  { id: 'cp',       lib: 'Code postal',            mots: ['CODE POSTAL','CP','C P','POSTAL','CODEPOSTAL'] },
+  { id: 'ville',    lib: 'Ville',                  mots: ['VILLE','COMMUNE','LOCALITE'] },
+  { id: 'tel',      lib: 'Téléphone',              mots: ['TELEPHONE','TEL','PHONE','NUMERO DE TELEPHONE','N TELEPHONE'] },
+  { id: 'mobile',   lib: 'Mobile',                 mots: ['MOBILE','PORTABLE','TEL MOBILE','TELEPHONE MOBILE','TEL PORTABLE','TELEPHONE PORTABLE','GSM'] },
+  { id: 'fixe',     lib: 'Fixe',                   mots: ['FIXE','TEL FIXE','TELEPHONE FIXE'] },
+  { id: 'email',    lib: 'E-mail',                 mots: ['EMAIL','E MAIL','MAIL','COURRIEL','ADRESSE EMAIL','ADRESSE E MAIL','ADRESSE MAIL'] }
+];
+let _imp = null;   // { entetes:[], lignes:[[]], map:{champ:index|-1}, nomFichier }
+
+function ouvrirImport() {
+  _imp = null;
+  _impRendreDepot();
+  document.getElementById('imp-overlay').classList.add('on');
+}
+function fermerImport() {
+  document.getElementById('imp-overlay').classList.remove('on');
+  _imp = null;
+}
+function _impRendreDepot(message) {
+  document.getElementById('imp-valider').disabled = true;
+  document.getElementById('imp-corps').innerHTML =
+    (message ? `<p class="imp-err">${_clEsc(message)}</p>` : '') +
+    `<div class="imp-zone" id="imp-zone">
+       <div class="imp-zone-ico">📄</div>
+       <div class="imp-zone-titre">Déposez votre fichier ici</div>
+       <div class="imp-zone-ou">ou</div>
+       <button type="button" class="imp-btn-fichier" id="imp-btn-fichier">📂 Choisir un fichier</button>
+       <div class="imp-zone-formats">Excel (.xlsx, .xls) ou CSV</div>
+       <input type="file" id="imp-fichier" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none;">
+     </div>
+     <div class="imp-aide">
+       <div class="imp-etape"><span class="imp-num">1</span><div class="imp-etape-txt"><b>Une ligne par client</b>, la première ligne contenant les titres des colonnes.</div></div>
+       <div class="imp-etape"><span class="imp-num">2</span><div class="imp-etape-txt"><b>Colonnes reconnues automatiquement</b> (seul le nom est obligatoire) :
+         <div class="imp-chips"><span class="imp-chip oblig">Nom ou Raison sociale</span><span class="imp-chip">Prénom</span><span class="imp-chip">Adresse</span><span class="imp-chip">Complément</span><span class="imp-chip">Code postal</span><span class="imp-chip">Ville</span><span class="imp-chip">Téléphone</span><span class="imp-chip">Mobile</span><span class="imp-chip">Fixe</span><span class="imp-chip">E-mail</span></div></div></div>
+       <div class="imp-etape"><span class="imp-num">3</span><div class="imp-etape-txt"><b>Vous vérifiez</b> ensuite la correspondance des colonnes et un aperçu avant d'importer. Les fiches déjà renseignées ne sont pas modifiées.</div></div>
+     </div>`;
+  const inp = document.getElementById('imp-fichier');
+  inp.addEventListener('change', () => { if (inp.files && inp.files[0]) _impLireFichier(inp.files[0]); });
+  const zone = document.getElementById('imp-zone');
+  zone.addEventListener('click', e => { if (e.target !== inp) inp.click(); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('survol'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('survol'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('survol');
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) _impLireFichier(f);
+  });
+}
+
+/* ── Lecture ── */
+async function _impLireFichier(f) {
+  const nom = f.name || '';
+  document.getElementById('imp-corps').innerHTML = '<p>Lecture de « ' + _clEsc(nom) + ' »…</p>';
+  try {
+    if (f.size > 15 * 1024 * 1024) throw new Error('Fichier trop volumineux (15 Mo maximum).');
+    const buf = await f.arrayBuffer();
+    let tableau;
+    if (/\.(xlsx|xls|xlsm|ods)$/i.test(nom)) tableau = await _impLireExcel(buf);
+    else tableau = _impLireCsv(_impDecoder(buf));
+    tableau = (tableau || []).map(r => (r || []).map(v => String(v == null ? '' : v).trim()))
+                             .filter(r => r.some(v => v !== ''));
+    if (tableau.length < 2) throw new Error('Le fichier ne contient pas de lignes de clients (il faut une ligne de titres puis au moins un client).');
+    _impPreparer(tableau, nom);
+  } catch (e) {
+    _impRendreDepot(e && e.message ? e.message : String(e));
+  }
+}
+function _impDecoder(buf) {
+  const octets = new Uint8Array(buf);
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(octets).replace(/^﻿/, ''); }
+  catch (_) { return new TextDecoder('windows-1252').decode(octets); }   // CSV Excel « ANSI »
+}
+function _impLireCsv(texte) {
+  const premiere = (texte.split(/\r?\n/).find(l => l.trim()) || '');
+  const compte = c => premiere.split(c).length - 1;
+  const sep = [';', '\t', ','].sort((a, b) => compte(b) - compte(a))[0];
+  const lignes = []; let ligne = [], champ = '', guil = false;
+  for (let i = 0; i < texte.length; i++) {
+    const ch = texte[i];
+    if (guil) {
+      if (ch === '"') { if (texte[i + 1] === '"') { champ += '"'; i++; } else guil = false; }
+      else champ += ch;
+    } else if (ch === '"' && champ === '') guil = true;
+    else if (ch === sep) { ligne.push(champ); champ = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && texte[i + 1] === '\n') i++;
+      ligne.push(champ); lignes.push(ligne); ligne = []; champ = '';
+    } else champ += ch;
+  }
+  if (champ !== '' || ligne.length) { ligne.push(champ); lignes.push(ligne); }
+  return lignes;
+}
+let _impSheetJs = null;
+function _impChargerSheetJs() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (_impSheetJs) return _impSheetJs;
+  _impSheetJs = new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => window.XLSX ? ok(window.XLSX) : ko(new Error('Lecteur Excel indisponible.'));
+    sc.onerror = () => { _impSheetJs = null; ko(new Error('Impossible de charger le lecteur Excel (connexion ?). Vous pouvez enregistrer le fichier au format CSV depuis Excel puis l’importer.')); };
+    document.head.appendChild(sc);
+  });
+  return _impSheetJs;
+}
+async function _impLireExcel(buf) {
+  const XLSX = await _impChargerSheetJs();
+  const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) throw new Error('Classeur vide.');
+  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+}
+
+/* ── Repérage des colonnes ── */
+function _impPreparer(tableau, nomFichier) {
+  // Ligne de titres : la première (parmi les 10 premières) qui contient au moins 2 titres reconnus
+  let iTitres = 0, meilleur = -1;
+  for (let i = 0; i < Math.min(10, tableau.length); i++) {
+    const n = _impDetecter(tableau[i]).nb;
+    if (n > meilleur) { meilleur = n; iTitres = i; }
+    if (n >= 2) { iTitres = i; break; }
+  }
+  const entetes = tableau[iTitres];
+  const lignes = tableau.slice(iTitres + 1);
+  const nbCol = Math.max(entetes.length, ...lignes.map(r => r.length));
+  const ent = Array.from({ length: nbCol }, (_, i) => entetes[i] || ('Colonne ' + (i + 1)));
+  _imp = { entetes: ent, lignes, map: _impDetecter(ent).map, nomFichier };
+  _impRendreCorrespondance();
+}
+function _impDetecter(entetes) {
+  const map = {}; let nb = 0;
+  const norm = (entetes || []).map(e => _norm(e));
+  const pris = new Set();
+  // 1er passage : titre exactement égal à un synonyme ; 2e : titre qui le contient
+  [true, false].forEach(exact => {
+    IMP_CHAMPS.forEach(ch => {
+      if (map[ch.id] != null) return;
+      const i = norm.findIndex((t, j) => t && !pris.has(j) && ch.mots.some(m => exact ? t === m : (t.includes(m) && m.length >= 3)));
+      if (i >= 0) { map[ch.id] = i; pris.add(i); nb++; }
+    });
+  });
+  IMP_CHAMPS.forEach(ch => { if (map[ch.id] == null) map[ch.id] = -1; });
+  return { map, nb };
+}
+
+/* ── Conversion d'une ligne du fichier en fiche ── */
+function _impTel(v) {
+  let t = String(v || '').trim();
+  if (!t) return '';
+  const chiffres = t.replace(/\D/g, '');
+  if (/^[1-9]\d{8}$/.test(chiffres) && !/^\+/.test(t)) t = '0' + chiffres;   // 0 de tête perdu par Excel
+  if (/^0\d{9}$/.test(t.replace(/\D/g, '')) && !/[\s.]/.test(t)) t = t.replace(/\D/g, '').replace(/(\d{2})(?=\d)/g, '$1 ');
+  return t;
+}
+function _impLigneVersFiche(r) {
+  const m = _imp.map;
+  const v = id => (m[id] >= 0 ? String(r[m[id]] || '').trim() : '');
+  // Raison sociale si elle est remplie (société) ; sinon Prénom + Nom (particulier).
+  // Une colonne « Raison sociale » vide ne doit jamais faire perdre le nom de famille.
+  const raison = v('raison'), nomBrut = v('nom'), prenom = v('prenom');
+  const particulier = (prenom && nomBrut && !_norm(nomBrut).includes(_norm(prenom)) ? (prenom + ' ' + nomBrut) : (nomBrut || prenom));
+  const nom = (raison || particulier).replace(/\s+/g, ' ').trim();
+  let cp = v('cp');
+  if (/^\d{4}$/.test(cp)) cp = '0' + cp;                                      // 2800 → 02800 (Excel)
+  let ville = v('ville');
+  if (cp && !ville.includes(cp)) ville = (cp + ' ' + ville).trim();
+  const adresse = [v('adresse'), v('adresse2')].filter(Boolean).join('\n');
+  let mobile = _impTel(v('mobile')), fixe = _impTel(v('fixe'));
+  const tel = _impTel(v('tel'));
+  if (tel) {
+    const estMobile = /^(\+33\s?[67]|0[67])/.test(tel.replace(/[.\s-]/g, ''));
+    if (estMobile && !mobile) mobile = tel; else if (!estMobile && !fixe) fixe = tel; else if (!mobile) mobile = tel;
+  }
+  return { nom, coordonnees: { adresse, ville, mobile, fixe, email: v('email') } };
+}
+
+/* ── Écran de correspondance + aperçu ── */
+function _impRendreCorrespondance() {
+  const opts = '<option value="-1">— (ignorer)</option>' +
+    _imp.entetes.map((e, i) => `<option value="${i}">${_clEsc(e)}</option>`).join('');
+  const sel = IMP_CHAMPS.map(ch =>
+    `<div><label>${_clEsc(ch.lib)}</label><select data-champ="${ch.id}" onchange="_imp.map[this.dataset.champ]=parseInt(this.value,10);_impRendreApercu()">${opts}</select></div>`).join('');
+  document.getElementById('imp-corps').innerHTML =
+    `<div><b>${_clEsc(_imp.nomFichier)}</b> — ${_imp.lignes.length} ligne${_imp.lignes.length > 1 ? 's' : ''}
+       <button type="button" class="btn-mini" onclick="_impRendreDepot()">Changer de fichier</button></div>
+     <div style="margin-top:10px;font-weight:700;color:#1e3a8a;">Correspondance des colonnes</div>
+     <div class="imp-map">${sel}</div>
+     <label class="imp-ecraser">
+       <input type="checkbox" id="imp-ecraser" onchange="_impRendreApercu()"> Mettre à jour les fiches clients déjà renseignées (sinon elles sont conservées telles quelles)
+     </label>
+     <div id="imp-resume" class="imp-resume"></div>
+     <div id="imp-apercu"></div>`;
+  document.querySelectorAll('#imp-corps select[data-champ]').forEach(s => { s.value = String(_imp.map[s.dataset.champ]); });
+  _impRendreApercu();
+}
+function _impAnalyser() {
+  const coords = _lire('coordonneesChantiersdata', {});
+  const ecraser = !!(document.getElementById('imp-ecraser') || {}).checked;
+  const vus = new Set();
+  return _imp.lignes.map(r => {
+    const f = _impLigneVersFiche(r);
+    const c = f.coordonnees;
+    const cle = f.nom.toUpperCase();
+    let statut = 'nouveau';
+    if (!f.nom) statut = 'sans-nom';
+    else if (!c.adresse && !c.ville && !c.mobile && !c.fixe && !c.email) statut = 'vide';
+    else if (vus.has(cle)) statut = 'doublon';
+    else {
+      const ex = coords[cle];
+      if (ex && (ex.adresse || ex.ville || ex.mobile || ex.fixe || ex.email)) statut = ecraser ? 'maj' : 'existant';
+    }
+    if (f.nom) vus.add(cle);
+    return { ...f, statut };
+  });
+}
+const IMP_STATUTS = { nouveau: 'Nouveau', maj: 'Mis à jour', existant: 'Déjà renseigné — conservé', doublon: 'En double dans le fichier', vide: 'Aucune coordonnée', 'sans-nom': 'Sans nom' };
+function _impRendreApercu() {
+  if (!_imp) return;
+  const btn = document.getElementById('imp-valider');
+  const res = document.getElementById('imp-resume');
+  if (_imp.map.nom < 0 && _imp.map.prenom < 0 && _imp.map.raison < 0) {
+    res.innerHTML = '<span class="imp-err">Indiquez la colonne qui contient le nom du client.</span>';
+    document.getElementById('imp-apercu').innerHTML = '';
+    btn.disabled = true; return;
+  }
+  const a = _impAnalyser();
+  const n = k => a.filter(x => x.statut === k).length;
+  const aImporter = n('nouveau') + n('maj');
+  const ignores = a.length - aImporter;
+  res.innerHTML = `<b>${aImporter}</b> client${aImporter > 1 ? 's' : ''} à importer`
+    + (n('maj') ? ` (dont ${n('maj')} mis à jour)` : '')
+    + (ignores ? ` · ${ignores} ligne${ignores > 1 ? 's' : ''} ignorée${ignores > 1 ? 's' : ''}`
+      + ` (${['existant', 'doublon', 'vide', 'sans-nom'].filter(k => n(k)).map(k => n(k) + ' ' + IMP_STATUTS[k].toLowerCase()).join(', ')})` : '');
+  const extrait = a.slice(0, 15);
+  document.getElementById('imp-apercu').innerHTML =
+    `<table class="imp-apercu"><thead><tr><th>Nom</th><th>Adresse</th><th>Ville</th><th>Mobile</th><th>Fixe</th><th>E-mail</th><th>Statut</th></tr></thead><tbody>`
+    + extrait.map(x => `<tr class="${(x.statut === 'nouveau' || x.statut === 'maj') ? '' : 'imp-skip'}">
+        <td><b>${_clEsc(x.nom)}</b></td><td>${_clEsc(x.coordonnees.adresse).replace(/\n/g, '<br>')}</td><td>${_clEsc(x.coordonnees.ville)}</td>
+        <td>${_clEsc(x.coordonnees.mobile)}</td><td>${_clEsc(x.coordonnees.fixe)}</td><td>${_clEsc(x.coordonnees.email)}</td>
+        <td>${IMP_STATUTS[x.statut]}</td></tr>`).join('')
+    + `</tbody></table>` + (a.length > extrait.length ? `<div class="cl-sous">… et ${a.length - extrait.length} autre(s) ligne(s)</div>` : '');
+  btn.disabled = !aImporter;
+  btn.textContent = aImporter ? `Importer ${aImporter} client${aImporter > 1 ? 's' : ''}` : 'Importer';
+}
+
+/* ── Envoi ── */
+async function validerImport() {
+  if (!_imp) return;
+  const token = _clToken();
+  if (!token) { alert("Activez d'abord votre licence."); return; }
+  const ecraser = !!(document.getElementById('imp-ecraser') || {}).checked;
+  const lignes = _impAnalyser().filter(x => x.statut === 'nouveau' || x.statut === 'maj')
+                               .map(x => ({ nom: x.nom, coordonnees: x.coordonnees }));
+  if (!lignes.length) return;
+  const btn = document.getElementById('imp-valider');
+  btn.disabled = true; btn.textContent = '⏳ Import…';
+  // Envoi par lots de 300 : reste sous la limite de taille des requêtes du serveur.
+  const LOT = 300;
+  const rp = { crees: 0, misAJour: 0, ignores: 0 };
+  let envoyes = 0;
+  try {
+    for (let i = 0; i < lignes.length; i += LOT) {
+      btn.textContent = '⏳ Import… ' + Math.min(i + LOT, lignes.length) + '/' + lignes.length;
+      const r = await fetch('/api/data/coordonnees-chantiers-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ lignes: lignes.slice(i, i + LOT), ecraser })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'échec');
+      if (d.coordonnees) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonnees));
+      const x = d.rapport || {};
+      rp.crees += x.crees || 0; rp.misAJour += x.misAJour || 0; rp.ignores += x.ignores || 0;
+      envoyes = Math.min(i + LOT, lignes.length);
+    }
+    document.getElementById('imp-corps').innerHTML =
+      `<p style="font-size:1rem;">✔ Import terminé : <b>${rp.crees || 0}</b> client${(rp.crees || 0) > 1 ? 's' : ''} ajouté${(rp.crees || 0) > 1 ? 's' : ''}`
+      + (rp.misAJour ? `, <b>${rp.misAJour}</b> mis à jour` : '')
+      + (rp.ignores ? `, ${rp.ignores} déjà renseigné(s) conservé(s)` : '') + '.</p>'
+      + `<p style="font-size:.84rem;color:#475569;">Ils apparaissent dans la liste avec l'étiquette « Fichier importé ». Si Henrri est connecté, les doublons probables avec la base Henrri sont signalés dans le bandeau jaune.</p>`;
+    btn.disabled = true; btn.textContent = 'Importer';
+    _imp = null;
+    construireBase(); filtrerClients();
+  } catch (e) {
+    alert('Import impossible : ' + (e && e.message ? e.message : e)
+      + (envoyes ? '\n\n' + envoyes + ' client(s) ont déjà été importés avant l’erreur ; relancer l’import ne les dupliquera pas.' : ''));
+    if (envoyes) { construireBase(); filtrerClients(); }
+    btn.disabled = false; btn.textContent = 'Importer';
+  }
+}
+
+function telechargerModeleImport() {
+  const csv = '﻿Nom;Prénom;Adresse;Code postal;Ville;Mobile;Fixe;E-mail\r\n'
+            + 'DUPONT;Jean;12 rue des Lilas;72000;Le Mans;06 12 34 56 78;02 43 00 00 00;jean.dupont@exemple.fr\r\n'
+            + 'SARL BATI OUEST;;3 avenue du Port;44000;Nantes;;02 40 00 00 00;contact@batiouest.fr\r\n';
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'modele-import-clients.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+/* ── Planifier une intervention : date souhaitée → planning de la semaine ── */
+let _clientAPlanifier = null;
+function _isoJour(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function ouvrirPlanifier(i) {
+  const c = _clients[i];
+  if (!c || !(c.nom || '').trim()) { alert('Client sans nom : impossible de le planifier.'); return; }
+  _clientAPlanifier = c;
+  document.getElementById('plan-client').textContent = c.nom.trim();
+  const inp = document.getElementById('plan-date');
+  inp.min = _isoJour(new Date());
+  if (!inp.value || inp.value < inp.min) inp.value = inp.min;
+  document.getElementById('plan-overlay').classList.add('on');
+  setTimeout(() => inp.focus(), 30);
+}
+function fermerPlanifier() {
+  document.getElementById('plan-overlay').classList.remove('on');
+  _clientAPlanifier = null;
+}
+function validerPlanifier() {
+  const c = _clientAPlanifier;
+  const date = document.getElementById('plan-date').value;
+  if (!c) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert('Choisissez une date.'); return; }
+  if (date < _isoJour(new Date())) { alert('Choisissez une date à venir.'); return; }
+  const nom = c.nom.trim().toUpperCase();
+  // La fiche du client accompagne la demande : le planning en reprend les coordonnées.
+  const fiche = { id: c.id || '', nom: c.nom, adresse: c.adresse, ville: c.ville,
+                  codePostal: c.codePostal, telephone: c.telephone, email: c.email };
+  try { sessionStorage.setItem('planifierClient', JSON.stringify(fiche)); } catch (_) {}
+  location.href = 'planning.html?planifier=' + encodeURIComponent(nom) + '&date=' + date;
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('dbl-overlay').classList.contains('on')) { fermerDoublons(); return; }
+  if (e.key === 'Escape' && document.getElementById('imp-overlay').classList.contains('on')) { fermerImport(); return; }
+  if (!document.getElementById('plan-overlay').classList.contains('on')) return;
+  if (e.key === 'Escape') fermerPlanifier();
+  if (e.key === 'Enter') validerPlanifier();
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  const ent  = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+  const nomE = document.getElementById('entreprise-nom');
+  if (nomE && ent.nom) nomE.textContent = ent.nom;
+
+  const licEl = document.getElementById('licence-status');
+  if (licEl) {
+    const code = localStorage.getItem('licenceCode');
+    licEl.innerHTML = code
+      ? '<span style="font-size:0.78rem;background:rgba(134,239,172,0.25);border-radius:999px;padding:2px 10px;color:#fff;">✔ Licence active</span>'
+      : '<span style="font-size:0.78rem;background:rgba(252,165,165,0.25);border-radius:999px;padding:2px 10px;color:#fff;">⚠ Aucune licence</span>';
+  }
+
+  chargerClients();
+});
+window.addEventListener('donnees-chargees', chargerClients);
+</script>
+
+</body>
+</html>

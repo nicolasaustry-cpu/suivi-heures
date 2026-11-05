@@ -421,10 +421,10 @@ function dragFinish() {
     return;
   }
   // Sinon : simple réordonnancement dans la case
-  const cle  = cell.getAttribute('data-cell');
-  const noms = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-nom'));
+  const cleCellule = cell.getAttribute('data-cell');
+  const cles = [...cell.querySelectorAll('.chip')].map(c => c.getAttribute('data-cle') || c.getAttribute('data-nom'));
   _drag = null;
-  enregistrerOrdreCellule(cle, noms);
+  enregistrerOrdreCellule(cleCellule, cles);
 }
 
 /* Déplace un chantier prévu vers une autre case (salarié × jour) par glisser-déposer.
@@ -451,12 +451,54 @@ function deplacerParGlisser(info) {
   if (!cibleK) { alert('⛔ La journée de ce salarié est pleine (5 chantiers). Libère un créneau avant de déplacer.'); genererGrille({ conserverScroll: true }); return; }
   if (rdv) { for (i = 1; i <= 5; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; if (d && String(d.rdv || '').trim() === rdv) { conflits.push('🕐 ' + ((salT && salT.prenom) || 'Le salarié') + ' a déjà un RDV à ' + rdv + '.'); break; } } }
   if (conflits.length && !confirm(conflits.join('\n') + '\n\nDéplacer quand même ?')) { genererGrille({ conserverScroll: true }); return; }
-  var copie = {}; for (var p in slotSourceData) copie[p] = slotSourceData[p];
-  delete heures[slotSourceK];
-  heures[cibleK] = copie;
-  localStorage.setItem('heuresdata', JSON.stringify(heures));
-  if (window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
-  genererGrille({ conserverScroll: true });
+  modifierPlanningServeur({ action: 'deplacer', salIdS: salIdS, dateS: dateS, nom: nom, salIdT: salIdT, dateT: dateT })
+    .finally(function () { genererGrille({ conserverScroll: true }); });
+}
+
+/* ── Écriture du planning CÔTÉ SERVEUR (déplacer / supprimer un chantier) ──
+   Correctif « changement de date non pérenne » : avant, la Vue équipe ne
+   modifiait que le planning local puis appelait SYNC.declencherSauvegarde(),
+   qui ne fait RIEN sur téléphone (gérant connecté par code employé, sans jeton
+   licence) → le déplacement était perdu au rafraîchissement suivant.
+   Désormais l'opération passe par /api/saisies/planning-modifier (écriture
+   ciblée des seules cases concernées), puis le local est aligné SANS
+   redéclencher l'envoi global du planning. Renvoie true si c'est enregistré. */
+function _ecrireHeuresLocal(h) {
+  try { Storage.prototype.setItem.call(localStorage, 'heuresdata', JSON.stringify(h)); }
+  catch (e) { localStorage.setItem('heuresdata', JSON.stringify(h)); }
+}
+async function modifierPlanningServeur(body) {
+  const headers = { 'Content-Type': 'application/json' };
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken())
+    || localStorage.getItem('syncToken');
+  if (codeEmploye && !token) {
+    body.codeEmploye = codeEmploye;
+    try { body.gerantId = JSON.parse(localStorage.getItem('saisie_salarie') || 'null')?.id; } catch (_) {}
+  } else if (token) {
+    headers['Authorization'] = 'Bearer ' + token;
+  } else if (codeEmploye) {
+    body.codeEmploye = codeEmploye;
+  }
+  let d;
+  try {
+    const r = await fetch('/api/saisies/planning-modifier', { method: 'POST', headers, body: JSON.stringify(body) });
+    d = await r.json();
+  } catch (e) {
+    alert('Connexion impossible : la modification n\'a pas été enregistrée. Réessayez.');
+    return false;
+  }
+  if (!d || !d.ok) {
+    alert((d && d.message) || 'Modification impossible.');
+    if (d && d.perime) await rafraichirVueEquipe();
+    return false;
+  }
+  let h = {};
+  try { h = JSON.parse(localStorage.getItem('heuresdata') || '{}'); } catch (_) {}
+  if (d.cleSource && d.cleSource !== d.cleCible) delete h[d.cleSource];
+  if (d.cleCible && d.entree) h[d.cleCible] = d.entree;
+  _ecrireHeuresLocal(h);
+  return true;
 }
 
 /* — Tactile (mobile) : touchmove NON-PASSIF + preventDefault pour bloquer le défilement — */
@@ -781,7 +823,8 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   for (let i = 1; i <= NB_SLOTS; i++) {
     const data = heures[`${sal.id}${safeDate}ch${i}`];
     if (data && data.chantier && String(data.chantier).trim()) {
-      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim(), rdv: (data.rdv || '').trim() });
+      planifies.push({ nom: String(data.chantier).trim(), h: parseFloat(data.heures) || 0, note: (data.note || '').trim(), rdv: (data.rdv || '').trim(),
+                       exclu: !!data.exclu, motifExclu: data.exclu ? (data.motifExclu || 'SAV') : '' });
     }
   }
 
@@ -790,6 +833,15 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
   const pris = new Array(rs.length).fill(false);
 
   const chips = [];
+  // Compteur de passages par nom, pour donner à chaque pavé une clé unique
+  // (nom seul au 1er passage, nom + numéro ensuite) — indispensable pour que le
+  // glisser-déposer et l'ordre mémorisé distinguent deux pavés du même chantier
+  // dans la même journée au lieu de les confondre.
+  const _occCompteurCellule = {};
+  const _cleChip = (nom) => {
+    const occ = (_occCompteurCellule[nom] = (_occCompteurCellule[nom] || 0) + 1);
+    return occ === 1 ? nom : (nom + '__occ' + occ);
+  };
 
   // 2a) Pavés planifiés, colorés selon le réalisé correspondant (par nom)
   planifies.forEach(p => {
@@ -800,21 +852,22 @@ function chipsCellule(sal, dateStr, heures, realParSalDate) {
       noteR = (rs[idx].note || '').trim();
       photosR = Array.isArray(rs[idx].photos) ? rs[idx].photos : [];
     }
-    chips.push({ nom: p.nom, hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, rdv: p.rdv || '',
+    chips.push({ nom: p.nom, cle: _cleChip(p.nom), hPlan: p.h, hReal, etat, ajoute: false, note: p.note || noteR, noteJour: p.note, rdv: p.rdv || '', exclu: p.exclu, motifExclu: p.motifExclu,
                  salId: sal.id, date: dateStr, terrNote: noteR, terrPhotos: photosR.length });
   });
 
   // 2b) Pavés ajoutés : réalisé non rattaché à un chantier planifié
   rs.forEach((c, j) => {
     if (pris[j]) return;
-    chips.push({ nom: c.nom, hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim(),
+    chips.push({ nom: c.nom, cle: _cleChip(c.nom), hPlan: 0, hReal: (c.dureeMin || 0) / 60, etat: etatChantier(c), ajoute: true, note: (c.note || '').trim(),
                  salId: sal.id, date: dateStr, terrNote: (c.note || '').trim(), terrPhotos: (Array.isArray(c.photos) ? c.photos.length : 0) });
   });
 
-  // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés)
-  const ordreNoms = appliquerOrdreMobile(sal.id, dateStr, chips.map(c => c.nom));
-  const rang = {}; ordreNoms.forEach((n, i) => { rang[n] = i; });
-  chips.sort((a, b) => ((rang[a.nom] != null ? rang[a.nom] : 999) - (rang[b.nom] != null ? rang[b.nom] : 999)));
+  // Ordre mobile (fixé par le gérant) : on réordonne TOUS les pavés (prévus + ajoutés),
+  // par clé (nom + numéro de passage) et non plus par le seul nom.
+  const ordreCles = appliquerOrdreMobile(sal.id, dateStr, chips.map(c => c.cle));
+  const rang = {}; ordreCles.forEach((n, i) => { rang[n] = i; });
+  chips.sort((a, b) => ((rang[a.cle] != null ? rang[a.cle] : 999) - (rang[b.cle] != null ? rang[b.cle] : 999)));
 
   return trierChipsParRdv(chips);
 }
@@ -831,6 +884,18 @@ function _nettoyerTagEntretien(ligne) {
   return ligne.replace(/\[I:([^\]]*)\]\s*/, function (_, meta) {
     return /(^|;)E(;|$)/.test(meta || '') ? 'Entretien — ' : '';
   });
+}
+
+/* « Visite client » renommé « RDV client » (08/10/2026) : anciens créneaux repris. */
+function _motifExcluAffiche(m) {
+  const v = String(m || '').trim();
+  return v.toLowerCase() === 'visite client' ? 'RDV client' : (v || 'SAV');
+}
+/* Note du jour + note générale, les deux affichées (comme le planning PC). */
+function _composerNoteEquipe(jour, generale) {
+  const j = String(jour || '').trim(), g = String(generale || '').trim();
+  if (j && g) return '📅 Pour cette journée :\n' + j + '\n📋 Note du chantier :\n' + g;
+  return j || g;
 }
 
 function htmlChip(c) {
@@ -860,7 +925,8 @@ function htmlChip(c) {
   const editBtn = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim())
     ? `<button type="button" class="chip-edit" title="Modifier / déplacer / supprimer" onclick="ouvrirEditionEquipe(this)" style="flex:0 0 auto;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:0.72rem;line-height:1;padding:2px 6px;cursor:pointer;">✏️</button>`
     : '';
-  const _noteBrut = (_notesChantiers[(c.nom || '').toUpperCase()] || '').trim() || (c.note || '').trim();
+  // Note du jour ET note générale du chantier (avant : la générale masquait la note du jour)
+  const _noteBrut = _composerNoteEquipe(c.ajoute ? '' : c.noteJour, _noteG) || (c.note || '').trim();
   const _noteAff = String(_noteBrut).split('\n')
     .map(function(l){ return _nettoyerTagEntretien(l.replace(/^\s*\[\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}(?:\s*[–-][^\]]*)?\]\s*/, '')); })
     .filter(function(l){ return l.trim() !== ''; }).join('\n');
@@ -868,9 +934,14 @@ function htmlChip(c) {
     ? `<div class="chip-notetxt">📝 ${escapeHtmlLocal(_noteAff)}</div>`
     : '';
   const coordTxt = (typeof Coord !== 'undefined') ? Coord.html(c.nom) : '';
+  // Motif d'exclusion du créneau (bouton rouge du planning PC)
+  const excluTxt = c.exclu
+    ? `<div class="chip-exclu" style="margin-top:4px;display:inline-block;font-size:0.74rem;font-weight:700;color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:1px 7px;">${escapeHtmlLocal(_motifExcluAffiche(c.motifExclu))}</div>`
+    : '';
   const _movable = (_peutReordonner && !_estTNA && !c.ajoute && (c.nom || '').trim()) ? '1' : '';
-  return `<div class="chip s-${c.etat}${_estTNA ? ' tna' : ''}" data-nom="${escapeHtmlLocal(c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">
+  return `<div class="chip s-${c.etat}${_estTNA ? ' tna' : ''}" data-nom="${escapeHtmlLocal(c.nom)}" data-cle="${escapeHtmlLocal(c.cle || c.nom)}" data-rdv="${escapeHtmlLocal(c.rdv || '')}" data-move="${_movable}">
     <div class="cn" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${icone}<span class="nm">${escapeHtmlLocal(c.nom)}</span>${rdvHtml}${tag}${noteBtn}${editBtn}${grip}</div>
+    ${excluTxt}
     ${noteTxt}
     ${coordTxt}
     <div class="chip-hrs">${hrsHtml}</div>
@@ -1416,25 +1487,18 @@ window.addEventListener('donnees-chargees', async () => {
       b2.innerHTML=conflits.join('<br>')+'<div style="margin-top:8px;"><button onclick="validerEditionEquipe(true)" style="background:#dc2626;border:none;color:#fff;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;">Forcer le déplacement</button></div>';
       b2.style.display='block'; return;
     }
-    var copie={}; for(var p in slotSourceData) copie[p]=slotSourceData[p];
-    delete heures[slotSourceK];
-    heures[cibleK]=copie;
-    localStorage.setItem('heuresdata', JSON.stringify(heures));
-    if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
-    window.fermerEditionEquipe();
-    genererGrille({conserverScroll:true});
+    var btnV=document.getElementById('ee-valider'); if(btnV){ btnV.disabled=true; btnV.textContent='…'; }
+    modifierPlanningServeur({ action:'deplacer', salIdS:salIdS, dateS:dateS, nom:nom, salIdT:salIdT, dateT:dateT })
+      .then(function(ok){ if(ok) window.fermerEditionEquipe(); })
+      .finally(function(){ if(btnV){ btnV.disabled=false; btnV.textContent='Déplacer'; } genererGrille({conserverScroll:true}); });
   };
 
   window.supprimerEditionEquipe = function(){
     if(!_editEquipe) return;
     if(!confirm('Supprimer « '+_editEquipe.nom+' » du planning de ce jour ?')) return;
-    var heures={}; try{ heures=JSON.parse(localStorage.getItem('heuresdata')||'{}'); }catch(e){}
-    var safeS=_editEquipe.dateSource.replace(/-/g,'_');
-    for(var i=1;i<=5;i++){ var k=_editEquipe.salIdSource+safeS+'ch'+i; var d=heures[k]; if(d && String(d.chantier||'').trim()===_editEquipe.nom){ delete heures[k]; break; } }
-    localStorage.setItem('heuresdata', JSON.stringify(heures));
-    if(window.SYNC && SYNC.declencherSauvegarde) SYNC.declencherSauvegarde();
-    window.fermerEditionEquipe();
-    genererGrille({conserverScroll:true});
+    modifierPlanningServeur({ action:'supprimer', salIdS:_editEquipe.salIdSource, dateS:_editEquipe.dateSource, nom:_editEquipe.nom })
+      .then(function(ok){ if(ok) window.fermerEditionEquipe(); })
+      .finally(function(){ genererGrille({conserverScroll:true}); });
   };
 
   /* Swipe horizontal « au bord » pour changer de semaine (mobile) */

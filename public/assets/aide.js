@@ -80,7 +80,17 @@
     ['alternance', 'alternant', 'apprenti', 'apprentie', 'apprentissage', 'ecole'],
     ['commander', 'commande', 'tarif', 'tarifs', 'abonnement', 'souscrire', 'souscription', 'offre', 'prix'],
     ['signer', 'signature', 'contrat', 'electronique'],
-    ['glisser', 'deposer', 'deplacer', 'deplacement', 'reorganiser', 'reordonner']
+    ['glisser', 'deposer', 'deplacer', 'deplacement', 'reorganiser', 'reordonner'],
+    // ── Éléments Pointage Paie : compteur d'heures, majoration, récupération ──
+    ['compteur', 'solde', 'reliquat', 'stock', 'cumul'],
+    ['majoration', 'majorer', 'majore', 'majoree', 'majorees', 'bonification', 'surplus'],
+    ['recuperation', 'recup', 'recuperer', 'recupere', 'recuperees', 'repos'],
+    ['payer', 'paye', 'payees', 'paie', 'salaire', 'remuneration', 'bulletin'],
+    ['supplementaire', 'supplementaires', 'heures sup'],
+    ['reporter', 'report', 'reporte', 'reportees', 'reportes'],
+    ['bev', 'bordereau', 'elements variables', 'pointage paie'],
+    ['indemnite', 'indemnites', 'tranche', 'tranches', 'trajet', 'zone', 'zones'],
+    ['reinitialiser', 'reinitialisation', 'annuler', 'retablir', 'revenir']
   ];
   // Index : chaque mot pointe vers son groupe de synonymes.
   const _SYNIDX = (function () {

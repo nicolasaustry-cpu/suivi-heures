@@ -1,0 +1,701 @@
+// ─────────────────────────────────────────────────────────────
+// Synchronisation Reservio → planning (Suiv'Heures / Volitis)
+// ─────────────────────────────────────────────────────────────
+// Toutes les 15 minutes, pour chaque client ayant activé Reservio
+// (entreprise.reservio.actif === true), on récupère le flux ICS de
+// chaque salarié configuré (entreprise.reservio.salaries) et on
+// injecte ses RDV À VENIR comme des créneaux de planning (heures[...]),
+// exactement comme un créneau saisi à la main (chantier + heure de
+// RDV), pour profiter de l'affichage existant sans rien changer côté
+// planning.html dans un premier temps.
+//
+// RÈGLES (validées avec Nicolas le 19/09) :
+//  • Reservio fait autorité TANT QUE le créneau n'a pas été modifié
+//    manuellement dans Suiv'Heures (chantier / heures / horaire RDV /
+//    changement de technicien = déplacement du pavé vers un autre
+//    salarié). Dès qu'un écart est détecté → le créneau est VERROUILLÉ
+//    (reservioLocked = true) et n'est plus jamais retouché par le sync.
+//  • Si le RDV disparaît du flux Reservio (annulé côté Reservio) :
+//      - créneau NON verrouillé → suppression silencieuse du créneau
+//      - créneau VERROUILLÉ      → le créneau reste, mais reçoit une
+//        alerte (reservioAnnule = true) que le gérant devra traiter
+//        dans planning.html (conserver ou supprimer). Affichage de
+//        cette alerte : À FAIRE dans un prochain fichier (planning.html).
+//  • Seuls les RDV À VENIR (DTSTART >= maintenant) sont importés.
+//  • Le type d'entretien "Non assigné" est affiché "Prestation non
+//    définie" (le salarié reste celui du flux Reservio d'origine).
+//
+// Ce job NE modifie QUE ce qu'il a lui-même créé (reservioUid présent).
+// Il ne touche jamais un créneau "normal" saisi manuellement.
+// ─────────────────────────────────────────────────────────────
+
+import cron from "node-cron";
+import ical from "node-ical";
+import Donnees from "../models/donnees.js";
+
+const TZ             = "Europe/Paris";
+const RESERVIO_CRON  = process.env.RESERVIO_CRON || "*/15 * * * *"; // toutes les 15 min
+const NB_SLOTS_MAX   = 60; // doit couvrir NB_SLOTS de planning.html
+
+// ── Utilitaires date (cohérents avec le format des clés de planning.html) ──
+function dateKeyParis(d) {
+  // 'YYYY_MM_DD' dans le fuseau Europe/Paris
+  const p = new Intl.DateTimeFormat("fr-CA", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(d);
+  return p.replace(/-/g, "_");
+}
+function heureHHMMParis(d) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+  }).format(d);
+}
+function aujourdHuiKeyParis() {
+  return dateKeyParis(new Date());
+}
+
+// ── Découpe un SUMMARY Reservio "Client - Type d'entretien" ──
+function libelleRdv(summary) {
+  const s = String(summary || "").trim();
+  const idx = s.lastIndexOf(" - ");
+  let client  = idx >= 0 ? s.slice(0, idx).trim()      : s;
+  let service = idx >= 0 ? s.slice(idx + 3).trim()     : "";
+  if (!service || /^non assign/i.test(service)) service = "Prestation non définie";
+  if (!client) client = "Client";
+  // Nom de chantier = nom du client seul, en MAJUSCULES comme partout dans Suiv'Heures (le
+  // planning met le nom en majuscules dès qu'on touche la ligne : en casse mixte, ce simple
+  // geste passait pour une modification manuelle et verrouillait le RDV). Le type d'entretien
+  // n'est plus accolé au nom : il part en première ligne de la note (« À faire »).
+  const aFaire = /^prestation non d[ée]finie$/i.test(service) ? "" : service;
+  return { client, service, aFaire, chantier: client.toUpperCase() };
+}
+
+// ── Extrait email / téléphone / adresse depuis la DESCRIPTION Reservio ──
+// Format habituel :
+//   Nom du contact
+//   email@exemple.fr
+//   0600000000
+//   (ligne vide)
+//   adresse + informations + type de contrat (UNE SEULE zone de saisie côté Reservio)
+//   (ligne vide)
+//   https://app.reservio.com/...  (lien à ignorer)
+//
+// Le client tape tout dans la même zone (ex. « 45 rue des Lilas 72210 Louplande PAC
+// Atlantic, contrat entretien annuel »). On isole l'adresse (rue + CP + ville), qui part
+// dans la fiche « Coordonnées du chantier », et TOUT le reste part dans la note du
+// créneau : rien n'est jamais perdu, au pire une info reste dans la note.
+function parserDescription(desc) {
+  const txt = String(desc || "").trim();
+  if (!txt) return { email: "", tel: "", adresse: "", ville: "", note: "" };
+  const blocs = txt.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+  const contact = blocs[0] || "";
+  const lignes = contact.split("\n").map(l => l.trim()).filter(Boolean);
+  const email = (lignes.find(l => /@/.test(l)) || "").trim();
+  const tel   = (lignes.find(l => !/@/.test(l) && /[\d\s+().-]{8,}/.test(l)) || "").trim();
+
+  // Tous les blocs après le contact, hors lien Reservio (quel que soit son rang).
+  const reste = blocs.slice(1)
+    .filter(b => !/^https?:\/\//i.test(b))
+    .map(nettoyerLibelleAdresse)
+    .filter(Boolean);
+
+  // Le bloc "adresse" est celui qui contient un code postal (5 chiffres isolés, pas un
+  // morceau de n° de téléphone) ; à défaut, celui qui contient un mot de voie (rue, chemin…).
+  let idxAdresse = reste.findIndex(b => CP_RE_1.test(b));
+  if (idxAdresse < 0) idxAdresse = reste.findIndex(b => voieRegex().test(b));
+  const blocAdresse = idxAdresse >= 0 ? reste[idxAdresse] : "";
+  const autresBlocs = reste.filter((_, i) => i !== idxAdresse);
+
+  let { rue, ville, avant, apres } = extraireAdresseVilleNote(blocAdresse);
+
+  // Rue absente du bloc du code postal (ex. « CONTRAT LIBERTE+ 72470 Champagné ») : elle a pu
+  // être saisie dans un autre bloc (« 12 rue X » seul sur sa ligne) → on va l'y chercher.
+  if (!rue) {
+    const j = autresBlocs.findIndex(b => !CP_RE_1.test(b) && voieRegex().test(b));
+    if (j >= 0) {
+      const r = extraireAdresseVilleNote(autresBlocs[j]);
+      if (r.rue) { rue = r.rue; autresBlocs.splice(j, 1, r.avant, r.apres); }
+    }
+  }
+  const note = [...autresBlocs, avant, apres].map(nettoyerBordsNote).filter(Boolean).join(" / ").trim();
+
+  return {
+    email, tel: tel.replace(/\s+/g, " "),
+    adresse: rue.slice(0, 500), ville: ville.slice(0, 200), note: note.slice(0, 2000)
+  };
+}
+
+// Reservio préfixe le champ par le libellé du formulaire, ex. :
+//   "Adresse complète ( RUE - CP - VILLE): 45 rue ..."
+//   "Adresse complète (RUE - CP - VILLE)  et  Marque de la PAC: 331 Chemin ..."
+// Tout libellé de tête contenant « adresse » et terminé par « : » est retiré.
+function nettoyerLibelleAdresse(bloc) {
+  return String(bloc || "")
+    .replace(/^[^:\n]{0,160}?adresse[^:\n]{0,160}:\s*/i, "")
+    .trim();
+}
+
+// ── Outils de découpe ──
+const CP_RE   = /(?<!\d)(\d{5})(?!\d)/g;
+const CP_RE_1 = /(?<!\d)\d{5}(?!\d)/;
+const VOIES = "rue|avenue|av\\.?|bd|boulevard|chemin|impasse|imp\\.?|all[ée]e|place|pl\\.|route|rte|lieu[- ]dit|ld|hameau|r[ée]sidence|quai|cours|square|voie|passage|sentier|lotissement|lot\\.|cit[ée]|faubourg|fbg|zac|za|zi|parc|rond[- ]point|carrefour|mont[ée]e|venelle|ruelle|clos|domaine|le bourg";
+function voieRegex() {
+  // n° facultatif (12, 12 bis, 12B…) + mot de voie
+  return new RegExp(`(?<![\\p{L}\\d])(\\d{1,4}\\s*(?:bis|ter|[a-d])?\\s*,?\\s+)?(?:${VOIES})(?![\\p{L}])`, "giu");
+}
+// Mots qui ne font jamais partie d'un nom de ville : ils marquent le début des infos.
+const MOTS_INFO = new Set(("contrat entretien marque pac chaudiere type modele info infos information informations " +
+  "remarque remarques note notes merci code digicode portail etage bat batiment tel telephone mail appareil ref " +
+  "annuel annuelle maintenance intervention client sav clim climatisation gaz fioul pellets granules poele ballon " +
+  "locataire proprietaire mme madame monsieur mr acces attention svp rdv contact abonnement garantie depannage visite installation equipement chaudière").split(" "));
+const LIAISONS = new Set("de du des la le les l d sur sous en les lez lès aux au et".split(" "));
+const sansAccent = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+const norm = s => sansAccent(s).toLowerCase().replace(/[’']/g, " ").replace(/[^a-z0-9 -]/g, "").trim();
+const motNorm = m => { const n = norm(m).replace(/-/g, ""); return n === "st" ? "saint" : n === "ste" ? "sainte" : n; };
+
+function adressePolluee(ancienne, nouvelle) {
+  const a = cleNom(ancienne), n = cleNom(nouvelle);
+  return contientMotInfo(ancienne) || (!!n && a !== n && a.includes(n));
+}
+function contientMotInfo(s) {
+  return String(s || "").split(/[^\p{L}]+/u).map(motNorm).some(w => MOTS_INFO.has(w));
+}
+
+function nettoyerBordsNote(s) {
+  return String(s || "").replace(/^[\s,;:.\/\-–—]+|[\s,;:\/\-–—]+$/g, "").replace(/[ \t]+/g, " ").trim();
+}
+
+// ── Communes officielles par code postal (geo.api.gouv.fr, gratuit, sans clé) ──
+// Sert à savoir EXACTEMENT où s'arrête le nom de la ville : « 72210 Louplande PAC
+// Atlantic » → ville « Louplande », le reste en note. Cache mémoire par CP pour la
+// durée du process ; si l'API ne répond pas, repli sur une règle de lecture du texte.
+const _communesParCp = new Map();
+async function chargerCommunes(textes) {
+  const cps = new Set();
+  for (const t of textes) for (const m of String(t || "").matchAll(CP_RE)) cps.add(m[1]);
+  const manquants = [...cps].filter(cp => !_communesParCp.has(cp)).slice(0, 60);
+  await Promise.all(manquants.map(async cp => {
+    try {
+      const r = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom&format=json`,
+                            { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return;                                   // pas en cache : nouvel essai au prochain cycle
+      const j = await r.json();
+      _communesParCp.set(cp, Array.isArray(j) ? j.map(c => c && c.nom).filter(Boolean) : []);
+    } catch { /* réseau indisponible : la règle de lecture prend le relais */ }
+  }));
+}
+
+// Découpe le texte situé après le CP en « mots » en gardant leur position d'origine.
+function motsAvecPos(txt) {
+  const out = []; const re = /[^\s'’\-,;:.\/()]+/g; let m;
+  while ((m = re.exec(txt))) out.push({ mot: m[0], debut: m.index, fin: m.index + m[0].length });
+  return out;
+}
+
+// Longueur (en caractères de `apres`) du nom de ville, ou 0 si non reconnu.
+function longueurVille(cp, apres) {
+  const mots = motsAvecPos(apres);
+  if (!mots.length) return { fin: 0, nom: "" };
+  // 1) Liste officielle des communes du CP : on garde la plus longue qui correspond au début.
+  const communes = _communesParCp.get(cp) || [];
+  let meilleur = { fin: 0, nom: "" }, meilleurNb = 0;
+  for (const nom of communes) {
+    const cible = motsAvecPos(nom).map(x => motNorm(x.mot)).filter(Boolean);
+    if (!cible.length || cible.length > mots.length) continue;
+    // Le texte ne doit pas être coupé par une ponctuation forte au milieu du nom.
+    let ok = true;
+    for (let i = 0; i < cible.length && ok; i++) {
+      if (motNorm(mots[i].mot) !== cible[i]) ok = false;
+      if (ok && i > 0 && /[,;:\/()\n]/.test(apres.slice(mots[i - 1].fin, mots[i].debut))) ok = false;
+    }
+    if (ok && cible.length > meilleurNb) { meilleurNb = cible.length; meilleur = { fin: mots[cible.length - 1].fin, nom }; }
+  }
+  if (meilleurNb) return meilleur;
+
+  // 2) Repli : mots en Majuscule (ou liaisons de/la/sur…), jusqu'à 6, arrêt sur
+  //    ponctuation, retour à la ligne, chiffre ou mot « d'info » (contrat, PAC…).
+  let fin = 0, nb = 0, dernierUtile = 0;
+  for (let i = 0; i < mots.length && nb < 6; i++) {
+    const w = mots[i];
+    if (i > 0 && /[,;:\/()\n]|\s{2,}/.test(apres.slice(mots[i - 1].fin, w.debut))) break;
+    if (/^\s*[,;:\/()\n]/.test(apres.slice(0, w.debut)) && i === 0) break;
+    const n = motNorm(w.mot);
+    if (/\d/.test(w.mot) || MOTS_INFO.has(n)) break;
+    const liaison = LIAISONS.has(n);
+    if (!liaison && !/^\p{Lu}/u.test(w.mot)) break;
+    nb++; fin = w.fin; if (!liaison) dernierUtile = w.fin;
+  }
+  fin = dernierUtile || 0;                   // une ville ne finit pas par « de » / « la »
+  return { fin, nom: fin ? apres.slice(0, fin).trim() : "" };
+}
+
+// ── Communes par NOM (adresse sans code postal) ──
+const _communesParNom = new Map();            // nom normalisé → nom officiel ("" si inconnu)
+const cleNom = s => motsAvecPos(s).map(x => motNorm(x.mot)).filter(Boolean).join(" ");
+// Fins de rue candidates à être une ville : 1 à 4 derniers mots, après le mot de voie
+// et au moins un mot de nom de voie ; la rue restante ne doit pas finir par « de / du / la… ».
+function candidatsVille(rue) {
+  const m = voieRegex().exec(rue);
+  if (!m) return [];
+  const finVoie = m.index + m[0].length;
+  const mots = motsAvecPos(rue);
+  const out = [];
+  for (let k = 1; k <= 4 && k < mots.length; k++) {
+    const debut = mots[mots.length - k].debut;
+    const avantVille = mots.filter(w => w.debut >= finVoie && w.fin <= debut);
+    if (!avantVille.length) break;
+    if (LIAISONS.has(motNorm(avantVille[avantVille.length - 1].mot))) continue;
+    out.push({ debut, nom: rue.slice(debut) });
+  }
+  return out;
+}
+// Sans code postal, rien ne borne la fin de l'adresse : on la coupe au premier mot d'info
+// situé après la voie (« 12 avenue Jean Jaurès Coulaines contrat confort »).
+function couperInfos(rue) {
+  const m = voieRegex().exec(rue);
+  if (!m) return { rue, reste: "" };
+  const finVoie = m.index + m[0].length;
+  const w = motsAvecPos(rue).find(x => x.debut >= finVoie && MOTS_INFO.has(motNorm(x.mot)));
+  if (!w) return { rue, reste: "" };
+  return { rue: rue.slice(0, w.debut).replace(/[\s,\-–—:]+$/, "").trim(), reste: rue.slice(w.debut).trim() };
+}
+function villeEnFinDeRue(rue) {
+  let trouve = null;
+  for (const c of candidatsVille(rue)) {                 // du plus court au plus long : on garde le plus long
+    const off = _communesParNom.get(cleNom(c.nom));
+    if (off) trouve = { ville: off, rue: rue.slice(0, c.debut).replace(/[\s,\-–—]+$/, "").trim() };
+  }
+  return trouve;
+}
+async function chargerCommunesParNom(descriptions) {
+  const noms = new Set();
+  for (const d of descriptions) {
+    const blocs = String(d || "").trim().split(/\n\s*\n/).slice(1).map(nettoyerLibelleAdresse);
+    for (const b of blocs) {
+      if (CP_RE_1.test(b) || /^https?:/i.test(b)) continue;
+      for (const ligne of b.replace(/[ \t]{2,}/g, "\n").split(/[\n;]/))
+        for (const c of candidatsVille(couperInfos(ligne.trim()).rue)) { const k = cleNom(c.nom); if (k && !_communesParNom.has(k)) noms.add(k); }
+    }
+  }
+  await Promise.all([...noms].slice(0, 80).map(async k => {
+    try {
+      const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(k)}&fields=nom&boost=population&limit=5`,
+                            { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return;
+      const j = await r.json();
+      const exact = (Array.isArray(j) ? j : []).find(c => c && cleNom(c.nom) === k);
+      _communesParNom.set(k, exact ? exact.nom : "");
+    } catch { /* réseau indisponible : la ville reste dans la rue */ }
+  }));
+}
+
+// Sépare, dans la zone de saisie unique : ce qui précède l'adresse (avant), la rue,
+// "CP Ville", et tout ce qui suit la ville (après). avant + après → note du créneau.
+function extraireAdresseVilleNote(txt) {
+  // Plusieurs espaces d'affilée = séparation de champs chez Reservio → retour à la ligne.
+  const brut = String(txt || "").replace(/\r/g, "").replace(/[ \t]{2,}/g, "\n").trim();
+  if (!brut) return { rue: "", ville: "", avant: "", apres: "" };
+
+  // Choix du CP : celui dont la ville est reconnue en priorité, sinon le 1er suivi d'une Majuscule.
+  const cands = [...brut.matchAll(CP_RE)].map(m => ({ cp: m[1], i: m.index }));
+  let choix = null;
+  for (const c of cands) {
+    const apres = brut.slice(c.i + 5).replace(/^[\s,\-–—]+/, "");
+    const v = longueurVille(c.cp, apres);
+    if (v.fin && (_communesParCp.get(c.cp) || []).includes(v.nom)) { choix = c; break; }
+    if (!choix && /^[\s,\-–—]*\p{Lu}/u.test(brut.slice(c.i + 5))) choix = c;
+  }
+  if (!choix && cands.length) choix = cands[0];
+
+  let prefixe, apresVille = "", ville = "", sansCp = false;
+  if (choix) {
+    prefixe = brut.slice(0, choix.i);
+    const reste = brut.slice(choix.i + 5);
+    const decal = reste.length - reste.replace(/^[\s,\-–—]+/, "").length;
+    const apres = reste.slice(decal);
+    const v = longueurVille(choix.cp, apres);
+    ville = (choix.cp + " " + v.nom).trim();
+    apresVille = apres.slice(v.fin);
+  } else {
+    // Pas de code postal : l'adresse s'arrête au premier retour à la ligne / point-virgule.
+    sansCp = true;
+    const m = voieRegex().exec(brut);
+    if (!m) return { rue: "", ville: "", avant: brut, apres: "" };   // aucune adresse repérable → tout en note
+    const fin = brut.slice(m.index).search(/[\n;]/);
+    prefixe = fin < 0 ? brut : brut.slice(0, m.index + fin);
+    apresVille = fin < 0 ? "" : brut.slice(m.index + fin);
+  }
+
+  // Rue = fin du préfixe. Si des infos la précèdent (« PAC Atlantic : 12 rue X »), on les
+  // détache : début de la voie (n° + rue/chemin…) précédé d'une ponctuation, d'un retour à
+  // la ligne ou d'un mot d'info. Sinon le préfixe entier reste la rue (ex. « Résidence Les Pins 12 rue X »).
+  let rue = prefixe.replace(/[\s,\-–—]+$/, "");
+  if (choix) rue = rue.replace(new RegExp(`[\\s,\\-–—]*(?<!\\d)${choix.cp}$`), "").replace(/[\s,\-–—]+$/, "");
+  let avant = "";
+  const voies = [...rue.matchAll(voieRegex())];
+  const voie = voies.find(m => m[1]) || voies[0];
+  if (voie && voie.index > 0) {
+    const tete = rue.slice(0, voie.index);
+    const motsTete = tete.split(/[^\p{L}]+/u).map(motNorm).filter(Boolean);
+    // « locataire de Mme X 16 rue … » : texte sans mot de voie devant un n° + voie = info.
+    const teteSansVoie = voie[1] && !voieRegex().test(tete);
+    if (teteSansVoie || /[:;.\n]\s*$/.test(tete) || /[:;\n]/.test(tete) || motsTete.some(w => MOTS_INFO.has(w))) {
+      avant = tete; rue = rue.slice(voie.index);
+    }
+  } else if (!voie) {
+    // Pas de mot de voie (lieu-dit…) : chaque morceau (séparé par : ; ou retour à la ligne)
+    // contenant un mot d'info (« CONTRAT LIBERTE+ ») part en note ; ce qui reste est la rue.
+    const morceaux = rue.split(/[:;\n]/).map(m => m.trim()).filter(Boolean);
+    const infos = morceaux.filter(contientMotInfo);
+    const lieu  = morceaux.filter(m => !contientMotInfo(m));
+    if (infos.length) { avant = infos.join(" / "); rue = lieu.join(" "); }
+    else if (morceaux.length > 1) { rue = morceaux.pop(); avant = morceaux.join(" / "); }
+  }
+  rue = rue.replace(/\n/g, " ").replace(/\s+/g, " ").replace(/^[\s,\-–—:]+|[\s,\-–—:]+$/g, "").trim();
+
+  // Sans code postal, la ville est souvent tapée à la fin, en minuscules (« 16 rue du 11
+  // novembre le mans ») : on la reconnaît d'après la liste officielle des communes.
+  if (sansCp && rue) {
+    const c = couperInfos(rue);
+    if (c.reste) { rue = c.rue; apresVille = c.reste + (apresVille ? "\n" + apresVille : ""); }
+    const v = villeEnFinDeRue(rue);
+    if (v) { ville = v.ville; rue = v.rue; }
+  }
+  return { rue, ville, avant: avant.replace(/\n/g, " / "), apres: apresVille.replace(/\n/g, " / ") };
+}
+
+// ── Salarié : trouve le 1er slot libre du jour, en excluant ceux déjà pris ce cycle ──
+function trouverSlotLibre(heures, salarieId, dateKey, dejaPris) {
+  for (let i = 1; i <= NB_SLOTS_MAX; i++) {
+    const k = `${salarieId}${dateKey}ch${i}`;
+    if (dejaPris.has(k)) continue;
+    const d = heures[k];
+    if (!d || !String(d.chantier || "").trim()) return k;
+  }
+  return null; // planning du jour plein (très improbable avec 60 slots)
+}
+
+// ── Empreinte des champs "visibles" du créneau, pour détecter une modif manuelle ──
+// Comparaison tolérante aux simples reformatages du planning (casse du nom, espaces,
+// « 9:30 » / « 09:30 », heures « 1.50 » / 1.5) : seule une vraie modification verrouille.
+function _hhmm(v) {
+  const m = String(v || "").trim().match(/^(\d{1,2}):(\d{2})/);
+  return m ? m[1].padStart(2, "0") + ":" + m[2] : String(v || "").trim();
+}
+function empreinte(d) {
+  return JSON.stringify({
+    chantier: String(d.chantier || "").replace(/\s+/g, " ").trim().toUpperCase(),
+    heures:   Math.round((parseFloat(d.heures) || 0) * 100) / 100,
+    rdv:      _hhmm(d.rdv),
+    note:     String(d.note || "").replace(/\s+/g, " ").trim()
+  });
+}
+
+/* Le créneau est-il resté tel que le sync l'a écrit ? L'empreinte mémorisée est relue puis
+   normalisée avec les règles actuelles : les empreintes enregistrées avant cette version
+   (nom en casse mixte, « 1.5 » vs 1.50…) ne provoquent donc aucun verrouillage abusif. */
+function memeEmpreinte(d, snapshot) {
+  try { return empreinte(JSON.parse(snapshot)) === empreinte(d); }
+  catch (_) { return empreinte(d) === snapshot; }
+}
+
+// ── Fiche Coordonnées d'un RDV passé : corrige seulement une adresse polluée ──
+// Ne crée rien et ne touche ni le téléphone ni une adresse propre (saisie à la main ou non).
+function nettoyerCoordonneesPassees(doc, ev) {
+  const coords = doc.coordonneesChantiers;
+  if (!coords) return;
+  const cle = libelleRdv(ev.summary).chantier.trim().toUpperCase();
+  const c = coords[cle];
+  if (!c) return;
+  const { adresse, ville } = parserDescription(ev.description);
+  if (!ville || !adressePolluee(c.adresse, adresse)) return;
+  coords[cle] = { ...c, adresse: adresse || "", ville };
+  doc.markModified("coordonneesChantiers");
+}
+
+// ── Synchronise UN salarié (une URL ICS) pour UN client ──
+// Retourne l'ensemble des UID Reservio vus dans ce flux (RDV à venir).
+async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats = {}) {
+  const uidsVus = new Set();
+  let events;
+  try {
+    const data = await ical.async.fromURL(urlIcs);
+    events = Object.values(data).filter(e => e && e.type === "VEVENT");
+  } catch (e) {
+    console.error(`   ⚠️  Reservio salarié ${salarieId} — flux illisible : ${e.message}`);
+    (stats.fluxEnErreur = stats.fluxEnErreur || []).push({ salarieId, erreur: e.message });
+    return uidsVus;
+  }
+  // Noms officiels des communes des CP présents dans ce flux (pour isoler la ville).
+  await chargerCommunes(events.map(e => e.description));
+  await chargerCommunesParNom(events.map(e => e.description));
+
+  const maintenant = Date.now();
+  const heures = doc.heures || (doc.heures = {});
+  // UID Reservio déjà présents quelque part dans le planning (quel que soit le salarié actuel)
+  const existantParUid = new Map();
+  for (const [k, d] of Object.entries(heures)) {
+    if (d && d.reservioUid) existantParUid.set(d.reservioUid, k);
+  }
+
+  for (const ev of events) {
+    if (!ev.uid || !ev.start) continue;
+    // Toujours présent dans le flux = pas annulé, même si l'heure est passée (sinon un RDV
+    // du jour disparaissait du planning dès son heure dépassée, cf. traiterAnnulations).
+    uidsVus.add(ev.uid);
+    if (ev.start.getTime() < maintenant) {
+      // RDV passé (ex. ce matin) : le créneau n'est plus touché, mais une fiche Coordonnées
+      // polluée par un ancien import (« CONTRAT LIBERTE+ » en guise de rue) est nettoyée.
+      nettoyerCoordonneesPassees(doc, ev);
+      continue;
+    }
+    stats.aVenir = (stats.aVenir || 0) + 1;
+
+    const dateKey = dateKeyParis(ev.start);
+    const { client, service, chantier, aFaire } = libelleRdv(ev.summary);
+    const dureeH = ev.end ? Math.max(0.25, (ev.end - ev.start) / 3600000) : 2;
+    const rdv = heureHHMMParis(ev.start);
+    const { email, tel, adresse, ville, note: noteClient } = parserDescription(ev.description);
+    // Note du créneau : type d'entretien en 1re ligne, puis les infos laissées par le client.
+    const note = [aFaire, noteClient].filter(Boolean).join("\n");
+
+    const cleAttendue = `${salarieId}${dateKey}`;
+    const keyExistante = existantParUid.get(ev.uid);
+
+    if (keyExistante) {
+      vus[ev.uid] = dateKey;                 // date actuelle du RDV (purge des RDV passés)
+      let d = heures[keyExistante];
+      if (d.reservioLocked) continue; // verrouillé : on ne touche plus jamais
+
+      // Déplacement MANUEL dans Suiv'Heures (autre salarié ou autre jour) : la case actuelle
+      // n'est plus celle où le sync l'avait posée (reservioCle). Créneaux plus anciens, sans
+      // reservioCle : on garde l'ancienne règle (case hors du jour/salarié attendu = déplacé).
+      // Seuls le salarié et le jour comptent (préfixe de la case) : un simple réordonnancement
+      // des pavés dans la même journée change le n° de case mais n'est PAS une modification.
+      const jourCase = c => String(c || "").replace(/ch\d+$/, "");
+      const dejaBouge = d.reservioCle ? jourCase(keyExistante) !== jourCase(d.reservioCle)
+                                      : !keyExistante.startsWith(cleAttendue);
+      const modifie = !dejaBouge && d.reservioSnapshot && !memeEmpreinte(d, d.reservioSnapshot);
+
+      if (dejaBouge || modifie) {
+        d.reservioLocked = true; // on gèle tel quel, on ne retouche plus
+        doc.markModified(`heures.${keyExistante}`);
+        continue;
+      }
+
+      // RDV DÉPLACÉ DANS RESERVIO (autre jour ou autre salarié) alors que le créneau n'a pas
+      // été touché ici : on le déplace dans le planning (avant, il restait verrouillé à
+      // l'ancienne date et le nouveau rendez-vous n'apparaissait jamais).
+      if (!keyExistante.startsWith(cleAttendue)) {
+        const kNouv = trouverSlotLibre(heures, salarieId, dateKey, dejaPrisParDate);
+        if (!kNouv) {
+          console.warn(`   ⚠️  Planning plein le ${dateKey} pour le salarié ${salarieId} — RDV déplacé "${chantier}" non reporté.`);
+          continue;
+        }
+        dejaPrisParDate.add(kNouv);
+        heures[kNouv] = d;
+        delete heures[keyExistante];
+        delete d.rdvNotifie;                    // nouvelle date / heure : rappel re-déclenchable
+        doc.markModified("heures");
+        existantParUid.set(ev.uid, kNouv);
+        d = heures[kNouv];
+        d.reservioCle = kNouv;
+      } else {
+        d.reservioCle = keyExistante;           // mémorise la case actuelle (réordonnancement compris)
+      }
+      const keyCourante = existantParUid.get(ev.uid);
+
+      // Rien de manuel détecté → on rafraîchit avec les données Reservio
+      d.chantier = chantier;
+      d.heures   = dureeH;
+      d.rdv      = rdv;
+      d.rdvAuteur = "reservio";
+      d.note     = note || "";  // annotation libre laissée par le client sur ce RDV
+      d.reservioSnapshot = empreinte(d);
+      d.reservioAnnule = false;
+      doc.markModified(`heures.${keyCourante}`);
+    } else if (vus[ev.uid]) {
+      // RDV déjà importé, absent du planning : supprimé (ou détaché) à la main dans
+      // Suiv'Heures → on ne le recrée pas (avant, il réapparaissait toutes les 15 min).
+      stats.supprimesALaMain = (stats.supprimesALaMain || 0) + 1;
+      continue;
+    } else {
+      // Nouveau RDV : on cherche un slot libre du jour pour ce salarié
+      const k = trouverSlotLibre(heures, salarieId, dateKey, dejaPrisParDate);
+      if (!k) {
+        console.warn(`   ⚠️  Planning plein le ${dateKey} pour le salarié ${salarieId} — RDV "${chantier}" ignoré.`);
+        stats.planningPlein = (stats.planningPlein || 0) + 1;
+        continue;
+      }
+      dejaPrisParDate.add(k);
+      stats.nouveaux = (stats.nouveaux || 0) + 1;
+      vus[ev.uid] = dateKey;                 // mémorisé : importé une fois, jamais réimporté
+      const d = {
+        chantier, heures: dureeH, rdv, rdvAuteur: "reservio", note: note || "",
+        reservioUid: ev.uid, reservioLocked: false, reservioAnnule: false, reservioCle: k
+      };
+      d.reservioSnapshot = empreinte(d);
+      heures[k] = d;
+      doc.markModified(`heures.${k}`);   // "heures" est un Object libre (Mixed) : sans ça, Mongoose ne
+                                          // détecte pas l'ajout et .save() ne persiste rien.
+      existantParUid.set(ev.uid, k);
+    }
+
+    // Coordonnées (adresse/téléphone) : alimente l'annuaire existant,
+    // ce qui active automatiquement le bouton 🗺 Itinéraire en saisie mobile.
+    if (adresse || ville || tel || email) {
+      const coords = doc.coordonneesChantiers || (doc.coordonneesChantiers = {});
+      const cle = chantier.trim().toUpperCase();
+      // Une ancienne adresse polluée par les infos (« CONTRAT LIBERTE+ », import avant ce
+      // correctif) est remplacée dès que Reservio fournit le CP + ville, même sans rue.
+      const ancAdr = coords[cle]?.adresse || "";
+      const ancPolluee = ville && adressePolluee(ancAdr, adresse);
+      coords[cle] = {
+        adresse: adresse || (ancPolluee ? "" : ancAdr),
+        ville:   ville   || (coords[cle]?.ville   || ""),
+        mobile:  tel     || (coords[cle]?.mobile  || ""),
+        fixe:    coords[cle]?.fixe || ""
+      };
+      doc.markModified("coordonneesChantiers");
+    }
+  }
+
+  return uidsVus;
+}
+
+// ── Marque comme annulés/supprime les créneaux dont le RDV Reservio a disparu ──
+function traiterAnnulations(doc, uidsEncoreValides) {
+  const aujourdHui = aujourdHuiKeyParis();
+  const heures = doc.heures || {};
+  for (const k of Object.keys(heures)) {
+    const d = heures[k];
+    if (!d || !d.reservioUid) continue;
+    if (uidsEncoreValides.has(d.reservioUid)) continue; // toujours dans le flux
+    const m = k.match(/(\d{4}_\d{2}_\d{2})ch\d+$/);
+    if (!m || m[1] < aujourdHui) continue; // créneau passé : on n'y touche pas
+    // RDV du jour dont l'heure est passée : on n'y touche pas non plus (le flux Reservio
+    // peut ne plus le contenir, ce n'est pas une annulation).
+    if (m[1] === aujourdHui && (!d.rdv || _hhmm(d.rdv) <= heureHHMMParis(new Date()))) continue;
+
+    if (d.reservioLocked) {
+      if (d.reservioAnnule) continue;  // alerte déjà posée : rien à réécrire
+      d.reservioAnnule = true; // alerte à traiter par le gérant dans planning.html
+      doc.markModified(`heures.${k}`);
+    } else {
+      delete heures[k]; // jamais modifié manuellement → suppression silencieuse
+      doc.markModified("heures");
+    }
+  }
+}
+
+// ── Synchronise UN client (toutes ses licences Reservio configurées) ──
+async function syncClient(doc, opts = {}) {
+  const stats = { aVenir: 0, nouveaux: 0, planningPlein: 0, supprimesALaMain: 0, fluxEnErreur: [] };
+  const cfg = doc.entreprise?.reservio;
+  if (!cfg || cfg.actif !== true || !Array.isArray(cfg.salaries) || !cfg.salaries.length) return stats;
+
+  const dejaPrisParDate = new Set(); // évite deux RDV sur le même slot pendant ce cycle
+  const tousLesUids = new Set();
+
+  /* RDV déjà importés { uid: 'YYYY_MM_DD' } : champ propre au sync, lu et écrit directement
+     dans la collection (hors schéma, hors synchronisation des postes). Initialisé avec les
+     RDV présents dans le planning, puis purgé des RDV passés. */
+  let vus = {};
+  try {
+    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1 } });
+    vus = (brut && brut.reservioVus && typeof brut.reservioVus === "object") ? brut.reservioVus : {};
+  } catch (_) {}
+  // Mise à jour forcée « tout réimporter » : on oublie la liste des RDV déjà importés,
+  // donc tout RDV à venir absent du planning est recréé (y compris ceux supprimés à la main).
+  if (opts.reimporter) vus = {};
+  for (const [k, d] of Object.entries(doc.heures || {})) {
+    const m = k.match(/(\d{4}_\d{2}_\d{2})ch\d+$/);
+    if (d && d.reservioUid && m && !vus[d.reservioUid]) vus[d.reservioUid] = m[1];
+  }
+
+  for (const s of cfg.salaries) {
+    const salarieId = s?.salarieId;
+    // Plusieurs fiches Reservio peuvent exister pour un même salarié (cas constaté
+    // chez un client : deux flux non redondants, RDV différents dans chacun).
+    // On accepte donc urlsIcs (tableau) et, par compatibilité, l'ancien urlIcs (chaîne unique).
+    const urls = Array.isArray(s?.urlsIcs) ? s.urlsIcs
+               : (s?.urlIcs ? [s.urlIcs] : []);
+    if (salarieId == null || !urls.length) continue;
+    for (const urlBrute of urls) {
+      const url = (urlBrute || "").trim();
+      if (!url) continue;
+      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate, vus, stats);
+      uids.forEach(u => tousLesUids.add(u));
+    }
+  }
+
+  traiterAnnulations(doc, tousLesUids);
+
+  doc.updatedAt = new Date();
+  await doc.save();
+
+  // Purge des RDV passés puis enregistrement de la liste des RDV déjà importés
+  const aujourdHui = aujourdHuiKeyParis();
+  for (const u of Object.keys(vus)) if (!vus[u] || vus[u] < aujourdHui) delete vus[u];
+  try {
+    await Donnees.collection.updateOne({ _id: doc._id }, { $set: { reservioVus: vus } });
+  } catch (e) {
+    console.warn(`   ⚠️  Reservio ${doc.clientId} : liste des RDV importés non enregistrée (${e.message})`);
+  }
+  return stats;
+}
+
+// Un client n'est jamais synchronisé deux fois en même temps (cron + bouton).
+const _enCours = new Set();
+async function syncClientVerrouille(doc, opts) {
+  const id = String(doc.clientId || doc._id);
+  if (_enCours.has(id)) return null;
+  _enCours.add(id);
+  try { return await syncClient(doc, opts); } finally { _enCours.delete(id); }
+}
+
+// ── Mise à jour forcée pour UN client (bouton de la page Entreprise) ──
+export async function synchroniserClientReservio(clientId, opts = {}) {
+  const doc = await Donnees.findOne({ clientId: String(clientId || "").toUpperCase() });
+  if (!doc) return { ok: false, message: "Compte introuvable." };
+  if (doc.entreprise?.reservio?.actif !== true) return { ok: false, message: "La connexion Reservio n'est pas activée." };
+  const stats = await syncClientVerrouille(doc, opts);
+  if (!stats) return { ok: false, message: "Une synchronisation est déjà en cours, réessayez dans une minute." };
+  return { ok: true, ...stats };
+}
+
+// ── Cycle complet : tous les clients ayant Reservio actif ──
+export async function synchroniserReservioMaintenant() {
+  try {
+    const clients = await Donnees.find({ "entreprise.reservio.actif": true });
+    if (!clients.length) return { ok: true, clients: 0 };
+
+    console.log(`🔗 Synchro Reservio — ${clients.length} client(s) concerné(s).`);
+    for (const doc of clients) {
+      try {
+        await syncClientVerrouille(doc);
+      } catch (e) {
+        console.error(`   ⚠️  Échec synchro Reservio pour ${doc.clientId} : ${e.message}`);
+      }
+    }
+    return { ok: true, clients: clients.length };
+  } catch (e) {
+    console.error("❌ Synchro Reservio en échec :", e.message);
+    return { ok: false, raison: e.message };
+  }
+}
+
+// ── Planification cron ───────────────────────────────────────
+export function planifierSynchroReservio() {
+  if (!cron.validate(RESERVIO_CRON)) {
+    console.error(`❌ Expression cron invalide (${RESERVIO_CRON}) — synchro Reservio NON planifiée.`);
+    return;
+  }
+  cron.schedule(RESERVIO_CRON, () => { synchroniserReservioMaintenant(); }, { timezone: TZ });
+  console.log(`🗓️  Synchro Reservio planifiée : « ${RESERVIO_CRON} » (${TZ}).`);
+  // Un passage 30 s après chaque démarrage du serveur : un correctif déployé s'applique
+  // tout de suite, sans attendre le prochain quart d'heure.
+  setTimeout(() => { synchroniserReservioMaintenant(); }, 30000);
+}
+
+export default planifierSynchroReservio;

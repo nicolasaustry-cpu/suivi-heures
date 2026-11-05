@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import Licence from "../models/licence.js";
 import Prescripteur from "../models/prescripteur.js";
 import Donnees from "../models/donnees.js";
-import { envoyerMailEssai } from "../services/mail.js";
+import { envoyerMailEssai, envoyerMailInscriptionVolitis } from "../services/mail.js";
 
 const router = express.Router();
 
@@ -140,11 +140,12 @@ router.post("/inscription", async (req, res) => {
       return res.status(409).json({ ok: false, message: "Un essai a déjà été créé avec cet e-mail." });
 
     // Co-branding : rattachement au prescripteur si le code est valide et actif
-    let prescripteur = "", marquePartenaire = false, logoPartenaire = "";
+    let prescripteur = "", prescripteurNom = "", marquePartenaire = false, logoPartenaire = "";
     if (prescIn) {
       const presc = await Prescripteur.findOne({ identifiant: prescIn });
       if (presc && presc.actif) {
         prescripteur = prescIn;
+        prescripteurNom = presc.nom || "";
         marquePartenaire = true;
         logoPartenaire = presc.logoPartenaire || "";
       }
@@ -181,6 +182,13 @@ router.post("/inscription", async (req, res) => {
       await envoyerMailEssai({ email, nomClient, code, dateExpiration });
     } catch (e) {
       console.error("E-mail de confirmation non envoyé :", e && e.message);
+    }
+
+    // Notification à Volitis (n'échoue jamais l'inscription non plus)
+    try {
+      await envoyerMailInscriptionVolitis({ email, nomClient, code, dateExpiration, prescripteur, prescripteurNom });
+    } catch (e) {
+      console.error("Notification d'inscription à Volitis non envoyée :", e && e.message);
     }
 
     res.status(201).json({ ok: true, codeClient: code, expiration: dateExpiration });
