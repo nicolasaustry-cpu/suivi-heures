@@ -9,6 +9,7 @@
 //   POST   /api/equipements                 → créer   { clientNom, type, marque, modele, numeroSerie, … }
 //   PUT    /api/equipements/:id             → modifier
 //   DELETE /api/equipements/:id             → supprimer (les bons gardent leur copie)
+//   POST   /api/equipements/import          → import en lot (ex. installations Organilog)
 // Mobile (codeEmploye + salarieId dans le corps) :
 //   POST   /api/equipements/mobile/liste    { chantier } → équipements du client de ce chantier
 //   POST   /api/equipements/mobile/creer    { chantier, type, marque, modele, numeroSerie }
@@ -95,6 +96,36 @@ router.post("/", verifyToken, async (req, res) => {
     if (vide(champs)) return res.status(400).json({ ok: false, message: "Renseignez au moins le type, la marque, le modèle ou le n° de série" });
     const e = await Equipement.create({ clientId, clientCle, clientNom, ...champs, creePar: "bureau" });
     res.json({ ok: true, equipement: { ...e.toObject(), derniereIntervention: "", nbBons: 0 } });
+  } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
+});
+
+// ── Bureau : import en lot (installations Organilog…) ──
+// Un équipement déjà présent chez le même client (même n° de série, ou même
+// marque + modèle s'il n'y a pas de n° de série) n'est pas recréé.
+router.post("/import", verifyToken, async (req, res) => {
+  try {
+    const clientId = await contextePC(req, res); if (!clientId) return;
+    const liste = Array.isArray(req.body.equipements) ? req.body.equipements : [];
+    if (liste.length > 5000) return res.status(400).json({ ok: false, message: "5 000 équipements maximum par import" });
+    const existants = await Equipement.find({ clientId }, "clientCle marque modele numeroSerie").lean();
+    const n = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "");
+    const signature = e => e.numeroSerie ? e.clientCle + "|S|" + n(e.numeroSerie) : e.clientCle + "|M|" + n(e.marque) + "|" + n(e.modele);
+    const vus = new Set(existants.map(signature));
+    const rapport = { crees: 0, ignores: 0, invalides: 0 };
+    const aCreer = [];
+    for (const b of liste) {
+      const clientNom = String(b?.clientNom || "").trim();
+      const clientCle = cleClient(clientNom);
+      const champs = assainir(b || {});
+      if (!clientCle || vide(champs)) { rapport.invalides++; continue; }
+      const e = { clientId, clientCle, clientNom, ...champs, creePar: "import Organilog" };
+      const sig = signature(e);
+      if (vus.has(sig)) { rapport.ignores++; continue; }
+      vus.add(sig); aCreer.push(e);
+    }
+    if (aCreer.length) await Equipement.insertMany(aCreer);
+    rapport.crees = aCreer.length;
+    res.json({ ok: true, rapport });
   } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
 
