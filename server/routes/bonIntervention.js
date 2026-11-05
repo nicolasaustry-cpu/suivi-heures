@@ -19,6 +19,7 @@
 //   GET    /api/bons-intervention/pc/:id/pdf    → PDF du bon
 //   POST   /api/bons-intervention/pc/:id/envoyer { a, copie, message } → e-mail + PDF joint
 //   DELETE /api/bons-intervention/pc/:id        → supprimer un bon
+//   POST   /api/bons-intervention/pc/exemple    → crée le masque + le bon d'exemple (rapport Organilog)
 // ─────────────────────────────────────────────────────────────
 
 import express from "express";
@@ -27,6 +28,7 @@ import MasqueIntervention from "../models/masqueIntervention.js";
 import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { genererPdfBon } from "../services/pdfBon.js";
+import { NOM_MASQUE_EXEMPLE, CHAMPS_EXEMPLE, BON_EXEMPLE } from "../data/exempleBonOrganilog.js";
 
 const router = express.Router();
 
@@ -190,6 +192,50 @@ router.get("/pc", verifyToken, async (req, res) => {
       .limit(2000)
       .lean();
     res.json({ ok: true, bons });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Bon d'exemple : masque « Rapport d'intervention (exemple) » + bon rempli ──
+// Sans effet si l'exemple existe déjà (renvoie le bon existant).
+router.post("/pc/exemple", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const clientId = ctx.clientId;
+
+    let masque = await MasqueIntervention.findOne({ clientId, nom: NOM_MASQUE_EXEMPLE });
+    if (!masque) {
+      masque = await MasqueIntervention.create({
+        clientId, nom: NOM_MASQUE_EXEMPLE, actif: true, champs: CHAMPS_EXEMPLE,
+        creeLe: new Date(), modifieLe: new Date()
+      });
+    }
+
+    const existant = await BonIntervention.findOne({ clientId, masqueId: masque._id, chantier: BON_EXEMPLE.chantier }, "_id numero");
+    if (existant) return res.json({ ok: true, id: existant._id, numero: existant.numero, dejaPresent: true });
+
+    // Coordonnées du chantier d'exemple, seulement si la fiche n'existe pas déjà
+    const coords = ctx.doc.coordonneesChantiers || {};
+    if (!coords[BON_EXEMPLE.chantier]) {
+      coords[BON_EXEMPLE.chantier] = BON_EXEMPLE.coord;
+      await Donnees.updateOne({ _id: ctx.doc._id }, { $set: { coordonneesChantiers: coords } });
+    }
+
+    const bon = await BonIntervention.create({
+      clientId,
+      numero: await prochainNumeroBon(clientId, new Date(BON_EXEMPLE.dateIntervention)),
+      chantier: BON_EXEMPLE.chantier,
+      masqueId: masque._id,
+      masqueNom: masque.nom,
+      masqueChamps: masque.toObject().champs,
+      salarieId: "",
+      salarieNom: BON_EXEMPLE.salarieNom,
+      dateIntervention: BON_EXEMPLE.dateIntervention,
+      reponses: BON_EXEMPLE.reponses,
+      creeLe: new Date(`${BON_EXEMPLE.dateIntervention}T12:00:00+02:00`)
+    });
+    res.json({ ok: true, id: bon._id, numero: bon.numero });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }

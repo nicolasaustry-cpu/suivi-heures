@@ -101,6 +101,7 @@
       <option value="">Tous</option><option value="non">Non envoyés</option><option value="oui">Envoyés</option>
     </select></div>
     <span class="bi-compte" id="bi-compte"></span>
+    <button type="button" class="btn" id="btn-exemple" onclick="creerExemple()" title="Crée un masque et un bon d'exemple pour découvrir le module">＋ Bon d'exemple</button>
   </div>
 
   <table id="table-bons">
@@ -444,6 +445,21 @@
       btn.disabled = false; btn.textContent = '✉ Envoyer';
       alert('Erreur réseau : le bon n\'a pas été envoyé.');
     });
+  }
+
+  // ── Bon d'exemple (rapport d'intervention type Organilog) ──
+  function creerExemple() {
+    var btn = document.getElementById('btn-exemple');
+    btn.disabled = true;
+    _apiFetch('/api/bons-intervention/pc/exemple', { method: 'POST', body: '{}' }).then(function (res) {
+      btn.disabled = false;
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { _notif(res.body.message || 'Erreur', '#dc2626'); return; }
+      _notif(res.body.dejaPresent ? 'Le bon d\'exemple existe déjà' : '✔ Bon d\'exemple créé (n° ' + res.body.numero + ')');
+      _apiFetch('/api/bons-intervention/pc', { method: 'GET' }).then(function (r) {
+        if (r.body && r.body.ok) { _bons = r.body.bons || []; remplirFiltres(); rendreListe(); }
+        voirBon(res.body.id);
+      });
+    }).catch(function () { btn.disabled = false; _notif('Erreur réseau', '#dc2626'); });
   }
 
   // ── Suppression ──
