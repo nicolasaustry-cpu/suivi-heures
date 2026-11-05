@@ -3797,8 +3797,11 @@ document.addEventListener('DOMContentLoaded', () => {
   /* Épingle calée sur le bord droit de chaque colonne de jour (et non collée à la date) */
   table.tgrid thead th:not(.tcorner):not(.ttot) { position:relative; }
   #pl-float table.tgrid thead th:not(.tcorner):not(.ttot) { position:relative; }
+  /* L'en-tête flottant laisse passer les clics (pointer-events:none) : seules ses épingles
+     restent cliquables, sinon le clic tombait sur le pavé chantier situé dessous. */
+  #pl-float .pl-carte-btn { pointer-events:auto; }
   .pl-carte-btn { position:absolute; right:12px; top:50%; transform:translateY(-50%); display:inline-flex; align-items:center; justify-content:center;
-    width:24px; height:24px; padding:0; border:none; border-radius:50%; background:#fff; cursor:pointer;
+    width:28px; height:28px; padding:0; border:none; border-radius:50%; background:#fff; cursor:pointer;
     box-shadow:0 1px 3px rgba(0,0,0,.3); }
   .pl-carte-btn:hover { transform:translateY(-50%) scale(1.12); }
   .pl-carte-btn svg { display:block; }
