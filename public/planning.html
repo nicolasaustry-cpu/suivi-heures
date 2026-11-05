@@ -1330,6 +1330,8 @@ function genererPlanning(calerSemaine){
     s, idx, coul: pl2Couleur(idx),
     entree:new Date(s.dateEntree), sortie:s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null
   }));
+  // Couleurs par salarié, partagées avec la carte des chantiers du jour (mêmes teintes que le planning)
+  window._plCarteCouleurs = new Map(sals.map(r => [String(r.s.id), r.coul]));
 
   const JNOM=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
   const _a=new Date(); const aujStr=`${_a.getFullYear()}-${String(_a.getMonth()+1).padStart(2,'0')}-${String(_a.getDate()).padStart(2,'0')}`;
@@ -1392,7 +1394,7 @@ function genererPlanning(calerSemaine){
     const numSem=pl2NumSemaine(jours[0]);
     let thead='<th class="tcorner">Salarié</th>';
     jours.forEach(d=>{ const auj=ds(d)===aujStr; const hors=d.getMonth()!==moIdx;
-      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}${d.getDay()===6?' sam-col':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}</div></th>`; });
+      thead+=`<th class="${auj?'auj':''}${hors?' thhors':''}${d.getDay()===6?' sam-col':''}"><div class="dn">${JNOM[d.getDay()]}.</div><div class="dd">${f2(d)}${auj?' <button type="button" class="pl-carte-btn no-print" onclick="plCarteOuvrir()" title="Carte des chantiers du jour">'+plCartePinSvg(['#EA4335'],16,true)+'</button>':''}</div></th>`; });
     thead+='<th class="ttot">Total<br>sem.</th>';
 
     let body='';
@@ -3789,6 +3791,275 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', observer); else observer();
   window.addEventListener('beforeprint', masquer);
 })();
+</script>
+<!-- ══ CARTE DES CHANTIERS DU JOUR (épingle 📍 à côté de la date du jour) ══ -->
+<style>
+  .pl-carte-btn { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-left:4px;
+    width:24px; height:24px; padding:0; border:none; border-radius:50%; background:#fff; cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .pl-carte-btn:hover { transform:scale(1.12); }
+  .pl-carte-btn svg { display:block; }
+  #plc-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; padding:16px; }
+  #plc-overlay.on { display:flex; }
+  #plc-overlay .plc-box { background:#fff; border-radius:14px; width:100%; max-width:1100px; height:min(86vh,820px); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.35); font-family:'Segoe UI',system-ui,Arial,sans-serif; }
+  #plc-overlay .plc-h { background:#0f3a8a; color:#fff; padding:10px 16px; border-bottom:3px solid #f59e0b; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  #plc-overlay .plc-h b { font-size:1rem; }
+  #plc-overlay .plc-nav { display:flex; align-items:center; gap:6px; }
+  #plc-overlay .plc-nav button { border:1px solid rgba(255,255,255,.45); background:rgba(255,255,255,.12); color:#fff; border-radius:7px; padding:3px 10px; cursor:pointer; font-weight:700; }
+  #plc-overlay .plc-nav button:hover { background:rgba(255,255,255,.25); }
+  #plc-overlay .plc-date { font-weight:700; color:#fcd34d; min-width:190px; text-align:center; }
+  #plc-overlay .plc-x { margin-left:auto; background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer; line-height:1; opacity:.85; }
+  #plc-overlay .plc-x:hover { opacity:1; }
+  #plc-overlay .plc-leg { display:flex; flex-wrap:wrap; gap:6px 14px; padding:8px 16px; border-bottom:1px solid #e2e8f0; font-size:.8rem; color:#334155; }
+  #plc-overlay .plc-leg span { display:inline-flex; align-items:center; gap:5px; font-weight:600; }
+  #plc-overlay .plc-dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
+  #plc-overlay .plc-corps { flex:1 1 auto; display:flex; min-height:0; }
+  #plc-map { flex:1 1 auto; min-width:0; background:#eef2f7; }
+  #plc-overlay .plc-msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:.9rem; pointer-events:none; }
+  #plc-overlay .plc-manq { flex:0 0 240px; border-left:1px solid #e2e8f0; overflow:auto; padding:10px 12px; font-size:.8rem; background:#fff7ed; display:none; }
+  #plc-overlay .plc-manq.on { display:block; }
+  #plc-overlay .plc-manq h4 { margin:0 0 6px; font-size:.82rem; color:#9a3412; }
+  #plc-overlay .plc-manq-it { padding:6px 0; border-bottom:1px dashed #fed7aa; }
+  #plc-overlay .plc-manq-it b { color:#0f3a8a; display:block; }
+  #plc-overlay .plc-manq-it small { color:#9a3412; }
+  #plc-overlay .plc-manq-it button { margin-top:4px; border:1px solid #fdba74; background:#fff; color:#9a3412; border-radius:6px; padding:3px 8px; font-size:.74rem; font-weight:700; cursor:pointer; }
+  .plc-pop b.plc-nom { color:#0f3a8a; font-size:.9rem; display:block; margin-bottom:2px; }
+  .plc-pop .plc-adr { color:#64748b; font-size:.76rem; margin-bottom:6px; }
+  .plc-pop .plc-sal { display:flex; align-items:center; gap:6px; font-size:.8rem; padding:1px 0; }
+  .plc-pop .plc-sal em { font-style:normal; color:#1e3a8a; font-weight:700; margin-left:auto; padding-left:8px; }
+  .plc-pop a.plc-itin { display:inline-block; margin-top:7px; padding:4px 10px; border:1px solid #c7d7f5; border-radius:7px; background:#eef4fd; color:#0f3a8a; font-weight:700; font-size:.76rem; text-decoration:none; }
+  .plc-depart { width:26px; height:26px; border-radius:7px; background:#0f3a8a; border:2px solid #f59e0b; color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,.35); }
+  @media (max-width:720px) { #plc-overlay .plc-corps { flex-direction:column; } #plc-overlay .plc-manq { flex:0 0 auto; max-height:30%; border-left:none; border-top:1px solid #fed7aa; } }
+  @media print { #plc-overlay, .pl-carte-btn { display:none !important; } }
+</style>
+<div id="plc-overlay" class="no-print" onclick="if(event.target===this)plCarteFermer()">
+  <div class="plc-box" role="dialog" aria-modal="true" aria-label="Carte des chantiers du jour">
+    <div class="plc-h">
+      <b>Carte des chantiers</b>
+      <div class="plc-nav">
+        <button type="button" onclick="plCarteDecaler(-1)" title="Jour précédent">‹</button>
+        <span class="plc-date" id="plc-date"></span>
+        <button type="button" onclick="plCarteDecaler(1)" title="Jour suivant">›</button>
+        <button type="button" onclick="plCarteAujourdhui()" title="Revenir à aujourd'hui" style="font-size:.78rem;">Auj.</button>
+      </div>
+      <button type="button" class="plc-x" onclick="plCarteFermer()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="plc-leg" id="plc-leg"></div>
+    <div class="plc-corps">
+      <div style="position:relative;flex:1 1 auto;min-width:0;display:flex;">
+        <div id="plc-map"></div>
+        <div class="plc-msg" id="plc-msg"></div>
+      </div>
+      <div class="plc-manq" id="plc-manq"></div>
+    </div>
+  </div>
+</div>
+<script>
+/* Carte des chantiers planifiés sur une journée (par défaut aujourd'hui).
+   - un point par chantier, en forme d'épingle Google Maps, à la couleur du salarié
+     (mêmes couleurs que le planning, via window._plCarteCouleurs posé par genererPlanning) ;
+     plusieurs salariés sur un même chantier → épingle partagée en bandes de couleurs ;
+   - positions GPS : Coord.localiser() (géocodage IGN + cache local, déjà utilisé
+     pour les zones de trajet) — aucune fiche chantier n'est modifiée ;
+   - chantiers sans adresse ou introuvables : listés à droite avec un bouton pour compléter ;
+   - point de départ de l'entreprise (page Entreprise, zones de trajet) affiché en repère ;
+   - fond de carte OpenStreetMap via Leaflet, chargé seulement à la 1re ouverture. */
+var _plcCarte = null, _plcCouche = null, _plcDate = '', _plcGradN = 0, _plcLeafletPromesse = null;
+
+/* Épingle façon Google Maps. couleurs : 1 couleur = pleine ; plusieurs = bandes verticales. */
+function plCartePinSvg(couleurs, hauteur, sansOmbre) {
+  couleurs = (couleurs && couleurs.length) ? couleurs : ['#EA4335'];
+  var h = hauteur || 40, w = Math.round(h * 24 / 36);
+  var fill = couleurs[0], defs = '';
+  if (couleurs.length > 1) {
+    var id = 'plcg' + (++_plcGradN), stops = '', n = couleurs.length;
+    couleurs.forEach(function (c, i) {
+      stops += '<stop offset="' + (i / n * 100) + '%" stop-color="' + c + '"/><stop offset="' + ((i + 1) / n * 100) + '%" stop-color="' + c + '"/>';
+    });
+    defs = '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="0">' + stops + '</linearGradient></defs>';
+    fill = 'url(#' + id + ')';
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 24 36"'
+    + (sansOmbre ? '' : ' style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))"') + '>' + defs
+    + '<path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="' + fill + '" stroke="rgba(0,0,0,.35)" stroke-width="1"/>'
+    + '<circle cx="12" cy="12" r="4.6" fill="#fff"/></svg>';
+}
+
+function _plcChargerLeaflet() {
+  if (window.L && L.map) return Promise.resolve();
+  if (_plcLeafletPromesse) return _plcLeafletPromesse;
+  _plcLeafletPromesse = new Promise(function (ok, ko) {
+    var css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(css);
+    var js = document.createElement('script');
+    js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = function () { ok(); };
+    js.onerror = function () { _plcLeafletPromesse = null; ko(new Error('leaflet')); };
+    document.head.appendChild(js);
+  });
+  return _plcLeafletPromesse;
+}
+
+function _plcISO(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _plcLibelleDate(iso) {
+  var p = iso.split('-').map(Number);
+  var t = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/* Chantiers planifiés ce jour-là, regroupés par nom : { NOM: [{s, coul, h, rdv}] } */
+function _plcChantiersDuJour(iso) {
+  var safe = iso.replace(/-/g, '_'), out = {}, ordre = [];
+  var couleurs = window._plCarteCouleurs || new Map();
+  var h = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  salaries.forEach(function (s) {
+    var coul = couleurs.get(String(s.id));
+    if (!coul) return;   // salarié masqué par le filtre du planning
+    for (var i = 1; i <= NB_SLOTS; i++) {
+      var e = h[s.id + safe + 'ch' + i];
+      var nom = (e && e.chantier || '').trim().toUpperCase();
+      if (!nom || nom === TNA || nom === 'ABSENCE') continue;
+      if (!out[nom]) { out[nom] = []; ordre.push(nom); }
+      out[nom].push({ s: s, coul: coul.fg, h: parseFloat(e.heures) || 0, rdv: (e.rdv || '').trim() });
+    }
+  });
+  return { parNom: out, ordre: ordre };
+}
+
+function plCarteOuvrir(iso) {
+  _plcDate = iso || _plcISO(new Date());
+  document.getElementById('plc-overlay').classList.add('on');
+  _plcRendre();
+}
+function plCarteFermer() { document.getElementById('plc-overlay').classList.remove('on'); }
+function plCarteDecaler(n) {
+  var p = _plcDate.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2] + n);
+  if (d.getDay() === 0) d.setDate(d.getDate() + (n < 0 ? -1 : 1));   // on saute le dimanche
+  _plcDate = _plcISO(d); _plcRendre();
+}
+function plCarteAujourdhui() { _plcDate = _plcISO(new Date()); _plcRendre(); }
+document.addEventListener('keydown', function (e) {
+  var o = document.getElementById('plc-overlay');
+  if (e.key === 'Escape' && o && o.classList.contains('on')) plCarteFermer();
+});
+
+async function _plcRendre() {
+  var iso = _plcDate;
+  var msg = document.getElementById('plc-msg');
+  var leg = document.getElementById('plc-leg');
+  var manq = document.getElementById('plc-manq');
+  document.getElementById('plc-date').textContent = _plcLibelleDate(iso);
+  msg.textContent = 'Chargement de la carte…';
+
+  try { await _plcChargerLeaflet(); }
+  catch (_) { msg.textContent = '⚠️ Impossible de charger la carte (connexion internet ?).'; return; }
+  if (iso !== _plcDate) return;   // l'utilisateur a changé de jour entre-temps
+
+  if (!_plcCarte) {
+    _plcCarte = L.map('plc-map', { zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; contributeurs OpenStreetMap'
+    }).addTo(_plcCarte);
+    _plcCarte.setView([47.0, 2.4], 6);
+  }
+  if (_plcCouche) _plcCouche.remove();
+  _plcCouche = L.layerGroup().addTo(_plcCarte);
+  setTimeout(function () { _plcCarte.invalidateSize(); }, 30);
+
+  var donnees = _plcChantiersDuJour(iso);
+
+  // Légende : salariés présents ce jour-là, avec leur couleur
+  var vus = {}, lgHtml = '';
+  donnees.ordre.forEach(function (nom) {
+    donnees.parNom[nom].forEach(function (x) {
+      if (vus[x.s.id]) return; vus[x.s.id] = 1;
+      lgHtml += '<span><i class="plc-dot" style="background:' + x.coul + '"></i>' + escapeHtml(((x.s.prenom || '') + ' ' + (x.s.nom || '')).trim()) + '</span>';
+    });
+  });
+  leg.innerHTML = lgHtml || '<span style="color:#64748b;font-weight:400;">Aucun chantier planifié ce jour-là.</span>';
+
+  var points = [];
+  // Point de départ de l'entreprise (repère)
+  try {
+    var ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    var dep = ent.zonesTrajet && ent.zonesTrajet.depart;
+    if (dep && dep.lat != null && dep.lon != null) {
+      L.marker([dep.lat, dep.lon], {
+        icon: L.divIcon({ className: '', html: '<div class="plc-depart">🏢</div>', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        zIndexOffset: -100
+      }).bindPopup('<div class="plc-pop"><b class="plc-nom">Entreprise</b><div class="plc-adr">' + escapeHtml(dep.label || dep.adresse || '') + '</div></div>')
+        .addTo(_plcCouche);
+      points.push([dep.lat, dep.lon]);
+    }
+  } catch (_) {}
+
+  if (!donnees.ordre.length) {
+    msg.textContent = 'Aucun chantier planifié ce jour-là.';
+    manq.classList.remove('on'); manq.innerHTML = '';
+    if (points.length) _plcCarte.setView(points[0], 11);
+    return;
+  }
+  msg.textContent = 'Localisation des chantiers…';
+
+  var resultats = await Promise.all(donnees.ordre.map(function (nom) {
+    return (typeof Coord !== 'undefined' && Coord.localiser)
+      ? Coord.localiser(nom).catch(function () { return { statut: 'erreur' }; })
+      : Promise.resolve({ statut: 'erreur' });
+  }));
+  if (iso !== _plcDate) return;
+  msg.textContent = '';
+
+  var manquants = [], nbPoints = 0;
+  donnees.ordre.forEach(function (nom, i) {
+    var r = resultats[i], liste = donnees.parNom[nom];
+    if (!r || r.statut !== 'ok') { manquants.push({ nom: nom, statut: r ? r.statut : 'erreur', liste: liste }); return; }
+    var coulUniques = [];
+    liste.forEach(function (x) { if (coulUniques.indexOf(x.coul) === -1) coulUniques.push(x.coul); });
+    var pop = '<div class="plc-pop"><b class="plc-nom">' + escapeHtml(nom) + '</b>'
+      + '<div class="plc-adr">📍 ' + escapeHtml(r.label || '') + '</div>'
+      + liste.map(function (x) {
+          return '<div class="plc-sal"><i class="plc-dot" style="background:' + x.coul + '"></i>'
+            + escapeHtml(((x.s.prenom || '') + ' ' + (x.s.nom || '')).trim())
+            + '<em>' + (x.rdv ? '🕐 ' + escapeHtml(x.rdv) + ' · ' : '') + pl2Fmt(x.h) + '</em></div>';
+        }).join('')
+      + '<a class="plc-itin" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=' + r.lat + ',' + r.lon + '">🗺 Itinéraire</a></div>';
+    L.marker([r.lat, r.lon], {
+      icon: L.divIcon({ className: '', html: plCartePinSvg(coulUniques, 42), iconSize: [28, 42], iconAnchor: [14, 42], popupAnchor: [0, -38] }),
+      title: nom
+    }).bindPopup(pop).addTo(_plcCouche);
+    points.push([r.lat, r.lon]);
+    nbPoints++;
+  });
+
+  // Chantiers non placés sur la carte
+  if (manquants.length) {
+    manq.innerHTML = '<h4>⚠️ Non placés sur la carte (' + manquants.length + ')</h4>' + manquants.map(function (m) {
+      var raison = m.statut === 'sans-adresse' ? 'Pas d\'adresse dans la fiche'
+                 : m.statut === 'introuvable' ? 'Adresse introuvable' : 'Localisation impossible (connexion ?)';
+      return '<div class="plc-manq-it"><b>' + escapeHtml(m.nom) + '</b>'
+        + m.liste.map(function (x) { return '<i class="plc-dot" style="background:' + x.coul + ';margin-right:3px;"></i>'; }).join('')
+        + ' <small>' + raison + '</small><br>'
+        + '<button type="button" data-nom="' + escapeHtml(m.nom) + '" onclick="plCarteCompleter(this.dataset.nom)">📍 Compléter l\'adresse</button></div>';
+    }).join('');
+    manq.classList.add('on');
+  } else { manq.classList.remove('on'); manq.innerHTML = ''; }
+  setTimeout(function () { _plcCarte.invalidateSize(); }, 30);
+
+  if (!nbPoints && !points.length) { msg.textContent = 'Aucun chantier localisable : complétez les adresses.'; return; }
+  if (points.length === 1) _plcCarte.setView(points[0], 13);
+  else _plcCarte.fitBounds(points, { padding: [40, 40], maxZoom: 14 });
+}
+
+/* Ouvre la fiche coordonnées du chantier ; à l'enregistrement, la carte se redessine. */
+function plCarteCompleter(nom) {
+  if (typeof Coord === 'undefined') return;
+  Coord.ouvrir(nom, function () {
+    if (typeof genererPlanning === 'function') genererPlanning();
+    setTimeout(_plcRendre, 300);   // laisse la localisation en tâche de fond démarrer
+  });
+}
 </script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
