@@ -71,6 +71,16 @@
 
 <div class="nav"></div>
 
+<section id="section-modeles-prets">
+  <h2>Modèles prêts à l'emploi</h2>
+  <p style="color:#6b7280;font-size:0.85rem;margin-top:-8px;">
+    Ajoutez un modèle en un clic : il devient un de vos masques, que vous pouvez ensuite modifier librement.
+  </p>
+  <div id="liste-modeles-prets" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+    <div style="color:#6b7280;">Chargement…</div>
+  </div>
+</section>
+
 <section>
   <h2 id="titre-formulaire">Créer un masque</h2>
   <p style="color:#6b7280;font-size:0.85rem;margin-top:-8px;">
@@ -329,6 +339,32 @@
       });
   }
 
+  // ── Modèles prêts à l'emploi ──
+  function chargerModelesPrets() {
+    _apiFetch('/api/masques-intervention/modeles-prets', { method: 'GET' }).then(function (res) {
+      var zone = document.getElementById('liste-modeles-prets');
+      if (!res.body || !res.body.ok) { document.getElementById('section-modeles-prets').style.display = 'none'; return; }
+      zone.innerHTML = (res.body.modeles || []).map(function (m) {
+        return '<div style="border:1px solid #e2e8f0;border-left:4px solid #0f3a8a;border-radius:8px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:6px;">' +
+          '<div style="font-weight:700;color:#0f172a;">' + m.nom.replace(/</g, '&lt;') + '</div>' +
+          '<div style="font-size:0.8rem;color:#475569;flex:1;">' + m.description.replace(/</g, '&lt;') + '</div>' +
+          '<div style="font-size:0.75rem;color:#64748b;">' + m.nbChamps + ' champs' + (m.cerfa ? ' · CERFA ' + m.cerfa : '') + '</div>' +
+          '<button type="button" class="btn-primary" onclick="ajouterModelePret(\'' + m.code + '\', this)">＋ Ajouter à mes masques</button>' +
+        '</div>';
+      }).join('');
+    });
+  }
+
+  function ajouterModelePret(code, btn) {
+    btn.disabled = true;
+    _apiFetch('/api/masques-intervention/depuis-modele', { method: 'POST', body: JSON.stringify({ code: code }) }).then(function (res) {
+      btn.disabled = false;
+      if (!res.body || !res.body.ok) { alert((res.body && res.body.message) || 'Ajout impossible'); return; }
+      if (typeof SYNC !== 'undefined' && SYNC.afficherNotif) SYNC.afficherNotif('✔ Masque « ' + res.body.masque.nom + ' » ajouté');
+      chargerMasques();
+    }).catch(function () { btn.disabled = false; alert('Erreur réseau'); });
+  }
+
   function chargerMasques() {
     _apiFetch('/api/masques-intervention', { method: 'GET' }).then(function (res) {
       var corps = document.getElementById('liste-masques');
@@ -365,6 +401,7 @@
     rendreChamps();
     // Laisse SYNC.init() (appelé depuis sync.js) poser le token avant de charger.
     setTimeout(chargerMasques, 300);
+    setTimeout(chargerModelesPrets, 300);
     setTimeout(function () {
       _apiFetch('/api/masques-intervention/cerfa-modeles', { method: 'GET' }).then(function (res) {
         if (!res.body || !res.body.ok) return;

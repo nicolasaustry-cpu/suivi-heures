@@ -17,6 +17,7 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import Donnees from "../models/donnees.js";
 import { MODELES as MODELES_CERFA, listeModeles } from "../cerfa/index.js";
+import { MODELES_MASQUES } from "../data/modelesMasques.js";
 
 const router = express.Router();
 
@@ -89,6 +90,32 @@ const cerfaValide = v => (MODELES_CERFA[String(v || "")] ? String(v) : "");
 // ── CERFA proposables sur un masque ──
 router.get("/cerfa-modeles", verifyToken, verifierFonctionActive, (req, res) => {
   res.json({ ok: true, modeles: listeModeles() });
+});
+
+// ── Masques prêts à l'emploi (catalogue) ──
+router.get("/modeles-prets", verifyToken, verifierFonctionActive, (req, res) => {
+  res.json({ ok: true, modeles: MODELES_MASQUES.map(m => ({ code: m.code, nom: m.nom, description: m.description, nbChamps: m.champs.length, cerfa: m.cerfa || "" })) });
+});
+
+// ── Ajouter un masque depuis le catalogue (copie modifiable) ──
+router.post("/depuis-modele", verifyToken, verifierFonctionActive, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const modele = MODELES_MASQUES.find(m => m.code === String(req.body.code || ""));
+    if (!modele) return res.status(404).json({ ok: false, message: "Modèle inconnu" });
+    const { champs, err } = assainirChamps(modele.champs);
+    if (err) return res.status(500).json({ ok: false, message: err });
+    // Nom unique : « Entretien … (2) » si le client l'a déjà ajouté
+    const existants = new Set((await MasqueIntervention.find({ clientId }, "nom").lean()).map(m => m.nom));
+    let nom = modele.nom, k = 2;
+    while (existants.has(nom)) nom = `${modele.nom} (${k++})`;
+    const masque = await MasqueIntervention.create({
+      clientId, nom, champs, actif: true, cerfa: cerfaValide(modele.cerfa), creeLe: new Date(), modifieLe: new Date()
+    });
+    res.json({ ok: true, masque });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
 });
 
 // ── Liste des masques du client ──
