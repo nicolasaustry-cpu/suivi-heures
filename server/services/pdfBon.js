@@ -4,7 +4,8 @@
 // Construit le PDF (A4) d'un bon à partir de :
 //   - bon        : document BonIntervention (réponses, chantier, date, technicien…)
 //   - champs     : champs du masque (copie figée dans le bon, ou masque actuel)
-//   - entreprise : { nom }  (en-tête)
+//   - entreprise : { nom, adresse, codePostal, ville, telephone, email, siret, logo }
+//                  (en-tête ; logo = data URL PNG/JPEG, saisi sur la page Entreprise)
 //   - coord      : { adresse, ville, mobile, fixe } du chantier (peut être vide)
 // Renvoie un Buffer. Le même PDF sert au téléchargement et à l'envoi par mail.
 // ─────────────────────────────────────────────────────────────
@@ -57,18 +58,49 @@ export function genererPdfBon({ bon, champs, entreprise, coord }) {
     const basPage = () => doc.page.height - M - 20;
     const place = h => { if (doc.y + h > basPage()) doc.addPage(); };
 
-    // ── En-tête ──
-    doc.rect(0, 0, doc.page.width, 78).fill(NAVY);
-    doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(17)
-       .text(entreprise?.nom || "", M, 22, { width: LARG * 0.55 });
-    doc.font("Helvetica-Bold").fontSize(15)
-       .text("BON D'INTERVENTION", M, 20, { width: LARG, align: "right" });
-    doc.font("Helvetica").fontSize(10)
-       .text(`${bon.numero ? "N° " + bon.numero + "  ·  " : ""}${bon.masqueNom || ""}`, M, 42, { width: LARG, align: "right" });
-    doc.rect(0, 78, doc.page.width, 4).fill(AMBRE);
+    // ── En-tête : logo + coordonnées de l'entreprise à gauche, titre à droite ──
+    const E = entreprise || {};
+    const yH = 26;
+    const largTitre = LARG * 0.38;
+    const largGauche = LARG - largTitre - 12;
+    let xTxt = M, yBasLogo = yH;
+    if (estImage(E.logo)) {
+      try {
+        const img = doc.openImage(imageBuffer(E.logo));
+        const s = Math.min(140 / img.width, 62 / img.height);
+        const w = img.width * s, h = img.height * s;
+        doc.image(img, M, yH, { width: w, height: h });
+        xTxt = M + w + 14;
+        yBasLogo = yH + h;
+      } catch (e) { /* logo illisible : ignoré */ }
+    }
+    const largTxt = Math.max(110, M + largGauche - xTxt);
+    doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(13)
+       .text(E.nom || "", xTxt, yH, { width: largTxt });
+    const lignesEnt = [
+      E.adresse,
+      [E.codePostal, E.ville].filter(Boolean).join(" "),
+      E.telephone ? "Tél. " + E.telephone : "",
+      E.email,
+      E.siret ? "SIRET " + E.siret : ""
+    ].filter(Boolean);
+    doc.fillColor(GRIS).font("Helvetica").fontSize(8.5);
+    for (const l of lignesEnt) doc.text(l, xTxt, doc.y + 1, { width: largTxt });
+    const yBasTxt = doc.y;
+
+    const xTitre = M + LARG - largTitre;
+    doc.fillColor(NAVY).font("Helvetica-Bold").fontSize(15)
+       .text("BON D'INTERVENTION", xTitre, yH, { width: largTitre, align: "right" });
+    doc.fillColor(GRIS).font("Helvetica").fontSize(10)
+       .text(`${bon.numero ? "N° " + bon.numero : ""}`, xTitre, doc.y + 2, { width: largTitre, align: "right" });
+    if (bon.masqueNom) doc.text(bon.masqueNom, xTitre, doc.y + 1, { width: largTitre, align: "right" });
+    const yBasTitre = doc.y;
+
+    const yFilet = Math.max(yBasLogo, yBasTxt, yBasTitre, yH + 40) + 10;
+    doc.rect(M, yFilet, LARG, 3).fill(AMBRE);
 
     // ── Bloc client / intervention ──
-    const yBloc = 100;
+    const yBloc = yFilet + 18;
     const demi = (LARG - 14) / 2;
     const cadre = (x, titre, lignes) => {
       doc.fillColor(GRIS).font("Helvetica-Bold").fontSize(8).text(titre.toUpperCase(), x + 10, yBloc + 8, { width: demi - 20 });
@@ -178,8 +210,8 @@ export function genererPdfBon({ bon, champs, entreprise, coord }) {
       doc.page.margins.bottom = 0;            // écrire dans la marge sans créer de page
       const y = doc.page.height - M + 6;
       doc.fillColor(GRIS).font("Helvetica").fontSize(8)
-         .text(`${entreprise?.nom || ""}${bon.numero ? "  ·  Bon n° " + bon.numero : ""}`, M, y, { width: LARG / 2, lineBreak: false })
-         .text(`Page ${i + 1}/${n}`, M + LARG / 2, y, { width: LARG / 2, align: "right", lineBreak: false });
+         .text([entreprise?.nom, entreprise?.siret ? "SIRET " + entreprise.siret : "", bon.numero ? "Bon n° " + bon.numero : ""].filter(Boolean).join("  ·  "), M, y, { width: LARG * 0.8, lineBreak: false })
+         .text(`Page ${i + 1}/${n}`, M + LARG * 0.8, y, { width: LARG * 0.2, align: "right", lineBreak: false });
     }
     doc.end();
   });

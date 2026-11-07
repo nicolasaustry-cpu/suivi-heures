@@ -282,6 +282,16 @@ async function bonAvecPointage(bon, champs, doc) {
 
 const nomFichier = bon => `Bon-intervention-${bon.numero || bon._id}.pdf`;
 
+/* Identité de l'entreprise pour l'en-tête du PDF (page Entreprise → Informations). */
+function enteteEntreprise(e = {}) {
+  const t = v => String(v ?? "").trim();
+  return {
+    nom: t(e.nom), adresse: t(e.adresse), codePostal: t(e.codePostal), ville: t(e.ville),
+    telephone: t(e.telephone), email: t(e.email), siret: t(e.siret),
+    logo: typeof e.logo === "string" ? e.logo : ""
+  };
+}
+
 async function pdfDuBon(bon, doc) {
   const coords = doc.coordonneesChantiers || {};
   const champs = await champsDuBon(bon);
@@ -289,7 +299,7 @@ async function pdfDuBon(bon, doc) {
   const principal = await genererPdfBon({
     bon: bonComplet,
     champs,
-    entreprise: { nom: doc.entreprise?.nom || "" },
+    entreprise: enteteEntreprise(doc.entreprise),
     coord: coords[U(bon.chantier)] || {}
   });
   // CERFA joints au bon, ajoutés à la suite

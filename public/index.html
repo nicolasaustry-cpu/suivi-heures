@@ -106,6 +106,33 @@
       <span style="display:block;font-size:0.8rem;color:#6b7280;white-space:nowrap;margin-bottom:3px;">(5 caractères : chiffres, lettres et caractères spéciaux)</span>
       <input id="code-employe" style="width:100%;max-width:240px;box-sizing:border-box;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
     </div>
+    <!-- Logo + coordonnées : reportés en en-tête du PDF des bons d'intervention -->
+    <div style="width:100%;">
+      <label>Logo :</label>
+      <span style="display:block;font-size:0.8rem;color:#6b7280;margin-bottom:4px;">(PNG, JPG ou SVG — apparaît sur les bons d'intervention)</span>
+      <div style="display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;">
+        <div id="ent-logo-apercu" style="width:150px;height:64px;border:1.5px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;font-size:0.75rem;color:#94a3b8;">Aucun logo</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <button type="button" class="btn" style="background:#fff;color:#0f3a8a;border:1.5px solid #0f3a8a;font-weight:700;" onclick="document.getElementById('ent-logo-fichier').click()">🖼 Choisir un logo</button>
+          <button type="button" id="ent-logo-retirer" class="btn" style="background:#fff;color:#b91c1c;border:1.5px solid #fca5a5;display:none;" onclick="retirerLogoEntreprise()">✕ Retirer</button>
+        </div>
+        <input type="file" id="ent-logo-fichier" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none;" onchange="choisirLogoEntreprise(this)">
+      </div>
+    </div>
+    <div style="width:100%;">
+      <label>Coordonnées :</label>
+      <span style="display:block;font-size:0.8rem;color:#6b7280;margin-bottom:4px;">(apparaissent sur les bons d'intervention)</span>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:320px;">
+        <input id="ent-adresse" placeholder="Adresse" style="width:100%;box-sizing:border-box;">
+        <div style="display:flex;gap:6px;">
+          <input id="ent-cp" placeholder="Code postal" inputmode="numeric" maxlength="10" style="width:105px;box-sizing:border-box;">
+          <input id="ent-ville" placeholder="Ville" style="flex:1;min-width:0;box-sizing:border-box;">
+        </div>
+        <input id="ent-tel" placeholder="Téléphone" inputmode="tel" style="width:100%;box-sizing:border-box;">
+        <input id="ent-email" placeholder="Email" type="email" style="width:100%;box-sizing:border-box;">
+        <input id="ent-siret" placeholder="SIRET" inputmode="numeric" maxlength="20" style="width:100%;box-sizing:border-box;">
+      </div>
+    </div>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
 </section>
