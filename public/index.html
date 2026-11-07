@@ -107,6 +107,7 @@
       <input id="code-employe" style="width:100%;max-width:240px;box-sizing:border-box;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
     </div>
     <!-- Logo + coordonnées : reportés en en-tête du PDF des bons d'intervention -->
+    <details class="volet" data-volet="coord-entreprise" style="width:100%;box-sizing:border-box;margin:0;"><summary>🧾 Logo et coordonnées <span class="volet-resume" id="resume-coord-ent"></span></summary><div class="volet-corps" style="display:flex;flex-direction:column;gap:1rem;">
     <div style="width:100%;">
       <label>Logo :</label>
       <span style="display:block;font-size:0.8rem;color:#6b7280;margin-bottom:4px;">(PNG, JPG ou SVG — apparaît sur les bons d'intervention)</span>
@@ -133,6 +134,7 @@
         <input id="ent-siret" placeholder="SIRET" inputmode="numeric" maxlength="20" style="width:100%;box-sizing:border-box;">
       </div>
     </div>
+    </div></details>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
 </section>
@@ -699,6 +701,13 @@ function majResumesVolets() {
   // Trajet : point de départ
   const adr = v('zt-adresse').trim();
   set('resume-trajet', adr ? (adr.length > 34 ? adr.slice(0, 32) + '…' : adr) : 'à renseigner');
+  // Logo et coordonnées (en-tête des bons d'intervention)
+  let aLogo = false;
+  try { aLogo = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').logo; } catch (_) {}
+  const aCoord = ['ent-adresse', 'ent-ville', 'ent-tel', 'ent-email', 'ent-siret'].some(id => v(id).trim());
+  set('resume-coord-ent', aLogo || aCoord
+    ? [aLogo ? 'logo ✓' : 'sans logo', aCoord ? 'coordonnées ✓' : 'coordonnées à renseigner'].join(' · ')
+    : 'à renseigner');
 }
 window.addEventListener('DOMContentLoaded', _voletsInit);
 window.addEventListener('donnees-chargees', () => setTimeout(majResumesVolets, 50));

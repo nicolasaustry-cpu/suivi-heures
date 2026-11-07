@@ -72,6 +72,7 @@ function afficherLogoEntreprise() {
   }
   const btnR = document.getElementById("ent-logo-retirer");
   if (btnR) btnR.style.display = logo ? "" : "none";
+  if (typeof majResumesVolets === "function") majResumesVolets();   // résumé du volet (page Entreprise)
 }
 
 /* Réduit le logo (600 × 240 px max) et le convertit en PNG — ou en JPEG fond blanc
