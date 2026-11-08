@@ -1719,7 +1719,7 @@ window.addEventListener('DOMContentLoaded', () => {
       // sur sa session (les salariés sont fusionnés, les autres clés conservées).
       ['saisie_salarie', 'saisie_clientId', 'salariesdata', 'notesChantiersdata',
        'previsionnel_data', 'heuresdata', 'ordreMobiledata',
-       'syncMarquePartenaire', 'syncLogoPartenaire', 'agendaDirigeant'].forEach(k => localStorage.removeItem(k));
+       'syncMarquePartenaire', 'syncLogoPartenaire', 'agendaDirigeant', 'bonsInterventionMobile'].forEach(k => localStorage.removeItem(k));
     }
     localStorage.setItem('saisie_codeEmploye', codeU);
     // Nettoyer l'URL pour ne pas laisser le code visible dans l'historique navigateur
@@ -1787,6 +1787,7 @@ async function reconnecterAuto(codeEmploye) {
       if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
       if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
       localStorage.setItem('agendaDirigeant', d.agendaDirigeant ? '1' : '0');
+      localStorage.setItem('bonsInterventionMobile', d.bonsIntervention ? '1' : '0');
       localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
       if (d.logoPartenaire) localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
       else localStorage.removeItem('syncLogoPartenaire');
@@ -1878,6 +1879,7 @@ async function validerCodeEntreprise() {
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
     localStorage.setItem('agendaDirigeant', d.agendaDirigeant ? '1' : '0');
+    localStorage.setItem('bonsInterventionMobile', d.bonsIntervention ? '1' : '0');
     localStorage.setItem('syncMarquePartenaire', d.marquePartenaire ? '1' : '0');
     if (d.logoPartenaire) localStorage.setItem('syncLogoPartenaire', d.logoPartenaire);
     else localStorage.removeItem('syncLogoPartenaire');
@@ -1956,6 +1958,7 @@ async function rafraichirDonneesServeur() {
     if (d.heures)       localStorage.setItem('heuresdata',        JSON.stringify(d.heures));
     if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
     localStorage.setItem('agendaDirigeant', d.agendaDirigeant ? '1' : '0');
+    localStorage.setItem('bonsInterventionMobile', d.bonsIntervention ? '1' : '0');
   } catch (_) {
     // Hors ligne : on garde les données locales, pas grave
   }
@@ -5127,6 +5130,10 @@ let _bonSignatureSalarieCache = undefined; // undefined = pas encore chargée, n
 let _bonSignatureAEnregistrer = {}; // { idChamp: bool } — case "enregistrer ma signature" cochée ou non
 
 function _bonsInterventionActifs() {
+  // Téléphone d'un salarié : réponse du serveur à la connexion (option activée + licence Plus)
+  const mobile = localStorage.getItem('bonsInterventionMobile');
+  if (mobile === '1' || mobile === '0') return mobile === '1';
+  // PC du gérant : données de la page Entreprise
   try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').bonsInterventionActifs; }
   catch (e) { return false; }
 }

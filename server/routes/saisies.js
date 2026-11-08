@@ -85,6 +85,9 @@ router.post("/connect", async (req, res) => {
       coordonneesChantiers: doc.coordonneesChantiers || {},
       ordreMobile:  await getOrdresMobile(doc.clientId),
       agendaDirigeant: !!(doc.entreprise && doc.entreprise.agendaDirigeant),   // option page Entreprise
+      // Bons d'intervention : option activée sur la page Entreprise ET licence Plus
+      // (le téléphone d'un salarié n'a pas les données Entreprise du PC)
+      bonsIntervention: !!(doc.entreprise && doc.entreprise.bonsInterventionActifs) && licence?.type === "plus",
       marquePartenaire: licence ? !!licence.marquePartenaire : false,
       logoPartenaire:   licence ? (licence.logoPartenaire || "") : ""
     });
