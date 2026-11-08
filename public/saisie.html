@@ -5531,7 +5531,12 @@ function _bonRendreChamps() {
    Si oui, il complète ce qu'il constate sur place ; le serveur pré-remplit
    tout le reste et joint le CERFA officiel au bon. */
 let _bonCerfa = { concerne: null, valeurs: {}, def: null };
-let _bonCerfaDefs = {};     // définitions mobiles déjà chargées, par code
+let _bonCerfaDefs = {};
+const _CERFA_NOMS = {
+  '15497': 'fluides frigorigènes', '12506': 'Consuel jaune (électricité domestique)', '12507': 'Consuel vert (électricité non domestique)',
+  '15523': 'Consuel bleu (production sans stockage)', '15524': 'Consuel violet (production avec stockage)',
+  '16026': 'certificat de conformité gaz (CC2)', '13408': 'achèvement des travaux (DAACT)'
+};     // définitions mobiles déjà chargées, par code
 
 function _bonRendreCerfa(zone) {
   const code = _bonMasqueActuel && _bonMasqueActuel.cerfa;
@@ -5552,7 +5557,7 @@ function _bonDessinerCerfa() {
   bloc.innerHTML = '';
   const q = document.createElement('div');
   q.className = 'bon-cerfa-q';
-  q.innerHTML = '<div class="bon-cerfa-titre">📑 CERFA ' + code + (code === '15497' ? ' — fluides frigorigènes' : '') + ' <span class="bon-oblig">*</span></div>' +
+  q.innerHTML = '<div class="bon-cerfa-titre">📑 CERFA ' + code + (_CERFA_NOMS[code] ? ' — ' + _CERFA_NOMS[code] : '') + ' <span class="bon-oblig">*</span></div>' +
     '<div class="bon-cerfa-sous">Cette intervention est-elle concernée ?</div>';
   const ligne = document.createElement('div');
   ligne.className = 'bon-cerfa-choix';
