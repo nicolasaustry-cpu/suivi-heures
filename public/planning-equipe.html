@@ -438,7 +438,7 @@ function deplacerParGlisser(info) {
   if (String(salIdT) === String(salIdS) && dateT === dateS) return;
   var safeS = dateS.replace(/-/g, '_'), safeT = dateT.replace(/-/g, '_');
   var slotSourceK = null, slotSourceData = null, i, k, d;
-  for (i = 1; i <= 5; i++) { k = salIdS + safeS + 'ch' + i; d = heures[k]; if (d && String(d.chantier || '').trim() === nom) { slotSourceK = k; slotSourceData = d; break; } }
+  for (i = 1; i <= NB_SLOTS; i++) { k = salIdS + safeS + 'ch' + i; d = heures[k]; if (d && String(d.chantier || '').trim() === nom) { slotSourceK = k; slotSourceData = d; break; } }
   if (!slotSourceK) { alert('Chantier introuvable.'); return; }
   var salT = salaries.find(function (s) { return String(s.id) === String(salIdT); });
   var absT = parseFloat((heures[salIdT + safeT + 'abs'] || {}).heures) || 0;
@@ -447,9 +447,9 @@ function deplacerParGlisser(info) {
   if (estEcole) conflits.push('🎓 ' + ((salT && salT.prenom) || 'Le salarié') + ' est à l\'école ce jour-là.');
   else if (absT > 0) conflits.push('🚫 ' + ((salT && salT.prenom) || 'Le salarié') + ' est absent ce jour-là.');
   var cibleK = null;
-  for (i = 1; i <= 5; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; var n = String(d && d.chantier || '').trim(); if (!n || n.toUpperCase() === 'TEMPS NON AFFECTE') { cibleK = k; break; } }
+  for (i = 1; i <= NB_SLOTS; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; var n = String(d && d.chantier || '').trim(); if (!n || n.toUpperCase() === 'TEMPS NON AFFECTE') { cibleK = k; break; } }
   if (!cibleK) { alert('⛔ La journée de ce salarié est pleine (5 chantiers). Libère un créneau avant de déplacer.'); genererGrille({ conserverScroll: true }); return; }
-  if (rdv) { for (i = 1; i <= 5; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; if (d && String(d.rdv || '').trim() === rdv) { conflits.push('🕐 ' + ((salT && salT.prenom) || 'Le salarié') + ' a déjà un RDV à ' + rdv + '.'); break; } } }
+  if (rdv) { for (i = 1; i <= NB_SLOTS; i++) { k = salIdT + safeT + 'ch' + i; d = heures[k]; if (d && String(d.rdv || '').trim() === rdv) { conflits.push('🕐 ' + ((salT && salT.prenom) || 'Le salarié') + ' a déjà un RDV à ' + rdv + '.'); break; } } }
   if (conflits.length && !confirm(conflits.join('\n') + '\n\nDéplacer quand même ?')) { genererGrille({ conserverScroll: true }); return; }
   modifierPlanningServeur({ action: 'deplacer', salIdS: salIdS, dateS: dateS, nom: nom, salIdT: salIdT, dateT: dateT })
     .finally(function () { genererGrille({ conserverScroll: true }); });
@@ -1348,12 +1348,12 @@ function _insererChantierLocal(salId, dateStr, chantier, rdv, rdvDelai, auteur) 
   const safeDate = dateStr.replace(/-/g, '_');
   const prefixe = String(salId) + safeDate + 'ch';
   let cle = null;
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= NB_SLOTS; i++) {
     const k = prefixe + i, e = h[k];
     if (e && (e.chantier || '').trim().toUpperCase() === chantier.toUpperCase()) { cle = k; break; }
   }
   if (!cle) {
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= NB_SLOTS; i++) {
       const k = prefixe + i, e = h[k];
       if (!e || !((e.chantier || '').trim())) { h[k] = e || { chantier: '', heures: 0 }; h[k].chantier = chantier; cle = k; break; }
     }
@@ -1470,7 +1470,7 @@ window.addEventListener('donnees-chargees', async () => {
     var nom=_editEquipe.nom, rdv=_editEquipe.rdv, salIdS=_editEquipe.salIdSource, dateS=_editEquipe.dateSource;
     var safeS=dateS.replace(/-/g,'_'), safeT=dateT.replace(/-/g,'_');
     var slotSourceK=null, slotSourceData=null, i, k, d;
-    for(i=1;i<=5;i++){ k=salIdS+safeS+'ch'+i; d=heures[k]; if(d && String(d.chantier||'').trim()===nom){ slotSourceK=k; slotSourceData=d; break; } }
+    for(i=1;i<=NB_SLOTS;i++){ k=salIdS+safeS+'ch'+i; d=heures[k]; if(d && String(d.chantier||'').trim()===nom){ slotSourceK=k; slotSourceData=d; break; } }
     if(!slotSourceK){ alert('Chantier introuvable.'); return; }
     if(String(salIdT)===String(salIdS) && dateT===dateS){ window.fermerEditionEquipe(); return; }
     var conflits=[], salT=salaries.find(function(s){return String(s.id)===String(salIdT);});
@@ -1479,9 +1479,9 @@ window.addEventListener('donnees-chargees', async () => {
     if(estEcole) conflits.push('🎓 '+((salT&&salT.prenom)||'Le salarié')+' est à l\'école ce jour-là.');
     else if(absT>0) conflits.push('🚫 '+((salT&&salT.prenom)||'Le salarié')+' est absent ce jour-là.');
     var cibleK=null;
-    for(i=1;i<=5;i++){ k=salIdT+safeT+'ch'+i; d=heures[k]; var n=String(d&&d.chantier||'').trim(); if(!n || n.toUpperCase()==='TEMPS NON AFFECTE'){ cibleK=k; break; } }
+    for(i=1;i<=NB_SLOTS;i++){ k=salIdT+safeT+'ch'+i; d=heures[k]; var n=String(d&&d.chantier||'').trim(); if(!n || n.toUpperCase()==='TEMPS NON AFFECTE'){ cibleK=k; break; } }
     if(!cibleK){ var b1=document.getElementById('ee-conflit'); b1.innerHTML='⛔ La journée de ce salarié est pleine (5 chantiers). Libère un créneau avant de déplacer.'; b1.style.display='block'; return; }
-    if(rdv){ for(i=1;i<=5;i++){ k=salIdT+safeT+'ch'+i; d=heures[k]; if(d && String(d.rdv||'').trim()===rdv){ conflits.push('🕐 '+((salT&&salT.prenom)||'Le salarié')+' a déjà un RDV à '+rdv+'.'); break; } } }
+    if(rdv){ for(i=1;i<=NB_SLOTS;i++){ k=salIdT+safeT+'ch'+i; d=heures[k]; if(d && String(d.rdv||'').trim()===rdv){ conflits.push('🕐 '+((salT&&salT.prenom)||'Le salarié')+' a déjà un RDV à '+rdv+'.'); break; } } }
     if(conflits.length && !force){
       var b2=document.getElementById('ee-conflit');
       b2.innerHTML=conflits.join('<br>')+'<div style="margin-top:8px;"><button onclick="validerEditionEquipe(true)" style="background:#dc2626;border:none;color:#fff;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;">Forcer le déplacement</button></div>';

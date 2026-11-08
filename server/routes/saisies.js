@@ -21,6 +21,7 @@ const router = express.Router();
    Renvoie { doc } ou { err: [code, message] }.
    ═══════════════════════════════════════════════════════════════ */
 const _U = s => String(s == null ? "" : s).trim().toUpperCase();
+const NB_SLOTS = 60;                                 // créneaux chantier par salarié et par jour — miroir de NB_SLOTS (planning.html)
 
 async function resoudreEntrepriseParCode(Donnees, codeEmploye) {
   const code = _U(codeEmploye);
@@ -278,7 +279,7 @@ router.post("/rdv", async (req, res) => {
     const safeDate = date.replace(/-/g, "_");
     const prefixe  = String(salarieId) + safeDate + "ch";
     let cle = null;
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= NB_SLOTS; i++) {
       const k = prefixe + i;
       const e = heures[k];
       if (e && (e.chantier || "").trim().toUpperCase() === chantier.toUpperCase()) { cle = k; break; }
@@ -288,7 +289,7 @@ router.post("/rdv", async (req, res) => {
     if (!cle) {
       if (!rdv && !creerChantier)
         return res.json({ ok: true, chantier, rdv: "", rdvAuteur: "", rdvDelai: "" });
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= NB_SLOTS; i++) {
         const k = prefixe + i;
         const e = heures[k];
         if (!e || !((e.chantier || "").trim())) {
@@ -298,7 +299,7 @@ router.post("/rdv", async (req, res) => {
           break;
         }
       }
-      if (!cle) return res.status(409).json({ ok: false, message: "Aucun créneau disponible (5 chantiers max ce jour)" });
+      if (!cle) return res.status(409).json({ ok: false, message: "Aucun créneau disponible (" + NB_SLOTS + " chantiers max ce jour)" });
     }
 
     const entry = heures[cle];
@@ -400,11 +401,11 @@ router.post("/planning-modifier", async (req, res) => {
     const heures = doc.heures || {};
     const safeS = dateS.replace(/-/g, "_");
     let cleS = null;
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= NB_SLOTS; i++) {
       const k = salIdS + safeS + "ch" + i, e = heures[k];
       if (e && String(e.chantier || "").trim() === nom) { cleS = k; break; }
     }
-    if (!cleS) for (let i = 1; i <= 5; i++) {      // repli insensible à la casse
+    if (!cleS) for (let i = 1; i <= NB_SLOTS; i++) {      // repli insensible à la casse
       const k = salIdS + safeS + "ch" + i, e = heures[k];
       if (e && _U(e.chantier) === _U(nom)) { cleS = k; break; }
     }
@@ -423,7 +424,7 @@ router.post("/planning-modifier", async (req, res) => {
     // Case libre (ou « TEMPS NON AFFECTE ») chez le salarié cible, ce jour-là
     const safeT = dateT.replace(/-/g, "_");
     let cleT = null;
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= NB_SLOTS; i++) {
       const k = salIdT + safeT + "ch" + i, e = heures[k];
       const n = String((e && e.chantier) || "").trim();
       if (!n || n.toUpperCase() === "TEMPS NON AFFECTE") { cleT = k; break; }
