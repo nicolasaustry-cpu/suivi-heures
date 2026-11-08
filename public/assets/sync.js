@@ -887,7 +887,7 @@ const SYNC = (() => {
     { label: 'Suivi', items: [
       { href: 'rapports.html', label: 'Rapports' },
       { href: 'notes.html',    label: 'Notes', plus: true },
-      { href: 'bons-intervention.html', label: "Bons d'intervention", requiert: 'bonsInterventionActifs', plus: true },
+      { href: 'bons-intervention.html', label: "Bons d'intervention", plus: true },   // toujours visible (Plus) ; activation sur la page Entreprise
       { href: 'suivi-entretiens.html', label: 'Suivi des entretiens', requiert: 'suiviEntretien' },
       { href: 'bev.html',      label: 'Éléments Pointage Paie' }
     ] },

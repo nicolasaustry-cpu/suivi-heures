@@ -248,6 +248,12 @@
     _apiFetch('/api/bons-intervention/pc', { method: 'GET' }).then(function (res) {
       var corps = document.getElementById('liste-bons');
       if (!(res.status >= 200 && res.status < 300) || !res.body.ok) {
+        if (res.body && res.body.inactif) {   // option non activée (ou licence Standard) : invitation, pas une erreur
+          corps.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#475569;">' +
+            '<div style="font-size:1.6rem;">📋</div><div style="margin:6px 0 10px;">' + esc(res.body.message || '') + '</div>' +
+            '<a href="index.html" class="btn-primary" style="text-decoration:none;display:inline-block;">Aller à la page Entreprise</a></td></tr>';
+          return;
+        }
         corps.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#dc2626;">' + esc(res.body.message || 'Erreur de chargement') + '</td></tr>';
         return;
       }
