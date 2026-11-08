@@ -60,6 +60,35 @@
     #plan-overlay .pm-f button { flex: 1; border: none; border-radius: 8px; padding: 10px; font-weight: 700; font-size: .86rem; cursor: pointer; }
     #plan-overlay .pm-ok { background: #f59e0b; color: #fff; }
     #plan-overlay .pm-an { background: #e2e8f0; color: #334155; }
+    /* ── Parc d'équipements ── */
+    .btn-equip { background:#ecfdf5; color:#047857; }
+    .btn-equip:hover { background:#d1fae5; }
+    #eq-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:flex-start; justify-content:center; z-index:10000; padding:30px 12px; overflow-y:auto; }
+    #eq-overlay.on { display:flex; }
+    #eq-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:720px; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #eq-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; display:flex; align-items:center; gap:10px; }
+    #eq-overlay .pm-h b { font-size:.95rem; }
+    #eq-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #eq-overlay .pm-b { padding:14px 16px; font-size:.86rem; color:#334155; }
+    #eq-overlay .pm-x { margin-left:auto; background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
+    .eq-carte { border:1px solid #e2e8f0; border-left:4px solid #047857; border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+    .eq-carte .eq-titre { font-weight:700; color:#0f172a; }
+    .eq-carte .eq-det { font-size:.8rem; color:#475569; margin-top:3px; line-height:1.5; }
+    .eq-carte .eq-der { font-size:.8rem; margin-top:5px; color:#047857; font-weight:600; }
+    .eq-carte .eq-der.vide { color:#94a3b8; font-weight:400; }
+    .eq-carte .eq-act { float:right; display:flex; gap:4px; }
+    .eq-vide { color:#64748b; font-style:italic; padding:6px 0 12px; }
+    .eq-form { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-top:6px; }
+    .eq-form .eq-grille { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; }
+    .eq-form label { display:block; font-size:.74rem; font-weight:600; color:#475569; margin-bottom:3px; }
+    .eq-form input, .eq-form textarea { width:100%; box-sizing:border-box; padding:7px 9px; border:1px solid #cbd5e1; border-radius:7px; font-size:.86rem; font-family:inherit; }
+    .eq-form .eq-large { grid-column:1 / -1; }
+    .eq-form .eq-bts { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+    .eq-form .eq-bts button, .eq-ajout { border:none; border-radius:8px; padding:8px 14px; font-weight:700; font-size:.84rem; cursor:pointer; }
+    .eq-ok { background:#f59e0b; color:#fff; }
+    .eq-an { background:#e2e8f0; color:#334155; }
+    .eq-ajout { background:#0f3a8a; color:#fff; }
+    @media (max-width:560px) { .eq-form .eq-grille { grid-template-columns:1fr; } }
     .badge-src { display:inline-block; font-size:.68rem; font-weight:700; border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:1px; white-space:nowrap; }
     .b-henrri  { background:#e0f2fe; color:#075985; }
     .b-planning{ background:#fef3c7; color:#92400e; }
@@ -93,10 +122,31 @@
     @media (max-width:640px){ .dbl-paire{ grid-template-columns:1fr; } .clients-toolbar input[type="text"]{ width:100%; } }
     #btn-import-clients { background:#16a34a; color:#fff; border:none; border-radius:6px; padding:7px 16px; font-size:0.85rem; font-weight:700; cursor:pointer; }
     #btn-import-clients:hover { background:#15803d; }
+    #btn-import-organilog { background:#0f3a8a; color:#fff; border:none; border-radius:6px; padding:7px 16px; font-size:0.85rem; font-weight:700; cursor:pointer; }
+    #btn-import-organilog:hover { background:#0b2d6b; }
     .b-import { background:#ede9fe; color:#5b21b6; }
     .b-mobile { background:#dbeafe; color:#1e40af; cursor:help; }
     #imp-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; }
     #imp-overlay.on { display:flex; }
+    #og-overlay { position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.5); display:none; align-items:flex-start; justify-content:center; padding:30px 16px; overflow-y:auto; }
+    #og-overlay.on { display:flex; }
+    #og-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:820px; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
+    #og-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; display:flex; align-items:center; }
+    #og-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
+    #og-overlay .pm-x { margin-left:auto; background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer; }
+    #og-overlay .pm-b { padding:14px 16px; font-size:.86rem; color:#334155; }
+    .og-depot { border:2px dashed #94a3b8; border-radius:12px; padding:26px; text-align:center; cursor:pointer; background:#f8fafc; }
+    .og-depot.survol { background:#eff6ff; border-color:#0f3a8a; }
+    .og-bilan { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin:10px 0; }
+    .og-bilan div { background:#f1f5f9; border-radius:8px; padding:8px 10px; }
+    .og-bilan b { display:block; font-size:1.3rem; color:#0f3a8a; }
+    .og-table { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:6px; }
+    .og-table th, .og-table td { border-bottom:1px solid #e2e8f0; padding:4px 6px; text-align:left; vertical-align:top; }
+    .og-table th { background:#f8fafc; color:#475569; }
+    .og-bts { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap; }
+    .og-bts button { border:none; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; }
+    .og-ok { background:#f59e0b; color:#fff; } .og-an { background:#e2e8f0; color:#334155; }
+    .og-note { font-size:.8rem; color:#64748b; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px 10px; margin-top:8px; }
     #imp-overlay .pm { background:#fff; border-radius:14px; width:100%; max-width:860px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 14px 48px rgba(0,0,0,.35); }
     #imp-overlay .pm-h { background:#0f3a8a; color:#fff; padding:12px 16px; border-bottom:3px solid #f59e0b; }
     #imp-overlay .pm-sub { font-size:.78rem; color:#bfdbfe; margin-top:2px; }
@@ -191,6 +241,7 @@
   <div class="clients-toolbar">
     <button type="button" id="btn-sync-clients" onclick="synchroniserClientsHenrri()" style="display:none;">🔄 Actualiser depuis Henrri</button>
     <button type="button" id="btn-import-clients" onclick="ouvrirImport()" title="Importer une liste de clients depuis un fichier Excel ou CSV">📥 Importer un fichier</button>
+    <button type="button" id="btn-import-organilog" style="display:none;" onclick="ouvrirOrganilog()" title="Reprendre les clients et équipements exportés d'Organilog">📥 Import Organilog</button>
     <input type="text" id="recherche-client" placeholder="🔍 Rechercher un client…" oninput="filtrerClients()">
     <select id="filtre-source" onchange="filtrerClients()">
       <option value="">Tous les clients</option>
@@ -225,6 +276,41 @@
   </div>
 </section>
 
+<!-- Fenêtre « Parc d'équipements » d'un client (module Bons d'intervention) -->
+<div id="eq-overlay" onclick="if(event.target===this)fermerEquipements()">
+  <div class="pm">
+    <div class="pm-h"><div><b>🔧 Parc d'équipements</b><div class="pm-sub" id="eq-client"></div></div>
+      <button type="button" class="pm-x" onclick="fermerEquipements()" title="Fermer">✕</button></div>
+    <div class="pm-b">
+      <div id="eq-liste"></div>
+      <button type="button" class="eq-ajout" id="eq-btn-ajout" onclick="editerEquipement(null)">＋ Ajouter un équipement</button>
+      <div class="eq-form" id="eq-form" style="display:none;">
+        <div class="eq-grille">
+          <div class="eq-large"><label for="eq-type">Type d'équipement</label>
+            <input id="eq-type" list="eq-types" placeholder="Ex : Pompe à Chaleur Air Eau">
+            <datalist id="eq-types">
+              <option value="Pompe à Chaleur Air Eau"><option value="Pompe à Chaleur Air Air"><option value="Climatisation">
+              <option value="Chaudière gaz"><option value="Chaudière fioul"><option value="Poêle à granulés">
+              <option value="Chaudière granulés"><option value="Ballon thermodynamique"><option value="Chauffe-eau"><option value="VMC">
+            </datalist></div>
+          <div><label for="eq-marque">Marque</label><input id="eq-marque" placeholder="Ex : Hitachi"></div>
+          <div><label for="eq-modele">Modèle / référence</label><input id="eq-modele" placeholder="Ex : RAS-5WHNPE"></div>
+          <div><label for="eq-serie">N° de série</label><input id="eq-serie"></div>
+          <div><label for="eq-emplacement">Emplacement</label><input id="eq-emplacement" placeholder="Ex : Garage, façade nord…"></div>
+          <div><label for="eq-mes">Mise en service</label><input id="eq-mes" type="date"></div>
+          <div><label for="eq-fluide">Fluide frigorigène</label><input id="eq-fluide" placeholder="Ex : R32"></div>
+          <div><label for="eq-charge">Charge (kg)</label><input id="eq-charge" inputmode="decimal" placeholder="Ex : 1,4"></div>
+          <div class="eq-large"><label for="eq-notes">Notes</label><textarea id="eq-notes" rows="2"></textarea></div>
+        </div>
+        <div class="eq-bts">
+          <button type="button" class="eq-an" onclick="annulerEquipement()">Annuler</button>
+          <button type="button" class="eq-ok" id="eq-btn-ok" onclick="enregistrerEquipement()">💾 Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Fenêtre « Planifier une intervention » -->
 <div id="plan-overlay" onclick="if(event.target===this)fermerPlanifier()">
   <div class="pm">
@@ -242,6 +328,15 @@
 </div>
 
 <!-- Fenêtre « Importer un fichier clients » -->
+<!-- Fenêtre « Import Organilog » -->
+<div id="og-overlay" onclick="if(event.target===this)fermerOrganilog()">
+  <div class="pm">
+    <div class="pm-h"><div><b>📥 Import depuis Organilog</b><div class="pm-sub">Clients, adresses et équipements (installations)</div></div>
+      <button type="button" class="pm-x" onclick="fermerOrganilog()" title="Fermer">✕</button></div>
+    <div class="pm-b" id="og-corps"></div>
+  </div>
+</div>
+
 <div id="imp-overlay" onclick="if(event.target===this)fermerImport()">
   <div class="pm">
     <div class="pm-h"><b>📥 Importer des clients (Excel ou CSV)</b>
@@ -540,6 +635,8 @@ function rendreClients(liste) {
     // la fenêtre est pré-remplie avec ses coordonnées Henrri.
     const completer = (window.Coord && Coord.ouvrir && (nb || c.source !== 'planning'))
       ? `<button type="button" class="btn-mini" onclick="completerFiche(${i})" title="${c.source === 'planning' ? "Renseigner l'adresse et les téléphones" : 'Voir / corriger la fiche (pré-remplie depuis Henrri)'}">📍 ${c.incomplet ? 'Compléter' : 'Fiche'}</button>` : '';
+    const nbEq = _bonsActifs() ? _equipementsDe(c).length : -1;
+    const equip = nbEq < 0 ? '' : `<button type="button" class="btn-mini btn-equip" onclick="ouvrirEquipements(${i})" title="Parc d'équipements du client">🔧 ${nbEq ? nbEq + ' équip.' : 'Équip.'}</button>`;
     const coche = _selection.has(c.k);
     const msq = c.masque ? '<span class="badge-src b-masque">supprimé</span>' : '';
     const actionFin = c.masque
@@ -552,8 +649,8 @@ function rendreClients(liste) {
       <td>${_clEsc(c.ville)}</td>
       <td>${_clEsc(c.telephone)}</td>
       <td>${_clEsc(c.email)}</td>
-      <td>${_isoFr(c.derniere)}</td>
-      <td style="white-space:nowrap;">${c.masque ? '' : `<button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}`}${actionFin}</td>
+      <td>${_isoFr(_derniereClient(c))}</td>
+      <td style="white-space:nowrap;">${c.masque ? '' : `<button type="button" class="btn-planifier" onclick="ouvrirPlanifier(${i})" title="Programmer une intervention chez ce client">📅 Planifier</button>${completer}${equip}`}${actionFin}</td>
     </tr>`;
   }).join('');
 }
@@ -802,6 +899,389 @@ async function chargerChantiersMobile() {
 }
 
 /* ── Chargement / actualisation Henrri (facultatif) ── */
+/* ═══════════════════════════════════════════════════════════════
+   PARC D'ÉQUIPEMENTS (module Bons d'intervention)
+   Chaque client peut avoir ses équipements (PAC, chaudière…). La date de
+   dernière intervention est calculée par le serveur à partir des bons
+   d'intervention rattachés à l'équipement. Visible seulement si les bons
+   d'intervention sont activés (page Entreprise).
+   ═══════════════════════════════════════════════════════════════ */
+let _equipements = [];          // tous les équipements du compte
+let _eqClient = null;           // client dont la fenêtre est ouverte
+let _eqEdition = null;          // id de l'équipement modifié, ou null (ajout)
+
+function _bonsActifs() {
+  try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').bonsInterventionActifs; } catch (_) { return false; }
+}
+/* Dernière intervention affichée : planning, ou bon d'intervention sur un équipement si plus récent. */
+function _derniereClient(c) {
+  let d = c.derniere || '';
+  if (_equipements.length) _equipementsDe(c).forEach(e => { if ((e.derniereIntervention || '') > d) d = e.derniereIntervention; });
+  return d;
+}
+function _equipementsDe(c) { const k = _cle(c.nom); return _equipements.filter(e => e.clientCle === k); }
+
+async function chargerEquipements() {
+  if (!_bonsActifs()) { _equipements = []; return; }
+  try {
+    const r = await fetch('/api/equipements', { headers: { 'Authorization': 'Bearer ' + _clToken() } });
+    const d = await r.json();
+    _equipements = d.ok ? (d.equipements || []) : [];
+  } catch (_) { _equipements = []; }
+  filtrerClients();
+}
+
+function ouvrirEquipements(i) {
+  const c = _clients[i]; if (!c) return;
+  _eqClient = c;
+  document.getElementById('eq-client').textContent = c.nom;
+  annulerEquipement();
+  rendreEquipements();
+  document.getElementById('eq-overlay').classList.add('on');
+}
+function fermerEquipements() { document.getElementById('eq-overlay').classList.remove('on'); _eqClient = null; }
+
+function rendreEquipements() {
+  const liste = _eqClient ? _equipementsDe(_eqClient) : [];
+  const zone = document.getElementById('eq-liste');
+  if (!liste.length) { zone.innerHTML = '<div class="eq-vide">Aucun équipement enregistré pour ce client.</div>'; return; }
+  zone.innerHTML = liste.map(e => {
+    const titre = [e.type, e.marque].filter(Boolean).join(' · ') || 'Équipement';
+    const det = [
+      e.modele ? 'Modèle : ' + _clEsc(e.modele) : '',
+      e.numeroSerie ? 'N° de série : ' + _clEsc(e.numeroSerie) : '',
+      e.emplacement ? 'Emplacement : ' + _clEsc(e.emplacement) : '',
+      e.miseEnService ? 'Mise en service : ' + _isoFr(e.miseEnService) : '',
+      e.fluide ? 'Fluide : ' + _clEsc(e.fluide) + (e.chargeKg != null ? ' — ' + String(e.chargeKg).replace('.', ',') + ' kg' : '') : '',
+      e.notes ? '📝 ' + _clEsc(e.notes) : ''
+    ].filter(Boolean).join('<br>');
+    const lien = 'bons-intervention.html?equipement=' + encodeURIComponent(e._id);
+    const der = e.derniereIntervention
+      ? `<div class="eq-der">🕓 Dernière intervention : ${_isoFr(e.derniereIntervention)} · <a href="${lien}">${e.nbBons} bon${e.nbBons > 1 ? 's' : ''} d'intervention</a></div>`
+      : '<div class="eq-der vide">Aucune intervention enregistrée sur cet équipement</div>';
+    return `<div class="eq-carte">
+      <div class="eq-act">
+        <button type="button" class="btn-mini" onclick="editerEquipement(${_jsArg(e._id)})" title="Modifier">✏️</button>
+        <button type="button" class="btn-mini" onclick="supprimerEquipement(${_jsArg(e._id)})" title="Supprimer">🗑</button>
+      </div>
+      <div class="eq-titre">${_clEsc(titre)}</div>
+      ${det ? `<div class="eq-det">${det}</div>` : ''}${der}
+    </div>`;
+  }).join('');
+}
+
+const _EQ_CHAMPS = { type: 'eq-type', marque: 'eq-marque', modele: 'eq-modele', numeroSerie: 'eq-serie',
+  emplacement: 'eq-emplacement', miseEnService: 'eq-mes', fluide: 'eq-fluide', chargeKg: 'eq-charge', notes: 'eq-notes' };
+
+function editerEquipement(id) {
+  const e = id ? _equipements.find(x => x._id === id) : null;
+  _eqEdition = e ? e._id : null;
+  Object.keys(_EQ_CHAMPS).forEach(k => {
+    let v = e ? e[k] : '';
+    if (k === 'chargeKg') v = (e && e.chargeKg != null) ? String(e.chargeKg).replace('.', ',') : '';
+    document.getElementById(_EQ_CHAMPS[k]).value = v == null ? '' : v;
+  });
+  document.getElementById('eq-form').style.display = '';
+  document.getElementById('eq-btn-ajout').style.display = 'none';
+  document.getElementById('eq-type').focus();
+}
+function annulerEquipement() {
+  _eqEdition = null;
+  document.getElementById('eq-form').style.display = 'none';
+  document.getElementById('eq-btn-ajout').style.display = '';
+}
+
+async function enregistrerEquipement() {
+  if (!_eqClient) return;
+  const corps = { clientNom: _eqClient.nom };
+  Object.keys(_EQ_CHAMPS).forEach(k => { corps[k] = document.getElementById(_EQ_CHAMPS[k]).value.trim(); });
+  if (!corps.type && !corps.marque && !corps.modele && !corps.numeroSerie) {
+    alert('Renseignez au moins le type, la marque, le modèle ou le n° de série.'); return;
+  }
+  const btn = document.getElementById('eq-btn-ok'); btn.disabled = true;
+  try {
+    const r = await fetch('/api/equipements' + (_eqEdition ? '/' + _eqEdition : ''), {
+      method: _eqEdition ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _clToken() },
+      body: JSON.stringify(corps)
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Enregistrement impossible'); return; }
+    const i = _equipements.findIndex(x => x._id === d.equipement._id);
+    if (i >= 0) _equipements[i] = d.equipement; else _equipements.push(d.equipement);
+    annulerEquipement(); rendreEquipements(); filtrerClients();
+  } catch (_) { alert('Erreur réseau : équipement non enregistré.'); }
+  finally { btn.disabled = false; }
+}
+
+async function supprimerEquipement(id) {
+  const e = _equipements.find(x => x._id === id); if (!e) return;
+  const nom = [e.type, e.marque, e.modele].filter(Boolean).join(' ');
+  if (!confirm('Supprimer l\'équipement « ' + nom + ' » ?\nLes bons d\'intervention déjà établis restent intacts.')) return;
+  try {
+    const r = await fetch('/api/equipements/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + _clToken() } });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Suppression impossible'); return; }
+    _equipements = _equipements.filter(x => x._id !== id);
+    rendreEquipements(); filtrerClients();
+  } catch (_) { alert('Erreur réseau.'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IMPORT ORGANILOG
+   Lit les exports CSV / Excel d'Organilog (tickets, interventions, clients,
+   adresses, installations…) et en extrait :
+   • les CLIENTS avec leur adresse et leurs téléphones → fiches coordonnées ;
+   • les ÉQUIPEMENTS (installations), si le fichier en contient → parc client.
+   Le type de fichier est reconnu d'après ses titres de colonnes.
+   ═══════════════════════════════════════════════════════════════ */
+let _og = null;   // { clients:[{nom,coordonnees,ogId}], equipements:[…], lignes, type, ignores }
+
+function ouvrirOrganilog() { _ogDepot(''); document.getElementById('og-overlay').classList.add('on'); }
+function fermerOrganilog() { document.getElementById('og-overlay').classList.remove('on'); _og = null; }
+
+function _ogDepot(erreur) {
+  document.getElementById('og-corps').innerHTML =
+    (erreur ? '<div class="og-note" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;">⚠ ' + _clEsc(erreur) + '</div>' : '') +
+    '<p>Dans Organilog, exportez la liste voulue au format <b>CSV</b> ou <b>Excel</b>, puis déposez le fichier ici. Ordre conseillé :</p>' +
+    '<ol style="margin:0 0 10px 18px;padding:0;line-height:1.55;">' +
+      '<li><b>Installations</b> (menu Installations → Exporter) : le fichier le plus complet. Il crée vos <b>clients</b> avec adresse et e-mail, et leur <b>parc d’équipements</b> : marque, référence et n° de série, <b>fluide et charge</b> (lus dans la référence, ex. « R410A 3.4kg »), type déduit du libellé (« Pac », « Clim »…). Il ne contient pas les téléphones.</li>' +
+      '<li><b>Clients</b> : pour ajouter les <b>téléphones</b>. Cochez alors « Mettre à jour les fiches déjà existantes ».</li>' +
+      '<li><b>Tickets</b> ou <b>Interventions</b> (facultatif) : seuls les clients qui y figurent sont repris, pas les tickets eux-mêmes.</li>' +
+    '</ol>' +
+    '<div class="og-note" style="margin:0 0 10px;">Réimporter un fichier ne crée pas de doublon : un client déjà présent est conservé (ou mis à jour si vous cochez la case), une installation déjà importée est reconnue par son n° Organilog.</div>' +
+    '<label class="og-depot" id="og-zone">📂 Cliquez ou déposez un fichier Organilog<input type="file" accept=".csv,.txt,.xlsx,.xls" style="display:none" onchange="if(this.files[0])_ogLire(this.files[0])"></label>';
+  const z = document.getElementById('og-zone');
+  ['dragenter', 'dragover'].forEach(t => z.addEventListener(t, e => { e.preventDefault(); z.classList.add('survol'); }));
+  ['dragleave', 'drop'].forEach(t => z.addEventListener(t, e => { e.preventDefault(); z.classList.remove('survol'); }));
+  z.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) _ogLire(f); });
+}
+
+async function _ogLire(f) {
+  document.getElementById('og-corps').innerHTML = '<p>Lecture de « ' + _clEsc(f.name) + ' »…</p>';
+  try {
+    const buf = await f.arrayBuffer();
+    let t = /\.(xlsx|xls|xlsm|ods)$/i.test(f.name) ? await _impLireExcel(buf) : _impLireCsv(_impDecoder(buf));
+    t = (t || []).map(r => (r || []).map(v => String(v == null ? '' : v).trim())).filter(r => r.some(v => v));
+    if (t.length < 2) throw new Error('Le fichier est vide.');
+    _og = _ogAnalyser(t, f.name);
+    _ogApercu();
+  } catch (e) { _ogDepot(e.message || String(e)); }
+}
+
+/* Colonne par titre (titres comparés sans accents ni ponctuation). Quand plusieurs
+   colonnes portent le même titre (ex. « Marque » vide et « Marque : » remplie),
+   on garde celle qui contient le plus de valeurs. */
+function _ogColonnes(entetes, lignes) {
+  const n = entetes.map(e => _norm(e));
+  const remplies = i => lignes.reduce((k, r) => k + (String(r[i] || '').trim() ? 1 : 0), 0);
+  const col = (...noms) => {
+    for (const m of noms) {
+      const cand = n.map((t, i) => (t === _norm(m) ? i : -1)).filter(i => i >= 0);
+      if (cand.length) return cand.sort((a, b) => remplies(b) - remplies(a))[0];
+    }
+    return -1;
+  };
+  const installations = col('Marque', 'Marque :') >= 0 && col('Nom du client') >= 0;
+  return {
+    installations,
+    cliId:   col('(Client) N°', 'N° Client', 'N° client', 'Client N°'),
+    // Export « Installations » : « Libellé principal » est le nom de l'installation, le client est « Nom du client »
+    cliNom:  installations ? col('Nom du client', '(Client) Libellé principal') : col('(Client) Libellé principal', 'Libellé principal', 'Nom du client', 'Client'),
+    cliSoc:  col('(Client) Nom de la société', 'Nom de la société', 'Société'),
+    cliPre:  col('(Client) Prénom du contact', 'Prénom du contact', 'Prénom'),
+    cliNomC: col('(Client) Nom du contact', 'Nom du contact'),
+    email:   col('(Client) Email', 'Email', 'E-mail', '(Adresse) Email', 'Email du demandeur'),
+    fixe:    col('(Client) Téléphone fixe', 'Téléphone fixe'),
+    mobile:  col('(Client) Téléphone mobile', 'Téléphone mobile', 'Portable'),
+    pro:     col('(Client) Téléphone pro', 'Téléphone pro', 'Téléphone', 'Téléphone du demandeur'),
+    rue:     col('(Adresse) Rue', 'Rue'),
+    cp:      col('(Adresse) Code postal', 'Code postal', 'CP'),
+    ville:   col('(Adresse) Ville', 'Ville'),
+    adrCompl:col('Adresse'),                          // « rue, CP, ville » en une colonne (tickets)
+    actif:   col('(Client) Actif', 'Actif'),
+    // Installation / équipement
+    eqId:    installations ? col('N°') : -1,
+    eqLib:   installations ? col('Libellé principal') : -1,
+    eqType:  col('Catégorie', 'Type d\'équipement', 'Type d\'installation'),
+    eqMarque:col('Marque', 'Marque :'),
+    eqModele:col('Référence', 'Référence :', 'Modèle', 'Identification commerciale'),
+    eqSerie: col('N° de série', 'Numéro de série', 'N° série'),
+    eqFluide:col('Nature du fluide R-', 'Nature du fluide', 'Fluide'),
+    eqCharge:col('Charge totale (kg)', 'Charge totale', 'Charge (kg)', 'Charge'),
+    eqMes:   col('Date d\'installation', 'Date de mise en service', 'Mise en service'),
+    eqEmpl:  col('Localisation', 'Emplacement'),
+    eqDetect:col('Présence d\'un système de détection des fuites'),
+    titre:   col('Titre'), statut: col('Statut')
+  };
+}
+
+function _ogType(c, nom) {
+  if (c.installations) return 'installations';
+  if (c.titre >= 0 && c.statut >= 0) return /interv/i.test(nom) ? 'interventions' : 'tickets';
+  return 'clients';
+}
+
+function _ogDate(v) {
+  const s = String(v || '').trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m && m[1] !== '0000') return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(s); if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return '';
+}
+
+/* Type d'équipement déduit du libellé Organilog (« RICHARD - Pac Atlantic »). */
+function _ogTypeEquip(texte) {
+  const t = _norm(texte);
+  const a = re => re.test(t);
+  if (a(/\bPISCINE\b/)) return 'Pompe à chaleur piscine';
+  if (a(/\bCET\b|CHAUFFE ?EAU|BALLON|THERMODYNAMIQUE|\bTHERMO\b/)) return 'Ballon thermodynamique';
+  if (a(/\bPAC\b|POMPE A CHALEUR/)) return 'Pompe à chaleur';
+  if (a(/GAINABLE/)) return 'Climatisation gainable';
+  if (a(/ROOF ?TOP/)) return 'Rooftop';
+  if (a(/\bCTA\b/)) return 'Centrale de traitement d\'air';
+  if (a(/CHAMBRE FROIDE|FROID|VITRINE|MEUBLE FRIGO/)) return 'Froid commercial';
+  if (a(/\bVMC\b/)) return 'VMC';
+  if (a(/CHAUDIERE/)) return 'Chaudière';
+  if (a(/CLIM|SPLIT|MULTI ?SPLIT|CASSETTE|CONSOLE/)) return 'Climatisation';
+  return '';
+}
+
+/* Fluide et charge écrits dans la référence : « … (R410A 3.4kg / 7.09TCo2) ». */
+function _ogFluideRef(ref) {
+  const m = /\(\s*(R-?\s?[0-9]{2,4}[A-Za-z]{0,2})\s*([\d]+(?:[.,]\d+)?)?\s*(?:kg)?[^)]*\)/i.exec(ref || '');
+  if (!m) return null;
+  return { fluide: m[1].toUpperCase().replace(/^R-?\s?/, 'R'), charge: m[2] ? m[2].replace(',', '.') : '', bloc: m[0] };
+}
+
+function _ogAnalyser(t, nomFichier) {
+  // Ligne de titres : la première qui contient « Libellé principal », « Nom du client » ou une colonne « (Client) »
+  let iT = t.findIndex(r => r.some(v => /libell[ée] principal|^\(client\)|^nom du client$|^client$/i.test(v)));
+  if (iT < 0) iT = 0;
+  const lignes = t.slice(iT + 1);
+  const c = _ogColonnes(t[iT], lignes);
+  if (c.cliNom < 0 && c.cliSoc < 0 && c.cliNomC < 0) throw new Error('Colonnes client introuvables : ce fichier ne ressemble pas à un export Organilog.');
+  const type = _ogType(c, nomFichier);
+  const v = (r, i) => (i >= 0 ? String(r[i] || '').trim() : '');
+  const clients = new Map(), equipements = [];
+  let sansClient = 0;
+  lignes.forEach(r => {
+    const pre = v(r, c.cliPre), nc = v(r, c.cliNomC);
+    let nom = v(r, c.cliNom) || v(r, c.cliSoc) || [pre, nc].filter(Boolean).join(' ');
+    nom = nom.replace(/\s+/g, ' ').trim();
+    if (!nom) { sansClient++; return; }
+    const cle = _norm(nom);
+    // Adresse : colonnes séparées, sinon colonne « rue, CP, ville »
+    let rue = v(r, c.rue), cp = v(r, c.cp), ville = v(r, c.ville);
+    if (!rue && !ville && c.adrCompl >= 0 && c.adrCompl !== c.rue) {
+      const p = v(r, c.adrCompl).split(',').map(x => x.trim());
+      if (p.length >= 3) { ville = p.pop(); cp = p.pop(); rue = p.join(', '); }
+    }
+    if (/^\d{4}$/.test(cp)) cp = '0' + cp;
+    const coord = {
+      adresse: rue, ville: [cp, ville].filter(Boolean).join(' '),
+      mobile: _impTel(v(r, c.mobile)), fixe: _impTel(v(r, c.fixe) || v(r, c.pro)), email: v(r, c.email)
+    };
+    // Portable saisi dans la colonne « fixe » d'Organilog : remis en mobile
+    if (!coord.mobile && /^0[67]/.test(coord.fixe.replace(/\D/g, ''))) { coord.mobile = coord.fixe; coord.fixe = ''; }
+    const ex = clients.get(cle);
+    if (!ex) clients.set(cle, { nom, coordonnees: coord, ogId: v(r, c.cliId), inactif: /^non$/i.test(v(r, c.actif)) });
+    else Object.keys(coord).forEach(k => { if (!ex.coordonnees[k] && coord[k]) ex.coordonnees[k] = coord[k]; });
+
+    if (type === 'installations') {
+      const lib = v(r, c.eqLib);
+      let marque = v(r, c.eqMarque), modele = v(r, c.eqModele);
+      // Ancien format « Hitachi : RAS-5WHNPE (SN) » quand marque / référence sont vides
+      if (!marque && !modele && lib.includes(':')) { const p = lib.split(':').map(x => x.trim()); marque = p[0]; modele = p.slice(1).join(' : '); }
+      // Fluide et charge : colonnes dédiées, sinon lus dans la référence
+      let fluide = v(r, c.eqFluide), charge = v(r, c.eqCharge).replace(',', '.');
+      if (charge === '0') charge = '';
+      const fr = _ogFluideRef(modele);
+      if (fr) {
+        if (!fluide) fluide = fr.fluide;
+        if (!charge && fr.charge) charge = fr.charge;
+        modele = modele.replace(fr.bloc, '').replace(/\s+/g, ' ').trim();   // la référence garde modèle et n° de série
+      }
+      if (fluide && !/^R/i.test(fluide)) fluide = 'R' + fluide;
+      const e = {
+        clientNom: nom,
+        type: v(r, c.eqType) || _ogTypeEquip(lib + ' ' + modele),
+        marque, modele, numeroSerie: v(r, c.eqSerie),
+        emplacement: v(r, c.eqEmpl), miseEnService: _ogDate(v(r, c.eqMes)),
+        fluide, chargeKg: charge,
+        notes: lib ? 'Organilog : ' + lib : '',
+        refExterne: v(r, c.eqId) ? 'organilog:' + v(r, c.eqId) : ''
+      };
+      if (!e.type && !e.marque && !e.modele && !e.numeroSerie) return;
+      equipements.push(e);
+    }
+  });
+  return { type, clients: [...clients.values()], equipements, lignes: lignes.length, sansClient };
+}
+
+function _ogApercu() {
+  const o = _og;
+  const libType = { tickets: 'Tickets', interventions: 'Interventions', installations: 'Installations (équipements)', clients: 'Clients / adresses' }[o.type];
+  const existants = new Set(Object.keys(_lire('coordonneesChantiersdata', {})).map(k => _norm(k)));
+  const nouveaux = o.clients.filter(c => !existants.has(_norm(c.nom))).length;
+  const eqPossible = o.equipements.length && _bonsActifs();
+  const ex = o.clients.slice(0, 8).map(c => `<tr><td><b>${_clEsc(c.nom)}</b>${c.inactif ? ' <span style="color:#94a3b8">(inactif)</span>' : ''}</td><td>${_clEsc(c.coordonnees.adresse)}<br>${_clEsc(c.coordonnees.ville)}</td><td>${_clEsc(c.coordonnees.mobile || c.coordonnees.fixe)}</td><td>${_clEsc(c.coordonnees.email)}</td></tr>`).join('');
+  document.getElementById('og-corps').innerHTML =
+    `<div>Fichier reconnu : <b>export Organilog — ${libType}</b> (${o.lignes} ligne${o.lignes > 1 ? 's' : ''})</div>
+     <div class="og-bilan">
+       <div><b>${o.clients.length}</b>client${o.clients.length > 1 ? 's' : ''} trouvé${o.clients.length > 1 ? 's' : ''}</div>
+       <div><b>${nouveaux}</b>nouveau${nouveaux > 1 ? 'x' : ''} dans Suiv'Heures</div>
+       ${o.equipements.length ? `<div><b>${o.equipements.length}</b>équipement${o.equipements.length > 1 ? 's' : ''}</div>` : ''}
+       ${o.sansClient ? `<div><b>${o.sansClient}</b>ligne${o.sansClient > 1 ? 's' : ''} sans client (ignorée${o.sansClient > 1 ? 's' : ''})</div>` : ''}
+     </div>
+     <table class="og-table"><tr><th>Client</th><th>Adresse</th><th>Téléphone</th><th>Email</th></tr>${ex}</table>
+     ${o.clients.length > 8 ? `<div style="color:#64748b;font-size:.78rem;margin-top:4px;">… et ${o.clients.length - 8} autre(s)</div>` : ''}
+     <label style="display:flex;gap:6px;align-items:center;margin-top:10px;"><input type="checkbox" id="og-ecraser"> Mettre à jour les fiches déjà existantes avec les coordonnées Organilog</label>
+     ${o.equipements.length && !eqPossible ? '<div class="og-note">Les équipements ne sont importés que si les bons d’intervention sont activés (page Entreprise).</div>' : ''}
+     ${(o.type === 'tickets' || o.type === 'interventions') ? `<div class="og-note">Seuls les <b>clients</b> de ce fichier sont importés. Les ${o.type} eux-mêmes (titres, statuts, comptes rendus) ne sont pas repris.</div>` : ''}
+     <div class="og-bts"><button type="button" class="og-an" onclick="_ogDepot('')">Autre fichier</button>
+       <button type="button" class="og-ok" id="og-btn" onclick="_ogImporter()">📥 Importer ${o.clients.length} client${o.clients.length > 1 ? 's' : ''}${eqPossible ? ' et ' + o.equipements.length + ' équipement' + (o.equipements.length > 1 ? 's' : '') : ''}</button></div>`;
+}
+
+async function _ogImporter() {
+  const o = _og; if (!o) return;
+  const btn = document.getElementById('og-btn'); btn.disabled = true; btn.textContent = 'Import…';
+  const ecraser = document.getElementById('og-ecraser').checked;
+  const h = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _clToken() };
+  try {
+    let rc = null, re = null;
+    // Clients : seules les fiches avec au moins une coordonnée sont créées
+    const lignes = o.clients.map(c => ({ nom: c.nom, coordonnees: c.coordonnees }));
+    for (let i = 0; i < lignes.length; i += 2000) {
+      const r = await fetch('/api/data/coordonnees-chantiers-import', { method: 'POST', headers: h, body: JSON.stringify({ lignes: lignes.slice(i, i + 2000), ecraser }) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'Import des clients impossible');
+      rc = rc ? { crees: rc.crees + d.rapport.crees, misAJour: rc.misAJour + d.rapport.misAJour, ignores: rc.ignores + d.rapport.ignores, invalides: rc.invalides + d.rapport.invalides } : d.rapport;
+      if (d.coordonnees) localStorage.setItem('coordonneesChantiersdata', JSON.stringify(d.coordonnees));
+    }
+    if (o.equipements.length && _bonsActifs()) {
+      const r = await fetch('/api/equipements/import', { method: 'POST', headers: h, body: JSON.stringify({ equipements: o.equipements }) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || 'Import des équipements impossible');
+      re = d.rapport;
+    }
+    document.getElementById('og-corps').innerHTML =
+      `<p style="font-size:1rem;"><b>✔ Import terminé</b></p>
+       <div class="og-bilan">
+         <div><b>${rc.crees}</b>client${rc.crees > 1 ? 's' : ''} créé${rc.crees > 1 ? 's' : ''}</div>
+         <div><b>${rc.misAJour}</b>fiche${rc.misAJour > 1 ? 's' : ''} mise${rc.misAJour > 1 ? 's' : ''} à jour</div>
+         <div><b>${rc.ignores}</b>déjà présente${rc.ignores > 1 ? 's' : ''} (inchangée${rc.ignores > 1 ? 's' : ''})</div>
+         ${rc.invalides ? `<div><b>${rc.invalides}</b>sans coordonnées (non créée${rc.invalides > 1 ? 's' : ''})</div>` : ''}
+         ${re ? `<div><b>${re.crees}</b>équipement${re.crees > 1 ? 's' : ''} ajouté${re.crees > 1 ? 's' : ''}</div><div><b>${re.ignores}</b>équipement${re.ignores > 1 ? 's' : ''} déjà connu${re.ignores > 1 ? 's' : ''}</div>` : ''}
+       </div>
+       <div class="og-bts"><button type="button" class="og-an" onclick="_ogDepot('')">Importer un autre fichier</button><button type="button" class="og-ok" onclick="fermerOrganilog()">Fermer</button></div>`;
+    construireBase(); filtrerClients();
+    if (re) chargerEquipements();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Réessayer';
+    alert(e.message || 'Erreur pendant l’import');
+  }
+}
+
 async function chargerClients() {
   const token = _clToken();
   if (token) {
@@ -825,6 +1305,11 @@ async function chargerClients() {
   construireBase();
   filtrerClients();
   chargerChantiersMobile();   // en tâche de fond : la liste se complète à l'arrivée
+  chargerEquipements();       // parc d'équipements (si les bons d'intervention sont activés)
+  // Import Organilog : seulement si « Import Organilog : Oui » sur la page Entreprise
+  let _ogActif = false;
+  try { _ogActif = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').importOrganilog; } catch (_) {}
+  document.getElementById('btn-import-organilog').style.display = _ogActif ? '' : 'none';
 }
 
 async function synchroniserClientsHenrri() {
@@ -1202,6 +1687,8 @@ function validerPlanifier() {
   location.href = 'planning.html?planifier=' + encodeURIComponent(nom) + '&date=' + date;
 }
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('og-overlay').classList.contains('on')) { fermerOrganilog(); return; }
+  if (e.key === 'Escape' && document.getElementById('eq-overlay').classList.contains('on')) { fermerEquipements(); return; }
   if (e.key === 'Escape' && document.getElementById('dbl-overlay').classList.contains('on')) { fermerDoublons(); return; }
   if (e.key === 'Escape' && document.getElementById('imp-overlay').classList.contains('on')) { fermerImport(); return; }
   if (!document.getElementById('plan-overlay').classList.contains('on')) return;

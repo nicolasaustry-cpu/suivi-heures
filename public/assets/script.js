@@ -40,6 +40,100 @@ function initEntreprise() {
   if (input && entreprise.nom) input.value = entreprise.nom;
   const nomE = document.getElementById("entreprise-nom");
   if (nomE && entreprise.nom) nomE.textContent = entreprise.nom;
+  afficherCoordEntreprise(false);
+}
+
+/* ── Coordonnées + logo (en-tête du PDF des bons d'intervention) ── */
+const _COORD_ENT = { "ent-adresse": "adresse", "ent-cp": "codePostal", "ent-ville": "ville",
+                     "ent-tel": "telephone", "ent-email": "email", "ent-siret": "siret" };
+
+/* respecterFocus : ne pas écraser un champ en cours de frappe (rechargement serveur). */
+function afficherCoordEntreprise(respecterFocus) {
+  for (const [id, cle] of Object.entries(_COORD_ENT)) {
+    const el = document.getElementById(id);
+    if (!el || (respecterFocus && el.matches(":focus"))) continue;
+    el.value = entreprise[cle] || "";
+  }
+  afficherLogoEntreprise();
+}
+
+function afficherLogoEntreprise() {
+  const box = document.getElementById("ent-logo-apercu");
+  if (!box) return;
+  const logo = entreprise.logo;
+  box.innerHTML = "";
+  if (logo) {
+    const img = document.createElement("img");
+    img.src = logo; img.alt = "Logo";
+    img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+    box.appendChild(img);
+  } else {
+    box.textContent = "Aucun logo";
+  }
+  const btnR = document.getElementById("ent-logo-retirer");
+  if (btnR) btnR.style.display = logo ? "" : "none";
+  if (typeof majResumesVolets === "function") majResumesVolets();   // résumé du volet (page Entreprise)
+}
+
+/* Réduit le logo (600 × 240 px max) et le convertit en PNG — ou en JPEG fond blanc
+   s'il reste lourd — car il est synchronisé avec les données de l'entreprise et
+   le générateur PDF n'accepte que PNG/JPEG (SVG et WebP sont donc convertis ici). */
+function _compresserLogo(file) {
+  return new Promise((resolve, reject) => {
+    const lecteur = new FileReader();
+    lecteur.onerror = () => reject(new Error("lecture"));
+    lecteur.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("image"));
+      img.onload = () => {
+        let w = img.naturalWidth || 600, h = img.naturalHeight || 240;   // SVG sans dimensions
+        const r = Math.min(600 / w, 240 / h, 1);
+        w = Math.max(1, Math.round(w * r)); h = Math.max(1, Math.round(h * r));
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        let url = cv.toDataURL("image/png");
+        if (url.length > 300000) {                    // > ~220 Ko : JPEG sur fond blanc
+          ctx.globalCompositeOperation = "destination-over";
+          ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+          url = cv.toDataURL("image/jpeg", 0.9);
+        }
+        resolve(url);
+      };
+      img.src = lecteur.result;
+    };
+    lecteur.readAsDataURL(file);
+  });
+}
+
+async function _enregistrerEntreprise(message) {
+  localStorage.setItem("entreprisedata", JSON.stringify(entreprise));
+  if (typeof SYNC !== "undefined" && SYNC.sauvegarderTout) await SYNC.sauvegarderTout();
+  if (message && typeof SYNC !== "undefined" && SYNC.afficherNotif) SYNC.afficherNotif(message);
+}
+
+async function choisirLogoEntreprise(input) {
+  const f = input.files && input.files[0];
+  input.value = "";                                   // permet de re-choisir le même fichier
+  if (!f) return;
+  if (!/^image\/(png|jpe?g|svg\+xml|webp)$/i.test(f.type)) { alert("Format non pris en charge : choisissez un PNG, JPG ou SVG."); return; }
+  if (f.size > 8 * 1024 * 1024) { alert("Image trop lourde (8 Mo maximum)."); return; }
+  try {
+    entreprise.logo = await _compresserLogo(f);
+  } catch (e) {
+    alert("Impossible de lire cette image.");
+    return;
+  }
+  afficherLogoEntreprise();
+  await _enregistrerEntreprise("✔ Logo enregistré");
+}
+
+async function retirerLogoEntreprise() {
+  if (!entreprise.logo || !confirm("Retirer le logo de l'entreprise ?")) return;
+  delete entreprise.logo;
+  afficherLogoEntreprise();
+  await _enregistrerEntreprise("Logo retiré");
 }
 
 async function sauverEntreprise() {
@@ -51,6 +145,12 @@ async function sauverEntreprise() {
   }
   entreprise.nom = nom;
   if (code) entreprise.codeEmploye = code;
+  for (const [id, cle] of Object.entries(_COORD_ENT)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const v = el.value.trim();
+    if (v) entreprise[cle] = v; else delete entreprise[cle];
+  }
   localStorage.setItem("entreprisedata", JSON.stringify(entreprise));
   const nomE = document.getElementById("entreprise-nom");
   if (nomE) nomE.textContent = nom;
@@ -921,5 +1021,6 @@ window.addEventListener("donnees-chargees", () => {
     const inpCode = document.getElementById("code-employe");
     if (inpNom  && !inpNom.matches(":focus")  && entreprise.nom)         inpNom.value  = entreprise.nom;
     if (inpCode && !inpCode.matches(":focus") && entreprise.codeEmploye) inpCode.value = entreprise.codeEmploye;
+    afficherCoordEntreprise(true);
   }
 });

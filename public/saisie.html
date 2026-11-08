@@ -1192,6 +1192,41 @@
   #rdv-pop-m .rdvm-ok { background:#0f3a8a; color:#fff; }
   #rdv-pop-m .rdvm-clear { background:#f1f5f9; color:#475569; }
   #rdv-pop-m .rdvm-cancel { background:#fee2e2; color:#b91c1c; }
+
+  /* ── Bon d'intervention (mobile) ── */
+  .bon-champ { margin:14px 0; }
+  .bon-cerfa { border:2px solid #bfdbfe; background:#f8fbff; border-radius:12px; padding:10px 12px; margin:6px 0 14px; }
+  .bon-cerfa-titre { font-weight:800; color:#0f3a8a; font-size:0.9rem; }
+  .bon-cerfa-sous { font-size:0.82rem; color:#475569; margin:2px 0 8px; }
+  .bon-cerfa-choix { display:flex; gap:8px; flex-wrap:wrap; }
+  .bon-cerfa-btn { flex:1; min-width:70px; padding:9px 10px; border:1.5px solid #cbd5e1; background:#fff; border-radius:9px; font-weight:700; color:#334155; }
+  .bon-cerfa-btn.petit { padding:7px 8px; font-size:0.82rem; }
+  .bon-cerfa-btn.actif { background:#0f3a8a; border-color:#0f3a8a; color:#fff; }
+  .bon-cerfa-corps { margin-top:10px; }
+  .bon-cerfa-section { border-top:1px solid #dbeafe; padding-top:8px; margin-top:8px; }
+  .bon-cerfa-st { font-weight:700; font-size:0.82rem; color:#0f3a8a; margin-bottom:4px; }
+  .bon-cerfa-aide { font-size:0.74rem; color:#64748b; margin-bottom:6px; }
+  .bon-cerfa-champ { margin-bottom:8px; }
+  .bon-cerfa-champ input[type=text] { width:100%; box-sizing:border-box; }
+  .bon-cerfa-lbl { display:block; font-size:0.78rem; font-weight:600; color:#334155; margin-bottom:4px; }
+  .bon-auto-info { font-size:0.8rem; color:#5b21b6; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:7px 10px; margin:4px 0 12px; }
+  .bon-champ label.bon-lbl { display:block; font-size:0.85rem; font-weight:700; color:#0f172a; margin-bottom:6px; }
+  .bon-champ .bon-oblig { color:#dc2626; }
+  .bon-champ textarea, .bon-champ select, .bon-champ input[type="text"], .bon-champ input[type="date"], .bon-champ input[type="time"] {
+    width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.95rem;
+  }
+  .bon-case-ligne { display:flex; align-items:center; gap:8px; font-size:0.92rem; padding:4px 0; }
+  .bon-cases-multi label { display:flex; align-items:center; gap:8px; font-size:0.9rem; padding:5px 0; border-bottom:1px solid #f1f5f9; }
+  .bon-auto-badge { display:inline-block; font-size:0.72rem; font-weight:700; color:#7c3aed; background:#f3e8ff; border-radius:5px; padding:1px 7px; margin-left:6px; }
+  .bon-dicter-row { display:flex; gap:8px; margin-top:6px; }
+  .bon-dicter-row button { flex:0 0 auto; }
+  .bon-photo-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .bon-photo-vign { position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1; }
+  .bon-photo-vign img { width:100%; height:100%; object-fit:cover; }
+  .bon-photo-suppr { position:absolute; top:-4px; right:-4px; width:20px; height:20px; border-radius:50%; background:#dc2626; color:#fff; border:none; font-size:0.7rem; line-height:1; cursor:pointer; }
+  .bon-signature-zone { border:1px dashed #cbd5e1; border-radius:8px; background:#fff; touch-action:none; width:100%; height:150px; }
+  .bon-signature-actions { display:flex; justify-content:flex-end; margin-top:6px; }
+  #btn-bon-signature { display:block; margin:0 auto 10px; }
   </style>
 </head>
 <body>
@@ -1511,6 +1546,50 @@
     <div class="note-photos-strip" id="photos-strip"></div>
     <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="photoChoisie(this)">
     <button class="btn-modal-cancel" onclick="fermerNote()" style="margin-top:6px;">Annuler</button>
+  </div>
+</div>
+
+<!-- ── FENÊTRE BON D'INTERVENTION ── -->
+<div class="modal-overlay" id="modal-bon">
+  <div class="modal-box" style="max-width:480px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-title">📋 Bon d'intervention</div>
+    <div id="bon-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
+
+    <div id="bon-etape-masque">
+      <label class="bon-lbl">Type de bon</label>
+      <select id="bon-select-masque" onchange="choisirMasque(this.value)">
+        <option value="">— Choisir —</option>
+      </select>
+      <div id="bon-msg-vide" style="display:none;color:#92400e;font-size:0.85rem;margin-top:10px;">Aucun masque de bon d'intervention n'a été créé pour votre entreprise.</div>
+    </div>
+
+    <!-- Équipement du parc client (facultatif) -->
+    <div id="bon-etape-equip" style="display:none;margin-top:12px;">
+      <label class="bon-lbl" style="display:block;font-size:0.85rem;font-weight:700;color:#0f172a;margin-bottom:6px;">🔧 Équipement</label>
+      <select id="bon-select-equip" onchange="choisirEquipement(this.value)" style="width:100%;max-width:100%;box-sizing:border-box;"></select>
+      <div id="bon-equip-info" style="font-size:0.8rem;margin-top:6px;"></div>
+      <style>#bon-equip-form input{width:100%;box-sizing:border-box;}</style>
+      <div id="bon-equip-form" style="display:none;box-sizing:border-box;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-top:8px;">
+        <div id="bon-eq-titre" style="font-weight:700;font-size:0.82rem;color:#0f172a;margin-bottom:6px;">Nouvel équipement</div>
+        <input id="bon-eq-type" list="bon-eq-types" placeholder="Type (ex : Pompe à Chaleur Air Eau)" style="margin-bottom:6px;">
+        <datalist id="bon-eq-types">
+          <option value="Pompe à Chaleur Air Eau"><option value="Pompe à Chaleur Air Air"><option value="Climatisation">
+          <option value="Chaudière gaz"><option value="Chaudière fioul"><option value="Poêle à granulés"><option value="Ballon thermodynamique">
+        </datalist>
+        <input id="bon-eq-marque" placeholder="Marque" style="margin-bottom:6px;">
+        <input id="bon-eq-modele" placeholder="Modèle / référence" style="margin-bottom:6px;">
+        <input id="bon-eq-serie" placeholder="N° de série" style="margin-bottom:8px;">
+        <button type="button" class="btn-valider-note" id="bon-eq-btn" onclick="enregistrerEquipementMobile(this)">＋ Ajouter cet équipement</button>
+        <button type="button" class="btn-modal-cancel" onclick="annulerFormEquipement()" style="margin-top:6px;">Annuler</button>
+      </div>
+    </div>
+
+    <div id="bon-champs"></div>
+
+    <div class="note-actions" id="bon-actions" style="display:none;">
+      <button class="btn-valider-note" onclick="validerBon()">✔ Enregistrer le bon</button>
+    </div>
+    <button class="btn-modal-cancel" onclick="fermerBon()" style="margin-top:6px;">Annuler</button>
   </div>
 </div>
 
@@ -2884,12 +2963,18 @@ function rendrePrev() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('prev', ch.cle, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('prev', ch.cle); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Enregistré';
       env.style.flex = '1';
       barre.appendChild(pauseBtn);
       barre.appendChild(noteBtn);
+      barre.appendChild(bonBtn);
       barre.appendChild(env);
       div.appendChild(barre);
     } else {
@@ -2908,8 +2993,14 @@ function rendrePrev() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('prev', ch.cle, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('prev', ch.cle); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
+      lignePN.appendChild(bonBtn);
 
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier prev';
@@ -3162,12 +3253,18 @@ function rendreAjout() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('ajout', i, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('ajout', i); };
       const env = document.createElement('div');
       env.className = 'envoye-badge';
       env.textContent = '✔ Enregistré';
       env.style.flex = '1';
       barre.appendChild(pauseBtn);
       barre.appendChild(noteBtn);
+      barre.appendChild(bonBtn);
       barre.appendChild(env);
       div.appendChild(barre);
     } else {
@@ -3186,8 +3283,14 @@ function rendreAjout() {
       noteBtn.className = 'btn-note' + (aNote ? ' actif' : '');
       noteBtn.textContent = aNote ? '📝 Note ✓' : '📝 Note';
       noteBtn.onclick = function() { ouvrirNote('ajout', i, this); };
+      const bonBtn = document.createElement('button');
+      bonBtn.className = 'btn-note';
+      bonBtn.textContent = '📋 Bon';
+      bonBtn.style.display = _bonsInterventionActifs() ? '' : 'none';
+      bonBtn.onclick = function() { ouvrirBon('ajout', i); };
       lignePN.appendChild(pauseBtn);
       lignePN.appendChild(noteBtn);
+      lignePN.appendChild(bonBtn);
 
       const envBtn = document.createElement('button');
       envBtn.className = 'btn-envoyer-chantier ajout';
@@ -5006,5 +5109,867 @@ if ('serviceWorker' in navigator && /Mobi|Android|iPhone|iPad/i.test(navigator.u
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
 <script src="assets/documents-chantier.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BONS D'INTERVENTION (mobile)
+   ═══════════════════════════════════════════════════════════ */
+let _bonCible        = null;  // { type: 'prev'|'ajout', ref }
+let _bonEquipements  = [];    // équipements du client du chantier (parc)
+let _bonEquipement   = null;  // équipement choisi pour ce bon, ou null
+let _bonMasques      = [];
+let _bonMasqueActuel = null;
+let _bonReponses     = {};    // { idChamp: valeur }
+let _bonPhotos       = {};    // { idChamp: [dataUrl,...] }
+let _bonSignatures   = {};    // { idChamp: dataUrl }
+let _bonRecognition  = null;
+let _bonChampEnEcoute = null; // id du champ texte actuellement dicté
+let _bonSignatureSalarieCache = undefined; // undefined = pas encore chargée, null = aucune, string = trouvée
+let _bonSignatureAEnregistrer = {}; // { idChamp: bool } — case "enregistrer ma signature" cochée ou non
+
+function _bonsInterventionActifs() {
+  try { return !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').bonsInterventionActifs; }
+  catch (e) { return false; }
+}
+
+function _bonSaisieCourante() {
+  if (!_bonCible) return {};
+  if (_bonCible.type === 'prev') return _saisiesPrev[_bonCible.ref] || {};
+  return _chantiersA[_bonCible.ref] || {};
+}
+
+/* Nom réel du chantier visé par le bon. Pour un chantier planifié, la référence
+   est la clé interne (cle, éventuellement suffixée « __occ2 » quand le même
+   chantier apparaît deux fois dans la journée) : le nom est celui mémorisé
+   dans la saisie, comme pour la note. */
+function _bonNomChantier() {
+  if (!_bonCible) return '';
+  if (_bonCible.type === 'prev') {
+    const s = _saisiesPrev[_bonCible.ref];
+    if (s && s.nom) return s.nom;
+    const ch = (_chantiersP || []).find(function (c) { return c.cle === _bonCible.ref; });
+    return ch ? ch.nom : String(_bonCible.ref || '').replace(/__occ\d+$/, '');
+  }
+  const ch = _chantiersA[_bonCible.ref];
+  return ch ? ch.nom : '';
+}
+
+function ouvrirBon(type, ref) {
+  _bonCible = { type: type, ref: ref };
+  let nom = '';
+  nom = _bonNomChantier();
+  if (!nom) return;
+  document.getElementById('bon-chantier-nom').textContent = nom;
+
+  _bonMasqueActuel = null; _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {};
+  document.getElementById('bon-champs').innerHTML = '';
+  document.getElementById('bon-actions').style.display = 'none';
+  const sel = document.getElementById('bon-select-masque');
+  sel.innerHTML = '<option value="">— Choisir —</option>';
+  document.getElementById('bon-etape-masque').style.display = '';
+  document.getElementById('bon-msg-vide').style.display = 'none';
+
+  document.getElementById('modal-bon').classList.add('open');
+  _bonChargerEquipements(nom);
+
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const salarieId = _salarie ? _salarie.id : null;
+  fetch('/api/bons-intervention/masques', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { alert(d.message || 'Erreur de chargement des masques'); return; }
+    _bonMasques = d.masques || [];
+    if (!_bonMasques.length) {
+      document.getElementById('bon-etape-masque').style.display = 'none';
+      document.getElementById('bon-msg-vide').style.display = '';
+      return;
+    }
+    _bonMasques.forEach(function (m) {
+      const opt = document.createElement('option');
+      opt.value = m._id; opt.textContent = m.nom;
+      sel.appendChild(opt);
+    });
+  }).catch(function () { alert('Erreur réseau lors du chargement des masques'); });
+}
+
+function fermerBon() {
+  _bonArreterDictee();
+  document.getElementById('modal-bon').classList.remove('open');
+  _bonCible = null;
+}
+
+function choisirMasque(masqueId) {
+  _bonArreterDictee();
+  _bonMasqueActuel = _bonMasques.find(function (m) { return m._id === masqueId; }) || null;
+  _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {}; _bonSignatureAEnregistrer = {};
+  _bonChampsEquip = {};
+  _bonCerfa = { concerne: null, valeurs: {} };
+  _bonRendreChamps();
+  _bonAppliquerEquipement();
+}
+
+/* ── Équipement du parc client ── */
+function _bonChargerEquipements(nomChantier) {
+  _bonEquipements = []; _bonEquipement = null;
+  const zone = document.getElementById('bon-etape-equip');
+  zone.style.display = 'none';
+  document.getElementById('bon-equip-form').style.display = 'none';
+  document.getElementById('bon-equip-info').textContent = '';
+  fetch('/api/equipements/mobile/liste', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, chantier: nomChantier })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) return;                       // module non activé : on n'affiche rien
+    _bonEquipements = d.equipements || [];
+    zone.style.display = '';
+    // Un seul équipement connu chez ce client : il est choisi d'office (modifiable)
+    if (_bonEquipements.length === 1) {
+      _bonRendreSelectEquipement(_bonEquipements[0]._id);
+      choisirEquipement(_bonEquipements[0]._id);
+    } else {
+      _bonRendreSelectEquipement('');
+      if (_bonEquipements.length > 1)
+        document.getElementById('bon-equip-info').textContent = _bonEquipements.length + ' équipements connus chez ce client : choisissez celui concerné.';
+    }
+  }).catch(function () { /* hors connexion : bon sans équipement */ });
+}
+
+function _bonLibelleEq(e) {
+  return [e.type, e.marque, e.modele].filter(Boolean).join(' · ') + (e.emplacement ? ' (' + e.emplacement + ')' : '');
+}
+
+function _bonRendreSelectEquipement(valeur) {
+  const sel = document.getElementById('bon-select-equip');
+  sel.innerHTML = '';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = _bonEquipements.length ? '— Aucun / non concerné —' : '— Aucun équipement connu —';
+  sel.appendChild(o0);
+  _bonEquipements.forEach(function (e) {
+    const o = document.createElement('option'); o.value = e._id; o.textContent = _bonLibelleEq(e);
+    sel.appendChild(o);
+  });
+  const oN = document.createElement('option'); oN.value = '__nouveau'; oN.textContent = '＋ Nouvel équipement…';
+  sel.appendChild(oN);
+  sel.value = valeur;
+}
+
+function choisirEquipement(id) {
+  _bonFermerFormEquip();
+  if (id === '__nouveau') {
+    _bonEquipement = null;
+    _bonAfficherInfoEquipement();
+    _bonAppliquerEquipement();
+    _bonOuvrirFormEquip(null);
+    return;
+  }
+  _bonEquipement = _bonEquipements.find(function (e) { return e._id === id; }) || null;
+  _bonAfficherInfoEquipement();
+  _bonAppliquerEquipement();
+}
+
+/* Carte de l'équipement choisi : ses caractéristiques (qui ne sont plus
+   redemandées dans le bon) + « Modifier » / « Nouvel équipement ». */
+function _bonAfficherInfoEquipement() {
+  const info = document.getElementById('bon-equip-info');
+  const e = _bonEquipement;
+  if (!e) { info.innerHTML = ''; return; }
+  const esc = function (t) { return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  const j = e.derniereIntervention;
+  const lignes = [
+    '<strong>' + esc([e.type, e.marque].filter(Boolean).join(' · ') || 'Équipement') + '</strong>',
+    e.modele ? 'Réf. ' + esc(e.modele) : '',
+    e.numeroSerie ? 'N° de série ' + esc(e.numeroSerie) : '',
+    j ? 'Dernière intervention le ' + j.slice(8, 10) + '/' + j.slice(5, 7) + '/' + j.slice(0, 4) : 'Première intervention enregistrée'
+  ].filter(Boolean);
+  info.innerHTML =
+    '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;color:#065f46;line-height:1.45;">' + lignes.join('<br>') +
+    '<div style="display:flex;gap:8px;margin-top:8px;">' +
+      '<button type="button" class="btn-note" onclick="_bonOuvrirFormEquip(_bonEquipement)">✏️ Modifier</button>' +
+      '<button type="button" class="btn-note" onclick="_bonRendreSelectEquipement(\'__nouveau\');choisirEquipement(\'__nouveau\')">＋ Autre équipement</button>' +
+    '</div></div>';
+}
+
+let _bonEqEdition = null;   // équipement en cours de modification (null = création)
+function _bonOuvrirFormEquip(e) {
+  _bonEqEdition = e || null;
+  document.getElementById('bon-eq-type').value   = e ? (e.type || '') : '';
+  document.getElementById('bon-eq-marque').value = e ? (e.marque || '') : '';
+  document.getElementById('bon-eq-modele').value = e ? (e.modele || '') : '';
+  document.getElementById('bon-eq-serie').value  = e ? (e.numeroSerie || '') : '';
+  document.getElementById('bon-eq-btn').textContent = e ? '💾 Enregistrer les modifications' : '＋ Ajouter cet équipement';
+  document.getElementById('bon-eq-titre').textContent = e ? 'Modifier l’équipement' : 'Nouvel équipement';
+  document.getElementById('bon-equip-form').style.display = '';
+  document.getElementById('bon-eq-type').focus();
+}
+function _bonFermerFormEquip() {
+  _bonEqEdition = null;
+  document.getElementById('bon-equip-form').style.display = 'none';
+}
+function annulerFormEquipement() {
+  _bonFermerFormEquip();
+  if (!_bonEquipement) _bonRendreSelectEquipement('');
+}
+
+function enregistrerEquipementMobile(btn) {
+  const v = function (id) { return document.getElementById(id).value.trim(); };
+  const corps = { type: v('bon-eq-type'), marque: v('bon-eq-marque'), modele: v('bon-eq-modele'), numeroSerie: v('bon-eq-serie') };
+  if (!corps.type && !corps.marque && !corps.modele && !corps.numeroSerie) { alert('Renseignez au moins le type ou la marque.'); return; }
+  const modif = _bonEqEdition;
+  if (modif) corps.id = modif._id;
+  btn.disabled = true;
+  fetch('/api/equipements/mobile/' + (modif ? 'modifier' : 'creer'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, chantier: _bonNomChantier() }, corps))
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    btn.disabled = false;
+    if (!d.ok) { alert(d.message || 'Équipement non enregistré'); return; }
+    const k = _bonEquipements.findIndex(function (e) { return e._id === d.equipement._id; });
+    if (k >= 0) _bonEquipements[k] = d.equipement; else _bonEquipements.push(d.equipement);
+    _bonRendreSelectEquipement(d.equipement._id);
+    choisirEquipement(d.equipement._id);
+  }).catch(function () { btn.disabled = false; alert('Erreur réseau : équipement non enregistré.'); });
+}
+
+/* Champ du masque qui décrit l'équipement (d'après son libellé) :
+   'type' | 'marque' | 'modele' | 'numeroSerie' | '' */
+function _bonCleEquip(c) {
+  if (c.type !== 'texte' && c.type !== 'liste') return '';
+  const l = String(c.libelle || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  if (/marque/.test(l)) return 'marque';
+  if (/serie/.test(l)) return 'numeroSerie';
+  if (/reference|modele/.test(l)) return 'modele';
+  if (/type.*(equipement|appareil|materiel)/.test(l) || /^(l')?(equipement|appareil)$/.test(l)) return 'type';
+  return '';
+}
+
+/* Équipement choisi : les champs du masque qui le décrivent (type, marque,
+   référence, n° de série) sont remplis d'après l'équipement et MASQUÉS — inutile
+   de les réafficher, on modifie l'équipement lui-même si besoin. Sans équipement,
+   ils réapparaissent, vides, pour une saisie libre. */
+let _bonChampsEquip = {};   // { idChamp: true } champs actuellement tenus par l'équipement
+function _bonAppliquerEquipement() {
+  if (!_bonMasqueActuel) return;
+  const e = _bonEquipement;
+  const norm = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+  const aSerie = (_bonMasqueActuel.champs || []).some(function (c) { return _bonCleEquip(c) === 'numeroSerie'; });
+  (_bonMasqueActuel.champs || []).forEach(function (c) {
+    const cle = _bonCleEquip(c);
+    if (!cle) return;
+    const el = document.getElementById('bon-in-' + c.id);
+    if (!el) return;
+    const wrap = el.closest('.bon-champ');
+    if (!e) {
+      if (_bonChampsEquip[c.id]) { el.value = ''; delete _bonReponses[c.id]; delete _bonChampsEquip[c.id]; }
+      if (wrap) wrap.style.display = '';
+      return;
+    }
+    let val = e[cle] || '';
+    if (cle === 'modele' && !aSerie && e.numeroSerie) val = [val, '(' + e.numeroSerie + ')'].filter(Boolean).join(' ');
+    if (c.type === 'liste') {
+      const opt = Array.from(el.options).find(function (o) { return norm(o.value) === norm(val); });
+      if (!opt) { if (wrap) wrap.style.display = ''; return; }   // valeur hors liste : on laisse choisir
+      val = opt.value;
+    }
+    el.value = val; _bonReponses[c.id] = val; _bonChampsEquip[c.id] = true;
+    if (wrap) wrap.style.display = 'none';
+  });
+}
+
+function _bonRendreChamps() {
+  const zone = document.getElementById('bon-champs');
+  zone.innerHTML = '';
+  if (!_bonMasqueActuel) { document.getElementById('bon-actions').style.display = 'none'; return; }
+
+  const s = _bonSaisieCourante();
+  const dateEl = document.getElementById('date-saisie');
+  const dateGlobale = dateEl ? dateEl.value : '';
+
+  let autoAnnonce = false;
+  (_bonMasqueActuel.champs || []).forEach(function (c) {
+    const wrap = document.createElement('div');
+    wrap.className = 'bon-champ';
+    const lbl = document.createElement('label');
+    lbl.className = 'bon-lbl';
+    lbl.innerHTML = c.libelle + (c.obligatoire ? ' <span class="bon-oblig">*</span>' : '');
+    wrap.appendChild(lbl);
+
+    if (c.type === 'texte') {
+      const ta = document.createElement('textarea');
+      ta.id = 'bon-in-' + c.id;
+      ta.rows = 3;
+      ta.placeholder = c.dictee ? 'Saisir un texte, ou dicter…' : 'Saisir un texte';
+      ta.oninput = function () { _bonReponses[c.id] = this.value; };
+      wrap.appendChild(ta);
+      if (c.dictee) {
+        const row = document.createElement('div');
+        row.className = 'bon-dicter-row';
+        const btnD = document.createElement('button');
+        btnD.type = 'button'; btnD.className = 'btn-dicter'; btnD.id = 'bon-dicter-' + c.id;
+        btnD.textContent = '🎤 Dicter';
+        btnD.onclick = function () { _bonDicterChamp(c.id, this); };
+        row.appendChild(btnD);
+        wrap.appendChild(row);
+      }
+    } else if (c.type === 'case') {
+      const ligne = document.createElement('div');
+      ligne.className = 'bon-case-ligne';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'bon-in-' + c.id;
+      cb.onchange = function () { _bonReponses[c.id] = this.checked; };
+      const sp = document.createElement('span'); sp.textContent = 'Oui';
+      ligne.appendChild(cb); ligne.appendChild(sp);
+      wrap.appendChild(ligne);
+    } else if (c.type === 'liste') {
+      const sel = document.createElement('select');
+      sel.id = 'bon-in-' + c.id;
+      const optVide = document.createElement('option'); optVide.value = ''; optVide.textContent = '— Choisir —';
+      sel.appendChild(optVide);
+      (c.options || []).forEach(function (o) {
+        const opt = document.createElement('option'); opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+      });
+      sel.onchange = function () { _bonReponses[c.id] = this.value; };
+      wrap.appendChild(sel);
+    } else if (c.type === 'cases_multiples') {
+      const cont = document.createElement('div');
+      cont.className = 'bon-cases-multi';
+      _bonReponses[c.id] = _bonReponses[c.id] || [];
+      (c.options || []).forEach(function (o) {
+        const lab = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = o;
+        cb.onchange = function () {
+          const arr = _bonReponses[c.id] || [];
+          if (this.checked) { if (arr.indexOf(o) === -1) arr.push(o); }
+          else { const idx = arr.indexOf(o); if (idx > -1) arr.splice(idx, 1); }
+          _bonReponses[c.id] = arr;
+        };
+        const sp = document.createElement('span'); sp.textContent = o;
+        lab.appendChild(cb); lab.appendChild(sp);
+        cont.appendChild(lab);
+      });
+      wrap.appendChild(cont);
+    } else if (c.type === 'photo') {
+      const btnP = document.createElement('button');
+      btnP.type = 'button'; btnP.className = 'btn-dicter';
+      btnP.textContent = '📷 Ajouter une photo';
+      btnP.onclick = function () { _bonAjouterPhoto(c.id); };
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+      input.style.display = 'none'; input.id = 'bon-photo-input-' + c.id;
+      input.onchange = function () { _bonPhotoChoisie(c.id, this); };
+      const strip = document.createElement('div');
+      strip.className = 'bon-photo-strip'; strip.id = 'bon-photostrip-' + c.id;
+      wrap.appendChild(btnP); wrap.appendChild(input); wrap.appendChild(strip);
+      _bonPhotos[c.id] = _bonPhotos[c.id] || [];
+    } else if (c.type === 'signature' && c.signataire === 'client') {
+      const inpNom = document.createElement('input');
+      inpNom.type = 'text'; inpNom.id = 'bon-signom-' + c.id;
+      inpNom.placeholder = 'Nom du signataire';
+      inpNom.style.marginBottom = '8px';
+      inpNom.oninput = function () { _bonReponses[c.id + '__nom'] = this.value; };
+      wrap.appendChild(inpNom);
+      _bonProposerSignataire(c.id, inpNom);
+
+      const zoneSign = document.createElement('div');
+      zoneSign.id = 'bon-sigzone-' + c.id;
+      wrap.appendChild(zoneSign);
+      _bonAfficherPadSignature(c.id, zoneSign, false); // toujours vierge, jamais la signature du salarié
+    } else if (c.type === 'signature') {
+      const zoneSign = document.createElement('div');
+      zoneSign.id = 'bon-sigzone-' + c.id;
+      zoneSign.style.color = '#9ca3af';
+      zoneSign.style.fontSize = '0.85rem';
+      zoneSign.textContent = 'Chargement…';
+      wrap.appendChild(zoneSign);
+      _bonChargerSignatureSalarie(function (sig) {
+        if (sig) _bonAfficherApercuSignature(c.id, zoneSign, sig);
+        else _bonAfficherPadSignature(c.id, zoneSign, true);
+      });
+    } else if (c.type === 'datetime' && c.auto) {
+      // Date / heures / durée « AUTO » : déjà saisies sur l'écran de pointage, on ne les
+      // redemande pas. La valeur du moment est enregistrée avec le bon (secours) et le
+      // bureau relit le pointage à l'affichage et au PDF (heure de fin validée après coup comprise).
+      let v = '';
+      if (c.auto === 'date') v = dateGlobale;
+      else if (c.auto === 'heureDebut') v = s.arrivee || '';
+      else if (c.auto === 'heureFin') v = s.depart || '';
+      else if (c.auto === 'duree') v = calcDuree(s.arrivee, s.depart, s.pause) || '';
+      _bonReponses[c.id] = v;
+      if (!autoAnnonce) {
+        autoAnnonce = true;
+        const info = document.createElement('div');
+        info.className = 'bon-auto-info';
+        info.innerHTML = '<span class="bon-auto-badge">AUTO</span> Date et heures reprises de votre pointage : rien à ressaisir.';
+        zone.appendChild(info);
+      }
+      return;                                   // champ non affiché
+    } else if (c.type === 'datetime') {
+      let valInit = '', inputType = 'text';
+      if (c.auto === 'date') { valInit = dateGlobale; inputType = 'date'; }
+      else if (c.auto === 'heureDebut') { valInit = s.arrivee || ''; inputType = 'time'; }
+      else if (c.auto === 'heureFin') { valInit = s.depart || ''; inputType = 'time'; }
+      else if (c.auto === 'duree') { valInit = calcDuree(s.arrivee, s.depart, s.pause) || ''; inputType = 'text'; }
+      const inp = document.createElement('input');
+      inp.type = inputType; inp.id = 'bon-in-' + c.id; inp.value = valInit;
+      inp.oninput = function () { _bonReponses[c.id] = this.value; };
+      _bonReponses[c.id] = valInit;
+      wrap.appendChild(inp);
+    }
+
+    zone.appendChild(wrap);
+  });
+
+  _bonRendreCerfa(zone);
+  document.getElementById('bon-actions').style.display = '';
+}
+
+/* ═══ CERFA proposé par le masque (ex. 15497 fluides frigorigènes) ═══
+   Le technicien indique si l'intervention est concernée (réponse obligatoire).
+   Si oui, il complète ce qu'il constate sur place ; le serveur pré-remplit
+   tout le reste et joint le CERFA officiel au bon. */
+let _bonCerfa = { concerne: null, valeurs: {}, def: null };
+let _bonCerfaDefs = {};
+const _CERFA_NOMS = {
+  '15497': 'fluides frigorigènes', '12506': 'Consuel jaune (électricité domestique)', '12507': 'Consuel vert (électricité non domestique)',
+  '15523': 'Consuel bleu (production sans stockage)', '15524': 'Consuel violet (production avec stockage)',
+  '16026': 'certificat de conformité gaz (CC2)', '13408': 'achèvement des travaux (DAACT)'
+};     // définitions mobiles déjà chargées, par code
+
+function _bonRendreCerfa(zone) {
+  const code = _bonMasqueActuel && _bonMasqueActuel.cerfa;
+  if (!code) return;
+  const bloc = document.createElement('div');
+  bloc.id = 'bon-cerfa';
+  bloc.className = 'bon-cerfa';
+  // Avant les signatures, pour signer en dernier
+  const premiereSig = Array.from(zone.querySelectorAll('[id^="bon-sigzone-"]')).map(function (e) { return e.closest('.bon-champ'); })[0];
+  if (premiereSig) zone.insertBefore(bloc, premiereSig); else zone.appendChild(bloc);
+  _bonDessinerCerfa();
+}
+
+function _bonDessinerCerfa() {
+  const bloc = document.getElementById('bon-cerfa'); if (!bloc) return;
+  const code = _bonMasqueActuel.cerfa;
+  const c = _bonCerfa;
+  bloc.innerHTML = '';
+  const q = document.createElement('div');
+  q.className = 'bon-cerfa-q';
+  q.innerHTML = '<div class="bon-cerfa-titre">📑 CERFA ' + code + (_CERFA_NOMS[code] ? ' — ' + _CERFA_NOMS[code] : '') + ' <span class="bon-oblig">*</span></div>' +
+    '<div class="bon-cerfa-sous">Cette intervention est-elle concernée ?</div>';
+  const ligne = document.createElement('div');
+  ligne.className = 'bon-cerfa-choix';
+  [['oui', 'Oui', true], ['non', 'Non', false]].forEach(function (o) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = o[1];
+    b.className = 'bon-cerfa-btn' + (c.concerne === o[2] ? ' actif' : '');
+    b.onclick = function () { _bonCerfa.concerne = o[2]; _bonDessinerCerfa(); };
+    ligne.appendChild(b);
+  });
+  q.appendChild(ligne);
+  bloc.appendChild(q);
+  if (c.concerne !== true) return;
+
+  const corps = document.createElement('div');
+  corps.className = 'bon-cerfa-corps';
+  bloc.appendChild(corps);
+  if (_bonCerfaDefs[code]) { _bonFormCerfa(corps, _bonCerfaDefs[code]); return; }
+  corps.textContent = 'Chargement…';
+  fetch('/api/bons-intervention/cerfa-mobile', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, code: code })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { corps.textContent = d.message || 'CERFA indisponible'; return; }
+    _bonCerfaDefs[code] = d;
+    _bonFormCerfa(corps, d);
+  }).catch(function () { corps.textContent = 'Connexion nécessaire pour compléter le CERFA.'; });
+}
+
+function _bonFormCerfa(corps, def) {
+  const v = _bonCerfa.valeurs;
+  // Valeurs d'office : fiche équipement, détecteur déjà utilisé
+  if (v.Detecteur_ID === undefined && def.memo && def.memo.Detecteur_ID) v.Detecteur_ID = def.memo.Detecteur_ID;
+  const e = _bonEquipement;
+  if (e) {
+    if (v.Equipement_Fluide === undefined && e.fluide) v.Equipement_Fluide = String(e.fluide).replace(/^R\s*-?\s*/i, '');
+    if (v.Equipement_Charge === undefined && e.chargeKg != null) v.Equipement_Charge = String(e.chargeKg).replace('.', ',');
+  }
+  corps.innerHTML = '';
+  if (def.demarche && def.demarche.length) {
+    const dm = document.createElement('details');
+    dm.style.cssText = 'border:1px solid #fde68a;background:#fffbeb;border-radius:9px;padding:6px 10px;margin-bottom:8px;color:#78350f;font-size:0.78rem;';
+    const sm = document.createElement('summary'); sm.style.fontWeight = '700'; sm.textContent = '📋 Démarche à suivre';
+    const ol = document.createElement('ol'); ol.style.cssText = 'margin:4px 0 0 16px;padding:0;';
+    def.demarche.forEach(function (t) { const li = document.createElement('li'); li.textContent = t; li.style.margin = '2px 0'; ol.appendChild(li); });
+    dm.appendChild(sm); dm.appendChild(ol); corps.appendChild(dm);
+  }
+  const fuite = !!v.Case_Fuite_Oui;
+  def.sections.forEach(function (s) {
+    const sec = document.createElement('div');
+    sec.className = 'bon-cerfa-section';
+    sec.innerHTML = '<div class="bon-cerfa-st">' + s.titre + '</div>' + (s.aide ? '<div class="bon-cerfa-aide">' + s.aide + '</div>' : '');
+    s.champs.forEach(function (c) {
+      if (c.siFuite && !fuite) return;
+      const w = document.createElement('div');
+      w.className = 'bon-cerfa-champ';
+      if (c.type === 'case') {
+        const l = document.createElement('label'); l.className = 'bon-case-ligne';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!v[c.pdf];
+        cb.onchange = function () { v[c.pdf] = this.checked; };
+        const sp = document.createElement('span'); sp.textContent = c.label;
+        l.appendChild(cb); l.appendChild(sp); w.appendChild(l);
+      } else if (c.type === 'radio' || c.type === 'choix') {
+        const lab = document.createElement('div'); lab.className = 'bon-cerfa-lbl'; lab.textContent = c.label; w.appendChild(lab);
+        const ligne = document.createElement('div'); ligne.className = 'bon-cerfa-choix';
+        c.options.forEach(function (o) {
+          const b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
+          const actif = c.type === 'radio' ? String(v[c.pdf]) === o[0] : !!v[o[0]];
+          b.className = 'bon-cerfa-btn petit' + (actif ? ' actif' : '');
+          b.onclick = function () {
+            if (c.type === 'radio') v[c.pdf] = o[0];
+            else c.options.forEach(function (x) { v[x[0]] = (x[0] === o[0]); });
+            _bonFormCerfa(corps, def);
+          };
+          ligne.appendChild(b);
+        });
+        w.appendChild(ligne);
+      } else {
+        const lab = document.createElement('label'); lab.className = 'bon-cerfa-lbl'; lab.textContent = c.label; w.appendChild(lab);
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        if (c.type === 'nombre') { inp.inputMode = 'decimal'; inp.placeholder = '0,0'; }
+        inp.value = v[c.pdf] == null ? '' : v[c.pdf];
+        inp.oninput = function () { v[c.pdf] = this.value; };
+        w.appendChild(inp);
+      }
+      sec.appendChild(w);
+    });
+    corps.appendChild(sec);
+  });
+}
+
+/* Dictée par champ : CHAQUE clic sur « Dicter » ajoute une NOUVELLE LIGNE
+   au texte existant (jamais à la suite sur la même ligne, contrairement à
+   la note de chantier qui concatène avec un espace). */
+function _bonDicterChamp(idChamp, btn) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('La dictée vocale n\'est pas disponible sur ce navigateur. Utilisez le micro du clavier de votre téléphone.'); return; }
+  if (!navigator.onLine || window._reseauReel === false) {
+    alert('La dictée vocale a besoin d\'une connexion Internet. Hors ligne, tapez votre texte directement.');
+    return;
+  }
+  if (_bonChampEnEcoute === idChamp) { _bonArreterDictee(); return; }
+  if (_bonChampEnEcoute) _bonArreterDictee(); // une seule dictée à la fois
+
+  _bonRecognition = new SR();
+  _bonRecognition.lang = 'fr-FR';
+  _bonRecognition.interimResults = false;
+  _bonRecognition.onresult = function (e) {
+    let t = '';
+    for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    const ta = document.getElementById('bon-in-' + idChamp);
+    if (!ta) return;
+    ta.value = (ta.value ? ta.value.replace(/\n+$/, '') + '\n' : '') + t;
+    _bonReponses[idChamp] = ta.value;
+  };
+  _bonRecognition.onend = _bonArreterDictee;
+  _bonRecognition.onerror = function (e) {
+    _bonArreterDictee();
+    if (e && e.error === 'network') alert('La dictée vocale a été interrompue : connexion Internet indisponible.');
+  };
+  try {
+    _bonRecognition.start();
+    _bonChampEnEcoute = idChamp;
+    btn.textContent = '🎤 Écoute…';
+    btn.classList.add('ecoute');
+  } catch (e) { _bonArreterDictee(); }
+}
+
+function _bonArreterDictee() {
+  if (_bonRecognition && _bonChampEnEcoute) { try { _bonRecognition.stop(); } catch (e) {} }
+  const idPrec = _bonChampEnEcoute;
+  _bonChampEnEcoute = null;
+  if (idPrec) {
+    const btn = document.getElementById('bon-dicter-' + idPrec);
+    if (btn) { btn.textContent = '🎤 Dicter'; btn.classList.remove('ecoute'); }
+  }
+}
+
+/* ── Photos par champ (même compression que la note : 1280px / JPEG 0.7) ── */
+function _bonAjouterPhoto(idChamp) {
+  if ((_bonPhotos[idChamp] || []).length >= 3) return;
+  const input = document.getElementById('bon-photo-input-' + idChamp);
+  if (input) input.click();
+}
+function _bonPhotoChoisie(idChamp, input) {
+  const fichier = input.files && input.files[0];
+  input.value = '';
+  if (!fichier) return;
+  compresserPhoto(fichier, function (dataUrl) {
+    if (!dataUrl) { alert('Impossible de lire cette photo.'); return; }
+    if (!_bonPhotos[idChamp]) _bonPhotos[idChamp] = [];
+    if (_bonPhotos[idChamp].length >= 3) return;
+    _bonPhotos[idChamp].push(dataUrl);
+    _bonReponses[idChamp] = _bonPhotos[idChamp];
+    _bonRendrePhotos(idChamp);
+  });
+}
+function _bonRendrePhotos(idChamp) {
+  const strip = document.getElementById('bon-photostrip-' + idChamp);
+  if (!strip) return;
+  strip.innerHTML = '';
+  (_bonPhotos[idChamp] || []).forEach(function (src, i) {
+    const v = document.createElement('div');
+    v.className = 'bon-photo-vign';
+    const img = document.createElement('img'); img.src = src; img.alt = 'photo ' + (i + 1);
+    const x = document.createElement('button');
+    x.className = 'bon-photo-suppr'; x.type = 'button'; x.textContent = '✕';
+    x.onclick = function () {
+      _bonPhotos[idChamp].splice(i, 1);
+      _bonReponses[idChamp] = _bonPhotos[idChamp];
+      _bonRendrePhotos(idChamp);
+    };
+    v.appendChild(img); v.appendChild(x);
+    strip.appendChild(v);
+  });
+}
+
+/* ── Signature (pavé tactile simple, souris + doigt) ── */
+function _bonInitSignature(idChamp) {
+  const canvas = document.getElementById('bon-sig-' + idChamp);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight;
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0f172a';
+  let dessine = false, dernier = null;
+  function pos(e) {
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  }
+  function debut(e) { dessine = true; dernier = pos(e); e.preventDefault(); }
+  function trace(e) {
+    if (!dessine) return;
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(dernier.x, dernier.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    dernier = p;
+    e.preventDefault();
+  }
+  function fin() {
+    if (!dessine) return;
+    dessine = false;
+    _bonSignatures[idChamp] = canvas.toDataURL('image/png');
+    _bonReponses[idChamp] = _bonSignatures[idChamp];
+  }
+  canvas.addEventListener('mousedown', debut);
+  canvas.addEventListener('mousemove', trace);
+  window.addEventListener('mouseup', fin);
+  canvas.addEventListener('touchstart', debut, { passive: false });
+  canvas.addEventListener('touchmove', trace, { passive: false });
+  canvas.addEventListener('touchend', fin);
+}
+function _bonEffacerSignature(idChamp) {
+  const canvas = document.getElementById('bon-sig-' + idChamp);
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  delete _bonSignatures[idChamp];
+  delete _bonReponses[idChamp];
+}
+
+/* Charge une fois par session la signature enregistrée du salarié connecté
+   (cache mémoire — undefined = pas encore demandée au serveur). */
+function _bonChargerSignatureSalarie(callback) {
+  if (_bonSignatureSalarieCache !== undefined) { callback(_bonSignatureSalarieCache); return; }
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const salarieId = _salarie ? _salarie.id : null;
+  fetch('/api/signature-salarie/recuperer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    _bonSignatureSalarieCache = (d.ok && d.data) ? d.data : null;
+    callback(_bonSignatureSalarieCache);
+  }).catch(function () { _bonSignatureSalarieCache = null; callback(null); });
+}
+
+/* Affiche la signature déjà enregistrée du salarié, avec la possibilité
+   de la redessiner pour ce bon (« Signer autrement »). */
+/* Nom du signataire client proposé d'office : le dernier nom saisi pour ce
+   client sur un bon précédent, sinon le nom du client. Reste modifiable. */
+let _bonSignataireCache = {};   // { nomChantier: nom proposé }
+function _bonProposerSignataire(idChamp, inp) {
+  const chantier = _bonNomChantier();
+  const appliquer = function (nom) {
+    if (!nom || inp.value.trim()) return;           // ne jamais écraser une saisie
+    inp.value = nom; _bonReponses[idChamp + '__nom'] = nom;
+  };
+  if (_bonSignataireCache[chantier] !== undefined) { appliquer(_bonSignataireCache[chantier]); return; }
+  appliquer(chantier.replace(/\s+\d{2}-\d{2}-\d+\s*$/, ''));   // immédiat, même hors connexion
+  fetch('/api/bons-intervention/signataire', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null, chantier: chantier })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok || !d.nom) return;
+    _bonSignataireCache[chantier] = d.nom;
+    // Remplace la proposition par défaut (nom du chantier) si l'utilisateur n'y a pas touché
+    const auto = chantier.replace(/\s+\d{2}-\d{2}-\d+\s*$/, '');
+    if (inp.value.trim() === auto) { inp.value = d.nom; _bonReponses[idChamp + '__nom'] = d.nom; }
+  }).catch(function () {});
+}
+
+/* Signature enregistrée du technicien : reprise d'office, modifiable
+   (nouveau tracé enregistré à la place) ou effaçable. */
+function _bonAfficherApercuSignature(idChamp, zone, dataUrl) {
+  _bonReponses[idChamp] = dataUrl;
+  _bonSignatureAEnregistrer[idChamp] = false;      // déjà enregistrée : rien à réenregistrer
+  zone.innerHTML = '';
+  zone.style.color = '';
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:100%;max-height:120px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;display:block;';
+  const info = document.createElement('div');
+  info.style.cssText = 'font-size:0.76rem;color:#047857;margin-top:4px;';
+  info.textContent = '✔ Votre signature enregistrée';
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+  const btnModif = document.createElement('button');
+  btnModif.type = 'button'; btnModif.className = 'btn-modal-cancel'; btnModif.style.flex = '1';
+  btnModif.textContent = '✏️ Modifier';
+  btnModif.onclick = function () { _bonAfficherPadSignature(idChamp, zone, true); };
+  const btnSuppr = document.createElement('button');
+  btnSuppr.type = 'button'; btnSuppr.className = 'btn-modal-cancel'; btnSuppr.style.flex = '1';
+  btnSuppr.textContent = '🗑 Effacer';
+  btnSuppr.onclick = function () { _bonSupprimerSignatureSalarie(idChamp, zone); };
+  actions.appendChild(btnModif); actions.appendChild(btnSuppr);
+  zone.appendChild(img); zone.appendChild(info); zone.appendChild(actions);
+}
+
+function _bonSupprimerSignatureSalarie(idChamp, zone) {
+  if (!confirm('Effacer votre signature enregistrée ?\nVous pourrez en dessiner une nouvelle.')) return;
+  fetch('/api/signature-salarie/supprimer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye'), salarieId: _salarie ? _salarie.id : null })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) { alert(d.message || 'Effacement impossible'); return; }
+    _bonSignatureSalarieCache = null;
+    _bonAfficherPadSignature(idChamp, zone, true);
+  }).catch(function () { alert('Erreur réseau : signature non effacée.'); });
+}
+
+/* Affiche le pavé de dessin, avec une case pour enregistrer cette
+   signature comme signature personnelle réutilisable. */
+function _bonAfficherPadSignature(idChamp, zone, proposerEnregistrement) {
+  delete _bonReponses[idChamp];
+  zone.innerHTML = '';
+  zone.style.color = '';
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'bon-signature-zone'; canvas.id = 'bon-sig-' + idChamp;
+  const actions = document.createElement('div');
+  actions.className = 'bon-signature-actions';
+  const btnEff = document.createElement('button');
+  btnEff.type = 'button'; btnEff.className = 'btn-modal-cancel';
+  btnEff.textContent = 'Effacer';
+  btnEff.onclick = function () { _bonEffacerSignature(idChamp); };
+  actions.appendChild(btnEff);
+
+  zone.appendChild(canvas);
+  zone.appendChild(actions);
+
+  if (proposerEnregistrement) {
+    const ligneEnr = document.createElement('label');
+    ligneEnr.className = 'bon-case-ligne';
+    ligneEnr.style.marginTop = '6px';
+    const cbEnr = document.createElement('input');
+    cbEnr.type = 'checkbox';
+    cbEnr.checked = true;                            // nouveau tracé : enregistré par défaut
+    _bonSignatureAEnregistrer[idChamp] = cbEnr.checked;
+    cbEnr.onchange = function () { _bonSignatureAEnregistrer[idChamp] = this.checked; };
+    const spEnr = document.createElement('span');
+    spEnr.textContent = _bonSignatureSalarieCache ? 'Remplacer ma signature enregistrée par celle-ci' : 'Enregistrer ma signature pour la réutiliser';
+    ligneEnr.appendChild(cbEnr); ligneEnr.appendChild(spEnr);
+    zone.appendChild(ligneEnr);
+    // Modification en cours : possibilité de revenir à la signature enregistrée
+    if (_bonSignatureSalarieCache) {
+      const btnRetour = document.createElement('button');
+      btnRetour.type = 'button'; btnRetour.className = 'btn-modal-cancel'; btnRetour.style.marginTop = '6px';
+      btnRetour.textContent = '↩ Garder ma signature enregistrée';
+      btnRetour.onclick = function () { _bonAfficherApercuSignature(idChamp, zone, _bonSignatureSalarieCache); };
+      zone.appendChild(btnRetour);
+    }
+  }
+
+  setTimeout(function () { _bonInitSignature(idChamp); }, 30);
+}
+
+async function validerBon() {
+  if (!_bonMasqueActuel) { alert('Choisissez un type de bon'); return; }
+  if (_bonMasqueActuel.cerfa && _bonCerfa.concerne === null) {
+    alert('Indiquez si l\'intervention est concernée par le CERFA ' + _bonMasqueActuel.cerfa + ' (Oui / Non).');
+    const b = document.getElementById('bon-cerfa'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  for (const c of (_bonMasqueActuel.champs || [])) {
+    if (!c.obligatoire) continue;
+    if (c.type === 'datetime' && c.auto) continue;   // repris du pointage, peut être complété après le bon
+    if (c.type === 'signature' && c.signataire === 'client') {
+      const image = _bonReponses[c.id];
+      const nomSign = _bonReponses[c.id + '__nom'];
+      if (!image || !nomSign || !nomSign.trim()) { alert('Le champ "' + c.libelle + '" (signature et nom du client) est obligatoire'); return; }
+      continue;
+    }
+    const v = _bonReponses[c.id];
+    const vide = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+    if (vide) { alert('Le champ "' + c.libelle + '" est obligatoire'); return; }
+  }
+  const nom = _bonNomChantier();
+  if (!nom) return;
+
+  const dateEl = document.getElementById('date-saisie');
+  const dateGlobale = dateEl ? dateEl.value : '';
+  const codeEmploye = localStorage.getItem('saisie_codeEmploye');
+  const salarieId = _salarie ? _salarie.id : null;
+
+  try {
+    const r = await fetch('/api/bons-intervention', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeEmploye: codeEmploye, salarieId: salarieId,
+        chantier: nom,
+        masqueId: _bonMasqueActuel._id,
+        equipementId: _bonEquipement ? _bonEquipement._id : null,
+        cerfa: (_bonMasqueActuel.cerfa && _bonCerfa.concerne) ? { code: _bonMasqueActuel.cerfa, valeurs: _bonCerfa.valeurs } : null,
+        dateIntervention: dateGlobale,
+        reponses: _bonReponses
+      })
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.message || 'Erreur lors de l\'enregistrement du bon'); return; }
+
+    // Enregistre la signature comme signature personnelle si la case était cochée
+    // (uniquement pour les champs signature nouvellement dessinés, pas ceux déjà
+    // pré-remplis depuis la signature enregistrée).
+    (_bonMasqueActuel.champs || []).forEach(function (c) {
+      if (c.type === 'signature' && _bonSignatureAEnregistrer[c.id] && _bonReponses[c.id]) {
+        const sigData = _bonReponses[c.id];
+        fetch('/api/signature-salarie/enregistrer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeEmploye: codeEmploye, salarieId: salarieId, data: sigData })
+        }).then(function () { _bonSignatureSalarieCache = sigData; }).catch(function () {});
+      }
+    });
+
+    alert('Bon d\'intervention enregistré.');
+    fermerBon();
+  } catch (e) {
+    alert('Erreur réseau lors de l\'enregistrement du bon');
+  }
+}
+</script>
 </body>
 </html>

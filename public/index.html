@@ -106,6 +106,35 @@
       <span style="display:block;font-size:0.8rem;color:#6b7280;white-space:nowrap;margin-bottom:3px;">(5 caractères : chiffres, lettres et caractères spéciaux)</span>
       <input id="code-employe" style="width:100%;max-width:240px;box-sizing:border-box;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
     </div>
+    <!-- Logo + coordonnées : reportés en en-tête du PDF des bons d'intervention -->
+    <details class="volet" data-volet="coord-entreprise" style="width:100%;box-sizing:border-box;margin:0;"><summary>🧾 Logo et coordonnées <span class="volet-resume" id="resume-coord-ent"></span></summary><div class="volet-corps" style="display:flex;flex-direction:column;gap:1rem;">
+    <div style="width:100%;">
+      <label>Logo :</label>
+      <span style="display:block;font-size:0.8rem;color:#6b7280;margin-bottom:4px;">(PNG, JPG ou SVG — apparaît sur les bons d'intervention)</span>
+      <div style="display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap;">
+        <div id="ent-logo-apercu" style="width:150px;height:64px;border:1.5px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;font-size:0.75rem;color:#94a3b8;">Aucun logo</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <button type="button" class="btn" style="background:#fff;color:#0f3a8a;border:1.5px solid #0f3a8a;font-weight:700;" onclick="document.getElementById('ent-logo-fichier').click()">🖼 Choisir un logo</button>
+          <button type="button" id="ent-logo-retirer" class="btn" style="background:#fff;color:#b91c1c;border:1.5px solid #fca5a5;display:none;" onclick="retirerLogoEntreprise()">✕ Retirer</button>
+        </div>
+        <input type="file" id="ent-logo-fichier" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none;" onchange="choisirLogoEntreprise(this)">
+      </div>
+    </div>
+    <div style="width:100%;">
+      <label>Coordonnées :</label>
+      <span style="display:block;font-size:0.8rem;color:#6b7280;margin-bottom:4px;">(apparaissent sur les bons d'intervention)</span>
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:320px;">
+        <input id="ent-adresse" placeholder="Adresse" style="width:100%;box-sizing:border-box;">
+        <div style="display:flex;gap:6px;">
+          <input id="ent-cp" placeholder="Code postal" inputmode="numeric" maxlength="10" style="width:105px;box-sizing:border-box;">
+          <input id="ent-ville" placeholder="Ville" style="flex:1;min-width:0;box-sizing:border-box;">
+        </div>
+        <input id="ent-tel" placeholder="Téléphone" inputmode="tel" style="width:100%;box-sizing:border-box;">
+        <input id="ent-email" placeholder="Email" type="email" style="width:100%;box-sizing:border-box;">
+        <input id="ent-siret" placeholder="SIRET" inputmode="numeric" maxlength="20" style="width:100%;box-sizing:border-box;">
+      </div>
+    </div>
+    </div></details>
     <button class="btn btn-success" onclick="sauverEntreprise()">💾 Sauvegarder</button>
   </div>
 </section>
@@ -439,6 +468,41 @@
   <span id="zt-msg" style="font-size:0.85rem;margin-left:8px;"></span>
 </section>
 
+<!-- Bons d'intervention : activation de la création et de l'utilisation des masques d'intervention -->
+<section class="ent-tuile" style="background:#f0fdf4;border-left-color:#16a34a;">
+  <h2 style="color:#15803d;">Bons d'intervention</h2>
+  <p style="font-size:0.85rem;color:#475569;margin:0 0 1rem;">
+    Active la création de <strong>masques de bons d'intervention</strong> personnalisables et leur utilisation
+    par vos équipes sur mobile. Tant que ce réglage est sur « Non », la page « Bons d'intervention »
+    n'apparaît pas dans le menu.
+  </p>
+  <p id="bons-intervention-plus" style="display:none;font-size:0.85rem;color:#78350f;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:0.5rem 0.75rem;margin:0 0 1rem;">
+    🔒 Fonctionnalité réservée à la <strong>licence Plus</strong>. Pour en bénéficier, passez à la licence Plus (menu Contrat › Tarifs).
+  </p>
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:1.2rem;">
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="bonsIntervention" id="bonsInterventionOui" value="oui"> Oui
+      </label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+        <input type="radio" name="bonsIntervention" id="bonsInterventionNon" value="non"> Non
+      </label>
+    </div>
+    <button type="button" id="btn-valider-bons-intervention" class="btn btn-success" onclick="validerBonsIntervention()">💾 Valider</button>
+    <span id="bons-intervention-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;margin-top:0.9rem;padding-top:0.8rem;border-top:1px solid #bbf7d0;">
+    <span style="font-size:0.9rem;font-weight:600;">Import Organilog :</span>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="importOrganilog" id="importOrganilogOui" value="oui"> Oui
+    </label>
+    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
+      <input type="radio" name="importOrganilog" id="importOrganilogNon" value="non"> Non
+    </label>
+    <span style="font-size:0.8rem;color:#64748b;flex-basis:100%;">Ajoute dans la page Clients l'import des fichiers exportés d'Organilog (installations, clients). Enregistré avec le bouton Valider ci-dessus.</span>
+  </div>
+</section>
+
 </div>
 
 
@@ -640,6 +704,13 @@ function majResumesVolets() {
   // Trajet : point de départ
   const adr = v('zt-adresse').trim();
   set('resume-trajet', adr ? (adr.length > 34 ? adr.slice(0, 32) + '…' : adr) : 'à renseigner');
+  // Logo et coordonnées (en-tête des bons d'intervention)
+  let aLogo = false;
+  try { aLogo = !!JSON.parse(localStorage.getItem('entreprisedata') || '{}').logo; } catch (_) {}
+  const aCoord = ['ent-adresse', 'ent-ville', 'ent-tel', 'ent-email', 'ent-siret'].some(id => v(id).trim());
+  set('resume-coord-ent', aLogo || aCoord
+    ? [aLogo ? 'logo ✓' : 'sans logo', aCoord ? 'coordonnées ✓' : 'coordonnées à renseigner'].join(' · ')
+    : 'à renseigner');
 }
 window.addEventListener('DOMContentLoaded', _voletsInit);
 window.addEventListener('donnees-chargees', () => setTimeout(majResumesVolets, 50));
@@ -829,6 +900,48 @@ async function validerZonesTrajet() {
 }
 window.addEventListener('DOMContentLoaded', chargerZonesTrajet);
 window.addEventListener('donnees-chargees', chargerZonesTrajet);
+</script>
+
+<script>
+function chargerBonsIntervention() {
+  const ent = _entLire();
+  const oui = document.getElementById('bonsInterventionOui');
+  const non = document.getElementById('bonsInterventionNon');
+  if (oui && non) { oui.checked = !!ent.bonsInterventionActifs; non.checked = !ent.bonsInterventionActifs; }
+  // Réservé à la licence Plus : en Standard, « Oui » est grisé et un message l'explique
+  const plus = _bonsLicencePlus();
+  const info = document.getElementById('bons-intervention-plus');
+  if (info) info.style.display = plus ? 'none' : '';
+  if (oui) { oui.disabled = !plus; if (!plus) { oui.checked = false; if (non) non.checked = true; } }
+  const ogO = document.getElementById('importOrganilogOui'), ogN = document.getElementById('importOrganilogNon');
+  if (ogO && ogN) { ogO.checked = !!ent.importOrganilog; ogN.checked = !ent.importOrganilog; }
+}
+function _bonsLicencePlus() {
+  // Type de licence : connu de SYNC après connexion, sinon le dernier mémorisé
+  if (window.SYNC && typeof SYNC.estPlus === 'function' && SYNC.estPlus()) return true;
+  return localStorage.getItem('syncType') === 'plus';
+}
+async function validerBonsIntervention() {
+  const actif = !!document.getElementById('bonsInterventionOui').checked;
+  if (actif && !_bonsLicencePlus()) { alert("Les bons d'intervention sont disponibles avec la licence Plus."); return; }
+  if (!actif && !document.getElementById('bonsInterventionNon').checked) { alert('Choisissez Oui ou Non.'); return; }
+  const ent = _entLire();
+  ent.bonsInterventionActifs = actif;
+  ent.importOrganilog = !!document.getElementById('importOrganilogOui').checked;
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-bons-intervention');
+  const msg = document.getElementById('bons-intervention-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  // Le menu n'est reconstruit qu'au chargement de la page (comme pour le
+  // Suivi des entretiens) : on recharge pour faire apparaître/disparaître
+  // l'entrée « Bons d'intervention » sans action manuelle.
+  location.reload();
+}
+window.addEventListener('DOMContentLoaded', chargerBonsIntervention);
+window.addEventListener('donnees-chargees', chargerBonsIntervention);
 </script>
 
 <script>
