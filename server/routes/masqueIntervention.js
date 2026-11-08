@@ -16,6 +16,7 @@ import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import Donnees from "../models/donnees.js";
+import { refusBons } from "../services/accesBons.js";
 import { MODELES as MODELES_CERFA, listeModeles } from "../cerfa/index.js";
 import { MODELES_MASQUES } from "../data/modelesMasques.js";
 
@@ -25,16 +26,17 @@ const TYPES_CHAMPS = ["texte", "case", "liste", "cases_multiples", "photo", "sig
 const AUTOS_VALIDES = ["", "date", "heureDebut", "heureFin", "duree"];
 const MAX_CHAMPS = 60;
 
-/* Bloque l'accès si le client n'a pas activé la fonctionnalité depuis la
+/* Bloque l'accès sans licence Plus, ou si le client n'a pas activé la fonctionnalité depuis la
    page Entreprise (entreprisedata.bonsInterventionActifs). Sécurité côté
    serveur en complément du masquage du menu côté client. */
 async function verifierFonctionActive(req, res, next) {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const doc = await Donnees.findOne({ clientId }, "entreprise");
-    if (!doc?.entreprise?.bonsInterventionActifs) {
+    const refus = await refusBons(clientId, doc?.entreprise);   // licence Plus + activation page Entreprise
+    if (refus) {
       // 409 et non 403 : sync.js déconnecte sur tout 401/403 d'une route /api/.
-      return res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise. Activez-les sur la page Entreprise." });
+      return res.status(409).json({ ok: false, inactif: true, message: refus });
     }
     next();
   } catch (err) {

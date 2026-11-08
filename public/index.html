@@ -476,6 +476,9 @@
     par vos équipes sur mobile. Tant que ce réglage est sur « Non », la page « Bons d'intervention »
     n'apparaît pas dans le menu.
   </p>
+  <p id="bons-intervention-plus" style="display:none;font-size:0.85rem;color:#78350f;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:0.5rem 0.75rem;margin:0 0 1rem;">
+    🔒 Fonctionnalité réservée à la <strong>licence Plus</strong>. Pour en bénéficier, passez à la licence Plus (menu Contrat › Tarifs).
+  </p>
   <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:1.2rem;">
       <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;cursor:pointer;">
@@ -905,11 +908,22 @@ function chargerBonsIntervention() {
   const oui = document.getElementById('bonsInterventionOui');
   const non = document.getElementById('bonsInterventionNon');
   if (oui && non) { oui.checked = !!ent.bonsInterventionActifs; non.checked = !ent.bonsInterventionActifs; }
+  // Réservé à la licence Plus : en Standard, « Oui » est grisé et un message l'explique
+  const plus = _bonsLicencePlus();
+  const info = document.getElementById('bons-intervention-plus');
+  if (info) info.style.display = plus ? 'none' : '';
+  if (oui) { oui.disabled = !plus; if (!plus) { oui.checked = false; if (non) non.checked = true; } }
   const ogO = document.getElementById('importOrganilogOui'), ogN = document.getElementById('importOrganilogNon');
   if (ogO && ogN) { ogO.checked = !!ent.importOrganilog; ogN.checked = !ent.importOrganilog; }
 }
+function _bonsLicencePlus() {
+  // Type de licence : connu de SYNC après connexion, sinon le dernier mémorisé
+  if (window.SYNC && typeof SYNC.estPlus === 'function' && SYNC.estPlus()) return true;
+  return localStorage.getItem('syncType') === 'plus';
+}
 async function validerBonsIntervention() {
   const actif = !!document.getElementById('bonsInterventionOui').checked;
+  if (actif && !_bonsLicencePlus()) { alert("Les bons d'intervention sont disponibles avec la licence Plus."); return; }
   if (!actif && !document.getElementById('bonsInterventionNon').checked) { alert('Choisissez Oui ou Non.'); return; }
   const ent = _entLire();
   ent.bonsInterventionActifs = actif;

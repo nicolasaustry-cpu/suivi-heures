@@ -19,6 +19,7 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Donnees from "../models/donnees.js";
+import { refusBons } from "../services/accesBons.js";
 import Equipement, { cleClient } from "../models/equipement.js";
 import BonIntervention from "../models/bonIntervention.js";
 import { resoudreContexteMobile } from "./bonIntervention.js";
@@ -61,9 +62,10 @@ async function avecInterventions(clientId, equipements) {
 async function contextePC(req, res) {
   const clientId = U(req.user?.clientId);
   const doc = await Donnees.findOne({ clientId }, "entreprise");
-  if (!doc?.entreprise?.bonsInterventionActifs) {
+  const refus = await refusBons(clientId, doc?.entreprise);   // licence Plus + activation page Entreprise
+  if (refus) {
     // 409 et non 403 : sync.js déconnecte sur tout 401/403 d'une route /api/.
-    res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise." });
+    res.status(409).json({ ok: false, inactif: true, message: refus });
     return null;
   }
   return clientId;

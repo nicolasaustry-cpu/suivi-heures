@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 // Auth mobile uniquement (codeEmploye + salarieId), même schéma que
 // routes/documents.js. Protégé par l'activation de la fonctionnalité
-// (entreprise.bonsInterventionActifs), vérifiée côté serveur en plus
+// (entreprise.bonsInterventionActifs) et réservé à la licence Plus, vérifiés côté serveur en plus
 // du masquage du menu côté client.
 //
 // Endpoints (POST, l'auth passe par le corps) :
@@ -24,6 +24,7 @@
 
 import express from "express";
 import Donnees from "../models/donnees.js";
+import { refusBons } from "../services/accesBons.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
 import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
 import Saisie from "../models/saisies.js";
@@ -55,9 +56,8 @@ export async function resoudreContexteMobile(req) {
   const sal = (doc.salaries || []).find(s => String(s.id) === String(req.body.salarieId));
   if (!sal) return { err: [401, "Salarié inconnu"] };
 
-  if (!doc.entreprise?.bonsInterventionActifs) {
-    return { err: [409, "Fonctionnalité non activée pour ce compte (page Entreprise)"], inactif: true };
-  }
+  const refus = await refusBons(doc.clientId, doc.entreprise);   // licence Plus + activation page Entreprise
+  if (refus) return { err: [409, refus], inactif: true };
 
   return {
     clientId: U(doc.clientId),
@@ -197,8 +197,9 @@ router.post("/", async (req, res) => {
 async function contextePC(req, res) {
   const clientId = U(req.user?.clientId);
   const doc = await Donnees.findOne({ clientId }, "clientId entreprise coordonneesChantiers salaries");
-  if (!doc?.entreprise?.bonsInterventionActifs) {
-    res.status(409).json({ ok: false, inactif: true, message: "Les bons d'intervention ne sont pas activés pour votre entreprise. Activez-les sur la page Entreprise." });
+  const refus = await refusBons(clientId, doc?.entreprise);   // licence Plus + activation page Entreprise
+  if (refus) {
+    res.status(409).json({ ok: false, inactif: true, message: refus });
     return null;
   }
   return { clientId, doc };

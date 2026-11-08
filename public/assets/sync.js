@@ -36,7 +36,7 @@ const SYNC = (() => {
   const CLES = ['entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata', 'previsionnel_data', 'coordonneesChantiersdata'];
 
   const PAGES_LIBRES = ['index.html', '/', ''];
-  const PAGES_PLUS = ['realise.html', 'notes.html'];
+  const PAGES_PLUS = ['realise.html', 'notes.html', 'masques-intervention.html', 'bons-intervention.html'];
   const PAGES_LIBRES_TOTAL = ['index.html', '/', '', 'saisie.html', 'planning-equipe.html'];
 
   /* ── Intercepteur global fetch : 401/403 sur /api/* (hors saisie mobile) → déconnexion propre ── */
@@ -876,7 +876,7 @@ const SYNC = (() => {
       { href: 'salaries.html',  label: 'Salariés' },
       { href: 'chantiers.html', label: 'Prévisionnel' },
       { href: 'clients.html',   label: 'Clients' },  // toujours visible : base alimentée aussi par le planning (Henrri facultatif)
-      { href: 'masques-intervention.html', label: 'Masques de bons', requiert: 'bonsInterventionActifs' }
+      { href: 'masques-intervention.html', label: 'Masques de bons', requiert: 'bonsInterventionActifs', plus: true }
     ] },
     { label: 'Planning', items: [
       { href: 'planning.html',         label: 'Planning prévu' },
@@ -887,7 +887,7 @@ const SYNC = (() => {
     { label: 'Suivi', items: [
       { href: 'rapports.html', label: 'Rapports' },
       { href: 'notes.html',    label: 'Notes', plus: true },
-      { href: 'bons-intervention.html', label: "Bons d'intervention", requiert: 'bonsInterventionActifs' },
+      { href: 'bons-intervention.html', label: "Bons d'intervention", requiert: 'bonsInterventionActifs', plus: true },
       { href: 'suivi-entretiens.html', label: 'Suivi des entretiens', requiert: 'suiviEntretien' },
       { href: 'bev.html',      label: 'Éléments Pointage Paie' }
     ] },
