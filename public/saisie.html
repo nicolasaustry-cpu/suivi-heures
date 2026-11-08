@@ -5592,6 +5592,14 @@ function _bonFormCerfa(corps, def) {
     if (v.Equipement_Charge === undefined && e.chargeKg != null) v.Equipement_Charge = String(e.chargeKg).replace('.', ',');
   }
   corps.innerHTML = '';
+  if (def.demarche && def.demarche.length) {
+    const dm = document.createElement('details');
+    dm.style.cssText = 'border:1px solid #fde68a;background:#fffbeb;border-radius:9px;padding:6px 10px;margin-bottom:8px;color:#78350f;font-size:0.78rem;';
+    const sm = document.createElement('summary'); sm.style.fontWeight = '700'; sm.textContent = '📋 Démarche à suivre';
+    const ol = document.createElement('ol'); ol.style.cssText = 'margin:4px 0 0 16px;padding:0;';
+    def.demarche.forEach(function (t) { const li = document.createElement('li'); li.textContent = t; li.style.margin = '2px 0'; ol.appendChild(li); });
+    dm.appendChild(sm); dm.appendChild(ol); corps.appendChild(dm);
+  }
   const fuite = !!v.Case_Fuite_Oui;
   def.sections.forEach(function (s) {
     const sec = document.createElement('div');

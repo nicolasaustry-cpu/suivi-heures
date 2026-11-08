@@ -28,7 +28,7 @@ import MasqueIntervention from "../models/masqueIntervention.js";
 import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
 import Saisie from "../models/saisies.js";
 import ReglageCerfa from "../models/reglageCerfa.js";
-import { MODELES as CERFAS, listeModeles, assainirValeurs, remplirCerfa, assemblerPdf } from "../cerfa/index.js";
+import { MODELES as CERFAS, listeModeles, assainirValeurs, remplirCerfa, assemblerPdf, demarche } from "../cerfa/index.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Equipement, { cleClient, libelleEquipement } from "../models/equipement.js";
 import { genererPdfBon } from "../services/pdfBon.js";
@@ -89,7 +89,7 @@ router.post("/cerfa-mobile", async (req, res) => {
     const m = CERFAS[String(req.body.code || "")];
     if (!m || !m.MOBILE) return res.status(404).json({ ok: false, message: "CERFA inconnu" });
     const reg = await ReglageCerfa.findOne({ clientId: ctx.clientId }).lean();
-    res.json({ ok: true, code: m.CODE, titre: m.TITRE, sections: m.MOBILE,
+    res.json({ ok: true, code: m.CODE, titre: m.TITRE, sections: m.MOBILE, demarche: demarche(m.CODE),
       memo: { Detecteur_ID: reg?.valeurs?.detecteur || "" } });
   } catch (err) { res.status(500).json({ ok: false, message: err.message }); }
 });
@@ -564,7 +564,7 @@ router.get("/pc/:id/cerfa/:code", verifyToken, async (req, res) => {
     const proposees = await valeursCerfaProposees(m.CODE, await bonAvecPointage(bon, champs, ctx.doc), champs, ctx.doc);
     res.json({
       ok: true,
-      modele: { code: m.CODE, titre: m.TITRE, sections: m.SECTIONS },
+      modele: { code: m.CODE, titre: m.TITRE, sections: m.SECTIONS, demarche: demarche(m.CODE) },
       valeurs: joint ? joint.valeurs : proposees,
       proposees,
       joint: !!joint

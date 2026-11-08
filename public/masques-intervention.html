@@ -100,6 +100,7 @@
       Sur mobile, le technicien indiquera si l'intervention est concernée. Si oui, il complète la partie CERFA dans le bon
       et le formulaire officiel est rempli automatiquement, joint au PDF du bon.
     </div>
+    <div id="masque-cerfa-demarche" style="display:none;max-width:640px;margin-top:8px;border:1px solid #fde68a;background:#fffbeb;border-radius:8px;padding:8px 10px;color:#78350f;font-size:0.82rem;"></div>
   </div>
 
   <h3>Champs du bon</h3>
@@ -303,7 +304,7 @@
     _idEnEdition = null;
     _champs = [];
     document.getElementById('masque-nom').value = '';
-    document.getElementById('masque-cerfa').value = '';
+    document.getElementById('masque-cerfa').value = ''; afficherDemarcheCerfa();
     document.getElementById('titre-formulaire').textContent = 'Créer un masque';
     document.getElementById('btn-annuler-edition').style.display = 'none';
     rendreChamps();
@@ -314,7 +315,7 @@
     if (!m) return;
     _idEnEdition = id;
     document.getElementById('masque-nom').value = m.nom || '';
-    document.getElementById('masque-cerfa').value = m.cerfa || '';
+    document.getElementById('masque-cerfa').value = m.cerfa || ''; afficherDemarcheCerfa();
     _champs = (m.champs || []).map(function (c) { return Object.assign({}, c); });
     document.getElementById('titre-formulaire').textContent = 'Modifier le masque « ' + m.nom + ' »';
     document.getElementById('btn-annuler-edition').style.display = '';
@@ -397,6 +398,20 @@
     });
   }
 
+  // Démarche à suivre pour le CERFA choisi
+  var _cerfaModeles = [];
+  function afficherDemarcheCerfa() {
+    var zone = document.getElementById('masque-cerfa-demarche'); if (!zone) return;
+    var code = document.getElementById('masque-cerfa').value;
+    var m = _cerfaModeles.find(function (x) { return x.code === code; });
+    var lignes = (m && m.demarche) || [];
+    if (!lignes.length) { zone.style.display = 'none'; zone.innerHTML = ''; return; }
+    var e = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    zone.innerHTML = '<strong>📋 Démarche à suivre</strong><ol style="margin:4px 0 0 18px;padding:0;">' +
+      lignes.map(function (l) { return '<li style="margin:2px 0;">' + e(l) + '</li>'; }).join('') + '</ol>';
+    zone.style.display = '';
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     rendreChamps();
     // Laisse SYNC.init() (appelé depuis sync.js) poser le token avant de charger.
@@ -410,6 +425,9 @@
           var o = document.createElement('option'); o.value = m.code; o.textContent = m.titre; sel.appendChild(o);
         });
         sel.value = garde;
+        _cerfaModeles = res.body.modeles || [];
+        sel.addEventListener('change', afficherDemarcheCerfa);
+        afficherDemarcheCerfa();
       });
     }, 300);
   });

@@ -523,8 +523,16 @@
       document.getElementById('cf-info').innerHTML = res.body.joint
         ? 'Ce CERFA est joint au bon : il s\'ajoute à la suite du PDF et part avec l\'envoi au client.'
         : 'Valeurs <strong>pré-remplies</strong> d\'après le bon, l\'équipement, le client et vos saisies précédentes. Complétez puis joignez-le au bon.';
+      var dm = res.body.modele.demarche || [];
+      if (dm.length) document.getElementById('cf-info').innerHTML += _htmlDemarche(dm);
       rendreFormCerfa(res.body.valeurs || {});
     });
+  }
+
+  function _htmlDemarche(lignes) {
+    return '<div style="margin-top:8px;border:1px solid #fde68a;background:#fffbeb;border-radius:8px;padding:8px 10px;color:#78350f;">' +
+      '<strong>📋 Démarche à suivre</strong><ol style="margin:4px 0 0 18px;padding:0;">' +
+      lignes.map(function (l) { return '<li style="margin:2px 0;">' + esc(l) + '</li>'; }).join('') + '</ol></div>';
   }
 
   function rendreFormCerfa(v) {

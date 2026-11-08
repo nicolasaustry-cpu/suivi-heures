@@ -11,12 +11,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import * as c15497 from "./cerfa15497.js";
+import { demarche } from "./demarches.js";
 
 const DOSSIER = path.dirname(fileURLToPath(import.meta.url));
 export const MODELES = { [c15497.CODE]: c15497 };
 
+export { demarche };
+
 export function listeModeles() {
-  return Object.values(MODELES).map(m => ({ code: m.CODE, titre: m.TITRE }));
+  return Object.values(MODELES).map(m => ({ code: m.CODE, titre: m.TITRE, demarche: demarche(m.CODE) }));
 }
 
 /* Ne garde que les champs connus du modèle (texte ≤ 2000 car., cases booléennes). */
