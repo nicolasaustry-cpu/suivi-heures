@@ -2497,16 +2497,18 @@ async function ouvrirModaleHenrri() {
         + celH
         + '<td style="' + td + '"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
         + '<td style="' + td + 'text-align:center;white-space:nowrap;">'
+        + '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
         + '<button class="btn-modale-copier" style="padding:4px 12px;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
         + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
         + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
         + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && !dv.coordBase.approx && !dv.coordBase.aucun && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
         + 'data-mode-import="' + (modeImport ? '1' : '') + '" '
-        + 'onclick="affecterDevisHenrri(this)">Affecter</button> '
-        + '<button class="btn-modale-annuler" style="padding:4px 10px;" '
+        + 'onclick="affecterDevisHenrri(this)">Affecter</button>'
+        + '<button class="btn-modale-annuler" style="padding:3px 10px;font-size:0.78rem;" '
         + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
-        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕</button></td>'
+        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕ Écarter</button>'
+        + '</div></td>'
         + '</tr>';
     });
     html += '</tbody></table>';
