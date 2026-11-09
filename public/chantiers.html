@@ -553,7 +553,7 @@
       <div id="henrri-modale-import" style="display:none;margin:0 0 1rem;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:0.82rem;color:#075985;align-items:center;gap:10px;flex-wrap:wrap;">
         <span id="henrri-modale-import-info" style="flex:1;"></span>
         <a href="import-henrri.html" style="padding:5px 12px;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap;">📥 Importer clients + devis validés</a>
-        <a href="import-henrri.html?corriger=1" id="henrri-lien-corriger" style="display:none;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid #0284c7;color:#0284c7;font-weight:700;text-decoration:none;white-space:nowrap;"
+        <a href="import-henrri.html?corriger=1" id="henrri-lien-corriger" onclick="return _henrriVerifCorriger()" style="display:none;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid #0284c7;color:#0284c7;font-weight:700;text-decoration:none;white-space:nowrap;"
           title="Revenir au choix des colonnes du dernier import pour corriger une mauvaise association, puis réimporter">↩ Corriger les colonnes du dernier import</a>
         <button type="button" id="henrri-btn-annuler-import" onclick="annulerDernierImportHenrri()" style="display:none;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid #dc2626;color:#dc2626;font-weight:700;cursor:pointer;white-space:nowrap;"
           title="Remet la liste des devis et la base clients dans l'état d'avant le dernier import">⟲ Annuler le dernier import</button>
@@ -2464,10 +2464,17 @@ async function ouvrirModaleHenrri() {
           dispo = !!(p && p.devis && p.devis.lignes && p.devis.lignes.length
             && (!p.licence || p.licence === (localStorage.getItem('licenceCode') || '')));
         } catch (_) {}
-        lienCorr.style.display = (modeImport && dispo) ? '' : 'none';
+        // Toujours visible dès qu'un import existe ; s'il n'est pas mémorisé, le clic explique pourquoi
+        lienCorr.style.display = (modeImport && d.importeLe) ? '' : 'none';
+        lienCorr.dataset.dispo = dispo ? '1' : '';
+        lienCorr.style.opacity = dispo ? '' : '.55';
       }
       const btnAnn = document.getElementById('henrri-btn-annuler-import');
-      if (btnAnn) btnAnn.style.display = (modeImport && d.annulable) ? '' : 'none';
+      if (btnAnn) {
+        btnAnn.style.display = (modeImport && d.importeLe) ? '' : 'none';
+        btnAnn.dataset.dispo = d.annulable ? '1' : '';
+        btnAnn.style.opacity = d.annulable ? '' : '.55';
+      }
     }
     if (aide) {
       aide.innerHTML = modeImport
@@ -2687,7 +2694,25 @@ async function supprimerDevisHenrri(btn) {
   }
 }
 
+function _henrriVerifCorriger() {
+  const l = document.getElementById('henrri-lien-corriger');
+  if (l && l.dataset.dispo === '1') return true;
+  alert('Le choix des colonnes n\'est pas disponible pour ce dernier import.\n\n'
+    + 'Il est conservé uniquement pour les imports faits depuis la mise à jour du 09/11/2026 au soir, '
+    + 'et seulement sur l\'ordinateur (navigateur) qui a fait l\'import.\n\n'
+    + 'Refaites l\'import une fois avec « Importer clients + devis validés » : ce bouton sera ensuite actif.');
+  return false;
+}
+
 async function annulerDernierImportHenrri() {
+  const b0 = document.getElementById('henrri-btn-annuler-import');
+  if (b0 && b0.dataset.dispo !== '1') {
+    alert('Ce dernier import ne peut pas être annulé.\n\n'
+      + 'L\'annulation est possible uniquement pour les imports faits depuis la mise à jour du 09/11/2026 au soir '
+      + '(ou l\'import a déjà été annulé).\n\n'
+      + 'Pour corriger un import plus ancien : refaites l\'import avec les bons fichiers, puis écartez avec « ✕ Écarter » les devis en trop.');
+    return;
+  }
   if (!confirm('Annuler le dernier import Henrri ?\n\n'
     + 'La liste des devis à affecter et la base clients reviennent à leur état d\'avant cet import.\n'
     + 'Les lignes déjà créées dans le Prévisionnel et les fiches chantier ne sont pas modifiées.')) return;
