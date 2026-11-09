@@ -583,6 +583,63 @@ function afficherRapport(rc, r) {
   document.getElementById('btn-confirmer').disabled = !(t.nouveaux + t.misAJour + t.inchanges);
 }
 
+/* ── Mémorisation du dernier import (fichiers lus + choix de colonnes) ──
+   Permet de revenir plus tard au tableau des colonnes depuis « Devis Henrri »
+   (chantiers.html → import-henrri.html?corriger=1) sans redéposer les fichiers. */
+const CLE_DERNIER = 'henrriDernierImport';
+function _choixColonnes(type) {
+  const m = {};
+  FICHIERS[type].champs.forEach(ch => {
+    const el = document.getElementById('map-' + type + '-' + ch.cle);
+    m[ch.cle] = el ? parseInt(el.value, 10) : -1;
+  });
+  return m;
+}
+function _memoriserImport() {
+  const avecClients = FICHIERS.clients.lignes.length > 0;
+  const paquet = {
+    licence: localStorage.getItem('licenceCode') || '',
+    le: new Date().toISOString(),
+    devis: { nom: FICHIERS.devis.nom, entetes: FICHIERS.devis.entetes, lignes: FICHIERS.devis.lignes, map: _choixColonnes('devis') },
+    clients: avecClients
+      ? { nom: FICHIERS.clients.nom, entetes: FICHIERS.clients.entetes, lignes: FICHIERS.clients.lignes, map: _choixColonnes('clients') }
+      : null
+  };
+  try { localStorage.setItem(CLE_DERNIER, JSON.stringify(paquet)); }
+  catch (e) {
+    // Fichier clients trop gros pour le navigateur : on garde au moins les devis
+    try { paquet.clients = null; localStorage.setItem(CLE_DERNIER, JSON.stringify(paquet)); }
+    catch (_) { try { localStorage.removeItem(CLE_DERNIER); } catch (__) {} }
+  }
+}
+function _restaurerDernierImport() {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(CLE_DERNIER) || 'null'); } catch (_) {}
+  if (!p || !p.devis || !Array.isArray(p.devis.lignes) || !p.devis.lignes.length) return false;
+  if (p.licence && p.licence !== (localStorage.getItem('licenceCode') || '')) return false;
+  ['clients', 'devis'].forEach(type => {
+    const src = p[type], F = FICHIERS[type];
+    if (!src) return;
+    F.nom = src.nom || ''; F.entetes = src.entetes || []; F.lignes = src.lignes || [];
+    const depot = document.getElementById('depot-' + type);
+    depot.classList.add('charge');
+    depot.querySelector('b').textContent = '✔ ' + F.nom;
+  });
+  afficherMapping();
+  ['clients', 'devis'].forEach(type => {
+    const src = p[type];
+    if (!src || !src.map) return;
+    Object.entries(src.map).forEach(([cle, i]) => {
+      const el = document.getElementById('map-' + type + '-' + cle);
+      if (el && i < FICHIERS[type].entetes.length) el.value = String(i);
+    });
+  });
+  document.getElementById('ih-note-correction').style.display = 'block';
+  if (!p.clients) afficherMessage('Seul le fichier des devis du dernier import a pu être conservé : la liste des clients n\'est pas réimportée.', 'info');
+  majBoutonSuivant();
+  return true;
+}
+
 /* ── Étape 4 : application (clients d'abord, puis devis) ── */
 async function confirmer() {
   const btn = document.getElementById('btn-confirmer');
@@ -601,6 +658,7 @@ async function confirmer() {
     btn.textContent = 'Devis…';
     const d = await _post('/api/henrri/import/confirmer', { lignes: _envoi.devis });
     const t = d.rapport.totaux;
+    _memoriserImport();
     document.getElementById('etape-rapport').style.display = 'none';
     document.getElementById('etape-fin').style.display = 'block';
     document.getElementById('ih-resultat').innerHTML =
@@ -651,7 +709,13 @@ function recommencer() {
   afficherMessage('');
 }
 
-window.addEventListener('DOMContentLoaded', () => { brancherDepot('clients'); brancherDepot('devis'); verifierMode(); });
+window.addEventListener('DOMContentLoaded', async () => {
+  brancherDepot('clients'); brancherDepot('devis');
+  await verifierMode();
+  if (new URLSearchParams(location.search).get('corriger') === '1' && !_restaurerDernierImport()) {
+    afficherMessage('Le dernier import n\'est plus disponible sur ce navigateur : déposez à nouveau vos fichiers.', 'info');
+  }
+});
 </script>
 
 </body>
