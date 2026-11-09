@@ -145,6 +145,12 @@
       Les colonnes ont été reconnues automatiquement. Corrigez-les si nécessaire. * = obligatoire.
       Le <strong>code client</strong>, s'il figure dans les deux fichiers, rend le rattachement plus sûr qu'avec le seul nom.
     </p>
+    <div class="ih-msg ih-msg-info" id="ih-note-correction" style="display:none;">
+      <strong>Correction après import.</strong> Corrigez les colonnes puis relancez l'analyse et l'import :
+      les devis déjà importés (même n° de devis) sont mis à jour, les clients aussi.
+      Les devis <strong>déjà affectés</strong> au Prévisionnel ne sont pas modifiés : corrigez leur ligne à la main.
+      Si le n° de devis était mal associé, les devis créés par erreur restent proposés : écartez-les avec « ✕ Écarter » dans « Devis Henrri ».
+    </div>
     <div id="bloc-map-clients">
       <div class="ih-sous">① Liste des clients <span class="ih-badge" id="nom-fichier-clients"></span></div>
       <div class="ih-mapping" id="mapping-clients"></div>
@@ -170,6 +176,7 @@
     <div id="ih-details"></div>
     <div class="ih-actions">
       <button type="button" class="ih-btn ih-btn-accent" id="btn-confirmer" onclick="confirmer()">Appliquer l'import</button>
+      <button type="button" class="ih-btn ih-btn-secondaire" onclick="revenirMapping(false)">← Revenir aux colonnes</button>
       <button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Annuler</button>
     </div>
   </div>
@@ -420,6 +427,7 @@ function afficherMapping() {
   document.getElementById('bloc-map-clients').style.display = avecClients ? '' : 'none';
   if (avecClients) _rendreMapping('clients');
   _rendreMapping('devis');
+  document.getElementById('ih-note-correction').style.display = 'none';
   document.getElementById('etape-depot').style.display = 'none';
   document.getElementById('etape-mapping').style.display = 'block';
 }
@@ -603,6 +611,7 @@ async function confirmer() {
       + 'À l\'affectation, les coordonnées du client sont reportées dans la fiche du chantier (case cochée par défaut).</p>'
       + '<div class="ih-actions">'
       + '<a class="ih-btn ih-btn-principal" href="chantiers.html?henrri=1">📄 Affecter les devis au Prévisionnel</a>'
+      + '<button type="button" class="ih-btn ih-btn-secondaire" onclick="revenirMapping(true)">← Corriger les colonnes et réimporter</button>'
       + '<button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Importer d\'autres fichiers</button>'
       + '</div>';
     afficherMessage('');
@@ -610,6 +619,19 @@ async function confirmer() {
     afficherMessage(_esc(e.message || e), 'erreur');
     btn.disabled = false; btn.textContent = 'Appliquer l\'import';
   }
+}
+
+/* Retour au tableau de correspondance des colonnes, sans recharger les fichiers :
+   les choix de colonnes déjà faits sont conservés (le tableau n'est pas reconstruit). */
+function revenirMapping(apresImport) {
+  if (!FICHIERS.devis.lignes.length) { recommencer(); return; }
+  ['etape-depot', 'etape-rapport', 'etape-fin'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('ih-note-correction').style.display = apresImport ? 'block' : 'none';
+  document.getElementById('etape-mapping').style.display = 'block';
+  const btn = document.getElementById('btn-confirmer');
+  btn.disabled = false; btn.textContent = 'Appliquer l\'import';
+  afficherMessage('');
+  document.getElementById('etape-mapping').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function recommencer() {
