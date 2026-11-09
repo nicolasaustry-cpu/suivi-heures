@@ -186,8 +186,11 @@ async function _config(clientId) {
    (pas de champ pilotage) est lue comme pilotage = oui, mode = api.
    ─────────────────────────────────────────────────────────────── */
 async function _etat(clientId) {
-  await _config(clientId); // garantit l'existence du document
-  const brut = (await Henrri.findOne({ clientId }).lean()) || {};
+  let brut = await Henrri.findOne({ clientId }).lean();
+  if (!brut) { await _config(clientId); brut = (await Henrri.findOne({ clientId }).lean()) || {}; } // crée le document au besoin
+  return _etatDepuis(brut);
+}
+function _etatDepuis(brut) {
   const pilotage = typeof brut.pilotage === "boolean" ? brut.pilotage : !!brut.actif;
   const mode = brut.mode === "import" ? "import" : "api";
   const actifApi = !!brut.actif;
@@ -461,15 +464,29 @@ function _analyserImport(lignes, etat) {
 router.get("/config", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
-    const cfg = await _config(clientId);
-    const etat = await _etat(clientId);
+    /* Lecture LÉGÈRE : ce point est appelé à chaque affichage du Prévisionnel
+       (bouton « Devis Henrri ») ; on ne charge ni la base clients, ni les devis
+       importés, ni la copie d'annulation — seulement leur nombre. */
+    const lire = () => Henrri.aggregate([
+      { $match: { clientId } },
+      { $project: {
+          actif: 1, pilotage: 1, mode: 1, devisFichierLe: 1,
+          henrriClientId: 1, henrriClientSecret: 1, henrriEnvironnement: 1,
+          nbDevisFichier: { $size: { $ifNull: ["$devisFichier", []] } }
+      } }
+    ]);
+    let [brut] = await lire();
+    if (!brut) { await _config(clientId); [brut] = await lire(); }
+    brut = brut || {};
+    const etat = _etatDepuis(brut);
+    const cfg = brut;
     res.json({
       ok: true,
       actif: cfg.actif,                     // connexion API active (historique)
       pilotage: etat.pilotage,              // Henrri version pilotage : oui / non
       mode: etat.mode,                      // "api" | "import"
       henrriActif: etat.henrriActif,        // fonctions Henrri visibles dans l'appli
-      nbDevisFichier: etat.devisFichier.length,
+      nbDevisFichier: brut.nbDevisFichier || 0,
       devisFichierLe: etat.brut.devisFichierLe || null,
       henrriClientId: cfg.henrriClientId || "",
       henrriClientSecretDefini: !!cfg.henrriClientSecret,

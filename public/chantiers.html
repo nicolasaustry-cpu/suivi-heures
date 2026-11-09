@@ -2258,8 +2258,11 @@ let _henrriAutoOuvert = false;
 /* Dernier état connu de la connexion Henrri (session de l'onglet) : évite que le bouton
    « Devis Henrri » disparaisse après un rechargement si la licence ou la configuration
    n'a pas encore répondu (le bouton reste alors utilisable pour rappeler la modale). */
-function _henrriEtatMemo() { try { return sessionStorage.getItem('henrriActif') === '1'; } catch (_) { return false; } }
-function _henrriMemoriser(actif) { try { sessionStorage.setItem('henrriActif', actif ? '1' : '0'); } catch (_) {} }
+/* Mémorisé par licence et dans la durée (localStorage) : le bouton s'affiche tout de suite
+   au chargement de la page, puis la réponse du serveur confirme ou corrige. */
+function _henrriCleMemo() { return 'henrriActif_' + (localStorage.getItem('licenceCode') || ''); }
+function _henrriEtatMemo() { try { return localStorage.getItem(_henrriCleMemo()) === '1'; } catch (_) { return false; } }
+function _henrriMemoriser(actif) { try { localStorage.setItem(_henrriCleMemo(), actif ? '1' : '0'); } catch (_) {} }
 function _henrriAfficherBoutons(actif) {
   const navClients = document.getElementById('nav-link-clients');
   const btnDevis   = document.getElementById('btn-devis-henrri');
@@ -2270,7 +2273,8 @@ async function _henrriMajVisibilite() {
   const navClients = document.getElementById('nav-link-clients');
   const btnDevis    = document.getElementById('btn-devis-henrri');
   const token = _henrriToken();
-  if (!token) { _henrriAfficherBoutons(_henrriEtatMemo()); return; }   // licence pas encore prête : dernier état connu
+  _henrriAfficherBoutons(_henrriEtatMemo());   // affichage immédiat d'après le dernier état connu
+  if (!token) return;                          // licence pas encore prête : on garde le dernier état connu
   try {
     const r = await fetch('/api/henrri/config', { headers: { 'Authorization': 'Bearer ' + token } });
     const d = await r.json();
