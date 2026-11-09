@@ -1364,6 +1364,121 @@ function _fmtTailleFiche(o) {
   return (o / 1024 / 1024).toFixed(1) + ' Mo';
 }
 
+/* ── Bons d'intervention du chantier (licence Plus, option activée) ──
+   Liste légère des bons (GET /api/bons-intervention/pc), filtrée sur les chantiers sélectionnés et
+   les mois choisis à l'écran. Si l'option n'est pas active (réponse 409), aucun bon : section masquée. */
+async function _listerBonsFiche(noms) {
+  try {
+    const token = localStorage.getItem('syncToken');
+    if (!token) return { actif: false, bons: [], cerfas: {} };
+    const r = await fetch('/api/bons-intervention/pc', { headers: { 'Authorization': 'Bearer ' + token } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) return { actif: false, bons: [], cerfas: {} };
+    const cles = new Set(noms.map(_clefChantierFiche));
+    const bons = (d.bons || []).filter(b => {
+      if (!cles.has(_clefChantierFiche(b.chantier))) return false;
+      if (_moisSelection.size === 0) return true;
+      const m = /^(\d{4}-\d{2})/.exec(b.dateIntervention || '') || /^(\d{4}-\d{2})/.exec(b.creeLe || '');
+      return m ? _moisSelection.has(m[1]) : true;
+    }).sort((a, b) => (a.dateIntervention || '').localeCompare(b.dateIntervention || '') || (a.numero || '').localeCompare(b.numero || ''));
+    // Titres des CERFA / fiches annexes
+    const cerfas = {};
+    if (bons.some(b => (b.cerfas || []).length)) {
+      try {
+        const rc = await fetch('/api/bons-intervention/pc/cerfa-modeles', { headers: { 'Authorization': 'Bearer ' + token } });
+        const dc = await rc.json();
+        (dc.modeles || []).forEach(m => { cerfas[m.code] = m.titre; });
+      } catch (_) {}
+    }
+    return { actif: true, bons, cerfas };
+  } catch (_) { return { actif: false, bons: [], cerfas: {} }; }
+}
+
+function _dateBonFiche(b) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(b.dateIntervention || '');
+  if (m) return m[3] + '/' + m[2] + '/' + m[1];
+  return b.creeLe ? new Date(b.creeLe).toLocaleDateString('fr-FR') : '';
+}
+
+/* PDF.js (CDN) chargé une seule fois, pour transformer les PDF des bons en images insérées dans la fiche
+   (ainsi l'impression de la fiche contient les bons et leurs annexes). */
+let _pdfjsPromesse = null;
+function _chargerPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (_pdfjsPromesse) return _pdfjsPromesse;
+  _pdfjsPromesse = new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    sc.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      ok(window.pdfjsLib);
+    };
+    sc.onerror = () => { _pdfjsPromesse = null; ko(new Error('PDF.js indisponible')); };
+    document.head.appendChild(sc);
+  });
+  return _pdfjsPromesse;
+}
+
+/* Récupère le PDF complet d'un bon (bon + CERFA / fiches annexes, assemblés par le serveur). */
+async function _pdfBonFiche(id) {
+  const token = localStorage.getItem('syncToken');
+  const r = await fetch('/api/bons-intervention/pc/' + encodeURIComponent(id) + '/pdf', { headers: { 'Authorization': 'Bearer ' + token } });
+  if (!r.ok) throw new Error('PDF du bon indisponible');
+  return await r.arrayBuffer();
+}
+
+/* Insère, dans la fenêtre de la fiche, les pages de chaque bon (avec ses annexes) sous forme d'images. */
+async function _insererBonsDansFiche(w, bons) {
+  const zone = w.document.getElementById('fc-bons-pages');
+  if (!zone) return;
+  let pdfjs;
+  try { pdfjs = await _chargerPdfJs(); }
+  catch (_) { zone.innerHTML = '<p class="fc-vide">Impossible d\'afficher les bons dans la fiche (connexion requise). Utilisez les boutons « PDF » ci-dessus.</p>'; return; }
+  zone.innerHTML = '';
+  for (const b of bons) {
+    if (w.closed) return;
+    const bloc = w.document.createElement('div');
+    bloc.className = 'fc-bon-doc';
+    bloc.innerHTML = '<div class="fc-bon-attente">Chargement du bon n° ' + escapeHtmlRapport(b.numero || '') + '…</div>';
+    zone.appendChild(bloc);
+    try {
+      const buf = await _pdfBonFiche(b._id);
+      const pdf = await pdfjs.getDocument({ data: buf }).promise;
+      bloc.innerHTML = '';
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const page = await pdf.getPage(n);
+        const vp = page.getViewport({ scale: 1.7 });
+        const cv = document.createElement('canvas');
+        cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        const img = w.document.createElement('img');
+        img.className = 'fc-bon-page';
+        img.alt = "Bon d'intervention n° " + (b.numero || '') + ' — page ' + n;
+        img.src = cv.toDataURL('image/jpeg', 0.88);
+        bloc.appendChild(img);
+      }
+    } catch (_) {
+      bloc.innerHTML = '<p class="fc-vide">Bon n° ' + escapeHtmlRapport(b.numero || '') + ' : affichage impossible. Utilisez le bouton « PDF » ci-dessus.</p>';
+    }
+  }
+}
+
+/* Ouvre le PDF d'un bon dans un nouvel onglet (bouton de la fiche, à l'écran uniquement). */
+async function _ouvrirPdfBonFiche(id, numero, fen) {
+  const src = (fen && !fen.closed) ? fen : window;   // ouverture depuis la fenêtre de la fiche (clic)
+  const w = src.open('', '_blank');
+  try {
+    const buf = await _pdfBonFiche(id);
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
+    if (w) w.location.href = url; else src.open(url, '_blank');
+  } catch (e) {
+    if (w) w.close();
+    alert("Impossible d'ouvrir le bon n° " + (numero || '') + '.');
+  }
+}
+
 async function ouvrirFicheChantier() {
   const f = filtresActifs.chantier;
   const noms = [...(f || [])];
@@ -1413,16 +1528,22 @@ async function ouvrirFicheChantier() {
     }
   } catch (_) {}
 
+  // Bons d'intervention (avec CERFA / fiches annexes) — licence Plus, option activée
+  const bonsInfo = estPlus ? await _listerBonsFiche(noms) : { actif: false, bons: [], cerfas: {} };
+
   const libellePeriode = [..._moisSelection].sort().map(libelleMoisCourt).join(', ') || 'Toutes périodes';
-  const html = construireFicheHTML(prefixe, noms, coord, estPlus, interventions, carnet, libellePeriode, documents);
+  const html = construireFicheHTML(prefixe, noms, coord, estPlus, interventions, carnet, libellePeriode, documents, bonsInfo);
 
   const w = window.open('', '_blank');
   if (!w) { alert("Le navigateur a bloqué l'ouverture de la fiche. Autorisez les pop-ups pour ce site puis réessayez."); return; }
   w.document.write(html);
   w.document.close();
+  // Boutons « PDF » de la fiche → ouverture via la page Rapport (le jeton reste ici)
+  w._ouvrirPdfBon = (id, numero) => _ouvrirPdfBonFiche(id, numero, w);
+  if (bonsInfo.bons.length) _insererBonsDansFiche(w, bonsInfo.bons);
 }
 
-function construireFicheHTML(nomChantier, noms, coord, estPlus, interventions, carnet, libellePeriode, documents) {
+function construireFicheHTML(nomChantier, noms, coord, estPlus, interventions, carnet, libellePeriode, documents, bonsInfo) {
   const nomEnt = escapeHtmlRapport(entreprise.nom || '');
   const nomCh  = escapeHtmlRapport(nomChantier);
   const sousTitreRegroupement = (noms && noms.length > 1)
@@ -1484,6 +1605,33 @@ function construireFicheHTML(nomChantier, noms, coord, estPlus, interventions, c
     sectionSecondaire = '<div class="fc-section"><h2>Documents joints</h2>' + blocDocs + '</div>';
   }
 
+  // ── Bons d'intervention (licence Plus, option activée) : récapitulatif + pages des bons et annexes ──
+  let sectionBons = '';
+  if (bonsInfo && bonsInfo.actif) {
+    const bons = bonsInfo.bons || [];
+    const titreCerfa = code => escapeHtmlRapport((bonsInfo.cerfas || {})[code] || ('CERFA ' + code));
+    const lignesBons = bons.length
+      ? bons.map(b => {
+          const annexes = (b.cerfas || []).map(c => titreCerfa(c.code)).join('<br>') || '<span class="fc-vide">—</span>';
+          const eq = (b.equipement && b.equipement.libelle) ? escapeHtmlRapport(b.equipement.libelle) : '';
+          return '<tr>'
+            + '<td>' + escapeHtmlRapport(b.numero || '') + '</td>'
+            + '<td>' + escapeHtmlRapport(_dateBonFiche(b)) + '</td>'
+            + '<td>' + escapeHtmlRapport(b.masqueNom || '') + (eq ? '<div class="fc-bon-eq">🔧 ' + eq + '</div>' : '') + '</td>'
+            + '<td>' + escapeHtmlRapport(b.salarieNom || '') + '</td>'
+            + '<td class="fc-bon-annexes">' + annexes + '</td>'
+            + '<td class="fc-no-print"><button class="fc-btn-pdf" onclick="window._ouvrirPdfBon(\'' + b._id + '\', \'' + escapeHtmlRapport(b.numero || '') + '\')">📄 PDF</button></td>'
+            + '</tr>';
+        }).join('')
+      : '';
+    sectionBons = '<div class="fc-section"><h2>Bons d\'intervention</h2>'
+      + (bons.length
+          ? '<table class="fc-bons"><thead><tr><th>N°</th><th>Date</th><th>Type de bon</th><th>Technicien</th><th>Documents annexes</th><th class="fc-no-print"></th></tr></thead><tbody>' + lignesBons + '</tbody></table>'
+          : '<p class="fc-vide">Aucun bon d\'intervention sur la période sélectionnée.</p>')
+      + '</div>'
+      + (bons.length ? '<div id="fc-bons-pages"><p class="fc-vide fc-no-print">Préparation des bons d\'intervention…</p></div>' : '');
+  }
+
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
     + '<title>Fiche chantier – ' + nomCh + '</title><style>'
     + 'body{font-family:Segoe UI,Arial,sans-serif;color:#1e293b;margin:0;padding:24px 32px;}'
@@ -1511,7 +1659,16 @@ function construireFicheHTML(nomChantier, noms, coord, estPlus, interventions, c
     + '.fc-carnet-texte{font-size:0.85rem;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;}'
     + '.fc-print-bar{text-align:right;margin-bottom:16px;}'
     + '.fc-print-bar button{background:#0f3a8a;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:0.85rem;}'
-    + '@media print{.fc-print-bar{display:none;}body{padding:0;}}'
+    + '.fc-bons th:last-child,.fc-bons td:last-child{text-align:right;}'
+    + '.fc-bons td{vertical-align:top;}'
+    + '.fc-bon-eq{font-size:0.76rem;color:#64748b;margin-top:2px;}'
+    + '.fc-bon-annexes{font-size:0.78rem;color:#334155;}'
+    + '.fc-btn-pdf{background:#fff;color:#0f3a8a;border:1px solid #0f3a8a;border-radius:6px;padding:3px 9px;font-weight:700;cursor:pointer;font-size:0.78rem;white-space:nowrap;}'
+    + '.fc-bon-doc{margin-top:18px;}'
+    + '.fc-bon-attente{color:#64748b;font-style:italic;font-size:0.85rem;}'
+    + '.fc-bon-page{display:block;width:100%;max-width:820px;margin:0 auto 14px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.08);}'
+    + '@media print{.fc-print-bar{display:none;}body{padding:0;}.fc-no-print{display:none !important;}'
+    + '.fc-bon-page{page-break-before:always;break-before:page;border:none;box-shadow:none;margin:0 auto;max-width:100%;max-height:270mm;width:auto;}}'
     + '</style></head><body>'
     + '<div class="fc-print-bar"><button onclick="window.print()">🖨 Imprimer / Enregistrer en PDF</button></div>'
     + '<div class="fc-entete"><h1>Fiche chantier — ' + nomCh + '</h1><div class="fc-ent">' + nomEnt + '</div></div>'
@@ -1521,6 +1678,7 @@ function construireFicheHTML(nomChantier, noms, coord, estPlus, interventions, c
     + sectionPrincipale
     + sectionSecondaire
     + '<div class="fc-section"><h2>Carnet de chantier</h2>' + blocCarnet + '</div>'
+    + sectionBons
     + '</body></html>';
 }
 
