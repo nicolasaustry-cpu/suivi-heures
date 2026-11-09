@@ -859,10 +859,10 @@ const SYNC = (() => {
 
   // Pages où le menu latéral s'applique.
   var MENU_PAGES = ['tableau-de-bord.html', 'index.html', 'salaries.html', 'chantiers.html', 'planning.html',
-    'planning-equipe.html', 'planning-synthese.html', 'frise-chantiers.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'clients.html', 'masques-intervention.html', 'bons-intervention.html'];
+    'planning-equipe.html', 'planning-synthese.html', 'frise-chantiers.html', 'rapports.html', 'realise.html', 'notes.html', 'bev.html', 'saisie.html', 'suivi-entretiens.html', 'clients.html', 'masques-intervention.html', 'bons-intervention.html', 'import-henrri.html'];
 
   // Sous-pages sans entrée propre dans le menu : on surligne la rubrique parente.
-  var MENU_PARENT = { 'planning-synthese.html': 'planning.html', 'frise-chantiers.html': 'planning.html' };
+  var MENU_PARENT = { 'planning-synthese.html': 'planning.html', 'frise-chantiers.html': 'planning.html', 'import-henrri.html': 'chantiers.html' };
 
   // Structure canonique du menu (indépendante de la licence).
   // Le premier groupe n'a pas d'intitulé : le tableau de bord est la page
