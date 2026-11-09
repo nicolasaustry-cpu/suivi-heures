@@ -1551,6 +1551,12 @@
 
 <!-- ── FENÊTRE BON D'INTERVENTION ── -->
 <div class="modal-overlay" id="modal-bon">
+  <style>
+    /* Démarrage du bon : fenêtre en haut de l'écran, seul le « Type de bon » est proposé */
+    #modal-bon.bon-debut { align-items: flex-start; }
+    #modal-bon.bon-debut .modal-box { border-radius: 0 0 16px 16px !important; padding-top: calc(1.2rem + env(safe-area-inset-top, 0px)) !important; }
+    #modal-bon.bon-debut #bon-etape-equip { display: none !important; }
+  </style>
   <div class="modal-box" style="max-width:480px;max-height:88vh;overflow-y:auto;">
     <div class="modal-title">📋 Bon d'intervention</div>
     <div id="bon-chantier-nom" style="text-align:center;color:#6b7280;font-size:0.82rem;margin:-0.5rem 0 0.9rem;"></div>
@@ -5175,6 +5181,7 @@ function ouvrirBon(type, ref) {
   document.getElementById('bon-etape-masque').style.display = '';
   document.getElementById('bon-msg-vide').style.display = 'none';
 
+  document.getElementById('modal-bon').classList.add('bon-debut');
   document.getElementById('modal-bon').classList.add('open');
   _bonChargerEquipements(nom);
 
@@ -5208,6 +5215,8 @@ function fermerBon() {
 
 function choisirMasque(masqueId) {
   _bonArreterDictee();
+  // Type de bon choisi : la fenêtre reprend sa présentation normale (en bas, équipement affiché)
+  if (masqueId) document.getElementById('modal-bon').classList.remove('bon-debut');
   _bonMasqueActuel = _bonMasques.find(function (m) { return m._id === masqueId; }) || null;
   _bonReponses = {}; _bonPhotos = {}; _bonSignatures = {}; _bonSignatureAEnregistrer = {};
   _bonChampsEquip = {};
