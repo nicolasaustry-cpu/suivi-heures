@@ -252,6 +252,7 @@ const FICHIERS = {
 
 let _baseClientsNb = 0;
 let _envoi = null; // { clients:[...], devis:[...] } préparé à l'analyse
+let _modeCorrection = false; // réimport après correction des colonnes : garde la photo d'annulation d'origine
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -635,6 +636,7 @@ function _restaurerDernierImport() {
     });
   });
   document.getElementById('ih-note-correction').style.display = 'block';
+  _modeCorrection = true;
   if (!p.clients) afficherMessage('Seul le fichier des devis du dernier import a pu être conservé : la liste des clients n\'est pas réimportée.', 'info');
   majBoutonSuivant();
   return true;
@@ -650,13 +652,13 @@ async function confirmer() {
       rc = { nouveaux: 0, misAJour: 0, inchanges: 0 };
       for (let i = 0; i < _envoi.clients.length; i += LOT) {
         btn.textContent = 'Clients ' + Math.min(i + LOT, _envoi.clients.length) + ' / ' + _envoi.clients.length + '…';
-        const d = await _post('/api/henrri/import/clients/confirmer', { clients: _envoi.clients.slice(i, i + LOT) });
+        const d = await _post('/api/henrri/import/clients/confirmer', { clients: _envoi.clients.slice(i, i + LOT), debut: i === 0, correction: _modeCorrection });
         Object.keys(rc).forEach(k => { rc[k] += d.rapport[k] || 0; });
         totalBase = d.total;
       }
     }
     btn.textContent = 'Devis…';
-    const d = await _post('/api/henrri/import/confirmer', { lignes: _envoi.devis });
+    const d = await _post('/api/henrri/import/confirmer', { lignes: _envoi.devis, debut: !_envoi.clients.length, correction: _modeCorrection });
     const t = d.rapport.totaux;
     _memoriserImport();
     document.getElementById('etape-rapport').style.display = 'none';
@@ -685,6 +687,7 @@ function revenirMapping(apresImport) {
   if (!FICHIERS.devis.lignes.length) { recommencer(); return; }
   ['etape-depot', 'etape-rapport', 'etape-fin'].forEach(id => { document.getElementById(id).style.display = 'none'; });
   document.getElementById('ih-note-correction').style.display = apresImport ? 'block' : 'none';
+  if (apresImport) _modeCorrection = true;
   document.getElementById('etape-mapping').style.display = 'block';
   const btn = document.getElementById('btn-confirmer');
   btn.disabled = false; btn.textContent = 'Appliquer l\'import';
@@ -703,6 +706,7 @@ function recommencer() {
     depot.querySelector('span').textContent = 'ou cliquez pour le choisir — Excel ou CSV';
   });
   _envoi = null;
+  _modeCorrection = false;
   ['etape-mapping', 'etape-rapport', 'etape-fin'].forEach(id => { document.getElementById(id).style.display = 'none'; });
   document.getElementById('etape-depot').style.display = 'block';
   majBoutonSuivant();

@@ -555,6 +555,8 @@
         <a href="import-henrri.html" style="padding:5px 12px;border-radius:6px;background:#0284c7;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap;">📥 Importer clients + devis validés</a>
         <a href="import-henrri.html?corriger=1" id="henrri-lien-corriger" style="display:none;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid #0284c7;color:#0284c7;font-weight:700;text-decoration:none;white-space:nowrap;"
           title="Revenir au choix des colonnes du dernier import pour corriger une mauvaise association, puis réimporter">↩ Corriger les colonnes du dernier import</a>
+        <button type="button" id="henrri-btn-annuler-import" onclick="annulerDernierImportHenrri()" style="display:none;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid #dc2626;color:#dc2626;font-weight:700;cursor:pointer;white-space:nowrap;"
+          title="Remet la liste des devis et la base clients dans l'état d'avant le dernier import">⟲ Annuler le dernier import</button>
       </div>
       <div id="henrri-devis-corps"><p style="color:#94a3b8;">Chargement…</p></div>
     </div>
@@ -2460,6 +2462,8 @@ async function ouvrirModaleHenrri() {
         } catch (_) {}
         lienCorr.style.display = (modeImport && dispo) ? '' : 'none';
       }
+      const btnAnn = document.getElementById('henrri-btn-annuler-import');
+      if (btnAnn) btnAnn.style.display = (modeImport && d.annulable) ? '' : 'none';
     }
     if (aide) {
       aide.innerHTML = modeImport
@@ -2676,6 +2680,35 @@ async function supprimerDevisHenrri(btn) {
   } catch (e) {
     alert('Erreur : ' + (e && e.message ? e.message : e));
     btn.disabled = false;
+  }
+}
+
+async function annulerDernierImportHenrri() {
+  if (!confirm('Annuler le dernier import Henrri ?\n\n'
+    + 'La liste des devis à affecter et la base clients reviennent à leur état d\'avant cet import.\n'
+    + 'Les lignes déjà créées dans le Prévisionnel et les fiches chantier ne sont pas modifiées.')) return;
+  const btn = document.getElementById('henrri-btn-annuler-import');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/henrri/import/annuler', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + _henrriToken() }
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.message || 'échec');
+    try { localStorage.removeItem('henrriDernierImport'); } catch (_) {}
+    let msg = 'Dernier import annulé.';
+    if (d.dejaAffectes && d.dejaAffectes.length) {
+      msg += '\n\nAttention : ' + d.dejaAffectes.length + ' devis de cet import avaient déjà été affectés au Prévisionnel ('
+        + d.dejaAffectes.slice(0, 10).join(', ') + (d.dejaAffectes.length > 10 ? '…' : '')
+        + '). Leurs lignes restent dans le Prévisionnel : supprimez-les à la main si besoin.';
+    }
+    alert(msg);
+    ouvrirModaleHenrri();
+  } catch (e) {
+    alert('Erreur : ' + (e && e.message ? e.message : e));
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

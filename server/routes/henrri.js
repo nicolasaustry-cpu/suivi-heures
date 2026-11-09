@@ -593,7 +593,8 @@ router.get("/devis", verifyToken, async (req, res) => {
             customerId: ""
           };
         });
-      return res.json({ ok: true, mode: "import", devis, importeLe: etat.brut.devisFichierLe || null });
+      return res.json({ ok: true, mode: "import", devis, importeLe: etat.brut.devisFichierLe || null,
+        annulable: !!etat.brut.importAvant });
     }
 
     if (!cfg.actif) return res.status(400).json({ ok: false, message: "Connexion Henrri non activée." });
@@ -878,6 +879,58 @@ function _fusionClients(cache, lignes) {
   return { liste: liste.filter((c, i) => !aRetirer.has(i)), r };
 }
 
+/* ── Annulation du dernier import ──
+   Au premier envoi d'un import (corps.debut = true), on photographie la base
+   clients et la liste des devis importés AVANT écriture (champ importAvant,
+   écrit en strict:false). Une correction de colonnes (corps.correction = true)
+   garde la photo existante : l'annulation revient alors à l'état d'avant
+   l'import d'origine. Un seul niveau d'annulation. */
+async function _photoAvantImport(clientId, corps) {
+  if (!corps || !corps.debut) return;
+  const brut = (await Henrri.findOne({ clientId }, "clientsCache clientsCacheLe devisFichier devisFichierLe importAvant").lean()) || {};
+  if (corps.correction && brut.importAvant) return;
+  await Henrri.updateOne(
+    { clientId },
+    { $set: { importAvant: {
+        le: new Date(),
+        clientsCache: Array.isArray(brut.clientsCache) ? brut.clientsCache : [],
+        clientsCacheLe: brut.clientsCacheLe || null,
+        devisFichier: Array.isArray(brut.devisFichier) ? brut.devisFichier : [],
+        devisFichierLe: brut.devisFichierLe || null
+    } } },
+    { strict: false, upsert: true }
+  );
+}
+
+router.post("/import/annuler", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const etat = await _etat(clientId);
+    const av = etat.brut.importAvant;
+    if (!av) return res.status(400).json({ ok: false, message: "Aucun import à annuler." });
+    // Devis apportés par l'import annulé et déjà affectés au Prévisionnel :
+    // leur ligne du Prévisionnel n'est pas touchée (on le signale)
+    const avant = new Set((av.devisFichier || []).map(d => String(d.id)));
+    const affectes = new Set(etat.devisImportes);
+    const dejaAffectes = etat.devisFichier
+      .filter(d => d && !avant.has(String(d.id)) && affectes.has(String(d.id)))
+      .map(d => d.numero || d.reference || String(d.id));
+    await Henrri.updateOne(
+      { clientId },
+      { $set: {
+          clientsCache: av.clientsCache || [], clientsCacheLe: av.clientsCacheLe || null,
+          devisFichier: av.devisFichier || [], devisFichierLe: av.devisFichierLe || null,
+          updatedAt: new Date()
+        },
+        $unset: { importAvant: "" } },
+      { strict: false }
+    );
+    res.json({ ok: true, dejaAffectes, devisRestants: (av.devisFichier || []).length, clientsRestants: (av.clientsCache || []).length });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 router.post("/import/clients/apercu", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
@@ -892,6 +945,7 @@ router.post("/import/clients/apercu", verifyToken, async (req, res) => {
 router.post("/import/clients/confirmer", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
+    await _photoAvantImport(clientId, req.body);
     const brut = (await Henrri.findOne({ clientId }, "clientsCache").lean()) || {};
     const { liste, r } = _fusionClients(Array.isArray(brut.clientsCache) ? brut.clientsCache : [], req.body && req.body.clients);
     const maintenant = new Date();
@@ -952,6 +1006,7 @@ router.post("/import/apercu", verifyToken, async (req, res) => {
 router.post("/import/confirmer", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
+    await _photoAvantImport(clientId, req.body);
     const etat = await _etat(clientId);
     const r = _analyserImport(req.body && req.body.lignes, etat);
     const maintenant = new Date();
