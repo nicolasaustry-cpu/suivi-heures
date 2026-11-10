@@ -680,12 +680,20 @@ function genOptionsHeures(v) {
   const key = (+v || 0).toFixed(2);
   if (_optsCache[key]) return _optsCache[key];
   const target = +v || 0;
-  let opt = '';
+  // Valeur hors pas de 0,25 h (ex. TNA de 1,6 h quand le contrat du jour vaut 5,6 h) :
+  // ajoutée à sa place dans la liste, sinon la case afficherait « 0 » à tort.
+  const horsPas = target > 0 && !_optionsBase.some(i => Math.abs(i - target) < 0.001);
+  let opt = '', extraPose = false;
   for (const i of _optionsBase) {
+    if (horsPas && !extraPose && i > target) {
+      opt += `<option value="${target}" selected>${parseFloat(target.toFixed(2))}</option>`;
+      extraPose = true;
+    }
     const lbl = i === Math.floor(i) ? i : i.toFixed(2);
     const sel = Math.abs(i - target) < 0.001 ? ' selected' : '';
     opt += `<option value="${i}"${sel}>${lbl}</option>`;
   }
+  if (horsPas && !extraPose) opt += `<option value="${target}" selected>${parseFloat(target.toFixed(2))}</option>`;
   _optsCache[key] = opt;
   return opt;
 }
@@ -1986,7 +1994,8 @@ function rafraichirLigne(salarieId, dateStr) {
         if (htmlCoord) chip.insertAdjacentHTML('beforeend', htmlCoord);
       }
     }
-    if (sel) { sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
+    // Options régénérées : une valeur hors pas de 0,25 h (TNA 1,6 h…) doit rester affichable
+    if (sel) { sel.innerHTML = genOptionsHeures(e.heures); sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
     majRdvVisuel(k);
     majBoutonNote(k);
     const bex = document.getElementById(k + 'exclu-btn');
