@@ -1518,7 +1518,9 @@ function defilerVersAujourdhui(moisSel) {
    au prévisionnel (devis), pour CHAQUE chantier :
    - orange : total planifié du chantier > 90 % des heures prévues
    - rouge  : total planifié du chantier > heures prévues
-   - aucune couleur : chantier absent du prévisionnel (0 h prévues)
+   - aucune couleur : chantier absent du prévisionnel (0 h prévues), y compris
+     un chantier saisi directement au planning (ligne jaune remontée automatiquement
+     dans le prévisionnel : ses heures ne sont pas des heures de devis)
    Toutes les cases d'un même chantier reçoivent la même couleur. */
 function majCouleursChantiers() {
   const ORANGE = '#fed7aa';   // orange clair
@@ -3003,7 +3005,10 @@ function getTotalDevisChantier(nom) {
         const liste = mois12[m]?.chantiers;
         if (!Array.isArray(liste)) continue;
         liste.forEach(c => {
-          if (c && c.client && normaliserChantier(c.client) === cible) {
+          // Lignes remontées automatiquement (jaune = depuis le planning, bleue = ajout mobile) :
+          // leurs heures sont des heures planifiées / réalisées, pas des heures de devis → ignorées.
+          if (!c || c._depuisPlanning || c._depuisMobile) return;
+          if (c.client && normaliserChantier(c.client) === cible) {
             total += parseFloat(c.hPrevues) || 0;
           }
         });
