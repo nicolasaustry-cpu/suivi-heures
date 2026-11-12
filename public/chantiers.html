@@ -2307,13 +2307,17 @@ function _henrriEscAttr(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/* Mois proposés à l'affectation d'un devis : les 12 prochains mois, mois en cours inclus
+   (jamais de mois passé), indépendamment de l'année affichée dans le Prévisionnel. */
 function _henrriOptionsMois() {
-  const liste = getMoisAffichage();
   const now = new Date();
-  return liste.map(m => {
-    const selected = (m.annee === now.getFullYear() && m.mois === now.getMonth()) ? ' selected' : '';
-    return `<option value="${m.annee}|${m.mois}"${selected}>${MOIS_FULL[m.mois]} ${m.annee}</option>`;
-  }).join('');
+  const out = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const selected = i === 0 ? ' selected' : '';
+    out.push(`<option value="${d.getFullYear()}|${d.getMonth()}"${selected}>${MOIS_FULL[d.getMonth()]} ${d.getFullYear()}</option>`);
+  }
+  return out.join('');
 }
 
 function _henrriFmtH(v) {
