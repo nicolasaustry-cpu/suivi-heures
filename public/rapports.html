@@ -276,21 +276,12 @@
       <div class="filtre-btn" id="btn-chantier" onclick="ouvrirFiltre('chantier',event)">Tous ▼</div>
     </div>
     <div class="filtre-item">
-      <label>Motif d'exclusion</label>
-      <div class="filtre-btn" id="btn-motif" onclick="ouvrirFiltre('motif',event)">Tous ▼</div>
-    </div>
-    <div class="filtre-item">
       <label>Affichage</label>
       <div class="filtre-btn" id="btn-vue-chantier" onclick="toggleVueChantier()" title="Situation par chantier : heures planifiées et réalisées regroupées par chantier">Situation par chantier</div>
     </div>
     <div class="filtre-item">
       <label>&nbsp;</label>
       <div class="filtre-btn" id="btn-synth-ch" onclick="toggleSynthChantiers()" title="Tableau de synthèse par chantier : devis, planifié, réalisé et écart sur les mois sélectionnés">📋 Synthèse chantiers</div>
-    </div>
-    <div class="filtre-item">
-      <label>Exclure (mot-clé)</label>
-      <input type="text" id="exclureChantier" placeholder="ex : congé, absence…" oninput="appliquerEtAfficher()"
-        style="padding:5px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:0.85rem;background:#f9fafb;min-width:150px;">
     </div>
     <div class="filtre-item" style="margin-left:auto;">
       <label>&nbsp;</label>
@@ -828,28 +819,31 @@ function majEncartPrevus() {
   encart.style.display = 'flex';
 }
 
+/* Filtre « Chantier(s) » : une même liste déroulante contient les chantiers ET, à part,
+   les exclusions (SAV, temps non affecté…). filtresActifs.chantier = chantiers cochés,
+   filtresActifs.motif = exclusions cochées. Dès qu'un des deux est actif, une ligne
+   normale passe si son chantier est coché, une ligne exclue si son motif est coché. */
+function _passeFiltreChantier(l) {
+  const fc = filtresActifs.chantier, fm = filtresActifs.motif;
+  if (!(fc && fc.size) && !(fm && fm.size)) return true;
+  return l.motif != null ? !!(fm && fm.has(l.motif)) : !!(fc && fc.has(l.chantier));
+}
+
 function filtrer(lignes) {
-  const exclu = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
   return lignes.filter(l => {
     if (filtresActifs.salarie  && filtresActifs.salarie.size  && !filtresActifs.salarie.has(l.salarie))   return false;
-    if (filtresActifs.chantier && filtresActifs.chantier.size && !filtresActifs.chantier.has(l.chantier)) return false;
-    // Motif d'exclusion : aucun filtre = tout affiché (exclus et normaux) ;
-    // un filtre actif isole les lignes exclues correspondant aux motifs cochés.
-    if (filtresActifs.motif && filtresActifs.motif.size) {
-      if (l.motif == null || !filtresActifs.motif.has(l.motif)) return false;
-    }
-    if (exclu && String(l.chantier || '').toLowerCase().includes(exclu)) return false;
-    return true;
+    return _passeFiltreChantier(l);
   });
 }
 
 function majBoutons() {
-  ['salarie','chantier','motif'].forEach(col => {
+  ['salarie','chantier'].forEach(col => {
     const btn = document.getElementById('btn-' + col);
     if (!btn) return;
-    const f = filtresActifs[col];
-    btn.textContent = !f ? 'Tous ▼' : f.size + ' sélectionné' + (f.size > 1 ? 's' : '') + ' ▼';
-    btn.classList.toggle('actif', !!f);
+    const n = (filtresActifs[col] ? filtresActifs[col].size : 0)
+            + (col === 'chantier' && filtresActifs.motif ? filtresActifs.motif.size : 0);
+    btn.textContent = !n ? 'Tous ▼' : n + ' sélectionné' + (n > 1 ? 's' : '') + ' ▼';
+    btn.classList.toggle('actif', !!n);
   });
 }
 
@@ -980,7 +974,7 @@ function rafraichirRegroupe() {
    SYNTHÈSE PAR CHANTIER (devis / planifié / réalisé / écart)
    - Mois : ceux sélectionnés dans le filtre Mois.
    - Heures devis : page Prévisionnel (previsionnel_data, hPrevues) des mois sélectionnés.
-   - Planifié / réalisé : lignes visibles (filtres Salarié, Chantier, Motif, mot-clé appliqués).
+   - Planifié / réalisé : lignes visibles (filtres Salarié et Chantier — exclusions comprises — appliqués).
    - Temps exclus (SAV, visite client, temps non affecté…) : une sous-ligne par motif sous le
      chantier, NON comptée dans le réalisé ni dans l'écart.
    - Code couleur de l'écart = celui de l'encart « Heures prévues dans le devis » :
@@ -1027,7 +1021,8 @@ function _couleurSynthCh(real, devis) {
 function calculerSynthChantiers() {
   const fCh   = filtresActifs.chantier;
   const fNorm = (fCh && fCh.size) ? new Set([...fCh].map(_clefSynthCh)) : null;
-  const motCle = (document.getElementById('exclureChantier')?.value || '').trim().toLowerCase();
+  // Seules des exclusions cochées (aucun chantier) : pas d'heures devis à afficher
+  const sansDevis = !fNorm && !!(filtresActifs.motif && filtresActifs.motif.size);
 
   const map = {};      // clef -> { nom, devis, prev, real }
   const exclus = {};   // motif -> { prev, real } (tous chantiers confondus)
@@ -1050,7 +1045,7 @@ function calculerSynthChantiers() {
           const nom = (c && c.client || '').trim();
           if (!nom) return;
           if (fNorm && !fNorm.has(_clefSynthCh(nom))) return;
-          if (motCle && nom.toLowerCase().includes(motCle)) return;
+          if (sansDevis) return;
           const h = parseFloat(c.hPrevues) || 0;
           if (h > 0) get(nom).devis += h;
         });
@@ -1175,33 +1170,47 @@ function ouvrirFiltre(col, event) {
   const btn = document.getElementById('btn-' + col);
   if (!btn) return;
 
-  // Calcul des valeurs disponibles, croisé avec les filtres actifs des AUTRES colonnes
+  // Valeurs disponibles, croisées avec le filtre de l'AUTRE colonne
   const toutesLignes = [...lignesPrev, ...lignesReal];
-  const colonnes = ['salarie', 'chantier', 'motif'];
-  const lf = colonnes.filter(c => c !== col).reduce((acc, c) => {
-    if (!filtresActifs[c] || !filtresActifs[c].size) return acc;
-    return acc.filter(l => c === 'motif' ? filtresActifs.motif.has(l.motif) : filtresActifs[c].has(l[c]));
-  }, toutesLignes);
+  const lf = col === 'chantier'
+    ? toutesLignes.filter(l => !(filtresActifs.salarie && filtresActifs.salarie.size) || filtresActifs.salarie.has(l.salarie))
+    : toutesLignes.filter(_passeFiltreChantier);
+  const tri = arr => [...new Set(arr)].sort((a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' }));
 
-  const valeurs = col === 'motif'
-    ? [...new Set(lf.map(l => l.motif).filter(v => v != null))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }))
-    : [...new Set(lf.map(l => l[col]))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  let items, selection;
+  if (col === 'chantier') {
+    // Chantiers d'abord, puis les exclusions mises à part (préfixe de valeur pour les distinguer)
+    const PFX = '\u0001motif:';
+    const chantiers = tri(lf.filter(l => l.motif == null).map(l => l.chantier));
+    const motifs    = tri(lf.filter(l => l.motif != null).map(l => l.motif));
+    items = chantiers.map(v => ({ value: v, label: v, groupe: motifs.length ? 'Chantiers' : undefined }))
+      .concat(motifs.map(m => ({ value: PFX + m, label: '⛔ ' + m, groupe: 'Exclusions (hors total)', groupeCouleur: '#dc2626' })));
+    selection = new Set([...(filtresActifs.chantier || []), ...[...(filtresActifs.motif || [])].map(m => PFX + m)]);
+    FiltreExcel.ouvrir({
+      button: btn, items, selected: selection,
+      onApply: (sel) => {
+        const tout = !sel.size || items.every(it => sel.has(it.value));
+        const ch = new Set(), mo = new Set();
+        if (!tout) sel.forEach(v => (String(v).startsWith(PFX) ? mo.add(String(v).slice(PFX.length)) : ch.add(v)));
+        filtresActifs.chantier = ch.size ? ch : null;
+        filtresActifs.motif    = mo.size ? mo : null;
+        if (tout) { btn.textContent = 'Tous ▼'; btn.classList.remove('fexc-active'); }
+        else { btn.textContent = FiltreExcel.libelle(sel, items.length, items) + ' ▼'; btn.classList.add('fexc-active'); }
+        appliquerEtAfficher();
+      }
+    });
+    return;
+  }
 
-  const selection = filtresActifs[col]
-    ? new Set(filtresActifs[col])
-    : new Set();
-
+  const valeurs = tri(lf.map(l => l[col]));
+  items = valeurs.map(v => ({ value: v, label: v }));
   FiltreExcel.ouvrir({
     button: btn,
-    items: valeurs.map(v => ({ value: v, label: v })),
-    selected: selection,
+    items,
+    selected: filtresActifs[col] ? new Set(filtresActifs[col]) : new Set(),
     onApply: (sel) => {
-      // Si tout est sélectionné, on annule le filtre — SAUF pour "motif" : cocher tous
-      // les motifs isole les lignes exclues (peu importe le motif), ce qui n'a pas le
-      // même sens que "aucun filtre" (qui montre aussi les lignes non exclues).
-      filtresActifs[col] = (sel.size && (col === 'motif' || !valeurs.every(v => sel.has(v)))) ? sel : null;
-      // Mettre à jour le label du bouton
-      const items = valeurs.map(v => ({ value: v, label: v }));
+      // Si tout est sélectionné, on annule le filtre
+      filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
       if (!filtresActifs[col]) {
         btn.textContent = 'Tous ▼';
         btn.classList.remove('fexc-active');

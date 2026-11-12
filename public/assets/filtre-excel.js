@@ -82,8 +82,18 @@ window.FiltreExcel = (function () {
       });
       list.appendChild(labelAll);
 
-      // Cases individuelles
+      // Cases individuelles (it.groupe facultatif : intertitre à chaque changement de groupe)
+      let groupePrec;
       itemsVisibles.forEach(it => {
+        if (it.groupe && it.groupe !== groupePrec) {
+          const titre = document.createElement('div');
+          titre.className = 'fexc-groupe';
+          titre.style.cssText = 'padding:7px 10px 3px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:'
+            + (it.groupeCouleur || '#64748b') + ';border-top:1px solid #e5e7eb;margin-top:4px;';
+          titre.textContent = it.groupe;
+          list.appendChild(titre);
+        }
+        groupePrec = it.groupe;
         const lab = document.createElement('label');
         lab.className = 'fexc-item';
         lab.innerHTML = `
