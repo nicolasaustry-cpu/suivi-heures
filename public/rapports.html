@@ -728,9 +728,12 @@ async function genererRapport() {
   lignesPrev = extrairePrev();
   lignesReal = await extraireReal();
 
-  filtresActifs.salarie  = null;
-  filtresActifs.chantier = null;
-  filtresActifs.motif    = null;
+  // Les sélections Salarié(s) / Chantier(s) sont CONSERVÉES au changement de mois.
+  // « Chantiers uniquement » suit les données : tous les chantiers de la nouvelle période.
+  if (filtresActifs.chUniquement && filtresActifs.chantier && !filtresActifs.motif) {
+    const ch = new Set([...lignesPrev, ...lignesReal].filter(l => l.motif == null).map(l => l.chantier));
+    filtresActifs.chantier = ch.size ? ch : null;
+  }
   majBoutons();
   appliquerEtAfficher();
   setTimeout(ajusterHauteur, 50);
@@ -1193,7 +1196,10 @@ function ouvrirFiltre(col, event) {
       // Case « (Sélectionner chantiers uniquement) » : tous les chantiers, aucune exclusion
       raccourcis: motifs.length && chantiers.length ? [{ label: '(Sélectionner chantiers uniquement)', values: chantiers }] : [],
       onApply: (sel) => {
-        const tout = !sel.size || items.every(it => sel.has(it.value));
+        // « Tout » = toutes les valeurs de la période, pas seulement celles visibles avec
+        // le filtre Salarié en cours : sinon la sélection serait perdue au changement de salarié.
+        const toutes = [...new Set([...lignesPrev, ...lignesReal].map(l => l.motif == null ? l.chantier : PFX + l.motif))];
+        const tout = !sel.size || toutes.every(v => sel.has(v));
         const ch = new Set(), mo = new Set();
         if (!tout) sel.forEach(v => (String(v).startsWith(PFX) ? mo.add(String(v).slice(PFX.length)) : ch.add(v)));
         filtresActifs.chantier = ch.size ? ch : null;
@@ -1214,8 +1220,10 @@ function ouvrirFiltre(col, event) {
     items,
     selected: filtresActifs[col] ? new Set(filtresActifs[col]) : new Set(),
     onApply: (sel) => {
-      // Si tout est sélectionné, on annule le filtre
-      filtresActifs[col] = (sel.size && !valeurs.every(v => sel.has(v))) ? sel : null;
+      // Filtre annulé seulement si TOUTES les valeurs de la période sont cochées (pas
+      // seulement celles visibles avec le filtre Chantier en cours) : la sélection est conservée.
+      const toutes = [...new Set([...lignesPrev, ...lignesReal].map(l => l[col]))];
+      filtresActifs[col] = (sel.size && !toutes.every(v => sel.has(v))) ? sel : null;
       if (!filtresActifs[col]) {
         btn.textContent = 'Tous ▼';
         btn.classList.remove('fexc-active');
