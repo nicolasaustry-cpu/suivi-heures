@@ -1006,11 +1006,17 @@ function pl2ChangerMois(delta){
   mois.value=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   chargerSemaines(); initFiltre(); genererPlanning(true); majMoisImpression(); pl2MajMoisLabel();
 }
+/* Date d'entrée à minuit HEURE LOCALE : new Date('AAAA-MM-JJ') est lu en UTC (01:00 en France),
+   ce qui masquait la journée d'entrée elle-même dans le planning. */
+function _plDateEntree(s){
+  const v=s && s.dateEntree;
+  return (typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) ? new Date(v+'T00:00:00') : new Date(v);
+}
 function pl2SemaineDates(salarieId, dateStr){
   const s=salaries.find(x=>String(x.id)===String(salarieId)); if(!s) return null;
   const d=new Date(dateStr+'T00:00:00');
   const lun=new Date(d); lun.setDate(d.getDate()-((d.getDay()+6)%7));
-  const entree=new Date(s.dateEntree); const sortie=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
+  const entree=_plDateEntree(s); const sortie=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
   const out=[];
   // À partir du jour cliqué jusqu'au samedi (pas d'effet rétroactif : les jours déjà
   // passés de la semaine ne sont pas modifiés), y compris un mois voisin (semaine à cheval) :
@@ -1336,7 +1342,7 @@ function genererPlanning(calerSemaine){
   const idsAffiches = salariesCoches.size===0 ? new Set(salaries.map(s=>s.id)) : salariesCoches;
   const sals = salaries.filter(s=>idsAffiches.has(s.id)).map((s,idx)=>({
     s, idx, coul: pl2Couleur(idx),
-    entree:new Date(s.dateEntree), sortie:s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null
+    entree:_plDateEntree(s), sortie:s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null
   }));
   // Couleurs par salarié, partagées avec la carte des chantiers du jour (mêmes teintes que le planning)
   window._plCarteCouleurs = new Map(sals.map(r => [String(r.s.id), r.coul]));
@@ -2574,18 +2580,19 @@ function majTotalLigne(salarieId, dateStr) {
   let total = 0;
   for (let i = 1; i <= nbCh; i++) {
     const cell = heures[`${salarieId}${safeDate}ch${i}`];
-    if ((cell?.chantier || '').trim().toUpperCase() === TNA) continue; // TNA exclu du total planifié
+    const nomCh = (cell?.chantier || '').trim();
+    if (!nomCh) continue;                         // heures sans chantier : ignorées (comme au rendu et dans Rapports)
+    if (nomCh.toUpperCase() === TNA) continue;    // TNA exclu du total planifié
     total += parseFloat(cell?.heures || 0);
   }
 
   const absK  = `${salarieId}${safeDate}abs`;
   const abs   = parseFloat(heures[absK]?.heures || 0);
-
-  const jour  = new Date(dateStr).getDay();
-  const cle   = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][jour];
-  const dObj  = new Date(dateStr + 'T00:00:00');
   const prevu = contratDuJour(sal, dateStr);
-  const ecart = total - prevu + abs;
+  // Férié / Even. Familial posé en absence : même équivalent qu'au rendu (genererPlanning),
+  // sinon la jauge le retranchait sans l'avoir compté.
+  const motifAbs = heures[absK]?.motif || '';
+  if (abs > 0 && (motifAbs === 'Férié' || motifAbs === 'Even. Familial')) total += (prevu >= 7 ? 7 : prevu);
 
   tr.querySelector('.cell-total').textContent = total.toFixed(1);
 
@@ -2643,6 +2650,8 @@ function majTotauxGlobaux() {
   document.querySelectorAll('[data-salarie][data-date]:not(.hors-mois)').forEach(tr => {
     totT += parseFloat(tr.querySelector('.cell-total')?.textContent) || 0;
     totA += parseFloat(tr.querySelector("select[data-type='abs']")?.value) || 0;
+    // Vendables : uniquement les jours planifiés (case « C » renseignée dès qu'un salarié a des
+    // heures ce jour-là) — une période sans planification ne doit pas diluer la jauge.
     const prevuCase = parseFloat(tr.querySelector('.cell-prevu')?.textContent) || 0;
     totP += prevuCase;
     const sid = tr.getAttribute('data-salarie');
