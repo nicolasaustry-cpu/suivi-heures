@@ -842,7 +842,9 @@ function majBoutons() {
     if (!btn) return;
     const n = (filtresActifs[col] ? filtresActifs[col].size : 0)
             + (col === 'chantier' && filtresActifs.motif ? filtresActifs.motif.size : 0);
-    btn.textContent = !n ? 'Tous ▼' : n + ' sélectionné' + (n > 1 ? 's' : '') + ' ▼';
+    btn.textContent = !n ? 'Tous ▼'
+      : (col === 'chantier' && filtresActifs.chUniquement && filtresActifs.chantier && !filtresActifs.motif) ? 'Chantiers uniquement ▼'
+      : n + ' sélectionné' + (n > 1 ? 's' : '') + ' ▼';
     btn.classList.toggle('actif', !!n);
   });
 }
@@ -1188,12 +1190,15 @@ function ouvrirFiltre(col, event) {
     selection = new Set([...(filtresActifs.chantier || []), ...[...(filtresActifs.motif || [])].map(m => PFX + m)]);
     FiltreExcel.ouvrir({
       button: btn, items, selected: selection,
+      // Case « (Sélectionner chantiers uniquement) » : tous les chantiers, aucune exclusion
+      raccourcis: motifs.length && chantiers.length ? [{ label: '(Sélectionner chantiers uniquement)', values: chantiers }] : [],
       onApply: (sel) => {
         const tout = !sel.size || items.every(it => sel.has(it.value));
         const ch = new Set(), mo = new Set();
         if (!tout) sel.forEach(v => (String(v).startsWith(PFX) ? mo.add(String(v).slice(PFX.length)) : ch.add(v)));
         filtresActifs.chantier = ch.size ? ch : null;
         filtresActifs.motif    = mo.size ? mo : null;
+        filtresActifs.chUniquement = !mo.size && ch.size > 1 && ch.size === chantiers.length;
         if (tout) { btn.textContent = 'Tous ▼'; btn.classList.remove('fexc-active'); }
         else { btn.textContent = FiltreExcel.libelle(sel, items.length, items) + ' ▼'; btn.classList.add('fexc-active'); }
         appliquerEtAfficher();

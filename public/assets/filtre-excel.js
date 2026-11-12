@@ -82,6 +82,25 @@ window.FiltreExcel = (function () {
       });
       list.appendChild(labelAll);
 
+      // Raccourcis facultatifs (cfg.raccourcis = [{ label, values }]) : cochés quand la
+      // sélection correspond exactement à leurs valeurs ; cocher = ne sélectionner qu'elles.
+      (cfg.raccourcis || []).forEach(r => {
+        const vals = (r.values || []).filter(v => itemsVisibles.some(it => it.value === v));
+        if (!vals.length) return;
+        const exact = selectedSet.size === vals.length && vals.every(v => selectedSet.has(v));
+        const labR = document.createElement('label');
+        labR.className = 'fexc-item fexc-item-all';
+        labR.innerHTML = `<input type="checkbox" ${exact ? 'checked' : ''}><span></span>`;
+        labR.querySelector('span').textContent = r.label;
+        const cbR = labR.querySelector('input');
+        cbR.addEventListener('change', () => {
+          selectedSet.clear();
+          if (cbR.checked) vals.forEach(v => selectedSet.add(v));
+          rendreListe(filtre);
+        });
+        list.appendChild(labR);
+      });
+
       // Cases individuelles (it.groupe facultatif : intertitre à chaque changement de groupe)
       let groupePrec;
       itemsVisibles.forEach(it => {
