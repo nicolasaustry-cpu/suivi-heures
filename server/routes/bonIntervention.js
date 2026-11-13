@@ -33,7 +33,7 @@ import { MODELES as CERFAS, listeModeles, assainirValeurs, remplirCerfa, assembl
 import { verifyToken } from "../middleware/authMiddleware.js";
 import Equipement, { cleClient, libelleEquipement } from "../models/equipement.js";
 import { genererPdfBon } from "../services/pdfBon.js";
-import { NOM_MASQUE_EXEMPLE, CHAMPS_EXEMPLE, BON_EXEMPLE } from "../data/exempleBonOrganilog.js";
+import { NOM_MASQUE_EXEMPLE, CHAMPS_EXEMPLE, BON_EXEMPLE, ANCIENS_CHANTIERS_EXEMPLE } from "../data/exempleBonOrganilog.js";
 
 const router = express.Router();
 
@@ -420,6 +420,32 @@ router.post("/pc/exemple", verifyToken, async (req, res) => {
       });
     }
 
+    // Technicien du bon d'exemple : premier salarié présent de l'entreprise
+    const sals = ctx.doc.salaries || [];
+    const sal = sals.find(s => !s.dateSortie) || sals[0] || null;
+    const salarieId  = sal ? String(sal.id) : "";
+    const salarieNom = sal ? `${sal.prenom || ""} ${sal.nom || ""}`.trim() : "";
+
+    // Anciens bons d'exemple créés avec des noms réels : remis en données fictives
+    await Equipement.updateMany(
+      { clientId, clientCle: { $in: ANCIENS_CHANTIERS_EXEMPLE.map(cleClient) } },
+      { $set: { clientCle: cleClient(BON_EXEMPLE.chantier), clientNom: BON_EXEMPLE.chantier, ...BON_EXEMPLE.equipement } });
+    const anciens = await BonIntervention.find({ clientId, masqueId: masque._id, chantier: { $in: ANCIENS_CHANTIERS_EXEMPLE } }, "_id equipementId");
+    if (anciens.length) {
+      for (const a of anciens) {
+        const eq = a.equipementId ? await Equipement.findOne({ _id: a.equipementId, clientId }) : null;
+        await BonIntervention.updateOne({ _id: a._id }, { $set: {
+          chantier: BON_EXEMPLE.chantier, salarieId, salarieNom, reponses: BON_EXEMPLE.reponses,
+          ...(eq ? { equipement: copieEquipement(eq.toObject()) } : {})
+        } });
+      }
+      const coordsA = ctx.doc.coordonneesChantiers || {};
+      let modif = false;
+      for (const nom of ANCIENS_CHANTIERS_EXEMPLE) if (coordsA[nom]) { delete coordsA[nom]; modif = true; }
+      if (!coordsA[BON_EXEMPLE.chantier]) { coordsA[BON_EXEMPLE.chantier] = BON_EXEMPLE.coord; modif = true; }
+      if (modif) await Donnees.updateOne({ _id: ctx.doc._id }, { $set: { coordonneesChantiers: coordsA } });
+    }
+
     // Équipement d'exemple dans le parc du client (créé une seule fois)
     const clientCle = cleClient(BON_EXEMPLE.chantier);
     let equip = await Equipement.findOne({ clientId, clientCle, marque: BON_EXEMPLE.equipement.marque, modele: BON_EXEMPLE.equipement.modele });
@@ -451,8 +477,8 @@ router.post("/pc/exemple", verifyToken, async (req, res) => {
       masqueChamps: masque.toObject().champs,
       equipementId: equip._id,
       equipement: copieEquipement(equip.toObject()),
-      salarieId: "",
-      salarieNom: BON_EXEMPLE.salarieNom,
+      salarieId,
+      salarieNom,
       dateIntervention: BON_EXEMPLE.dateIntervention,
       reponses: BON_EXEMPLE.reponses,
       creeLe: new Date(`${BON_EXEMPLE.dateIntervention}T12:00:00+02:00`)

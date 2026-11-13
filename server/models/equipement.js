@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 // Un équipement est rattaché à un client par sa clé normalisée (même règle
 // que la page Clients : majuscules, sans accents ni ponctuation, sans le
 // n° de devis Henrri « 26-09-1 »), ce qui le relie aussi à tous les chantiers
-// de ce client (« MARY GERARD », « MARY GERARD 26-10-3 »…).
+// de ce client (« DUPONT JEAN », « DUPONT JEAN 26-10-3 »…).
 const equipementSchema = new mongoose.Schema({
   clientId:     { type: String, required: true, uppercase: true, trim: true, index: true },
   clientCle:    { type: String, required: true, trim: true },   // clé normalisée du client

@@ -11,7 +11,7 @@ export const N = (pdf, label, extra = {}) => ({ pdf, label, type: "nombre", ...e
 /* « 2026-11-08… » → « 08/11/2026 » */
 export const jjmmaaaa = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : ""; };
 
-/* Nom du client sans le n° de devis Henrri (« MARY GERARD 26-10-3 » → « MARY GERARD »). */
+/* Nom du client sans le n° de devis Henrri (« DUPONT JEAN 26-10-3 » → « DUPONT JEAN »). */
 export const nomClient = chantier => String(chantier || "").replace(/\s+\d{2}-\d{2}-\d+\s*$/, "").trim();
 
 /* Personne morale ? (SARL, SCI, mairie…) */
