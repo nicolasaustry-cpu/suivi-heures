@@ -18,6 +18,9 @@
 //   GET    /api/bons-intervention/pc/:id        → bon complet + champs
 //   GET    /api/bons-intervention/pc/:id/pdf    → PDF du bon
 //   POST   /api/bons-intervention/pc/:id/envoyer { a, copie, message } → e-mail + PDF joint
+//   PUT    /api/bons-intervention/pc/:id        { reponses } → modifier les réponses (signatures et photos inchangées ;
+//                                                 PDF d'origine conservé à la 1re modification)
+//   GET    /api/bons-intervention/pc/:id/original → PDF d'origine (avant modification)
 //   DELETE /api/bons-intervention/pc/:id        → supprimer un bon
 //   POST   /api/bons-intervention/pc/exemple    → crée le masque + le bon d'exemple (rapport Organilog)
 // ─────────────────────────────────────────────────────────────
@@ -26,7 +29,7 @@ import express from "express";
 import Donnees from "../models/donnees.js";
 import { refusBons } from "../services/accesBons.js";
 import MasqueIntervention from "../models/masqueIntervention.js";
-import BonIntervention, { prochainNumeroBon } from "../models/bonIntervention.js";
+import BonIntervention, { prochainNumeroBon, BonOriginal } from "../models/bonIntervention.js";
 import Saisie from "../models/saisies.js";
 import ReglageCerfa from "../models/reglageCerfa.js";
 import { MODELES as CERFAS, listeModeles, assainirValeurs, remplirCerfa, assemblerPdf, demarche } from "../cerfa/index.js";
@@ -395,7 +398,7 @@ router.get("/pc", verifyToken, async (req, res) => {
     const ctx = await contextePC(req, res); if (!ctx) return;
     await numeroterAnciens(ctx.clientId);
     const bons = await BonIntervention
-      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieId salarieNom dateIntervention envois creeLe equipementId equipement.libelle cerfas.code")
+      .find({ clientId: ctx.clientId }, "numero chantier masqueNom salarieId salarieNom dateIntervention envois creeLe modifieLe equipementId equipement.libelle cerfas.code")
       .sort({ creeLe: -1 })
       .limit(2000)
       .lean();
@@ -504,7 +507,8 @@ router.get("/pc/:id", verifyToken, async (req, res) => {
     const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
     const coords = ctx.doc.coordonneesChantiers || {};
     const champs = await champsDuBon(bon);
-    res.json({ ok: true, bon: await bonAvecPointage(bon, champs, ctx.doc), champs, coord: coords[U(bon.chantier)] || null });
+    const aOriginal = !!(await BonOriginal.exists({ bonId: bon._id }));
+    res.json({ ok: true, bon: await bonAvecPointage(bon, champs, ctx.doc), champs, coord: coords[U(bon.chantier)] || null, aOriginal });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -673,11 +677,87 @@ router.post("/pc/:id/technicien", verifyToken, async (req, res) => {
   }
 });
 
+// ── Modifier les réponses d'un bon enregistré (bureau) ──
+// Les signatures et les photos ne sont jamais touchées ; les champs « AUTO »
+// (date/heures/durée) restent lus dans le pointage. Avant la PREMIÈRE
+// modification, le PDF du bon tel qu'il était est conservé (BonOriginal).
+const TYPES_MODIFIABLES = ["texte", "liste", "case", "cases_multiples", "datetime"];
+function valeurPropre(c, v) {
+  if (c.type === "case") return v === true || v === "true";
+  if (c.type === "cases_multiples") {
+    const opts = Array.isArray(c.options) ? c.options : [];
+    return (Array.isArray(v) ? v : []).map(String).filter(x => opts.includes(x));
+  }
+  return String(v == null ? "" : v).slice(0, 20000);
+}
+const memeValeur = (a, b) => JSON.stringify(a ?? "") === JSON.stringify(b ?? "");
+
+router.put("/pc/:id", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const champs = await champsDuBon(bon);
+    const recues = req.body.reponses && typeof req.body.reponses === "object" ? req.body.reponses : {};
+    const actuelles = { ...(bon.reponses || {}) };
+    const nouvelles = { ...actuelles };
+    const modifies = [];
+
+    for (const c of champs) {
+      if (!TYPES_MODIFIABLES.includes(c.type)) continue;
+      if (c.type === "datetime" && c.auto) continue;
+      if (!Object.prototype.hasOwnProperty.call(recues, c.id)) continue;
+      const v = valeurPropre(c, recues[c.id]);
+      if (c.type === "liste" && v && Array.isArray(c.options) && c.options.length && !c.options.includes(v)) continue;
+      if (!memeValeur(actuelles[c.id], v)) { nouvelles[c.id] = v; modifies.push(c.libelle || c.id); }
+    }
+    // Nom du signataire client (la signature elle-même reste inchangée)
+    for (const c of champs.filter(x => x.type === "signature" && x.signataire === "client")) {
+      const cle = c.id + "__nom";
+      if (!Object.prototype.hasOwnProperty.call(recues, cle)) continue;
+      const v = String(recues[cle] || "").trim().slice(0, 200);
+      if (!memeValeur(actuelles[cle], v)) { nouvelles[cle] = v; modifies.push(`Nom du signataire (${c.libelle || "client"})`); }
+    }
+
+    if (!modifies.length) return res.json({ ok: true, inchange: true });
+
+    // Version d'origine conservée une seule fois, avant la première modification
+    if (!(await BonOriginal.exists({ bonId: bon._id }))) {
+      const pdf = await pdfDuBon(bon, ctx.doc);
+      await BonOriginal.create({ bonId: bon._id, clientId: ctx.clientId, numero: bon.numero || "", pdf });
+    }
+
+    const le = new Date();
+    await BonIntervention.updateOne({ _id: bon._id }, {
+      $set: { reponses: nouvelles, modifieLe: le },
+      $push: { modifications: { le, champs: modifies } }
+    });
+    res.json({ ok: true, modifieLe: le, champs: modifies });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── PDF d'origine (avant modification) ──
+router.get("/pc/:id/original", verifyToken, async (req, res) => {
+  try {
+    const ctx = await contextePC(req, res); if (!ctx) return;
+    const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    const orig = await BonOriginal.findOne({ bonId: bon._id, clientId: ctx.clientId }).lean();
+    if (!orig) return res.status(404).json({ ok: false, message: "Ce bon n'a pas été modifié : pas de version d'origine distincte" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="Bon-intervention-${bon.numero || bon._id}-ORIGINAL.pdf"`);
+    res.send(Buffer.from(orig.pdf.buffer || orig.pdf));
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Supprimer un bon ──
 router.delete("/pc/:id", verifyToken, async (req, res) => {
   try {
     const ctx = await contextePC(req, res); if (!ctx) return;
     const bon = await chargerBon(req, res, ctx.clientId); if (!bon) return;
+    await BonOriginal.deleteOne({ bonId: bon._id });
     await bon.deleteOne();
     res.json({ ok: true });
   } catch (err) {

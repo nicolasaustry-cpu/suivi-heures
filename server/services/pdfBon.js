@@ -94,6 +94,14 @@ export function genererPdfBon({ bon, champs, entreprise, coord }) {
     doc.fillColor(GRIS).font("Helvetica").fontSize(10)
        .text(`${bon.numero ? "N° " + bon.numero : ""}`, xTitre, doc.y + 2, { width: largTitre, align: "right" });
     if (bon.masqueNom) doc.text(bon.masqueNom, xTitre, doc.y + 1, { width: largTitre, align: "right" });
+    if (bon.modifieLe) {
+      const dm = new Date(bon.modifieLe);
+      if (!isNaN(dm)) {
+        doc.fillColor("#b45309").font("Helvetica-Oblique").fontSize(8.5)
+           .text(`Modifié le ${dm.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} après enregistrement`, xTitre, doc.y + 1, { width: largTitre, align: "right" });
+        doc.fillColor(GRIS).font("Helvetica").fontSize(10);
+      }
+    }
     const yBasTitre = doc.y;
 
     const yFilet = Math.max(yBasLogo, yBasTxt, yBasTitre, yH + 40) + 10;

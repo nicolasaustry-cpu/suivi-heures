@@ -28,6 +28,11 @@ const bonInterventionSchema = new mongoose.Schema({
   cerfas:          { type: Array, default: [] },
   // Historique des envois au client depuis le PC : [{ a, copie, le }]
   envois:          { type: Array, default: [] },
+  // Modifications faites au bureau après l'enregistrement : date de la dernière
+  // + historique [{ le, champs: [libellés modifiés] }]. La version d'origine
+  // est conservée en PDF figé dans la collection BonOriginal.
+  modifieLe:       { type: Date, default: null },
+  modifications:   { type: Array, default: [] },
   creeLe:          { type: Date, default: Date.now }
 });
 
@@ -53,5 +58,17 @@ export async function prochainNumeroBon(clientId, date) {
   );
   return `${annee}-${String(c.valeur).padStart(4, "0")}`;
 }
+
+// PDF d'origine d'un bon, figé au moment de sa PREMIÈRE modification au bureau
+// (tel qu'il était avant toute correction, signature client comprise). Collection
+// séparée pour ne pas alourdir la liste des bons. Jamais réécrit ensuite.
+const bonOriginalSchema = new mongoose.Schema({
+  bonId:    { type: mongoose.Schema.Types.ObjectId, required: true, unique: true },
+  clientId: { type: String, required: true, uppercase: true, trim: true, index: true },
+  numero:   { type: String, default: "" },
+  pdf:      { type: Buffer, required: true },
+  creeLe:   { type: Date, default: Date.now }
+});
+export const BonOriginal = mongoose.model("BonOriginal", bonOriginalSchema);
 
 export default mongoose.model("BonIntervention", bonInterventionSchema);

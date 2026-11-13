@@ -55,6 +55,22 @@
     .bi-form textarea { min-height:130px; font-family:inherit; }
     .bi-aide { color:#6b7280; font-size:0.8rem; margin-top:3px; }
 
+    /* Modification d'un bon enregistré */
+    .bi-modifie { background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:8px; padding:9px 12px; margin-bottom:12px; font-size:0.86rem; line-height:1.45; }
+    .bi-modifie button { margin-top:6px; }
+    .bi-badge-modif { display:inline-block; background:#ffedd5; color:#9a3412; font-size:0.68rem; font-weight:700; border-radius:999px; padding:1px 7px; margin-left:4px; white-space:nowrap; }
+    .bi-edit .bi-ligne .v input[type=text], .bi-edit .bi-ligne .v select, .bi-edit .bi-ligne .v textarea { width:100%; box-sizing:border-box; }
+    .bi-edit .bi-ligne .v textarea { min-height:90px; font-family:inherit; }
+    .bi-edit .bi-choix { display:flex; flex-wrap:wrap; gap:4px 14px; }
+    .bi-edit .bi-choix label { display:flex; align-items:center; gap:5px; font-weight:400; font-size:0.88rem; margin:0; }
+    .bi-edit .bi-fige { color:#64748b; font-size:0.78rem; font-style:italic; }
+    .bi-alerte-tete { background:#b91c1c !important; border-bottom-color:#7f1d1d !important; }
+    .bi-alerte-corps { font-size:0.92rem; line-height:1.55; color:#1e293b; }
+    .bi-alerte-corps .gros { font-size:2.4rem; text-align:center; margin-bottom:4px; }
+    .bi-alerte-corps ul { margin:8px 0 12px 18px; padding:0; }
+    .bi-alerte-corps .bi-accord { display:flex; gap:8px; align-items:flex-start; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:9px 11px; font-weight:600; color:#991b1b; cursor:pointer; }
+    .bi-alerte-corps .bi-accord input { margin-top:3px; }
+
     #bi-zoom { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:300; cursor:zoom-out; }
     #bi-zoom img { max-width:94vw; max-height:92vh; }
 
@@ -139,11 +155,44 @@
       <button class="bi-fermer" onclick="fermer('ov-bon')" title="Fermer">✕</button>
     </div>
     <div class="bi-corps" id="bon-corps">Chargement…</div>
-    <div class="bi-pied">
+    <div class="bi-pied" id="bon-pied">
       <button type="button" class="btn-danger" id="bon-btn-suppr" style="margin-right:auto;">🗑 Supprimer</button>
+      <button type="button" class="btn" id="bon-btn-modif">✏️ Modifier</button>
       <button type="button" class="btn" id="bon-btn-cerfa">📑 CERFA</button>
       <button type="button" class="btn" id="bon-btn-pdf">📄 PDF</button>
       <button type="button" class="btn-primary" id="bon-btn-envoyer">✉ Envoyer au client</button>
+    </div>
+    <div class="bi-pied" id="bon-pied-modif" style="display:none;">
+      <span style="margin-right:auto;color:#9a3412;font-size:0.82rem;align-self:center;">⚠ Modification en cours — signatures et photos inchangées</span>
+      <button type="button" class="btn" onclick="annulerModif()">Annuler</button>
+      <button type="button" class="btn-primary" id="bon-btn-enreg" onclick="enregistrerModif()">💾 Enregistrer les modifications</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : alerte avant modification d'un bon enregistré -->
+<div class="bi-ov" id="ov-alerte-modif" onclick="if(event.target===this)fermer('ov-alerte-modif')">
+  <div class="bi-box etroit">
+    <div class="bi-tete bi-alerte-tete">
+      <div style="flex:1;"><h3>⚠ ATTENTION — Modification d'un bon enregistré</h3><div class="bi-sous" id="alerte-sous"></div></div>
+      <button class="bi-fermer" onclick="fermer('ov-alerte-modif')" title="Fermer">✕</button>
+    </div>
+    <div class="bi-corps bi-alerte-corps">
+      <div class="gros">⚠️</div>
+      <p id="alerte-signe"><strong>Ce bon a été signé par le client.</strong> La signature restera présente sur le bon modifié,
+        alors que le client <strong>n'a pas validé</strong> vos modifications.</p>
+      <ul>
+        <li>Ne modifiez un bon que pour corriger une erreur, jamais pour changer ce qui a été convenu avec le client.</li>
+        <li>Le PDF <strong>d'origine</strong> (tel qu'il était avant la première modification) est conservé et reste consultable.</li>
+        <li>Le nouveau PDF portera la mention « Modifié le … après enregistrement ».</li>
+        <li id="alerte-envoye" style="display:none;color:#b91c1c;"><strong>Ce bon a déjà été envoyé au client</strong> : il a en main la version d'origine.</li>
+      </ul>
+      <label class="bi-accord"><input type="checkbox" id="alerte-ok" onchange="document.getElementById('alerte-btn').disabled=!this.checked">
+        J'ai compris : je modifie un bon que le client a signé dans sa version d'origine.</label>
+    </div>
+    <div class="bi-pied">
+      <button type="button" class="btn" onclick="fermer('ov-alerte-modif')">Annuler</button>
+      <button type="button" class="btn-danger" id="alerte-btn" disabled onclick="fermer('ov-alerte-modif');passerEnModif();">✏️ Modifier quand même</button>
     </div>
   </div>
 </div>
@@ -331,7 +380,7 @@
         ? '<span class="badge bi-envoye" title="' + esc(dernier.a) + '">✔ Envoyé le ' + esc(new Date(dernier.le).toLocaleDateString('fr-FR')) + '</span>'
         : '<span class="badge bi-non-envoye">Non envoyé</span>';
       return '<tr>' +
-        '<td class="bi-num">' + esc(b.numero || '') + '</td>' +
+        '<td class="bi-num">' + esc(b.numero || '') + (b.modifieLe ? '<br><span class="bi-badge-modif" title="Modifié le ' + esc(fmtDateHeure(b.modifieLe)) + '">✏️ modifié</span>' : '') + '</td>' +
         '<td>' + esc(fmtDate(dateBon(b))) + '</td>' +
         '<td>' + esc(b.chantier) + (b.equipement && b.equipement.libelle ? '<div style="font-size:0.75rem;color:#047857;">🔧 ' + esc(b.equipement.libelle) + '</div>' : '') + '</td>' +
         '<td>' + esc(b.masqueNom) + (b.cerfas || []).map(function (c) { return '<span class="bi-cerfa-badge">CERFA ' + esc(c.code) + '</span>'; }).join('') + '</td>' +
@@ -356,6 +405,8 @@
     document.getElementById('bon-btn-cerfa').onclick = function () { ouvrirCerfa(id, ''); };
     document.getElementById('bon-btn-envoyer').onclick = function () { preparerEnvoi(id); };
     document.getElementById('bon-btn-suppr').onclick = function () { supprimerBon(id); };
+    document.getElementById('bon-btn-modif').onclick = function () { demanderModif(); };
+    piedsModif(false);
     ouvrir('ov-bon');
 
     _apiFetch('/api/bons-intervention/pc/' + id, { method: 'GET' }).then(function (res) {
@@ -380,7 +431,18 @@
   function rendreBon(d) {
     var b = d.bon, rep = b.reponses || {}, coord = d.coord || {};
     var tel = [coord.mobile, coord.fixe].filter(Boolean).join(' · ');
-    var h = '<div class="bi-cartouches">' +
+    var h = '';
+    if (b.modifieLe) {
+      var mods = b.modifications || [];
+      h += '<div class="bi-modifie"><strong>✏️ Bon modifié le ' + esc(fmtDateHeure(b.modifieLe)) + ' après son enregistrement.</strong>' +
+        '<br>La signature du client porte sur la version d\'origine.' +
+        (mods.length ? '<div style="margin-top:4px;font-size:0.8rem;">' + mods.map(function (m) {
+          return '• ' + esc(fmtDateHeure(m.le)) + ' : ' + esc((m.champs || []).join(', '));
+        }).join('<br>') + '</div>' : '') +
+        (d.aOriginal ? '<br><button type="button" class="btn" onclick="ouvrirPdf(\'' + b._id + '\', true)">📄 PDF d\'origine (avant modification)</button>' : '') +
+        '</div>';
+    }
+    h += '<div class="bi-cartouches">' +
       '<div class="bi-cartouche"><div class="t">Client / chantier</div><strong>' + esc(b.chantier) + '</strong>' +
         (coord.adresse ? '<br>' + esc(coord.adresse).replace(/\n/g, '<br>') : '') +
         (coord.ville ? '<br>' + esc(coord.ville) : '') +
@@ -472,10 +534,10 @@
   }
 
   // ── PDF ──
-  function ouvrirPdf(id) {
+  function ouvrirPdf(id, original) {
     // Fenêtre ouverte tout de suite (sinon le navigateur la bloque après l'attente réseau).
     var fen = window.open('', '_blank');
-    fetch('/api/bons-intervention/pc/' + id + '/pdf', { headers: { 'Authorization': 'Bearer ' + _token() } })
+    fetch('/api/bons-intervention/pc/' + id + (original ? '/original' : '/pdf'), { headers: { 'Authorization': 'Bearer ' + _token() } })
       .then(function (r) {
         if (!r.ok) return r.json().then(function (d) { throw new Error(d.message || 'Erreur'); });
         return r.blob();
@@ -704,6 +766,132 @@
   }
 
   // ── Suppression ──
+  // ── Modification d'un bon enregistré ──
+  function piedsModif(enModif) {
+    document.getElementById('bon-pied').style.display = enModif ? 'none' : '';
+    document.getElementById('bon-pied-modif').style.display = enModif ? '' : 'none';
+  }
+
+  function demanderModif() {
+    if (!_bonOuvert) return;
+    var b = _bonOuvert.bon, rep = b.reponses || {};
+    var signe = (_bonOuvert.champs || []).some(function (c) {
+      return c.type === 'signature' && c.signataire === 'client' && estImage(rep[c.id]);
+    });
+    document.getElementById('alerte-sous').textContent = 'Bon n° ' + (b.numero || '') + ' · ' + (b.chantier || '');
+    document.getElementById('alerte-signe').innerHTML = signe
+      ? '<strong>Ce bon a été signé par le client.</strong> La signature restera présente sur le bon modifié, alors que le client <strong>n\'a pas validé</strong> vos modifications.'
+      : '<strong>Ce bon a été enregistré par votre technicien.</strong> Vos modifications changeront son contenu après coup.';
+    document.getElementById('alerte-envoye').style.display = (b.envois || []).length ? '' : 'none';
+    var ok = document.getElementById('alerte-ok');
+    ok.checked = false;
+    ok.parentNode.lastChild.textContent = signe
+      ? ' J\'ai compris : je modifie un bon que le client a signé dans sa version d\'origine.'
+      : ' J\'ai compris : je modifie un bon déjà enregistré.';
+    document.getElementById('alerte-btn').disabled = true;
+    ouvrir('ov-alerte-modif');
+  }
+
+  function _modifiable(c) {
+    if (c.type === 'datetime') return !c.auto;
+    return ['texte', 'liste', 'case', 'cases_multiples'].indexOf(c.type) >= 0;
+  }
+  function _idEd(id) { return 'ed-' + String(id).replace(/[^A-Za-z0-9_-]/g, '_'); }
+
+  function passerEnModif() {
+    if (!_bonOuvert) return;
+    var d = _bonOuvert, b = d.bon, rep = b.reponses || {};
+    var h = '<div class="bi-modifie" style="background:#fef2f2;border-color:#fecaca;color:#991b1b;">' +
+      '✏️ <strong>Mode modification.</strong> Les signatures, les photos et les date / heures issues du pointage ne sont pas modifiables.</div>' +
+      '<div class="bi-edit">';
+    var sigs = [];
+    (d.champs || []).forEach(function (c) {
+      var v = rep[c.id], ed = _idEd(c.id), champ;
+      if (c.type === 'signature') { sigs.push(c); return; }
+      if (!_modifiable(c)) {
+        champ = (c.type === 'photo'
+          ? ((Array.isArray(v) ? v : []).filter(estImage).length + ' photo(s)')
+          : esc(valeurTexte(c, v))) + ' <span class="bi-fige">(non modifiable)</span>';
+      } else if (c.type === 'texte') {
+        champ = '<textarea id="' + ed + '">' + esc(v == null ? '' : v) + '</textarea>';
+      } else if (c.type === 'liste') {
+        var opts = (c.options || []).slice();
+        if (v && opts.indexOf(v) < 0) opts.unshift(v);
+        champ = '<select id="' + ed + '"><option value="">—</option>' + opts.map(function (o) {
+          return '<option value="' + esc(o) + '"' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>';
+        }).join('') + '</select>';
+      } else if (c.type === 'case') {
+        var oui = v === true || v === 'true';
+        champ = '<div class="bi-choix" id="' + ed + '">' +
+          '<label><input type="radio" name="' + ed + '" value="1"' + (oui ? ' checked' : '') + '> Oui</label>' +
+          '<label><input type="radio" name="' + ed + '" value="0"' + (!oui ? ' checked' : '') + '> Non</label></div>';
+      } else if (c.type === 'cases_multiples') {
+        var sel = Array.isArray(v) ? v : [];
+        champ = '<div class="bi-choix" id="' + ed + '">' + (c.options || []).map(function (o) {
+          return '<label><input type="checkbox" value="' + esc(o) + '"' + (sel.indexOf(o) >= 0 ? ' checked' : '') + '> ' + esc(o) + '</label>';
+        }).join('') + '</div>';
+      } else {
+        champ = '<input type="text" id="' + ed + '" value="' + esc(v == null ? '' : v) + '">';
+      }
+      h += '<div class="bi-ligne"><div class="l">' + esc(c.libelle) + '</div><div class="v">' + champ + '</div></div>';
+    });
+    sigs.forEach(function (c) {
+      var img = estImage(rep[c.id]) ? '<img src="' + rep[c.id] + '" alt="Signature" style="max-height:60px;vertical-align:middle;">' : '<span style="color:#94a3b8;">Non signé</span>';
+      var nom = c.signataire === 'client'
+        ? '<label style="font-size:0.78rem;color:#64748b;">Nom du signataire</label><input type="text" id="' + _idEd(c.id + '__nom') + '" value="' + esc(rep[c.id + '__nom'] || '') + '">'
+        : esc(b.salarieNom || '');
+      h += '<div class="bi-ligne"><div class="l">' + esc(c.libelle) + '</div><div class="v">' + nom +
+        '<div style="margin-top:4px;">' + img + ' <span class="bi-fige">(signature inchangée)</span></div></div></div>';
+    });
+    h += '</div>';
+    document.getElementById('bon-corps').innerHTML = h;
+    piedsModif(true);
+  }
+
+  function annulerModif() {
+    if (!_bonOuvert) return;
+    document.getElementById('bon-corps').innerHTML = rendreBon(_bonOuvert);
+    piedsModif(false);
+  }
+
+  function enregistrerModif() {
+    if (!_bonOuvert) return;
+    var d = _bonOuvert, b = d.bon, reponses = {};
+    (d.champs || []).forEach(function (c) {
+      if (c.type === 'signature' && c.signataire === 'client') {
+        var n = document.getElementById(_idEd(c.id + '__nom'));
+        if (n) reponses[c.id + '__nom'] = n.value.trim();
+        return;
+      }
+      if (!_modifiable(c)) return;
+      var el = document.getElementById(_idEd(c.id));
+      if (!el) return;
+      if (c.type === 'case') {
+        var r = el.querySelector('input:checked');
+        reponses[c.id] = !!(r && r.value === '1');
+      } else if (c.type === 'cases_multiples') {
+        reponses[c.id] = Array.prototype.map.call(el.querySelectorAll('input:checked'), function (x) { return x.value; });
+      } else {
+        reponses[c.id] = el.value;
+      }
+    });
+    var btn = document.getElementById('bon-btn-enreg');
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    _apiFetch('/api/bons-intervention/pc/' + b._id, { method: 'PUT', body: JSON.stringify({ reponses: reponses }) }).then(function (res) {
+      btn.disabled = false; btn.textContent = '💾 Enregistrer les modifications';
+      if (!(res.status >= 200 && res.status < 300) || !res.body.ok) { _notif(res.body.message || 'Erreur', '#dc2626'); return; }
+      if (res.body.inchange) { _notif('Aucune modification'); annulerModif(); return; }
+      var ligne = _bons.find(function (x) { return x._id === b._id; });
+      if (ligne) ligne.modifieLe = res.body.modifieLe;
+      rendreListe();
+      _notif('✔ Bon modifié — PDF d\'origine conservé');
+      voirBon(b._id);   // recharge le bon (réponses, historique, PDF d'origine)
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = '💾 Enregistrer les modifications';
+      _notif('Erreur réseau', '#dc2626');
+    });
+  }
+
   function supprimerBon(id) {
     var b = _bons.find(function (x) { return x._id === id; }) || {};
     if (!confirm('Supprimer définitivement le bon n° ' + (b.numero || '') + ' (' + (b.chantier || '') + ') ?')) return;
