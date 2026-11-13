@@ -107,6 +107,13 @@
     padding-bottom: 4px;
     border-bottom: 1px solid rgba(255,255,255,0.2);
   }
+  .chantier-tooltip .ct-objet {
+    font-weight: 500;
+    font-size: 0.76rem;
+    font-style: italic;
+    color: #e0f2fe;
+    margin-top: 2px;
+  }
   .chantier-tooltip .ct-total {
     font-weight: 600;
     margin-bottom: 6px;
@@ -3036,6 +3043,28 @@ function getTotalDevisChantier(nom) {
   return total;
 }
 
+/* Objet des devis Henrri importés, par n° simplifié (« 26-06-99 »), chargé une fois
+   depuis /api/henrri/objets. Le chantier créé depuis un devis porte ce n° en dernier mot. */
+let _objetsDevis = null, _objetsDevisEnCours = null;
+function chargerObjetsDevis() {
+  if (_objetsDevis || _objetsDevisEnCours) return _objetsDevisEnCours;
+  const token = (typeof SYNC !== 'undefined' && SYNC.getToken && SYNC.getToken()) || localStorage.getItem('syncToken') || '';
+  if (!token) return null;
+  _objetsDevisEnCours = fetch('/api/henrri/objets', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { _objetsDevis = (d && d.ok && d.objets) ? d.objets : {}; })
+    .catch(() => { _objetsDevis = null; })
+    .finally(() => { _objetsDevisEnCours = null; });
+  return _objetsDevisEnCours;
+}
+function objetDuChantier(nom) {
+  if (!_objetsDevis) return '';
+  const mots = String(nom || '').trim().toUpperCase().split(/\s+/);
+  return _objetsDevis[mots[mots.length - 1]] || '';
+}
+window.addEventListener('DOMContentLoaded', chargerObjetsDevis);
+window.addEventListener('donnees-chargees', () => { _objetsDevis = null; chargerObjetsDevis(); });
+
 function montrerTooltipChantier(input) {
   const nom = (input.value || '').trim();
   const k = (input.id || '').replace(/chantier$/, '');
@@ -3043,11 +3072,13 @@ function montrerTooltipChantier(input) {
 
   const stats = nom ? getStatsChantier(nom) : null;
   const aStats = !!(stats && stats.total > 0);
-  if (!aStats && !note) { cacherTooltip(); return; }
+  const objet = nom ? objetDuChantier(nom) : '';
+  if (!_objetsDevis) chargerObjetsDevis();
+  if (!aStats && !note && !objet) { cacherTooltip(); return; }
 
   const el = getTooltipEl();
   let html = '';
-  if (nom) html += `<div class="ct-nom">${escapeHtml(nom)}</div>`;
+  if (nom) html += `<div class="ct-nom">${escapeHtml(nom)}${objet ? `<div class="ct-objet">${escapeHtml(objet)}</div>` : ''}</div>`;
   if (aStats) {
     const totalDevis = getTotalDevisChantier(nom);
     const depasse = totalDevis > 0 && stats.total > totalDevis;

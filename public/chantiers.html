@@ -2524,6 +2524,7 @@ async function ouvrirModaleHenrri() {
       html += '<tr>'
         + '<td style="' + td + 'text-align:center;"><input type="checkbox" class="henrri-sel" checked onchange="_henrriMajTout()"></td>'
         + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
+        + (dv.objet ? '<div style="font-size:0.74rem;color:#0369a1;font-style:italic;">' + _henrriEscAttr(dv.objet) + '</div>' : '')
         + (modeImport ? _henrriCelluleCoord(dv) : '')
         + '</td>'
         + '<td style="' + td + '">' + _henrriEscAttr(dv.reference || '—')

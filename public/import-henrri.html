@@ -208,7 +208,7 @@ const CHAMPS_CODE = { cle: 'codeClient', libelle: 'Code client', requis: false,
   motifs: [/code.*client|client.*code|n° client|num.*client|ref.*client/, /^code$/] };
 const CHAMPS_NOM = { cle: 'nom', libelle: 'Nom (ou Nom prénom / Raison sociale)', requis: true,
   motifs: [/nom.*prenom|prenom.*nom/, /raison sociale|raison/, /^nom\b/, /\bnom\b/, /^client$/, /client|destinataire/],
-  exclure: /^prenom|n°|numero|code|ville|commune|contact.*prenom/ };
+  exclure: /^prenom|n°|numero|code|ville|commune|contact.*prenom|objet/ };
 const CHAMPS_PRENOM = { cle: 'prenom', libelle: 'Prénom (si colonne séparée)', requis: false,
   motifs: [/^prenom/], exclure: /nom.*prenom|prenom.*nom/ };
 
@@ -243,9 +243,10 @@ const FICHIERS = {
         exclure: /tel|phone|portable|mobile|client|siret|tva|postal/ },
       CHAMPS_CODE, CHAMPS_NOM, CHAMPS_PRENOM,
       { cle: 'heures', libelle: "Nombre d'heures", motifs: [/^nombre d.?heures$/, /nombre.*heure|nb.*heure|heure/], exclure: /analys|restant|facturer/ },
-      { cle: 'heuresAnalysees', libelle: "Nombre d'heures analysées", motifs: [/heure.*analys|analys/] }
+      { cle: 'heuresAnalysees', libelle: "Nombre d'heures analysées", motifs: [/heure.*analys|analys/] },
+      { cle: 'objet', libelle: "Nom de l'objet", motifs: [/^nom de l.?objet$/, /nom.*objet/, /^objet$/], exclure: /valeur|premier|titre/ }
     ],
-    ordre: ['heuresAnalysees', 'heures', 'codeClient', 'numero', 'nom', 'prenom'],
+    ordre: ['objet', 'heuresAnalysees', 'heures', 'codeClient', 'numero', 'nom', 'prenom'],
     entetes: [], lignes: [], nom: ''
   }
 };

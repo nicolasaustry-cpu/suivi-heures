@@ -235,6 +235,7 @@ function _normaliserLigne(l) {
     reference: _simplifierReference(numero) || numero,
     client: nom,
     codeClient: _txt(l.codeClient, 60),
+    objet: _txt(l.objet, 200),
     heures: _nombre(l.heures),
     heuresAnalysees: _nombre(l.heuresAnalysees)
   };
@@ -450,7 +451,7 @@ function _fabriqueStatut(etat, refs) {
 }
 
 const CHAMPS_COMPARES = [
-  ["client", "Nom"], ["codeClient", "Code client"], ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
+  ["client", "Nom"], ["codeClient", "Code client"], ["objet", "Objet"], ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
 ];
 
 /* Analyse (sans écriture) d'un lot de lignes au regard de ce qui est déjà en base */
@@ -633,6 +634,7 @@ router.get("/devis", verifyToken, async (req, res) => {
             client: d.client || "",
             reference: d.reference || d.numero || "",
             numero: d.numero || "",
+            objet: d.objet || "",
             montant: null,
             date: null,
             signe: false,
@@ -841,6 +843,25 @@ router.post("/devis/:id/ignorer", verifyToken, async (req, res) => {
       { upsert: true }
     );
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Objet des devis importés, par n° simplifié (« 26-06-99 » → « TRAVAUX DE CLIMATISATION ») ──
+// Utilisé par l'info-bulle des chantiers (planning) : la ligne du Prévisionnel porte le
+// n° en dernier mot, l'objet est retrouvé ici — y compris pour les devis affectés avant
+// l'ajout de la colonne « Nom de l'objet » (il suffit de réimporter l'export Henrri).
+router.get("/objets", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const brut = (await Henrri.findOne({ clientId }, "devisFichier").lean()) || {};
+    const objets = {};
+    (Array.isArray(brut.devisFichier) ? brut.devisFichier : []).forEach(d => {
+      const ref = _refDevis(d);
+      if (ref && d && d.objet) objets[ref] = String(d.objet);
+    });
+    res.json({ ok: true, objets });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
