@@ -415,16 +415,49 @@ function _coordApprochee(d, index) {
   return { coord: null, approx: true, candidats, suggere: suggestions.length === 1 ? suggestions[0] : -1 };
 }
 
+/* ── Devis réellement présents dans le Prévisionnel ──
+   « Affecté » ne se fie plus seulement à la liste devisImportes : si la ligne créée
+   à l'affectation a été supprimée (ou renommée sans son n°), le devis redevient
+   « à affecter » et il est reproposé. Une ligne porte le n° simplifié en dernier
+   mot (« MENAGER Philippe 26-06-99 ») : on relève ce dernier mot sur toutes les
+   lignes de toutes les années / tous les mois. */
+async function _refsAuPrevisionnel(clientId) {
+  const refs = new Set();
+  const doc = await Donnees.findOne({ clientId }, "previsionnel").lean();
+  const prev = (doc && doc.previsionnel) || {};
+  Object.values(prev).forEach(an => {
+    if (!an || typeof an !== "object") return;
+    Object.values(an).forEach(m => {
+      (m && Array.isArray(m.chantiers) ? m.chantiers : []).forEach(ch => {
+        const mots = String((ch && ch.client) || "").trim().toUpperCase().split(/\s+/);
+        const der = mots[mots.length - 1];
+        if (der && der.indexOf("-") > 0) refs.add(der);
+      });
+    });
+  });
+  return refs;
+}
+const _refDevis = d => String((d && (d.reference || _simplifierReference(d.numero))) || "").trim().toUpperCase();
+/* Statut d'un devis : "affecte" seulement si sa ligne existe encore au Prévisionnel */
+function _fabriqueStatut(etat, refs) {
+  const affectes = new Set(etat.devisImportes);
+  const ecartes = new Set(etat.devisIgnores);
+  return (id, d) => {
+    if (affectes.has(id) && (!refs || refs.has(_refDevis(d)))) return "affecte";
+    if (ecartes.has(id)) return "ecarte";
+    return "attente";
+  };
+}
+
 const CHAMPS_COMPARES = [
   ["client", "Nom"], ["codeClient", "Code client"], ["heures", "Nombre d'heures"], ["heuresAnalysees", "Heures analysées"]
 ];
 
 /* Analyse (sans écriture) d'un lot de lignes au regard de ce qui est déjà en base */
-function _analyserImport(lignes, etat) {
+function _analyserImport(lignes, etat, refs) {
   const existants = new Map(etat.devisFichier.map(d => [String(d.id), d]));
-  const affectes = new Set(etat.devisImportes);
-  const ecartes = new Set(etat.devisIgnores);
-  const statut = id => affectes.has(id) ? "affecte" : (ecartes.has(id) ? "ecarte" : "attente");
+  const statutDe = _fabriqueStatut(etat, refs);
+  const statut = (id, d) => statutDe(id, d || existants.get(id));
 
   const vus = new Set();
   const r = { nouveaux: [], misAJour: [], inchanges: [], absents: [], doublons: [], rejets: [], valides: [] };
@@ -436,7 +469,7 @@ function _analyserImport(lignes, etat) {
     r.valides.push(d);
     const ref = _heuresReference(d);
     const resume = { numero: d.numero, client: d.client, heures: d.heures, heuresAnalysees: d.heuresAnalysees,
-                     heuresRef: ref.valeur, heuresRefSource: ref.source, statut: statut(d.id) };
+                     heuresRef: ref.valeur, heuresRefSource: ref.source, statut: statut(d.id, d) };
     const ancien = existants.get(d.id);
     if (!ancien) { r.nouveaux.push(resume); return; }
     const changements = [];
@@ -449,7 +482,7 @@ function _analyserImport(lignes, etat) {
     else r.inchanges.push(resume);
   });
   etat.devisFichier.forEach(d => {
-    if (!vus.has(String(d.id)) && statut(String(d.id)) === "attente")
+    if (!vus.has(String(d.id)) && statut(String(d.id), d) === "attente")
       r.absents.push({ numero: d.numero, client: d.client });
   });
   r.totaux = {
@@ -585,10 +618,14 @@ router.get("/devis", verifyToken, async (req, res) => {
       } catch (e) {
         console.warn("[HENRRI] base clients illisible :", e.message);
       }
+      const refs = await _refsAuPrevisionnel(clientId);
+      const statutDe = _fabriqueStatut(etat, refs);
       const affectes = new Set(etat.devisImportes);
-      const ecartes = new Set(etat.devisIgnores);
+      const ecartesListe = etat.devisFichier
+        .filter(d => d && statutDe(String(d.id), d) === "ecarte")
+        .map(d => ({ id: String(d.id), client: d.client || "", reference: d.reference || d.numero || "", numero: d.numero || "" }));
       const devis = etat.devisFichier
-        .filter(d => d && !affectes.has(String(d.id)) && !ecartes.has(String(d.id)))
+        .filter(d => d && statutDe(String(d.id), d) === "attente")
         .map(d => {
           const ref = _heuresReference(d);
           return {
@@ -607,10 +644,12 @@ router.get("/devis", verifyToken, async (req, res) => {
             // clients, à PROPOSER (case cochée par défaut dans la modale)
             coordonnees: null,
             coordBase: _coordPourDevis(d, indexBase, etat.brut.choixClients || {}),
-            customerId: ""
+            customerId: "",
+            // Déjà affecté, mais sa ligne n'existe plus au Prévisionnel : reproposé
+            orphelin: affectes.has(String(d.id))
           };
         });
-      return res.json({ ok: true, mode: "import", devis, importeLe: etat.brut.devisFichierLe || null,
+      return res.json({ ok: true, mode: "import", devis, ecartes: ecartesListe, importeLe: etat.brut.devisFichierLe || null,
         annulable: !!etat.brut.importAvant });
     }
 
@@ -629,12 +668,21 @@ router.get("/devis", verifyToken, async (req, res) => {
       sortBy: "date",
       sortOrder: "descending"
     });
-    const dejaImportes = new Set(cfg.devisImportes || []);
-    const dejaIgnores  = new Set(cfg.devisIgnores  || []);
+    const dejaImportes = new Set((cfg.devisImportes || []).map(String));
+    const dejaIgnores  = new Set((cfg.devisIgnores  || []).map(String));
+    const refsPrev = await _refsAuPrevisionnel(clientId);
+    const refApi = d => _simplifierReference(d.identity || d.reference || d.number || "").toUpperCase();
+    // Affecté = dans devisImportes ET ligne encore présente au Prévisionnel
+    const estAffecte = d => dejaImportes.has(String(d.id)) && refsPrev.has(refApi(d));
     const validesUniquement = liste.filter(d => d && d.finalized === true);
+    const ecartesApi = validesUniquement
+      .filter(d => !estAffecte(d) && dejaIgnores.has(String(d.id)))
+      .map(d => ({ id: String(d.id), client: (d.customer && d.customer.name) || "",
+                   reference: _simplifierReference(d.identity || d.reference || d.number || ""), numero: d.identity || "" }));
     const resultat = validesUniquement
-      .filter(d => !dejaImportes.has(String(d.id)) && !dejaIgnores.has(String(d.id)))
+      .filter(d => !estAffecte(d) && !dejaIgnores.has(String(d.id)))
       .map(d => ({
+        orphelin: dejaImportes.has(String(d.id)),
         id: String(d.id),
         // Champs Henrri en camelCase (confirmé sur un vrai devis sandbox) :
         // customer.name, priceAfterTax, date, identity (= n° de pièce, ex. "I-26-09-1").
@@ -652,7 +700,7 @@ router.get("/devis", verifyToken, async (req, res) => {
         coordonnees: _ficheVersCoordonnees(_clientHenrriVersFiche(d.customer || {})),
         customerId: d.customer && d.customer.id != null ? String(d.customer.id) : ""
       }));
-    res.json({ ok: true, mode: "api", devis: resultat });
+    res.json({ ok: true, mode: "api", devis: resultat, ecartes: ecartesApi });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
@@ -798,6 +846,22 @@ router.post("/devis/:id/ignorer", verifyToken, async (req, res) => {
   }
 });
 
+// ── Réintégrer un devis écarté (il redevient proposé dans « Devis Henrri ») ──
+router.post("/devis/:id/reintegrer", verifyToken, async (req, res) => {
+  try {
+    const clientId = (req.user.clientId || "").toUpperCase();
+    const devisId  = String(req.params.id);
+    await Henrri.updateOne(
+      { clientId },
+      { $pull: { devisIgnores: devisId }, $set: { updatedAt: new Date() } },
+      { strict: false }
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ── Base clients Henrri ──
    Lecture RAPIDE : renvoie le cache déjà stocké côté serveur (clientsCache),
    sans appeler Henrri à chaque fois — utilisé par clients.html au chargement
@@ -855,8 +919,10 @@ router.post("/clients/sync", verifyToken, async (req, res) => {
       des colonnes, puis envoie les lignes déjà mappées ;
    2. /import/apercu  : rapport de fusion, AUCUNE écriture ;
    3. /import/confirmer : enregistrement.
-   Règles : un import ne supprime jamais rien ; un devis déjà affecté ou écarté
-   n'est jamais reproposé (et sa ligne du Prévisionnel n'est jamais modifiée).
+   Règles : un import ne supprime jamais rien ; un devis affecté dont la ligne
+   existe encore au Prévisionnel n'est pas reproposé (ligne jamais modifiée) ;
+   si la ligne a été supprimée, le devis redevient « à affecter ». Un devis
+   écarté reste visible dans « Devis écartés » et peut être réintégré.
    L'export ne contient pas les coordonnées : elles sont proposées à
    l'affectation depuis la base clients (voir _indexBaseClients).
    ─────────────────────────────────────────────────────────────── */
@@ -984,7 +1050,7 @@ router.post("/import/apercu", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const etat = await _etat(clientId);
-    const r = _analyserImport(req.body && req.body.lignes, etat);
+    const r = _analyserImport(req.body && req.body.lignes, etat, await _refsAuPrevisionnel(clientId));
     try {
       const cfg = await _config(clientId);
       const doc = await Donnees.findOne({ clientId }, "coordonneesChantiers").lean();
@@ -1025,7 +1091,8 @@ router.post("/import/confirmer", verifyToken, async (req, res) => {
     const clientId = (req.user.clientId || "").toUpperCase();
     await _photoAvantImport(clientId, req.body);
     const etat = await _etat(clientId);
-    const r = _analyserImport(req.body && req.body.lignes, etat);
+    const refs = await _refsAuPrevisionnel(clientId);
+    const r = _analyserImport(req.body && req.body.lignes, etat, refs);
     const maintenant = new Date();
 
     // Devis : mise à jour / ajout par n° de devis, rien n'est supprimé
@@ -1043,7 +1110,7 @@ router.post("/import/confirmer", verifyToken, async (req, res) => {
     );
 
     delete r.valides;
-    res.json({ ok: true, rapport: r, enAttente: devisFichier.filter(d => !etat.devisImportes.includes(String(d.id)) && !etat.devisIgnores.includes(String(d.id))).length });
+    res.json({ ok: true, rapport: r, enAttente: (() => { const st = _fabriqueStatut(etat, refs); return devisFichier.filter(d => st(String(d.id), d) === "attente").length; })() });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });
   }
