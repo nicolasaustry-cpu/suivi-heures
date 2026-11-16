@@ -372,8 +372,23 @@ const SYNC = (() => {
   }
 
   /* ── Déclenchement d'une sauvegarde (immédiate, faible coalescence) ── */
+  /* Lecture seule (consultation admin / prescripteur) : une modification faite à l'écran
+     n'est PAS enregistrée et revient au rechargement. On le dit, au lieu de laisser croire
+     qu'elle a été prise en compte (cas constaté : pavé supprimé qui « revenait »).
+     Uniquement juste après une action de l'utilisateur (clic, touche), pas sur les écritures
+     faites par la page elle-même au chargement ; au plus une fois toutes les 6 s. */
+  let _derniereActionUtil = 0, _dernierAvisLecture = 0;
+  ['pointerdown', 'keydown', 'change'].forEach(t =>
+    document.addEventListener(t, () => { _derniereActionUtil = Date.now(); }, true));
+  function avertirLectureSeule() {
+    const t = Date.now();
+    if (t - _derniereActionUtil > 3000 || t - _dernierAvisLecture < 6000) return;
+    _dernierAvisLecture = t;
+    try { afficherNotif('👁 Lecture seule (consultation) : cette modification n\'est pas enregistrée', '#b45309'); } catch (_) {}
+  }
+
   function declencherSauvegarde() {
-    if (_modeAdmin) return;          // admin = lecture seule
+    if (_modeAdmin) { avertirLectureSeule(); return; }   // admin = lecture seule
     if (_verrouilleAutreClient) return;   // un autre client est actif dans ce navigateur
     if (!_token) return;
     _pendingSave = true;
@@ -1400,8 +1415,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Bandeau orange de consultation : affiché sur TOUTES les pages tant que le flag
   // est présent dans cet onglet (évite toute confusion avec une session patron).
-  if (sessionStorage.getItem('adminConsult') === '1') {
-    afficherBanniereConsultation(sessionStorage.getItem('adminConsultNom') || '');
+  // Aussi dans un AUTRE onglet ouvert pendant une consultation : le jeton de consultation
+  // (lectureSeule) est partagé par tout le navigateur, la page y est donc en lecture seule…
+  // mais sans bandeau, rien ne le signalait (les modifications « revenaient » au rechargement).
+  let _jetonConsult = null;
+  try {
+    const t = localStorage.getItem('syncToken');
+    const p = t ? JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) : null;
+    if (p && p.lectureSeule === true) _jetonConsult = p;
+  } catch (_) {}
+  if (sessionStorage.getItem('adminConsult') === '1' || _jetonConsult) {
+    afficherBanniereConsultation(sessionStorage.getItem('adminConsultNom') || (_jetonConsult && _jetonConsult.nomClient) || '');
   }
 
   SYNC.init();
