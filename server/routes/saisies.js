@@ -1030,11 +1030,12 @@ router.post("/agenda/liste", async (req, res) => {
       return res.status(400).json({ ok: false, message: "Période trop longue" });
 
     const gidL = String(a.ger.id);
-    // Agenda du gérant : les RDV qu'il a créés, ou ceux où il est participant
-    // (un RDV posé dans le planning d'un autre salarié n'y figure pas).
+    // Agenda du gérant : uniquement les RDV où il est participant (« Moi » coché).
+    // Un RDV qu'il a programmé pour d'autres salariés seulement part à leur planning
+    // et n'encombre pas son agenda (demande du 16/11 ; avant : tout RDV créé par lui).
     const rdvs = (await AgendaRdv.find({ clientId: a.doc.clientId, date: { $gte: du, $lte: au } })
       .sort({ date: 1, debut: 1 }).lean())
-      .filter(r => String(r.gerantId || "") === gidL || (r.salaries || []).map(String).includes(gidL));
+      .filter(r => (r.salaries || []).map(String).includes(gidL));
 
     // Planning du gérant (hors cases issues de l'agenda, déjà représentées par leur RDV)
     const heures = a.doc.heures || {};

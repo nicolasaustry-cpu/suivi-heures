@@ -105,6 +105,11 @@
     .v-liste div { display:flex; justify-content:space-between; padding:9px 12px; border-bottom:1px solid #eef1f7; font-size:14px; }
     .v-liste div:last-child { border-bottom:0; }
     .v-adr { font-size:14px; color:#2d3550; }
+    .eq-j, .ps-j { cursor:pointer; }
+    .eq-j:active, .ps-j:active { background:#e0e7ff; }
+    .ps-barre { cursor:pointer; }
+    .v-creer { min-height:50px; border-radius:14px; border:1px solid #c7d2fe; background:#eef2ff; color:var(--navy); font-size:15px; font-weight:700; }
+    .astuce { font-size:11px; color:#94a3b8; text-align:center; padding:2px 0 0; }
     .v-fermer { min-height:50px; border-radius:14px; border:0; background:var(--navy); color:#fff; font-size:16px; font-weight:700; }
   </style>
 </head>
@@ -356,6 +361,7 @@ function rendre() {
         <span><i style="background:#E6F1FB;border:1px solid #85B7EB"></i>École</span>
         <span><i style="background:repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px)"></i>Férié / repos</span>
       </div>
+      <div class="astuce">Touchez un jour pour programmer un chantier / RDV</div>
     </div>
     <div class="zone" id="zone">`;
   if (F.erreur) html += `<div class="msg" style="padding:10px">${frEsc(F.erreur)}</div>`;
@@ -385,7 +391,7 @@ function vueEquipe() {
   let joursCol = '', lignes = '', semPrec = null;
   jours.forEach((d, i) => {
     const sm = pl2NumSemaine(d);
-    joursCol += `<div class="eq-j${frIso(d) === auj ? ' auj' : ''}" style="top:${i * RH}px;height:${RH}px"><span><b>${FR_JC[d.getDay()]}</b> ${d.getDate()}</span></div>`;
+    joursCol += `<div class="eq-j${frIso(d) === auj ? ' auj' : ''}" style="top:${i * RH}px;height:${RH}px" onclick="creerRdv('${frIso(d)}')" title="Programmer ce jour"><span><b>${FR_JC[d.getDay()]}</b> ${d.getDate()}</span></div>`;
     if (i > 0) lignes += `<div class="eq-ligne${sm !== semPrec ? ' sem' : ''}" style="top:${i * RH}px"></div>`;
     semPrec = sm;
   });
@@ -404,14 +410,14 @@ function vueEquipe() {
       else if (sg.k === 'ecole') { txt = h >= 20 ? 'École' : ''; }
       else { txt = (h >= 20 && sg.ferie) ? 'férié' : ''; }
       if (h < 22) sous = '';
-      segs += `<button type="button" class="eq-seg k-${sg.k}" style="${style}" onclick="ouvrirDetail('${sg.id}')"><span>${txt}</span>${sous ? '<small>' + sous + '</small>' : ''}</button>`;
+      segs += `<button type="button" class="eq-seg k-${sg.k}" style="${style}" onclick="event.stopPropagation();toucherSegment('${sg.id}', jourDuToucher(event))"><span>${txt}</span>${sous ? '<small>' + sous + '</small>' : ''}</button>`;
     });
     let ecarts = '';
     s.jourInfo.forEach((ji, i) => {
       if (!ji || ji.ecart === 'ok') return;
       ecarts += `<span class="eq-ecart" style="top:${i * RH + 3}px;height:${RH - 5}px;background:${ji.ecart === 'trop' ? '#dc2626' : '#f59e0b'}"></span>`;
     });
-    pistes += `<div class="eq-piste" style="left:${c * laneW}px;width:${laneW}px">${segs}${ecarts}</div>`;
+    pistes += `<div class="eq-piste" style="left:${c * laneW}px;width:${laneW}px" onclick="const j=jourDuToucher(event);if(j)creerRdv(j,'${frEsc(s.id)}')">${segs}${ecarts}</div>`;
   });
   return `<div class="eq">${tete}<div class="eq-corps">
       <div class="eq-jours" style="height:${N * RH}px">${joursCol}</div>
@@ -439,22 +445,50 @@ function vueSalarie() {
       else if (sg.k === 'abs') { txt = frEsc(sg.lib); }
       else if (sg.k === 'ecole') { txt = 'École'; }
       else { txt = sg.ferie ? frEsc(sg.lib) : 'Non travaillé'; }
-      pieces += `<button type="button" class="ps-pc k-${sg.k}" style="${style}" onclick="ouvrirDetail('${sg.id}')">${txt}</button>`;
+      pieces += `<button type="button" class="ps-pc k-${sg.k}" style="${style}" onclick="event.stopPropagation();toucherSegment('${sg.id}','${frIso(d)}')">${txt}</button>`;
     });
     const ji = s.jourInfo[i];
     const tot = ji ? frFmt(ji.planifie) + ' h' : '—';
     const coul = !ji ? '#94a3b8' : (ji.ecart === 'manque' ? '#b45309' : (ji.ecart === 'trop' ? '#dc2626' : '#1d6b3a'));
-    html += `<div class="ps-ligne${frIso(d) === auj ? ' auj' : ''}"><span class="ps-j"><b>${FR_JC[d.getDay()]}</b> ${d.getDate()}</span>
-      <div class="ps-barre">${pieces}</div><span class="ps-h" style="color:${coul}">${tot}</span></div>`;
+    html += `<div class="ps-ligne${frIso(d) === auj ? ' auj' : ''}"><span class="ps-j" onclick="creerRdv('${frIso(d)}','${frEsc(s.id)}')" title="Programmer ce jour"><b>${FR_JC[d.getDay()]}</b> ${d.getDate()}</span>
+      <div class="ps-barre" onclick="creerRdv('${frIso(d)}','${frEsc(s.id)}')">${pieces}</div><span class="ps-h" style="color:${coul}">${tot}</span></div>`;
   });
   return html + '</div>';
 }
 
 /* Volet de détail : remplace l'infobulle de survol de la frise PC. */
-function ouvrirDetail(id) {
-  let sg = null;
-  F.calc.sals.forEach(s => s.segs.forEach(x => { if (x.id === id) sg = x; }));
+/* ── Programmer un chantier / RDV depuis la frise ──
+   Ouvre le formulaire « Nouveau rendez-vous » de l'agenda à cette date, avec le salarié
+   déjà coché ; après enregistrement (ou retour) on revient sur cette frise. */
+function creerRdv(dateIso, salId) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || ''))) return;
+  const retour = 'frise-mobile.html?mois=' + F.y + '-' + frPad2(F.m + 1) + (F.retour ? '&retour=' + F.retour : '');
+  location.href = 'agenda.html?nouveau=1&date=' + dateIso + (salId != null && salId !== '' ? '&sal=' + encodeURIComponent(salId) : '')
+    + '&depuis=' + encodeURIComponent(retour);
+}
+/* Jour (AAAA-MM-JJ) correspondant à la hauteur touchée dans la vue Équipe. */
+function jourDuToucher(e) {
+  const z = document.querySelector('.eq-pistes');
+  if (!z || !F.calc) return null;
+  const y = e.clientY - z.getBoundingClientRect().top;
+  const i = Math.floor(y / 32);
+  const d = F.calc.jours[i];
+  return d ? frIso(d) : null;
+}
+/* Segment touché : créneau à planifier → création directe ; sinon fiche détail. */
+function toucherSegment(id, dateIso) {
+  let sg = null, sal = null;
+  F.calc.sals.forEach(s => s.segs.forEach(x => { if (x.id === id) { sg = x; sal = s; } }));
   if (!sg) return;
+  if (sg.k === 'vide') { creerRdv(dateIso || (sg.jours[0] && frIso(sg.jours[0].d)), sal.id); return; }
+  ouvrirDetail(id, dateIso);
+}
+
+function ouvrirDetail(id, dateIso) {
+  let sg = null, salSeg = null;
+  F.calc.sals.forEach(s => s.segs.forEach(x => { if (x.id === id) { sg = x; salSeg = s; } }));
+  if (!sg) return;
+  const jourCreer = dateIso || (sg.jours[0] ? frIso(sg.jours[0].d) : '');
   const totalH = sg.jours.reduce((t, x) => t + (x.h || 0), 0);
   const d0 = sg.jours.length ? sg.jours[0].d : null, d1 = sg.jours.length ? sg.jours[sg.jours.length - 1].d : null;
   const jc = d => FR_JL[d.getDay()].slice(0, 3).toLowerCase() + '. ' + frDateCourte(d);
@@ -489,6 +523,7 @@ function ouvrirDetail(id) {
       <span class="poignee" aria-hidden="true"></span>
       <div class="v-tete"><span class="v-coul" style="background:${coul}"></span><div><b>${frEsc(titre)}</b><span>${frEsc(sg.salNom)}</span></div></div>
       ${corps}
+      ${jourCreer ? `<button type="button" class="v-creer" onclick="creerRdv('${jourCreer}','${frEsc(salSeg.id)}')">＋ Programmer un chantier / RDV le ${frEsc(frDateCourte(new Date(jourCreer + 'T00:00:00')))} (${frEsc(salSeg.prenom)})</button>` : ''}
       <button type="button" class="v-fermer">Fermer</button>
     </section>`;
   voile.addEventListener('click', e => { if (e.target === voile || e.target.classList.contains('v-fermer')) voile.remove(); });

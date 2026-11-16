@@ -799,7 +799,7 @@ function vueForm() {
   const puces = [`<button type="button" class="${f.salaries.includes(String(S.ger.id)) ? 'on' : ''}" data-sal="${esc(S.ger.id)}">Moi</button>`]
     .concat(autres.map(s => `<button type="button" class="${f.salaries.includes(String(s.id)) ? 'on' : ''}" data-sal="${esc(s.id)}">${esc(((s.prenom || '') + ' ' + (s.nom || '')).trim())}</button>`)).join('');
   return `<header class="hd"><div class="hd-l1">
-      <button type="button" class="btn-hd btn-ico" aria-label="Retour à l'agenda" onclick="${f.id ? `ouvrirDetail('${esc(f.id)}')` : 'retourListe()'}">${ICO.retour}</button>
+      <button type="button" class="btn-hd btn-ico" aria-label="Retour" onclick="${f.id ? `ouvrirDetail('${esc(f.id)}')` : (S.retourExterne ? 'location.href=S.retourExterne' : 'retourListe()')}">${ICO.retour}</button>
       <h1>${f.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</h1></div></header>`
     + msgHTML()
     + `<form class="page" id="form-rdv" onsubmit="enregistrer(event)" autocomplete="off">
@@ -936,11 +936,16 @@ async function enregistrer(ev) {
   const btn = document.getElementById('f-ok'); if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
   try {
     const d = await api('enregistrer', { rdv: { id: f.id, date: f.date, debut: f.debut, fin: f.fin, titre: f.titre, type: f.type, lieu: f.lieu, tel: f.tel, salaries: f.salaries, note: f.note } });
+    if (S.retourExterne && !f.id) { location.href = S.retourExterne; return; }   // créé depuis la frise : on y revient
     S.date = d.rdv.date;
     S.form = null;
     S.vue = S.vueListe;
     await chargerSemaine(true);
-    S.message = { err: false, txt: 'Rendez-vous enregistré et envoyé au planning.' };
+    // RDV sans « Moi » : il part au planning des salariés choisis et n'apparaît pas dans cet agenda
+    const pourMoi = (f.salaries || []).map(String).includes(String(S.ger.id));
+    const noms = f.salaries.filter(id => id !== String(S.ger.id)).map(nomSal).filter(Boolean).join(', ');
+    S.message = { err: false, txt: pourMoi ? 'Rendez-vous enregistré et envoyé au planning.'
+      : 'Rendez-vous envoyé au planning de ' + (noms || 'ces salariés') + ' (il n\'apparaît pas dans votre agenda).' };
     rendre();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = f.id ? 'Enregistrer les modifications' : 'Enregistrer le rendez-vous'; }
@@ -1113,8 +1118,16 @@ function vueBloquee() {
   if (localStorage.getItem('agendaDirigeant') !== '1') { S.vue = 'bloque'; S.message = { txt: 'L\'agenda du dirigeant n\'est pas activé (page Entreprise).' }; return rendre(); }
 
   const pRdv = params.get('rdv');
+  // Ouverture depuis la frise : formulaire « Nouveau rendez-vous » direct, salarié coché,
+  // puis retour à la frise après enregistrement ou abandon.
+  const pNouveau = params.get('nouveau') === '1', pSal = params.get('sal');
+  const pDepuis = params.get('depuis') || '';
+  if (/^frise-mobile\.html(\?[\w=&%.-]*)?$/.test(pDepuis)) S.retourExterne = pDepuis;
   history.replaceState({}, '', location.pathname);
-  rendre();
+  if (pNouveau) {
+    nouveauRdv(S.date);
+    if (pSal && S.salaries.some(s => String(s.id) === String(pSal))) { S.form.salaries = [String(pSal)]; rendre(); }
+  } else rendre();
   S.cache = lsJSON(cleCache(), {}) || {};
   Object.keys(S.cache).forEach(k => { S.cache[k].t = 0; });   // affiché tout de suite, mais toujours relu
   chargerSemaine().then(() => { if (pRdv && S.rdvs.some(r => r.id === pRdv)) ouvrirDetail(pRdv); });
