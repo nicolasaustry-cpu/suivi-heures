@@ -425,6 +425,7 @@
   .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
   .tgrid .btn-note-ch.has-note { background:#fef3c7; color:#b45309; }
   .tgrid .btn-note-ch.has-note::after { content:''; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:#f59e0b; border:1px solid #fff; }
+  .tgrid .chip .btn-rdv-ch.rdv-haut { display:block; width:100%; text-align:left; margin:0 0 4px; padding:3px 8px; font-size:0.72rem; }
   .tgrid .btn-pdf-ch { width:auto; height:auto; border:none; background:#eef2f7; border-radius:6px; padding:3px 6px; font-size:0.7rem; line-height:1.3; margin-left:4px; align-self:center; }
   .tgrid .btn-pdf-ch.has-pdf { background:#dcfce7; box-shadow:inset 0 0 0 1px #86efac; }
   .tgrid .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
@@ -689,6 +690,9 @@ const _optionsBaseHTML = _optionsBase.map(i => {
 
 // Cache par valeur sélectionnée
 const _optsCache = {};
+/* Libellé d'une durée prévue : toujours avec l'unité (« 8 h », « 7,5 h ») pour ne jamais
+   la confondre avec une heure de RDV (« RDV 08:00 », placée sur la ligne du nom). */
+function _libDuree(h) { return String(parseFloat((+h || 0).toFixed(2))).replace('.', ',') + ' h'; }
 function genOptionsHeures(v) {
   const key = (+v || 0).toFixed(2);
   if (_optsCache[key]) return _optsCache[key];
@@ -699,14 +703,14 @@ function genOptionsHeures(v) {
   let opt = '', extraPose = false;
   for (const i of _optionsBase) {
     if (horsPas && !extraPose && i > target) {
-      opt += `<option value="${target}" selected>${parseFloat(target.toFixed(2))}</option>`;
+      opt += `<option value="${target}" selected>${_libDuree(target)}</option>`;
       extraPose = true;
     }
-    const lbl = i === Math.floor(i) ? i : i.toFixed(2);
+    const lbl = _libDuree(i);
     const sel = Math.abs(i - target) < 0.001 ? ' selected' : '';
     opt += `<option value="${i}"${sel}>${lbl}</option>`;
   }
-  if (horsPas && !extraPose) opt += `<option value="${target}" selected>${parseFloat(target.toFixed(2))}</option>`;
+  if (horsPas && !extraPose) opt += `<option value="${target}" selected>${_libDuree(target)}</option>`;
   _optsCache[key] = opt;
   return opt;
 }
@@ -1108,6 +1112,7 @@ function pl2ChipHTML(sl){
     : '';
   return `<div class="${cls}" data-k="${sl.k}" data-move="${_mv}">
     ${tagReservio}${tagAgenda}
+    ${data.rdv ? `<button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch rdv-haut has-rdv no-print" title="RDV à ${data.rdv} — modifier" onclick="ouvrirRdv('${sl.k}')">🕐 RDV ${data.rdv}</button>` : ''}
     <div class="ligne1">
       ${grip}${badgeReservio}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
         onfocus="onChantierFocus('${sl.k}');chantierSuggFiltrer('${sl.k}')"
@@ -1117,9 +1122,9 @@ function pl2ChipHTML(sl){
     </div>
     <div class="ligne2">
       ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
-      <select id="${sl.k}h" class="h" title="Temps prévu" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
+      <select id="${sl.k}h" class="h" title="Durée prévue (heures)" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
-      <button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print${data.rdv?' has-rdv':''}" title="${data.rdv?'RDV à '+data.rdv:'Heure de RDV (alerte salarié)'}" onclick="ouvrirRdv('${sl.k}')">${data.rdv?data.rdv:'🕐'}</button>
+      ${data.rdv ? '' : `<button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print" title="Définir une heure de RDV (alerte salarié)" onclick="ouvrirRdv('${sl.k}')">🕐</button>`}
       ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
       ${estTNA?'':`<button type="button" class="vider no-print" title="Supprimer ce pavé" onclick="pl2ViderPave(this,'${sl.k}')">✕</button>`}
     </div>
@@ -1826,12 +1831,29 @@ function saveRdv(k, val, delai) {
   }
 }
 function majRdvVisuel(k) {
-  const btn = document.getElementById(k + 'rdv-btn');
-  if (!btn) return;
-  const v = (heures[k] && heures[k].rdv) ? heures[k].rdv : '';
-  btn.classList.toggle('has-rdv', !!v);
-  btn.textContent = v || '🕐';
-  btn.title = v ? 'RDV à ' + v : 'Heure de RDV (alerte salarié)';
+  // RDV posé : bandeau « 🕐 RDV 08:00 » en tête du pavé ; sans RDV : petite horloge à côté de
+  // la note. Si l'état a changé (RDV ajouté ou retiré), le bouton change de place.
+  const v = (heures[k] && heures[k].rdv) ? String(heures[k].rdv) : '';
+  const ancien = document.getElementById(k + 'rdv-btn');
+  const chip = (ancien && ancien.closest('.chip')) || (document.getElementById(k + 'note-btn') || {}).closest?.('.chip');
+  if (!chip) return;
+  if (ancien) ancien.remove();
+  const b = document.createElement('button');
+  b.type = 'button'; b.id = k + 'rdv-btn';
+  b.setAttribute('onclick', "ouvrirRdv('" + k + "')");
+  if (v) {
+    b.className = 'btn-rdv-ch rdv-haut has-rdv no-print';
+    b.textContent = '🕐 RDV ' + v;
+    b.title = 'RDV à ' + v + ' — modifier';
+    const l1 = chip.querySelector('.ligne1');
+    if (l1) l1.before(b); else chip.prepend(b);
+  } else {
+    b.className = 'btn-rdv-ch no-print';
+    b.textContent = '🕐';
+    b.title = 'Définir une heure de RDV (alerte salarié)';
+    const note = document.getElementById(k + 'note-btn');
+    if (note) note.after(b); else { const l2 = chip.querySelector('.ligne2'); if (l2) l2.appendChild(b); }
+  }
   const pr = document.getElementById(k + 'rdv-print');
   if (pr) pr.textContent = v ? '🕐 ' + v : '';
 }
