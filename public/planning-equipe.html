@@ -135,11 +135,12 @@
   </div>
 
   <div class="fixed-tools no-print">
+    <!-- Mobile (code employé) : retour à la saisie journalière, sur sa propre ligne en tête, bien visible -->
+    <button class="wk-btn" id="btn-retour-saisie" style="display:none;margin:0 0 0.45rem;background:#f59e0b;border-color:#d97706;color:#1f2937;font-weight:700;padding:8px 14px;" onclick="location.href='saisie.html'" title="Revenir à la saisie journalière">← Saisie du jour</button>
     <div class="wk-nav">
       <button class="wk-btn" onclick="semaineDecalage(-1)" title="Semaine précédente">‹</button>
       <div class="wk-label" id="wk-label">—</div>
       <button class="wk-btn" onclick="semaineDecalage(1)" title="Semaine suivante">›</button>
-      <button class="wk-btn" id="btn-retour-saisie" style="display:none;" onclick="location.href='saisie.html'" title="Retour à l'écran de saisie">✕</button>
       <button class="wk-btn" onclick="semaineAujourdhui()" title="Revenir à la semaine en cours">Cette semaine</button>
       <button class="wk-btn" onclick="rafraichirVueEquipe(this)" title="Recharger les données depuis le serveur">↻ Rafraîchir</button>
     </div>
