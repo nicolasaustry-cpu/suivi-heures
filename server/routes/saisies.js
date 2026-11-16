@@ -810,7 +810,9 @@ router.post("/clients-noms", async (req, res) => {
    (adresse, ville, mobile, fixe, e-mail) deviennent la fiche du chantier, SANS jamais
    écraser une fiche existante. Même règle que /coordonnees-chantier : créer une fiche
    vide est permis à tout salarié ; la trace d'origine est conservée.
-   body : { codeEmploye, salarieId, nom, id } */
+   apercu: true → coordonnées renvoyées SANS rien enregistrer (agenda : préremplit le
+   lieu et le téléphone, la fiche est créée à l'enregistrement du RDV).
+   body : { codeEmploye, salarieId, nom, id, apercu } */
 router.post("/client-fiche", async (req, res) => {
   try {
     const a = await _authMobile(req);
@@ -838,6 +840,10 @@ router.post("/client-fiche", async (req, res) => {
     };
     if (!fiche.adresse && !fiche.ville && !fiche.mobile && !fiche.fixe && !fiche.email)
       return res.json({ ok: true, chantier: nom, coordonnees: null, cree: false });
+    if (req.body.apercu === true) {
+      const { origine, auteur, le, ...coordonnees } = fiche;
+      return res.json({ ok: true, chantier: nom, coordonnees, cree: false });
+    }
     // Même écriture que /coordonnees-chantier (un nom peut contenir un point : pas de chemin « a.b »)
     coords[nom] = fiche;
     await a.Donnees.updateOne({ _id: a.doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });

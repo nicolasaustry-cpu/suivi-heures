@@ -192,6 +192,7 @@
 <body>
 <div class="app" id="app"></div>
 
+<script src="assets/suggestions-clients.js"></script>
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════
@@ -804,8 +805,7 @@ function vueForm() {
     + `<form class="page" id="form-rdv" onsubmit="enregistrer(event)" autocomplete="off">
       <div class="champ">
         <label for="f-titre">Titre = nom du chantier</label>
-        <input id="f-titre" list="liste-chantiers" value="${esc(f.titre)}" placeholder="Ex : DUPONT — Salle de bain" required maxlength="120" autocapitalize="characters">
-        <datalist id="liste-chantiers">${nomsChantiers().map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+        <input id="f-titre" value="${esc(f.titre)}" placeholder="Ex : DUPONT — Salle de bain" required maxlength="120" autocapitalize="characters">
         <div id="f-aide">${aide}</div>
       </div>
       <div class="champ">
@@ -872,6 +872,22 @@ function brancherForm() {
   };
   titre.addEventListener('input', majAide);
   titre.addEventListener('change', majAide);
+  // Base clients au fil de la frappe (fiches + liste de clients importée + chantiers déjà
+  // connus de l'agenda / du planning / du prévisionnel). Une fiche existante est reprise
+  // par majAide ; un client de la liste importée préremplit lieu et téléphone (la fiche
+  // du chantier est créée à l'enregistrement du RDV, comme pour une saisie manuelle).
+  if (window.SuggClients) SuggClients.attacher(titre, {
+    extras: nomsChantiers,
+    onChoix: async cli => {
+      if (!cli || cli.src !== 'henrri') return;
+      const c = await SuggClients.fiche(cli, { apercu: true });
+      if (!c || titre.value.trim().toUpperCase() !== cli.nom) return;   // titre retapé entre-temps
+      const l = lieuDepuisCoords(c), t = String(c.mobile || c.fixe || '').trim();
+      if (l && (!lieu.value.trim() || f.lieuAuto)) { lieu.value = l; f.lieuAuto = true; }
+      if (t && (!tel.value.trim() || f.telAuto)) { tel.value = t; f.telAuto = true; }
+      if (f.lieuAuto || f.telAuto) document.getElementById('f-aide').innerHTML = `<div class="aide">${ICO.ok} Client connu : coordonnées reprises de la liste de clients</div>`;
+    }
+  });
   lieu.addEventListener('input', () => { f.lieuAuto = false; });
   tel.addEventListener('input', () => { f.telAuto = false; });
   const majDuree = () => {

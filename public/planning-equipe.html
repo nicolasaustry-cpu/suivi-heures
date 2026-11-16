@@ -205,6 +205,11 @@
 <script src="assets/sync.js"></script>
 <script src="assets/aide.js"></script>
 <script src="assets/coordonnees.js"></script>
+<script src="assets/suggestions-clients.js"></script>
+<script>
+/* Base clients proposée au fil de la frappe dans « + chantier » (même règle que la saisie mobile) */
+if (window.SuggClients) SuggClients.attacher(document.getElementById('ae-chantier'));
+</script>
 <script>
 /* ════════════════════════════════════════════════
    Vue équipe — grille gérant
@@ -1051,6 +1056,7 @@ function ouvrirAjoutEquipe(btn) {
   _ajoutEquipe.salId = btn.getAttribute('data-sal');
   _ajoutEquipe.date  = btn.getAttribute('data-date');
   document.getElementById('ae-chantier').value = '';
+  document.getElementById('ae-chantier').dispatchEvent(new Event('input'));   // efface les suggestions précédentes
   document.getElementById('ae-rdv').value = '';
   document.getElementById('ae-delai').value = '';
   _aeNoteTexte = '';
@@ -1113,6 +1119,11 @@ async function validerAjoutEquipe() {
     if ((_aeNoteTexte && _aeNoteTexte.trim()) || _aeNotePhotos.length) {
       await _enregistrerNoteEquipe(chantier, _aeNoteTexte, _aeNotePhotos);
     }
+
+    // Client choisi dans la liste de clients importée : ses coordonnées deviennent la
+    // fiche du chantier (adresse, téléphones) — jamais d'écrasement d'une fiche existante.
+    const _cli = window.SuggClients ? SuggClients.choix(document.getElementById('ae-chantier')) : null;
+    if (_cli && _cli.src === 'henrri') await SuggClients.fiche(_cli);
 
     fermerAjoutEquipe();
     genererGrille({ conserverScroll: true });
