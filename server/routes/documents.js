@@ -82,6 +82,25 @@ router.post("/liste", async (req, res) => {
   }
 });
 
+// ── Nombre de PDF par chantier (métadonnées seulement) ──
+// Pour l'icône 📎 des pavés du planning prévu : une seule requête pour tout le planning.
+// Réponse : { ok, comptes: { "NOM CHANTIER": n } }
+router.post("/comptes", async (req, res) => {
+  try {
+    const ctx = await resoudreContexte(req);
+    if (ctx.err) return res.status(ctx.err[0]).json({ ok: false, message: ctx.err[1] });
+    const lignes = await DocumentChantier.aggregate([
+      { $match: { clientId: ctx.clientId } },
+      { $group: { _id: "$chantier", n: { $sum: 1 } } }
+    ]);
+    const comptes = {};
+    lignes.forEach(l => { if (l && l._id) comptes[String(l._id)] = l.n; });
+    res.json({ ok: true, comptes });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 // ── Joindre un PDF ──
 router.post("/ajouter", async (req, res) => {
   try {
