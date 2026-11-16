@@ -355,16 +355,16 @@
     <div class="tdb-lbl" id="cpt-legende">cumul du solde, mois par mois</div>
   </section>
 
-  <!-- ────── 5 · Chantiers à 100 % ────── -->
+  <!-- ────── 5 · Chantiers > 100 % ────── -->
   <section class="tdb-vignette" data-id="chantiers100">
     <div class="tdb-tete">
       <span class="tdb-poignee" title="Glisser pour déplacer">⠿</span>
-      <span class="tdb-titre">Chantiers à 100 %</span>
+      <span class="tdb-titre">Chantiers &gt; 100 %</span>
       <input type="month" id="ch100-mois" class="tdb-mois-mini" title="Mois de référence" onchange="tdbCh100Changer(this.value)">
       <a class="tdb-lien" href="chantiers.html">Prévisionnel →</a>
     </div>
     <div class="tdb-val" id="ch100-nb">4</div>
-    <div class="tdb-lbl" id="ch100-lbl">atteints ou dépassés ce mois</div>
+    <div class="tdb-lbl" id="ch100-lbl">au-delà du devis ce mois</div>
     <div id="ch100-liste"></div>
   </section>
 
@@ -743,7 +743,7 @@ function tdbHeures(h) {
   return tdbNb(r, r % 1 === 0 ? 0 : 1) + ' h';
 }
 
-/* ── 5 · Chantiers à 100 % ── */
+/* ── 5 · Chantiers > 100 % ── */
 function tdbVignetteChantiers100(d) {
   tdbTexte('ch100-nb', d.liste.length);
   const zone = document.getElementById('ch100-liste');
@@ -1623,7 +1623,7 @@ function tdbCh100Changer(v) {
   tdbChargerChantiers100(tdbCh100RefDate());
 }
 
-/* Règle de Nicolas : ceux du mois choisi qui atteignent ou dépassent 100 %,
+/* Règle de Nicolas : ceux du mois choisi qui DÉPASSENT strictement 100 %,
    plus ceux du mois précédent qui les ont atteints ET sur lesquels des
    heures sont de nouveau planifiées sur M ou M+1 — ceux-là continuent de
    consommer alors qu'ils sont déjà soldés. */
@@ -1653,8 +1653,11 @@ async function tdbChargerChantiers100(refDate) {
     const dv = cumuls.devis[nom] || 0;
     if (dv <= 0) return;
     const real = cumuls.real[nom] || 0;
+    /* Strictement au-delà du devis (un chantier à 100 % pile n'est plus retenu).
+       Test sur les heures et non sur le % arrondi : 100,4 % compte bien. */
+    if (!(real > dv)) return;
     const pct = Math.round((real / dv) * 100);
-    if (pct >= 100) liste.push({ nom: nom, devis: dv, real: real, pct: pct, m1: m1 });
+    liste.push({ nom: nom, devis: dv, real: real, pct: pct, m1: m1 });
   }
   const devisM = tdbPrevisionnelMois(refDate.getFullYear(), refDate.getMonth());
   Object.keys(devisM).forEach(function (nom) { ajouter(nom, false); });
@@ -1668,7 +1671,7 @@ async function tdbChargerChantiers100(refDate) {
   const MOIS_LONGS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const auj = new Date();
   const estMoisCourant = refDate.getFullYear() === auj.getFullYear() && refDate.getMonth() === auj.getMonth();
-  tdbTexte('ch100-lbl', 'atteints ou dépassés ' + (estMoisCourant ? 'ce mois' : ('en ' + MOIS_LONGS[refDate.getMonth()] + ' ' + refDate.getFullYear())));
+  tdbTexte('ch100-lbl', 'au-delà du devis ' + (estMoisCourant ? 'ce mois' : ('en ' + MOIS_LONGS[refDate.getMonth()] + ' ' + refDate.getFullYear())));
 
   tdbVignetteChantiers100({ liste: liste });
 }
@@ -1786,7 +1789,7 @@ function tdbDonneesExemple() {
   tdbVignetteCompteur({ annee:64.5, mois:11, cumul:[12,19,27,31,42,53,64.5] });
   tdbVignetteChantiers100({ liste:[
     { nom:'Client 12', devis:40, real:53.6, pct:134, m1:false }, { nom:'Terrassement nord', devis:120, real:141.6, pct:118, m1:true },
-    { nom:'Client 27', devis:25, real:26, pct:104, m1:false }, { nom:'Dépannage Leclerc', devis:8, real:8, pct:100, m1:false } ]});
+    { nom:'Client 27', devis:25, real:26, pct:104, m1:false } ]});
   tdbVignetteHnv({ heures:22, creneaux:9, heuresMois:908 });
   tdbGraphVenteQualite({ mois: [
     { cle:'janv.', vend:800, vendu:740, exclu:60, motifsMois:{ 'SAV':40, 'Temps non affecté':20 } },
