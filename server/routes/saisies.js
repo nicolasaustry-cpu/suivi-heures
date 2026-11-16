@@ -368,6 +368,14 @@ router.post("/planning-modifier", async (req, res) => {
     const nom    = String(req.body.nom    || "").trim();
     const salIdT = String(req.body.salIdT ?? "").trim();
     const dateT  = String(req.body.dateT  || "").trim();
+    // Heure de RDV (optionnelle) : absente = inchangée ; "" = effacée ; "HH:MM" = définie
+    const rdvFourni = Object.prototype.hasOwnProperty.call(req.body, "rdv") && req.body.rdv !== null;
+    let rdvNv = rdvFourni ? String(req.body.rdv || "").trim() : "";
+    if (rdvFourni && rdvNv) {
+      const m = rdvNv.match(/^(\d{1,2}):(\d{2})$/);
+      if (!m || +m[1] > 23 || +m[2] > 59) return res.status(400).json({ ok: false, message: "Heure de RDV invalide" });
+      rdvNv = m[1].padStart(2, "0") + ":" + m[2];
+    }
 
     if (!["deplacer", "supprimer"].includes(action))
       return res.status(400).json({ ok: false, message: "Action invalide" });
@@ -379,6 +387,7 @@ router.post("/planning-modifier", async (req, res) => {
     const Donnees = (await import("../models/donnees.js")).default;
     const codeEmp = (req.body.codeEmploye || "").trim().toUpperCase();
     let doc = null;
+    let auteur = "gerant";   // auteur d'un RDV posé ici (le patron en desktop, sinon le demandeur)
 
     if (codeEmp) {
       const _r = await resoudreEntrepriseParCode(Donnees, codeEmp);
@@ -388,6 +397,7 @@ router.post("/planning-modifier", async (req, res) => {
       if (!dem) return res.status(401).json({ ok: false, message: "Demandeur inconnu" });
       if (!dem.administratif && !dem.gerant)
         return res.status(403).json({ ok: false, message: "Action réservée aux administratifs et gérants" });
+      auteur = dem.gerant ? "gerant" : "admin";
     } else {
       const jwt = (await import("jsonwebtoken")).default;
       let token = req.headers.authorization?.split(" ")[1];
@@ -423,7 +433,26 @@ router.post("/planning-modifier", async (req, res) => {
       return res.json({ ok: true, cleSource: cleS });
     }
 
-    if (salIdS === salIdT && dateS === dateT) return res.json({ ok: true, cleSource: cleS, cleCible: cleS, entree: heures[cleS] });
+    // Changement d'heure de RDV : même règle que /rdv — un administratif ne touche pas
+    // à un RDV posé par le gérant (ou ancien, sans auteur).
+    const ancienRdv = String((heures[cleS] && heures[cleS].rdv) || "").trim();
+    const rdvChange = rdvFourni && rdvNv !== ancienRdv;
+    if (rdvChange && auteur === "admin" && ancienRdv && (heures[cleS].rdvAuteur || "gerant") === "gerant")
+      return res.status(403).json({ ok: false, message: "Ce RDV a été posé par le gérant : il n'est pas modifiable." });
+    const appliquerRdv = e => {
+      if (!rdvChange) return e;
+      if (rdvNv) { e.rdv = rdvNv; e.rdvAuteur = auteur; }
+      else { delete e.rdv; delete e.rdvAuteur; delete e.rdvDelai; }
+      delete e.rdvNotifie;                             // nouvelle heure → rappel re-déclenchable
+      return e;
+    };
+
+    if (salIdS === salIdT && dateS === dateT) {
+      if (!rdvChange) return res.json({ ok: true, cleSource: cleS, cleCible: cleS, entree: heures[cleS] });
+      const entreeMeme = appliquerRdv({ ...(heures[cleS] || {}) });
+      await Donnees.updateOne({ _id: doc._id }, { $set: { ["heures." + cleS]: entreeMeme, updatedAt: new Date() } });
+      return res.json({ ok: true, cleSource: cleS, cleCible: cleS, entree: entreeMeme });
+    }
 
     // Case libre (ou « TEMPS NON AFFECTE ») chez le salarié cible, ce jour-là
     const safeT = dateT.replace(/-/g, "_");
@@ -436,7 +465,7 @@ router.post("/planning-modifier", async (req, res) => {
     if (!cleT)
       return res.status(409).json({ ok: false, message: "La journée de ce salarié est pleine (5 chantiers)." });
 
-    const entree = { ...(heures[cleS] || {}) };
+    const entree = appliquerRdv({ ...(heures[cleS] || {}) });
     if (dateS !== dateT) delete entree.rdvNotifie;   // nouvelle date → rappel RDV re-déclenchable
 
     await Donnees.updateOne({ _id: doc._id }, {
