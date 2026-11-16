@@ -415,7 +415,7 @@ function nettoyerCoordonneesPassees(doc, ev) {
 
 // ── Synchronise UN salarié (une URL ICS) pour UN client ──
 // Retourne l'ensemble des UID Reservio vus dans ce flux (RDV à venir).
-async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats = {}) {
+async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats = {}, forcer = new Set()) {
   const uidsVus = new Set();
   let events;
   try {
@@ -465,7 +465,11 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
     if (keyExistante) {
       vus[ev.uid] = dateKey;                 // date actuelle du RDV (purge des RDV passés)
       let d = heures[keyExistante];
-      if (d.reservioLocked) continue; // verrouillé : on ne touche plus jamais
+      // Choix explicite du gérant (modale de vérification) : on réaligne sur Reservio,
+      // même un créneau verrouillé ou déplacé à la main.
+      const force = forcer.has(ev.uid);
+      if (d.reservioLocked && !force) continue; // verrouillé : on ne touche plus jamais
+      if (force) { d.reservioLocked = false; d.reservioAnnule = false; stats.alignes = (stats.alignes || 0) + 1; }
 
       // Déplacement MANUEL dans Suiv'Heures (autre salarié ou autre jour) : la case actuelle
       // n'est plus celle où le sync l'avait posée (reservioCle). Créneaux plus anciens, sans
@@ -477,7 +481,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
                                       : !keyExistante.startsWith(cleAttendue);
       const modifie = !dejaBouge && d.reservioSnapshot && !memeEmpreinte(d, d.reservioSnapshot);
 
-      if (dejaBouge || modifie) {
+      if (!force && (dejaBouge || modifie)) {
         d.reservioLocked = true; // on gèle tel quel, on ne retouche plus
         doc.markModified(`heures.${keyExistante}`);
         continue;
@@ -496,7 +500,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
         heures[kNouv] = d;
         delete heures[keyExistante];
         delete d.rdvNotifie;                    // nouvelle date / heure : rappel re-déclenchable
-        doc.markModified("heures");
+        aEffacer(doc, keyExistante);            // retrait ciblé de l'ancienne case (pas de réécriture du planning entier)
         existantParUid.set(ev.uid, kNouv);
         d = heures[kNouv];
         d.reservioCle = kNouv;
@@ -514,7 +518,7 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
       d.reservioSnapshot = empreinte(d);
       d.reservioAnnule = false;
       doc.markModified(`heures.${keyCourante}`);
-    } else if (vus[ev.uid]) {
+    } else if (vus[ev.uid] && !forcer.has(ev.uid)) {
       // RDV déjà importé, absent du planning : supprimé (ou détaché) à la main dans
       // Suiv'Heures → on ne le recrée pas (avant, il réapparaissait toutes les 15 min).
       stats.supprimesALaMain = (stats.supprimesALaMain || 0) + 1;
@@ -563,10 +567,29 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
   return uidsVus;
 }
 
+// ── Retrait ciblé d'une case du planning ──
+// Avant : delete + markModified("heures") → Mongoose réécrivait TOUT le planning tel qu'il
+// avait été lu au début du cycle (plusieurs secondes plus tôt), effaçant au passage ce qu'un
+// PC ou un téléphone avait saisi entre-temps. Désormais : $unset de la seule case, après save.
+function aEffacer(doc, k) {
+  (doc.$locals.rsvUnset || (doc.$locals.rsvUnset = new Set())).add(k);
+}
+
+// Nombre de cycles consécutifs où un RDV doit manquer au flux avant d'être traité comme annulé.
+const CYCLES_ABSENCE = 2;
+
 // ── Marque comme annulés/supprime les créneaux dont le RDV Reservio a disparu ──
-function traiterAnnulations(doc, uidsEncoreValides) {
+// SÉCURITÉS (16/11) — cause des 51 RDV disparus chez un client : un flux Reservio illisible
+// ou momentanément vide le temps d'un cycle faisait passer TOUS ses RDV pour annulés ; ils
+// étaient supprimés du planning, puis jamais recréés (car déjà « importés »). Désormais :
+//  • cycle avec un flux en erreur → aucune annulation traitée (appel non fait, cf. syncClient) ;
+//  • un RDV n'est considéré annulé qu'après CYCLES_ABSENCE cycles consécutifs d'absence ;
+//  • un RDV supprimé ici est retiré de la liste « déjà importés » : s'il réapparaît dans
+//    Reservio, il est recréé automatiquement.
+function traiterAnnulations(doc, uidsEncoreValides, vus, absents) {
   const aujourdHui = aujourdHuiKeyParis();
   const heures = doc.heures || {};
+  const manquantsCeCycle = new Set();
   for (const k of Object.keys(heures)) {
     const d = heures[k];
     if (!d || !d.reservioUid) continue;
@@ -577,15 +600,23 @@ function traiterAnnulations(doc, uidsEncoreValides) {
     // peut ne plus le contenir, ce n'est pas une annulation).
     if (m[1] === aujourdHui && (!d.rdv || _hhmm(d.rdv) <= heureHHMMParis(new Date()))) continue;
 
+    // Absence à confirmer sur plusieurs cycles (un flux peut répondre vide le temps d'un incident).
+    const uid = d.reservioUid;
+    if (!manquantsCeCycle.has(uid)) { manquantsCeCycle.add(uid); absents[uid] = (absents[uid] || 0) + 1; }
+    if (absents[uid] < CYCLES_ABSENCE) continue;
+
     if (d.reservioLocked) {
       if (d.reservioAnnule) continue;  // alerte déjà posée : rien à réécrire
       d.reservioAnnule = true; // alerte à traiter par le gérant dans planning.html
       doc.markModified(`heures.${k}`);
     } else {
       delete heures[k]; // jamais modifié manuellement → suppression silencieuse
-      doc.markModified("heures");
+      aEffacer(doc, k);
+      delete vus[uid];  // s'il revient dans Reservio, il sera recréé
     }
   }
+  // Un RDV revenu dans le flux (ou disparu du planning) n'est plus en observation.
+  for (const uid of Object.keys(absents)) if (!manquantsCeCycle.has(uid)) delete absents[uid];
 }
 
 // ── Synchronise UN client (toutes ses licences Reservio configurées) ──
@@ -596,14 +627,17 @@ async function syncClient(doc, opts = {}) {
 
   const dejaPrisParDate = new Set(); // évite deux RDV sur le même slot pendant ce cycle
   const tousLesUids = new Set();
+  const forcer = opts.forcer instanceof Set ? opts.forcer : new Set();      // RDV à recréer / réaligner
+  const supprimer = opts.supprimer instanceof Set ? opts.supprimer : new Set(); // RDV absents de Reservio à retirer
 
   /* RDV déjà importés { uid: 'YYYY_MM_DD' } : champ propre au sync, lu et écrit directement
      dans la collection (hors schéma, hors synchronisation des postes). Initialisé avec les
      RDV présents dans le planning, puis purgé des RDV passés. */
-  let vus = {};
+  let vus = {}, absents = {};
   try {
-    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1 } });
+    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1, reservioAbsents: 1 } });
     vus = (brut && brut.reservioVus && typeof brut.reservioVus === "object") ? brut.reservioVus : {};
+    absents = (brut && brut.reservioAbsents && typeof brut.reservioAbsents === "object") ? brut.reservioAbsents : {};
   } catch (_) {}
   // Mise à jour forcée « tout réimporter » : on oublie la liste des RDV déjà importés,
   // donc tout RDV à venir absent du planning est recréé (y compris ceux supprimés à la main).
@@ -624,21 +658,49 @@ async function syncClient(doc, opts = {}) {
     for (const urlBrute of urls) {
       const url = (urlBrute || "").trim();
       if (!url) continue;
-      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate, vus, stats);
+      const uids = await syncSalarie(doc, salarieId, url, dejaPrisParDate, vus, stats, forcer);
       uids.forEach(u => tousLesUids.add(u));
     }
   }
 
-  traiterAnnulations(doc, tousLesUids);
+  // Un flux illisible ce cycle-ci : ses RDV semblent tous « disparus ». On ne traite donc
+  // AUCUNE annulation tant que tous les flux n'ont pas répondu correctement.
+  // Retrait demandé dans la modale : uniquement des créneaux À VENIR dont le RDV n'est plus dans Reservio.
+  if (supprimer.size) {
+    const aujourdHui = aujourdHuiKeyParis();
+    for (const [k, d] of Object.entries(doc.heures || {})) {
+      if (!d || !supprimer.has(d.reservioUid) || tousLesUids.has(d.reservioUid)) continue;
+      const m = k.match(/(\d{4}_\d{2}_\d{2})ch\d+$/);
+      if (!m || m[1] < aujourdHui) continue;
+      delete vus[d.reservioUid];
+      delete doc.heures[k];
+      aEffacer(doc, k);
+      stats.retires = (stats.retires || 0) + 1;
+    }
+  }
+
+  if (stats.fluxEnErreur.length) {
+    console.warn(`   ⚠️  Reservio ${doc.clientId} : ${stats.fluxEnErreur.length} flux en erreur — annulations non traitées ce cycle.`);
+  } else {
+    traiterAnnulations(doc, tousLesUids, vus, absents);
+  }
 
   doc.updatedAt = new Date();
   await doc.save();
+  // Cases à retirer : $unset ciblé (jamais de réécriture du planning entier).
+  const aRetirer = [...(doc.$locals.rsvUnset || [])].filter(k => !(doc.heures && doc.heures[k]));
+  doc.$locals.rsvUnset = new Set();
+  if (aRetirer.length) {
+    const $unset = {};
+    aRetirer.forEach(k => { $unset["heures." + k] = ""; });
+    await Donnees.collection.updateOne({ _id: doc._id }, { $unset });
+  }
 
   // Purge des RDV passés puis enregistrement de la liste des RDV déjà importés
   const aujourdHui = aujourdHuiKeyParis();
   for (const u of Object.keys(vus)) if (!vus[u] || vus[u] < aujourdHui) delete vus[u];
   try {
-    await Donnees.collection.updateOne({ _id: doc._id }, { $set: { reservioVus: vus } });
+    await Donnees.collection.updateOne({ _id: doc._id }, { $set: { reservioVus: vus, reservioAbsents: absents } });
   } catch (e) {
     console.warn(`   ⚠️  Reservio ${doc.clientId} : liste des RDV importés non enregistrée (${e.message})`);
   }
@@ -660,6 +722,95 @@ export async function synchroniserClientReservio(clientId, opts = {}) {
   if (!doc) return { ok: false, message: "Compte introuvable." };
   if (doc.entreprise?.reservio?.actif !== true) return { ok: false, message: "La connexion Reservio n'est pas activée." };
   const stats = await syncClientVerrouille(doc, opts);
+  if (!stats) return { ok: false, message: "Une synchronisation est déjà en cours, réessayez dans une minute." };
+  return { ok: true, ...stats };
+}
+
+// ── Vérification RDV par RDV (modale de la page Entreprise) ─────────────
+// Lecture seule : chaque RDV Reservio à venir est comparé au planning.
+//   ok      : présent au planning au bon jour, chez le bon salarié, à la bonne heure
+//   absent  : pas (ou plus) dans le planning
+//   ecart   : présent mais jour / salarié / heure / durée différents (verrouillé ou non)
+//   annule  : créneau à venir du planning dont le RDV n'est plus dans Reservio
+const CLE_RE = /^(\d+)(\d{4}_\d{2}_\d{2})ch\d+$/;
+export async function apercuClientReservio(clientId) {
+  const doc = await Donnees.findOne({ clientId: String(clientId || "").toUpperCase() });
+  if (!doc) return { ok: false, message: "Compte introuvable." };
+  const cfg = doc.entreprise?.reservio;
+  if (!cfg || cfg.actif !== true) return { ok: false, message: "La connexion Reservio n'est pas activée." };
+
+  let vus = {};
+  try {
+    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1 } });
+    vus = (brut && brut.reservioVus) || {};
+  } catch (_) {}
+
+  const heures = doc.heures || {};
+  const parUid = new Map();
+  for (const [k, d] of Object.entries(heures)) if (d && d.reservioUid && !parUid.has(d.reservioUid)) parUid.set(d.reservioUid, k);
+
+  const maintenant = Date.now();
+  const lignes = [], fluxEnErreur = [], vusFlux = new Set();
+  for (const s of (Array.isArray(cfg.salaries) ? cfg.salaries : [])) {
+    const salarieId = s?.salarieId;
+    const urls = Array.isArray(s?.urlsIcs) ? s.urlsIcs : (s?.urlIcs ? [s.urlIcs] : []);
+    if (salarieId == null) continue;
+    for (const urlBrute of urls) {
+      const url = String(urlBrute || "").trim();
+      if (!url) continue;
+      let events;
+      try {
+        const data = await ical.async.fromURL(url);
+        events = Object.values(data).filter(e => e && e.type === "VEVENT");
+      } catch (e) { fluxEnErreur.push({ salarieId, erreur: e.message }); continue; }
+      for (const ev of events) {
+        if (!ev.uid || !ev.start) continue;
+        vusFlux.add(ev.uid);
+        if (ev.start.getTime() < maintenant || lignes.some(l => l.uid === ev.uid)) continue;
+        const { client, service } = libelleRdv(ev.summary);
+        const date = dateKeyParis(ev.start), rdv = heureHHMMParis(ev.start);
+        const dureeH = ev.end ? Math.max(0.25, (ev.end - ev.start) / 3600000) : 2;
+        const l = { uid: ev.uid, salarieId, date, rdv, dureeH: Math.round(dureeH * 100) / 100, client, service, statut: "ok", ecarts: [] };
+        const k = parUid.get(ev.uid);
+        if (!k) {
+          l.statut = "absent";
+          l.dejaImporte = !!vus[ev.uid];
+        } else {
+          const d = heures[k], m = k.match(CLE_RE);
+          l.planning = { salarieId: m ? m[1] : "", date: m ? m[2] : "", rdv: _hhmm(d.rdv), heures: parseFloat(d.heures) || 0, chantier: d.chantier || "" };
+          l.verrouille = !!d.reservioLocked;
+          if (m && m[2] !== date) l.ecarts.push("date");
+          if (m && String(m[1]) !== String(salarieId)) l.ecarts.push("salarie");
+          if (_hhmm(d.rdv) !== rdv) l.ecarts.push("heure");
+          if (Math.abs((parseFloat(d.heures) || 0) - dureeH) > 0.01) l.ecarts.push("duree");
+          if (l.ecarts.length) l.statut = "ecart";
+        }
+        lignes.push(l);
+      }
+    }
+  }
+  // Créneaux à venir du planning dont le RDV a disparu de Reservio (seulement si tous les flux ont répondu).
+  if (!fluxEnErreur.length) {
+    const aujourdHui = aujourdHuiKeyParis();
+    for (const [k, d] of Object.entries(heures)) {
+      if (!d || !d.reservioUid || vusFlux.has(d.reservioUid)) continue;
+      const m = k.match(CLE_RE);
+      if (!m || m[2] < aujourdHui) continue;
+      lignes.push({ uid: d.reservioUid, salarieId: m[1], date: m[2], rdv: _hhmm(d.rdv), dureeH: parseFloat(d.heures) || 0,
+                    client: d.chantier || "", service: "", statut: "annule", ecarts: [], verrouille: !!d.reservioLocked });
+    }
+  }
+  lignes.sort((a, b) => (a.date + a.rdv).localeCompare(b.date + b.rdv));
+  return { ok: true, lignes, fluxEnErreur };
+}
+
+// ── Application des choix de la modale : recréer / réaligner / retirer ──
+export async function appliquerChoixReservio(clientId, { recreer = [], retirer = [] } = {}) {
+  const doc = await Donnees.findOne({ clientId: String(clientId || "").toUpperCase() });
+  if (!doc) return { ok: false, message: "Compte introuvable." };
+  if (doc.entreprise?.reservio?.actif !== true) return { ok: false, message: "La connexion Reservio n'est pas activée." };
+  const liste = a => new Set((Array.isArray(a) ? a : []).map(String).filter(Boolean).slice(0, 2000));
+  const stats = await syncClientVerrouille(doc, { forcer: liste(recreer), supprimer: liste(retirer) });
   if (!stats) return { ok: false, message: "Une synchronisation est déjà en cours, réessayez dans une minute." };
   return { ok: true, ...stats };
 }

@@ -5,7 +5,7 @@ import Licence from "../models/licence.js";
 import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
 import Henrri from "../models/henrri.js";
-import { synchroniserClientReservio } from "../jobs/syncReservio.js";
+import { synchroniserClientReservio, apercuClientReservio, appliquerChoixReservio } from "../jobs/syncReservio.js";
 
 const router = express.Router();
 
@@ -483,6 +483,30 @@ router.post("/reservio-resync", verifyToken, async (req, res) => {
   try {
     const clientId = (req.user.clientId || "").toUpperCase();
     const r = await synchroniserClientReservio(clientId, { reimporter: req.body?.reimporter === true });
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Reservio : vérification RDV par RDV (modale page Entreprise, lecture seule) ──
+router.get("/reservio-apercu", verifyToken, async (req, res) => {
+  try {
+    const r = await apercuClientReservio((req.user.clientId || "").toUpperCase());
+    res.status(r.ok ? 200 : 400).json(r);
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+// ── Reservio : applique les choix de la modale ──
+// body: { recreer: [uid], retirer: [uid] } — recreer = recréer (absent) ou réaligner (écart)
+// sur Reservio ; retirer = enlever du planning un RDV qui n'est plus dans Reservio.
+router.post("/reservio-appliquer", verifyToken, async (req, res) => {
+  try {
+    const r = await appliquerChoixReservio((req.user.clientId || "").toUpperCase(), {
+      recreer: req.body?.recreer, retirer: req.body?.retirer
+    });
     res.status(r.ok ? 200 : 400).json(r);
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

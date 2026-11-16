@@ -89,6 +89,32 @@
 @media (max-width:640px) {
   .ent-grille { columns:1; }
 }
+/* ── Modale « Vérifier les RDV Reservio » (même présentation que la modale Devis Henrri) ── */
+.rsv-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:4000;align-items:center;justify-content:center; }
+.rsv-overlay.open { display:flex; }
+.rsv-box { background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);width:880px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden; }
+.rsv-header { background:#2563eb;color:#fff;padding:0.8rem 1.2rem;font-weight:700;font-size:1rem;display:flex;justify-content:space-between;align-items:center; }
+.rsv-header button { background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;padding:0; }
+.rsv-body { padding:1rem 1.2rem;overflow-y:auto;flex:1; }
+.rsv-footer { padding:0.8rem 1.2rem;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;align-items:center;gap:0.6rem; }
+.rsv-btn-fermer { background:#f3f4f6;color:#374151;border:none;border-radius:6px;padding:7px 18px;font-weight:700;cursor:pointer; }
+.rsv-btn-ok { background:#2563eb;color:#fff;border:none;border-radius:6px;padding:7px 18px;font-weight:700;cursor:pointer; }
+.rsv-btn-ok:hover { background:#1d4ed8; }
+.rsv-btn-ok:disabled { background:#93c5fd;cursor:default; }
+.rsv-filtres { display:flex;gap:6px;flex-wrap:wrap;margin:0 0 0.8rem; }
+.rsv-filtre { border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:4px 12px;font-size:0.8rem;font-weight:600;cursor:pointer; }
+.rsv-filtre.actif { background:#1d4ed8;border-color:#1d4ed8;color:#fff; }
+.rsv-table { width:100%;border-collapse:collapse;font-size:0.84rem; }
+.rsv-table th { text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#6b7280;padding:6px;border-bottom:2px solid #e5e7eb;position:sticky;top:-1rem;background:#fff; }
+.rsv-table td { padding:7px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top; }
+.rsv-table tr.rsv-ok td { color:#64748b; }
+.rsv-statut { display:inline-block;border-radius:999px;padding:1px 8px;font-size:0.74rem;font-weight:700;white-space:nowrap; }
+.rsv-statut.ok { background:#dcfce7;color:#166534; }
+.rsv-statut.absent { background:#fee2e2;color:#991b1b; }
+.rsv-statut.ecart { background:#fef3c7;color:#92400e; }
+.rsv-statut.annule { background:#e2e8f0;color:#334155; }
+.rsv-detail { font-size:0.76rem;color:#64748b;margin-top:3px; }
+.rsv-action { font-size:0.78rem;color:#1d4ed8;font-weight:600;white-space:nowrap; }
 </style>
 
 <div class="ent-grille">
@@ -260,6 +286,8 @@
     <button type="button" id="btn-resync-reservio" class="btn" onclick="resynchroniserReservio()">🔄 Mettre à jour depuis Reservio</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;margin-top:8px;"><input type="checkbox" id="reservioReimporter"> Réimporter aussi les RDV absents du planning</label>
     <div id="reservio-resync-msg" style="font-size:0.85rem;margin-top:6px;white-space:pre-line;"></div>
+    <button type="button" class="btn" onclick="ouvrirVerifReservio()" style="margin-top:8px;"
+      title="Compare chaque RDV Reservio à venir au planning et permet de corriger RDV par RDV">🔍 Vérifier les RDV Reservio</button>
   </div>
 </section>
 
@@ -676,6 +704,142 @@ async function resynchroniserReservio() {
   } catch (e) {
     msg.style.color = '#dc2626'; msg.textContent = '✖ ' + e.message;
     btn.disabled = false; btn.textContent = '🔄 Mettre à jour depuis Reservio';
+  }
+}
+/* ── Vérification RDV par RDV (modale) ──
+   Lecture seule côté serveur (/api/data/reservio-apercu). Statuts :
+   ok = au planning comme dans Reservio ; absent = pas (ou plus) au planning → « Recréer » ;
+   ecart = jour / technicien / heure / durée différents (🔒 compris) → « Aligner sur Reservio » ;
+   annule = encore au planning mais plus dans Reservio → « Retirer du planning ».
+   Seuls les RDV cochés sont traités (/api/data/reservio-appliquer). */
+let _rsvLignes = [], _rsvFiltre = 'traiter';
+const _rsvEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function _rsvNomSal(id) {
+  const s = _salariesListeReservio().find(x => String(x.id) === String(id));
+  return s ? (((s.prenom || '') + ' ' + (s.nom || '')).trim() || '(sans nom)') : ('Salarié ' + id);
+}
+function _rsvDate(k) {
+  const m = String(k || '').match(/^(\d{4})_(\d{2})_(\d{2})$/);
+  if (!m) return k || '';
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'][d.getDay()] + ' ' + m[3] + '/' + m[2];
+}
+function _rsvH(h) { const n = Math.round((parseFloat(h) || 0) * 100) / 100; return String(n).replace('.', ',') + ' h'; }
+const _RSV_LIB = { ok: '✔ Conforme', absent: '✖ Absent du planning', ecart: '⚠ Écart', annule: '⊘ Plus dans Reservio' };
+const _RSV_ACTION = { absent: 'Recréer', ecart: 'Aligner sur Reservio', annule: 'Retirer du planning' };
+
+async function ouvrirVerifReservio() {
+  const token = localStorage.getItem('syncToken');
+  document.getElementById('modale-verif-reservio').classList.add('open');
+  const corps = document.getElementById('rsv-corps');
+  document.getElementById('rsv-msg').textContent = '';
+  corps.innerHTML = '<p style="color:#94a3b8;">Lecture des agendas Reservio…</p>';
+  document.getElementById('rsv-filtres').innerHTML = '';
+  _rsvMajBouton();
+  if (!token) { corps.innerHTML = '<p style="color:#dc2626;">Session expirée : reconnectez-vous.</p>'; return; }
+  try {
+    // Les modifications en attente partent d'abord : la comparaison porte sur le planning à jour.
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    const r = await fetch('/api/data/reservio-apercu', { headers: { 'Authorization': 'Bearer ' + token } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.message || ('Erreur ' + r.status));
+    _rsvLignes = j.lignes || [];
+    const erreurs = (j.fluxEnErreur || []).map(f => '⚠ Agenda Reservio de ' + _rsvNomSal(f.salarieId) + ' illisible (' + f.erreur + ') : ses RDV ne sont pas listés.');
+    _rsvFiltre = _rsvLignes.some(l => l.statut !== 'ok') ? 'traiter' : 'tous';
+    _rsvRendre(erreurs);
+  } catch (e) {
+    corps.innerHTML = '<p style="color:#dc2626;">✖ ' + _rsvEsc(e.message) + '</p>';
+  }
+}
+function fermerVerifReservio() { document.getElementById('modale-verif-reservio').classList.remove('open'); }
+
+function _rsvDetail(l) {
+  if (l.statut === 'absent') return l.dejaImporte ? 'Importé puis retiré du planning' : 'Jamais importé';
+  if (l.statut === 'annule') return 'Au planning le ' + _rsvDate(l.date) + (l.rdv ? ' à ' + l.rdv : '') + (l.verrouille ? ' · 🔒 modifié à la main' : '');
+  if (!l.planning) return '';
+  const p = l.planning, morceaux = [];
+  if (l.ecarts.includes('date'))    morceaux.push('le ' + _rsvDate(p.date));
+  if (l.ecarts.includes('salarie')) morceaux.push('chez ' + _rsvNomSal(p.salarieId));
+  if (l.ecarts.includes('heure'))   morceaux.push('à ' + (p.rdv || 'sans heure'));
+  if (l.ecarts.includes('duree'))   morceaux.push('durée ' + _rsvH(p.heures));
+  const txt = morceaux.length ? 'Au planning : ' + morceaux.join(', ') : '';
+  return txt + (l.verrouille ? (txt ? ' · ' : '') + '🔒 modifié à la main' : '');
+}
+
+function _rsvRendre(erreurs) {
+  const nb = s => _rsvLignes.filter(l => s === 'traiter' ? l.statut !== 'ok' : s === 'tous' ? true : l.statut === s).length;
+  const filtres = [['traiter', 'À traiter'], ['absent', 'Absents'], ['ecart', 'Écarts'], ['annule', 'Plus dans Reservio'], ['ok', 'Conformes'], ['tous', 'Tous']];
+  document.getElementById('rsv-filtres').innerHTML = filtres
+    .filter(([c]) => c === 'traiter' || c === 'tous' || nb(c))
+    .map(([c, lib]) => '<button type="button" class="rsv-filtre' + (c === _rsvFiltre ? ' actif' : '') + '" onclick="_rsvFiltre=\'' + c + '\';_rsvRendre()">' + lib + ' (' + nb(c) + ')</button>')
+    .join('');
+  if (erreurs !== undefined) _rsvRendre._erreurs = erreurs;
+  const errHtml = (_rsvRendre._erreurs || []).map(t => '<p style="margin:0 0 0.6rem;color:#b45309;font-size:0.82rem;">' + _rsvEsc(t) + '</p>').join('');
+
+  const lignes = _rsvLignes.map((l, i) => ({ l, i }))
+    .filter(({ l }) => _rsvFiltre === 'tous' || (_rsvFiltre === 'traiter' ? l.statut !== 'ok' : l.statut === _rsvFiltre));
+  const corps = document.getElementById('rsv-corps');
+  if (!_rsvLignes.length) { corps.innerHTML = errHtml + '<p style="color:#64748b;">Aucun RDV à venir dans Reservio.</p>'; _rsvMajBouton(); return; }
+  if (!lignes.length) { corps.innerHTML = errHtml + '<p style="color:#16a34a;font-weight:600;">✔ Tous les RDV Reservio à venir sont conformes au planning.</p>'; _rsvMajBouton(); return; }
+  const cochables = lignes.filter(({ l }) => l.statut !== 'ok');
+  corps.innerHTML = errHtml + '<table class="rsv-table"><thead><tr>'
+    + '<th style="width:28px;">' + (cochables.length ? '<input type="checkbox" title="Tout cocher / décocher" onchange="_rsvToutCocher(this.checked)">' : '') + '</th>'
+    + '<th>Date</th><th>Heure</th><th>Client · prestation</th><th>Technicien</th><th>État</th><th>Action</th></tr></thead><tbody>'
+    + lignes.map(({ l, i }) => '<tr class="rsv-' + l.statut + '">'
+      + '<td>' + (l.statut !== 'ok' ? '<input type="checkbox" class="rsv-coche" data-i="' + i + '"' + (l._coche ? ' checked' : '') + ' onchange="_rsvLignes[' + i + ']._coche=this.checked;_rsvMajBouton()">' : '') + '</td>'
+      + '<td style="white-space:nowrap;">' + _rsvEsc(_rsvDate(l.date)) + '</td>'
+      + '<td>' + _rsvEsc(l.rdv) + '<div class="rsv-detail">' + _rsvH(l.dureeH) + '</div></td>'
+      + '<td><b>' + _rsvEsc(l.client) + '</b>' + (l.service ? '<div class="rsv-detail">' + _rsvEsc(l.service) + '</div>' : '') + '</td>'
+      + '<td>' + _rsvEsc(_rsvNomSal(l.salarieId)) + '</td>'
+      + '<td><span class="rsv-statut ' + l.statut + '">' + _RSV_LIB[l.statut] + '</span>'
+      + (_rsvDetail(l) ? '<div class="rsv-detail">' + _rsvEsc(_rsvDetail(l)) + '</div>' : '') + '</td>'
+      + '<td class="rsv-action">' + (_RSV_ACTION[l.statut] || '') + '</td></tr>').join('')
+    + '</tbody></table>';
+  _rsvMajBouton();
+}
+function _rsvToutCocher(v) {
+  document.querySelectorAll('#rsv-corps .rsv-coche').forEach(c => { c.checked = v; _rsvLignes[+c.dataset.i]._coche = v; });
+  _rsvMajBouton();
+}
+function _rsvMajBouton() {
+  const n = _rsvLignes.filter(l => l._coche && l.statut !== 'ok').length;
+  const b = document.getElementById('rsv-btn-appliquer');
+  if (b) { b.disabled = !n; b.textContent = '✔ Appliquer' + (n ? ' (' + n + ')' : ''); }
+}
+
+async function appliquerVerifReservio() {
+  const token = localStorage.getItem('syncToken');
+  const choix = _rsvLignes.filter(l => l._coche && l.statut !== 'ok');
+  if (!choix.length || !token) return;
+  const recreer = choix.filter(l => l.statut === 'absent' || l.statut === 'ecart').map(l => l.uid);
+  const retirer = choix.filter(l => l.statut === 'annule').map(l => l.uid);
+  const nbVerrou = choix.filter(l => l.verrouille && l.statut === 'ecart').length;
+  if (nbVerrou && !confirm(nbVerrou + ' RDV modifié(s) à la main (🔒) vont être remis comme dans Reservio (date, technicien, heure, durée, note). Continuer ?')) return;
+  const btn = document.getElementById('rsv-btn-appliquer'), msg = document.getElementById('rsv-msg');
+  btn.disabled = true; btn.textContent = '⏳ Application…';
+  msg.style.color = '#374151'; msg.textContent = '';
+  try {
+    if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') await SYNC.sauvegarderTout();
+    const r = await fetch('/api/data/reservio-appliquer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ recreer, retirer })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.message || ('Erreur ' + r.status));
+    const t = [];
+    if (j.nouveaux) t.push(j.nouveaux + ' RDV recréé(s)');
+    if (j.alignes) t.push(j.alignes + ' RDV aligné(s) sur Reservio');
+    if (j.retires) t.push(j.retires + ' RDV retiré(s) du planning');
+    if (j.planningPlein) t.push('⚠ ' + j.planningPlein + ' non placé(s) : planning du jour plein');
+    if ((j.fluxEnErreur || []).length) t.push('⚠ ' + j.fluxEnErreur.length + ' agenda(s) Reservio illisible(s)');
+    msg.style.color = (j.fluxEnErreur || []).length || j.planningPlein ? '#b45309' : '#16a34a';
+    msg.textContent = '✔ ' + (t.join(' · ') || 'Aucune modification nécessaire') + '\nRechargement…';
+    // Recharge pour relire le planning à jour depuis le serveur.
+    setTimeout(() => location.reload(), 2500);
+  } catch (e) {
+    msg.style.color = '#dc2626'; msg.textContent = '✖ ' + e.message;
+    _rsvMajBouton();
   }
 }
 /* ── Volets repliables : état mémorisé par poste, résumé affiché volet fermé ── */
@@ -1523,5 +1687,27 @@ var TUTOS_VIDEO = [
 })();
 </script>
 
+<!-- ══ MODALE « VÉRIFIER LES RDV RESERVIO » ══ -->
+<div class="rsv-overlay" id="modale-verif-reservio" onclick="if(event.target===this)fermerVerifReservio()">
+  <div class="rsv-box">
+    <div class="rsv-header">
+      <span>Vérification des RDV Reservio</span>
+      <button type="button" onclick="fermerVerifReservio()">✕</button>
+    </div>
+    <div class="rsv-body">
+      <p style="font-size:0.85rem;color:#475569;margin:0 0 0.8rem;">
+        Chaque rendez-vous à venir dans Reservio est comparé au planning. Cochez les RDV à corriger, puis cliquez sur « Appliquer ».
+        Rien n'est modifié tant que vous n'avez pas validé.
+      </p>
+      <div class="rsv-filtres" id="rsv-filtres"></div>
+      <div id="rsv-corps"><p style="color:#94a3b8;">Chargement…</p></div>
+    </div>
+    <div class="rsv-footer">
+      <span id="rsv-msg" style="flex:1;font-size:0.82rem;white-space:pre-line;"></span>
+      <button type="button" class="rsv-btn-fermer" onclick="fermerVerifReservio()">Fermer</button>
+      <button type="button" class="rsv-btn-ok" id="rsv-btn-appliquer" onclick="appliquerVerifReservio()" disabled>✔ Appliquer</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
