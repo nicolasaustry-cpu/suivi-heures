@@ -315,6 +315,12 @@
   }
   .suggestion-item:hover, .suggestion-item.selected { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; font-weight: 700; }
   .suggestion-item .ico { font-size: 1rem; }
+  /* Suggestions de la base clients au fil de la frappe (Ajouter un chantier) */
+  .suggestions-list .sugg-titre { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px 2px; }
+  .suggestion-item .sugg-nom { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .suggestion-item .sugg-nom mark { background: #fde68a; color: inherit; border-radius: 2px; padding: 0; }
+  .suggestion-item .sugg-ville { flex: 0 0 auto; font-size: 0.75rem; color: #64748b; font-weight: 400; }
+  .suggestions-list { max-height: 40vh; overflow-y: auto; }
   .input-libre {
     width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
     border-radius: 8px; font-size: 0.95rem; margin-bottom: 0.8rem;
@@ -1554,7 +1560,7 @@
   <div class="modal-box">
     <div class="modal-title">Ajouter un chantier</div>
     <div class="suggestions-list" id="suggestions-list"></div>
-    <input type="text" class="input-libre" id="input-libre" placeholder="Nom du chantier...">
+    <input type="text" class="input-libre" id="input-libre" placeholder="Nom du chantier..." autocomplete="off" autocapitalize="characters" spellcheck="false">
     <button class="btn-modal-ok" onclick="validerAjout()">Ajouter</button>
     <button class="btn-modal-cancel" onclick="fermerModal()">Annuler</button>
   </div>
@@ -3853,6 +3859,7 @@ async function envoyerPauseJour(min) {
 ═══════════════════════════ */
 function ouvrirModalAjout() {
   _selModal = null;
+  _cliChoisi = null;
   document.getElementById('input-libre').value = '';
 
   // Liste de suggestions désactivée : on ne propose plus les chantiers du prévisionnel.
@@ -3862,7 +3869,139 @@ function ouvrirModalAjout() {
 
   document.getElementById('modal-ajout').classList.add('open');
   setTimeout(() => document.getElementById('input-libre')?.focus(), 50);
+  _chargerClientsBase();               // base clients rafraîchie en fond (cache local en attendant)
 }
+
+/* ── Suggestions de la base clients au fil de la frappe ──
+   Source : fiches clients / chantiers de Suiv'Heures (déjà sur le téléphone) + base
+   clients Henrri, via /api/saisies/clients-noms (noms + ville seulement). Mémorisée sur
+   le téléphone par code entreprise, pour fonctionner aussi hors connexion. */
+let _clientsBase = null;
+let _cliChoisi = null;                  // suggestion touchée : { nom, src: 'fiche' | 'henrri', id }
+function _normCli(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+function _clientsBaseLocale() {
+  const code = (localStorage.getItem('saisie_codeEmploye') || '').toUpperCase();
+  // Fiches Suiv'Heures (coordonnées du téléphone, à jour) prioritaires sur Henrri ;
+  // homonymes Henrri gardés séparés quand la ville diffère.
+  const parCle = new Map(), fiches = new Set();
+  try {
+    const co = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {};
+    Object.keys(co).forEach(n => {
+      const k = String(n).trim().toUpperCase();
+      if (!k || fiches.has(k)) return;
+      fiches.add(k);
+      parCle.set(k, { nom: k, ville: String((co[n] && co[n].ville) || '').replace(/\s*\n\s*/g, ' ').trim(), src: 'fiche' });
+    });
+  } catch (_) {}
+  try {
+    const c = JSON.parse(localStorage.getItem('clientsBaseMobile') || 'null');
+    if (c && c.code === code && Array.isArray(c.clients)) c.clients.forEach(x => {
+      if (!x || !x.nom) return;
+      const k = x.nom.toUpperCase();
+      if (x.src === 'fiche') { if (!fiches.has(k)) { fiches.add(k); parCle.set(k, { nom: k, ville: x.ville || '', src: 'fiche' }); } return; }
+      if (fiches.has(k)) return;
+      const cle = k + '|' + String(x.ville || '').toUpperCase();
+      if (!parCle.has(cle)) parCle.set(cle, { nom: k, ville: x.ville || '', src: 'henrri', id: x.id || '' });
+    });
+  } catch (_) {}
+  return [...parCle.values()].map(x => Object.assign(x, { _n: _normCli(x.nom) }));
+}
+async function _chargerClientsBase() {
+  _clientsBase = _clientsBaseLocale();
+  const code = (localStorage.getItem('saisie_codeEmploye') || '').toUpperCase();
+  const sid = _salarie && _salarie.id;
+  if (!code || !sid || navigator.onLine === false) return;
+  try {
+    const r = await _fetchDelai('/api/saisies/clients-noms', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: code, salarieId: sid })
+    }, 6000);
+    const d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.clients)) return;
+    try { localStorage.setItem('clientsBaseMobile', JSON.stringify({ code, le: Date.now(), clients: d.clients })); } catch (_) {}
+    _clientsBase = _clientsBaseLocale();
+    if (document.getElementById('modal-ajout').classList.contains('open')) _suggererClients();
+  } catch (_) { /* hors connexion ou serveur lent : on garde la liste locale */ }
+}
+async function _reprendreFicheHenrri(cli) {
+  try {
+    const co = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {};
+    const ex = co[cli.nom];
+    if (ex && (ex.adresse || ex.ville || ex.mobile || ex.fixe || ex.email)) return;   // fiche déjà là
+    const r = await _fetchDelai('/api/saisies/client-fiche', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeEmploye: localStorage.getItem('saisie_codeEmploye') || '', salarieId: _salarie && _salarie.id, nom: cli.nom, id: cli.id || '' })
+    }, 8000);
+    const d = await r.json();
+    if (!d || !d.ok || !d.coordonnees) return;
+    const co2 = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {};
+    co2[cli.nom] = d.coordonnees;
+    localStorage.setItem('coordonneesChantiersdata', JSON.stringify(co2));
+    rendreAjout();                     // la carte affiche maintenant adresse, téléphone et itinéraire
+    if (d.cree) _toastMobile('📇 Coordonnées du client reprises de la base clients');
+  } catch (_) {
+    if (navigator.onLine === false) _toastMobile('Hors connexion : coordonnées du client à reprendre plus tard');
+  }
+}
+function _toastMobile(t) {
+  const el = document.createElement('div');
+  el.textContent = t;
+  el.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f3a8a;color:#fff;padding:9px 16px;border-radius:10px;font-size:0.85rem;font-weight:600;z-index:10050;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:90vw;text-align:center;';
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 450); }, 2600);
+}
+/* Classement : nom qui commence par la saisie, puis un mot du nom qui commence par
+   la saisie, puis saisie contenue ailleurs ; chaque mot tapé doit être présent. */
+function _suggererClients() {
+  const cont = document.getElementById('suggestions-list');
+  const brut = document.getElementById('input-libre').value;
+  const q = _normCli(brut);
+  if (!cont) return;
+  if (!q || !_clientsBase || !_clientsBase.length) { cont.innerHTML = ''; return; }
+  const mots = q.split(' ');
+  const res = [];
+  for (const c of _clientsBase) {
+    if (!mots.every(m => c._n.includes(m))) continue;
+    let rang = 2;
+    if (c._n.startsWith(q)) rang = 0;
+    else if (mots.every(m => c._n.split(/[ \-']/).some(w => w.startsWith(m)))) rang = 1;
+    res.push({ c, rang });
+    if (res.length > 400) break;
+  }
+  res.sort((a, b) => a.rang - b.rang || a.c.nom.localeCompare(b.c.nom, 'fr'));
+  // Saisie trouvée en milieu de mot (ex. « lair » dans « CLAIRE ») : seulement à défaut de mieux
+  const top = (res.some(r => r.rang < 2) ? res.filter(r => r.rang < 2) : res).slice(0, 8);
+  if (!top.length || (top.length === 1 && top[0].c._n === q)) { cont.innerHTML = ''; return; }
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // Surligne la première occurrence de chaque mot tapé (comparaison sans accents)
+  const surligner = nom => {
+    const n = _normCli(nom), zones = [];
+    mots.forEach(m => { const i = n.indexOf(m); if (i >= 0) zones.push([i, i + m.length]); });
+    zones.sort((a, b) => a[0] - b[0]);
+    let out = '', pos = 0;
+    zones.forEach(([a, b]) => { if (a < pos) return; out += esc(nom.slice(pos, a)) + '<mark>' + esc(nom.slice(a, b)) + '</mark>'; pos = b; });
+    return out + esc(nom.slice(pos));
+  };
+  cont.innerHTML = '<div class="sugg-titre">Clients connus</div>' + top.map(({ c }) =>
+    '<div class="suggestion-item" data-nom="' + esc(c.nom) + '" data-src="' + c.src + '" data-id="' + esc(c.id || '') + '"><span class="ico">👤</span><span class="sugg-nom">' + surligner(c.nom) + '</span>'
+    + (c.ville ? '<span class="sugg-ville">' + esc(c.ville) + '</span>' : '') + '</div>').join('');
+}
+document.addEventListener('DOMContentLoaded', function () {
+  const inp = document.getElementById('input-libre');
+  const cont = document.getElementById('suggestions-list');
+  if (inp) {
+    inp.addEventListener('input', function () { _selModal = null; _cliChoisi = null; _suggererClients(); });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); validerAjout(); } });
+  }
+  if (cont) cont.addEventListener('click', function (e) {
+    const it = e.target.closest && e.target.closest('.suggestion-item[data-nom]');
+    if (!it) return;
+    inp.value = it.getAttribute('data-nom');   // nom complet repris dans le champ, à valider par « Ajouter »
+    _cliChoisi = { nom: it.getAttribute('data-nom'), src: it.getAttribute('data-src'), id: it.getAttribute('data-id') || '' };
+    cont.innerHTML = '';
+    inp.focus();
+  });
+});
 
 function selSuggestion(el, nom) {
   document.querySelectorAll('.suggestion-item').forEach(e => e.classList.remove('selected'));
@@ -3892,6 +4031,11 @@ function validerAjout() {
   rendreAjout();
   majTotal();
   fermerModal();
+  // Client de la base Henrri choisi : ses coordonnées deviennent la fiche du chantier
+  // (adresse, téléphone → bloc coordonnées + itinéraire de la carte). Une fiche
+  // Suiv'Heures du même nom est déjà affichée telle quelle ; jamais d'écrasement.
+  if (_cliChoisi && _cliChoisi.src === 'henrri' && _cliChoisi.nom === nom) _reprendreFicheHenrri(_cliChoisi);
+  _cliChoisi = null;
   // Défiler l'écran vers la carte nouvellement ajoutée (la dernière du conteneur)
   setTimeout(() => {
     const cont = document.getElementById('liste-ajout');
@@ -4061,7 +4205,7 @@ const CLES_A_PURGER = [
   'entreprisedata', 'salariesdata', 'heuresdata', 'chantiersdata',
   'previsionnel_data', 'coordonneesChantiersdata',
   // Autres données locales liées au client
-  'notesChantiersdata', 'ordreMobiledata',
+  'notesChantiersdata', 'ordreMobiledata', 'clientsBaseMobile',
   // Identité mobile
   'saisie_codeEmploye', 'saisie_salarie', 'saisie_clientId',
   // Identité licence éventuellement présente (évite tout envoi sous l'ancien jeton)

@@ -4,6 +4,7 @@ import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
 import Licence from "../models/licence.js";
 import AgendaRdv from "../models/agenda.js";
+import Henrri from "../models/henrri.js";
 
 const router = express.Router();
 
@@ -725,6 +726,98 @@ router.post("/mobile-mois", async (req, res) => {
 
 /* ── Enregistrer l'ordre mobile des chantiers d'une journée. N'affecte PAS le
    planning PC. Auth : code employé gérant (mobile) OU token licence (patron PC). ── */
+/* ── Base clients pour la saisie mobile (suggestions « Ajouter un chantier ») ──
+   Noms (+ ville) des clients connus : fiches clients / chantiers de Suiv'Heures
+   (coordonneesChantiers, prioritaires) et base clients Henrri (cache serveur, si Henrri
+   est actif). Les homonymes Henrri à des villes différentes restent distincts (id).
+   Aucune autre donnée (ni adresse, ni téléphone) n'est envoyée ici : les coordonnées
+   d'un client Henrri choisi sont reprises par /client-fiche, au moment de l'ajout.
+   body : { codeEmploye, salarieId } */
+async function _henrriCache(clientId) {
+  try {
+    const h = await Henrri.findOne({ clientId }, "clientsCache pilotage actif mode").lean();
+    const pilotage = h && (typeof h.pilotage === "boolean" ? h.pilotage : !!h.actif);
+    return (h && pilotage && (h.mode === "import" || h.actif) && Array.isArray(h.clientsCache)) ? h.clientsCache : [];
+  } catch (_) { return []; }
+}
+const _nomCli = v => String(v || "").replace(/\s+/g, " ").trim().toUpperCase();
+async function _authMobile(req) {
+  const Donnees = (await import("../models/donnees.js")).default;
+  const _r = await resoudreEntrepriseParCode(Donnees, req.body.codeEmploye);
+  if (_r.err) return { err: _r.err };
+  const sal = (_r.doc.salaries || []).find(s => String(s.id) === String(req.body.salarieId));
+  if (!sal) return { err: [401, "Salarié inconnu"] };
+  return { Donnees, doc: _r.doc, sal };
+}
+router.post("/clients-noms", async (req, res) => {
+  try {
+    const a = await _authMobile(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const out = [], fiches = new Set(), vus = new Set();
+    const coords = a.doc.coordonneesChantiers || {};
+    for (const nom of Object.keys(coords)) {
+      const k = _nomCli(nom);
+      if (!k || k === "TEMPS NON AFFECTE" || k === "ABSENCE" || fiches.has(k)) continue;
+      fiches.add(k);
+      out.push({ nom: k, ville: String((coords[nom] && coords[nom].ville) || "").replace(/\s*\n\s*/g, " ").trim().slice(0, 80), src: "fiche" });
+    }
+    for (const c of await _henrriCache(a.doc.clientId)) {
+      const k = _nomCli(c && c.nom);
+      if (!k || fiches.has(k)) continue;                    // fiche Suiv'Heures prioritaire
+      const ville = String(c.ville || "").trim().slice(0, 80);
+      const cle = k + "|" + ville.toUpperCase();
+      if (vus.has(cle)) continue;
+      vus.add(cle);
+      out.push({ nom: k, ville, src: "henrri", id: String(c.id || "") });
+    }
+    out.sort((x, y) => x.nom.localeCompare(y.nom, "fr"));
+    res.json({ ok: true, clients: out.slice(0, 20000) });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+/* ── Client Henrri choisi pour un nouveau chantier (mobile) : ses coordonnées
+   (adresse, ville, mobile, fixe, e-mail) deviennent la fiche du chantier, SANS jamais
+   écraser une fiche existante. Même règle que /coordonnees-chantier : créer une fiche
+   vide est permis à tout salarié ; la trace d'origine est conservée.
+   body : { codeEmploye, salarieId, nom, id } */
+router.post("/client-fiche", async (req, res) => {
+  try {
+    const a = await _authMobile(req);
+    if (a.err) return res.status(a.err[0]).json({ ok: false, message: a.err[1] });
+    const nom = _nomCli(req.body.nom);
+    if (!nom) return res.status(400).json({ ok: false, message: "Nom manquant" });
+    const coords = a.doc.coordonneesChantiers || {};
+    const ex = coords[nom];
+    const exVide = !ex || (!ex.adresse && !ex.ville && !ex.mobile && !ex.fixe && !ex.email);
+    if (!exVide) return res.json({ ok: true, chantier: nom, coordonnees: ex, cree: false });
+
+    const cache = await _henrriCache(a.doc.clientId);
+    const id = String(req.body.id || "");
+    const c = (id && cache.find(x => x && String(x.id || "") === id)) || cache.find(x => x && _nomCli(x.nom) === nom);
+    if (!c) return res.json({ ok: true, chantier: nom, coordonnees: null, cree: false });
+    const fiche = {
+      adresse: String(c.adresse || "").slice(0, 500),
+      ville:   String(c.ville || "").slice(0, 200),
+      mobile:  String(c.mobile || (!c.fixe ? c.telephone : "") || "").slice(0, 40),
+      fixe:    String(c.fixe || "").slice(0, 40),
+      email:   String(c.email || "").trim().slice(0, 120),
+      origine: "henrri",
+      auteur:  `${a.sal.prenom || ""} ${a.sal.nom || ""}`.trim().slice(0, 80),
+      le:      new Date().toISOString()
+    };
+    if (!fiche.adresse && !fiche.ville && !fiche.mobile && !fiche.fixe && !fiche.email)
+      return res.json({ ok: true, chantier: nom, coordonnees: null, cree: false });
+    // Même écriture que /coordonnees-chantier (un nom peut contenir un point : pas de chemin « a.b »)
+    coords[nom] = fiche;
+    await a.Donnees.updateOne({ _id: a.doc._id }, { $set: { coordonneesChantiers: coords, updatedAt: new Date() } });
+    res.json({ ok: true, chantier: nom, coordonnees: fiche, cree: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 router.post("/ordre-mobile", async (req, res) => {
   try {
     const salarieId = req.body.salarieId;    // salarié cible
