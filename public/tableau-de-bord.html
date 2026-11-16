@@ -243,6 +243,7 @@
         <div class="tdb-legende">
           <span><i class="tdb-pastille" style="background:#0f3a8a"></i>Heures <span id="annee-legende-mot">réalisées</span></span>
           <span><i class="tdb-trait"></i>Heures vendables</span>
+          <span><i class="tdb-pastille" style="background:#e6f4f1;outline:2px solid #0d9488;outline-offset:-2px"></i>Mois en cours</span>
         </div>
       </div>
     </div>
@@ -272,6 +273,7 @@
           <span><i class="tdb-pastille" style="background:#b45309"></i>Fournisseur</span>
           <span><i class="tdb-pastille" style="background:#7c3aed"></i>Visite client</span>
           <span><i class="tdb-pastille" style="background:#64748b"></i>Temps non affecté</span>
+          <span><i class="tdb-pastille" style="background:#e6f4f1;outline:2px solid #0d9488;outline-offset:-2px"></i>Mois en cours</span>
           <span>% affiché = part des vendables</span>
         </div>
       </div>
@@ -296,6 +298,7 @@
       <span><i class="tdb-pastille" style="background:#0f3a8a"></i>Heures chantiers planifiées</span>
       <span><i class="tdb-pastille" style="background:#d1495b"></i>Au-delà de la capacité</span>
       <span><i class="tdb-trait"></i>Heures vendables sur la semaine</span>
+      <span><i class="tdb-pastille" style="background:#e6f4f1;outline:2px solid #0d9488;outline-offset:-2px"></i>Semaine en cours</span>
     </div>
   </section>
 
@@ -600,6 +603,9 @@ function tdbSparkSurvol(evt, id, i) {
 /* ── 1 · Graphique de charge, en SVG (aucune librairie externe) ──
    d = { semaines:[{cle,mois,plan,prevu,capacite}] } ; le dépassement se
    déduit de ce qui passe au-dessus de la capacité. */
+/* Mois / semaine EN COURS : mis en évidence dans les graphiques
+   (bande de fond, barres et libellé dans une couleur dédiée). */
+const TDB_COUL_COURANT = '#0d9488', TDB_FOND_COURANT = '#e6f4f1';
 let _tdbChargeData = [];
 function tdbGraphCharge(d) {
   const zone = document.getElementById('charge-graph');
@@ -626,6 +632,9 @@ function tdbGraphCharge(d) {
   }
 
   S.forEach(function (s, i) {
+    if (s.courant) g += '<rect x="' + (mg.g + pasX * i) + '" y="' + mg.h + '" width="' + pasX + '" height="' + hp + '" fill="' + TDB_FOND_COURANT + '"/>';
+  });
+  S.forEach(function (s, i) {
     const cx = mg.g + pasX * i + pasX / 2, x = cx - larg / 2;
     /* Deux segments seulement : ce qui est planifié, et ce qui dépasse la
        capacité. L'espace laissé entre le sommet de la barre et la ligne des
@@ -633,7 +642,7 @@ function tdbGraphCharge(d) {
     const dedans = Math.min(s.plan, s.capacite);
     const audela = Math.max(0, s.plan - s.capacite);
     let bas = 0;
-    [[dedans, '#0f3a8a'], [audela, '#d1495b']].forEach(function (seg) {
+    [[dedans, s.courant ? TDB_COUL_COURANT : '#0f3a8a'], [audela, '#d1495b']].forEach(function (seg) {
       if (seg[0] <= 0) return;
       g += '<rect x="' + x + '" y="' + y(bas + seg[0]) + '" width="' + larg
          + '" height="' + (y(bas) - y(bas + seg[0])) + '" fill="' + seg[1] + '"/>';
@@ -641,8 +650,9 @@ function tdbGraphCharge(d) {
     });
     /* Tous les libellés quand la place le permet, un sur deux sinon,
        en gardant toujours celui qui ouvre un mois. */
-    if (pasX > 52 || i % 2 === 0 || s.mois) {
-      g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" fill="#6b7684">' + tdbEsc(s.cle) + '</text>';
+    if (pasX > 52 || i % 2 === 0 || s.mois || s.courant) {
+      g += '<text x="' + cx + '" y="' + (H - 24) + '" text-anchor="middle" font-size="17" '
+         + (s.courant ? 'font-weight="700" fill="' + TDB_COUL_COURANT + '"' : 'fill="#6b7684"') + '>' + tdbEsc(s.cle) + '</text>';
     }
     if (s.mois) g += '<text x="' + cx + '" y="' + (H - 5) + '" text-anchor="middle" font-size="17" fill="#4b5563">' + tdbEsc(s.mois) + '</text>';
   });
@@ -667,7 +677,7 @@ function tdbChargeSurvol(evt, i) {
   if (!s) return;
   const depass = Math.max(0, s.plan - s.capacite);
   tdbTooltipMontrer(evt,
-    '<b class="tdb-tooltip-titre">' + tdbEsc(s.cle) + (s.mois ? ' · ' + tdbEsc(s.mois) : '') + '</b>' +
+    '<b class="tdb-tooltip-titre">' + tdbEsc(s.cle) + (s.mois ? ' · ' + tdbEsc(s.mois) : '') + (s.courant ? ' · semaine en cours' : '') + '</b>' +
     '<div><span>Planifié</span><b>' + tdbNb(s.plan, 0) + ' h</b></div>' +
     '<div><span>Capacité vendable</span><b>' + tdbNb(s.capacite, 0) + ' h</b></div>' +
     (depass > 0 ? '<div><span>Dépassement</span><b>' + tdbNb(depass, 0) + ' h</b></div>' : '')
@@ -1190,12 +1200,16 @@ function tdbGraphAnnee(d) {
   }
 
   M.forEach(function (m, i) {
+    if (m.courant) g += '<rect x="' + (mg.g + pasX * i) + '" y="' + mg.h + '" width="' + pasX + '" height="' + hp + '" fill="' + TDB_FOND_COURANT + '"/>';
+  });
+  M.forEach(function (m, i) {
     const cx = mg.g + pasX * i + pasX / 2;
     if (m.real > 0) {
       g += '<rect x="' + (cx - larg / 2) + '" y="' + y(m.real) + '" width="' + larg
-         + '" height="' + (y(0) - y(m.real)) + '" fill="#0f3a8a"/>';
+         + '" height="' + (y(0) - y(m.real)) + '" fill="' + (m.courant ? TDB_COUL_COURANT : '#0f3a8a') + '"/>';
     }
-    g += '<text x="' + cx + '" y="' + (H - 9) + '" text-anchor="middle" font-size="16" fill="#6b7684">' + tdbEsc(m.cle) + '</text>';
+    g += '<text x="' + cx + '" y="' + (H - 9) + '" text-anchor="middle" font-size="16" '
+       + (m.courant ? 'font-weight="700" fill="' + TDB_COUL_COURANT + '"' : 'fill="#6b7684"') + '>' + tdbEsc(m.cle) + '</text>';
   });
 
   let pts = [];
@@ -1217,7 +1231,7 @@ function tdbAnneeSurvol(evt, i) {
   const m = _tdbAnneeData[i];
   if (!m) return;
   tdbTooltipMontrer(evt,
-    '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + '</b>' +
+    '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + (m.courant ? ' · mois en cours' : '') + '</b>' +
     '<div><span>Vendables</span><b>' + tdbNb(m.vend, 0) + ' h</b></div>' +
     '<div><span>' + (tdbEstPlus() ? 'Réalisées' : 'Planifiées') + '</span><b>' + tdbNb(m.real, 0) + ' h</b></div>'
   );
@@ -1247,7 +1261,7 @@ async function tdbChargerAnnee() {
     }
     totV += vend; totR += real;
     if (m <= now.getMonth()) vendEcoules += vend;
-    serie.push({ cle: NOMS[m], vend: vend, real: real });
+    serie.push({ cle: NOMS[m], vend: vend, real: real, courant: m === now.getMonth() });
   }
 
   tdbTexte('annee-an', an);
@@ -1334,6 +1348,9 @@ function tdbGraphVenteQualite(d) {
   }
 
   M.forEach(function (m, i) {
+    if (m.courant) g += '<rect x="' + (mg.g + pasX * i) + '" y="' + mg.h + '" width="' + pasX + '" height="' + hp + '" fill="' + TDB_FOND_COURANT + '"/>';
+  });
+  M.forEach(function (m, i) {
     const cx = mg.g + pasX * i + pasX / 2;
     if (m.exclu > 0) {
       const motifs = Object.keys(m.motifsMois || {}).sort();
@@ -1349,7 +1366,8 @@ function tdbGraphVenteQualite(d) {
       const yPct = Math.max(mg.h + 11, y(m.exclu) - 6);
       g += '<text x="' + cx + '" y="' + yPct + '" text-anchor="middle" font-size="13" font-weight="600" fill="#b45309">' + pct + '%</text>';
     }
-    g += '<text x="' + cx + '" y="' + (H - 9) + '" text-anchor="middle" font-size="16" fill="#6b7684">' + tdbEsc(m.cle) + '</text>';
+    g += '<text x="' + cx + '" y="' + (H - 9) + '" text-anchor="middle" font-size="16" '
+       + (m.courant ? 'font-weight="700" fill="' + TDB_COUL_COURANT + '"' : 'fill="#6b7684"') + '>' + tdbEsc(m.cle) + '</text>';
   });
 
   let ptsVend = [], ptsVendu = [];
@@ -1382,7 +1400,7 @@ function tdbVqSurvol(evt, i) {
     return '<div><span>' + tdbEsc(mo) + '</span><b>' + tdbNb(m.motifsMois[mo], 0) + ' h</b></div>';
   }).join('');
   tdbTooltipMontrer(evt,
-    '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + '</b>' +
+    '<b class="tdb-tooltip-titre">' + tdbEsc(m.cle) + (m.courant ? ' · mois en cours' : '') + '</b>' +
     '<div><span>Vendables</span><b>' + tdbNb(m.vend, 0) + ' h</b></div>' +
     '<div><span>' + (tdbEstPlus() ? 'Vendues' : 'Planifiées') + '</span><b>' + tdbNb(m.vendu, 0) + ' h</b></div>' +
     '<div><span>Exclues (total)</span><b>' + tdbNb(m.exclu, 0) + ' h · ' + pct + ' %</b></div>' +
@@ -1429,7 +1447,7 @@ async function tdbChargerVenteQualite() {
     Object.keys(exMois.parMotif).forEach(function (mo) {
       parMotifAnnee[mo] = (parMotifAnnee[mo] || 0) + exMois.parMotif[mo];
     });
-    serie.push({ cle: NOMS[m], vend: vend, vendu: vendu, exclu: exCumul, motifsMois: exMois.parMotif });
+    serie.push({ cle: NOMS[m], vend: vend, vendu: vendu, exclu: exCumul, motifsMois: exMois.parMotif, courant: m === now.getMonth() });
   }
 
   tdbTexte('vq-an', an);
@@ -1687,7 +1705,8 @@ async function tdbChargerPrevisionnel() {
     return {
       cle: 'S' + tdbNumSemaine(s.lundi),
       mois: nouveau ? MOIS_COURTS[m] : '',
-      plan: s.plan, capacite: s.capacite
+      plan: s.plan, capacite: s.capacite,
+      courant: tdbIso(s.lundi) <= auj && auj <= tdbIso(s.dim)
     };
   });
   tdbGraphCharge({ semaines: series });
