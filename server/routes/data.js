@@ -6,6 +6,7 @@ import Saisie from "../models/saisies.js";
 import OrdreMobile from "../models/ordremobile.js";
 import Henrri from "../models/henrri.js";
 import { synchroniserClientReservio, apercuClientReservio, appliquerChoixReservio } from "../jobs/syncReservio.js";
+import { uidsReservio, retraitsEntre, journaliserRetraits, pageOrigine } from "../services/journalReservio.js";
 
 const router = express.Router();
 
@@ -554,11 +555,31 @@ router.post("/", verifyToken, async (req, res) => {
     // ── Mode FUSION (sync.js ≥ sync10) : on n'applique QUE les cases modifiées
     //    par ce poste depuis sa dernière lecture ; tout le reste est conservé tel
     //    qu'il est en base (modifs faites entre-temps sur un autre PC / mobile).
+    // Historique des retraits Reservio : RDV liés présents AVANT cet enregistrement.
+    const rsvAvant = existant ? uidsReservio(_plain(existant.heures)) : new Map();
+    const page = pageOrigine(req);
+
     if (existant && fusionValide(req.body.fusion)) {
       const r = await appliquerFusion(existant, req.body, clientId);
-      if (r.ok) return res.json({ ok: true, mode: "fusion" });
+      if (r.ok) {
+        if (rsvAvant.size) {
+          // Planning tel qu'il est après la fusion = base + cases écrites/retirées par ce poste.
+          const fh = req.body.fusion.heures;
+          const apres = Object.assign({}, _plain(existant.heures) || {}, fh.set);
+          fh.unset.forEach(k => { delete apres[k]; });
+          const unset = new Set(fh.unset);
+          await journaliserRetraits(existant._id, retraitsEntre(rsvAvant, uidsReservio(apres), "pc", (uid, i) =>
+            unset.has(i.cle) ? `Case supprimée du planning depuis ${page}`
+            : Object.prototype.hasOwnProperty.call(fh.set, i.cle) ? `Case réécrite sans lien Reservio depuis ${page} (nom de chantier effacé ou case remplacée)`
+            : `Retiré lors d'un enregistrement depuis ${page}`));
+        }
+        return res.json({ ok: true, mode: "fusion" });
+      }
       console.warn(`[FUSION] ${clientId} : ${r.raison} → enregistrement complet`);
     }
+
+    const rsvRetraitsComplet = (existant && rsvAvant.size) ? retraitsEntre(rsvAvant, uidsReservio(heures), "pc",
+      `Planning entier réenregistré depuis ${page} : la case n'existait pas dans la version envoyée (poste resté sur un planning ancien ?)`) : [];
 
     if (existant) {
       const ancsSalaries    = existant.salaries || [];
@@ -571,6 +592,7 @@ router.post("/", verifyToken, async (req, res) => {
       existant.updatedAt    = new Date();
       existant.markModified("salaries");
       await existant.save();
+      await journaliserRetraits(existant._id, rsvRetraitsComplet);
     } else {
       await Donnees.create({
         clientId, entreprise,
@@ -635,11 +657,24 @@ router.patch("/:cle", verifyToken, async (req, res) => {
       valeur = appliquerVerrouPins(valeur, doc ? (doc.salaries || []) : []);
     }
 
+    // Historique des retraits Reservio (remplacement complet du planning par cette voie).
+    let rsvDocId = null, rsvRetraits = [];
+    if (cle === "heures") {
+      const doc = await Donnees.findOne({ clientId });
+      const rsvAvant = doc ? uidsReservio(_plain(doc.heures)) : new Map();
+      if (rsvAvant.size) {
+        rsvDocId = doc._id;
+        rsvRetraits = retraitsEntre(rsvAvant, uidsReservio(valeur), "pc",
+          `Planning entier remplacé (enregistrement « heures » seul) depuis ${pageOrigine(req)}`);
+      }
+    }
+
     await Donnees.findOneAndUpdate(
       { clientId },
       { $set: { [cle]: valeur, updatedAt: new Date() } },
       { upsert: true }
     );
+    await journaliserRetraits(rsvDocId, rsvRetraits);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message });

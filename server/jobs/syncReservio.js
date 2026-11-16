@@ -32,6 +32,7 @@
 import cron from "node-cron";
 import ical from "node-ical";
 import Donnees from "../models/donnees.js";
+import { uidsReservio, retraitsEntre, journaliserRetraits } from "../services/journalReservio.js";
 
 const TZ             = "Europe/Paris";
 const RESERVIO_CRON  = process.env.RESERVIO_CRON || "*/15 * * * *"; // toutes les 15 min
@@ -574,6 +575,10 @@ async function syncSalarie(doc, salarieId, urlIcs, dejaPrisParDate, vus, stats =
 function aEffacer(doc, k) {
   (doc.$locals.rsvUnset || (doc.$locals.rsvUnset = new Set())).add(k);
 }
+// Motif d'un retrait fait par ce module, repris dans l'historique des retraits.
+function motifRetrait(doc, uid, origine, detail) {
+  (doc.$locals.rsvMotifs || (doc.$locals.rsvMotifs = {}))[uid] = { origine, detail };
+}
 
 // Nombre de cycles consécutifs où un RDV doit manquer au flux avant d'être traité comme annulé.
 const CYCLES_ABSENCE = 2;
@@ -612,6 +617,7 @@ function traiterAnnulations(doc, uidsEncoreValides, vus, absents) {
     } else {
       delete heures[k]; // jamais modifié manuellement → suppression silencieuse
       aEffacer(doc, k);
+      motifRetrait(doc, uid, "synchro", `RDV absent de Reservio sur ${CYCLES_ABSENCE} cycles de synchro consécutifs (annulé ou supprimé côté Reservio)`);
       delete vus[uid];  // s'il revient dans Reservio, il sera recréé
     }
   }
@@ -633,12 +639,30 @@ async function syncClient(doc, opts = {}) {
   /* RDV déjà importés { uid: 'YYYY_MM_DD' } : champ propre au sync, lu et écrit directement
      dans la collection (hors schéma, hors synchronisation des postes). Initialisé avec les
      RDV présents dans le planning, puis purgé des RDV passés. */
-  let vus = {}, absents = {};
+  let vus = {}, absents = {}, brut = null;
   try {
-    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1, reservioAbsents: 1 } });
+    brut = await Donnees.collection.findOne({ _id: doc._id },
+      { projection: { reservioVus: 1, reservioAbsents: 1, reservioPresents: 1, reservioPresentsQuand: 1, reservioRetraits: 1 } });
     vus = (brut && brut.reservioVus && typeof brut.reservioVus === "object") ? brut.reservioVus : {};
     absents = (brut && brut.reservioAbsents && typeof brut.reservioAbsents === "object") ? brut.reservioAbsents : {};
   } catch (_) {}
+
+  // ── Historique des retraits : RDV disparus du planning DEPUIS LE CYCLE PRÉCÉDENT, sans
+  //    ligne déjà écrite par un enregistrement PC (data.js) → origine « autre » (mobile, agenda…).
+  const debutCycle = new Date();
+  const presentsDebut = uidsReservio(doc.heures);
+  try {
+    const prec = brut && brut.reservioPresents;
+    const precQuand = brut && brut.reservioPresentsQuand ? new Date(brut.reservioPresentsQuand) : null;
+    if (prec && typeof prec === "object" && precQuand) {
+      const dejaNotes = new Set((brut.reservioRetraits || [])
+        .filter(r => r && r.quand && new Date(r.quand) >= precQuand).map(r => String(r.uid)));
+      const f = d => d.toLocaleString("fr-FR", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      const avant = new Map(Object.entries(prec).filter(([u]) => !dejaNotes.has(u)));
+      await journaliserRetraits(doc._id, retraitsEntre(avant, presentsDebut, "autre",
+        `Retiré du planning entre le ${f(precQuand)} et le ${f(debutCycle)}, hors synchro et sans enregistrement PC correspondant (mobile, agenda du dirigeant ou autre)`));
+    }
+  } catch (e) { console.warn(`   ⚠️  Reservio ${doc.clientId} : contrôle des retraits impossible (${e.message})`); }
   // Mise à jour forcée « tout réimporter » : on oublie la liste des RDV déjà importés,
   // donc tout RDV à venir absent du planning est recréé (y compris ceux supprimés à la main).
   if (opts.reimporter) vus = {};
@@ -675,6 +699,7 @@ async function syncClient(doc, opts = {}) {
       delete vus[d.reservioUid];
       delete doc.heures[k];
       aEffacer(doc, k);
+      motifRetrait(doc, d.reservioUid, "verification", "Retiré via « Vérifier les RDV Reservio » (RDV plus dans Reservio)");
       stats.retires = (stats.retires || 0) + 1;
     }
   }
@@ -696,11 +721,27 @@ async function syncClient(doc, opts = {}) {
     await Donnees.collection.updateOne({ _id: doc._id }, { $unset });
   }
 
+  // Historique : RDV retirés par CE cycle (synchro ou modale de vérification).
+  const presentsFin = uidsReservio(doc.heures);
+  const motifs = doc.$locals.rsvMotifs || {};
+  doc.$locals.rsvMotifs = {};
+  const retraitsCycle = [];
+  for (const origine of ["synchro", "verification"]) {
+    const avant = new Map([...presentsDebut].filter(([u]) => (motifs[u] || {}).origine === origine));
+    retraitsCycle.push(...retraitsEntre(avant, presentsFin, origine, u => motifs[u].detail));
+  }
+  await journaliserRetraits(doc._id, retraitsCycle);
+
   // Purge des RDV passés puis enregistrement de la liste des RDV déjà importés
   const aujourdHui = aujourdHuiKeyParis();
   for (const u of Object.keys(vus)) if (!vus[u] || vus[u] < aujourdHui) delete vus[u];
+  // RDV présents au planning (à venir) : base de comparaison du prochain cycle.
+  const presents = {};
+  for (const [u, i] of presentsFin) if (i.date >= aujourdHui) presents[u] = i;
   try {
-    await Donnees.collection.updateOne({ _id: doc._id }, { $set: { reservioVus: vus, reservioAbsents: absents } });
+    await Donnees.collection.updateOne({ _id: doc._id }, { $set: {
+      reservioVus: vus, reservioAbsents: absents, reservioPresents: presents, reservioPresentsQuand: debutCycle
+    } });
   } catch (e) {
     console.warn(`   ⚠️  Reservio ${doc.clientId} : liste des RDV importés non enregistrée (${e.message})`);
   }
@@ -739,11 +780,14 @@ export async function apercuClientReservio(clientId) {
   const cfg = doc.entreprise?.reservio;
   if (!cfg || cfg.actif !== true) return { ok: false, message: "La connexion Reservio n'est pas activée." };
 
-  let vus = {};
+  let vus = {}, historique = [];
   try {
-    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1 } });
+    const brut = await Donnees.collection.findOne({ _id: doc._id }, { projection: { reservioVus: 1, reservioRetraits: 1 } });
     vus = (brut && brut.reservioVus) || {};
+    historique = Array.isArray(brut && brut.reservioRetraits) ? brut.reservioRetraits : [];
   } catch (_) {}
+  const dernierRetrait = new Map();          // uid → dernière ligne de l'historique des retraits
+  for (const r of historique) if (r && r.uid) dernierRetrait.set(String(r.uid), r);
 
   const heures = doc.heures || {};
   const parUid = new Map();
@@ -775,6 +819,8 @@ export async function apercuClientReservio(clientId) {
         if (!k) {
           l.statut = "absent";
           l.dejaImporte = !!vus[ev.uid];
+          const r = dernierRetrait.get(String(ev.uid));
+          if (r) l.retrait = { quand: r.quand, origine: r.origine, detail: r.detail };
         } else {
           const d = heures[k], m = k.match(CLE_RE);
           l.planning = { salarieId: m ? m[1] : "", date: m ? m[2] : "", rdv: _hhmm(d.rdv), heures: parseFloat(d.heures) || 0, chantier: d.chantier || "" };
@@ -801,7 +847,11 @@ export async function apercuClientReservio(clientId) {
     }
   }
   lignes.sort((a, b) => (a.date + a.rdv).localeCompare(b.date + b.rdv));
-  return { ok: true, lignes, fluxEnErreur };
+  // Historique des retraits, du plus récent au plus ancien (200 dernières lignes).
+  const histo = historique.slice(-200).reverse().map(r => ({
+    uid: r.uid, chantier: r.chantier, date: r.date, salarieId: r.salarieId, quand: r.quand, origine: r.origine, detail: r.detail
+  }));
+  return { ok: true, lignes, fluxEnErreur, historique: histo };
 }
 
 // ── Application des choix de la modale : recréer / réaligner / retirer ──

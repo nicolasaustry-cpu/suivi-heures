@@ -712,7 +712,13 @@ async function resynchroniserReservio() {
    ecart = jour / technicien / heure / durée différents (🔒 compris) → « Aligner sur Reservio » ;
    annule = encore au planning mais plus dans Reservio → « Retirer du planning ».
    Seuls les RDV cochés sont traités (/api/data/reservio-appliquer). */
-let _rsvLignes = [], _rsvFiltre = 'traiter';
+let _rsvLignes = [], _rsvFiltre = 'traiter', _rsvHisto = [];
+const _RSV_ORIGINE = { synchro: 'par la synchro Reservio', verification: 'via « Vérifier les RDV Reservio »', pc: 'depuis un poste', autre: 'hors synchro et hors PC' };
+function _rsvQuand(q) {
+  const d = new Date(q);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
 const _rsvEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 function _rsvNomSal(id) {
   const s = _salariesListeReservio().find(x => String(x.id) === String(id));
@@ -744,6 +750,7 @@ async function ouvrirVerifReservio() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) throw new Error(j.message || ('Erreur ' + r.status));
     _rsvLignes = j.lignes || [];
+    _rsvHisto = j.historique || [];
     const erreurs = (j.fluxEnErreur || []).map(f => '⚠ Agenda Reservio de ' + _rsvNomSal(f.salarieId) + ' illisible (' + f.erreur + ') : ses RDV ne sont pas listés.');
     _rsvFiltre = _rsvLignes.some(l => l.statut !== 'ok') ? 'traiter' : 'tous';
     _rsvRendre(erreurs);
@@ -754,7 +761,10 @@ async function ouvrirVerifReservio() {
 function fermerVerifReservio() { document.getElementById('modale-verif-reservio').classList.remove('open'); }
 
 function _rsvDetail(l) {
-  if (l.statut === 'absent') return l.dejaImporte ? 'Importé puis retiré du planning' : 'Jamais importé';
+  if (l.statut === 'absent') {
+    if (l.retrait) return 'Retiré le ' + _rsvQuand(l.retrait.quand) + ' ' + (_RSV_ORIGINE[l.retrait.origine] || '') + ' — ' + (l.retrait.detail || '');
+    return l.dejaImporte ? 'Importé puis retiré du planning avant la mise en place de l\'historique des retraits (cause non enregistrée)' : 'Jamais importé';
+  }
   if (l.statut === 'annule') return 'Au planning le ' + _rsvDate(l.date) + (l.rdv ? ' à ' + l.rdv : '') + (l.verrouille ? ' · 🔒 modifié à la main' : '');
   if (!l.planning) return '';
   const p = l.planning, morceaux = [];
@@ -772,9 +782,11 @@ function _rsvRendre(erreurs) {
   document.getElementById('rsv-filtres').innerHTML = filtres
     .filter(([c]) => c === 'traiter' || c === 'tous' || nb(c))
     .map(([c, lib]) => '<button type="button" class="rsv-filtre' + (c === _rsvFiltre ? ' actif' : '') + '" onclick="_rsvFiltre=\'' + c + '\';_rsvRendre()">' + lib + ' (' + nb(c) + ')</button>')
-    .join('');
+    .join('')
+    + '<button type="button" class="rsv-filtre' + (_rsvFiltre === 'histo' ? ' actif' : '') + '" style="margin-left:auto;" onclick="_rsvFiltre=\'histo\';_rsvRendre()">📜 Historique des retraits (' + _rsvHisto.length + ')</button>';
   if (erreurs !== undefined) _rsvRendre._erreurs = erreurs;
   const errHtml = (_rsvRendre._erreurs || []).map(t => '<p style="margin:0 0 0.6rem;color:#b45309;font-size:0.82rem;">' + _rsvEsc(t) + '</p>').join('');
+  if (_rsvFiltre === 'histo') { _rsvRendreHisto(); return; }
 
   const lignes = _rsvLignes.map((l, i) => ({ l, i }))
     .filter(({ l }) => _rsvFiltre === 'tous' || (_rsvFiltre === 'traiter' ? l.statut !== 'ok' : l.statut === _rsvFiltre));
@@ -795,6 +807,24 @@ function _rsvRendre(erreurs) {
       + (_rsvDetail(l) ? '<div class="rsv-detail">' + _rsvEsc(_rsvDetail(l)) + '</div>' : '') + '</td>'
       + '<td class="rsv-action">' + (_RSV_ACTION[l.statut] || '') + '</td></tr>').join('')
     + '</tbody></table>';
+  _rsvMajBouton();
+}
+/* Historique des retraits : chaque RDV Reservio disparu du planning, avec quand, qui et pourquoi. */
+function _rsvRendreHisto() {
+  const corps = document.getElementById('rsv-corps');
+  if (!_rsvHisto.length) {
+    corps.innerHTML = '<p style="color:#64748b;">Aucun retrait enregistré depuis la mise en place de l\'historique.</p>';
+  } else {
+    corps.innerHTML = '<table class="rsv-table"><thead><tr><th>Retiré le</th><th>RDV du</th><th>Client</th><th>Technicien</th><th>Par</th><th>Détail</th></tr></thead><tbody>'
+      + _rsvHisto.map(r => '<tr>'
+        + '<td style="white-space:nowrap;">' + _rsvEsc(_rsvQuand(r.quand)) + '</td>'
+        + '<td style="white-space:nowrap;">' + _rsvEsc(_rsvDate(r.date)) + '</td>'
+        + '<td><b>' + _rsvEsc(r.chantier) + '</b></td>'
+        + '<td>' + _rsvEsc(r.salarieId ? _rsvNomSal(r.salarieId) : '') + '</td>'
+        + '<td><span class="rsv-statut ' + (r.origine === 'synchro' ? 'ecart' : r.origine === 'verification' ? 'ok' : 'absent') + '">' + _rsvEsc({ synchro: 'Synchro', verification: 'Vérification', pc: 'Poste PC', autre: 'Autre' }[r.origine] || r.origine) + '</span></td>'
+        + '<td class="rsv-detail" style="margin:0;">' + _rsvEsc(r.detail) + '</td></tr>').join('')
+      + '</tbody></table>';
+  }
   _rsvMajBouton();
 }
 function _rsvToutCocher(v) {
