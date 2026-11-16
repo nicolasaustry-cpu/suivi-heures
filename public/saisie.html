@@ -1166,20 +1166,51 @@
   /* Le bandeau bleu Volitis (en-tête PC) et le panneau QR restent inchangés. */
 
   /* ── Pavés « Mon planning » (repris sans changement de structure) ── */
-  #mon-planning-corps .chip { border:1px solid #dbe3ec; border-radius:9px; padding:8px 10px; margin-bottom:7px; background:#f8fafc; display:flex; flex-direction:column; min-height:48px; }
-  #mon-planning-corps .chip:last-child { margin-bottom:0; }
-  #mon-planning-corps .chip.s-cours { background:#fffbeb; border-color:#fcd34d; }
-  #mon-planning-corps .chip.s-parti { background:#f0fdf4; border-color:#86efac; }
-  #mon-planning-corps .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:5px; color:#0f172a; font-size:0.95rem; }
-  #mon-planning-corps .chip .cn .nm { overflow-wrap:anywhere; word-break:break-word; }
-  #mon-planning-corps .chip.s-cours .cn { color:#92400e; }
-  #mon-planning-corps .chip.s-parti .cn { color:#15803d; }
-  #mon-planning-corps .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.78rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
-  #mon-planning-corps .chip-hrs .hr { margin-left:6px; }
-  #mon-planning-corps .chip-notetxt { margin-top:5px; padding-top:5px; border-top:1px dashed rgba(0,0,0,0.18); font-size:0.82rem; line-height:1.35; color:#334155; font-weight:400; white-space:pre-wrap; overflow-wrap:anywhere; }
-  #mon-planning-corps .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
-  #mon-planning-corps .chip .pin-etat { font-size:1rem; line-height:1; }
-  #mon-planning-corps .tag-add { font-size:0.7rem; font-weight:700; border:1px solid #cbd5e1; border-radius:5px; padding:0 5px; color:#475569; background:#fff; white-space:nowrap; }
+  :is(#mon-planning-corps, #mpf-detail) .chip { border:1px solid #dbe3ec; border-radius:9px; padding:8px 10px; margin-bottom:7px; background:#f8fafc; display:flex; flex-direction:column; min-height:48px; }
+  :is(#mon-planning-corps, #mpf-detail) .chip:last-child { margin-bottom:0; }
+  :is(#mon-planning-corps, #mpf-detail) .chip.s-cours { background:#fffbeb; border-color:#fcd34d; }
+  :is(#mon-planning-corps, #mpf-detail) .chip.s-parti { background:#f0fdf4; border-color:#86efac; }
+  :is(#mon-planning-corps, #mpf-detail) .chip .cn { font-weight:700; line-height:1.25; display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin-bottom:5px; color:#0f172a; font-size:0.95rem; }
+  :is(#mon-planning-corps, #mpf-detail) .chip .cn .nm { overflow-wrap:anywhere; word-break:break-word; }
+  :is(#mon-planning-corps, #mpf-detail) .chip.s-cours .cn { color:#92400e; }
+  :is(#mon-planning-corps, #mpf-detail) .chip.s-parti .cn { color:#15803d; }
+  :is(#mon-planning-corps, #mpf-detail) .chip-hrs { margin-top:auto; padding-top:4px; font-size:0.78rem; line-height:1.3; color:#4b5563; white-space:nowrap; }
+  :is(#mon-planning-corps, #mpf-detail) .chip-hrs .hr { margin-left:6px; }
+  :is(#mon-planning-corps, #mpf-detail) .chip-notetxt { margin-top:5px; padding-top:5px; border-top:1px dashed rgba(0,0,0,0.18); font-size:0.82rem; line-height:1.35; color:#334155; font-weight:400; white-space:pre-wrap; overflow-wrap:anywhere; }
+  :is(#mon-planning-corps, #mpf-detail) .chip-hrs .hr.depasse { color:#dc2626; font-weight:700; }
+  :is(#mon-planning-corps, #mpf-detail) .chip .pin-etat { font-size:1rem; line-height:1; }
+  :is(#mon-planning-corps, #mpf-detail) .tag-add { font-size:0.7rem; font-weight:700; border:1px solid #cbd5e1; border-radius:5px; padding:0 5px; color:#475569; background:#fff; white-space:nowrap; }
+  /* ── Mon planning : bascule Liste / Frise ── */
+  .mp-bascule { display:grid; grid-template-columns:1fr 1fr; background:#e3e8f4; border-radius:10px; padding:3px; margin:8px 14px 0; }
+  .mp-bascule button { border:0; background:transparent; color:#46506a; font-size:0.85rem; padding:7px 6px; border-radius:8px; font-family:inherit; cursor:pointer; }
+  .mp-bascule button.on { background:#fff; color:#0f3a8a; font-weight:700; box-shadow:0 1px 2px rgba(15,58,138,.15); }
+  /* ── Mon planning : frise de la semaine (une barre par jour, au prorata des heures) ── */
+  .mpf-tot { display:flex; justify-content:space-between; align-items:baseline; font-size:0.78rem; color:#5b6478; margin:2px 0 10px; }
+  .mpf-tot b { font-size:1rem; }
+  .mpf-ligne { display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+  .mpf-ligne.auj .mpf-j { color:#b45309; font-weight:700; }
+  .mpf-ligne.auj .mpf-barre { box-shadow:0 0 0 2px #2563eb; }
+  .mpf-j { width:40px; flex:0 0 auto; font-size:0.78rem; color:#46506a; line-height:1.15; }
+  .mpf-j b { display:block; font-size:0.85rem; }
+  .mpf-barre { flex:1; min-width:0; position:relative; height:46px; border-radius:7px; overflow:hidden; background:#eef1f6; display:flex; }
+  .mpf-pc { position:relative; height:100%; border:0; padding:3px 5px; color:#fff; font-size:0.7rem; font-weight:700; line-height:1.2; text-align:left;
+            overflow:hidden; display:flex; flex-direction:column; justify-content:center; box-shadow:inset 1px 0 0 rgba(255,255,255,.85); font-family:inherit; cursor:pointer; min-width:0; }
+  .mpf-pc span, .mpf-pc small { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mpf-pc small { font-weight:500; font-size:0.66rem; opacity:.92; }
+  .mpf-pc.k-vide { background:#fff; border:1px dashed #94a3b8; color:#64748b; font-weight:500; cursor:default; }
+  .mpf-pc.k-abs { background:repeating-linear-gradient(45deg,#fde68a 0 6px,#fef3c7 6px 12px); color:#78350f; cursor:default; }
+  .mpf-pc.k-ecole { background:#E6F1FB; color:#0C447C; border:1px solid #85B7EB; cursor:default; }
+  .mpf-pc.k-off { background:repeating-linear-gradient(45deg,#d9dde3 0 4px,#eef1f5 4px 8px); color:#64748b; font-weight:500; cursor:default; }
+  .mpf-pc.ajoute { background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 5px,transparent 5px 10px); }
+  .mpf-h { width:40px; flex:0 0 auto; text-align:right; font-size:0.78rem; font-weight:700; }
+  .mpf-legende { display:flex; flex-wrap:wrap; gap:6px 12px; font-size:0.72rem; color:#475569; }
+  .mpf-legende span { display:inline-flex; align-items:center; gap:4px; }
+  .mpf-legende i { width:14px; height:10px; border-radius:2px; display:inline-block; }
+  #mpf-detail { position:fixed; inset:0; background:rgba(10,22,52,.45); z-index:10002; display:flex; align-items:flex-end; justify-content:center; }
+  #mpf-detail .mpf-volet { background:#fff; width:100%; max-width:480px; border-radius:18px 18px 0 0; padding:10px 16px 18px; max-height:80vh; overflow:auto; box-shadow:0 -10px 30px rgba(10,22,52,.25); }
+  #mpf-detail .mpf-poignee { display:block; margin:0 auto 10px; width:40px; height:5px; border-radius:3px; background:#cfd7e8; }
+  #mpf-detail .mpf-quand { font-size:0.8rem; color:#5b6478; font-weight:600; margin-bottom:8px; }
+  #mpf-detail .mpf-fermer { width:100%; min-height:46px; margin-top:10px; border-radius:12px; border:0; background:#0f3a8a; color:#fff; font-size:0.95rem; font-weight:700; font-family:inherit; }
 
   /* ── Panneau de modification de l'heure de RDV (gérant / administratif) ── */
   #rdv-pop-m { display:none; position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; padding:20px; }
@@ -2702,11 +2733,11 @@ function rendreMonPlanning() {
       +   '<span id="mon-planning-semaine" style="font-weight:700;color:#111827;font-size:0.9rem;text-align:center;"></span>'
       +   '<button type="button" id="mon-planning-suiv" style="background:#eef2ff;color:#3730a3;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;">▶</button>'
       + '</div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 14px;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;">'
-      +   '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:#FCEBD2;border:1px solid #EEC489;display:inline-block;"></i>Planifié</span>'
-      +   '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:#D4E7FB;border:1px solid #4F9BE8;display:inline-block;"></i>Sur place</span>'
-      +   '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:#DCF0C6;border:1px solid #6FB23C;display:inline-block;"></i>Parti</span>'
+      + '<div class="mp-bascule" role="group" aria-label="Affichage">'
+      +   '<button type="button" data-vue="liste">☰ Liste</button>'
+      +   '<button type="button" data-vue="frise">▤ Frise</button>'
       + '</div>'
+      + '<div id="mon-planning-legende" style="display:flex;flex-wrap:wrap;gap:12px;padding:8px 14px;border-bottom:1px solid #e5e7eb;font-size:0.72rem;color:#475569;"></div>'
       + '<div id="mon-planning-corps" style="padding:10px 14px 16px;overflow:auto;"></div>'
       + '</div>';
     document.body.appendChild(ov);
@@ -2714,10 +2745,21 @@ function rendreMonPlanning() {
     ov.querySelector('#mon-planning-fermer').addEventListener('click', function () { ov.style.display = 'none'; });
     ov.querySelector('#mon-planning-prec').addEventListener('click', function () { naviguerMonPlanning(-1); });
     ov.querySelector('#mon-planning-suiv').addEventListener('click', function () { naviguerMonPlanning(1); });
+    ov.querySelectorAll('.mp-bascule button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        _mpVue = b.getAttribute('data-vue');
+        try { localStorage.setItem('monPlanningVue', _mpVue); } catch (_) {}
+        rendreMonPlanning();
+        ov.querySelector('#mon-planning-corps').scrollTop = 0;
+      });
+    });
     // Bouton « 📎 N document(s) » d'un chantier → même fenêtre que sur l'écran de saisie
     ov.querySelector('#mon-planning-corps').addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('.mp-docs');
       if (b) ouvrirNotePlanning(b.getAttribute('data-nom') || '', b.getAttribute('data-notejour') || '');
+      // Frise : un chantier touché → sa fiche (même carte que la vue Liste)
+      var pc = e.target.closest && e.target.closest('.mpf-pc[data-date]');
+      if (pc) _mpfOuvrirDetail(pc.getAttribute('data-date'), +pc.getAttribute('data-i'));
     });
     // Swipe horizontal pour changer de semaine (mobile)
     (function () {
@@ -2741,8 +2783,20 @@ function rendreMonPlanning() {
   const ddmm = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
   ov.querySelector('#mon-planning-semaine').textContent = ddmm(lundi) + ' – ' + ddmm(samedi);
 
+  // Bascule Liste / Frise + légende adaptée à la vue
+  ov.querySelectorAll('.mp-bascule button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-vue') === _mpVue); });
+  const _leg = (fond, bord, lib) => '<span style="display:inline-flex;align-items:center;gap:4px;"><i style="width:12px;height:12px;border-radius:3px;background:' + fond + ';border:1px solid ' + bord + ';display:inline-block;"></i>' + lib + '</span>';
+  ov.querySelector('#mon-planning-legende').innerHTML = _mpVue === 'frise'
+    ? '<div class="mpf-legende"><span>✅ Parti</span><span>📍 Sur place</span>'
+      + '<span><i style="background:#fff;border:1px dashed #94a3b8"></i>Non planifié</span>'
+      + '<span><i style="background:repeating-linear-gradient(45deg,#fde68a 0 3px,#fef3c7 3px 6px)"></i>Absence</span>'
+      + '<span><i style="background:#E6F1FB;border:1px solid #85B7EB"></i>École</span>'
+      + '<span><i style="background:repeating-linear-gradient(45deg,#d9dde3 0 3px,#eef1f5 3px 6px)"></i>Férié / repos</span></div>'
+    : _leg('#FCEBD2', '#EEC489', 'Planifié') + _leg('#D4E7FB', '#4F9BE8', 'Sur place') + _leg('#DCF0C6', '#6FB23C', 'Parti');
+
   const corps = ov.querySelector('#mon-planning-corps');
   corps.innerHTML = '';
+  if (_mpVue === 'frise') { corps.innerHTML = _mpfHtml(lundi); return; }
   const ajd = _ymd(new Date());
   for (let i = 0; i < 6; i++) {
     const d = new Date(lundi); d.setDate(lundi.getDate() + i);
@@ -2765,6 +2819,124 @@ function rendreMonPlanning() {
     bloc.appendChild(body);
     corps.appendChild(bloc);
   }
+}
+
+/* ═══════════════════════════
+   MON PLANNING — VUE FRISE DE LA SEMAINE
+   Une barre par jour, découpée au prorata des heures planifiées (base = contrat du
+   jour, ou planifié + absence s'il dépasse), comme la frise du PC (mêmes couleurs par
+   chantier). Contrat : alternance A/B, fériés et jours d'école pris en compte.
+   Données : celles de la vue Liste (chipsJourMonPlanning : planifié + réalisé + ajouts).
+═══════════════════════════ */
+let _mpVue = (function () { try { return localStorage.getItem('monPlanningVue') === 'frise' ? 'frise' : 'liste'; } catch (_) { return 'liste'; } })();
+let _mpfJours = {};                     // date → morceaux de la barre (pour la fiche détail)
+const _MPF_PALETTE = ['#2563eb','#0d9488','#9333ea','#ea580c','#db2777','#16a34a','#0891b2','#ca8a04',
+                      '#4f46e5','#be123c','#0f766e','#7c3aed','#c2410c','#1d4ed8','#65a30d','#a21caf'];
+function _mpfCouleur(nom) {             // identique à frCouleur (frise PC) : même chantier = même couleur
+  let h = 0; const t = String(nom || '').toUpperCase();
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return _MPF_PALETTE[h % _MPF_PALETTE.length];
+}
+function _mpfFmt(h) { return (Math.round((parseFloat(h) || 0) * 100) / 100).toString().replace('.', ',') + ' h'; }
+/* Contrat du salarié connecté pour une date (heures) — même règle que contratMinutesDuJour. */
+function _mpfContrat(dateStr) {
+  try {
+    const sals = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+    const moi = sals.find(s => String(s.id) === String(_salarie && _salarie.id));
+    if (!moi || estFeriePl(dateStr) || estJourEcolePl(moi, dateStr)) return 0;
+    const d = new Date(dateStr + 'T00:00:00');
+    return parseFloat(grilleHeuresPourDate(moi, d)[['dim','lun','mar','mer','jeu','ven','sam'][d.getDay()]]) || 0;
+  } catch (_) { return 0; }
+}
+function _mpfJournee(dateStr, heures) {
+  const salId = _salarie && _salarie.id;
+  const safe = dateStr.replace(/-/g, '_');
+  const contrat = _mpfContrat(dateStr);
+  const absE = heures[String(salId) + safe + 'abs'];
+  const abs = absE ? (parseFloat(absE.heures) || 0) : 0;
+  const motif = absE ? String(absE.motif || '').trim() : '';
+  // Heure de RDV par chantier (1er créneau du jour portant ce nom)
+  const rdv = {};
+  for (let i = 1; i <= 60; i++) {
+    const e = heures[String(salId) + safe + 'ch' + i];
+    const n = e && String(e.chantier || '').trim().toUpperCase();
+    if (n && e.rdv && !rdv[n]) rdv[n] = String(e.rdv).trim();
+  }
+  const chips = chipsJourMonPlanning(dateStr)
+    .filter(c => String(c.nom || '').trim().toUpperCase() !== 'TEMPS NON AFFECTE')
+    .map(c => Object.assign({}, c, { rdv: rdv[String(c.nom || '').trim().toUpperCase()] || '',
+                                     hBarre: c.hPlan > 0 ? c.hPlan : c.hReal }))   // ajout mobile : largeur = temps réalisé
+    .filter(c => c.hBarre > 0);
+  const planifie = chips.reduce((t, c) => t + (c.hPlan || 0), 0);
+  return { contrat, abs, motif, chips, planifie, ferie: estFeriePl(dateStr), ecole: (function () {
+    try { const moi = JSON.parse(localStorage.getItem('salariesdata') || '[]').find(s => String(s.id) === String(salId)); return estJourEcolePl(moi, dateStr); } catch (_) { return false; }
+  })() };
+}
+function _mpfHtml(lundi) {
+  const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+  const ajd = _ymd(new Date());
+  const JC = ['Di','Lu','Ma','Me','Je','Ve','Sa'];
+  _mpfJours = {};
+  let lignes = '', totPlan = 0, totContrat = 0;
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(lundi); d.setDate(lundi.getDate() + i);
+    const ds = _ymd(d);
+    const j = _mpfJournee(ds, heures);
+    if (i === 5 && j.contrat <= 0 && !j.chips.length && j.abs <= 0) continue;   // samedi vide : masqué
+    const pieces = [];
+    let html = '';
+    if (j.contrat <= 0 && !j.chips.length) {
+      if (j.abs > 0) html = `<span class="mpf-pc k-abs" style="flex:1 1 0"><span>${_mpEsc(j.motif || 'Absence')}</span></span>`;
+      else if (j.ecole) html = '<span class="mpf-pc k-ecole" style="flex:1 1 0"><span>École</span></span>';
+      else html = `<span class="mpf-pc k-off" style="flex:1 1 0"><span>${_mpEsc(j.ferie ? nomFeriePl(ds) : 'Non travaillé')}</span></span>`;
+    } else {
+      const effContrat = Math.max(0, j.contrat - j.abs);
+      totContrat += effContrat; totPlan += j.planifie;
+      const base = Math.max(j.contrat, j.chips.reduce((t, c) => t + c.hBarre, 0) + j.abs) || 1;
+      j.chips.forEach((c, k) => {
+        pieces.push(c);
+        const ico = c.etat === 'parti' ? '✅ ' : (c.etat === 'cours' ? '📍 ' : '');
+        const sous = [c.rdv ? '🕐 ' + c.rdv : '', _mpfFmt(c.hPlan > 0 ? c.hPlan : c.hReal) + (c.ajoute ? ' · ajouté' : '')].filter(Boolean).join(' · ');
+        html += `<button type="button" class="mpf-pc${c.ajoute ? ' ajoute' : ''}" data-date="${ds}" data-i="${k}" style="flex:${c.hBarre / base} 1 0;background-color:${_mpfCouleur(c.nom)}"`
+              + ` title="${_mpEsc(c.nom)}"><span>${ico}${_mpEsc(c.nom)}</span><small>${_mpEsc(sous)}</small></button>`;
+      });
+      const reste = Math.max(0, effContrat - j.planifie);
+      if (reste > 0.01) html += `<span class="mpf-pc k-vide" style="flex:${reste / base} 1 0"><span>${_mpfFmt(reste)}</span><small>non planifié</small></span>`;
+      if (j.abs > 0) html += `<span class="mpf-pc k-abs" style="flex:${j.abs / base} 1 0"><span>${_mpEsc(j.motif || 'Absence')}</span><small>${_mpfFmt(j.abs)}</small></span>`;
+    }
+    _mpfJours[ds] = pieces;
+    const effC = Math.max(0, j.contrat - j.abs);
+    const coul = (effC <= 0 && j.planifie <= 0) ? '#94a3b8'
+      : (j.planifie < effC - 0.01 ? '#b45309' : (j.planifie > effC + 0.01 ? '#dc2626' : '#1d6b3a'));
+    lignes += `<div class="mpf-ligne${ds === ajd ? ' auj' : ''}"><span class="mpf-j"><b>${JC[d.getDay()]} ${d.getDate()}</b>${ds === ajd ? 'auj.' : ''}</span>`
+            + `<div class="mpf-barre">${html}</div><span class="mpf-h" style="color:${coul}">${j.planifie > 0 ? _mpfFmt(j.planifie) : '—'}</span></div>`;
+  }
+  const coulTot = totPlan < totContrat - 0.01 ? '#b45309' : (totPlan > totContrat + 0.01 ? '#dc2626' : '#1d6b3a');
+  return `<div class="mpf-tot"><span>Planifié sur la semaine</span><b style="color:${coulTot}">${_mpfFmt(totPlan)} <small style="font-size:0.75rem;font-weight:500;color:#5b6478">/ ${_mpfFmt(totContrat)}</small></b></div>`
+       + lignes
+       + '<div style="font-size:0.72rem;color:#94a3b8;text-align:center;margin-top:4px;">Touchez un chantier pour voir son détail</div>';
+}
+/* Fiche d'un chantier touché dans la frise : même carte que la vue Liste. */
+function _mpfOuvrirDetail(ds, i) {
+  const c = (_mpfJours[ds] || [])[i];
+  if (!c) return;
+  const ancien = document.getElementById('mpf-detail');
+  if (ancien) ancien.remove();
+  const d = new Date(ds + 'T00:00:00');
+  const quand = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'][d.getDay()] + ' '
+    + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + (c.rdv ? ' · RDV à ' + c.rdv : '');
+  const v = document.createElement('div');
+  v.id = 'mpf-detail';
+  v.innerHTML = '<div class="mpf-volet" role="dialog" aria-label="Détail du chantier"><span class="mpf-poignee"></span>'
+    + '<div class="mpf-quand">' + _mpEsc(quand) + '</div>'
+    + '<div>' + _mpHtmlChip(c) + '</div>'
+    + '<button type="button" class="mpf-fermer">Fermer</button></div>';
+  v.addEventListener('click', function (e) {
+    const b = e.target.closest && e.target.closest('.mp-docs');
+    if (b) { v.remove(); ouvrirNotePlanning(b.getAttribute('data-nom') || '', b.getAttribute('data-notejour') || ''); return; }
+    if (e.target === v || e.target.classList.contains('mpf-fermer')) v.remove();
+  });
+  document.body.appendChild(v);
 }
 
 /* ═══════════════════════════
