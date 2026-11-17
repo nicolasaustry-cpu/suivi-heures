@@ -468,6 +468,41 @@
   </div>
 </section>
 
+<!-- Jours fériés : règles appliquées dans Éléments Pointage Paie (entreprisedata.feries) -->
+<section class="ent-tuile" style="background:#f0fdf4;border-left-color:#16a34a;">
+  <h2 style="color:#15803d;">Jours fériés</h2>
+  <details class="volet" data-volet="feries"><summary>ℹ️ Explications</summary><div class="volet-corps">
+  <p style="font-size:0.85rem;color:#475569;margin:0;">
+    Dans <strong>Éléments Pointage Paie</strong>, un jour férié chômé est <strong>payé</strong> comme un événement familial
+    (heures du contrat de la journée), sans toucher au compteur d'heures. S'il est travaillé, les heures travaillées remplacent
+    le férié chômé (jamais comptées deux fois). Le <strong>1er mai travaillé</strong> ouvre toujours droit à une
+    <strong>indemnité de 100 %</strong> des heures travaillées (obligation légale). Pour les autres fériés travaillés,
+    la loi ne prévoit pas de majoration : indiquez celle de votre convention collective ou de votre entreprise.
+  </p>
+  </div></details>
+  <div style="display:flex;flex-direction:column;gap:0.7rem;">
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;flex-wrap:wrap;">
+      <span style="font-weight:600;">Majoration des fériés travaillés (hors 1er mai) :</span>
+      <input type="number" id="ferieMajoration" min="0" max="200" step="5" value="0" style="width:80px;"> %
+    </label>
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;flex-wrap:wrap;">
+      <span style="font-weight:600;">Journée de solidarité :</span>
+      <select id="ferieSolidarite">
+        <option value="aucune">Aucun férié concerné</option>
+        <option value="pentecote">Lundi de Pentecôte (travaillé, non payé en plus)</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;cursor:pointer;">
+      <input type="checkbox" id="ferieAnciennete">
+      Ne pas payer les fériés chômés aux salariés de moins de 3 mois d'ancienneté (le 1er mai reste toujours payé)
+    </label>
+    <div style="display:flex;align-items:center;gap:0.8rem;">
+      <button type="button" id="btn-valider-feries" class="btn btn-success" onclick="validerFeries()">💾 Valider</button>
+      <span id="feries-msg" style="font-size:0.85rem;color:#16a34a;"></span>
+    </div>
+  </div>
+</section>
+
 <!-- Zones d'indemnités de trajet : point de départ + bornes kilométriques (vol d'oiseau) -->
 <section class="ent-tuile" style="background:#fff7ed;border-left-color:#ea580c;">
   <h2 style="color:#c2410c;">Zones d'indemnités de trajet</h2>
@@ -965,6 +1000,39 @@ async function validerMajCompteur() {
 }
 window.addEventListener('DOMContentLoaded', chargerMajCompteur);
 window.addEventListener('donnees-chargees', chargerMajCompteur);
+
+/* Jours fériés — entreprisedata.feries = { majoration (%), solidarite:'aucune'|'pentecote', anciennete3mois }.
+   Absent = 0 %, aucune journée de solidarité, fériés payés dès l'embauche. */
+function chargerFeries() {
+  const f = _entLire().feries || {};
+  const maj = document.getElementById('ferieMajoration');
+  const sol = document.getElementById('ferieSolidarite');
+  const anc = document.getElementById('ferieAnciennete');
+  if (maj) maj.value = (f.majoration != null && isFinite(parseFloat(f.majoration))) ? parseFloat(f.majoration) : 0;
+  if (sol) sol.value = f.solidarite === 'pentecote' ? 'pentecote' : 'aucune';
+  if (anc) anc.checked = f.anciennete3mois === true;
+}
+async function validerFeries() {
+  const t = parseFloat(document.getElementById('ferieMajoration').value);
+  if (!isFinite(t) || t < 0 || t > 200) { alert('Majoration : indiquez un pourcentage entre 0 et 200.'); return; }
+  const ent = _entLire();
+  ent.feries = {
+    majoration: t,
+    solidarite: document.getElementById('ferieSolidarite').value === 'pentecote' ? 'pentecote' : 'aucune',
+    anciennete3mois: !!document.getElementById('ferieAnciennete').checked
+  };
+  localStorage.setItem('entreprisedata', JSON.stringify(ent));
+  const btn = document.getElementById('btn-valider-feries');
+  const msg = document.getElementById('feries-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (window.SYNC && typeof SYNC.sauvegarderTout === 'function') {
+    await SYNC.sauvegarderTout();
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Valider'; }
+  if (msg) { msg.textContent = '✔ Enregistré'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+window.addEventListener('DOMContentLoaded', chargerFeries);
+window.addEventListener('donnees-chargees', chargerFeries);
 </script>
 
 <script>

@@ -232,6 +232,8 @@
     .mt-annuler { background:#e2e8f0; color:#334155; }
     #recap-evenements { margin-top:10px; }
     #recap-evenements:empty { display:none; }
+    #recap-feries { margin-top:10px; }
+    #recap-feries:empty { display:none; }
     table.bev-recap { border-collapse:collapse; font-size:0.85rem; margin-top:6px; }
     table.bev-recap th, table.bev-recap td { border:1px solid #cbd5e1; padding:3px 8px; text-align:center; }
     table.bev-recap th { background:#eef2f7; color:#0f3a8a; font-weight:700; }
@@ -524,6 +526,32 @@ function rendreRecapEvenements() {
   html += '</tbody></table>';
   wrap.innerHTML = html;
 }
+/* Encart « Jours fériés du mois » : heures fériées payées, heures travaillées et majoration à payer
+   (indemnité 1er mai à 100 % ou majoration paramétrée), sur une ligne à part du Temps pris en compte. */
+function rendreRecapFeries(lignes) {
+  const wrap = document.getElementById('recap-feries');
+  if (!wrap) return;
+  const fs = (lignes || []).filter(function (l) { return l.ferie && (l.ferie.contratNormal > 0 || l.ferie.travail > 0); });
+  if (!fs.length) { wrap.innerHTML = ''; return; }
+  let tPaye = 0, tTrav = 0, tMaj = 0;
+  let html = '<table class="bev-recap"><thead><tr><th>Jour férié</th><th>Statut</th><th>Heures fériées payées</th><th>Heures travaillées</th><th>Majoration</th><th>Heures de majoration à payer</th></tr></thead><tbody>';
+  fs.forEach(function (l) {
+    const f = l.ferie;
+    let statut;
+    if (!l.passe) statut = 'à venir';
+    else if (f.travail > 0) statut = f.premierMai ? '1er mai travaillé' : 'travaillé';
+    else statut = f.paye ? 'chômé payé' : 'chômé non payé (ancienneté < 3 mois)';
+    if (l.passe) { tPaye += f.chomePaye; tTrav += f.travail; tMaj += f.maj; }
+    html += '<tr' + (l.passe ? '' : ' style="color:#94a3b8"') + '><td>' + l.label + ' · ' + f.libelle + '</td><td>' + statut + '</td>' +
+      '<td>' + (l.passe ? fmt(f.chomePaye) : '') + '</td><td>' + (l.passe ? fmt(f.travail) : '') + '</td>' +
+      '<td>' + (l.passe && f.travail > 0 ? fmtTaux(f.taux) + ' %' : '') + '</td><td>' + (l.passe && f.maj ? fmt(f.maj) : '') + '</td></tr>';
+  });
+  html += '<tr style="font-weight:700"><td>Total</td><td></td><td>' + fmt(r2(tPaye)) + '</td><td>' + fmt(r2(tTrav)) + '</td><td></td><td>' + fmt(r2(tMaj)) + '</td></tr>';
+  html += '</tbody></table>';
+  if (tMaj > 0) html += '<div style="font-size:0.78rem;color:#475569;margin-top:3px;">Les heures de majoration sont à payer en plus du Temps pris en compte'
+    + (fs.some(function (l) { return l.passe && l.ferie.premierMai && l.ferie.travail > 0; }) ? ' (1er mai : indemnité légale de 100 %, à faire figurer sur le bulletin)' : '') + '.</div>';
+  wrap.innerHTML = html;
+}
 let _salaries = [];
 const MOIS_NOMS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 function moisLabel(ym) { const p = ym.split('-'); return MOIS_NOMS[parseInt(p[1])-1] + '-' + p[0]; }
@@ -790,6 +818,75 @@ function estJourEcoleBev(sal,dateStr){return !!(sal&&sal.apprenti&&Array.isArray
    (comme une récupération), sans être déduit du compteur d'heures. */
 const MOTIFS_ABS_PAYEES = ['Visite médicale', 'Formation', 'Even. Familial'];
 
+/* ── Jours fériés (règle en vigueur à partir de novembre 2026) ──
+   - Férié chômé = absence légale rémunérée (comme Even. Familial) : contrat du jour conservé,
+     heures fériées comptées dans le Temps pris en compte, sans toucher au compteur.
+   - Férié travaillé : les heures travaillées remplacent le férié chômé à hauteur du contrat du jour
+     (heures fériées payées = contrat − travaillé, jamais négatif) ; seul le dépassement du contrat
+     devient de l'écart (heures sup.). Les heures travaillées ne sont donc jamais comptées deux fois.
+   - 1er mai travaillé : indemnité légale de 100 % des heures travaillées (art. L3133-6), sur une
+     ligne à part (encart « Jours fériés du mois »), hors compteur et hors heures productives.
+   - Autres fériés travaillés : majoration paramétrable (page Entreprise), 0 % par défaut.
+   - Journée de solidarité (option Entreprise) : jour travaillé normal, non payé en plus.
+   - Option Entreprise : fériés chômés non payés sous 3 mois d'ancienneté (le 1er mai reste payé).
+   Réglages : entreprisedata.feries = { majoration, solidarite:'aucune'|'pentecote', anciennete3mois }. */
+const REGLE_FERIES_DEBUT = '2026-11';
+function regleFeriesActive(ym) { return !!ym && ym >= REGLE_FERIES_DEBUT; }
+function reglagesFeries() {
+  const f = _entrepriseBev().feries || {};
+  const t = parseFloat(f.majoration);
+  return {
+    majoration: (isFinite(t) && t >= 0 && t <= 200) ? t : 0,
+    solidarite: f.solidarite === 'pentecote' ? 'pentecote' : 'aucune',
+    anciennete3mois: f.anciennete3mois === true
+  };
+}
+function nomFerieBev(dateStr) {
+  const md = dateStr.slice(5);
+  const fixes = { '01-01': 'Jour de l\'An', '05-01': 'Fête du Travail', '05-08': 'Victoire 1945', '07-14': 'Fête nationale',
+                  '08-15': 'Assomption', '11-01': 'Toussaint', '11-11': 'Armistice', '12-25': 'Noël' };
+  if (fixes[md]) return fixes[md];
+  const y = parseInt(dateStr.slice(0, 4), 10), p = _bevPaques(y);
+  const noms = { 1: 'Lundi de Pâques', 39: 'Ascension', 50: 'Lundi de Pentecôte' };
+  for (const n in noms) {
+    const dd = new Date(p); dd.setDate(p.getDate() + Number(n));
+    if (cle(dd) === dateStr) return noms[n];
+  }
+  return 'Férié';
+}
+function estLundiPentecoteBev(dateStr) {
+  const y = parseInt(dateStr.slice(0, 4), 10), p = _bevPaques(y);
+  const dd = new Date(p); dd.setDate(p.getDate() + 50);
+  return cle(dd) === dateStr;
+}
+/* Ancienneté < 3 mois à la date du férié (dateEntree au format AAAA-MM-JJ) */
+function moinsDe3MoisBev(sal, dateStr) {
+  if (!sal || !sal.dateEntree || !/^\d{4}-\d{2}-\d{2}$/.test(sal.dateEntree)) return false;
+  const p = sal.dateEntree.split('-').map(Number);
+  const lim = new Date(p[0], p[1] - 1 + 3, p[2]);   // date d'entrée + 3 mois
+  return dateStr < cle(lim);
+}
+/* Calcule (ou recalcule) une ligne de jour férié à partir des heures travaillées ce jour.
+   l.ferie = { nom, premierMai, contratNormal, paye } doit être déjà posé. */
+function appliquerFerie(l, travail, retenues) {
+  const f = l.ferie, reg = reglagesFeries();
+  travail = r2(travail || 0);
+  const chome = r2(Math.max(0, f.contratNormal - travail));
+  l.contrat  = r2(f.contratNormal);
+  l.tempsEvt = chome;
+  l.base     = r2(f.contratNormal - chome);
+  l.motif    = chome > 0 ? (f.paye ? f.nom : f.nom + ' (non payé)') : '';
+  f.travail  = travail;
+  f.chome    = chome;
+  f.chomePaye = f.paye ? chome : 0;
+  f.taux     = travail > 0 ? (f.premierMai ? 100 : reg.majoration) : 0;
+  f.maj      = r2(travail * f.taux / 100);
+  l.ecartRB  = r2(travail - l.base);
+  l.ecartRetenu = (retenues && retenues[l.date] != null) ? r2(Number(retenues[l.date])) : l.ecartRB;
+  l.recupPayee  = f.chomePaye;
+  l.tempsCompte = r2(l.base + l.ecartRetenu + l.recupPayee);
+}
+
 function lignesDuMois(sal, ym, saisies, retenues) {
   const [an, mo] = ym.split('-').map(Number);
   const planifMap = planifieParJour(sal.id, ym);
@@ -797,6 +894,8 @@ function lignesDuMois(sal, ym, saisies, retenues) {
   const _hAbs = _heuresData();
   const nbJours = new Date(an, mo, 0).getDate();
   const lignes = [];
+  const feriesActifs = regleFeriesActive(ym);
+  const regF = reglagesFeries();
   for (let j = 1; j <= nbJours; j++) {
     const d = new Date(an, mo - 1, j);
     const k = cle(d);
@@ -806,7 +905,24 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       const grille = grilleHeuresPourDate(sal, d);
       contratNormal = Number(grille[key]) || 0;
     }
-    const contrat = estFerieBev(k) ? 0 : contratNormal;
+    const ferieCal = estFerieBev(k);
+    // Journée de solidarité (option Entreprise) : le lundi de Pentecôte redevient un jour travaillé normal
+    const solidarite = feriesActifs && ferieCal && regF.solidarite === 'pentecote' && estLundiPentecoteBev(k);
+    const contrat = (ferieCal && !solidarite) ? 0 : contratNormal;
+    if (feriesActifs && ferieCal && !solidarite) {
+      // Jour férié calendaire (règle novembre 2026) : prime sur une absence posée ce jour-là
+      const premierMai = k.slice(5) === '05-01';
+      const lf = {
+        date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
+        passe: (k < AUJOURDHUI), planifie: r2(planifMap[k] || 0), realise: r2(realMap[k] || 0), recup: 0,
+        ferie: { nom: premierMai ? '1er mai' : 'Férié', libelle: nomFerieBev(k), premierMai: premierMai,
+                 contratNormal: r2(contratNormal),
+                 paye: premierMai || !(regF.anciennete3mois && moinsDe3MoisBev(sal, k)) }
+      };
+      appliquerFerie(lf, lf.passe ? lf.realise : lf.planifie, retenues);
+      lignes.push(lf);
+      continue;
+    }
     const safe = k.replace(/-/g, '_');
     const _abs = _hAbs[sal.id + safe + 'abs'];
     let tempsEvt = parseFloat(_abs && _abs.heures || 0) || 0;
@@ -822,7 +938,9 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     // (grille habituelle du salarié pour ce jour de semaine), PAS `contrat` : sur un vrai jour férié
     // calendaire, `contrat` est déjà neutralisé à 0 juste au-dessus, ce qui annulerait la règle.
     // (Even. Familial suit désormais la règle des absences légales rémunérées, voir evtPaye plus bas.)
-    if (motif === 'Férié') {
+    // À partir de novembre 2026, un « Férié » posé au Planning (hors calendrier : férié local, pont
+    // offert…) est une absence rémunérée comme Even. Familial (voir evtPaye) : plus de règle des 7 h.
+    if (motif === 'Férié' && !feriesActifs) {
       base = r2(contratNormal >= 7 ? 7 : contratNormal);
     }
     const planifie = r2(planifMap[k] || 0);
@@ -835,7 +953,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     // Absences légales rémunérées — Visite médicale, Formation, Even. Familial : même règle que la
     // récupération (le temps d'absence est ajouté au Temps pris en compte, donc aucune baisse de salaire),
     // mais SANS déduction du compteur d'heures (ce ne sont pas des heures récupérées).
-    const evtPaye = MOTIFS_ABS_PAYEES.indexOf(motif) !== -1 ? r2(tempsEvt) : 0;
+    const evtPaye = (MOTIFS_ABS_PAYEES.indexOf(motif) !== -1 || (feriesActifs && motif === 'Férié')) ? r2(tempsEvt) : 0;
     const tempsCompte = r2(base + ecartRetenu + recupPayee + evtPaye);   // Temps pris en compte = Nouvelle Base + Écart retenu + récupération + absences légales rémunérées
     lignes.push({
       date: k, label: labelJour(d), we: (d.getDay() === 0 || d.getDay() === 6),
@@ -852,6 +970,7 @@ function lignesDuMois(sal, ym, saisies, retenues) {
   const modePlanifie = totalRealise === 0;
   if (modePlanifie) {
     lignes.forEach(function (l) {
+      if (l.ferie) { appliquerFerie(l, l.planifie, retenues); return; }   // férié : recalcul sur le planifié
       l.ecartRB = r2(l.planifie - l.base);
       l.ecartRetenu = (retenues && retenues[l.date] != null) ? r2(Number(retenues[l.date])) : l.ecartRB;
       l.tempsCompte = r2(l.base + l.ecartRetenu + l.recupPayee);
@@ -995,7 +1114,7 @@ async function chargerMois() {
     corps += '<tr' + (aEvt ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.contrat) + '</td>' +
-      '<td class="evt-cell">' + (l.motif || '') + '</td>' +
+      '<td class="evt-cell"' + (l.ferie ? ' title="' + l.ferie.libelle + '"' : '') + '>' + (l.motif || '') + '</td>' +
       '<td>' + fmt(l.tempsEvt) + '</td>' +
       '<td><b class="base">' + fmt(l.base) + '</b></td>' +
       (l.recup ? '<td title="' + fmt(l.planifie) + ' h planifiées + ' + fmt(l.recup) + ' h de récupération">' + fmt(r2(l.planifie + l.recup)) + '</td>' : '<td>' + fmt(l.planifie) + '</td>') +
@@ -1024,6 +1143,7 @@ async function chargerMois() {
       '<td class="col-tranche"></td><td class="col-repas" id="t-repas">' + (nombreRepas() || '') + '</td><td class="col-tranche col-reinit no-print"></td></tr></tfoot></table>' +
     '<div id="recap-indemnites"></div>' +
     '<div id="recap-evenements"></div>' +
+    '<div id="recap-feries"></div>' +
     '<table class="bev-encart"><thead><tr><th>Écart d\'heures Nouvelle base/' + (mp ? 'Planifié' : 'Réalisé') + '</th><th>Écart d\'heures reportés</th><th>Heures sup./compl. payées</th></tr></thead>' +
     '<tbody><tr><td id="enc-paye"></td><td><input type="number" step="0.25" id="enc-reporte" value="' + fmt(reporte) + '" onfocus="this.select()" onmouseup="return false"></td><td id="enc-payees"></td></tr></tbody></table>' +
     '<table class="bev-compteur" id="bev-compteur" data-ym="' + ym + '" data-recup="' + r2(trecup) + '"><caption>Compteur d\'heures — mouvement du mois</caption>' +
@@ -1052,6 +1172,7 @@ async function chargerMois() {
   document.querySelector('.ind-chk[value="repas"]').checked     = !!_indemnites.repas;
   appliquerIndemnites();
   rendreRecapEvenements();
+  rendreRecapFeries(lignes);
   majEncart();
   _diagEtape(_d, 'calcul et affichage'); _diagAfficher(_d, saisies);
   proposerTranches();
