@@ -44,7 +44,7 @@
   .fr-tsem { height: 22px; background: #e8edf3; }
   .fr-tsem div { position: absolute; top: 0; bottom: 0; background: #0f3a8a; color: #fff; font-size: 0.74rem; font-weight: 700; text-align: center; line-height: 22px; border-left: 1px solid #fff; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
   .fr-tjours { height: 32px; background: #e8edf3; }
-  .fr-tjours div { position: absolute; top: 0; bottom: 0; text-align: center; font-size: 0.7rem; font-weight: 700; color: #334155; line-height: 1.2; padding-top: 4px; box-sizing: border-box; overflow: hidden; }
+  .fr-tjours div { position: absolute; top: 0; bottom: 0; border-left: 1px solid #94a3b8; text-align: center; font-size: 0.7rem; font-weight: 700; color: #334155; line-height: 1.2; padding-top: 4px; box-sizing: border-box; overflow: hidden; }
   .fr-tjours div small { display: block; color: #64748b; font-weight: 400; font-size: 0.68rem; }
   .fr-tjours div.auj { background: #fef3c7; }
   .fr-tjours div.debsem, .fr-tsem div:first-child { border-left: none; }
@@ -62,8 +62,11 @@
   .fr-seg.abs { background: repeating-linear-gradient(45deg,#fde68a 0 6px,#fef3c7 6px 12px); color: #78350f; }
   .fr-seg.ecole { background: #E6F1FB; color: #0C447C; box-shadow: inset 1px 0 0 #85B7EB; }
   .fr-seg.off { background: repeating-linear-gradient(45deg,#d9dde3 0 4px,#eef1f5 4px 8px); color: #64748b; font-weight: 400; text-align: center; }
-  .fr-rep { position: absolute; top: 4px; height: 4px; width: 1px; background: #94a3b8; }
-  .fr-rep.sem { top: 2px; height: 96px; opacity: .55; }
+  /* Séparation entre deux jours : liseré blanc + trait gris, tracé PAR-DESSUS les pavés et sur toute
+     la hauteur de la ligne ; entre deux semaines, trait bleu marine plus marqué. */
+  .fr-rep { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; z-index: 2; pointer-events: none;
+            background: linear-gradient(to right, #fff 0 1px, #64748b 1px 2px, #fff 2px 3px); }
+  .fr-rep.sem { width: 5px; margin-left: -2.5px; background: linear-gradient(to right, #fff 0 1px, #0f3a8a 1px 4px, #fff 4px 5px); }
   .fr-ecart { position: absolute; bottom: 4px; height: 3px; }
   .fr-legende { display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 4px 2px; font-size: 0.78rem; color: #475569; justify-content: center; }
   .fr-legende i { display: inline-block; width: 22px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
@@ -523,7 +526,7 @@ function frRender(){
       piste += '<div class="' + cls + '" style="' + style + '" data-tip="' + frEsc(tip) + '">' + txt + '</div>';
     });
 
-    // Repères de début de journée (petits traits) et de semaine (trait plein)
+    // Séparateurs de journée et de semaine (traits pleins, au-dessus des pavés)
     let reperes = '', sp = null;
     jours.forEach((d, i) => {
       const sm = pl2NumSemaine(d);
@@ -533,7 +536,7 @@ function frRender(){
 
     const info = s.alternance ? 'Alternance A/B' : (s.apprenti ? 'Apprenti' : (s.sav ? 'SAV' : ''));
     html += '<div class="fr-nom" title="' + frEsc(nomSal) + '">' + frEsc(nomSal) + (info ? '<small>' + info + '</small>' : '') + '</div>'
-          + '<div class="fr-ligne">' + reperes + '<div class="fr-piste">' + piste + '</div>' + ecarts.join('') + '</div>'
+          + '<div class="fr-ligne"><div class="fr-piste">' + piste + '</div>' + ecarts.join('') + reperes + '</div>'
           + '<div class="fr-tot" style="color:' + (totPlan < totContrat - 0.01 ? '#b45309' : (totPlan > totContrat + 0.01 ? '#dc2626' : '#0f3a8a')) + '">'
           + frFmt(totPlan) + ' h<small>/ ' + frFmt(totContrat) + ' h</small></div>';
   });
