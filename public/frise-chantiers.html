@@ -229,9 +229,9 @@ function syLigneTip(txt, coul){
 /* ============================================================
    Frise des chantiers — rendu
    Une ligne par salarié, les jours du mois en abscisse, SANS
-   espace entre les journées. 1 heure a la même largeur pour
-   tout le monde et tous les jours
-   (la largeur d'un jour suit la plus grande journée posée ce jour-là) : les pavés sont donc
+   espace entre les journées. Tous les jours ont la même largeur
+   et 1 heure a la même largeur pour tout le monde (un jour vaut
+   la plus grande journée posée sur la période) : les pavés sont donc
    proportionnels au temps prévu, d'un salarié et d'un jour à
    l'autre. Elle se remplit des chantiers dans l'ordre
    des heures de RDV (puis ordre de saisie). Un même chantier sur
@@ -381,17 +381,16 @@ function frRender(){
   const jours = semaine ? frJoursSemaine(frLundi) : frJoursDuMois(frY, frM);
   const N = jours.length;
   if (!N){ zone.innerHTML = '<div class="sy-msg">Aucun jour à afficher pour cette période.</div>'; return; }
-  // ── Échelle en heures, commune à tous les salariés ──
-  // Chaque journée a une largeur proportionnelle à la plus grande journée posée ce jour-là (contrat,
-  // ou heures prévues + absence si plus), tous salariés confondus : 1 h a la même largeur partout,
-  // donc les pavés sont proportionnels au temps prévu, d'un salarié et d'un jour à l'autre.
-  // Les jours où personne ne travaille (week-end, férié) gardent la largeur d'une journée type.
+  // ── Échelle en heures, commune à tous les salariés et à tous les jours ──
+  // Tous les jours ont la même largeur, qui représente la plus grande journée posée sur la période
+  // (contrat, ou heures prévues + absence si plus), tous salariés confondus : 1 h a la même largeur
+  // partout, donc les pavés sont proportionnels au temps prévu.
   const hJour = jours.map(d => salaries.reduce((m, s) => {
     const j = frJournee(s, heures, d);
     return Math.max(m, j.contrat, j.planifie + j.abs);
   }, 0));
   const hType = Math.max(0, ...hJour) || 7;
-  hJour.forEach((h, i) => { if (h <= 0) hJour[i] = hType; });
+  hJour.fill(hType);   // largeur de jour identique pour toute la période
   const debJour = [0];
   hJour.forEach((h, i) => { debJour[i + 1] = debJour[i] + h; });
   const T = debJour[N];
