@@ -18,6 +18,10 @@
   .wk-nav { display:flex; align-items:center; gap:0.7rem; justify-content:center; flex-wrap:wrap; }
   .wk-btn { border:1px solid #cbd5e1; background:#fff; color:#0f3a8a; border-radius:6px; padding:5px 12px; font-weight:700; cursor:pointer; font-size:0.95rem; line-height:1; }
   .wk-btn:hover { border-color:#0f3a8a; background:#eff4ff; }
+  .vue-switch { display:inline-flex; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; }
+  .vue-opt { border:none; background:#fff; color:#0f3a8a; padding:5px 12px; font-weight:700; cursor:pointer; font-size:0.88rem; }
+  .vue-opt + .vue-opt { border-left:1px solid #cbd5e1; }
+  .vue-opt.actif { background:#0f3a8a; color:#fff; }
   .wk-label { font-weight:800; color:#0f3a8a; min-width:240px; text-align:center; font-size:0.95rem; }
   /* Barre latérale rétractable (même mécanisme que le planning prévu) */
   #pl-rail-toggle { display:none;position:fixed;top:50%;left:208px;transform:translateY(-50%);z-index:1500;
@@ -105,10 +109,13 @@
   <div class="fixed-tools no-print">
     <div class="wk-nav">
       <button class="wk-btn" onclick="location.href='planning.html'" title="Revenir au planning prévu">← Planning</button>
-      <button class="wk-btn" onclick="moisDecalage(-1)" title="Mois précédent">‹</button>
+      <span class="vue-switch" role="group" aria-label="Période affichée">
+        <button class="vue-opt" id="fr-vue-semaine" onclick="frChoisirVue('semaine')">Semaine</button><button class="vue-opt" id="fr-vue-mois" onclick="frChoisirVue('mois')">Mois</button>
+      </span>
+      <button class="wk-btn" id="fr-btn-prec" onclick="moisDecalage(-1)" title="Mois précédent">‹</button>
       <div class="wk-label" id="fr-mois-label">—</div>
-      <button class="wk-btn" onclick="moisDecalage(1)" title="Mois suivant">›</button>
-      <button class="wk-btn" onclick="moisAujourdhui()" title="Revenir au mois en cours">Ce mois</button>
+      <button class="wk-btn" id="fr-btn-suiv" onclick="moisDecalage(1)" title="Mois suivant">›</button>
+      <button class="wk-btn" id="fr-btn-auj" onclick="moisAujourdhui()" title="Revenir au mois en cours">Ce mois</button>
       <button class="wk-btn" id="fr-btn-sam" onclick="toggleSamedi()" title="Afficher / masquer le samedi">Afficher le samedi</button>
       <button class="wk-btn" onclick="window.print()" title="Imprimer la frise">🖨 Imprimer</button>
     </div>
@@ -311,11 +318,54 @@ function frJoursDuMois(y, m){
   return jours;
 }
 
+/* ── Vue Semaine / Mois ──
+   Mois : jours du mois affiché. Semaine : du lundi frLundi au vendredi (+ samedi si demandé).
+   Le choix est mémorisé sur ce poste (localStorage friseVue). */
+let frVue = 'mois', frLundi = null;
+try { if (localStorage.getItem('friseVue') === 'semaine') frVue = 'semaine'; } catch (_) {}
+function frJoursSemaine(lundi){
+  const jours = [];
+  for (let k = 0; k < 6; k++){
+    const d = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + k);
+    if (d.getDay() === 6 && !frSam) continue;
+    jours.push(d);
+  }
+  return jours;
+}
+function frChoisirVue(v){
+  frVue = v === 'semaine' ? 'semaine' : 'mois';
+  try { localStorage.setItem('friseVue', frVue); } catch (_) {}
+  if (frVue === 'semaine'){
+    // Semaine affichée : celle d'aujourd'hui si elle touche le mois affiché, sinon la 1re semaine du mois
+    const auj = new Date();
+    frLundi = (auj.getFullYear() === frY && auj.getMonth() === frM) ? lundiDeLaSemaine(auj) : lundiDeLaSemaine(new Date(frY, frM, 1));
+  }
+  frRender();
+}
+function frMajBarreVue(){
+  const sem = frVue === 'semaine';
+  const set = (id, prop, v) => { const e = document.getElementById(id); if (e) e[prop] = v; };
+  document.getElementById('fr-vue-semaine')?.classList.toggle('actif', sem);
+  document.getElementById('fr-vue-mois')?.classList.toggle('actif', !sem);
+  set('fr-btn-prec', 'title', sem ? 'Semaine précédente' : 'Mois précédent');
+  set('fr-btn-suiv', 'title', sem ? 'Semaine suivante' : 'Mois suivant');
+  set('fr-btn-auj', 'textContent', sem ? 'Cette semaine' : 'Ce mois');
+  set('fr-btn-auj', 'title', sem ? 'Revenir à la semaine en cours' : 'Revenir au mois en cours');
+}
+
 function frRender(){
+  frMajBarreVue();
+  const semaine = frVue === 'semaine';
+  if (semaine && !frLundi) frLundi = lundiDeLaSemaine(new Date(frY, frM, 1));
+  let periode;
+  if (semaine){
+    const fin = new Date(frLundi.getFullYear(), frLundi.getMonth(), frLundi.getDate() + (frSam ? 5 : 4));
+    periode = 'Semaine ' + pl2NumSemaine(frLundi) + ' · ' + frDateCourte(frLundi) + ' → ' + frDateCourte(fin) + ' ' + fin.getFullYear();
+  } else periode = FR_MOIS[frM] + ' ' + frY;
   const label = document.getElementById('fr-mois-label');
-  if (label) label.textContent = FR_MOIS[frM] + ' ' + frY;
+  if (label) label.textContent = periode;
   const pt = document.getElementById('fr-print-titre');
-  if (pt) pt.textContent = 'Frise des chantiers — ' + FR_MOIS[frM] + ' ' + frY;
+  if (pt) pt.textContent = 'Frise des chantiers — ' + periode;
   const btnSam = document.getElementById('fr-btn-sam');
   if (btnSam) btnSam.textContent = frSam ? 'Masquer le samedi' : 'Afficher le samedi';
   const zone = document.getElementById('frise-wrap');
@@ -323,9 +373,9 @@ function frRender(){
   const salaries = frChargerSalaries();
   const heures = frChargerHeures();
   if (!salaries.length){ zone.innerHTML = '<div class="sy-msg">Aucun salarié à afficher. Vérifiez la fiche Salariés.</div>'; return; }
-  const jours = frJoursDuMois(frY, frM);
+  const jours = semaine ? frJoursSemaine(frLundi) : frJoursDuMois(frY, frM);
   const N = jours.length;
-  if (!N){ zone.innerHTML = '<div class="sy-msg">Aucun jour à afficher pour ce mois.</div>'; return; }
+  if (!N){ zone.innerHTML = '<div class="sy-msg">Aucun jour à afficher pour cette période.</div>'; return; }
   const pct = x => (x / N * 100) + '%';
   const aujIso = frIso(new Date());
 
@@ -345,7 +395,7 @@ function frRender(){
   let html = '<div class="fr-grille">'
     + '<div class="fr-lib" style="grid-row:span 2">Salarié</div>'
     + '<div class="fr-tsem">' + hSem + '</div>'
-    + '<div class="fr-lib droite" style="grid-row:span 2">Mois</div>'
+    + '<div class="fr-lib droite" style="grid-row:span 2">' + (semaine ? 'Semaine' : 'Mois') + '</div>'
     + '<div class="fr-tjours">' + hJ + '</div>';
 
   salaries.forEach(s => {
@@ -469,12 +519,18 @@ function frRender(){
 }
 
 function moisDecalage(n){
+  if (frVue === 'semaine'){
+    frLundi = new Date(frLundi.getFullYear(), frLundi.getMonth(), frLundi.getDate() + 7 * n);
+    frY = frLundi.getFullYear(); frM = frLundi.getMonth();   // le mois suit la semaine (retour en vue Mois)
+    frRender();
+    return;
+  }
   frM += n;
   if (frM < 0){ frM = 11; frY--; }
   else if (frM > 11){ frM = 0; frY++; }
   frRender();
 }
-function moisAujourdhui(){ const d = new Date(); frY = d.getFullYear(); frM = d.getMonth(); frRender(); }
+function moisAujourdhui(){ const d = new Date(); frY = d.getFullYear(); frM = d.getMonth(); frLundi = lundiDeLaSemaine(d); frRender(); }
 function toggleSamedi(){ frSam = !frSam; frRender(); }
 
 function syAjusterHauteur(){
@@ -521,6 +577,9 @@ function syInit(){
     const m = /^(\d{4})-(\d{2})$/.exec(p);
     if (m){ frY = parseInt(m[1], 10); frM = Math.min(11, Math.max(0, parseInt(m[2], 10) - 1)); }
   } catch (_) {}
+  // Vue Semaine : semaine d'aujourd'hui si elle est dans le mois demandé, sinon 1re semaine du mois
+  { const auj = new Date();
+    frLundi = (auj.getFullYear() === frY && auj.getMonth() === frM) ? lundiDeLaSemaine(auj) : lundiDeLaSemaine(new Date(frY, frM, 1)); }
   frRender();
   initRailRetractable();
   syAjusterHauteur();
