@@ -226,9 +226,11 @@ function syLigneTip(txt, coul){
 /* ============================================================
    Frise des chantiers — rendu
    Une ligne par salarié, les jours du mois en abscisse, SANS
-   espace entre les journées. Chaque journée a la même largeur
-   (= contrat du jour, ou plus en cas de dépassement) et se
-   remplit des chantiers au prorata de leurs heures, dans l'ordre
+   espace entre les journées. 1 heure a la même largeur pour
+   tout le monde et tous les jours
+   (la largeur d'un jour suit la plus grande journée posée ce jour-là) : les pavés sont donc
+   proportionnels au temps prévu, d'un salarié et d'un jour à
+   l'autre. Elle se remplit des chantiers dans l'ordre
    des heures de RDV (puis ordre de saisie). Un même chantier sur
    des journées consécutives forme UNE seule barre. Le détail
    (chantier, période, heures, adresse) s'affiche au survol.
@@ -376,7 +378,27 @@ function frRender(){
   const jours = semaine ? frJoursSemaine(frLundi) : frJoursDuMois(frY, frM);
   const N = jours.length;
   if (!N){ zone.innerHTML = '<div class="sy-msg">Aucun jour à afficher pour cette période.</div>'; return; }
-  const pct = x => (x / N * 100) + '%';
+  // ── Échelle en heures, commune à tous les salariés ──
+  // Chaque journée a une largeur proportionnelle à la plus grande journée posée ce jour-là (contrat,
+  // ou heures prévues + absence si plus), tous salariés confondus : 1 h a la même largeur partout,
+  // donc les pavés sont proportionnels au temps prévu, d'un salarié et d'un jour à l'autre.
+  // Les jours où personne ne travaille (week-end, férié) gardent la largeur d'une journée type.
+  const hJour = jours.map(d => salaries.reduce((m, s) => {
+    const j = frJournee(s, heures, d);
+    return Math.max(m, j.contrat, j.planifie + j.abs);
+  }, 0));
+  const hType = Math.max(0, ...hJour) || 7;
+  hJour.forEach((h, i) => { if (h <= 0) hJour[i] = hType; });
+  const debJour = [0];
+  hJour.forEach((h, i) => { debJour[i + 1] = debJour[i] + h; });
+  const T = debJour[N];
+  // x en « jours » (i = début du jour i, i + f = fraction f de ce jour) → position en % de la frise
+  const posX = x => {
+    const i = Math.min(N - 1, Math.max(0, Math.floor(x + 1e-9)));
+    return debJour[i] + (x - i) * hJour[i];
+  };
+  const pos  = x => (posX(x) / T * 100) + '%';
+  const span = (x0, x1) => ((posX(x1) - posX(x0)) / T * 100) + '%';
   const aujIso = frIso(new Date());
 
   // ── En-têtes : semaines puis jours ──
@@ -384,13 +406,13 @@ function frRender(){
   jours.forEach((d, i) => {
     const sm = pl2NumSemaine(d);
     if (sm !== semPrec){
-      if (semPrec !== null) hSem += '<div style="left:' + pct(debS) + ';width:' + pct(i - debS) + '">S' + semPrec + '</div>';
+      if (semPrec !== null) hSem += '<div style="left:' + pos(debS) + ';width:' + span(debS, i) + '">S' + semPrec + '</div>';
       semPrec = sm; debS = i;
     }
-    hJ += '<div class="' + (frIso(d) === aujIso ? 'auj' : '') + '" style="left:' + pct(i) + ';width:' + pct(1) + '" title="' + FR_JL[d.getDay()] + ' ' + frDateCourte(d) + '">'
+    hJ += '<div class="' + (frIso(d) === aujIso ? 'auj' : '') + '" style="left:' + pos(i) + ';width:' + span(i, i + 1) + '" title="' + FR_JL[d.getDay()] + ' ' + frDateCourte(d) + '">'
         + FR_JC[d.getDay()] + '<small>' + d.getDate() + '</small></div>';
   });
-  hSem += '<div style="left:' + pct(debS) + ';width:' + pct(N - debS) + '">S' + semPrec + '</div>';
+  hSem += '<div style="left:' + pos(debS) + ';width:' + span(debS, N) + '">S' + semPrec + '</div>';
 
   let html = '<div class="fr-grille">'
     + '<div class="fr-lib" style="grid-row:span 2">Salarié</div>'
@@ -417,8 +439,8 @@ function frRender(){
       const effContrat = Math.max(0, j.contrat - j.abs);
       totContrat += effContrat;
       totPlan += j.planifie;
-      // Largeur de la journée = contrat, ou heures réellement posées si elles le dépassent
-      const base = Math.max(j.contrat, j.planifie + j.abs) || 1;
+      // Largeur proportionnelle au temps : le jour i de la frise vaut hJour[i] heures (échelle commune)
+      const base = hJour[i];
       let x = i;
       j.chs.forEach(c => {
         const w = c.h / base;
@@ -436,10 +458,10 @@ function frRender(){
         segs.push({ k:'abs', cle:'ABS:' + (j.motif || 'Absence'), lib: j.motif || 'Absence', x0:x, x1:Math.min(i + 1, x + w), jours:[{ d, h:j.abs }] });
         x += w;
       }
-      if (x < i + 1 - 1e-6) segs.push({ k:'vide', cle:'VIDE:' + i, lib:'', x0:x, x1:i + 1, jours:[] });
+      if (x < i + 1 - 1e-6) segs.push({ k:'hors', cle:'HORS:' + i, lib:'', x0:x, x1:i + 1, jours:[] });   // au-delà du contrat : zone neutre
       if (effContrat <= 0 && j.planifie <= 0) return;   // absence sur toute la journée : pas de trait d'écart
       const coul = j.planifie < effContrat - 0.01 ? '#f59e0b' : (j.planifie > effContrat + 0.01 ? '#dc2626' : '#16a34a');
-      ecarts.push('<div class="fr-ecart" style="left:' + pct(i) + ';width:' + pct(1) + ';background:' + coul + '" data-tip="'
+      ecarts.push('<div class="fr-ecart" style="left:' + pos(i) + ';width:' + span(i, i + 1) + ';background:' + coul + '" data-tip="'
         + frEsc(syTip(jl, 'Planifié <b>' + frFmt(j.planifie) + ' h</b> / ' + frFmt(effContrat) + ' h')) + '"></div>');
     });
 
@@ -464,11 +486,12 @@ function frRender(){
         ? FR_JL[d0.getDay()] + ' ' + frDateCourte(d0)
         : 'du ' + FR_JL[d0.getDay()].toLowerCase() + ' ' + frDateCourte(d0) + ' au ' + FR_JL[d1.getDay()].toLowerCase() + ' ' + frDateCourte(d1));
       const nbJ = new Set(sg.jours.map(x => frIso(x.d))).size;
-      let cls = 'fr-seg', style = 'left:' + pct(sg.x0) + ';width:' + pct(larg) + ';', txt = '', tip = '';
+      let cls = 'fr-seg', style = 'left:' + pos(sg.x0) + ';width:' + span(sg.x0, sg.x1) + ';', txt = '', tip = '';
 
+      if (sg.k === 'hors') return;   // au-delà du contrat du salarié : rien à dessiner
       if (sg.k === 'ch'){
         style += 'background:' + frCouleur(sg.lib) + ';';
-        if (larg >= 0.9) txt = frEsc(sg.lib) + (larg >= 1.6 ? '<small>' + frFmt(totalH) + ' h</small>' : '');
+        if (larg >= (semaine ? 0.3 : 0.9)) txt = frEsc(sg.lib) + (larg >= (semaine ? 0.75 : 1.6) ? '<small>' + frFmt(totalH) + ' h</small>' : '');
         let corps = '<div style="opacity:.8;margin-bottom:4px">' + frEsc(nomSal) + '</div>'
                   + '<div>' + frEsc(periode) + (nbJ > 1 ? ' · ' + nbJ + ' jours' : '') + '</div>'
                   + '<div><b>' + frFmt(totalH) + ' h</b> prévues</div>';
@@ -504,7 +527,7 @@ function frRender(){
     let reperes = '', sp = null;
     jours.forEach((d, i) => {
       const sm = pl2NumSemaine(d);
-      if (i > 0) reperes += '<div class="fr-rep' + (sm !== sp ? ' sem' : '') + '" style="left:' + pct(i) + '"></div>';
+      if (i > 0) reperes += '<div class="fr-rep' + (sm !== sp ? ' sem' : '') + '" style="left:' + pos(i) + '"></div>';
       sp = sm;
     });
 
