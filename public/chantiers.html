@@ -1304,7 +1304,7 @@ function rendreChantiers() {
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
       }
       html += `<tr class="${classes}" data-ttip="1" data-annee="${annee}" data-mi="${mi}" data-ci="${ci}"${depuisMob ? ' data-mobile="' + _henrriEscAttr(ch._mobileInfo || '') + '"' : ''}${perimee ? ' data-perime="1"' : ''}>
-        <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
           <div style="display:flex;align-items:center;gap:2px;">
             <input value="${ch.client||''}" placeholder="" title="${_henrriEscAttr(ch.client||'')}"
               style="flex:1;min-width:0;border:none;background:transparent;font-size:0.88rem;font-family:inherit;text-transform:uppercase;"
@@ -1313,7 +1313,7 @@ function rendreChantiers() {
             ${coche}<span class="depasse-info"></span>
           </div>
         </td>
-        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;">
+        <td data-ttip-client="1" style="padding:1px 3px;border-bottom:1px solid #f1f5f9;cursor:help;">
           <input type="number" min="0" step="0.5" value="${ch.hPrevues||''}" placeholder=""
             style="width:100%;border:none;background:transparent;font-size:0.88rem;text-align:right;font-family:inherit;"
             data-annee="${annee}" data-mi="${mi}" data-ci="${ci}" data-champ="hPrevues" data-nav="hPrevues"
@@ -2281,7 +2281,7 @@ function navEnTree(event, input) {
   }
 
   const SEL = 'tr.tr-chantier[data-ttip="1"]';
-  const ZONE = '[data-ttip-client]';   // seule la colonne Client déclenche le popup
+  const ZONE = '[data-ttip-client]';   // seule la colonne des heures (H.) déclenche le popup
   document.addEventListener('mouseover', e => {
     if (!e.target.closest || !e.target.closest(ZONE)) return;
     const tr = e.target.closest(SEL);
