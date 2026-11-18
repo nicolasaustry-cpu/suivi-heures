@@ -2677,7 +2677,41 @@ async function _henrriEnvoyerAffectation(tr) {
   });
   const d = await r.json();
   if (!d.ok) throw new Error(d.message || 'échec');
-  return { annee, mois };
+  return { annee, mois, chantier: d.chantier || clientNom, hPrevues, coordonnees: d.coordonnees ? coordonnees : null };
+}
+
+/* Reporte en local la ligne que le serveur vient d'ajouter au Prévisionnel, puis
+   redessine le tableau SANS recharger la page : on reste sur le mois affiché, pas
+   de défilement depuis janvier ni de temps de rechargement. Même règle que le
+   serveur pour les heures (nombre > 0, sinon vide). sauverData() renvoie ce mois
+   au serveur, qui contient déjà la ligne : aucun doublon. */
+function _henrriAjouterLigneLocale(res) {
+  const dm = getDataMois(res.annee, res.mois);
+  if (!Array.isArray(dm.chantiers)) dm.chantiers = [];
+  const h = parseFloat(String(res.hPrevues || '').replace(',', '.'));
+  dm.chantiers.push({ client: res.chantier, hPrevues: (isFinite(h) && h > 0) ? h : '' });
+  // Coordonnées reportées par le serveur sur la nouvelle ligne : copie locale (fiche vide uniquement),
+  // pour que l'adresse soit connue tout de suite sans attendre le prochain chargement.
+  if (res.coordonnees) {
+    try {
+      const cle = String(res.chantier || '').trim().toUpperCase();
+      const coords = JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}');
+      const ex = coords[cle];
+      if (cle && (!ex || !(ex.adresse || ex.ville || ex.mobile || ex.fixe || ex.email))) {
+        coords[cle] = res.coordonnees;
+        localStorage.setItem('coordonneesChantiersdata', JSON.stringify(coords));
+      }
+    } catch (_) {}
+  }
+}
+function _henrriApresAffectation(nb, libelle) {
+  sauverData();
+  rendreChantiers();
+  if (typeof majLigne === 'function') getMoisAffichage().forEach(({ annee, mois }) => majLigne(annee + '_' + mois));
+  _henrriMajTout();
+  if (!document.querySelectorAll('#henrri-devis-corps tbody tr').length) fermerModaleHenrri();
+  if (window.SYNC && typeof SYNC.afficherNotif === 'function')
+    SYNC.afficherNotif('✔ ' + (nb > 1 ? nb + ' devis affectés' : 'Devis affecté' + (libelle ? ' à ' + libelle : '')));
 }
 
 /* Recharge la page pour afficher les nouvelles lignes du Prévisionnel ; s'il reste des devis
@@ -2692,12 +2726,10 @@ async function affecterDevisHenrri(btn) {
   const tr = btn.closest('tr');
   btn.disabled = true; btn.textContent = '…';
   try {
-    const { annee, mois } = await _henrriEnvoyerAffectation(tr);
+    const res = await _henrriEnvoyerAffectation(tr);
     tr.remove();
-    const reste = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
-    alert('Devis affecté à ' + MOIS_FULL[mois] + ' ' + annee + '.\nLa page va se recharger pour afficher la nouvelle ligne'
-      + (reste ? ', puis la liste des ' + reste + ' devis restant(s) se rouvrira.' : '.'));
-    _henrriRecharger();
+    _henrriAjouterLigneLocale(res);
+    _henrriApresAffectation(1, MOIS_FULL[res.mois] + ' ' + res.annee);
   } catch (e) {
     alert('Erreur : ' + (e && e.message ? e.message : e));
     btn.disabled = false; btn.textContent = 'Affecter';
@@ -2753,8 +2785,9 @@ async function affecterTousDevisHenrri() {
     const tr = lignes[i];
     btn.textContent = 'Affectation ' + (i + 1) + ' / ' + lignes.length + '…';
     try {
-      await _henrriEnvoyerAffectation(tr);
+      const res = await _henrriEnvoyerAffectation(tr);
       tr.remove();
+      _henrriAjouterLigneLocale(res);
       ok++;
     } catch (e) {
       const b = tr.querySelector('button[data-devis-client]');
@@ -2762,14 +2795,13 @@ async function affecterTousDevisHenrri() {
       tr.style.background = '#fee2e2';
     }
   }
+  if (ok) _henrriApresAffectation(ok, '');
+  else _henrriMajTout();
+  btn.disabled = false;
   if (erreurs.length) {
     alert(ok + ' devis affecté(s).\n' + erreurs.length + ' erreur(s) :\n\n' + erreurs.join('\n')
-      + (ok ? '\n\nLa page va se recharger ; les devis en erreur restent proposés dans « Devis Henrri ».' : ''));
-    if (ok) _henrriRecharger(); else _henrriMajTout();
-    return;
+      + '\n\nLes devis en erreur restent dans la liste.');
   }
-  alert(ok + ' devis affecté(s) au Prévisionnel.\nLa page va se recharger pour afficher les nouvelles lignes.');
-  _henrriRecharger();
 }
 
 async function supprimerDevisHenrri(btn) {
