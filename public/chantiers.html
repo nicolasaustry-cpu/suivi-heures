@@ -862,24 +862,90 @@ function majDepassementsDevis() {
   });
 }
 
-/* Texte de l'alerte ⚠ (ligne planifiée absente du prévisionnel) : qui est planifié et quand. */
-function _texteAlertePlanning(nomClient, annee, mi) {
+/* Contenu de la bulle ⚠ (ligne planifiée absente du prévisionnel) : qui est planifié et quand. */
+function _htmlAlertePlanning(nomClient, annee, mi) {
   const ym = annee + '_' + String(mi + 1).padStart(2, '0');
-  const det = (planningDetail[ym] || {})[(nomClient || '').trim().toUpperCase()];
+  const det = (planningDetail[ym] || {})[(nomClient || '').trim().toUpperCase()] || {};
+  const esc = _henrriEscAttr;
   const fmtH = h => (Number.isInteger(h) ? h : h.toFixed(2).replace(/0$/, '').replace('.', ',')) + ' h';
-  let txt = 'Planifié mais absent du prévisionnel — heures cumulées du planning.';
-  const fin = '\n\nSuppression impossible depuis le prévisionnel : retirez ou déplacez le chantier dans le Planning.';
-  if (!det) return txt + fin;
-  txt += '\n';
-  Object.keys(det).sort((a, b) => a.localeCompare(b, 'fr')).forEach(qui => {
+  const noms = Object.keys(det).sort((a, b) => a.localeCompare(b, 'fr'));
+  let total = 0;
+  let lignes = '';
+  noms.forEach(qui => {
     const d = det[qui];
+    total += d.h;
     const cles = Object.keys(d.jours).sort();
-    const jours = cles.map(j => j.slice(8, 10) + '/' + j.slice(5, 7)
-      + (cles.length > 1 && d.jours[j] ? ' (' + fmtH(d.jours[j]) + ')' : ''));
-    txt += '\n• ' + qui + ' : ' + fmtH(d.h) + (jours.length ? ' — ' + jours.join(', ') : '');
+    const puces = cles.map(j => '<span class="ap-jour">' + j.slice(8, 10) + '/' + j.slice(5, 7)
+      + (cles.length > 1 && d.jours[j] ? ' · ' + fmtH(d.jours[j]) : '') + '</span>').join('');
+    lignes += '<div class="ap-sal"><div class="ap-sal-tete"><span class="ap-nom">👷 ' + esc(qui) + '</span>'
+      + '<span class="ap-h">' + fmtH(d.h) + '</span></div><div class="ap-jours">' + puces + '</div></div>';
   });
-  return txt + fin;
+  return '<div class="ap-titre">⚠ Planifié, absent du prévisionnel</div>'
+    + '<div class="ap-chantier">' + esc((nomClient || '').toUpperCase()) + ' — ' + MOIS_FULL[mi] + ' ' + annee + '</div>'
+    + '<div class="ap-corps">' + (lignes || '<div class="ap-vide">Détail du planning indisponible.</div>')
+    + (noms.length > 1 ? '<div class="ap-total"><span>Total planifié</span><span>' + fmtH(total) + '</span></div>' : '')
+    + '</div>'
+    + '<div class="ap-pied">🔒 Suppression impossible ici : retirez ou déplacez le chantier dans le Planning.</div>';
 }
+
+/* Bulle ⚠ : s'affiche au survol de toute la cellule d'actions de la ligne jaune
+   (zone plus large que le seul triangle). */
+(function () {
+  let bulle = null, cle = null;
+  function el() {
+    if (bulle) return bulle;
+    const st = document.createElement('style');
+    st.textContent =
+      '#alerte-plan-bulle{position:fixed;z-index:10001;display:none;width:300px;background:#fff;border:1px solid #fcd34d;border-radius:10px;'
+    + 'box-shadow:0 10px 30px rgba(15,23,42,.18);font-size:.82rem;color:#1e293b;overflow:hidden;pointer-events:none;}'
+    + '#alerte-plan-bulle .ap-titre{background:#fef3c7;color:#92400e;font-weight:700;padding:7px 12px;}'
+    + '#alerte-plan-bulle .ap-chantier{padding:6px 12px 2px;font-weight:700;color:#0f3a8a;}'
+    + '#alerte-plan-bulle .ap-corps{padding:4px 12px 8px;}'
+    + '#alerte-plan-bulle .ap-sal{padding:6px 0;border-bottom:1px solid #f1f5f9;}'
+    + '#alerte-plan-bulle .ap-sal:last-of-type{border-bottom:none;}'
+    + '#alerte-plan-bulle .ap-sal-tete{display:flex;justify-content:space-between;gap:8px;font-weight:600;}'
+    + '#alerte-plan-bulle .ap-h{color:#b45309;white-space:nowrap;}'
+    + '#alerte-plan-bulle .ap-jours{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}'
+    + '#alerte-plan-bulle .ap-jour{background:#eef4fd;color:#1e3a8a;border-radius:999px;padding:1px 8px;font-size:.76rem;}'
+    + '#alerte-plan-bulle .ap-total{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid #e2e8f0;margin-top:4px;padding-top:6px;}'
+    + '#alerte-plan-bulle .ap-vide{color:#94a3b8;font-style:italic;padding:4px 0;}'
+    + '#alerte-plan-bulle .ap-pied{background:#f8fafc;border-top:1px solid #e2e8f0;color:#64748b;font-size:.76rem;padding:7px 12px;}';
+    document.head.appendChild(st);
+    bulle = document.createElement('div');
+    bulle.id = 'alerte-plan-bulle';
+    document.body.appendChild(bulle);
+    return bulle;
+  }
+  function placer(e) {
+    const b = el(), o = 14;
+    let x = e.clientX + o, y = e.clientY + o;
+    if (x + b.offsetWidth > window.innerWidth - 8) x = e.clientX - b.offsetWidth - o;
+    if (y + b.offsetHeight > window.innerHeight - 8) y = e.clientY - b.offsetHeight - o;
+    b.style.left = Math.max(4, x) + 'px';
+    b.style.top = Math.max(4, y) + 'px';
+  }
+  function cacher() { cle = null; if (bulle) bulle.style.display = 'none'; }
+  document.addEventListener('mouseover', e => {
+    const td = e.target.closest && e.target.closest('td[data-alerte-plan]');
+    if (!td) return;
+    const tr = td.closest('tr');
+    const inp = tr && tr.querySelector('input[data-champ="client"]');
+    const nom = inp ? inp.value.trim() : '';
+    const k = tr.dataset.annee + '|' + tr.dataset.mi + '|' + nom;
+    const b = el();
+    if (cle !== k) { cle = k; b.innerHTML = _htmlAlertePlanning(nom, parseInt(tr.dataset.annee, 10), parseInt(tr.dataset.mi, 10)); }
+    b.style.display = 'block';
+    placer(e);
+  });
+  document.addEventListener('mousemove', e => {
+    if (bulle && bulle.style.display === 'block' && e.target.closest && e.target.closest('td[data-alerte-plan]')) placer(e);
+  });
+  document.addEventListener('mouseout', e => {
+    const to = e.relatedTarget;
+    if (!to || !(to.closest && to.closest('td[data-alerte-plan]'))) cacher();
+  });
+  document.addEventListener('scroll', cacher, true);
+})();
 
 function estPlannifie(nomClient, annee, mi) {
   if (!nomClient) return false;
@@ -1335,7 +1401,7 @@ function rendreChantiers() {
         alertePlan = '<span class="coche-perime" title="Ligne périmée : remontée du planning, mais ce chantier ne figure plus au Planning en ' + MOIS_FULL[mi] + ' ' + annee + ' (retiré, renommé ou déplacé). Modifiez-la pour la garder, ou utilisez « Nettoyer » en bas du mois.">⌛</span>';
       } else if (depuisPlan) {
         classes += ' depuis-planning';
-        alertePlan = '<span class="coche-planning" style="cursor:help;" title="' + _henrriEscAttr(_texteAlertePlanning(ch.client, annee, mi)) + '">⚠</span>';
+        alertePlan = '<span class="coche-planning">⚠</span>';
       } else if (isPlanifie) {
         classes += ' planifie';
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
@@ -1357,7 +1423,7 @@ function rendreChantiers() {
             onfocus="this.select()" onmouseup="return false"
             onchange="majChantierInput(this)" oninput="majChantierInput(this)" onkeydown="navEnTree(event,this)">
         </td>
-        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
+        <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;${(depuisPlan && !depuisMob && !perimee) ? 'cursor:help;' : ''}"${(depuisPlan && !depuisMob && !perimee) ? ' data-alerte-plan="1"' : ''}>
           ${alertePlan}<button class="btn-copy-row" title="Renommer partout" style="color:#1d4ed8;" onclick="var tr=this.closest('tr');var inp=tr&&tr.querySelector('input[data-champ=client]');var nom=inp?inp.value.trim():'';if(nom)RenommerChantier.ouvrir(nom);else alert('Nommez le chantier avant de le renommer.');">✏️</button>
           <button class="btn-copy-row" onclick="ouvrirModaleCopie(${annee},${mi},${ci})" title="Copier">⧉</button>
           ${(depuisPlan && !depuisMob && !perimee) ? '' : `<button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>`}
