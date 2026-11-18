@@ -484,6 +484,8 @@
           title="Effacer la recherche" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">✕</button>
         <button type="button" onclick="ouvrirResumeChantierRecherche()"
           title="Résumé des heures prévues par mois pour ce chantier" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;">📋 Résumé</button>
+        <button type="button" id="btn-tri-alpha" onclick="basculerTriAlpha()"
+          title="Classer les chantiers de chaque mois par ordre alphabétique" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:0.85rem;white-space:nowrap;">🔤 A→Z</button>
       </div>
     </div>
 
@@ -1231,6 +1233,7 @@ function rendreChantiers() {
   const cont = document.getElementById('section-chantiers');
   const liste = getMoisAffichage();
   let html = '';
+  majBoutonTriAlpha();
 
   // Faire remonter dans le devis les chantiers planifiés absents (surlignés en jaune)
   _mobileModifie = false;
@@ -1278,7 +1281,7 @@ function rendreChantiers() {
 
     // Lignes saisies
     let nbPerimes = 0;
-    chantiers.forEach((ch, ci) => {
+    _ordreAffichage(chantiers).forEach(({ ch, ci }) => {
       const depuisPlan = !!ch._depuisPlanning;
       const depuisMob  = !!ch._depuisMobile;
       const perimee    = estLignePerimee(ch, annee, mi);
@@ -1372,6 +1375,39 @@ function rendreChantiers() {
   }
 }
 
+/* Tri alphabétique : purement visuel, les données ne sont PAS réordonnées.
+   Chaque ligne garde son indice d'origine (data-ci), donc modification, copie,
+   suppression et info-bulle restent branchées sur le bon chantier. Les lignes
+   sans nom restent en bas. Le choix est mémorisé sur le poste. */
+function _triAlphaActif() {
+  try { return localStorage.getItem('prevTriAlpha') === '1'; } catch (_) { return false; }
+}
+function _ordreAffichage(chantiers) {
+  const liste = chantiers.map((ch, ci) => ({ ch, ci }));
+  if (!_triAlphaActif()) return liste;
+  return liste.sort((a, b) => {
+    const na = (a.ch.client || '').trim(), nb = (b.ch.client || '').trim();
+    if (!na !== !nb) return na ? -1 : 1;
+    return na.localeCompare(nb, 'fr', { sensitivity: 'base', numeric: true }) || a.ci - b.ci;
+  });
+}
+function majBoutonTriAlpha() {
+  const b = document.getElementById('btn-tri-alpha');
+  if (!b) return;
+  const actif = _triAlphaActif();
+  b.style.background  = actif ? '#2563eb' : '#fff';
+  b.style.color       = actif ? '#fff' : '';
+  b.style.borderColor = actif ? '#2563eb' : '#cbd5e1';
+  b.title = actif ? 'Classement alphabétique actif — cliquer pour revenir à l’ordre de saisie'
+                  : 'Classer les chantiers de chaque mois par ordre alphabétique';
+}
+function basculerTriAlpha() {
+  _cvCommitChampActif();   // valide la saisie en cours avant de reconstruire les lignes
+  try { localStorage.setItem('prevTriAlpha', _triAlphaActif() ? '0' : '1'); } catch (_) {}
+  majBoutonTriAlpha();
+  rendreChantiers();
+}
+
 /* Recherche de chantier : surligne en rouge, sur tous les mois affichés, les lignes
    dont le nom du client contient le terme saisi (insensible à la casse). Champ vide
    = aucune surbrillance. Ré-appelée après chaque reconstruction de #section-chantiers
@@ -1419,7 +1455,7 @@ function ouvrirResumeChantierRecherche() {
     ov.id = 'resume-chantier-overlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;';
     ov.innerHTML =
-        '<div style="background:#fff;border-radius:12px;padding:18px 20px;width:min(420px,94vw);max-height:80vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,0.28);">'
+        '<div style="background:#fff;border-radius:12px;padding:18px 20px;width:min(560px,94vw);max-height:80vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,0.28);">'
       + '<h3 id="resume-ch-titre" style="margin:0 0 12px;font-size:1.05rem;color:#1e3a8a;"></h3>'
       + '<div id="resume-ch-corps"></div>'
       + '<div style="text-align:right;margin-top:14px;"><button type="button" onclick="fermerResumeChantier()" style="border:none;background:#2563eb;color:#fff;border-radius:7px;padding:7px 16px;cursor:pointer;font-weight:700;">Fermer</button></div>'
@@ -1434,33 +1470,55 @@ function ouvrirResumeChantierRecherche() {
   if (!lignes.length) {
     corps.innerHTML = '<p style="color:#9ca3af;font-style:italic;">Aucun chantier ne correspond à cette recherche.</p>';
   } else {
-    // Un seul tableau, une ligne par mois : les chantiers correspondants d'un même mois
-    // (ex. différences d'espace dans le nom) sont cumulés sur cette même ligne.
-    const parMois = {};
+    // Une ligne par chantier et par mois : nom, heures prévues, mois.
+    // Un même nom présent deux fois dans le même mois est cumulé sur une ligne.
+    const parCle = {};
     lignes.forEach(l => {
-      const cle = l.annee + '_' + l.mi;
-      parMois[cle] = (parMois[cle] || 0) + l.heures;
+      const cle = l.annee + '_' + l.mi + '_' + l.nom.toUpperCase();
+      if (!parCle[cle]) parCle[cle] = { annee: l.annee, mi: l.mi, nom: l.nom, heures: 0 };
+      parCle[cle].heures += l.heures;
     });
-    const cles = Object.keys(parMois).sort((a, b) => {
-      const [aa, am] = a.split('_').map(Number), [ba, bm] = b.split('_').map(Number);
-      return aa - ba || am - bm;
-    });
+    const rows = Object.values(parCle).sort((a, b) =>
+      a.annee - b.annee || a.mi - b.mi || a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base', numeric: true }));
+    const nbNoms = new Set(rows.map(r => r.nom.toUpperCase())).size;
+    const th = 'padding:4px 6px;border-bottom:1px solid #e5e7eb;';
+    const td = 'padding:4px 6px;border-bottom:1px solid #f1f5f9;';
     let total = 0;
     let html = '<table style="width:100%;border-collapse:collapse;font-size:0.88rem;">';
-    html += '<thead><tr><th style="text-align:left;padding:3px 5px;border-bottom:1px solid #e5e7eb;">Mois</th><th style="text-align:right;padding:3px 5px;border-bottom:1px solid #e5e7eb;">Heures prévues</th></tr></thead><tbody>';
-    cles.forEach(cle => {
-      const [annee, mi] = cle.split('_').map(Number);
-      const h = parMois[cle];
-      total += h;
-      html += '<tr><td style="padding:3px 5px;border-bottom:1px solid #f1f5f9;">' + MOIS_FULL[mi] + ' ' + annee + '</td>'
-            + '<td style="padding:3px 5px;border-bottom:1px solid #f1f5f9;text-align:right;">' + _fmtHeuresResume(h) + '</td></tr>';
+    html += '<thead><tr><th style="text-align:left;' + th + '">Chantier</th>'
+          + '<th style="text-align:right;' + th + '">Heures</th>'
+          + '<th style="text-align:left;' + th + '">Mois</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      total += r.heures;
+      html += '<tr style="cursor:pointer;" title="Afficher ce mois" onclick="allerAuMoisResume(' + r.annee + ',' + r.mi + ')"'
+            + ' onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
+            + '<td style="' + td + 'font-weight:600;">' + _henrriEscAttr(r.nom) + '</td>'
+            + '<td style="' + td + 'text-align:right;white-space:nowrap;">' + _fmtHeuresResume(r.heures) + '</td>'
+            + '<td style="' + td + 'white-space:nowrap;">' + MOIS_FULL[r.mi] + ' ' + r.annee + '</td></tr>';
     });
-    html += '<tr style="font-weight:700;"><td style="padding:4px 5px;">Total</td><td style="padding:4px 5px;text-align:right;">' + _fmtHeuresResume(total) + '</td></tr>';
+    html += '<tr style="font-weight:700;"><td style="padding:5px 6px;">Total'
+          + (nbNoms > 1 ? ' <span style="font-weight:400;color:#64748b;font-size:0.8rem;">(' + nbNoms + ' chantiers)</span>' : '')
+          + '</td><td style="padding:5px 6px;text-align:right;white-space:nowrap;">' + _fmtHeuresResume(total) + '</td><td></td></tr>';
     html += '</tbody></table>';
     corps.innerHTML = html;
   }
 
   ov.style.display = 'flex';
+}
+
+/* Clic sur une ligne du résumé : ferme la fenêtre en gardant la surbrillance
+   et fait défiler jusqu'au mois concerné (s'il est affiché pour l'année choisie). */
+function allerAuMoisResume(annee, mi) {
+  const ov = document.getElementById('resume-chantier-overlay');
+  if (ov) ov.style.display = 'none';
+  const bloc = document.querySelector('[data-mois-bloc="' + annee + '-' + mi + '"]');
+  const scroll = document.getElementById('chantiers-scroll-bottom');
+  if (!bloc || !scroll) {
+    alert(MOIS_FULL[mi] + ' ' + annee + ' n’est pas affiché : sélectionnez l’année ' + annee + '.');
+    return;
+  }
+  const dx = bloc.getBoundingClientRect().left - scroll.getBoundingClientRect().left;
+  scroll.scrollTo({ left: scroll.scrollLeft + dx - 20, behavior: 'smooth' });
 }
 
 function fermerResumeChantier() {
