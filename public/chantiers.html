@@ -592,6 +592,7 @@ let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fo
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
 let planningParMois = {};            // { "YYYY_MM": { "NOM CHANTIER": heuresCumulées } }
 let planningTotal = {};              // { "NOM CHANTIER": heures planifiées cumulées, TOUS mois }
+let planningDetail = {};       // { 'YYYY_MM': { NOM: { 'Prénom Nom': { h, jours:{YYYY_MM_DD:h} } } } }
 let planningCharge = false;          // le planning contient des données (sinon aucune ligne n'est dite périmée)
 
 /* ═══════════════════════════════
@@ -603,8 +604,15 @@ function chargerChantiersPlannifies() {
   chantiersPlannifies = new Set();
   planningParMois = {};
   planningTotal = {};
+  planningDetail = {};
   try {
     const heures = JSON.parse(localStorage.getItem('heuresdata') || '{}');
+    const nomsSal = {};
+    try {
+      JSON.parse(localStorage.getItem('salariesdata') || '[]').forEach(x => {
+        if (x && x.id != null) nomsSal[String(x.id)] = ((x.prenom || '') + ' ' + (x.nom || '')).trim();
+      });
+    } catch (_) {}
     planningCharge = Object.keys(heures).length > 0;
     Object.keys(heures).forEach(k => {
       const entry = heures[k];
@@ -622,6 +630,16 @@ function chargerChantiersPlannifies() {
       if (!planningParMois[ym]) planningParMois[ym] = {};
       planningParMois[ym][nomU] = (planningParMois[ym][nomU] || 0) + (parseFloat(entry.heures) || 0);
       planningTotal[nomU] = (planningTotal[nomU] || 0) + (parseFloat(entry.heures) || 0);
+      // Détail qui / quand (affiché sur l'alerte ⚠ des lignes remontées du planning)
+      const salId = k.slice(0, m.index);
+      const qui = nomsSal[salId] || 'Salarié inconnu';
+      const jour = k.substr(m.index, 10);   // YYYY_MM_DD
+      if (!planningDetail[ym]) planningDetail[ym] = {};
+      if (!planningDetail[ym][nomU]) planningDetail[ym][nomU] = {};
+      const d = planningDetail[ym][nomU][qui] || (planningDetail[ym][nomU][qui] = { h: 0, jours: {} });
+      const hE = parseFloat(entry.heures) || 0;
+      d.h += hE;
+      d.jours[jour] = (d.jours[jour] || 0) + hE;
     });
   } catch (e) {
     console.warn('Impossible de lire heuresdata', e);
@@ -842,6 +860,25 @@ function majDepassementsDevis() {
       info.title = depasse ? 'Devis dépassé au planning : planifié ' + _fmtH1(planif) + ' pour ' + _fmtH1(prevu) + ' prévues (tous mois confondus)' : '';
     }
   });
+}
+
+/* Texte de l'alerte ⚠ (ligne planifiée absente du prévisionnel) : qui est planifié et quand. */
+function _texteAlertePlanning(nomClient, annee, mi) {
+  const ym = annee + '_' + String(mi + 1).padStart(2, '0');
+  const det = (planningDetail[ym] || {})[(nomClient || '').trim().toUpperCase()];
+  const fmtH = h => (Number.isInteger(h) ? h : h.toFixed(2).replace(/0$/, '').replace('.', ',')) + ' h';
+  let txt = 'Planifié mais absent du prévisionnel — heures cumulées du planning.';
+  const fin = '\n\nSuppression impossible depuis le prévisionnel : retirez ou déplacez le chantier dans le Planning.';
+  if (!det) return txt + fin;
+  txt += '\n';
+  Object.keys(det).sort((a, b) => a.localeCompare(b, 'fr')).forEach(qui => {
+    const d = det[qui];
+    const cles = Object.keys(d.jours).sort();
+    const jours = cles.map(j => j.slice(8, 10) + '/' + j.slice(5, 7)
+      + (cles.length > 1 && d.jours[j] ? ' (' + fmtH(d.jours[j]) + ')' : ''));
+    txt += '\n• ' + qui + ' : ' + fmtH(d.h) + (jours.length ? ' — ' + jours.join(', ') : '');
+  });
+  return txt + fin;
 }
 
 function estPlannifie(nomClient, annee, mi) {
@@ -1298,7 +1335,7 @@ function rendreChantiers() {
         alertePlan = '<span class="coche-perime" title="Ligne périmée : remontée du planning, mais ce chantier ne figure plus au Planning en ' + MOIS_FULL[mi] + ' ' + annee + ' (retiré, renommé ou déplacé). Modifiez-la pour la garder, ou utilisez « Nettoyer » en bas du mois.">⌛</span>';
       } else if (depuisPlan) {
         classes += ' depuis-planning';
-        alertePlan = '<span class="coche-planning" title="Planifié mais absent du prévisionnel - heures cumulées du planning">⚠</span>';
+        alertePlan = '<span class="coche-planning" style="cursor:help;" title="' + _henrriEscAttr(_texteAlertePlanning(ch.client, annee, mi)) + '">⚠</span>';
       } else if (isPlanifie) {
         classes += ' planifie';
         coche = '<span class="coche-planifie" title="Déjà planifié dans le planning">✓</span>';
@@ -1323,7 +1360,7 @@ function rendreChantiers() {
         <td style="padding:1px 3px;border-bottom:1px solid #f1f5f9;text-align:center;white-space:nowrap;">
           ${alertePlan}<button class="btn-copy-row" title="Renommer partout" style="color:#1d4ed8;" onclick="var tr=this.closest('tr');var inp=tr&&tr.querySelector('input[data-champ=client]');var nom=inp?inp.value.trim():'';if(nom)RenommerChantier.ouvrir(nom);else alert('Nommez le chantier avant de le renommer.');">✏️</button>
           <button class="btn-copy-row" onclick="ouvrirModaleCopie(${annee},${mi},${ci})" title="Copier">⧉</button>
-          <button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>
+          ${(depuisPlan && !depuisMob && !perimee) ? '' : `<button class="btn-del-row"  onclick="supprimerChantier(${annee},${mi},${ci})" title="Supprimer">✕</button>`}
         </td>
       </tr>`;
     });
@@ -1658,8 +1695,13 @@ function _memoriserIgnoreMobile(dm, ch) {
 }
 
 function supprimerChantier(annee, mi, ci) {
-  if (!confirm('Supprimer ce chantier ?')) return;
   const dm = getDataMois(annee, mi);
+  const c0 = dm.chantiers && dm.chantiers[ci];
+  if (c0 && c0._depuisPlanning && !c0._depuisMobile && !estLignePerimee(c0, annee, mi)) {
+    alert('Ce chantier est planifié : il ne peut pas être supprimé depuis le prévisionnel.\nRetirez-le ou déplacez-le dans le Planning.');
+    return;
+  }
+  if (!confirm('Supprimer ce chantier ?')) return;
   _memoriserIgnoreMobile(dm, dm.chantiers[ci]);
   dm.chantiers.splice(ci, 1);
   sauverData();
