@@ -588,7 +588,14 @@ const CLE_DATA  = 'previsionnel_data';
 ═══════════════════════════════ */
 let anneeActive = new Date().getFullYear();
 let data = {}; // { annee: { mois[0..11]: { hVendables, chantiers:[{client,hPrevues}] } } }
-let _dejaCentre = false; // le centrage sur le mois courant ne se fait qu'une fois (à l'ouverture)
+// Centrage automatique sur le mois en cours : il est refait à chaque redessin du tableau
+// (les données serveur et les ajouts mobile arrivent APRÈS le premier affichage et
+// reconstruisent le tableau), tant que l'utilisateur n'a pas touché à la page.
+// Dès le premier clic, touche, molette ou toucher, on ne recentre plus.
+let _dejaCentre = false;
+['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(function (ev) {
+  document.addEventListener(ev, function () { _dejaCentre = true; }, { capture: true, passive: true });
+});
 let chantiersPlannifies = new Set(); // noms (en minuscules) des chantiers présents dans le planning
 let planningParMois = {};            // { "YYYY_MM": { "NOM CHANTIER": heuresCumulées } }
 let planningTotal = {};              // { "NOM CHANTIER": heures planifiées cumulées, TOUS mois }
@@ -1470,12 +1477,9 @@ function rendreChantiers() {
   cont.innerHTML = html;
   majDepassementsDevis();     // lignes dont le devis est dépassé au planning (fond rouge pulsé)
   rechercherChantierPrev();   // ré-applique la surbrillance de recherche après reconstruction du DOM
-  // Centrage uniquement à la première ouverture de la page : ensuite, on laisse
-  // l'utilisateur sur le mois où il saisit (pas de recentrage après chaque saisie).
-  if (!_dejaCentre) {
-    _dejaCentre = true;
-    centrerMoisCourant();
-  }
+  // Centrage tant que l'utilisateur n'a pas encore agi sur la page : ensuite, on le
+  // laisse sur le mois où il saisit (pas de recentrage après chaque saisie).
+  if (!_dejaCentre) centrerMoisCourant();
 }
 
 /* Tri alphabétique : purement visuel, les données ne sont PAS réordonnées.
@@ -1635,21 +1639,25 @@ function fermerResumeChantier() {
 /* Centre horizontalement la colonne du mois en cours dans la zone scrollable.
    Ne fait rien si le mois courant n'est pas affiché (autre année consultée). */
 function centrerMoisCourant() {
-  const scroll = document.getElementById('chantiers-scroll-bottom');
-  if (!scroll) return;
-
-  const now = new Date();
-  const cle = `${now.getFullYear()}-${now.getMonth()}`; // ex : "2026-4" pour mai 2026
-  // On vise en priorité le bloc du mois courant appartenant à l'année active
-  // (data-hors="0"), sinon n'importe quel bloc de ce mois.
-  let bloc = scroll.querySelector(`[data-mois-bloc="${cle}"][data-hors="0"]`)
-          || scroll.querySelector(`[data-mois-bloc="${cle}"]`);
-  if (!bloc) return;
-
-  // Léger délai pour laisser le layout se stabiliser après l'injection HTML
+  // Léger délai pour laisser le layout se stabiliser après l'injection HTML.
+  // Le bloc du mois est recherché DANS le délai : si le tableau a été redessiné
+  // entre-temps (arrivée des données serveur), l'ancien bloc n'est plus dans la
+  // page (position 0) et le tableau restait calé sur le premier mois.
   setTimeout(() => {
-    const cible = bloc.offsetLeft - (scroll.clientWidth / 2) + (bloc.offsetWidth / 2);
-    scroll.scrollTo({ left: Math.max(0, cible), behavior: 'smooth' });
+    const scroll = document.getElementById('chantiers-scroll-bottom');
+    if (!scroll || !scroll.clientWidth) return;
+    const now = new Date();
+    const cle = `${now.getFullYear()}-${now.getMonth()}`; // ex : "2026-4" pour mai 2026
+    // On vise en priorité le bloc du mois courant appartenant à l'année active
+    // (data-hors="0"), sinon n'importe quel bloc de ce mois.
+    const bloc = scroll.querySelector(`[data-mois-bloc="${cle}"][data-hors="0"]`)
+              || scroll.querySelector(`[data-mois-bloc="${cle}"]`);
+    if (!bloc) return;   // mois courant non affiché (autre année consultée)
+    // Position mesurée par rapport à la zone qui défile (et non via offsetLeft,
+    // qui dépend de l'ancêtre positionné et décale le calcul de la largeur du menu).
+    const dx = bloc.getBoundingClientRect().left - scroll.getBoundingClientRect().left;
+    const cible = scroll.scrollLeft + dx - (scroll.clientWidth / 2) + (bloc.offsetWidth / 2);
+    scroll.scrollTo({ left: Math.max(0, cible), behavior: 'auto' });
   }, 80);
 }
 
