@@ -382,15 +382,16 @@ function frRender(){
   const N = jours.length;
   if (!N){ zone.innerHTML = '<div class="sy-msg">Aucun jour à afficher pour cette période.</div>'; return; }
   // ── Échelle en heures, commune à tous les salariés et à tous les jours ──
-  // Tous les jours ont la même largeur, qui représente la plus grande journée posée sur la période
-  // (contrat, ou heures prévues + absence si plus), tous salariés confondus : 1 h a la même largeur
-  // partout, donc les pavés sont proportionnels au temps prévu.
+  // Chaque jour a la largeur de SA plus grande journée (contrat, ou heures prévues + absence
+  // si plus), tous salariés confondus : la journée la plus longue remplit sa colonne, et 1 h
+  // garde la même largeur partout, donc les pavés restent proportionnels au temps prévu.
   const hJour = jours.map(d => salaries.reduce((m, s) => {
     const j = frJournee(s, heures, d);
     return Math.max(m, j.contrat, j.planifie + j.abs);
   }, 0));
-  const hType = Math.max(0, ...hJour) || 7;
-  hJour.fill(hType);   // largeur de jour identique pour toute la période
+  // Jour sans aucune heure (férié, repos pour tous) : largeur réduite mais lisible
+  const hRef = Math.max(0, ...hJour) || 7;
+  hJour.forEach((h, i) => { if (h <= 0) hJour[i] = Math.min(7, hRef) / 2; });
   const debJour = [0];
   hJour.forEach((h, i) => { debJour[i + 1] = debJour[i] + h; });
   const T = debJour[N];
@@ -401,6 +402,8 @@ function frRender(){
   };
   const pos  = x => (posX(x) / T * 100) + '%';
   const span = (x0, x1) => ((posX(x1) - posX(x0)) / T * 100) + '%';
+  // Largeur réellement affichée, exprimée en « jours moyens » (sert aux seuils d'affichage des libellés)
+  const largAff = (x0, x1) => (posX(x1) - posX(x0)) / T * N;
   const aujIso = frIso(new Date());
 
   // ── En-têtes : semaines puis jours ──
@@ -479,8 +482,8 @@ function frRender(){
 
     let piste = '';
     fus.forEach(sg => {
-      const larg = sg.x1 - sg.x0;
-      if (larg <= 1e-6) return;
+      if (sg.x1 - sg.x0 <= 1e-6) return;
+      const larg = largAff(sg.x0, sg.x1);
       const totalH = sg.jours.reduce((t, x) => t + (x.h || 0), 0);
       const d0 = sg.jours.length ? sg.jours[0].d : null;
       const d1 = sg.jours.length ? sg.jours[sg.jours.length - 1].d : null;
