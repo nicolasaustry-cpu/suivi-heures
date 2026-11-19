@@ -6,9 +6,20 @@
   (function () {
     try {
       if (/[?&]pc=1(&|$)/.test(location.search)) return;
-      var estMobile = /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        || (navigator.maxTouchPoints > 1 && window.matchMedia('(max-width: 1024px)').matches);
-      if (estMobile) { location.replace('saisie.html'); }
+      function estMobileOuTablette() {
+        var ua = navigator.userAgent || navigator.vendor || "";
+        // Téléphones et tablettes qui s'annoncent comme tels
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Silk|Kindle|PlayBook|Tablet/i.test(ua)) return true;
+        // iPad (iPadOS 13+) : Safari se présente comme un Mac, mais un Mac n'a pas d'écran tactile
+        if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return true;
+        // Tablette Android en mode « site pour ordinateur » (par défaut sur Chrome/Samsung Internet)
+        // ou tablette Windows sans clavier : le doigt est le pointeur principal et rien ne survole.
+        // Un PC à écran tactile garde la souris/pavé comme pointeur principal -> reste en version PC.
+        var mm = window.matchMedia;
+        if (mm && mm('(pointer: coarse)').matches && mm('(hover: none)').matches) return true;
+        return false;
+      }
+      if (estMobileOuTablette()) { location.replace('saisie.html'); }
     } catch (e) {}
   })();</script>
     <script>try{if(localStorage.getItem('syncMarquePartenaire')==='1'){var s=document.createElement('style');s.textContent='.vol-marque{display:none!important}';document.head.appendChild(s);}}catch(e){}</script>

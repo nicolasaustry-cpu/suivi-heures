@@ -6,11 +6,24 @@
   <title>Suiv'Heures</title>
   <script>
     // Aiguillage au démarrage de l'application installée (PWA) :
-    //   - Appareil mobile (téléphone) -> page de saisie des heures
-    //   - Ordinateur (PC)             -> page Entreprise (espace de gestion)
+    //   - Téléphone ou tablette -> page de saisie des heures (version mobile)
+    //   - Ordinateur (PC)       -> page Entreprise (espace de gestion)
     (function () {
+      function estMobileOuTablette() {
       var ua = navigator.userAgent || navigator.vendor || "";
-      var estMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+      // Téléphones et tablettes qui s'annoncent comme tels
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Silk|Kindle|PlayBook|Tablet/i.test(ua)) return true;
+      // iPad (iPadOS 13+) : Safari se présente comme un Mac, mais un Mac n'a pas d'écran tactile
+      if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return true;
+      // Tablette Android en mode « site pour ordinateur » (par défaut sur Chrome/Samsung Internet)
+      // ou tablette Windows sans clavier : le doigt est le pointeur principal et rien ne survole.
+      // Un PC à écran tactile garde la souris/pavé comme pointeur principal -> reste en version PC.
+      var mm = window.matchMedia;
+      if (mm && mm('(pointer: coarse)').matches && mm('(hover: none)').matches) return true;
+      return false;
+    }
+      var estMobile = false;
+      try { estMobile = estMobileOuTablette(); } catch (e) {}
       location.replace(estMobile ? "/saisie.html" : "/index.html");
     })();
   </script>
