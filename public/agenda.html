@@ -132,6 +132,7 @@
     .sem-j.auj { background:var(--ambre); color:var(--navy); }
     .sem-j.auj b { color:var(--navy); }
     .sem-grille { position:relative; display:flex; padding:6px 8px 110px 0; }
+    body.sem-pleine .sem-grille { padding-bottom:12px; }   /* grille étirée sur toute la hauteur */
     .sem-grille .lignes { position:absolute; left:0; right:8px; top:6px; }
     .sem-grille .ligne-h span { width:30px; font-size:10px; }
     .sem-corps { margin-left:34px; flex:1; position:relative; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
@@ -199,8 +200,12 @@
    ÉTAT
    ═══════════════════════════════════════════════════════════════ */
 const H_MIN = 6, H_MAX = 21;          // amplitude de la vue jour
-const PX_H  = 56;                     // hauteur d'une heure (vue jour)
-const S_MIN = 7, S_MAX = 20, S_PX = 40; // vue semaine
+// Hauteur d'une heure : valeurs MINIMALES. Sur un écran plus haut (tablette, grand
+// téléphone), elles sont agrandies pour que la grille occupe toute la hauteur (ajusterEchelle).
+const PX_H_MIN = 56, S_PX_MIN = 40;
+let   PX_H  = PX_H_MIN;               // hauteur d'une heure (vue jour)
+const S_MIN = 7, S_MAX = 20;          // vue semaine
+let   S_PX  = S_PX_MIN;
 /* Types = motifs d'exclusion du planning + « Autre » (visite / chantier : anciennes valeurs). */
 const TYPES = { client: 'RDV client', sav: 'SAV', fournisseur: 'Fournisseur', autre: 'Autre' };
 const MENTIONS = { client: 'RDV client : payé, hors heures productives', sav: 'SAV : payé, hors heures productives',
@@ -402,9 +407,42 @@ function rendre() {
   if (S.vue === 'case') { app.innerHTML = vueCase(); return; }
   if (S.vue === 'formcase') { app.innerHTML = vueFormCase(); return; }
   app.innerHTML = (S.vue === 'semaine' ? vueSemaine() : vueJour());
+  if (ajusterEchelle()) app.innerHTML = (S.vue === 'semaine' ? vueSemaine() : vueJour());
   if (S.vue === 'jour') positionnerDefilement();
   brancherCreneaux();
 }
+
+/* Agrandit la hauteur des heures pour que la grille remplisse l'écran jusqu'en bas.
+   Mesure la position réelle du haut de la grille (en-tête, légende, messages compris),
+   jamais en dessous des valeurs minimales. Renvoie true si l'échelle a changé (re-rendu). */
+function ajusterEchelle() {
+  const sem = S.vue === 'semaine';
+  const el = document.querySelector(sem ? '.sem-corps' : '.grille');
+  if (!el) return false;
+  const haut = el.getBoundingClientRect().top + window.scrollY;
+  // Vue jour : on laisse la place du bouton + sous la dernière heure (il couvre toute la largeur)
+  const dispo = window.innerHeight - haut - (sem ? 12 : 84);
+  const nb = sem ? (S_MAX - S_MIN) : (H_MAX - H_MIN);
+  const px = Math.max(sem ? S_PX_MIN : PX_H_MIN, Math.floor(dispo / nb));
+  const avant = sem ? S_PX : PX_H;
+  if (sem) S_PX = px; else PX_H = px;
+  document.body.classList.toggle('sem-pleine', sem && px > S_PX_MIN);
+  return px !== avant;
+}
+/* Rotation de la tablette / redimensionnement : on recalcule. On ignore les petites
+   variations de hauteur (barre d'adresse qui se replie au défilement sur mobile). */
+(function () {
+  let w0 = window.innerWidth, h0 = window.innerHeight, t = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const w = window.innerWidth, h = window.innerHeight;
+      if (w === w0 && Math.abs(h - h0) < 150) return;
+      w0 = w; h0 = h;
+      if (S.vue === 'semaine' || S.vue === 'jour') rendre();
+    }, 200);
+  });
+})();
 
 /* ═══════════════════════════════════════════════════════════════
    GLISSER-DÉPOSER (appui long, comme Google Agenda)
