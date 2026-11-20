@@ -335,7 +335,18 @@ async function chargerRealiseSemaine() {
       const d = await r.json();
       if (d.ok) {
         if (d.saisies)  _saisies.push(...d.saisies);
-        if (d.salaries) localStorage.setItem('salariesdata', JSON.stringify(d.salaries));
+        // Le serveur retire les PIN avant l'envoi : on garde ceux déjà présents
+        // localement (même règle que saisie.html), sinon la page Salariés du PC,
+        // qui partage cette clé, afficherait les salariés sans PIN.
+        if (d.salaries) {
+          let anc = [];
+          try { anc = JSON.parse(localStorage.getItem('salariesdata') || '[]'); } catch (_) {}
+          const fus = d.salaries.map(s => {
+            const e = anc.find(a => String(a.id) === String(s.id));
+            return e && e.pin ? { ...s, pin: e.pin } : s;
+          });
+          localStorage.setItem('salariesdata', JSON.stringify(fus));
+        }
         if (d.heures)   localStorage.setItem('heuresdata',   JSON.stringify(d.heures));
         if (d.ordreMobile) localStorage.setItem('ordreMobiledata', JSON.stringify(d.ordreMobile));
         if (d.notesChantiers) localStorage.setItem('notesChantiersdata', JSON.stringify(d.notesChantiers));

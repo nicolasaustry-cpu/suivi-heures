@@ -305,6 +305,25 @@ const SYNC = (() => {
       });
       const localClientId = localStorage.getItem('syncClientId');
 
+      // PIN : le serveur fait toujours référence (ils sont verrouillés côté serveur).
+      // Même quand on garde le local (cas 1 et 2 bis), on y recolle les PIN du
+      // serveur : une liste écrite par une page mobile (PIN retirés) ne doit
+      // jamais faire disparaître les PIN de l'écran Salariés du PC.
+      if (!_modeAdmin && localClientId === _clientId && Array.isArray(serveur.salaries)) {
+        try {
+          const loc = JSON.parse(localStorage.getItem('salariesdata') || '[]');
+          let modifie = false;
+          if (Array.isArray(loc)) {
+            loc.forEach(s => {
+              if (!s || (s.pin && String(s.pin).trim())) return;
+              const sv = serveur.salaries.find(x => x && String(x.id) === String(s.id));
+              if (sv && sv.pin && String(sv.pin).trim()) { s.pin = sv.pin; modifie = true; }
+            });
+            if (modifie) ecrireLocalSansDeclencher('salariesdata', JSON.stringify(loc));
+          }
+        } catch (e) {}
+      }
+
       // Cas 1 : une modification locale attend d'être poussée → on garde le local
       // (il est plus récent et sera envoyé au serveur). Pas d'écrasement.
       if (_pendingSave && !_modeAdmin) {
