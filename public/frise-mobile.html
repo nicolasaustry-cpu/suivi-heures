@@ -108,6 +108,14 @@
     .eq-j, .ps-j { cursor:pointer; }
     .eq-j:active, .ps-j:active { background:#e0e7ff; }
     .ps-barre { cursor:pointer; }
+    .m-pos { min-height:46px; border-radius:14px; border:1px dashed var(--navy); background:#fff; color:var(--navy); font-size:15px; font-weight:700; }
+    .m-info { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; border-radius:12px; padding:9px 12px; font-size:14px; }
+    #bandeau-pos { position:fixed; left:8px; right:8px; bottom:12px; z-index:60; display:flex; align-items:center; gap:10px; background:var(--navy); color:#fff;
+                   border-radius:14px; padding:10px 12px; font-size:14px; line-height:1.35; box-shadow:0 10px 30px rgba(10,22,52,.35); max-width:640px; margin:0 auto; }
+    #bandeau-pos span { flex:1; }
+    #bandeau-pos button { flex:0 0 auto; min-height:38px; border-radius:10px; border:1px solid rgba(255,255,255,.4); background:rgba(255,255,255,.14); color:#fff; font-weight:700; padding:0 12px; }
+    body.mode-pos .eq-piste { cursor:crosshair; }
+    body.mode-pos .eq-piste:active { background:rgba(245,158,11,.18); }
     .v-dr { display:flex; align-items:center; gap:10px; }
     .v-mod-j { border:1px solid #c7d2fe; background:#eef2ff; border-radius:9px; min-width:36px; min-height:32px; font-size:15px; }
     .v-aide { font-size:13px; color:var(--gris); text-align:center; }
@@ -474,7 +482,7 @@ function vueEquipe() {
       if (!ji || ji.ecart === 'ok') return;
       ecarts += `<span class="eq-ecart" style="top:${cum[i] + 3}px;height:${rhJ[i] - 5}px;background:${ji.ecart === 'trop' ? '#dc2626' : '#f59e0b'}"></span>`;
     });
-    pistes += `<div class="eq-piste" style="left:${c * laneW}px;width:${laneW}px" onclick="const j=jourDuToucher(event);if(j)creerRdv(j,'${frEsc(s.id)}')">${segs}${ecarts}</div>`;
+    pistes += `<div class="eq-piste" data-sal="${frEsc(s.id)}" style="left:${c * laneW}px;width:${laneW}px" onclick="const j=jourDuToucher(event);if(j)creerRdv(j,'${frEsc(s.id)}')">${segs}${ecarts}</div>`;
   });
   return `<div class="eq">${tete}<div class="eq-corps">
       <div class="eq-jours" style="height:${cum[N]}px">${joursCol}</div>
@@ -603,19 +611,32 @@ function ouvrirDetail(id, dateIso) {
    jour, refuse si le chantier a bougé entre-temps, cherche une case libre chez le
    salarié cible). La frise est ensuite rechargée sans perdre la position. */
 let _modif = null;
-function ouvrirModif(salId, dateIso, nomEnc, rdv, bouton) {
-  const volet = bouton && bouton.closest('.volet'); if (!volet) return;
+function _nouveauVolet() {
+  const voile = document.createElement('div');
+  voile.className = 'voile';
+  voile.innerHTML = '<section class="volet" role="dialog" aria-label="Modifier"></section>';
+  voile.addEventListener('click', e => { if (e.target === voile) { voile.remove(); _modif = null; } });
+  document.body.appendChild(voile);
+  return voile.querySelector('.volet');
+}
+/* cible (facultatif) : { salId, dateIso, rdv } choisis en touchant le planning */
+function ouvrirModif(salId, dateIso, nomEnc, rdv, bouton, cible) {
+  const volet = (bouton && bouton.closest && bouton.closest('.volet')) || _nouveauVolet();
   const nom = decodeURIComponent(nomEnc);
   _modif = { salId: String(salId), dateIso, nom, rdv: rdv || '', volet };
-  const opts = F.calc.sals.map(x => `<option value="${frEsc(x.id)}"${String(x.id) === String(salId) ? ' selected' : ''}>${frEsc(x.nom)}</option>`).join('');
+  const salV = cible ? String(cible.salId) : String(salId), dateV = cible ? cible.dateIso : dateIso;
+  const rdvV = cible ? (cible.rdv || '') : (rdv || '');
+  const opts = F.calc.sals.map(x => `<option value="${frEsc(x.id)}"${String(x.id) === salV ? ' selected' : ''}>${frEsc(x.nom)}</option>`).join('');
   volet.innerHTML = `<span class="poignee" aria-hidden="true"></span>
     <div class="v-tete"><span class="v-coul" style="background:${frCouleur(nom)}"></span><div><b>${frEsc(nom)}</b><span>Modifier ce chantier</span></div></div>
     <div class="m-ligne">
-      <div class="m-champ"><label for="m-date">Date</label><input type="date" id="m-date" value="${dateIso}"></div>
-      <div class="m-champ"><label for="m-rdv">Heure du RDV</label><input type="time" id="m-rdv" value="${frEsc(rdv || '')}">
+      <div class="m-champ"><label for="m-date">Date</label><input type="date" id="m-date" value="${dateV}"></div>
+      <div class="m-champ"><label for="m-rdv">Heure du RDV</label><input type="time" id="m-rdv" value="${frEsc(rdvV)}">
         <button type="button" class="m-sans" onclick="document.getElementById('m-rdv').value=''">sans heure</button></div>
     </div>
     <div class="m-champ"><label for="m-sal">Salarié</label><select id="m-sal">${opts}</select></div>
+    ${cible ? `<div class="m-info">📍 Nouvelle place choisie sur le planning : ${frEsc(FR_JL[new Date(dateV + 'T00:00:00').getDay()])} ${frEsc(frDateCourte(new Date(dateV + 'T00:00:00')))} · ${frEsc((F.calc.sals.find(x => String(x.id) === salV) || {}).nom || '')}</div>` : ''}
+    ${F.vue === 'equipe' ? `<button type="button" class="m-pos" onclick="choisirSurPlanning()">📍 Choisir la nouvelle place sur le planning</button>` : ''}
     <div class="m-alerte" id="m-alerte" style="display:none"></div>
     <button type="button" class="m-ok" id="m-ok" onclick="validerModif(false)">Enregistrer</button>
     <button type="button" class="m-ann" onclick="this.closest('.voile').remove()">Annuler</button>`;
@@ -638,6 +659,44 @@ function _alertesModif(salT, dateT, rdvT, memeCase) {
   if (dateT < frIso(new Date())) out.push('📆 Cette date est passée.');
   return out;
 }
+/* ── Option : choisir la destination en touchant le planning ──
+   Le volet se ferme, un bandeau invite à toucher la case voulue (colonne du salarié ×
+   ligne du jour) ; le formulaire se rouvre alors prérempli avec ce salarié et ce jour,
+   l'heure de RDV étant conservée. Il ne reste qu'à « Enregistrer ». */
+let _placement = null;
+function choisirSurPlanning() {
+  if (!_modif) return;
+  const rdvEl = document.getElementById('m-rdv');
+  _placement = { salId: _modif.salId, dateIso: _modif.dateIso, nom: _modif.nom, rdv: _modif.rdv,
+                 rdvSaisi: rdvEl ? rdvEl.value : _modif.rdv };
+  const voile = _modif.volet.closest('.voile'); if (voile) voile.remove();
+  _modif = null;
+  let b = document.getElementById('bandeau-pos');
+  if (!b) { b = document.createElement('div'); b.id = 'bandeau-pos'; document.body.appendChild(b); }
+  b.innerHTML = `<span>📍 Touchez la nouvelle place de <b>${frEsc(_placement.nom)}</b> : la colonne du salarié, à la ligne du jour.</span><button type="button" onclick="annulerPlacement()">Annuler</button>`;
+  document.body.classList.add('mode-pos');
+}
+function annulerPlacement() {
+  _placement = null;
+  const b = document.getElementById('bandeau-pos'); if (b) b.remove();
+  document.body.classList.remove('mode-pos');
+}
+// Capture : en mode placement, le toucher sur la grille choisit la destination
+// (il n'ouvre ni le détail d'un pavé ni la création d'un RDV).
+document.addEventListener('click', e => {
+  if (!_placement) return;
+  if (e.target.closest('#bandeau-pos')) return;
+  const piste = e.target.closest('.eq-piste');
+  if (!piste) return;
+  e.stopPropagation(); e.preventDefault();
+  const jour = jourDuToucher(e);
+  if (!jour) return;
+  const p = _placement;
+  annulerPlacement();
+  ouvrirModif(p.salId, p.dateIso, encodeURIComponent(p.nom), p.rdv, null,
+              { salId: piste.getAttribute('data-sal'), dateIso: jour, rdv: p.rdvSaisi });
+}, true);
+
 async function validerModif(force) {
   if (!_modif) return;
   const dateT = document.getElementById('m-date').value;
