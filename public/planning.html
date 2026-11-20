@@ -420,6 +420,8 @@
   .tgrid .chip .pl2-grip:active, .grille .chip .pl2-grip:active { cursor:grabbing; }
   .chip.pl2-dragging { opacity:.55; outline:2px dashed #2563eb; outline-offset:-2px; }
   table.tgrid td.cell-cible { outline:2px dashed #16a34a; outline-offset:-3px; background:#f0fdf4 !important; }
+  .tgrid .chip.pl2-arrive { animation: pl2Arrive 2.4s ease-out 1; }
+  @keyframes pl2Arrive { 0%,35% { box-shadow:0 0 0 3px #f59e0b; } 100% { box-shadow:0 0 0 0 rgba(245,158,11,0); } }
   .tgrid .btn-rdv-ch { height:auto; min-width:0; border:none; background:#eef2f7; color:#64748b; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; }
   .tgrid .btn-rdv-ch.has-rdv { background:#dbeafe; color:#1e3a8a; }
   .tgrid .btn-note-ch { width:auto; height:auto; border:none; background:#eef2f7; color:#94a3b8; border-radius:6px; padding:3px 7px; font-size:0.7rem; font-weight:700; cursor:pointer; line-height:1.3; position:relative; }
@@ -1087,7 +1089,7 @@ function pl2ChipHTML(sl){
   const noteJour=(data.note||'').trim();
   const noteImp=[noteImpression(noteJour), noteImpression(noteG)].filter(Boolean).join('\n');
   const cls='chip'+(sl.rempli?'':' vide')+(estTNA?' tna':'');
-  const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser pour réordonner / déplacer">⠿</span>':'';
+  const grip=(sl.rempli && !estTNA)?'<span class="pl2-grip no-print" title="Glisser : réordonner / déplacer · Double-clic : changer salarié, date ou heure">⠿</span>':'';
   const _mv=(sl.rempli && !estTNA)?'1':'';
   // Marqueur RDV importé depuis Reservio : 🔗 tant que Reservio garde la main sur ce
   // créneau, 🔒 dès qu'il a été modifié à la main (et n'est plus retouché par le sync).
@@ -1195,9 +1197,10 @@ function pl2InitDragReorder(){
     g.addEventListener('mousedown',  pl2DragStartMouse);
   });
 }
-function pl2DragBegin(chip, cell){
+function pl2DragBegin(chip, cell, x, y){
   _pl2Drag = {
     chip, cell, targetCell:null,
+    x0:x, y0:y, bouge:false,          // simple clic (sans mouvement) ≠ glisser
     movable: chip.getAttribute('data-move')==='1',
     sourceK: chip.getAttribute('data-k')
   };
@@ -1206,6 +1209,11 @@ function pl2DragBegin(chip, cell){
 }
 function pl2DragPoint(x, y){
   if(!_pl2Drag) return;
+  // Tant que le pointeur n'a pas bougé de quelques pixels, ce n'est qu'un clic
+  if(!_pl2Drag.bouge){
+    if(Math.abs(x-(_pl2Drag.x0||0)) < 5 && Math.abs(y-(_pl2Drag.y0||0)) < 5) return;
+    _pl2Drag.bouge = true;
+  }
   const { chip, cell } = _pl2Drag;
   const el = document.elementFromPoint(x, y);
   const overCell = el && el.closest ? el.closest('td[data-salarie][data-date]') : null;
@@ -1224,12 +1232,26 @@ function pl2DragPoint(x, y){
   const r = cible.getBoundingClientRect();
   if(y > r.top + r.height/2) cible.after(chip); else cible.before(chip);
 }
+let _pl2DernierClic = { k:null, t:0 };
 function pl2DragFinish(){
   if(!_pl2Drag) return;
   const { chip, cell, targetCell } = _pl2Drag;
   chip.classList.remove('pl2-dragging');
   document.body.style.userSelect=''; document.body.style.webkitUserSelect='';
   if(targetCell) targetCell.classList.remove('cell-cible');
+  // Clic sans mouvement : rien ne bouge. Deux clics rapprochés sur le même pavé
+  // (double-clic souris ou double tape au doigt) → fenêtre de déplacement.
+  if(!_pl2Drag.bouge){
+    const k = _pl2Drag.sourceK, t = Date.now();
+    _pl2Drag = null;
+    if(_pl2DernierClic.k === k && (t - _pl2DernierClic.t) < 450){
+      _pl2DernierClic = { k:null, t:0 };
+      pl2OuvrirDeplacer(k);
+    } else {
+      _pl2DernierClic = { k, t };
+    }
+    return;
+  }
   // Déposé sur une AUTRE case → déplacement (réaffectation) vers ce salarié / ce jour
   if(_pl2Drag.movable && targetCell && targetCell !== cell){
     const salIdT = targetCell.getAttribute('data-salarie');
@@ -1249,15 +1271,25 @@ function pl2DragFinish(){
 /* Déplace un chantier prévu vers une autre case (salarié × jour) par glisser-déposer.
    Mêmes contrôles que le déplacement manuel : école, férié, jour non travaillé,
    absence totale, journée pleine, RDV en doublon. Le TNA des deux cases est recalculé. */
-function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
+function pl2DeplacerParGlisser(sourceK, salIdT, dateT, opts){
+  opts = opts || {};
   const src = heures[sourceK];
-  if(!src) return;
+  if(!src) return null;
   const nom = (src.chantier||'').trim();
-  if(!nom || nom.toUpperCase()===TNA) return;
+  if(!nom || nom.toUpperCase()===TNA) return null;
   const mm = sourceK.match(/^(\d+)(\d{4}_\d{2}_\d{2})/);
-  if(!mm) return;
+  if(!mm) return null;
   const salIdS = mm[1], safeS = mm[2], dateS = safeS.replace(/_/g,'-');
-  if(String(salIdT)===String(salIdS) && dateT===dateS) return;
+  // opts.rdv : undefined = l'heure suit le chantier ; '' = retirer ; 'HH:MM' = nouvelle heure
+  const rdvAvant = (src.rdv||'').trim();
+  const rdvNouv  = opts.rdv === undefined ? rdvAvant : String(opts.rdv||'').trim();
+  const memeCase = String(salIdT)===String(salIdS) && dateT===dateS;
+  if(memeCase){
+    if(rdvNouv === rdvAvant) return sourceK;
+    // Même salarié, même jour : seule l'heure change (passe par la saisie RDV habituelle)
+    saveRdv(sourceK, rdvNouv);
+    return sourceK;
+  }
 
   const s = salaries.find(x=>String(x.id)===String(salIdT));
   if(!s){ alert('Salarié introuvable.'); return; }
@@ -1277,16 +1309,25 @@ function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
   // Créneau cible libre (vide ou TNA)
   let cibleK=null;
   for(let i=1;i<=nb;i++){ const k=salIdT+safeT+'ch'+i; const d=heures[k]; const n=String(d&&d.chantier||'').trim(); if(!n || n.toUpperCase()===TNA){ cibleK=k; break; } }
-  if(!cibleK){ alert('⛔ La journée de '+(s.prenom||'ce salarié')+' est pleine ('+nb+' chantiers). Libère un créneau avant de déplacer.'); return; }
+  if(!cibleK){ alert('⛔ La journée de '+(s.prenom||'ce salarié')+' est pleine ('+nb+' chantiers). Libère un créneau avant de déplacer.'); return null; }
+
+  if(typeof estDatePassee==='function' && estDatePassee(dateT) && !estDatePassee(dateS))
+    conflits.push('📆 Le '+dateT.split('-').reverse().join('/')+' est une date passée.');
 
   // RDV en doublon sur la journée cible
-  const rdv = (src.rdv||'').trim();
+  const rdv = rdvNouv;
   if(rdv){ for(let i=1;i<=nb;i++){ const k=salIdT+safeT+'ch'+i; const d=heures[k]; if(d && String(d.rdv||'').trim()===rdv){ conflits.push('🕐 '+(s.prenom||'Le salarié')+' a déjà un RDV à '+rdv+'.'); break; } } }
 
-  if(conflits.length && !confirm(conflits.join('\n')+'\n\nDéplacer quand même ?')) return;
+  if(conflits.length && !confirm(conflits.join('\n')+'\n\nDéplacer quand même ?')) return null;
 
   // Déplacement : on transfère l'objet complet (heures, note, RDV, motif…)
   const copie={}; for(const p in src) copie[p]=src[p];
+  if(rdvNouv !== rdvAvant){
+    if(rdvNouv){ copie.rdv = rdvNouv; copie.rdvAuteur = 'gerant'; }
+    else { delete copie.rdv; delete copie.rdvAuteur; delete copie.rdvDelai; }
+  }
+  if(rdvNouv !== rdvAvant || dateT !== dateS) delete copie.rdvNotifie; // le rappel doit pouvoir repartir
+  if(opts.mois){ const mi=document.getElementById('moisPlanning'); if(mi) mi.value = opts.mois; }
   delete heures[sourceK];
   heures[cibleK]=copie;
   localStorage.setItem('heuresdata', JSON.stringify(heures));
@@ -1297,13 +1338,139 @@ function pl2DeplacerParGlisser(sourceK, salIdT, dateT){
   if (copie.reservioUid) {
     pl2RappelLibererReservio(nom.split(' — ')[0].trim());
   }
+  return cibleK;
+}
+
+/* ══ Fenêtre « Déplacer » (double-clic sur la poignée ⠿) ══
+   Change le salarié, la date et/ou l'heure de RDV d'un chantier prévu, n'importe
+   quel jour (même hors de la semaine affichée). Mêmes contrôles que le glisser. */
+let _pl2DepK = null;
+function _pl2DepStyle(){
+  if(document.getElementById('pl2-dep-style')) return;
+  const st=document.createElement('style'); st.id='pl2-dep-style';
+  st.textContent=`
+  #pl2-dep-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px}
+  #pl2-dep-ov .bx{background:#fff;border-radius:12px;padding:18px;width:min(440px,94vw);box-shadow:0 12px 44px rgba(0,0,0,.28);font-family:inherit}
+  #pl2-dep-ov h3{margin:0 0 2px;font-size:1.05rem;color:#0f3a8a}
+  #pl2-dep-ov .sub{font-size:.82rem;color:#6b7280;margin-bottom:14px}
+  #pl2-dep-ov label{display:block;font-size:.74rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.03em;margin:10px 0 4px}
+  #pl2-dep-ov input,#pl2-dep-ov select{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font-size:.92rem;font-family:inherit;background:#fff}
+  #pl2-dep-ov .ligne{display:flex;gap:10px}#pl2-dep-ov .ligne>div{flex:1;min-width:0}
+  #pl2-dep-ov .rdv-x{border:none;background:none;color:#64748b;font-size:.78rem;cursor:pointer;padding:3px 0 0;text-decoration:underline}
+  #pl2-dep-ov .dispo{font-size:.8rem;margin-top:5px;min-height:1.1em;color:#475569}
+  #pl2-dep-ov .act{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  #pl2-dep-ov .act button{border-radius:8px;padding:8px 14px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit}
+  #pl2-dep-ov .b-ann{background:#fff;border:1px solid #cbd5e1;color:#334155}
+  #pl2-dep-ov .b-ok{background:#0f3a8a;border:1px solid #0f3a8a;color:#fff}`;
+  document.head.appendChild(st);
+}
+/* Disponibilité d'un salarié un jour donné : texte court affiché dans la liste. */
+function _pl2DepDispo(s, dateStr, kExclu){
+  const ent=_plDateEntree(s), sor=s.dateSortie?new Date(s.dateSortie+'T23:59:59'):null;
+  const d=new Date(dateStr+'T12:00:00');
+  if((ent && d<ent) || (sor && d>sor)) return { txt:'hors effectif', ok:false };
+  if(estJourEcolePl(s,dateStr)) return { txt:'à l\'école', ok:false };
+  if(estFeriePl(dateStr)) return { txt:'férié', ok:false };
+  const c=contratDuJour(s,dateStr);
+  if(c<=0) return { txt:'ne travaille pas', ok:false };
+  const safe=dateStr.replace(/-/g,'_');
+  const abs=parseFloat((heures[s.id+safe+'abs']||{}).heures)||0;
+  if(abs>=c) return { txt:'absent', ok:false };
+  let pl=0;
+  for(let i=1;i<=NB_SLOTS;i++){ const k=s.id+safe+'ch'+i; if(k===kExclu) continue; const e=heures[k]; const n=String(e&&e.chantier||'').trim(); if(!n||n.toUpperCase()===TNA) continue; pl+=parseFloat(e.heures)||0; }
+  const dispo=c-abs;
+  return { txt: pl2Fmt(pl)+' planifiées / '+pl2Fmt(dispo)+(abs>0?' (absence partielle)':''), ok: pl<dispo };
+}
+function _pl2DepMajListe(){
+  const k=_pl2DepK; if(!k) return;
+  const sel=document.getElementById('pl2-dep-sal'), dt=document.getElementById('pl2-dep-date').value;
+  const choisi=sel.value;
+  const liste=JSON.parse(localStorage.getItem('salariesdata')||'[]').filter(s=>!s.administratif || s.planningPrevu);
+  sel.innerHTML = liste.map(s=>{
+    const nomS=((s.prenom||'')+' '+(s.nom||'')).trim();
+    const dp = dt ? _pl2DepDispo(s, dt, k) : { txt:'', ok:true };
+    return `<option value="${s.id}">${dp.ok?'':'⚠ '}${nomS.replace(/</g,'&lt;')}${dp.txt?' — '+dp.txt:''}</option>`;
+  }).join('');
+  if(choisi && liste.some(s=>String(s.id)===String(choisi))) sel.value=choisi;
+  _pl2DepMajDispo();
+}
+function _pl2DepMajDispo(){
+  const sel=document.getElementById('pl2-dep-sal'), dt=document.getElementById('pl2-dep-date').value;
+  const el=document.getElementById('pl2-dep-dispo'); if(!el) return;
+  const s=JSON.parse(localStorage.getItem('salariesdata')||'[]').find(x=>String(x.id)===String(sel.value));
+  if(!s||!dt){ el.textContent=''; return; }
+  const dp=_pl2DepDispo(s, dt, _pl2DepK);
+  el.innerHTML = (dp.ok?'✅ ':'⚠️ ')+'Ce jour-là : '+dp.txt;
+  el.style.color = dp.ok ? '#15803d' : '#b45309';
+}
+function pl2OuvrirDeplacer(k){
+  const src=heures[k]; if(!src) return;
+  const nom=(src.chantier||'').trim(); if(!nom || nom.toUpperCase()===TNA) return;
+  const mm=k.match(/^(\d+)(\d{4}_\d{2}_\d{2})/); if(!mm) return;
+  _pl2DepStyle(); fermerDeplacer();
+  _pl2DepK=k;
+  const dateS=mm[2].replace(/_/g,'-');
+  const esc=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const h=parseFloat(src.heures)||0;
+  const ov=document.createElement('div'); ov.id='pl2-dep-ov'; ov.className='no-print';
+  ov.innerHTML=`<div class="bx" role="dialog" aria-modal="true">
+    <h3>↪ Déplacer le chantier</h3>
+    <div class="sub">${esc(nom)}${h?' · '+pl2Fmt(h):''}</div>
+    <div class="ligne">
+      <div><label for="pl2-dep-date">Date</label><input type="date" id="pl2-dep-date" value="${dateS}"></div>
+      <div><label for="pl2-dep-rdv">Heure du RDV</label><input type="time" id="pl2-dep-rdv" value="${esc((src.rdv||'').trim())}">
+        <button type="button" class="rdv-x" onclick="document.getElementById('pl2-dep-rdv').value=''">sans heure</button></div>
+    </div>
+    <label for="pl2-dep-sal">Salarié</label>
+    <select id="pl2-dep-sal"><option value="${mm[1]}"></option></select>
+    <div class="dispo" id="pl2-dep-dispo"></div>
+    <div class="act"><button type="button" class="b-ann" onclick="fermerDeplacer()">Annuler</button>
+      <button type="button" class="b-ok" onclick="validerDeplacer()">Valider</button></div>
+  </div>`;
+  ov.addEventListener('click', e=>{ if(e.target===ov) fermerDeplacer(); });
+  document.body.appendChild(ov);
+  document.getElementById('pl2-dep-sal').value=mm[1];
+  document.getElementById('pl2-dep-date').addEventListener('change', _pl2DepMajListe);
+  document.getElementById('pl2-dep-sal').addEventListener('change', _pl2DepMajDispo);
+  document.addEventListener('keydown', _pl2DepEchap);
+  _pl2DepMajListe();
+}
+function _pl2DepEchap(e){ if(e.key==='Escape') fermerDeplacer(); }
+function fermerDeplacer(){
+  const o=document.getElementById('pl2-dep-ov'); if(o) o.remove();
+  document.removeEventListener('keydown', _pl2DepEchap);
+  _pl2DepK=null;
+}
+function validerDeplacer(){
+  const k=_pl2DepK; if(!k||!heures[k]){ fermerDeplacer(); return; }
+  const dateT=document.getElementById('pl2-dep-date').value;
+  const salT =document.getElementById('pl2-dep-sal').value;
+  const rdv  =document.getElementById('pl2-dep-rdv').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateT)){ alert('Choisissez une date.'); return; }
+  if(!salT){ alert('Choisissez un salarié.'); return; }
+  fermerDeplacer();
+  const cibleK = pl2DeplacerParGlisser(k, salT, dateT, { rdv, mois: dateT.slice(0,7) });
+  if(!cibleK) return;
+  // Si le mois affiché n'est pas celui d'arrivée (même chantier, seule l'heure change),
+  // on bascule dessus, puis on amène la case à l'écran et on fait clignoter le pavé.
+  const mi=document.getElementById('moisPlanning');
+  if(mi && mi.value!==dateT.slice(0,7)){ mi.value=dateT.slice(0,7); genererPlanning(); }
+  setTimeout(()=>{
+    const chip=document.querySelector(`#planning-wrapper .chip[data-k="${cibleK}"]`);
+    const cell=chip ? chip.closest('td') : document.querySelector(`td[data-salarie="${salT}"][data-date="${dateT}"]`);
+    if(cell) cell.scrollIntoView({ behavior:'smooth', block:'center', inline:'center' });
+    if(chip){ chip.classList.remove('pl2-arrive'); void chip.offsetWidth; chip.classList.add('pl2-arrive'); }
+    else if(cell && salariesCoches.size && !salariesCoches.has(isNaN(+salT)?salT:+salT))
+      alert('Chantier déplacé. Le salarié choisi est masqué par le filtre des salariés : cochez-le pour le voir.');
+  }, 80);
 }
 function pl2DragStartTouch(e){
   const chip = e.target.closest('.chip'); const cell = chip && chip.closest('td');
   if(!chip || !cell) return;
   if(cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2 && chip.getAttribute('data-move') !== '1') return;
   e.preventDefault(); e.stopPropagation();
-  pl2DragBegin(chip, cell);
+  const t0 = e.touches && e.touches[0];
+  pl2DragBegin(chip, cell, t0 ? t0.clientX : 0, t0 ? t0.clientY : 0);
   document.addEventListener('touchmove', pl2DragMoveTouch, { passive:false });
   document.addEventListener('touchend', pl2DragEndTouch);
   document.addEventListener('touchcancel', pl2DragEndTouch);
@@ -1320,7 +1487,7 @@ function pl2DragStartMouse(e){
   if(!chip || !cell) return;
   if(cell.querySelectorAll('.chip:not(.tna):not(.vide)').length < 2 && chip.getAttribute('data-move') !== '1') return;
   e.preventDefault();
-  pl2DragBegin(chip, cell);
+  pl2DragBegin(chip, cell, e.clientX, e.clientY);
   document.addEventListener('mousemove', pl2DragMoveMouse);
   document.addEventListener('mouseup', pl2DragEndMouse);
 }
