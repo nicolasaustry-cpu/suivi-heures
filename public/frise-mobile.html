@@ -108,6 +108,17 @@
     .eq-j, .ps-j { cursor:pointer; }
     .eq-j:active, .ps-j:active { background:#e0e7ff; }
     .ps-barre { cursor:pointer; }
+    .v-dr { display:flex; align-items:center; gap:10px; }
+    .v-mod-j { border:1px solid #c7d2fe; background:#eef2ff; border-radius:9px; min-width:36px; min-height:32px; font-size:15px; }
+    .v-aide { font-size:13px; color:var(--gris); text-align:center; }
+    .m-champ { display:flex; flex-direction:column; gap:5px; }
+    .m-champ label { font-size:12px; font-weight:700; color:var(--gris); text-transform:uppercase; letter-spacing:.03em; }
+    .m-champ input, .m-champ select { min-height:46px; border:1px solid #cfd7e8; border-radius:12px; padding:0 12px; font-size:16px; background:#fff; color:var(--texte); width:100%; }
+    .m-ligne { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .m-sans { align-self:flex-start; border:0; background:none; color:var(--gris); font-size:13px; text-decoration:underline; padding:2px 0; }
+    .m-alerte { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; border-radius:12px; padding:10px 12px; font-size:14px; line-height:1.4; }
+    .m-ok { min-height:52px; border-radius:14px; border:0; background:var(--ambre); color:var(--navy); font-size:17px; font-weight:800; }
+    .m-ann { min-height:46px; border-radius:14px; border:1px solid #cfd7e8; background:#fff; color:#2d3550; font-size:15px; font-weight:600; }
     .v-creer { min-height:50px; border-radius:14px; border:1px solid #c7d2fe; background:#eef2ff; color:var(--navy); font-size:15px; font-weight:700; }
     .astuce { font-size:11px; color:#94a3b8; text-align:center; padding:2px 0 0; }
     .v-fermer { min-height:50px; border-radius:14px; border:0; background:var(--navy); color:#fff; font-size:16px; font-weight:700; }
@@ -549,8 +560,11 @@ function ouvrirDetail(id, dateIso) {
     corps += `<div class="v-cartes">
         <div class="v-carte"><span class="lbl">Période</span><span class="val">${frEsc(periode)}</span><span style="font-size:12px;color:var(--gris)">${nbJ} jour${nbJ > 1 ? 's' : ''}</span></div>
         <div class="v-carte"><span class="lbl">Prévu</span><span class="gros">${frFmt(totalH)} h</span></div></div>`;
-    if (sg.jours.length > 1 || (sg.jours[0] && sg.jours[0].rdv)) {
-      corps += '<div class="v-liste">' + sg.jours.map(x => `<div><span>${frEsc(jc(x.d))}${x.rdv ? ' · RDV ' + frEsc(x.rdv) : ''}</span><b>${frFmt(x.h)} h</b></div>`).join('') + '</div>';
+    if (sg.jours.length > 1) {
+      // Plusieurs jours : chaque jour se modifie séparément (✏️ en bout de ligne)
+      corps += '<div class="v-liste">' + sg.jours.map(x => `<div><span>${frEsc(jc(x.d))}${x.rdv ? ' · RDV ' + frEsc(x.rdv) : ''}</span><span class="v-dr"><b>${frFmt(x.h)} h</b><button type="button" class="v-mod-j" aria-label="Modifier ce jour" onclick="ouvrirModif('${frEsc(salSeg.id)}','${frIso(x.d)}','${frEsc(encodeURIComponent(sg.lib))}','${frEsc(x.rdv || '')}', this)">✏️</button></span></div>`).join('') + '</div>';
+    } else if (sg.jours[0] && sg.jours[0].rdv) {
+      corps += '<div class="v-liste">' + sg.jours.map(x => `<div><span>${frEsc(jc(x.d))} · RDV ${frEsc(x.rdv)}</span><b>${frFmt(x.h)} h</b></div>`).join('') + '</div>';
     }
     const c = F.coords[String(sg.lib).trim().toUpperCase()];
     const adr = c ? [c.adresse, c.ville].filter(Boolean).join(', ').replace(/\s*\n\s*/g, ', ') : '';
@@ -572,11 +586,96 @@ function ouvrirDetail(id, dateIso) {
       <span class="poignee" aria-hidden="true"></span>
       <div class="v-tete"><span class="v-coul" style="background:${coul}"></span><div><b>${frEsc(titre)}</b><span>${frEsc(sg.salNom)}</span></div></div>
       ${corps}
-      ${jourCreer ? `<button type="button" class="v-creer" onclick="creerRdv('${jourCreer}','${frEsc(salSeg.id)}')">＋ Programmer un chantier / RDV le ${frEsc(frDateCourte(new Date(jourCreer + 'T00:00:00')))} (${frEsc(salSeg.prenom)})</button>` : ''}
+      ${sg.k === 'ch'
+        ? (sg.jours.length === 1
+            ? `<button type="button" class="v-creer" onclick="ouvrirModif('${frEsc(salSeg.id)}','${frIso(sg.jours[0].d)}','${frEsc(encodeURIComponent(sg.lib))}','${frEsc(sg.jours[0].rdv || '')}', this)">✏️ Modifier la date, l'heure ou le salarié</button>`
+            : '<div class="v-aide">Touchez ✏️ sur un jour pour modifier sa date, son heure ou son salarié.</div>')
+        : (jourCreer ? `<button type="button" class="v-creer" onclick="creerRdv('${jourCreer}','${frEsc(salSeg.id)}')">＋ Programmer un chantier / RDV le ${frEsc(frDateCourte(new Date(jourCreer + 'T00:00:00')))} (${frEsc(salSeg.prenom)})</button>` : '')}
       <button type="button" class="v-fermer">Fermer</button>
     </section>`;
   voile.addEventListener('click', e => { if (e.target === voile || e.target.classList.contains('v-fermer')) voile.remove(); });
   document.body.appendChild(voile);
+}
+
+/* ── Modifier un chantier posé (date, heure de RDV, salarié) ──
+   Remplace le contenu du volet par un petit formulaire. Écriture côté serveur via
+   /api/saisies/planning-modifier (même route que la Vue équipe : relit le planning à
+   jour, refuse si le chantier a bougé entre-temps, cherche une case libre chez le
+   salarié cible). La frise est ensuite rechargée sans perdre la position. */
+let _modif = null;
+function ouvrirModif(salId, dateIso, nomEnc, rdv, bouton) {
+  const volet = bouton && bouton.closest('.volet'); if (!volet) return;
+  const nom = decodeURIComponent(nomEnc);
+  _modif = { salId: String(salId), dateIso, nom, rdv: rdv || '', volet };
+  const opts = F.calc.sals.map(x => `<option value="${frEsc(x.id)}"${String(x.id) === String(salId) ? ' selected' : ''}>${frEsc(x.nom)}</option>`).join('');
+  volet.innerHTML = `<span class="poignee" aria-hidden="true"></span>
+    <div class="v-tete"><span class="v-coul" style="background:${frCouleur(nom)}"></span><div><b>${frEsc(nom)}</b><span>Modifier ce chantier</span></div></div>
+    <div class="m-ligne">
+      <div class="m-champ"><label for="m-date">Date</label><input type="date" id="m-date" value="${dateIso}"></div>
+      <div class="m-champ"><label for="m-rdv">Heure du RDV</label><input type="time" id="m-rdv" value="${frEsc(rdv || '')}">
+        <button type="button" class="m-sans" onclick="document.getElementById('m-rdv').value=''">sans heure</button></div>
+    </div>
+    <div class="m-champ"><label for="m-sal">Salarié</label><select id="m-sal">${opts}</select></div>
+    <div class="m-alerte" id="m-alerte" style="display:none"></div>
+    <button type="button" class="m-ok" id="m-ok" onclick="validerModif(false)">Enregistrer</button>
+    <button type="button" class="m-ann" onclick="this.closest('.voile').remove()">Annuler</button>`;
+  ['m-date', 'm-sal', 'm-rdv'].forEach(id => document.getElementById(id).addEventListener('change', () => { document.getElementById('m-alerte').style.display = 'none'; }));
+}
+/* Contrôles côté téléphone (le serveur refait les siens : journée pleine, chantier modifié). */
+function _alertesModif(salT, dateT, rdvT, memeCase) {
+  if (memeCase) return [];
+  const s = F.salaries.find(x => String(x.id) === String(salT)); if (!s) return [];
+  const pre = s.prenom || 'Le salarié', safe = dateT.replace(/-/g, '_'), out = [];
+  const abs = parseFloat((F.heures[String(s.id) + safe + 'abs'] || {}).heures) || 0;
+  if (estJourEcolePl(s, dateT)) out.push('🎓 ' + pre + ' est à l\'école ce jour-là.');
+  else if (estFeriePl(dateT)) out.push('📅 ' + nomFeriePl(dateT) + ' (jour férié).');
+  else if (contratDuJour(s, dateT) <= 0) out.push('⚠️ ' + pre + ' ne travaille pas ce jour-là.');
+  else if (abs > 0) out.push('🚫 ' + pre + ' est absent ce jour-là' + (abs < contratDuJour(s, dateT) ? ' (en partie)' : '') + '.');
+  if (rdvT) for (let i = 1; i <= NB_SLOTS; i++) {
+    const e = F.heures[String(s.id) + safe + 'ch' + i];
+    if (e && String(e.rdv || '').trim() === rdvT && String(e.chantier || '').trim() !== _modif.nom) { out.push('🕐 ' + pre + ' a déjà un RDV à ' + rdvT + '.'); break; }
+  }
+  if (dateT < frIso(new Date())) out.push('📆 Cette date est passée.');
+  return out;
+}
+async function validerModif(force) {
+  if (!_modif) return;
+  const dateT = document.getElementById('m-date').value;
+  const rdvT = document.getElementById('m-rdv').value;
+  const salT = document.getElementById('m-sal').value;
+  const al = document.getElementById('m-alerte');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateT)) { al.textContent = 'Choisissez une date.'; al.style.display = 'block'; return; }
+  const memeCase = salT === _modif.salId && dateT === _modif.dateIso;
+  if (memeCase && rdvT === _modif.rdv) { _modif.volet.closest('.voile').remove(); return; }
+  const alertes = force ? [] : _alertesModif(salT, dateT, rdvT, memeCase);
+  if (alertes.length) {
+    al.innerHTML = alertes.map(frEsc).join('<br>') + '<div style="margin-top:8px"><button type="button" class="m-ann" style="min-height:40px;width:100%" onclick="validerModif(true)">Enregistrer quand même</button></div>';
+    al.style.display = 'block'; return;
+  }
+  const btn = document.getElementById('m-ok'); btn.disabled = true; btn.textContent = 'Enregistrement…';
+  const corps = { action: 'deplacer', salIdS: _modif.salId, dateS: _modif.dateIso, nom: _modif.nom, salIdT: salT, dateT,
+                  codeEmploye: F.code, gerantId: F.ger && F.ger.id };
+  if (rdvT !== _modif.rdv) corps.rdv = rdvT;           // "" = heure retirée
+  let d = null;
+  try {
+    const r = await fetch('/api/saisies/planning-modifier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    d = await r.json();
+  } catch (_) { d = { ok: false, message: 'Connexion impossible : rien n\'a été modifié. Réessayez.' }; }
+  if (!d || !d.ok) {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+    al.textContent = (d && d.message) || 'Modification impossible.'; al.style.display = 'block';
+    if (d && d.perime) { _modif.volet.closest('.voile').remove(); _modif = null; await rechargerSansBouger(); }
+    return;
+  }
+  _modif.volet.closest('.voile').remove(); _modif = null;
+  const autreMois = dateT.slice(0, 7) !== F.y + '-' + frPad2(F.m + 1);
+  await rechargerSansBouger();
+  if (autreMois) { F.erreur = '✔ Chantier déplacé au ' + frDateCourte(new Date(dateT + 'T00:00:00')) + ' (autre mois).'; F.garderDefil = true; rendre(); }
+}
+async function rechargerSansBouger() {
+  const z = document.getElementById('zone'), x = z ? z.scrollLeft : 0, y = z ? z.scrollTop : 0;
+  await charger();
+  const z2 = document.getElementById('zone'); if (z2) { z2.scrollLeft = x; z2.scrollTop = y; }
 }
 
 /* ============================================================
