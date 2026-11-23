@@ -733,36 +733,44 @@ function genOptionsHeures(v) {
 /* Récupère les noms de chantiers du prévisionnel pour le mois précédent,
    le mois en cours et les 3 mois suivants (gère le passage d'année dans
    les deux sens). Retourne une liste de noms uniques, triés. */
-function getChantiersPrevisionnel() {
+/* Date de référence d'un pavé : la date du jour planifié (clé <id>AAAA_MM_JJch<n>),
+   à défaut aujourd'hui. Les fenêtres du prévisionnel se calent sur CETTE date, et non
+   sur la date du jour : sinon, en planifiant 2 ou 3 mois à l'avance, les chantiers
+   prévus pour ce mois-là n'apparaissaient pas dans la liste. */
+function _dateRefPave(k) {
+  const m = String(k || '').match(/(\d{4})_(\d{2})_(\d{2})/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date();
+}
+
+function getChantiersPrevisionnel(dateRef) {
   const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
   const noms = new Set();
-  const now  = new Date();
-  let an  = now.getFullYear();
-  let moi = now.getMonth() - 1;          // démarre au mois précédent (M-1)
-  if (moi < 0) { moi = 11; an--; }       // passage à l'année précédente
-
-  for (let i = 0; i < 5; i++) {           // M-1, mois en cours, +3 suivants
-    const moisData = prev?.[an]?.[moi];
-    if (moisData && Array.isArray(moisData.chantiers)) {
-      moisData.chantiers.forEach(c => {
-        if (c.client && c.client.trim()) noms.add(c.client.trim());
-      });
+  // Fenêtre M-1 → M+3 autour d'aujourd'hui ET autour de la date planifiée (si fournie)
+  const refs = [new Date()];
+  if (dateRef) refs.push(dateRef);
+  refs.forEach(ref => {
+    for (let dec = -1; dec <= 3; dec++) {
+      const d = new Date(ref.getFullYear(), ref.getMonth() + dec, 1);
+      const moisData = prev?.[d.getFullYear()]?.[d.getMonth()];
+      if (moisData && Array.isArray(moisData.chantiers)) {
+        moisData.chantiers.forEach(c => {
+          if (c.client && c.client.trim()) noms.add(c.client.trim());
+        });
+      }
     }
-    moi++;
-    if (moi > 11) { moi = 0; an++; }      // passage à l'année suivante
-  }
+  });
   return [...noms].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
-/* Chantiers proposés dans la liste déroulante du planning :
-   - mois en cours et mois suivant (M, M+1) : tous les chantiers du prévisionnel ;
+/* Chantiers proposés dans la liste déroulante du planning (M = mois du jour planifié) :
+   - mois M et mois suivant (M, M+1) : tous les chantiers du prévisionnel ;
    - mois précédent (M-1) : seulement ceux qui ne sont pas encore planifiés
      (absents du planning à toute date à partir du 1er jour de M-1).
    La vérification « chantier hors prévisionnel » garde, elle, la fenêtre large
    de getChantiersPrevisionnel() (M-1 à M+3), pour ne pas multiplier les confirmations. */
-function getChantiersSuggestion() {
+function getChantiersSuggestion(dateRef) {
   const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}');
-  const now  = new Date();
+  const now  = dateRef || new Date();   // mois du jour planifié (et non mois en cours)
   const mois = [-1, 0, 1].map(dec => {
     const d = new Date(now.getFullYear(), now.getMonth() + dec, 1);
     return { an: d.getFullYear(), mi: d.getMonth(), dec };
@@ -824,7 +832,7 @@ function chantierSuggFiltrer(k) {
   const inp = document.getElementById(k + 'chantier');
   if (!inp || inp.readOnly) return;   // TNA : pas de menu de suggestions
   const q = _chSuggNorm(inp.value.trim());
-  const tous = getChantiersSuggestion();
+  const tous = getChantiersSuggestion(_dateRefPave(k));
   const filtres = (q ? tous.filter(n => _chSuggNorm(n).startsWith(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
   if (!filtres.length) { chantierSuggFermer(); return; }
   const box = _chSuggBox();
@@ -2266,7 +2274,7 @@ function onChantierCommit(k) {
   // Chantier absent du prévisionnel → confirmation courte (une seule fois par nom, par session)
   const nomChk = (heures[k]?.chantier || '').trim().toUpperCase();
   if (nomChk && nomChk !== TNA && !_hpConfirmes.has(nomChk)) {
-    const listePrev = getChantiersPrevisionnel().map(n => n.toUpperCase());
+    const listePrev = getChantiersPrevisionnel(_dateRefPave(k)).map(n => n.toUpperCase());
     if (!listePrev.includes(nomChk)) {
       if (confirm('Chantier hors prévisionnel, confirmer ?')) {
         _hpConfirmes.add(nomChk);
