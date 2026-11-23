@@ -433,6 +433,15 @@
   .tgrid .chip.tna { background:#f1f5f9; border:1px dashed #cbd5e1; border-left:6px solid #94a3b8; }
   .tgrid .chip.tna input.nm { color:#dc2626; background:#fff; border-color:#e2e8f0; }
   .tgrid .chip.tna .tag { font-size:0.62rem; font-weight:800; color:#dc2626; white-space:nowrap; }
+  /* TNA = pavé d'INFORMATION, pas de saisie : ni nom, ni durée, ni note, ni RDV modifiables */
+  .chip.tna input.nm, .chip.tna select.h,
+  .chip.tna .btn-note-ch, .chip.tna .btn-rdv-ch, .chip.tna .btn-pdf-ch,
+  .chip.tna .btn-exclu-ch, .chip.tna .vider, .chip.tna .pl2-grip { display:none !important; }
+  .chip.tna { -webkit-user-select:none; user-select:none; cursor:default; }
+  .chip.tna .ligne2 { display:none !important; }
+  .tna-info { display:none; }
+  .chip.tna .tna-info { display:block; flex:1 1 auto; color:#dc2626; font-weight:800; font-size:0.78rem; line-height:1.3; padding:2px 0; }
+  .chip.tna .tna-info b { white-space:nowrap; }
 
   .tgrid .abs-day { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:9px; padding:8px; text-align:center; font-weight:800; font-size:0.76rem; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
   .tgrid .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:2px; font-weight:700; font-size:0.7rem; }
@@ -695,6 +704,10 @@ const _optsCache = {};
 /* Libellé d'une durée prévue : toujours avec l'unité (« 8 h », « 7,5 h ») pour ne jamais
    la confondre avec une heure de RDV (« RDV 08:00 », placée sur la ligne du nom). */
 function _libDuree(h) { return String(parseFloat((+h || 0).toFixed(2))).replace('.', ',') + ' h'; }
+/* Libellé du pavé « TEMPS NON AFFECTE » : pavé d'information, aucun champ de saisie. */
+function _tnaInfoHTML(h) {
+  return '⟲ Temps non affecté : <b>' + _libDuree(+h || 0) + '</b>';
+}
 function genOptionsHeures(v) {
   const key = (+v || 0).toFixed(2);
   if (_optsCache[key]) return _optsCache[key];
@@ -809,7 +822,7 @@ function _chSuggBox() {
 }
 function chantierSuggFiltrer(k) {
   const inp = document.getElementById(k + 'chantier');
-  if (!inp) return;
+  if (!inp || inp.readOnly) return;   // TNA : pas de menu de suggestions
   const q = _chSuggNorm(inp.value.trim());
   const tous = getChantiersSuggestion();
   const filtres = (q ? tous.filter(n => _chSuggNorm(n).startsWith(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
@@ -1116,15 +1129,15 @@ function pl2ChipHTML(sl){
     ${tagReservio}${tagAgenda}
     ${data.rdv ? `<button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch rdv-haut has-rdv no-print" title="RDV à ${data.rdv} — modifier" onclick="ouvrirRdv('${sl.k}')">🕐 RDV ${data.rdv}</button>` : ''}
     <div class="ligne1">
-      ${grip}${badgeReservio}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"
+      ${grip}${badgeReservio}<input id="${sl.k}chantier" class="nm" value="${nom}" placeholder="Chantier" autocomplete="off"${estTNA?' readonly tabindex="-1"':''}
         onfocus="onChantierFocus('${sl.k}');chantierSuggFiltrer('${sl.k}')"
         oninput="saveHeure('${sl.k}',this.value.toUpperCase(),document.getElementById('${sl.k}h').value);chantierSuggFiltrer('${sl.k}')"
         onblur="onChantierCommit('${sl.k}');chantierSuggFermer()">
+      <span id="${sl.k}tna-info" class="tna-info" title="Temps non affecté — calculé automatiquement">${estTNA?_tnaInfoHTML(data.heures):''}</span>
       ${estTNA ? '' : `<button type="button" id="${sl.k}pdf-btn" class="btn-pdf-ch no-print${_nbPdf(nom)?' has-pdf':''}" title="${_titrePdf(nom)}" onclick="ouvrirNoteChantier('${sl.k}');_defilerVersDocs()"${nom ? '' : ' style="display:none"'}>📎</button>`}
     </div>
     <div class="ligne2">
-      ${estTNA?'<span class="tag">⟲ Temps Non Affecté</span>':''}
-      <select id="${sl.k}h" class="h" title="Durée prévue (heures)" onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
+      <select id="${sl.k}h" class="h" title="${estTNA?'Temps non affecté (calculé automatiquement)':'Durée prévue (heures)'}"${estTNA?' disabled tabindex="-1"':''} onchange="saveHeure('${sl.k}',document.getElementById('${sl.k}chantier').value.toUpperCase(),this.value);onLigneRecalc('${sl.k}')">${genOptionsHeures(data.heures)}</select>
       <button type="button" id="${sl.k}note-btn" class="btn-note-ch no-print${(noteG||noteJour)?' has-note':''}" title="Note de chantier" onclick="ouvrirNoteChantier('${sl.k}')">🗒</button>
       ${data.rdv ? '' : `<button type="button" id="${sl.k}rdv-btn" class="btn-rdv-ch no-print" title="Définir une heure de RDV (alerte salarié)" onclick="ouvrirRdv('${sl.k}')">🕐</button>`}
       ${estTNA?'':`<button type="button" id="${sl.k}exclu-btn" class="btn-exclu-ch no-print${(sl.rempli && !estTNA)?'':' masque'}${data.exclu?' actif':''}" title="${data.exclu?'Temps EXCLU du calcul ('+escapeHtml(motifExcluAffiche(data.motifExclu)||'SAV')+') — cliquer pour modifier':'Exclure ce temps du calcul'}" onclick="ouvrirExclu('${sl.k}')"></button>`}
@@ -2188,8 +2201,11 @@ function rafraichirLigne(salarieId, dateStr) {
     const e = heures[k] || { chantier: '', heures: 0 };
     const inp = document.getElementById(k + 'chantier');
     const sel = document.getElementById(k + 'h');
+    const estTNA = (e.chantier || '').trim().toUpperCase() === TNA;
     if (inp) {
       inp.value = e.chantier || '';
+      inp.readOnly = estTNA;
+      if (estTNA) inp.tabIndex = -1; else inp.removeAttribute('tabindex');
       const chip = inp.closest('.chip');
       if (chip) {
         chip.classList.toggle('vide', (e.chantier || '').trim() === '');
@@ -2205,7 +2221,9 @@ function rafraichirLigne(salarieId, dateStr) {
       }
     }
     // Options régénérées : une valeur hors pas de 0,25 h (TNA 1,6 h…) doit rester affichable
-    if (sel) { sel.innerHTML = genOptionsHeures(e.heures); sel.value = String(parseFloat(e.heures) || 0); sel.disabled = false; }
+    const info = document.getElementById(k + 'tna-info');
+    if (info) info.innerHTML = estTNA ? _tnaInfoHTML(e.heures) : '';
+    if (sel) { sel.innerHTML = genOptionsHeures(e.heures); sel.value = String(parseFloat(e.heures) || 0); sel.disabled = estTNA; if (estTNA) sel.tabIndex = -1; else sel.removeAttribute('tabindex'); sel.title = estTNA ? 'Temps non affecté (calculé automatiquement)' : 'Durée prévue (heures)'; }
     majRdvVisuel(k);
     majBoutonNote(k);
     const bex = document.getElementById(k + 'exclu-btn');
@@ -2222,11 +2240,11 @@ function rafraichirLigne(salarieId, dateStr) {
 
 /* Saisie/MAJ d'un nom de chantier (blur) : défaut du 1er chantier, puis recalcul TNA. */
 function onChantierFocus(k) {
-  // Au focus d'une case « TEMPS NON AFFECTE », on vide l'affichage pour rendre le menu
-  // déroulant utilisable. heures[k] garde la valeur : si rien n'est choisi, le TNA est
-  // restauré au blur par onChantierCommit (recalcul).
+  // « TEMPS NON AFFECTE » est un pavé d'INFORMATION (calculé), pas de saisie : il est en
+  // lecture seule et ne doit jamais prendre le focus. Pour ajouter un chantier, utiliser
+  // « ➕ chantier » : le TNA se recalcule seul.
   const inp = document.getElementById(k + 'chantier');
-  if (inp && (inp.value || '').trim().toUpperCase() === TNA) inp.value = '';
+  if (inp && (inp.readOnly || (inp.value || '').trim().toUpperCase() === TNA)) inp.blur();   // TNA : pavé d'info, jamais saisissable
 }
 
 function onChantierCommit(k) {
