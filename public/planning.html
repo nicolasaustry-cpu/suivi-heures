@@ -345,6 +345,7 @@
   td.jour-ecole { background:#dbeafe !important; }
   td.jour-ferie { background:#fef9c3 !important; }
   .marque-ecole { display:flex; align-items:center; justify-content:center; gap:6px; font-weight:800; color:#1e40af; font-size:0.82rem; padding:16px 4px; border:1px dashed #93c5fd; border-radius:9px; background:#eff6ff; margin-bottom:7px; }
+  .marque-admin { font-size:0.72rem; color:#334155; background:#f1f5f9; border:1px dashed #94a3b8; border-radius:6px; font-weight:700; text-align:center; padding:3px 4px; margin-bottom:4px; user-select:none; }
   .marque-ferie { font-size:0.68rem; color:#a16207; font-weight:700; text-align:center; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px; }
   .abs-day select { border:1px solid #fca5a5; background:#fff; color:#b91c1c; border-radius:6px; padding:3px; font-weight:700; font-size:0.72rem; }
   .abs-day .x { border:none; background:#fca5a5; color:#7f1d1d; border-radius:50%; width:18px; height:18px; font-size:0.62rem; cursor:pointer; line-height:1; padding:0; }
@@ -1400,7 +1401,7 @@ function _pl2DepDispo(s, dateStr, kExclu){
   let pl=0;
   for(let i=1;i<=NB_SLOTS;i++){ const k=s.id+safe+'ch'+i; if(k===kExclu) continue; const e=heures[k]; const n=String(e&&e.chantier||'').trim(); if(!n||n.toUpperCase()===TNA) continue; pl+=parseFloat(e.heures)||0; }
   const dispo=c-abs;
-  return { txt: pl2Fmt(pl)+' planifiées / '+pl2Fmt(dispo)+(abs>0?' (absence partielle)':''), ok: pl<dispo };
+  return { txt: pl2Fmt(pl)+' planifiées / '+pl2Fmt(dispo)+(abs>0?' (absence partielle)':'')+(estJourAdminPl(s,dateStr)?' · jour administratif':''), ok: pl<dispo };
 }
 function _pl2DepMajListe(){
   const k=_pl2DepK; if(!k) return;
@@ -1639,7 +1640,8 @@ function genererPlanning(calerSemaine){
         const _motifAbsJour = heures[C.absK]?.motif || '';
         const _equivFerieEvt = (C.abs > 0 && (_motifAbsJour === 'Férié' || _motifAbsJour === 'Even. Familial'))
           ? (prevu >= 7 ? 7 : prevu) : 0;
-        const _totalJour = C.total + _equivFerieEvt;
+        const _hAdmin = heuresAdminPl(s, dateStr, C.total);   // jour administratif : reste du contrat, compté travaillé
+        const _totalJour = C.total + _equivFerieEvt + _hAdmin;
         wT+=_totalJour; wC+=Math.max(0,prevu-C.abs); if(!datesFill.has(dateStr)) datesFill.set(dateStr,s.id);
 
         let chips='';
@@ -1673,9 +1675,10 @@ function genererPlanning(calerSemaine){
           _inner = `<div class="cellinner"><div class="abs-day" style="background:#eff6ff;border-color:#93c5fd;color:#1e40af;">🎓 École${_hEcole ? ' · ' + _hEcole.toFixed(1) + ' h' : ''}</div>${foot}</div>`;
         } else {
           const _labFerie = _estFerie ? `<div class="marque-ferie">${nomFeriePl(dateStr)}</div>` : '';
-          _inner = `<div class="cellinner">${_labFerie}<div class="chips">${chips}</div>${actions}${foot}</div>`;
+          const _labAdmin = estJourAdminPl(s, dateStr) ? `<div class="marque-admin" title="Jour administratif : au contrat, sans pointage, hors heures vendables">🗂 Administratif · <span class="h-admin">${_hAdmin.toFixed(1)}</span> h</div>` : '';
+          _inner = `<div class="cellinner">${_labFerie}${_labAdmin}<div class="chips">${chips}</div>${actions}${foot}</div>`;
         }
-        cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}${_clsSpec}" data-salarie="${s.id}" data-date="${dateStr}">${_inner}</td>`;
+        cells+=`<td class="${auj?'auj':''}${horsMois?' hors-mois':''}${d.getDay()===6?' sam-col':''}${_clsSpec}" data-salarie="${s.id}" data-date="${dateStr}"${_hAdmin>0?` data-hadmin="${_hAdmin}"`:''}>${_inner}</td>`;
       });
       const ecW=wT-wC;
       let _abBadge = '';
@@ -2151,6 +2154,22 @@ function contratDuJour(s, dateStr) {
   return (grilleHeuresPourDate(s, dObj))[cle] || 0;
 }
 
+/* Jour administratif (fiche salarié : s.joursAdmin = ['mer', …]) : le salarié est au bureau.
+   Heures du contrat comptées comme travaillées, sans pointage, HORS heures vendables, jamais de TNA.
+   Un chantier peut être planifié ce jour-là : ses heures redeviennent vendables, seul le reste du
+   contrat (contrat − absence − chantiers) reste « administratif ». */
+function estJourAdminPl(s, dateStr) {
+  if (!s || s.administratif || !Array.isArray(s.joursAdmin) || !s.joursAdmin.length) return false;
+  const [a, m, j] = dateStr.split('-').map(Number);
+  const cleJ = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][new Date(a, m - 1, j).getDay()];
+  return s.joursAdmin.indexOf(cleJ) !== -1;
+}
+function heuresAdminPl(s, dateStr, heuresChantiers) {
+  if (!estJourAdminPl(s, dateStr)) return 0;
+  const abs = parseFloat((heures[`${s.id}${dateStr.replace(/-/g, '_')}abs`] || {}).heures) || 0;
+  return Math.max(0, Math.round((contratDuJour(s, dateStr) - abs - (heuresChantiers || 0)) * 100) / 100);
+}
+
 function _eligibleTNA(s, dateStr) {
   return !!(s && !s.sav && !estDatePassee(dateStr));
 }
@@ -2173,7 +2192,8 @@ function appliquerTempsNonAffecte(salarieId, dateStr) {
   if (!_eligibleTNA(s, dateStr) && !(s && !s.sav && _ligneATNA(salarieId, dateStr))) return;
   const safeDate = dateStr.replace(/-/g, '_');
   const abs   = parseFloat(heures[`${salarieId}${safeDate}abs`]?.heures) || 0;
-  const cible = Math.max(0, contratDuJour(s, dateStr) - abs);
+  // Jour administratif : le temps libre est administratif, jamais du TNA
+  const cible = estJourAdminPl(s, dateStr) ? 0 : Math.max(0, contratDuJour(s, dateStr) - abs);
 
   const slots = [];
   for (let i = 1; i <= NB_SLOTS; i++) {
@@ -2856,6 +2876,11 @@ function majTotalLigne(salarieId, dateStr) {
   // sinon la jauge le retranchait sans l'avoir compté.
   const motifAbs = heures[absK]?.motif || '';
   if (abs > 0 && (motifAbs === 'Férié' || motifAbs === 'Even. Familial')) total += (prevu >= 7 ? 7 : prevu);
+  // Jour administratif : le reste du contrat est compté comme travaillé
+  const hAdmin = heuresAdminPl(sal, dateStr, total);
+  total += hAdmin;
+  const elAdm = tr.querySelector('.h-admin'); if (elAdm) elAdm.textContent = hAdmin.toFixed(1);
+  tr.dataset.hadmin = hAdmin;
 
   tr.querySelector('.cell-total').textContent = total.toFixed(1);
 
@@ -2863,8 +2888,9 @@ function majTotalLigne(salarieId, dateStr) {
   const tousLesTrs = document.querySelectorAll(`[data-date="${dateStr}"]`);
   let jourADesHeures = false;
   tousLesTrs.forEach(row => {
-    const t = parseFloat(row.querySelector('.cell-total')?.textContent) || 0;
-    if (t > 0) jourADesHeures = true;
+    // Les heures administratives ne font pas d'un jour un jour « planifié » (sinon la jauge serait diluée)
+    const t = (parseFloat(row.querySelector('.cell-total')?.textContent) || 0) - (parseFloat(row.dataset.hadmin) || 0);
+    if (t > 0.001) jourADesHeures = true;
   });
 
   // Mettre à jour toutes les lignes de la journée
@@ -2879,7 +2905,7 @@ function majTotalLigne(salarieId, dateStr) {
 
     const prevuCell = row.querySelector('.cell-prevu');
     const ecCell    = row.querySelector('.cell-ecart');
-    if (jourADesHeures) {
+    if (jourADesHeures || (parseFloat(row.dataset.hadmin) || 0) > 0) {   // jour administratif : contrat affiché (non vendable)
       prevuCell.textContent  = (prevuRow - absRow).toFixed(1);
       ecCell.textContent     = (ecartRow >= 0 ? '+' : '') + ecartRow.toFixed(1);
       ecCell.style.color     = ecartRow < 0 ? 'red' : 'green';
@@ -2920,7 +2946,15 @@ function majTotauxGlobaux() {
     const sid = tr.getAttribute('data-salarie');
     const dsafe = (tr.getAttribute('data-date') || '').replace(/-/g, '_');
     const salV = salaries.find(x => String(x.id) === String(sid));
-    totVend += prevuCase * tauxPerfSalarie(salV) / 100;
+    // Jour administratif : heures comptées (total) mais ni vendables ni vendues
+    let chJour = 0;
+    for (let i = 1; i <= NB_SLOTS; i++) {
+      const c = heures[`${sid}${dsafe}ch${i}`]; const n = (c && c.chantier || '').trim();
+      if (n && n.toUpperCase() !== TNA) chJour += parseFloat(c.heures) || 0;
+    }
+    const hAdm = salV ? heuresAdminPl(salV, tr.getAttribute('data-date'), chJour) : 0;
+    totEquiv += hAdm;
+    totVend += Math.max(0, prevuCase - hAdm) * tauxPerfSalarie(salV) / 100;
     const absE = heures[`${sid}${dsafe}abs`];
     if (salV && absE && (parseFloat(absE.heures) || 0) > 0 && (absE.motif === 'Férié' || absE.motif === 'Even. Familial')) {
       const pv = contratDuJour(salV, tr.getAttribute('data-date'));
@@ -3634,6 +3668,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var contrat = contratDuJour(s, iso);
         if (contrat <= 0) continue;
         if (!clDansContrat(s, dObj)) continue;
+        if (estJourAdminPl(s, iso)) continue;   // jour administratif : pas de chantier long réparti d'office
         var abs = clAbs(sid, safe);
         if (abs >= contrat) { ignores++; continue; }
         var reels = clChantiersReels(sid, safe, nb);

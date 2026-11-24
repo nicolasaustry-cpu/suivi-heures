@@ -272,6 +272,10 @@ function afficherSalaries() {
     const badgeAdmin = s.administratif
       ? ' <span title="Poste administratif (sans horaires, accès Vue équipe)' + (s.planningPrevu ? ' — planning prévu activé' : '') + '" style="background:#dbeafe;color:#1e3a8a;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">👤 Admin' + (s.planningPrevu ? ' 📋' : '') + '</span>'
       : '';
+    const _jAdm = Array.isArray(s.joursAdmin) ? s.joursAdmin : [];
+    const badgeJoursAdmin = (!s.administratif && _jAdm.length)
+      ? ' <span title="Jour(s) administratif(s) : ' + _jAdm.map(j => j.charAt(0).toUpperCase() + j.slice(1)).join(', ') + ' — au contrat, sans pointage, hors heures vendables" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:4px;padding:0 5px;font-size:0.7rem;font-weight:700;white-space:nowrap;">🗂 ' + _jAdm.map(j => j.charAt(0).toUpperCase() + j.slice(1)).join(' ') + '</span>'
+      : '';
     const estAdmin = (typeof SYNC !== 'undefined' && SYNC.estAdmin && SYNC.estAdmin());
     const pinPose  = !!(s.pin && String(s.pin).trim());
     let pinCell;
@@ -298,7 +302,7 @@ function afficherSalaries() {
     }
     tb.innerHTML += `
       <tr>
-        <td>${s.prenom}${badgeAlt}${badgeAdmin}</td>
+        <td>${s.prenom}${badgeAlt}${badgeAdmin}${badgeJoursAdmin}</td>
         <td>${s.nom}</td>
         <td style="text-align:center;">
           <label class="switch-gerant" title="Gérant : accès à la page Planning équipe">
@@ -418,6 +422,16 @@ function ouvrirModifSalarie(id) {
     + '<div id="modif-listeBascules"></div>'
     + '<button type="button" class="btn" onclick="ajouterBasculeModif()" style="background:#e0e7ff;color:#3730a3;padding:4px 10px;font-size:0.8rem;margin-top:0.3rem;">+ Ajouter une bascule</button>'
     + '</div>'
+    + (sal.administratif ? '' : (
+        '<div style="border-top:1px solid #e5e7eb;padding-top:0.8rem;margin-top:0.4rem;">'
+      + '<p style="font-size:0.85rem;font-weight:600;color:#374151;margin:0 0 0.2rem;">🗂 Jours administratifs</p>'
+      + '<p style="font-size:0.78rem;color:#6b7280;margin:0 0 0.5rem;">Jours passés au bureau : heures du contrat comptées comme travaillées, sans pointage sur le mobile et hors heures vendables. Un chantier peut quand même être planifié ce jour-là : ses heures redeviennent vendables.</p>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:12px;">'
+      + jours.map(function (j) {
+          const coche = Array.isArray(sal.joursAdmin) && sal.joursAdmin.indexOf(j) !== -1;
+          return '<label style="display:flex;align-items:center;gap:4px;font-size:0.85rem;"><input type="checkbox" class="modif-jadm" value="' + j + '" ' + (coche ? 'checked' : '') + ' style="width:auto;"> ' + j.charAt(0).toUpperCase() + j.slice(1) + '</label>';
+        }).join('')
+      + '</div></div>'))
     + '<div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem;">'
     + '<button class="btn" onclick="document.getElementById(\'modale-modif-sal\').style.display=\'none\'" style="background:#f3f4f6;color:#374151;padding:7px 16px;">Annuler</button>'
     + '<button class="btn btn-success" onclick="sauverModifSalarie(' + id + ')" style="padding:7px 16px;">✔ Sauvegarder</button>'
@@ -515,6 +529,10 @@ function sauverModifSalarie(id) {
     delete sal.apprenti;
     delete sal.joursEcole;
   }
+
+  // Jours administratifs (au contrat, sans pointage, hors heures vendables)
+  const joursAdm = [].slice.call(document.querySelectorAll('#modale-modif-sal .modif-jadm:checked')).map(cb => cb.value);
+  if (!sal.administratif && joursAdm.length) sal.joursAdmin = joursAdm; else delete sal.joursAdmin;
 
   localStorage.setItem('salariesdata', JSON.stringify(salaries));
   document.getElementById('modale-modif-sal').style.display = 'none';

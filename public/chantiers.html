@@ -1114,6 +1114,7 @@ function contratEffectifMois(annee, mois, ponderer){
       if(!_cvDansPeriode(s,d)) continue;
       if(_cvEstFerie(d)) continue;
       var jk=_CV_JOURS[d.getDay()]; if(!jk) continue;
+      if(!s.administratif&&Array.isArray(s.joursAdmin)&&s.joursAdmin.indexOf(jk)!==-1) continue; /* jour administratif : hors capacité vendable */
       var contrat=parseFloat(_cvGrille(s,d)[jk])||0; if(contrat<=0) continue;
       var absence;
       if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;

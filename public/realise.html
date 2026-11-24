@@ -552,6 +552,7 @@ function afficherRealise() {
     // Heures contractuelles : lun/mar/mer/jeu/ven/sam
     const hp = sal.heuresParJour || {};
     const nomJour = joursNoms[jourSemaine]; // 'lun','mar'...
+    if (!sal.administratif && Array.isArray(sal.joursAdmin) && sal.joursAdmin.indexOf(nomJour) !== -1) return 0;   // jour administratif : hors heures vendables
     const h = parseFloat(hp[nomJour]) || 0;
     return h * 60;
   }

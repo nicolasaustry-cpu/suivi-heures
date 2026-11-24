@@ -1104,6 +1104,7 @@ function contratEffectifMois(annee, mois){
       if(!_cvDansPeriode(s,d)) continue;
       if(_cvEstFerie(d)) continue;
       var jk=_CV_JOURS[d.getDay()]; if(!jk) continue;
+      if(!s.administratif&&Array.isArray(s.joursAdmin)&&s.joursAdmin.indexOf(jk)!==-1) continue; /* jour administratif : hors capacité vendable */
       var contrat=parseFloat(_cvGrille(s,d)[jk])||0; if(contrat<=0) continue;
       var absence;
       if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;
@@ -1512,7 +1513,8 @@ function tdbContratEffectif(d1, d2) {
       const iso = tdbIso(d);
       if (_cvDansPeriode(s, d) && !_cvEstFerie(d)) {
         const jk = _CV_JOURS[d.getDay()];
-        const contrat = jk ? (parseFloat(_cvGrille(s, d)[jk]) || 0) : 0;
+        const jourAdm = !!(jk && !s.administratif && Array.isArray(s.joursAdmin) && s.joursAdmin.indexOf(jk) !== -1);   // jour administratif : hors capacité vendable
+        const contrat = (jk && !jourAdm) ? (parseFloat(_cvGrille(s, d)[jk]) || 0) : 0;
         if (contrat > 0) {
           let absence;
           if (s.apprenti && Array.isArray(s.joursEcole) && s.joursEcole.indexOf(iso) !== -1) absence = contrat;

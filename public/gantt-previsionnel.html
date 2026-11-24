@@ -231,6 +231,7 @@
         if(!_gvDansPeriode(s,d))continue;
         if(_gvEstFerie(d))continue;
         var jk=_gvJours[d.getDay()]; if(!jk)continue;
+        if(!s.administratif&&Array.isArray(s.joursAdmin)&&s.joursAdmin.indexOf(jk)!==-1) continue; /* jour administratif : hors capacité vendable */
         var contrat=parseFloat(_gvGrille(s,d)[jk])||0; if(contrat<=0)continue;
         var absence;
         if(s.apprenti&&Array.isArray(s.joursEcole)&&s.joursEcole.indexOf(iso)!==-1) absence=contrat;

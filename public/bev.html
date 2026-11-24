@@ -943,8 +943,13 @@ function lignesDuMois(sal, ym, saisies, retenues) {
     if (motif === 'Férié' && !feriesActifs) {
       base = r2(contratNormal >= 7 ? 7 : contratNormal);
     }
-    const planifie = r2(planifMap[k] || 0);
-    const realise  = r2(realMap[k] || 0);
+    // Jour administratif (fiche salarié) : pas de pointage, le reste de la Nouvelle Base non couvert
+    // par un chantier (planifié ou pointé) est compté comme travaillé, dans le Planifié et le Réalisé.
+    const jourAdmin = !!(key && !sal.administratif && Array.isArray(sal.joursAdmin) && sal.joursAdmin.indexOf(key) !== -1);
+    const planifBrut = r2(planifMap[k] || 0), realBrut = r2(realMap[k] || 0);
+    const admin    = jourAdmin ? Math.max(0, r2(base - Math.max(planifBrut, realBrut))) : 0;
+    const planifie = r2(planifBrut + admin);
+    const realise  = r2(realBrut + admin);
     const ecartRB  = r2(realise - base);
     const ecartRetenu = (retenues && retenues[k] != null) ? r2(Number(retenues[k])) : ecartRB;   // valeur sauvegardée sinon reporté de l'Écart Réalisé/Base
     // Heures de récupération : rémunérées (prises sur le compteur) → comptées dans le Temps pris en compte,
@@ -960,13 +965,13 @@ function lignesDuMois(sal, ym, saisies, retenues) {
       passe: (k < AUJOURDHUI),
       contrat: r2(contrat), tempsEvt: r2(tempsEvt), base: base, motif: motif,
       recup: (motif === 'Récupération') ? r2(tempsEvt) : 0,   // heures de récupération du jour (prises sur le compteur)
-      planifie: planifie, realise: realise, ecartRB: ecartRB,
+      planifie: planifie, realise: realise, ecartRB: ecartRB, admin: admin,
       ecartRetenu: ecartRetenu, tempsCompte: tempsCompte, recupPayee: r2(recupPayee + evtPaye)
     });
   }
   // Client « planning seul » : si aucun réalisé sur le mois, l'écart se calcule
   // sur le Planifié (Planifié − Base) au lieu du Réalisé, et la colonne Réalisé sera masquée.
-  const totalRealise = r2(lignes.reduce(function (s, l) { return s + (l.realise || 0); }, 0));
+  const totalRealise = r2(lignes.reduce(function (s, l) { return s + (l.realise || 0) - (l.admin || 0); }, 0));   // heures administratives : pas un pointage
   const modePlanifie = totalRealise === 0;
   if (modePlanifie) {
     lignes.forEach(function (l) {
@@ -1114,7 +1119,7 @@ async function chargerMois() {
     corps += '<tr' + (aEvt ? ' data-abs="1"' : '') + (clsLigne ? ' class="' + clsLigne.trim() + '"' : '') + '>' +
       '<td>' + l.label + '</td>' +
       '<td>' + fmt(l.contrat) + '</td>' +
-      '<td class="evt-cell"' + (l.ferie ? ' title="' + l.ferie.libelle + '"' : '') + '>' + (l.motif || '') + '</td>' +
+      '<td class="evt-cell"' + (l.ferie ? ' title="' + l.ferie.libelle + '"' : (l.admin ? ' title="Jour administratif : ' + fmt(l.admin) + ' h comptées comme travaillées (sans pointage)"' : '')) + '>' + (l.motif || (l.admin ? '🗂 Administratif' : '')) + '</td>' +
       '<td>' + fmt(l.tempsEvt) + '</td>' +
       '<td><b class="base">' + fmt(l.base) + '</b></td>' +
       (l.recup ? '<td title="' + fmt(l.planifie) + ' h planifiées + ' + fmt(l.recup) + ' h de récupération">' + fmt(r2(l.planifie + l.recup)) + '</td>' : '<td>' + fmt(l.planifie) + '</td>') +
@@ -1557,7 +1562,7 @@ function _mtEstSaisissable(l){
   return _trJourFutur(l.date) && (parseFloat(l.base) || 0) > 0;
 }
 /* Jour travaillé = du temps réalisé ou planifié, week-end compris (samedi/dimanche travaillé : tranche et repas dus) */
-function _mtEstTravaille(l){ return !!(l && ((parseFloat(l.realise) || 0) > 0 || (parseFloat(l.planifie) || 0) > 0)); }
+function _mtEstTravaille(l){ const a = (l && parseFloat(l.admin)) || 0; return !!(l && ((parseFloat(l.realise) || 0) - a > 0.001 || (parseFloat(l.planifie) || 0) - a > 0.001)); }   // jour administratif seul : ni trajet ni repas
 function _mtNoSemaine(d){ const t=new Date(d.getFullYear(),d.getMonth(),d.getDate()); t.setDate(t.getDate()+3-((t.getDay()+6)%7)); const s=new Date(t.getFullYear(),0,4); return 1+Math.round(((t-s)/86400000-3+((s.getDay()+6)%7))/7); }
 
 function ouvrirCalendrierTranches(){
