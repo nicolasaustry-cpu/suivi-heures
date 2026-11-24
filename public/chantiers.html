@@ -632,6 +632,11 @@ function chargerChantiersPlannifies() {
       const nom = entry.chantier.trim();
       const ym  = m[1] + '_' + m[2];
       chantiersPlannifies.add(nom.toLowerCase() + '|' + ym);
+      // Créneau à 0 h : il garde la coche ✓ d'un chantier du devis, mais ne fait jamais
+      // remonter de ligne jaune « planifié, absent du prévisionnel ». Il s'agit souvent
+      // d'un reste invisible au Planning (pavé retiré dont la donnée est restée) : la
+      // ligne jaune qu'il avait créée devient alors « périmée » et peut être nettoyée.
+      if (!((parseFloat(entry.heures) || 0) > 0)) return;
       // Cumul des heures planifiées pour ce chantier sur ce mois
       const nomU = nom.toUpperCase();
       if (!planningParMois[ym]) planningParMois[ym] = {};
