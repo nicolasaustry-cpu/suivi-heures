@@ -565,8 +565,6 @@
     </div>
     <div class="modale-footer">
       <button class="btn-modale-annuler" onclick="fermerModaleHenrri()">Fermer</button>
-      <button class="btn-modale-copier" id="btn-henrri-tout" onclick="affecterTousDevisHenrri()" style="display:none;"
-        title="Affecte en une fois tous les devis cochés, chacun au mois choisi sur sa ligne">✔ Tout affecter</button>
     </div>
   </div>
 </div>
@@ -2638,8 +2636,7 @@ function _henrriChangerClient(lien) {
 
 /* ── Affichage par paquets de la liste des devis à affecter ──
    Seuls _HENRRI_PAQUET devis sont affichés à la fois (recherche + « Afficher plus »).
-   Au-delà de ce nombre, aucune case n'est cochée par défaut : évite un
-   « Tout affecter » involontaire de milliers de devis. */
+   L'affectation se fait uniquement devis par devis (pas d'affectation groupée). */
 const _HENRRI_PAQUET = 50;
 let _henrriListe = { tous: [], traites: new Set(), modeImport: false, filtre: '', nb: _HENRRI_PAQUET };
 function _henrriNormRech(t) {
@@ -2659,7 +2656,7 @@ function _henrriRestants() {
   const L = _henrriListe;
   return L.tous.filter(dv => dv && !L.traites.has(String(dv.id))).length;
 }
-function _henrriLigneHtml(dv, modeImport, coche) {
+function _henrriLigneHtml(dv, modeImport) {
   const td = 'padding:5px 8px;border:1px solid #e2e8f0;';
   let html = '';
       let celH = '';
@@ -2676,7 +2673,6 @@ function _henrriLigneHtml(dv, modeImport, coche) {
              + src + '</td>';
       }
       html += '<tr data-dv-id="' + _henrriEscAttr(dv.id) + '">'
-        + '<td style="' + td + 'text-align:center;"><input type="checkbox" class="henrri-sel"' + (coche ? ' checked' : '') + ' onchange="_henrriMajTout()"></td>'
         + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
         + (dv.objet ? '<div style="font-size:0.74rem;color:#0369a1;font-style:italic;">' + _henrriEscAttr(dv.objet) + '</div>' : '')
         + (modeImport ? _henrriCelluleCoord(dv) : '')
@@ -2709,14 +2705,12 @@ function _henrriRendreListe() {
   const L = _henrriListe;
   const modeImport = L.modeImport;
   const liste = _henrriFiltres();
-  const coche = _henrriRestants() <= _HENRRI_PAQUET;
   if (!liste.length) {
     zone.innerHTML = '<p style="color:#94a3b8;font-style:italic;">' + (L.filtre ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis validé en attente d\'affectation.') + '</p>';
   } else {
     const th = 'padding:6px 8px;border:1px solid #e2e8f0;';
     let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
     html += '<thead><tr style="background:#e8edf3;">'
-          + '<th style="' + th + 'width:26px;text-align:center;"><input type="checkbox" id="henrri-sel-tous"' + (coche ? ' checked' : '') + ' onclick="_henrriCocherTous(this.checked)" title="Tout cocher / décocher"></th>'
           + '<th style="' + th + 'text-align:left;">Client</th>'
           + '<th style="' + th + 'text-align:left;">N° devis</th>'
           + (modeImport ? '<th style="' + th + 'text-align:right;" title="Heures analysées si renseignées, sinon nombre d\'heures du devis">Heures</th>' : '')
@@ -2724,7 +2718,7 @@ function _henrriRendreListe() {
           + '<div><select id="henrri-mois-tous" onchange="_henrriMoisPourTous(this)" style="margin-top:4px;font-size:0.75rem;font-weight:400;max-width:150px;">'
           + '<option value="">— même mois pour tous —</option>' + _henrriOptionsMois().replace(/ selected/g, '') + '</select></div></th>'
           + '<th style="' + th + '"></th></tr></thead><tbody>';
-    html += liste.slice(0, L.nb).map(dv => _henrriLigneHtml(dv, modeImport, coche)).join('');
+    html += liste.slice(0, L.nb).map(dv => _henrriLigneHtml(dv, modeImport)).join('');
     html += '</tbody></table>';
     zone.innerHTML = html;
   }
@@ -2752,7 +2746,7 @@ function _henrriAfficherPlus() {
   if (!tbody) return _henrriRendreListe();
   const deja = new Set(Array.from(tbody.querySelectorAll('tr[data-dv-id]')).map(tr => tr.getAttribute('data-dv-id')));
   const suite = _henrriFiltres().filter(dv => !deja.has(String(dv.id))).slice(0, _HENRRI_PAQUET);
-  tbody.insertAdjacentHTML('beforeend', suite.map(dv => _henrriLigneHtml(dv, _henrriListe.modeImport, false)).join(''));
+  tbody.insertAdjacentHTML('beforeend', suite.map(dv => _henrriLigneHtml(dv, _henrriListe.modeImport)).join(''));
   _henrriListe.nb = deja.size + suite.length;
   _henrriMajPlus();
   _henrriMajTout();
@@ -2783,8 +2777,6 @@ async function ouvrirModaleHenrri() {
   const aide = document.getElementById('henrri-modale-aide');
   corps.innerHTML = '<p style="color:#94a3b8;">Chargement…</p>';
   _henrriRendreEcartes([]);
-  const btnTout = document.getElementById('btn-henrri-tout');
-  if (btnTout) btnTout.style.display = 'none';
   ov.classList.add('open');
   try {
     const r = await fetch('/api/henrri/devis', { headers: { 'Authorization': 'Bearer ' + token } });
@@ -2973,72 +2965,13 @@ async function affecterDevisHenrri(btn) {
   }
 }
 
-/* ── Affectation groupée : tous les devis cochés, chacun au mois choisi sur sa ligne ── */
-function _henrriLignesCochees() {
-  return Array.from(document.querySelectorAll('#henrri-devis-corps tbody tr'))
-    .filter(tr => { const cb = tr.querySelector('.henrri-sel'); return cb && cb.checked; });
-}
-function _henrriMajTout() {
-  const btn = document.getElementById('btn-henrri-tout');
-  const total = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
-  const n = _henrriLignesCochees().length;
-  if (btn) {
-    btn.style.display = total ? '' : 'none';
-    btn.disabled = n === 0;
-    btn.textContent = '✔ Tout affecter (' + n + ')';
-  }
-  const tous = document.getElementById('henrri-sel-tous');
-  if (tous) { tous.checked = total > 0 && n === total; tous.indeterminate = n > 0 && n < total; }
-}
-function _henrriCocherTous(etat) {
-  document.querySelectorAll('#henrri-devis-corps .henrri-sel').forEach(cb => { cb.checked = etat; });
-  _henrriMajTout();
-}
-// « Même mois pour tous » : applique le mois choisi aux lignes cochées
+/* Plus d'affectation groupée : chaque devis s'affecte depuis sa ligne.
+   _henrriMajTout est conservée (appelée à plusieurs endroits) mais n'a plus rien à faire. */
+function _henrriMajTout() {}
+// « Même mois pour tous » : pré-remplit le mois de toutes les lignes affichées (sans affecter)
 function _henrriMoisPourTous(sel) {
   if (!sel.value) return;
-  _henrriLignesCochees().forEach(tr => { const s2 = tr.querySelector('.henrri-mois-select'); if (s2) s2.value = sel.value; });
-}
-
-async function affecterTousDevisHenrri() {
-  const lignes = _henrriLignesCochees();
-  if (!lignes.length) return;
-  // Récapitulatif par mois avant confirmation
-  const parMois = {};
-  lignes.forEach(tr => {
-    const [a, m] = tr.querySelector('.henrri-mois-select').value.split('|');
-    const lib = MOIS_FULL[parseInt(m, 10)] + ' ' + a;
-    parMois[lib] = (parMois[lib] || 0) + 1;
-  });
-  const recap = Object.entries(parMois).map(([lib, n]) => '• ' + lib + ' : ' + n + ' devis').join('\n');
-  if (!confirm('Affecter ' + lignes.length + ' devis au Prévisionnel ?\n\n' + recap)) return;
-
-  const btn = document.getElementById('btn-henrri-tout');
-  btn.disabled = true;
-  let ok = 0;
-  const erreurs = [];
-  // Envoi l'un après l'autre : chaque affectation met à jour le même Prévisionnel côté serveur
-  for (let i = 0; i < lignes.length; i++) {
-    const tr = lignes[i];
-    btn.textContent = 'Affectation ' + (i + 1) + ' / ' + lignes.length + '…';
-    try {
-      const res = await _henrriEnvoyerAffectation(tr);
-      _henrriRetirerLigne(tr);
-      _henrriAjouterLigneLocale(res);
-      ok++;
-    } catch (e) {
-      const b = tr.querySelector('button[data-devis-client]');
-      erreurs.push(((b && b.getAttribute('data-devis-client')) || 'devis') + ' : ' + (e && e.message ? e.message : e));
-      tr.style.background = '#fee2e2';
-    }
-  }
-  if (ok) _henrriApresAffectation(ok, '');
-  else _henrriMajTout();
-  btn.disabled = false;
-  if (erreurs.length) {
-    alert(ok + ' devis affecté(s).\n' + erreurs.length + ' erreur(s) :\n\n' + erreurs.join('\n')
-      + '\n\nLes devis en erreur restent dans la liste.');
-  }
+  document.querySelectorAll('#henrri-devis-corps tbody .henrri-mois-select').forEach(s2 => { s2.value = sel.value; });
 }
 
 async function supprimerDevisHenrri(btn) {
