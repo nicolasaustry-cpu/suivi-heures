@@ -65,6 +65,9 @@
   table.real-table tr:hover td { background:#f0fdf4; }
   table.real-table tr.ligne-total td { background:#d1fae5; font-weight:700; color:#065f46; }
   table.real-table tr.ligne-total-sal td { background:#dbeafe; font-weight:700; color:#1d4ed8; }
+  /* Séparation nette entre deux salariés : trait marine sous le total salarié + espace blanc */
+  table.real-table tr.ligne-total-sal td { border-bottom:3px solid #0f3a8a; }
+  table.real-table tr.sep-sal td { height:12px; padding:0; border:none; background:#fff !important; }
   table.real-table tr.ligne-pause-jour td { background:#f5f0ff; color:#6b21a8; font-style:italic; }
   table.real-table tr.ligne-pause-jour td.col-pause { font-weight:700; font-style:normal; }
 
@@ -584,12 +587,17 @@ function afficherRealise() {
 
     let jourTotalMin = 0, jourDeplMin = 0;
     let rows = '';
+    let premierSal = true;
 
     parDate[date].forEach(s => {
       const chantiersFiltres = (s.chantiers || []).filter(c =>
         chantierVisible(c.nom) && motifVisible(motifExclu(motifsExclus, s.salarieId, s.date, c.nom)));
       // On garde le salarié s'il a des chantiers visibles OU une pause déjeuner à afficher.
       if (!chantiersFiltres.length && !(s.pauseJournee > 0)) return;
+
+      // Espace de séparation avant chaque salarié (sauf le premier du jour)
+      if (!premierSal) rows += `<tr class="sep-sal"><td colspan="10"></td></tr>`;
+      premierSal = false;
 
       let salTotalMin = 0, salDeplMin = 0;
 
