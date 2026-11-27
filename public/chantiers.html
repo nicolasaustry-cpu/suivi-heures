@@ -560,6 +560,24 @@
         <button type="button" id="henrri-btn-annuler-import" onclick="annulerDernierImportHenrri()" style="display:none;padding:5px 12px;border-radius:6px;background:#fff;border:1px solid #dc2626;color:#dc2626;font-weight:700;cursor:pointer;white-space:nowrap;"
           title="Remet la liste des devis et la base clients dans l'état d'avant le dernier import">⟲ Annuler le dernier import</button>
       </div>
+      <details id="henrri-tuto" style="display:none;margin:0 0 1rem;border:1px solid #c7d2fe;border-radius:8px;background:#f8faff;">
+        <summary style="cursor:pointer;padding:8px 12px;font-weight:700;color:#0f3a8a;font-size:0.88rem;">📘 Tuto : intégrer les devis validés Henrri dans Suiv'Heures</summary>
+        <div style="padding:4px 14px 12px;font-size:0.84rem;color:#334155;">
+          <div style="font-weight:700;color:#0f3a8a;margin:6px 0 8px;">Sur Henrri</div>
+          <ol style="list-style:none;padding:0;margin:0;">
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">1</span>Menu <strong>SUIVI DE DEVIS</strong> → <strong>Liste</strong>.<img src="assets/tuto-henrri/1-menu-suivi-devis.png" alt="" style="display:block;max-width:260px;width:100%;margin:6px 0 2px;border:1px solid #e2e8f0;border-radius:6px;"></li>
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">2</span>Cliquez sur <strong>Filtrer mes documents</strong> (sous la barre de recherche).<img src="assets/tuto-henrri/2-filtrer-documents.png" alt="" style="display:block;max-width:420px;width:100%;margin:6px 0 2px;border:1px solid #e2e8f0;border-radius:6px;"></li>
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">3</span>Dans « État du suivi de devis », cochez <strong>uniquement « VALIDÉ PAR LE CLIENT »</strong>. Tout autre état fera refuser le fichier.<img src="assets/tuto-henrri/3-filtre-valide.png" alt="" style="display:block;max-width:220px;width:100%;margin:6px 0 2px;border:1px solid #e2e8f0;border-radius:6px;"></li>
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">4</span>Cliquez sur <strong>EXPORT EXCEL</strong> : le fichier des devis est téléchargé.<img src="assets/tuto-henrri/4-export-excel.png" alt="" style="display:block;max-width:140px;width:100%;margin:6px 0 2px;border:1px solid #e2e8f0;border-radius:6px;"></li>
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">5</span>Menu <strong>LISTE</strong> → <strong>Clients</strong>.<img src="assets/tuto-henrri/5-menu-clients.png" alt="" style="display:block;max-width:260px;width:100%;margin:6px 0 2px;border:1px solid #e2e8f0;border-radius:6px;"></li>
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">6</span>Cliquez sur <strong>EXPORT EXCEL</strong> : le fichier des clients est téléchargé.</li>
+          </ol>
+          <div style="font-weight:700;color:#0f3a8a;margin:10px 0 8px;">Sur Suiv'Heures</div>
+          <ol style="list-style:none;padding:0;margin:0;">
+            <li style="margin:0 0 10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#0f3a8a;color:#fff;font-size:0.72rem;font-weight:700;margin-right:6px;">7</span>Cliquez sur <strong>« 📥 Importer clients + devis validés »</strong>, puis déposez les <strong>2 fichiers exportés</strong> : ils se trouvent dans le dossier <strong>Téléchargements</strong> de votre PC (fichier clients en zone ①, fichier devis en zone ②).</li>
+          </ol>
+        </div>
+      </details>
       <div id="henrri-devis-corps"><p style="color:#94a3b8;">Chargement…</p></div>
       <div id="henrri-ecartes"></div>
     </div>
@@ -2811,6 +2829,12 @@ async function ouvrirModaleHenrri() {
         btnAnn.dataset.dispo = d.annulable ? '1' : '';
         btnAnn.style.opacity = d.annulable ? '' : '.55';
       }
+    }
+    // Tuto d'export Henrri (mode import) : ouvert d'office tant qu'aucun import n'a été fait
+    const tuto = document.getElementById('henrri-tuto');
+    if (tuto) {
+      tuto.style.display = modeImport ? '' : 'none';
+      tuto.open = modeImport && !d.importeLe;
     }
     if (aide) {
       aide.innerHTML = modeImport
