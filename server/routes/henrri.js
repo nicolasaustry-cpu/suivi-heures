@@ -224,10 +224,10 @@ function _heuresReference(d) {
 }
 
 /* ── Statut du devis (colonne OBLIGATOIRE de l'export des devis validés) ──
-   Seule valeur admise : « Validé par le client » (accents, casse et espaces ignorés).
+   Seule valeur admise : « EtatAccepté » (accents, casse et espaces ignorés).
    Tout autre statut, ou une colonne absente, bloque l'import du fichier entier. */
-const STATUT_VALIDE = "Validé par le client";
-const _statutOk = v => /^valide par (le|la) client$/.test(
+const STATUT_VALIDE = "EtatAccepté";
+const _statutOk = v => /^etat ?accepte$/.test(
   String(v == null ? "" : v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim());
 function _controleStatuts(lignes) {
   const liste = Array.isArray(lignes) ? lignes : [];
@@ -244,7 +244,7 @@ function _controleStatuts(lignes) {
   const n = Array.from(autres.values()).reduce((a, b) => a + b, 0);
   return "Import refusé : " + n + " devis n'ont pas le statut « " + STATUT_VALIDE + " » ("
     + Array.from(autres.entries()).slice(0, 5).map(([v, k]) => "« " + v + " » : " + k).join(", ")
-    + "). Le fichier ne doit contenir que des devis validés par le client.";
+    + "). Le fichier ne doit contenir que des devis à l'état « " + STATUT_VALIDE + " ».";
 }
 
 /* Ligne envoyée par import-henrri.html → devis normalisé (ou { rejet }) */
