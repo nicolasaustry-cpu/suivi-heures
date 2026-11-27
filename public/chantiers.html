@@ -2636,6 +2636,144 @@ function _henrriChangerClient(lien) {
   _henrriMajCoord(box, x);
 }
 
+/* ── Affichage par paquets de la liste des devis à affecter ──
+   Seuls _HENRRI_PAQUET devis sont affichés à la fois (recherche + « Afficher plus »).
+   Au-delà de ce nombre, aucune case n'est cochée par défaut : évite un
+   « Tout affecter » involontaire de milliers de devis. */
+const _HENRRI_PAQUET = 50;
+let _henrriListe = { tous: [], traites: new Set(), modeImport: false, filtre: '', nb: _HENRRI_PAQUET };
+function _henrriNormRech(t) {
+  return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+function _henrriFiltres() {
+  const L = _henrriListe;
+  const mots = _henrriNormRech(L.filtre).split(/\s+/).filter(Boolean);
+  return L.tous.filter(dv => {
+    if (!dv || L.traites.has(String(dv.id))) return false;
+    if (!mots.length) return true;
+    const t = _henrriNormRech([dv.client, dv.reference, dv.numero, dv.objet].join(' '));
+    return mots.every(m => t.indexOf(m) !== -1);
+  });
+}
+function _henrriRestants() {
+  const L = _henrriListe;
+  return L.tous.filter(dv => dv && !L.traites.has(String(dv.id))).length;
+}
+function _henrriLigneHtml(dv, modeImport, coche) {
+  const td = 'padding:5px 8px;border:1px solid #e2e8f0;';
+  let html = '';
+      let celH = '';
+      if (modeImport) {
+        const ref = (dv.heuresRef != null && dv.heuresRef !== '') ? dv.heuresRef : '';
+        const src = dv.heuresRefSource === 'analysees'
+          ? '<div style="font-size:0.7rem;color:#16a34a;white-space:nowrap;">analysées</div>'
+          : (dv.heuresRefSource === 'devis'
+              ? '<div style="font-size:0.7rem;color:#b45309;white-space:nowrap;" title="Heures analysées = 0 : nombre d\'heures du devis proposé">h. devis</div>'
+              : '<div style="font-size:0.7rem;color:#94a3b8;">à saisir</div>');
+        const bulle = 'Nombre d\'heures : ' + _henrriFmtH(dv.heures) + ' — Heures analysées : ' + _henrriFmtH(dv.heuresAnalysees);
+        celH = '<td style="' + td + 'text-align:right;" title="' + _henrriEscAttr(bulle) + '">'
+             + '<input type="number" class="henrri-heures-input" min="0" step="0.5" value="' + _henrriEscAttr(ref) + '" style="width:70px;text-align:right;">'
+             + src + '</td>';
+      }
+      html += '<tr data-dv-id="' + _henrriEscAttr(dv.id) + '">'
+        + '<td style="' + td + 'text-align:center;"><input type="checkbox" class="henrri-sel"' + (coche ? ' checked' : '') + ' onchange="_henrriMajTout()"></td>'
+        + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
+        + (dv.objet ? '<div style="font-size:0.74rem;color:#0369a1;font-style:italic;">' + _henrriEscAttr(dv.objet) + '</div>' : '')
+        + (modeImport ? _henrriCelluleCoord(dv) : '')
+        + '</td>'
+        + '<td style="' + td + '">' + _henrriEscAttr(dv.reference || '—')
+        + (dv.signe ? ' <span title="Accepté par le client via la validation électronique Henrri" style="background:#dcfce7;color:#166534;border-radius:999px;padding:1px 8px;font-size:0.72rem;font-weight:700;white-space:nowrap;">✔ signé</span>' : '')
+        + (dv.orphelin ? '<div title="Ce devis avait été affecté, mais sa ligne (nom + n° de devis) n\'existe plus dans le Prévisionnel" style="margin-top:3px;font-size:0.7rem;color:#b45309;white-space:nowrap;">⚠ ligne supprimée du Prévisionnel</div>' : '')
+        + '</td>'
+        + celH
+        + '<td style="' + td + '"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
+        + '<td style="' + td + 'text-align:center;white-space:nowrap;">'
+        + '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
+        + '<button class="btn-modale-copier" style="padding:4px 12px;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
+        + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
+        + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
+        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && !dv.coordBase.approx && !dv.coordBase.aucun && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
+        + 'data-mode-import="' + (modeImport ? '1' : '') + '" '
+        + 'onclick="affecterDevisHenrri(this)">Affecter</button>'
+        + '<button class="btn-modale-annuler" style="padding:3px 10px;font-size:0.78rem;" '
+        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
+        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕ Écarter</button>'
+        + '</div></td>'
+        + '</tr>';
+  return html;
+}
+function _henrriRendreListe() {
+  const zone = document.getElementById('henrri-liste-zone');
+  if (!zone) return;
+  const L = _henrriListe;
+  const modeImport = L.modeImport;
+  const liste = _henrriFiltres();
+  const coche = _henrriRestants() <= _HENRRI_PAQUET;
+  if (!liste.length) {
+    zone.innerHTML = '<p style="color:#94a3b8;font-style:italic;">' + (L.filtre ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis validé en attente d\'affectation.') + '</p>';
+  } else {
+    const th = 'padding:6px 8px;border:1px solid #e2e8f0;';
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
+    html += '<thead><tr style="background:#e8edf3;">'
+          + '<th style="' + th + 'width:26px;text-align:center;"><input type="checkbox" id="henrri-sel-tous"' + (coche ? ' checked' : '') + ' onclick="_henrriCocherTous(this.checked)" title="Tout cocher / décocher"></th>'
+          + '<th style="' + th + 'text-align:left;">Client</th>'
+          + '<th style="' + th + 'text-align:left;">N° devis</th>'
+          + (modeImport ? '<th style="' + th + 'text-align:right;" title="Heures analysées si renseignées, sinon nombre d\'heures du devis">Heures</th>' : '')
+          + '<th style="' + th + '">Mois de démarrage'
+          + '<div><select id="henrri-mois-tous" onchange="_henrriMoisPourTous(this)" style="margin-top:4px;font-size:0.75rem;font-weight:400;max-width:150px;">'
+          + '<option value="">— même mois pour tous —</option>' + _henrriOptionsMois().replace(/ selected/g, '') + '</select></div></th>'
+          + '<th style="' + th + '"></th></tr></thead><tbody>';
+    html += liste.slice(0, L.nb).map(dv => _henrriLigneHtml(dv, modeImport, coche)).join('');
+    html += '</tbody></table>';
+    zone.innerHTML = html;
+  }
+  _henrriMajPlus(liste.length);
+  _henrriMajTout();
+}
+/* Compteur + bouton « Afficher plus » */
+function _henrriMajPlus(nbFiltres) {
+  if (nbFiltres == null) nbFiltres = _henrriFiltres().length;
+  const affiches = document.querySelectorAll('#henrri-devis-corps tbody tr').length;
+  const total = _henrriRestants();
+  const cpt = document.getElementById('henrri-compteur');
+  const fr = n => n.toLocaleString('fr-FR');
+  if (cpt) cpt.textContent = fr(total) + ' devis à affecter'
+    + (_henrriListe.filtre ? ' — ' + fr(nbFiltres) + ' trouvé' + (nbFiltres > 1 ? 's' : '') : '')
+    + ' — ' + fr(affiches) + ' affiché' + (affiches > 1 ? 's' : '');
+  const plus = document.getElementById('henrri-plus-zone');
+  if (plus) plus.innerHTML = nbFiltres > affiches
+    ? '<button type="button" class="btn-modale-annuler" style="padding:5px 14px;" onclick="_henrriAfficherPlus()">Afficher ' + Math.min(_HENRRI_PAQUET, nbFiltres - affiches) + ' devis de plus</button>'
+    : '';
+}
+/* Ajoute le paquet suivant SANS reconstruire les lignes déjà affichées (mois/heures saisis conservés) */
+function _henrriAfficherPlus() {
+  const tbody = document.querySelector('#henrri-liste-zone tbody');
+  if (!tbody) return _henrriRendreListe();
+  const deja = new Set(Array.from(tbody.querySelectorAll('tr[data-dv-id]')).map(tr => tr.getAttribute('data-dv-id')));
+  const suite = _henrriFiltres().filter(dv => !deja.has(String(dv.id))).slice(0, _HENRRI_PAQUET);
+  tbody.insertAdjacentHTML('beforeend', suite.map(dv => _henrriLigneHtml(dv, _henrriListe.modeImport, false)).join(''));
+  _henrriListe.nb = deja.size + suite.length;
+  _henrriMajPlus();
+  _henrriMajTout();
+}
+let _henrriMinuteur = null;
+function _henrriRechercher(v) {
+  clearTimeout(_henrriMinuteur);
+  _henrriMinuteur = setTimeout(() => {
+    _henrriListe.filtre = v || '';
+    _henrriListe.nb = _HENRRI_PAQUET;
+    _henrriRendreListe();
+  }, 250);
+}
+/* Ligne affectée ou écartée : retirée de l'affichage ET de la liste en mémoire */
+function _henrriRetirerLigne(tr) {
+  const id = tr && tr.getAttribute('data-dv-id');
+  if (id) _henrriListe.traites.add(id);
+  if (tr) tr.remove();
+  _henrriMajPlus();
+}
+
 async function ouvrirModaleHenrri() {
   const token = _henrriToken();
   if (!token) { alert("Activez d'abord votre licence."); return; }
@@ -2695,62 +2833,16 @@ async function ouvrirModaleHenrri() {
       corps.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Aucun devis validé en attente d\'affectation.</p>';
       return;
     }
-    const th = 'padding:6px 8px;border:1px solid #e2e8f0;';
-    const td = 'padding:5px 8px;border:1px solid #e2e8f0;';
-    let html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">';
-    html += '<thead><tr style="background:#e8edf3;">'
-          + '<th style="' + th + 'width:26px;text-align:center;"><input type="checkbox" id="henrri-sel-tous" checked onclick="_henrriCocherTous(this.checked)" title="Tout cocher / décocher"></th>'
-          + '<th style="' + th + 'text-align:left;">Client</th>'
-          + '<th style="' + th + 'text-align:left;">N° devis</th>'
-          + (modeImport ? '<th style="' + th + 'text-align:right;" title="Heures analysées si renseignées, sinon nombre d\'heures du devis">Heures</th>' : '')
-          + '<th style="' + th + '">Mois de démarrage'
-          + '<div><select id="henrri-mois-tous" onchange="_henrriMoisPourTous(this)" style="margin-top:4px;font-size:0.75rem;font-weight:400;max-width:150px;">'
-          + '<option value="">— même mois pour tous —</option>' + _henrriOptionsMois().replace(/ selected/g, '') + '</select></div></th>'
-          + '<th style="' + th + '"></th></tr></thead><tbody>';
-    d.devis.forEach(dv => {
-      let celH = '';
-      if (modeImport) {
-        const ref = (dv.heuresRef != null && dv.heuresRef !== '') ? dv.heuresRef : '';
-        const src = dv.heuresRefSource === 'analysees'
-          ? '<div style="font-size:0.7rem;color:#16a34a;white-space:nowrap;">analysées</div>'
-          : (dv.heuresRefSource === 'devis'
-              ? '<div style="font-size:0.7rem;color:#b45309;white-space:nowrap;" title="Heures analysées = 0 : nombre d\'heures du devis proposé">h. devis</div>'
-              : '<div style="font-size:0.7rem;color:#94a3b8;">à saisir</div>');
-        const bulle = 'Nombre d\'heures : ' + _henrriFmtH(dv.heures) + ' — Heures analysées : ' + _henrriFmtH(dv.heuresAnalysees);
-        celH = '<td style="' + td + 'text-align:right;" title="' + _henrriEscAttr(bulle) + '">'
-             + '<input type="number" class="henrri-heures-input" min="0" step="0.5" value="' + _henrriEscAttr(ref) + '" style="width:70px;text-align:right;">'
-             + src + '</td>';
-      }
-      html += '<tr>'
-        + '<td style="' + td + 'text-align:center;"><input type="checkbox" class="henrri-sel" checked onchange="_henrriMajTout()"></td>'
-        + '<td style="' + td + '">' + _henrriEscAttr(dv.client || '(sans nom)')
-        + (dv.objet ? '<div style="font-size:0.74rem;color:#0369a1;font-style:italic;">' + _henrriEscAttr(dv.objet) + '</div>' : '')
-        + (modeImport ? _henrriCelluleCoord(dv) : '')
-        + '</td>'
-        + '<td style="' + td + '">' + _henrriEscAttr(dv.reference || '—')
-        + (dv.signe ? ' <span title="Accepté par le client via la validation électronique Henrri" style="background:#dcfce7;color:#166534;border-radius:999px;padding:1px 8px;font-size:0.72rem;font-weight:700;white-space:nowrap;">✔ signé</span>' : '')
-        + (dv.orphelin ? '<div title="Ce devis avait été affecté, mais sa ligne (nom + n° de devis) n\'existe plus dans le Prévisionnel" style="margin-top:3px;font-size:0.7rem;color:#b45309;white-space:nowrap;">⚠ ligne supprimée du Prévisionnel</div>' : '')
-        + '</td>'
-        + celH
-        + '<td style="' + td + '"><select class="henrri-mois-select">' + _henrriOptionsMois() + '</select></td>'
-        + '<td style="' + td + 'text-align:center;white-space:nowrap;">'
-        + '<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">'
-        + '<button class="btn-modale-copier" style="padding:4px 12px;" '
-        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" data-devis-client="' + _henrriEscAttr(dv.client || '') + '" '
-        + 'data-devis-reference="' + _henrriEscAttr(dv.reference || '') + '" '
-        + 'data-devis-customer="' + _henrriEscAttr(dv.customerId || '') + '" '
-        + 'data-devis-coord="' + _henrriEscAttr(JSON.stringify((modeImport ? (dv.coordBase && !dv.coordBase.approx && !dv.coordBase.aucun && dv.coordBase.coord) : dv.coordonnees) || {})) + '" '
-        + 'data-mode-import="' + (modeImport ? '1' : '') + '" '
-        + 'onclick="affecterDevisHenrri(this)">Affecter</button>'
-        + '<button class="btn-modale-annuler" style="padding:3px 10px;font-size:0.78rem;" '
-        + 'data-devis-id="' + _henrriEscAttr(dv.id) + '" '
-        + 'onclick="supprimerDevisHenrri(this)" title="Ne plus proposer ce devis">✕ Écarter</button>'
-        + '</div></td>'
-        + '</tr>';
-    });
-    html += '</tbody></table>';
-    corps.innerHTML = html;
-    _henrriMajTout();
+    // Liste conservée en mémoire, affichée par paquets (voir _henrriRendreListe) :
+    // avec plusieurs milliers de devis, construire tout le tableau d'un coup figeait la page.
+    _henrriListe = { tous: d.devis, traites: new Set(), modeImport, filtre: '', nb: _HENRRI_PAQUET };
+    corps.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 8px;">'
+      + '<input type="search" id="henrri-recherche" placeholder="Rechercher un client, un n° de devis, un objet…" oninput="_henrriRechercher(this.value)" '
+      + 'style="flex:1;min-width:220px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem;">'
+      + '<span id="henrri-compteur" style="font-size:0.8rem;color:#64748b;"></span></div>'
+      + '<div id="henrri-liste-zone"></div>'
+      + '<div id="henrri-plus-zone" style="text-align:center;margin-top:8px;"></div>';
+    _henrriRendreListe();
   } catch (e) {
     corps.innerHTML = '<p style="color:#dc2626;">Erreur réseau : ' + _henrriEscAttr(e && e.message ? e.message : e) + '</p>';
   }
@@ -2851,7 +2943,10 @@ function _henrriApresAffectation(nb, libelle) {
   rendreChantiers();
   if (typeof majLigne === 'function') getMoisAffichage().forEach(({ annee, mois }) => majLigne(annee + '_' + mois));
   _henrriMajTout();
-  if (!document.querySelectorAll('#henrri-devis-corps tbody tr').length) fermerModaleHenrri();
+  if (!document.querySelectorAll('#henrri-devis-corps tbody tr').length) {
+    if (_henrriRestants()) _henrriRendreListe();   // paquet affiché traité : on affiche la suite
+    else fermerModaleHenrri();
+  }
   if (window.SYNC && typeof SYNC.afficherNotif === 'function')
     SYNC.afficherNotif('✔ ' + (nb > 1 ? nb + ' devis affectés' : 'Devis affecté' + (libelle ? ' à ' + libelle : '')));
 }
@@ -2869,7 +2964,7 @@ async function affecterDevisHenrri(btn) {
   btn.disabled = true; btn.textContent = '…';
   try {
     const res = await _henrriEnvoyerAffectation(tr);
-    tr.remove();
+    _henrriRetirerLigne(tr);
     _henrriAjouterLigneLocale(res);
     _henrriApresAffectation(1, MOIS_FULL[res.mois] + ' ' + res.annee);
   } catch (e) {
@@ -2928,7 +3023,7 @@ async function affecterTousDevisHenrri() {
     btn.textContent = 'Affectation ' + (i + 1) + ' / ' + lignes.length + '…';
     try {
       const res = await _henrriEnvoyerAffectation(tr);
-      tr.remove();
+      _henrriRetirerLigne(tr);
       _henrriAjouterLigneLocale(res);
       ok++;
     } catch (e) {
@@ -2960,7 +3055,8 @@ async function supprimerDevisHenrri(btn) {
     });
     const d = await r.json();
     if (!d.ok) throw new Error(d.message || 'échec');
-    tr.remove();
+    _henrriRetirerLigne(tr);
+    if (!document.querySelectorAll('#henrri-devis-corps tbody tr').length) _henrriRendreListe();
     _henrriMajTout();
   } catch (e) {
     alert('Erreur : ' + (e && e.message ? e.message : e));

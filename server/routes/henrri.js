@@ -223,12 +223,37 @@ function _heuresReference(d) {
   return { valeur: h > 0 ? h : null, source: h > 0 ? "devis" : "" };
 }
 
+/* ── Statut du devis (colonne OBLIGATOIRE de l'export des devis validés) ──
+   Seule valeur admise : « Validé par le client » (accents, casse et espaces ignorés).
+   Tout autre statut, ou une colonne absente, bloque l'import du fichier entier. */
+const STATUT_VALIDE = "Validé par le client";
+const _statutOk = v => /^valide par (le|la) client$/.test(
+  String(v == null ? "" : v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim());
+function _controleStatuts(lignes) {
+  const liste = Array.isArray(lignes) ? lignes : [];
+  if (!liste.length) return null;
+  if (liste.some(l => !l || !Object.prototype.hasOwnProperty.call(l, "statut")))
+    return "Import refusé : la colonne « Statut du devis » est obligatoire dans le fichier des devis validés.";
+  const autres = new Map();
+  liste.forEach(l => {
+    if (_statutOk(l.statut)) return;
+    const v = _txt(l.statut, 60) || "(vide)";
+    autres.set(v, (autres.get(v) || 0) + 1);
+  });
+  if (!autres.size) return null;
+  const n = Array.from(autres.values()).reduce((a, b) => a + b, 0);
+  return "Import refusé : " + n + " devis n'ont pas le statut « " + STATUT_VALIDE + " » ("
+    + Array.from(autres.entries()).slice(0, 5).map(([v, k]) => "« " + v + " » : " + k).join(", ")
+    + "). Le fichier ne doit contenir que des devis validés par le client.";
+}
+
 /* Ligne envoyée par import-henrri.html → devis normalisé (ou { rejet }) */
 function _normaliserLigne(l) {
   const numero = _txt(l && l.numero, 60);
   const nom = _txt([l && l.nom, l && l.prenom].filter(x => _txt(x)).join(" "), 200);
   if (!numero) return { rejet: "N° de devis manquant", nom };
   if (!nom) return { rejet: "Nom manquant", numero };
+  if (!_statutOk(l.statut)) return { rejet: "Statut différent de « " + STATUT_VALIDE + " »", numero, nom };
   return {
     id: "imp:" + numero.toUpperCase(),
     numero,
@@ -1069,6 +1094,8 @@ router.post("/import/clients/confirmer", verifyToken, async (req, res) => {
    ou clients du fichier 1 en cours d'import (clesClients : codes/noms). */
 router.post("/import/apercu", verifyToken, async (req, res) => {
   try {
+    const refus = _controleStatuts(req.body && req.body.lignes);
+    if (refus) return res.status(400).json({ ok: false, message: refus });
     const clientId = (req.user.clientId || "").toUpperCase();
     const etat = await _etat(clientId);
     const r = _analyserImport(req.body && req.body.lignes, etat, await _refsAuPrevisionnel(clientId));
@@ -1109,6 +1136,8 @@ router.post("/import/apercu", verifyToken, async (req, res) => {
 
 router.post("/import/confirmer", verifyToken, async (req, res) => {
   try {
+    const refus = _controleStatuts(req.body && req.body.lignes);
+    if (refus) return res.status(400).json({ ok: false, message: refus });
     const clientId = (req.user.clientId || "").toUpperCase();
     await _photoAvantImport(clientId, req.body);
     const etat = await _etat(clientId);
