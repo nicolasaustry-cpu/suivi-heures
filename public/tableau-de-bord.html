@@ -1851,5 +1851,17 @@ document.addEventListener('DOMContentLoaded', function () {
   tdbChargerNotes();
 });
 </script>
+<script>
+/* Nom de l'entreprise dans la tétière (comme sur les autres pages) */
+function tdbAfficherNomEntreprise(){
+  try{
+    var ent = JSON.parse(localStorage.getItem('entreprisedata') || '{}');
+    var el = document.getElementById('entreprise-nom');
+    if (el && ent && ent.nom) el.textContent = ent.nom;
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', tdbAfficherNomEntreprise);
+window.addEventListener('donnees-chargees', tdbAfficherNomEntreprise);
+</script>
 </body>
 </html>
