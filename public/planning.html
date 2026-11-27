@@ -833,7 +833,13 @@ function chantierSuggFiltrer(k) {
   const inp = document.getElementById(k + 'chantier');
   if (!inp || inp.readOnly) return;   // TNA : pas de menu de suggestions
   const q = _chSuggNorm(inp.value.trim());
-  const tous = getChantiersSuggestion(_dateRefPave(k));
+  // Champ vide : liste courte habituelle (prévisionnel autour du jour planifié).
+  // Dès 2 lettres tapées : recherche élargie à TOUS les chantiers connus
+  // (tout le prévisionnel, tout le planning, fiches coordonnées) pour retrouver
+  // un chantier déjà planifié ou prévu un autre mois (ex. « BUC » → « BUCHET OLIVIER 26-09-1 »).
+  const tous = q.length >= 2
+    ? _chSuggFusion(getChantiersSuggestion(_dateRefPave(k)), _chSuggTousConnus())
+    : getChantiersSuggestion(_dateRefPave(k));
   const filtres = (q ? tous.filter(n => _chSuggNorm(n).startsWith(q)) : tous).slice(0, CHANTIER_SUGG_MAX);
   if (!filtres.length) { chantierSuggFermer(); return; }
   const box = _chSuggBox();
@@ -846,6 +852,33 @@ function chantierSuggFiltrer(k) {
   box.style.width = r.width + 'px';
   box.style.display = 'block';
   _chSuggK = k;
+}
+/* Tous les noms de chantier connus : prévisionnel (tous mois), planning (toutes dates),
+   fiches coordonnées. Lecture seule. */
+function _chSuggTousConnus() {
+  const noms = [];
+  try {
+    const prev = JSON.parse(localStorage.getItem('previsionnel_data') || '{}') || {};
+    Object.values(prev).forEach(an => an && typeof an === 'object' && Object.values(an).forEach(md => {
+      if (md && Array.isArray(md.chantiers)) md.chantiers.forEach(c => { if (c && c.client) noms.push(String(c.client).trim()); });
+    }));
+  } catch (_) {}
+  Object.keys(heures || {}).forEach(k => {
+    const e = heures[k];
+    if (!e || !e.chantier || /abs$/.test(k)) return;
+    noms.push(String(e.chantier).trim());
+  });
+  try {
+    Object.keys(JSON.parse(localStorage.getItem('coordonneesChantiersdata') || '{}') || {})
+      .forEach(n => noms.push(String(n).trim()));
+  } catch (_) {}
+  return noms.filter(n => n && _chSuggNorm(n) !== 'TEMPS NON AFFECTE');
+}
+/* Fusion sans doublon (comparaison sans accents/majuscules), tri alphabétique. */
+function _chSuggFusion(...listes) {
+  const m = new Map();
+  listes.forEach(l => l.forEach(n => { const u = _chSuggNorm(n).trim(); if (u && !m.has(u)) m.set(u, n); }));
+  return [...m.values()].sort((a, b) => a.localeCompare(b, 'fr'));
 }
 function chantierSuggFermer() {
   const box = document.getElementById('chantier-suggest-box');
