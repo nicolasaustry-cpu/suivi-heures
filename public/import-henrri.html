@@ -22,6 +22,9 @@
     .ih-mapping label { display: block; font-size: .8rem; font-weight: 600; color: #334155; margin-bottom: 3px; }
     .ih-mapping select { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .85rem; }
     .ih-mapping .ih-groupe { grid-column: 1 / -1; font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-top: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+    .ih-mapping .ih-cache { display: none; }
+    .ih-reconnues { font-size: .78rem; color: #475569; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 6px 10px; margin: 8px 0 4px; }
+    .ih-reconnues a { color: #0369a1; font-weight: 600; white-space: nowrap; }
     .ih-badge { display: inline-block; font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; background: #e0f2fe; color: #075985; text-transform: none; letter-spacing: 0; }
     .ih-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
     .ih-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: .88rem; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; }
@@ -142,8 +145,8 @@
   <div class="ih-carte" id="etape-mapping" style="display:none;">
     <h2><span class="ih-etape">2</span> Correspondance des colonnes</h2>
     <p style="font-size:.84rem;color:#64748b;margin:0 0 .9rem;">
-      Les colonnes ont été reconnues automatiquement. Corrigez-les si nécessaire. * = obligatoire.
-      Le <strong>code client</strong>, s'il figure dans les deux fichiers, rend le rattachement plus sûr qu'avec le seul nom.
+      Seules les informations que Suiv'Heures n'a pas retrouvées dans vos fichiers Henrri sont affichées :
+      choisissez la colonne correspondante si elle existe, sinon laissez « non utilisé ». * = obligatoire.
     </p>
     <div class="ih-msg ih-msg-info" id="ih-note-correction" style="display:none;">
       <strong>Correction après import.</strong> Corrigez les colonnes puis relancez l'analyse et l'import :
@@ -154,9 +157,11 @@
     <div id="bloc-map-clients">
       <div class="ih-sous">① Liste des clients <span class="ih-badge" id="nom-fichier-clients"></span></div>
       <div class="ih-mapping" id="mapping-clients"></div>
+      <div class="ih-reconnues" id="reconnues-clients"></div>
     </div>
     <div class="ih-sous">② Devis validés <span class="ih-badge" id="nom-fichier-devis"></span></div>
     <div class="ih-mapping" id="mapping-devis"></div>
+    <div class="ih-reconnues" id="reconnues-devis"></div>
     <div class="ih-actions">
       <button type="button" class="ih-btn ih-btn-principal" id="btn-analyser" onclick="analyser()">Analyser les fichiers</button>
       <button type="button" class="ih-btn ih-btn-secondaire" onclick="recommencer()">Changer de fichiers</button>
@@ -199,13 +204,11 @@
    ② devis validés → /api/henrri/import/apercu|confirmer
    Le rattachement devis ↔ coordonnées se fait côté serveur à l'affichage de
    la modale « Devis Henrri » : fiche chantier déjà présente d'abord, sinon
-   base clients (par code client, puis par nom).
+   base clients (par nom).
 ═══════════════════════════════════════════════════════════════════════ */
 const LOT = 400; // lignes clients par requête (limite de taille des envois)
 
 /* Champs attendus par fichier. motifs : testés dans l'ordre ; exclure : écarte une colonne. */
-const CHAMPS_CODE = { cle: 'codeClient', libelle: 'Code client', requis: false,
-  motifs: [/code.*client|client.*code|n° client|num.*client|ref.*client/, /^code$/] };
 const CHAMPS_NOM = { cle: 'nom', libelle: 'Nom (ou Nom prénom / Raison sociale)', requis: true,
   motifs: [/nom.*prenom|prenom.*nom/, /raison sociale|raison/, /^nom\b/, /\bnom\b/, /^client$/, /client|destinataire/],
   exclure: /^prenom|n°|numero|code|ville|commune|contact.*prenom|objet/ };
@@ -216,7 +219,6 @@ const FICHIERS = {
   clients: {
     libelle: 'liste des clients',
     champs: [
-      CHAMPS_CODE,
       // Henrri : « Raison Sociale » est VIDE pour les particuliers, le nom est alors
       // dans la colonne « Nom ». Nom retenu = raison sociale, sinon nom (+ prénom).
       { cle: 'raisonSociale', libelle: 'Raison sociale', requis: false, motifs: [/raison/] },
@@ -232,7 +234,7 @@ const FICHIERS = {
       { cle: 'mobile',     libelle: 'Mobile', motifs: [/mobile|portable|gsm/] },
       { cle: 'email',      libelle: 'E-mail', motifs: [/e-?mail|courriel|mail/] }
     ],
-    ordre: ['codeClient', 'raisonSociale', 'nom', 'prenom', 'mobile', 'telephone', 'email', 'codePostal', 'ville', 'adresse2', 'adresse'],
+    ordre: ['raisonSociale', 'nom', 'prenom', 'mobile', 'telephone', 'email', 'codePostal', 'ville', 'adresse2', 'adresse'],
     entetes: [], lignes: [], nom: ''
   },
   devis: {
@@ -241,14 +243,14 @@ const FICHIERS = {
       { cle: 'numero', libelle: 'N° de devis', requis: true,
         motifs: [/n°.*devis|num.*devis|devis.*n°|devis.*num/, /^n°$|^no$|^num(ero)?$/, /numero|n°|reference|\bref\b/],
         exclure: /tel|phone|portable|mobile|client|siret|tva|postal/ },
-      CHAMPS_CODE, CHAMPS_NOM, CHAMPS_PRENOM,
+      CHAMPS_NOM, CHAMPS_PRENOM,
       { cle: 'heures', libelle: "Nombre d'heures", motifs: [/^nombre d.?heures$/, /nombre.*heure|nb.*heure|heure/], exclure: /analys|restant|facturer/ },
       { cle: 'heuresAnalysees', libelle: "Nombre d'heures analysées", motifs: [/heure.*analys|analys/] },
       { cle: 'objet', libelle: "Nom de l'objet", motifs: [/^nom de l.?objet$/, /nom.*objet/, /^objet$/], exclure: /valeur|premier|titre/ },
       // OBLIGATOIRE : seuls les devis « Validé par le client » sont acceptés (contrôle à l'analyse)
       { cle: 'statut', libelle: 'Statut du devis', requis: true, motifs: [/^statut du devis$/, /statut.*devis/, /^statut$/, /statut/] }
     ],
-    ordre: ['statut', 'objet', 'heuresAnalysees', 'heures', 'codeClient', 'numero', 'nom', 'prenom'],
+    ordre: ['statut', 'objet', 'heuresAnalysees', 'heures', 'numero', 'nom', 'prenom'],
     entetes: [], lignes: [], nom: ''
   }
 };
@@ -428,6 +430,33 @@ function _rendreMapping(type) {
   ).join('');
   const reco = _reconnaitreTout(F);
   F.champs.forEach(ch => { document.getElementById('map-' + type + '-' + ch.cle).value = String(reco[ch.cle]); });
+  _majVisibilite(type, false);
+}
+
+/* Tableau simplifié : les champs reconnus (alignés Henrri ↔ Suiv'Heures) sont masqués
+   et résumés sur une ligne ; seuls les champs non trouvés restent à compléter.
+   « Afficher toutes les colonnes » permet de corriger une association. */
+function _majVisibilite(type, tout) {
+  const F = FICHIERS[type];
+  const reconnus = [];
+  F.champs.forEach(ch => {
+    const sel = document.getElementById('map-' + type + '-' + ch.cle);
+    if (!sel) return;
+    const i = parseInt(sel.value, 10);
+    const ok = i >= 0;
+    sel.parentNode.classList.toggle('ih-cache', ok && !tout);
+    if (ok) reconnus.push(_esc(ch.libelle) + ' → <strong>' + _esc(F.entetes[i] || ('Colonne ' + (i + 1))) + '</strong>');
+  });
+  const nbAff = F.champs.length - (tout ? 0 : reconnus.length);
+  const zone = document.getElementById('reconnues-' + type);
+  if (!zone) return;
+  let html = '';
+  if (reconnus.length) html += '✔ ' + (tout ? 'Colonnes reconnues : ' : 'Reconnues automatiquement : ') + reconnus.join(' · ');
+  if (!nbAff) html += (html ? '<br>' : '') + 'Toutes les colonnes ont été retrouvées.';
+  if (reconnus.length) html += ' <a href="#" onclick="_majVisibilite(\'' + type + '\',' + (tout ? 'false' : 'true') + ');return false;">'
+    + (tout ? 'Masquer les colonnes reconnues' : 'Afficher toutes les colonnes') + '</a>';
+  zone.innerHTML = html;
+  zone.style.display = html ? '' : 'none';
 }
 
 function afficherMapping() {
@@ -465,12 +494,12 @@ function construireEnvoi() {
     });
     const coordCols = ['adresse', 'codePostal', 'ville', 'telephone', 'mobile', 'email'].filter(k => c.corr[k] >= 0);
     if (!coordCols.length) throw new Error('Liste des clients : associez au moins une colonne de coordonnées (adresse, ville, téléphone…).');
-    // Dédoublonnage dans le fichier (code client, sinon nom + prénom)
+    // Dédoublonnage dans le fichier (nom + prénom)
     const vus = new Set();
     clients = c.lignes.filter(o => {
       const nom = ((o.nom || '') + ' ' + (o.prenom || '')).trim();
       if (!nom) return false;
-      const k = o.codeClient ? '#' + o.codeClient.toUpperCase() : _norm(nom).split(' ').sort().join(' ');
+      const k = _norm(nom).split(' ').sort().join(' ');
       if (vus.has(k)) return false;
       vus.add(k); return true;
     });
@@ -656,6 +685,7 @@ function _restaurerDernierImport() {
       if (el && i < FICHIERS[type].entetes.length) el.value = String(i);
     });
   });
+  ['clients', 'devis'].forEach(type => { if (FICHIERS[type].lignes.length) _majVisibilite(type, true); });
   document.getElementById('ih-note-correction').style.display = 'block';
   _modeCorrection = true;
   if (!p.clients) afficherMessage('Seul le fichier des devis du dernier import a pu être conservé : la liste des clients n\'est pas réimportée.', 'info');
@@ -708,7 +738,10 @@ function revenirMapping(apresImport) {
   if (!FICHIERS.devis.lignes.length) { recommencer(); return; }
   ['etape-depot', 'etape-rapport', 'etape-fin'].forEach(id => { document.getElementById(id).style.display = 'none'; });
   document.getElementById('ih-note-correction').style.display = apresImport ? 'block' : 'none';
-  if (apresImport) _modeCorrection = true;
+  if (apresImport) {
+    _modeCorrection = true;
+    ['clients', 'devis'].forEach(type => { if (FICHIERS[type].lignes.length) _majVisibilite(type, true); });
+  }
   document.getElementById('etape-mapping').style.display = 'block';
   const btn = document.getElementById('btn-confirmer');
   btn.disabled = false; btn.textContent = 'Appliquer l\'import';
